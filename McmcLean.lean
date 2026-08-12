@@ -4,3 +4,4 @@ import McmcLean.Finite.MatrixKernel
 import McmcLean.Finite.Dynamics
 import McmcLean.Finite.MetropolisHastings
 import McmcLean.Examples.TwoState
+import McmcLean.Kernel.DetailedBalance

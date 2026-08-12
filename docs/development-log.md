@@ -5,13 +5,32 @@ steps. It is descriptive rather than a promise about release dates.
 
 ## Next steps
 
-1. Define the general detailed-balance and accepted-flow interfaces directly
-   with mathlib `Measure` and `ProbabilityTheory.Kernel`.
+1. Define the general accepted-flow and rejection interfaces directly with
+   mathlib `Measure` and `ProbabilityTheory.Kernel`.
 2. Prove density-based measurable-state MH kernel correctness and invariance.
 3. Recover the current finite theorem surface as a specialization, then
    migrate the public API away from the local finite types.
 4. Generalize the construction using Radon--Nikodym derivatives of the forward
    and coordinate-swapped joint proposal measures.
+
+## 2026-08-12: general detailed-balance foundation
+
+The first mathlib-native general-state module now defines the joint transition
+law `π(dx) P(x,dy)` as mathlib's measure--kernel composition product. It proves
+that:
+
+- the joint law evaluates on measurable rectangles as the expected iterated
+  integral;
+- a Markov transition from a probability target has a probability joint law;
+- mathlib's `Kernel.IsReversible` predicate is equivalent to invariance of the
+  joint law under coordinate swap; and
+- symmetry of the joint law therefore implies `Kernel.Invariant` for the
+  target.
+
+This module depends only on mathlib's measure and kernel APIs, not on the local
+finite definitions. It establishes the representation needed by both the
+density-based and Radon--Nikodym MH constructions; accepted flow and rejection
+remain to be defined.
 
 ## 2026-08-12: kernel-first roadmap revision
 

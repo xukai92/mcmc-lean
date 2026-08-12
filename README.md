@@ -39,7 +39,7 @@ reversibility and hence kernel invariance.
 | Finite Markov kernels | Proved | Normalization, detailed balance, stationarity, and detailed balance implies stationarity |
 | Finite Metropolis--Hastings | Proved | Valid transition kernel, acceptance-ratio equivalence, detailed balance, and target stationarity |
 | Mathlib interoperability | Proved | Bridges to PMFs, measures, measure kernels, and row-stochastic matrices |
-| General-state MH | Next | Mathlib-native kernel foundations, then density-based and Radon--Nikodym correctness |
+| General-state MH | In progress | Joint-law detailed balance proved; accepted flow and measurable MH construction are next |
 | Finite API migration | Planned | Recover finite MH as a specialization of the general theorem before retiring local types |
 | Chain convergence | Planned | Irreducibility, aperiodicity, total-variation convergence, and quantitative bounds |
 | Further algorithms | Planned | Gibbs, independence MH, random-walk MH, block MH, mixtures, and compositions |

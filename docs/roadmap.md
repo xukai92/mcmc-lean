@@ -15,7 +15,7 @@ remain separate in the formal theorem surface.
 
 - [x] **Baseline:** finite-state MH kernel, detailed balance, and stationarity
 - [x] **Phase 1:** finite-to-mathlib interoperability
-- [ ] **Next -- Phase 2:** mathlib-native kernel foundations
+- [ ] **In progress -- Phase 2:** mathlib-native kernel foundations
 - [ ] **Planned -- Phase 3:** density-based measurable-state MH
 - [ ] **Planned -- Phase 4:** finite specialization and API migration
 - [ ] **Planned -- Phase 5:** Radon--Nikodym measurable-state MH
@@ -126,7 +126,12 @@ reproving its one-step correctness.
 
 ## Phase 2: mathlib-native kernel foundations
 
-**Status:** Next
+**Status:** In progress
+
+The first foundation module now defines the joint transition law
+`π(dx) P(x,dy)` using mathlib's measure--kernel composition product and proves
+that `Kernel.IsReversible` is equivalent to symmetry of this joint law under
+coordinate swap. Accepted-flow and rejection constructions remain.
 
 Establish the definitions needed to state MH directly for measurable spaces,
 using mathlib rather than generalized versions of the local finite
