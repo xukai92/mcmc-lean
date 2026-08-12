@@ -5,13 +5,29 @@ steps. It is descriptive rather than a promise about release dates.
 
 ## Next steps
 
-1. Complete finite interoperability with mathlib's stochastic-matrix API.
-2. Add finite distribution evolution, kernel powers, and stationarity under
+1. Add finite distribution evolution, kernel powers, and stationarity under
    iteration.
-3. Formalize finite-state irreducibility, primitivity, and aperiodicity.
-4. Derive a finite-state convergence theorem with explicit ergodicity
+2. Formalize finite-state irreducibility, primitivity, and aperiodicity.
+3. Derive a finite-state convergence theorem with explicit ergodicity
    hypotheses and a specified mode of convergence.
-5. Generalize the MH construction to measure-theoretic state spaces.
+4. Generalize the MH construction to measure-theoretic state spaces.
+
+## 2026-08-11: finite stochastic-matrix interoperability
+
+The elementary `MarkovKernel` is now equivalent to mathlib's subtype of real
+row-stochastic matrices. This milestone added:
+
+- the transition-matrix view and its row-stochasticity proof;
+- conversions in both directions and an equivalence theorem;
+- the characterization of local stationarity as the row-vector equation
+  `pi * P = pi`;
+- agreement between matrix entries and measure-kernel singleton transition
+  probabilities; and
+- a two-state MH instantiation of the row-stochastic matrix result.
+
+Together with the preceding PMF, measure, and kernel bridge, this completes
+the first roadmap phase. Matrix-based dynamics should now reuse mathlib rather
+than grow into a parallel local theory.
 
 ## 2026-08-11: finite measure-kernel interoperability
 
@@ -65,8 +81,9 @@ probabilities without extra cases in the kernel definition.
 
 - The state space is finite.
 - The target mass is assumed strictly positive at every state.
-- The local finite kernel has not yet been embedded into mathlib's
-  measure-theoretic kernel abstraction.
+- At this milestone the local finite kernel had not yet been embedded into
+  mathlib; that limitation has since been removed by the interoperability
+  modules.
 - The result proves stationarity, not convergence from arbitrary starting
   states. No irreducibility or aperiodicity theorem has been added yet.
 

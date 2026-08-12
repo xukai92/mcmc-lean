@@ -1,5 +1,5 @@
 import McmcLean.Finite.MetropolisHastings
-import McmcLean.Finite.MeasureKernel
+import McmcLean.Finite.MatrixKernel
 
 /-!
 # A two-state example
@@ -39,5 +39,11 @@ example :
       (MetropolisHastings.kernel target proposal target_positive).toMeasureKernel
       target.toMeasure :=
   (MetropolisHastings.detailed_balance target proposal target_positive).invariantMeasure
+
+/-- The MH transition is also a mathlib row-stochastic matrix. -/
+example :
+    (MetropolisHastings.kernel target proposal target_positive).toMatrix ∈
+      Matrix.rowStochastic ℝ Bool :=
+  (MetropolisHastings.kernel target proposal target_positive).toMatrix_mem_rowStochastic
 
 end McmcLean.Examples.TwoState

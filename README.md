@@ -38,7 +38,8 @@ reversibility and hence kernel invariance.
 |---|---|---|
 | Finite Markov kernels | Proved | Normalization, detailed balance, stationarity, and detailed balance implies stationarity |
 | Finite Metropolis--Hastings | Proved | Valid transition kernel, acceptance-ratio equivalence, detailed balance, and target stationarity |
-| Mathlib interoperability | In progress | PMF, measure, and measure-kernel bridge proved; stochastic-matrix bridge remains |
+| Mathlib interoperability | Proved | Bridges to PMFs, measures, measure kernels, and row-stochastic matrices |
+| Finite-chain dynamics | Next | Distribution evolution, powers, and stationarity under iteration |
 | Finite-chain convergence | Planned | Irreducibility, aperiodicity, total-variation convergence, and quantitative bounds |
 | Further algorithms | Planned | Gibbs, independence MH, random-walk MH, block MH, mixtures, and compositions |
 | General-state and executable MCMC | Long term | Measurable-state MH, executable refinement, approximation bounds, and statistical guarantees |
@@ -65,6 +66,8 @@ The repository pins Lean and mathlib to `v4.32.1`.
   finite distributions, kernels, reversibility, and stationarity.
 - [`McmcLean/Finite/MeasureKernel.lean`](McmcLean/Finite/MeasureKernel.lean):
   embeddings into mathlib PMFs, measures, and measure-theoretic kernels.
+- [`McmcLean/Finite/MatrixKernel.lean`](McmcLean/Finite/MatrixKernel.lean):
+  equivalence with mathlib row-stochastic matrices.
 - [`McmcLean/Finite/MetropolisHastings.lean`](McmcLean/Finite/MetropolisHastings.lean):
   the MH construction and correctness proof.
 - [`docs/roadmap.md`](docs/roadmap.md): dependency-ordered research phases and

@@ -14,8 +14,8 @@ remain separate in the formal theorem surface.
 ## Roadmap status
 
 - [x] **Baseline:** finite-state MH kernel, detailed balance, and stationarity
-- [ ] **In progress -- Phase 1:** finite-to-mathlib interoperability
-- [ ] **Planned -- Phase 2:** finite-chain dynamics
+- [x] **Phase 1:** finite-to-mathlib interoperability
+- [ ] **Next -- Phase 2:** finite-chain dynamics
 - [ ] **Planned -- Phase 3:** finite-state convergence
 - [ ] **Planned -- Phase 4:** Metropolis--Hastings convergence
 - [ ] **Planned -- Phase 5:** reusable finite MCMC constructions
@@ -89,10 +89,12 @@ zero forward or reverse proposal probability.
 
 ## Phase 1: finite-to-mathlib interoperability
 
-**Status:** In progress
+**Status:** Complete
 
-The PMF, measure, and `ProbabilityTheory.Kernel` bridge is complete. The
-stochastic-matrix bridge remains before this phase's exit criterion is met.
+The local finite types now interoperate with `PMF`, `Measure`,
+`ProbabilityTheory.Kernel`, and `Matrix.rowStochastic`. Pointwise detailed
+balance lifts to mathlib reversibility and invariance; the matrix and
+measure-kernel views agree on singleton transition probabilities.
 
 Add a module such as `McmcLean/Finite/MeasureKernel.lean` that relates the
 elementary finite structures to:
@@ -117,7 +119,7 @@ reproving its one-step correctness.
 
 ## Phase 2: finite-chain dynamics
 
-**Status:** Planned
+**Status:** Next
 
 Develop reusable dynamics in modules such as:
 
@@ -320,12 +322,12 @@ not prerequisites for a useful finite algorithm library.
 
 The next three coherent code changes should be:
 
-1. **Finite measure-kernel bridge:** conversions and the
-   reversibility/invariance correspondence.
-2. **Finite dynamics:** evolution, powers, matrix views, and stationarity
-   under iteration.
-3. **Finite total variation and convergence:** contraction lemmas followed by
-   the primitive-kernel convergence theorem.
+1. **Finite evolution:** evolve a distribution by one step and prove
+   normalization and the stationary fixed-point characterization.
+2. **Finite powers:** define multi-step dynamics and connect local evolution,
+   matrix powers, and mathlib kernel powers.
+3. **Finite total variation:** add the finite distance and contraction lemmas
+   needed by the primitive-kernel convergence theorem.
 
 After those changes, the first end-to-end demonstration should prove total-
 variation convergence of an irreducible lazy version of the existing finite
