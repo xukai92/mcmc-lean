@@ -5,12 +5,28 @@ steps. It is descriptive rather than a promise about release dates.
 
 ## Next steps
 
-1. Add finite distribution evolution, kernel powers, and stationarity under
-   iteration.
+1. Add finite kernel powers and stationarity under iteration.
 2. Formalize finite-state irreducibility, primitivity, and aperiodicity.
 3. Derive a finite-state convergence theorem with explicit ergodicity
    hypotheses and a specified mode of convergence.
 4. Generalize the MH construction to measure-theoretic state spaces.
+
+## 2026-08-11: one-step finite dynamics
+
+The finite layer now describes how an arbitrary initial distribution changes
+after one Markov transition. This milestone added:
+
+- a normalized one-step evolution operation on finite distributions;
+- identification of evolution with row-vector/matrix multiplication;
+- identification of the evolved PMF with monadic bind by the transition-row
+  PMFs;
+- the equivalence between local stationarity and being a fixed point of
+  one-step evolution; and
+- a concrete theorem that one step of the two-state MH kernel leaves its
+  target unchanged.
+
+This is a one-step result. Kernel powers, multi-step laws, reachability, and
+convergence remain unproved.
 
 ## 2026-08-11: finite stochastic-matrix interoperability
 

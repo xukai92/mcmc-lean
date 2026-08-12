@@ -32,6 +32,18 @@ structure Distribution (State : Type*) [Fintype State] where
   nonneg : ∀ x, 0 ≤ mass x
   sum_mass : ∑ x, mass x = 1
 
+namespace Distribution
+
+/-- Finite distributions are equal when their mass functions are equal. -/
+@[ext]
+theorem ext {π ρ : Distribution State} (h : π.mass = ρ.mass) : π = ρ := by
+  cases π
+  cases ρ
+  cases h
+  rfl
+
+end Distribution
+
 /-- Detailed balance (reversibility) with respect to `π`. -/
 def Reversible (P : MarkovKernel State) (π : Distribution State) : Prop :=
   ∀ x y : State,

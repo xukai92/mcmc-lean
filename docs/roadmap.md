@@ -15,7 +15,7 @@ remain separate in the formal theorem surface.
 
 - [x] **Baseline:** finite-state MH kernel, detailed balance, and stationarity
 - [x] **Phase 1:** finite-to-mathlib interoperability
-- [ ] **Next -- Phase 2:** finite-chain dynamics
+- [ ] **In progress -- Phase 2:** finite-chain dynamics
 - [ ] **Planned -- Phase 3:** finite-state convergence
 - [ ] **Planned -- Phase 4:** Metropolis--Hastings convergence
 - [ ] **Planned -- Phase 5:** reusable finite MCMC constructions
@@ -119,7 +119,11 @@ reproving its one-step correctness.
 
 ## Phase 2: finite-chain dynamics
 
-**Status:** Next
+**Status:** In progress
+
+One-step distribution evolution is complete, including normalization,
+agreement with matrix multiplication and PMF bind, and the characterization
+of stationarity as a fixed point. Multi-step powers and reachability remain.
 
 Develop reusable dynamics in modules such as:
 
@@ -322,10 +326,10 @@ not prerequisites for a useful finite algorithm library.
 
 The next three coherent code changes should be:
 
-1. **Finite evolution:** evolve a distribution by one step and prove
-   normalization and the stationary fixed-point characterization.
-2. **Finite powers:** define multi-step dynamics and connect local evolution,
+1. **Finite powers:** define multi-step dynamics and connect local evolution,
    matrix powers, and mathlib kernel powers.
+2. **Finite reachability:** connect positive entries of matrix powers to the
+   matrix and measure-kernel irreducibility APIs.
 3. **Finite total variation:** add the finite distance and contraction lemmas
    needed by the primitive-kernel convergence theorem.
 

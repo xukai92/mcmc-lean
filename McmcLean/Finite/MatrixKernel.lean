@@ -38,32 +38,32 @@ def toRowStochastic [DecidableEq State] (P : MarkovKernel State) :
 
 @[simp]
 theorem toRowStochastic_apply [DecidableEq State] (P : MarkovKernel State) (x y : State) :
-    P.toRowStochastic x y = P.prob x y :=
+    P.toRowStochastic.1 x y = P.prob x y :=
   rfl
 
 /-- A mathlib row-stochastic matrix as an elementary finite Markov kernel. -/
 def ofRowStochastic [DecidableEq State] (P : Matrix.rowStochastic ℝ State) :
     MarkovKernel State where
-  prob := P
-  nonneg x y := Matrix.nonneg_of_mem_rowStochastic P.property
+  prob := P.1
+  nonneg _ _ := Matrix.nonneg_of_mem_rowStochastic P.property
   sum_prob x := Matrix.sum_row_of_mem_rowStochastic P.property x
 
 @[simp]
 theorem ofRowStochastic_apply [DecidableEq State] (P : Matrix.rowStochastic ℝ State)
     (x y : State) :
-    P.ofRowStochastic.prob x y = P x y :=
+    (ofRowStochastic P).prob x y = P.1 x y :=
   rfl
 
 @[simp]
 theorem ofRowStochastic_toRowStochastic [DecidableEq State] (P : MarkovKernel State) :
-    P.toRowStochastic.ofRowStochastic = P := by
+    ofRowStochastic P.toRowStochastic = P := by
   cases P
   rfl
 
 @[simp]
 theorem toRowStochastic_ofRowStochastic [DecidableEq State]
     (P : Matrix.rowStochastic ℝ State) :
-    P.ofRowStochastic.toRowStochastic = P := by
+    (ofRowStochastic P).toRowStochastic = P := by
   apply Subtype.ext
   rfl
 
@@ -73,8 +73,8 @@ def equivRowStochastic [DecidableEq State] :
     MarkovKernel State ≃ Matrix.rowStochastic ℝ State where
   toFun := toRowStochastic
   invFun := ofRowStochastic
-  left_inv := ofRowStochastic_toRowStochastic
-  right_inv := toRowStochastic_ofRowStochastic
+  left_inv := fun P => ofRowStochastic_toRowStochastic (State := State) P
+  right_inv := fun P => toRowStochastic_ofRowStochastic (State := State) P
 
 /-- Local stationarity is exactly the usual stationary row-vector equation. -/
 theorem stationary_iff_vecMul [DecidableEq State] (P : MarkovKernel State)
@@ -86,7 +86,7 @@ theorem stationary_iff_vecMul [DecidableEq State] (P : MarkovKernel State)
 theorem toMeasureKernel_apply_singleton_eq_toMatrix [MeasurableSpace State]
     [MeasurableSingletonClass State] (P : MarkovKernel State) (x y : State) :
     P.toMeasureKernel x {y} = ENNReal.ofReal (P.toMatrix x y) := by
-  simp
+  simpa only [toMatrix_apply] using P.toMeasureKernel_apply_singleton x y
 
 end MarkovKernel
 end McmcLean.Finite

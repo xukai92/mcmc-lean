@@ -1,5 +1,5 @@
 import McmcLean.Finite.MetropolisHastings
-import McmcLean.Finite.MatrixKernel
+import McmcLean.Finite.Dynamics
 
 /-!
 # A two-state example
@@ -45,5 +45,10 @@ example :
     (MetropolisHastings.kernel target proposal target_positive).toMatrix ∈
       Matrix.rowStochastic ℝ Bool :=
   (MetropolisHastings.kernel target proposal target_positive).toMatrix_mem_rowStochastic
+
+/-- One MH step leaves the stationary target unchanged. -/
+example :
+    target.evolve (MetropolisHastings.kernel target proposal target_positive) = target :=
+  (MetropolisHastings.stationary target proposal target_positive).evolve_eq
 
 end McmcLean.Examples.TwoState
