@@ -27,6 +27,26 @@ and proves that it agrees with the usual acceptance-ratio formulation. A
 [two-state example](McmcLean/Examples/TwoState.lean) instantiates the generic
 result on `Bool`.
 
+The elementary finite distributions and kernels also embed into mathlib's
+`PMF`, `Measure`, and `ProbabilityTheory.Kernel` APIs. Under this embedding,
+the local pointwise detailed-balance theorem gives mathlib's setwise
+reversibility and hence kernel invariance.
+
+## Status summary
+
+| Area | Status | Current theorem surface or next goal |
+|---|---|---|
+| Finite Markov kernels | Proved | Normalization, detailed balance, stationarity, and detailed balance implies stationarity |
+| Finite Metropolis--Hastings | Proved | Valid transition kernel, acceptance-ratio equivalence, detailed balance, and target stationarity |
+| Mathlib interoperability | In progress | PMF, measure, and measure-kernel bridge proved; stochastic-matrix bridge remains |
+| Finite-chain convergence | Planned | Irreducibility, aperiodicity, total-variation convergence, and quantitative bounds |
+| Further algorithms | Planned | Gibbs, independence MH, random-walk MH, block MH, mixtures, and compositions |
+| General-state and executable MCMC | Long term | Measurable-state MH, executable refinement, approximation bounds, and statistical guarantees |
+
+The full dependency-ordered plan, phase markers, and exit criteria are in the
+[`roadmap`](docs/roadmap.md). In particular, the current stationarity result
+is not yet a theorem of convergence from arbitrary initial distributions.
+
 ## Getting started
 
 Install [elan](https://github.com/leanprover/elan), then run:
@@ -43,8 +63,12 @@ The repository pins Lean and mathlib to `v4.32.1`.
 
 - [`McmcLean/Finite/MarkovKernel.lean`](McmcLean/Finite/MarkovKernel.lean):
   finite distributions, kernels, reversibility, and stationarity.
+- [`McmcLean/Finite/MeasureKernel.lean`](McmcLean/Finite/MeasureKernel.lean):
+  embeddings into mathlib PMFs, measures, and measure-theoretic kernels.
 - [`McmcLean/Finite/MetropolisHastings.lean`](McmcLean/Finite/MetropolisHastings.lean):
   the MH construction and correctness proof.
+- [`docs/roadmap.md`](docs/roadmap.md): dependency-ordered research phases and
+  current phase-level status.
 - [`docs/development-log.md`](docs/development-log.md): completed results,
   current limitations, and roadmap.
 - [`docs/related-work.md`](docs/related-work.md): related mathematical and

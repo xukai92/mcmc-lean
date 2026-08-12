@@ -5,12 +5,35 @@ steps. It is descriptive rather than a promise about release dates.
 
 ## Next steps
 
-1. Connect the elementary finite kernel to mathlib's
-   `ProbabilityTheory.Kernel` API.
-2. Formalize finite-state irreducibility and aperiodicity.
-3. Derive a finite-state convergence theorem with explicit ergodicity
+1. Complete finite interoperability with mathlib's stochastic-matrix API.
+2. Add finite distribution evolution, kernel powers, and stationarity under
+   iteration.
+3. Formalize finite-state irreducibility, primitivity, and aperiodicity.
+4. Derive a finite-state convergence theorem with explicit ergodicity
    hypotheses and a specified mode of convergence.
-4. Generalize the construction to measure-theoretic state spaces.
+5. Generalize the MH construction to measure-theoretic state spaces.
+
+## 2026-08-11: finite measure-kernel interoperability
+
+The finite elementary interface now embeds into mathlib's measure-theoretic
+probability APIs. This milestone added:
+
+- conversion of a local finite `Distribution` to a mathlib `PMF` and
+  probability `Measure`;
+- conversion of every transition row to a `PMF`;
+- conversion of a local `MarkovKernel` to a
+  `ProbabilityTheory.Kernel`, with an `IsMarkovKernel` instance;
+- singleton and finite-set evaluation lemmas connecting the embedded objects
+  to their original real-valued masses and probabilities;
+- a finite double-sum proof that local pointwise detailed balance implies
+  mathlib's setwise `Kernel.IsReversible` predicate;
+- invariance of the embedded target via mathlib's generic theorem that
+  reversibility implies invariance; and
+- a two-state MH instantiation of the measure-kernel invariance result.
+
+This bridge does not add a convergence theorem. It makes mathlib's kernel
+composition, powers, irreducibility, and trajectory infrastructure available
+to subsequent phases.
 
 ## 2026-08-11: finite-state Metropolis--Hastings stationarity
 

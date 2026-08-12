@@ -1,4 +1,5 @@
 import McmcLean.Finite.MetropolisHastings
+import McmcLean.Finite.MeasureKernel
 
 /-!
 # A two-state example
@@ -31,5 +32,12 @@ theorem target_positive (x : Bool) : 0 < target.mass x := by
 example :
     (MetropolisHastings.kernel target proposal target_positive).Stationary target :=
   MetropolisHastings.stationary target proposal target_positive
+
+/-- The same MH correctness result embedded in mathlib's measure-kernel API. -/
+example :
+    ProbabilityTheory.Kernel.Invariant
+      (MetropolisHastings.kernel target proposal target_positive).toMeasureKernel
+      target.toMeasure :=
+  (MetropolisHastings.detailed_balance target proposal target_positive).invariantMeasure
 
 end McmcLean.Examples.TwoState
