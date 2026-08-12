@@ -1,9 +1,9 @@
 # Roadmap
 
 This document describes a dependency-ordered path from the repository's
-current finite-state Metropolis--Hastings stationarity theorem to a reusable
-Lean foundation for verifying MCMC algorithms. It is a research roadmap, not
-a release schedule.
+current finite-state Metropolis--Hastings stationarity theorem to a reusable,
+measure-theoretic Lean foundation for verifying MCMC algorithms. It is a
+research roadmap, not a release schedule.
 
 The roadmap is informed by the survey in [`related-work.md`](related-work.md)
 and the repository's completed milestones in
@@ -15,12 +15,12 @@ remain separate in the formal theorem surface.
 
 - [x] **Baseline:** finite-state MH kernel, detailed balance, and stationarity
 - [x] **Phase 1:** finite-to-mathlib interoperability
-- [ ] **In progress -- Phase 2:** finite-chain dynamics
-- [ ] **Planned -- Phase 3:** finite-state convergence
-- [ ] **Planned -- Phase 4:** Metropolis--Hastings convergence
-- [ ] **Planned -- Phase 5:** reusable finite MCMC constructions
-- [ ] **Planned -- Phase 6:** executable refinement and trajectories
-- [ ] **Planned -- Phase 7:** measurable-state kernels
+- [ ] **Next -- Phase 2:** mathlib-native kernel foundations
+- [ ] **Planned -- Phase 3:** density-based measurable-state MH
+- [ ] **Planned -- Phase 4:** finite specialization and API migration
+- [ ] **Planned -- Phase 5:** Radon--Nikodym measurable-state MH
+- [ ] **Planned -- Phase 6:** dynamics and convergence
+- [ ] **Planned -- Phase 7:** reusable algorithms, execution, and trajectories
 - [ ] **Planned -- Phase 8:** quantitative and statistical theory
 
 A phase is checked only when its exit criterion is satisfied. While a phase
@@ -73,11 +73,18 @@ zero forward or reverse proposal probability.
 
 ## Design principles
 
-- Keep the current elementary finite layer as a transparent reference proof.
-- Add bridges to mathlib instead of replacing working local definitions
-  prematurely.
-- Reuse mathlib's stochastic matrices, kernel composition, irreducibility,
-  PMFs, measures, and trajectory construction.
+- Use mathlib's `Measure` and `ProbabilityTheory.Kernel` as the primary
+  mathematical interface for all new reusable results.
+- Use `PMF` as the mathlib-native frontend for finite or countable
+  probabilistic programs, not as the foundation of the general-state theory.
+- Freeze the current elementary finite layer as a transparent reference proof
+  while the general theorem is developed; do not add substantial parallel
+  dynamics or algorithm infrastructure to it.
+- Derive finite MH correctness from the general theorem, prove
+  theorem-for-theorem parity, and only then retire the local finite types from
+  the public API.
+- Reuse mathlib's kernel composition, powers, irreducibility, invariance,
+  integration, and trajectory construction.
 - Introduce abstractions only after at least two algorithms demonstrate the
   common interface they need.
 - State positivity, support, irreducibility, aperiodicity, and measurability
@@ -117,44 +124,135 @@ This phase should not introduce measure theory into the definitions in
 kernel-composition, kernel-power, irreducibility, and trajectory APIs without
 reproving its one-step correctness.
 
-## Phase 2: finite-chain dynamics
+## Phase 2: mathlib-native kernel foundations
 
-**Status:** In progress
+**Status:** Next
 
-One-step distribution evolution is complete, including normalization,
-agreement with matrix multiplication and PMF bind, and the characterization
-of stationarity as a fixed point. Multi-step powers and reachability remain.
-
-Develop reusable dynamics in modules such as:
+Establish the definitions needed to state MH directly for measurable spaces,
+using mathlib rather than generalized versions of the local finite
+structures. Suggested modules are:
 
 ```text
-McmcLean/Finite/Dynamics.lean
-McmcLean/Finite/Irreducible.lean
-McmcLean/Finite/TotalVariation.lean
+McmcLean/Kernel/DetailedBalance.lean
+McmcLean/Kernel/AcceptedFlow.lean
 ```
 
-The layer should include:
+The layer should:
 
-- evolution of an initial distribution by a transition kernel;
-- kernel and matrix powers;
-- finite Chapman--Kolmogorov identities;
-- preservation of stationarity under powers;
-- reachability through positive transition probabilities;
-- bridges to `Matrix.IsIrreducible`, `Matrix.IsPrimitive`, and
-  `Kernel.IsIrreducible`; and
-- finite total-variation distance, with its equivalent half-L1 formula.
+- take a target `Measure State` with an explicit `IsProbabilityMeasure`
+  assumption;
+- take proposals and transitions as `ProbabilityTheory.Kernel State State`
+  with explicit `IsMarkovKernel` assumptions;
+- reuse `Kernel.IsReversible` and `Kernel.Invariant` rather than introduce
+  competing predicates;
+- define the forward joint proposal measure `pi(dx) Q(x,dy)` and its
+  coordinate swap;
+- collect the measurability lemmas needed for acceptance functions,
+  off-diagonal moves, and rejection mass; and
+- verify the definitions on at least one finite discrete space and one
+  non-finite standard Borel space.
 
-**Exit criterion:** finite multi-step questions can be expressed without
-unfolding the MH construction, and matrix and measure formulations are linked
-by named lemmas.
+The completed one-step finite dynamics result remains available as a baseline,
+but finite powers, reachability, and total variation are deferred until they
+can be built on the mathlib-native kernel interface.
 
-## Phase 3: finite-state convergence
+**Exit criterion:** detailed balance, invariance, accepted flow, and rejection
+can be stated without the local `Finite.Distribution` or
+`Finite.MarkovKernel` types, and the interface is sufficient to state the
+general MH construction.
+
+## Phase 3: density-based measurable-state MH
 
 **Status:** Planned
 
-Prove the first finite convergence theorem under a primitive-kernel
-hypothesis. A preferred route is an elementary finite minorization and
-contraction argument:
+Prove the first general-state MH correctness theorem under a common reference
+measure. Suggested module:
+
+```text
+McmcLean/Kernel/MetropolisHastings/Density.lean
+```
+
+Assume measurable target and proposal densities with their normalization and
+kernel measurability obligations stated explicitly. Define the acceptance
+probability, accepted move kernel, rejection probability, and resulting MH
+kernel. Prove:
+
+- the construction is measurable and is a Markov kernel;
+- the accepted flow is symmetric, including where either density vanishes;
+- `Kernel.IsReversible` with respect to the target; and
+- `Kernel.Invariant` via mathlib's reversibility theorem.
+
+The first theorem may assume a normalized target density and proposal
+densities relative to a common reference measure. Positivity must not be used
+to conceal zero-density or asymmetric-support cases.
+
+**Exit criterion:** a reusable mathlib `ProbabilityTheory.Kernel` MH theorem
+proves invariance on both a finite discrete example and a meaningful
+continuous example.
+
+## Phase 4: finite specialization and API migration
+
+**Status:** Planned
+
+Specialize the general theorem to a finite type with its discrete measurable
+structure. Use `PMF State` for finite targets and `State → PMF State` for
+proposal programs, converting them to mathlib measures and kernels.
+
+Before changing the public import surface, recover all current finite
+guarantees:
+
+- a valid MH transition kernel;
+- accepted-flow and usual acceptance-ratio equivalence;
+- pointwise detailed balance and stationarity as corollaries of the setwise
+  results;
+- zero forward or reverse proposal edge cases;
+- agreement with `PMF.bind` and row-stochastic matrices where useful; and
+- the existing two-state example.
+
+Keep the elementary finite modules during this phase as a regression oracle.
+Once theorem-for-theorem parity is established, move examples and downstream
+work to the mathlib-native API, remove the local types from `McmcLean.lean`,
+and either retain the elementary development in a clearly marked reference
+namespace or remove it in a separate reviewed change.
+
+**Exit criterion:** finite MH correctness is a specialization of the general
+measure-theoretic theorem, all current public results have replacements, and
+no public downstream module requires the local finite types.
+
+## Phase 5: Radon--Nikodym measurable-state MH
+
+**Status:** Planned
+
+Generalize the density theorem using the forward joint proposal measure
+
+```text
+pi(dx) Q(x,dy)
+```
+
+and its coordinate-swapped counterpart. Define acceptance using an
+appropriate Radon--Nikodym derivative or a symmetric dominating measure, then
+prove that the construction agrees with the density-based theorem when common
+densities exist.
+
+This phase must state the absolute-continuity and measurability assumptions
+precisely. It must also account for mutually singular components rather than
+silently assigning a real-valued ratio at points where no pointwise density
+exists.
+
+**Exit criterion:** the MH invariance theorem is expressed intrinsically in
+terms of measures and kernels and does not require a preselected common
+reference measure.
+
+## Phase 6: dynamics and convergence
+
+**Status:** Planned
+
+Develop dynamics using mathlib kernel composition and powers. Start with a
+finite convergence theorem, where compact finite arguments give the clearest
+first result, then isolate assumptions that extend to general spaces.
+
+For finite kernels, prove convergence under a primitive-kernel hypothesis. A
+preferred route is an elementary finite minorization and contraction argument:
 
 1. a strictly positive power gives a uniform positive lower bound;
 2. the lower bound yields contraction in total variation;
@@ -179,15 +277,11 @@ irreducible + positive diagonal  ==>  primitive  ==>  convergence
 A general finite period/GCD interface can be added after this first useful
 aperiodicity theorem.
 
-**Exit criterion:** the project can accurately claim a finite-state MCMC
-convergence theorem with explicit ergodicity hypotheses and, preferably, a
-geometric bound.
+**Intermediate milestone:** the project can accurately claim a generic
+finite-state Markov-chain convergence theorem with explicit ergodicity
+hypotheses and, preferably, a geometric bound.
 
-## Phase 4: Metropolis--Hastings convergence
-
-**Status:** Planned
-
-Lift the generic finite convergence theory back to MH. This requires:
+Then specialize the generic finite convergence theory to MH. This requires:
 
 - an accepted-flow graph for the MH transition;
 - usable sufficient conditions for its strong connectivity;
@@ -212,16 +306,16 @@ The strictly positive target assumption can later be relaxed by restricting
 the chain to the target's support. Zero target mass should not be hidden by
 real division conventions.
 
-**Exit criterion:** the existing MH stationarity theorem has a convergence
-corollary whose extra assumptions are explicit and mathematically sufficient.
+**Exit criterion:** the mathlib-native MH invariance theorem has a convergence
+corollary whose extra assumptions are explicit and mathematically sufficient;
+the theorem states its initial distribution and mode of convergence.
 
-## Phase 5: reusable finite MCMC constructions
+## Phase 7: reusable algorithms, execution, and trajectories
 
 **Status:** Planned
 
-Add algorithms as instances of the generic finite theory rather than as
-self-contained proofs. Candidate modules, in approximate dependency order,
-are:
+Add algorithms as instances of the mathlib-native kernel theory rather than as
+self-contained finite proofs. Candidate constructions include:
 
 1. lazy kernels, mixtures, and compositions of invariant kernels;
 2. independence Metropolis--Hastings;
@@ -248,15 +342,8 @@ reversibility is the main proof technique for MH and Gibbs.
 Simulated annealing should come later: it is time-inhomogeneous and does not
 fit an ordinary stationary-kernel theorem without additional theory.
 
-**Exit criterion:** at least two algorithm families reuse the same dynamics
-and convergence APIs without duplicating essential Markov-chain arguments.
-
-## Phase 6: executable refinement and trajectories
-
-**Status:** Planned
-
-Separate an executable sampling step from its mathematical kernel. Suggested
-modules include:
+For executable finite or countable algorithms, separate a `PMF`-valued
+sampling step from its mathematical measure kernel. Suggested modules include:
 
 ```text
 McmcLean/Execution/Step.lean
@@ -273,35 +360,9 @@ to a law on trajectories. Keep this refinement boundary independent of a
 particular code generator or runtime until a concrete extraction target is
 chosen.
 
-**Exit criterion:** a theorem about an abstract finite kernel can be applied
-to the distribution generated by a formally specified transition program.
-
-## Phase 7: measurable-state kernels
-
-**Status:** Planned
-
-Begin the general-state layer only after the finite interfaces have stabilized.
-Suggested modules are:
-
-```text
-McmcLean/Kernel/DetailedBalance.lean
-McmcLean/Kernel/MetropolisHastings/Density.lean
-McmcLean/Kernel/MetropolisHastings/RadonNikodym.lean
-```
-
-Proceed in two stages:
-
-1. a density-based MH theorem relative to a common reference measure, with
-   all measurability and integrability assumptions stated explicitly; and
-2. a Radon--Nikodym formulation based on the joint proposal measure
-   `pi(dx) Q(x,dy)` and its coordinate-swapped counterpart.
-
-The first deliverable in this layer is construction of a measurable Markov
-kernel plus detailed balance and invariance. It is not yet a general-state
-convergence theorem.
-
-**Exit criterion:** a reusable mathlib `ProbabilityTheory.Kernel` MH theorem
-proves invariance on a meaningful class of non-finite state spaces.
+**Exit criterion:** at least two algorithm families reuse the same kernel and
+invariance APIs, and a theorem about an abstract kernel can be applied to the
+law generated by a formally specified transition program.
 
 ## Phase 8: quantitative and statistical theory
 
@@ -326,17 +387,21 @@ not prerequisites for a useful finite algorithm library.
 
 The next three coherent code changes should be:
 
-1. **Finite powers:** define multi-step dynamics and connect local evolution,
-   matrix powers, and mathlib kernel powers.
-2. **Finite reachability:** connect positive entries of matrix powers to the
-   matrix and measure-kernel irreducibility APIs.
-3. **Finite total variation:** add the finite distance and contraction lemmas
-   needed by the primitive-kernel convergence theorem.
+1. **Kernel foundations:** introduce the mathlib-native target, proposal-joint-
+   measure, and detailed-balance interfaces without depending on local finite
+   definitions.
+2. **Density construction:** construct the measurable accepted-move and
+   rejection kernels from normalized densities and prove they form a Markov
+   kernel.
+3. **Density correctness:** prove reversibility and invariance, then instantiate
+   the theorem on one continuous and one finite example.
 
-After those changes, the first end-to-end demonstration should prove total-
-variation convergence of an irreducible lazy version of the existing finite
-MH construction. That result will exercise every foundational seam before the
-library expands to more algorithms or measurable state spaces.
+After those changes, specialize the density theorem to the existing finite
+examples and begin theorem-for-theorem API migration. The Radon--Nikodym
+formulation follows without blocking retirement of the parallel local API. Do
+not expand local finite powers, reachability, convergence, or additional
+finite algorithms in parallel unless they are needed as a focused test of the
+new interface.
 
 ## Scope boundaries
 
@@ -344,7 +409,7 @@ The following are intentionally not near-term claims:
 
 - stationarity is not convergence;
 - uniqueness of a stationary distribution is not by itself convergence;
-- an abstract real-valued kernel theorem does not verify a floating-point
+- an abstract mathematical kernel theorem does not verify a floating-point
   implementation;
 - exact independent-sampler correctness does not establish MCMC mixing; and
 - a finite convergence theorem does not establish Harris recurrence on

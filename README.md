@@ -39,10 +39,11 @@ reversibility and hence kernel invariance.
 | Finite Markov kernels | Proved | Normalization, detailed balance, stationarity, and detailed balance implies stationarity |
 | Finite Metropolis--Hastings | Proved | Valid transition kernel, acceptance-ratio equivalence, detailed balance, and target stationarity |
 | Mathlib interoperability | Proved | Bridges to PMFs, measures, measure kernels, and row-stochastic matrices |
-| Finite-chain dynamics | In progress | One-step evolution and stationary fixed points proved; powers are next |
-| Finite-chain convergence | Planned | Irreducibility, aperiodicity, total-variation convergence, and quantitative bounds |
+| General-state MH | Next | Mathlib-native kernel foundations, then density-based and Radon--Nikodym correctness |
+| Finite API migration | Planned | Recover finite MH as a specialization of the general theorem before retiring local types |
+| Chain convergence | Planned | Irreducibility, aperiodicity, total-variation convergence, and quantitative bounds |
 | Further algorithms | Planned | Gibbs, independence MH, random-walk MH, block MH, mixtures, and compositions |
-| General-state and executable MCMC | Long term | Measurable-state MH, executable refinement, approximation bounds, and statistical guarantees |
+| Executable and statistical MCMC | Long term | Executable refinement, approximation bounds, and statistical guarantees |
 
 The full dependency-ordered plan, phase markers, and exit criteria are in the
 [`roadmap`](docs/roadmap.md). In particular, the current stationarity result

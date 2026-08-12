@@ -5,11 +5,28 @@ steps. It is descriptive rather than a promise about release dates.
 
 ## Next steps
 
-1. Add finite kernel powers and stationarity under iteration.
-2. Formalize finite-state irreducibility, primitivity, and aperiodicity.
-3. Derive a finite-state convergence theorem with explicit ergodicity
-   hypotheses and a specified mode of convergence.
-4. Generalize the MH construction to measure-theoretic state spaces.
+1. Define the general detailed-balance and accepted-flow interfaces directly
+   with mathlib `Measure` and `ProbabilityTheory.Kernel`.
+2. Prove density-based measurable-state MH kernel correctness and invariance.
+3. Recover the current finite theorem surface as a specialization, then
+   migrate the public API away from the local finite types.
+4. Generalize the construction using Radon--Nikodym derivatives of the forward
+   and coordinate-swapped joint proposal measures.
+
+## 2026-08-12: kernel-first roadmap revision
+
+The roadmap now prioritizes a mathlib-native general-state MH theorem before
+additional finite dynamics or convergence infrastructure. New reusable theory
+will use `Measure` and `ProbabilityTheory.Kernel` directly; `PMF` remains the
+frontend for finite or countable probabilistic programs.
+
+The completed elementary finite development is retained temporarily as a
+verified baseline and regression oracle. It should not grow into a parallel
+kernel theory. After density-based and Radon--Nikodym MH correctness are
+available, the finite results will be recovered as specializations. The local
+finite types can leave the public API only after replacements cover the
+current detailed-balance, stationarity, acceptance-ratio, edge-case, matrix,
+PMF-bind, and example results.
 
 ## 2026-08-11: one-step finite dynamics
 
