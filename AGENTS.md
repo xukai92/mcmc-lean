@@ -30,7 +30,8 @@ architecture for general-state kernels.
   its correctness proof.
 - `McmcLean/Examples/`: small concrete theorem instantiations.
 - `McmcLean.lean`: library import surface.
-- `docs/`: design and research notes.
+- `docs/development-log.md`: completed milestones, limitations, and roadmap.
+- `docs/related-work.md`: literature survey and design implications.
 
 Put reusable definitions and theorems under `McmcLean/`. Examples should
 instantiate general results rather than contain essential library arguments.
@@ -131,5 +132,6 @@ Separate machine-checked results from pen-and-paper formalizations. Qualify
 negative literature-search claims with the date and scope of the search.
 
 Update `README.md` when the public theorem surface, build procedure, or roadmap
-changes. Update `docs/related-work.md` when adding work that materially affects
-the project's novelty or design.
+changes. Record completed milestones and roadmap changes in
+`docs/development-log.md`. Update `docs/related-work.md` when adding work that
+materially affects the project's novelty or design.
