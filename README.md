@@ -87,11 +87,25 @@ RWMH kernel has the verified RWMH kernel as both marginals.
 The repository preserves an important distinction discovered during
 formalization.
 
+### Condition 1: contraction must use a positive window
+
 Xu et al.'s printed Condition 1 requires one subunit contraction rate for all
 sufficiently small trajectory lengths. Under the direct discrete
 interpretation this includes `L = 0`, whose transition is the identity. Lean
 proves that a set containing two distinct positions then forces the alleged
-contraction rate to be at least one.
+contraction rate to be at least one. Merely excluding `L = 0` is not enough if
+the corresponding integration times may still approach zero: those
+transitions approach the identity, so no single rate strictly below one can
+hold uniformly.
+
+The corrected statement uses a nondegenerate positive integration-time
+window
+
+```text
+0 < T_min <= epsilon * L <= T_max
+```
+
+and asserts a subunit contraction rate only on that window.
 
 The library therefore provides three explicit interfaces:
 
@@ -110,13 +124,35 @@ For the meeting-time argument, one cutoff is enough: Lean selects the
 positive-mass event `K(p) ≤ 1`, integrates the conditional contraction through
 Gaussian momentum refresh, and obtains the required one-step relaxed-entry
 constant. Thus the general local-accessibility theorem does not assume the
-stronger uniform-over-all-cutoffs condition.
+stronger uniform-over-all-cutoffs condition. The implication for the paper is
+that local strong convexity supports the needed contraction after fixing a
+kinetic cutoff and selecting a nondegenerate time window, not uniformly over
+arbitrarily short trajectories.
+
+### Exponent-two contraction: the unconditional route is obstructed
 
 The exponent-two optimal-transport condition has an additional limitation.
 For the scalar standard Gaussian on `Set.univ` and windows containing short
-times, Lean proves a first-order index-mass obstruction. Conditional transport
-theorems remain useful, but are not described as unconditional Gaussian
-contraction results.
+times, Lean proves a first-order index-mass obstruction. Nearby chains can
+select different multinomial trajectory indices with probability of first
+order in their initial separation, whereas a squared-distance contraction
+budget is only second order. Consequently, the paper's unconditional
+exponent-two estimate is not established under those broad quantifiers.
+
+The exponent-two theorems therefore remain conditional on an additional
+contraction certificate. The proved replacement uses first-moment
+(`p = 1`) maximal coupling, whose error budget has the correct order. This
+replacement still supplies the local relaxed accessibility needed by the
+geometric meeting-time argument. It does not show that the algorithm or the
+meeting conclusion fails; it changes the hypotheses and proof route used to
+justify that conclusion.
+
+Finally, the global drift premise remains independent: it is not a consequence
+of local strong convexity. With that drift premise supplied for the selected
+HMC/RWMH kernels, the repaired first-moment accessibility route still yields
+the paper's geometric meeting conclusion. Geometric meeting, in turn, should
+not be described as marginal convergence from arbitrary initial states
+without a separate ergodicity argument.
 
 ## Main theorem boundary
 

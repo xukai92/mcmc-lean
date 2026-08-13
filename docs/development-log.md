@@ -25,6 +25,16 @@ results, positive-window repairs to the printed Condition 1, conditional
 optimal-transport conclusions, extensional rather than executable sampling,
 and the fully instantiated scalar standard-Gaussian endpoint.
 
+Expanded the README's paper-statement audit to state the two corrections and
+their downstream implications explicitly. Condition 1 must use an integration
+window bounded away from zero, with the proved general form selecting that
+window after fixing a kinetic cutoff. The unconditional exponent-two route is
+obstructed by first-order multinomial index mismatch; the conditional
+exponent-two interface is retained, while the proved first-moment maximal-
+coupling route supplies the local accessibility used for geometric meeting.
+The audit also records that global drift is an independent premise and that
+meeting alone is not marginal convergence from arbitrary starts.
+
 The next substantive gap is additional target-specific HMC drift
 certificates, preferably beginning with a nontrivial higher-dimensional
 standard Gaussian and followed by an applied target. Unbiased-estimator
