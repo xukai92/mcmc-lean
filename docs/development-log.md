@@ -35,6 +35,13 @@ coupling route supplies the local accessibility used for geometric meeting.
 The audit also records that global drift is an independent premise and that
 meeting alone is not marginal convergence from arbitrary starts.
 
+Added `docs/architecture.md` to document the dependency layers from mathlib's
+`Measure` and `ProbabilityTheory.Kernel` interfaces through the concrete RWMH
+and multinomial-HMC branches to the coupled mixture, geometric meeting theorem,
+and estimator consequences. A separate graph records that finite transport is
+used internally for trajectory-index selection while the surrounding kernels
+remain general-state.
+
 The next substantive gap is additional target-specific HMC drift
 certificates, preferably beginning with a nontrivial higher-dimensional
 standard Gaussian and followed by an applied target. Unbiased-estimator

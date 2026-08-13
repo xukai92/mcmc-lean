@@ -250,6 +250,8 @@ lake env lean McmcLean/Hamiltonian/LocalContractivity.lean
   verified regularized-logistic potential, gradient, paper assumptions, and
   local coupled-HMC accessibility.
 - [`docs/roadmap.md`](docs/roadmap.md): dependency-ordered research roadmap.
+- [`docs/architecture.md`](docs/architecture.md): dependency graphs from
+  mathlib measures and kernels through RWMH/HMC to Xu et al.'s meeting theorem.
 - [`docs/paper-coverage.md`](docs/paper-coverage.md): claim-by-claim mapping
   from the paper's algorithms and Section 4 results to compiled Lean artifacts.
 - [`docs/development-log.md`](docs/development-log.md): chronological proof
