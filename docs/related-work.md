@@ -24,6 +24,42 @@ exists.
 
 ## Direct mathematical precedents
 
+### Couplings for multinomial Hamiltonian Monte Carlo
+
+Xu, Fjelde, Sutton, and Ge construct maximal and transport-based couplings for
+multinomial HMC and prove geometric tails for the meeting time of a mixture
+with coupled random-walk Metropolis--Hastings. Their proof proceeds through
+local contractivity under a globally Lipschitz gradient and local strong
+convexity, a total-variation estimate for multinomial trajectory weights, and
+drift/small-set results adapted from Heng and Jacob. This paper is the primary
+long-term theorem target for this repository.
+
+- Kai Xu, Tor Erlend Fjelde, Charles Sutton, and Hong Ge,
+  [Couplings for Multinomial Hamiltonian Monte Carlo](https://proceedings.mlr.press/v130/xu21i.html),
+  AISTATS 2021. The proceedings page includes the paper and supplementary
+  proofs.
+
+Formalizing its main results requires more than target invariance: coupled
+kernels with correct marginals, Hamiltonian and leapfrog analysis, categorical
+maximal and optimal-transport couplings, drift conditions, and a geometric
+meeting-time theorem must all be connected explicitly.
+
+The formalization also exposes a quantifier issue in the paper's printed
+Condition 1. It asks for a fixed contraction rate below one uniformly over all
+smaller integration times. With `L=0` admitted by the direct natural-number
+encoding, the transition is the identity and the inequality forces the rate
+to be at least one on every nontrivial set; this contradiction is proved in
+Lean. If the authors intend positive natural numbers, integration times can
+still approach zero through `ε→0` at fixed positive `L`, suggesting the same
+identity-limit obstruction. The repository therefore distinguishes the
+verbatim statement from an explicitly labeled positive-integration-window
+repair rather than presenting the latter as the published theorem.
+Within that repaired interface, the formalization preserves the paper's
+different moment choices: maximal coupling is developed with first-moment
+distance and its linearly scaling total-variation mismatch term, while the
+optimal-transport construction uses squared distance and second-moment
+optimality.
+
 ### A categorical account of Metropolis--Hastings
 
 Cornish and Wang give an abstract account of MH in Markov categories. They
