@@ -104,7 +104,7 @@ not a restriction of the final theorem to finite state spaces.
 ```mermaid
 flowchart LR
   Continuous[Continuous position and momentum]
-  FiniteTrajectory[Finite trajectory indices<br/>{0, ..., L}]
+  FiniteTrajectory[Finite trajectory indices<br/>from 0 through L]
   IndexLaw[Finite multinomial distributions]
   FiniteCoupling[Finite maximal or transport coupling]
   Output[Continuous coupled output positions]
