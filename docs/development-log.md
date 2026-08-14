@@ -1,5 +1,60 @@
 # Development log
 
+## 2026-08-14: differential and statistical Julia test layers
+
+Added a maintained optimized finite implementation using cumulative sums and
+binary search, while retaining the generated linear-scan core as the public
+execution path. Exhaustive trace tests now compare the compiled Lean oracle,
+generated Julia, and optimized Julia, including their random-bound requests.
+Added exact rational transition checks, direct detailed-balance and
+stationarity regressions, categorical chi-squared and per-category frequency
+diagnostics, two-state batch-means moment checks, and runtime unit tests.
+Named skipped skeletons record the future integrator, Geweke, DHMC,
+adaptation, robustness, and performance test surface.
+
+## 2026-08-14: finite executable MVP completed
+
+Completed the exact two-state vertical slice. The cumulative selector now has
+a universal PMF theorem: a uniform draw below the total produces each `Fin n`
+atom with probability equal to its normalized natural weight, including zero
+weights. Added exact integer proposal/accept/reject execution and proved the
+two-state step PMF equal to the existing verified finite-MH row PMF, so the
+existing detailed-balance and invariance results apply without duplication.
+
+Added a compiled Lean conformance oracle, a deterministic Lean emitter, the
+`VerifiedSamplers.Generated` Julia core, maintained RNG and trace sources, and
+the public positional-RNG methods `sample(rng, ...)` with default-RNG dispatch
+fallbacks. Exhaustive tests compare every valid categorical and two-state MH
+trace with the Lean oracle. Generation is explicit through `make generate` and
+`make check-generated`; Julia installation does not require Lean. General
+arbitrary-size executable-MH refinement, compiler correctness, continuous
+primitives, and floating-point refinement remain later extensions.
+
+## 2026-08-14: finite executable primitives begin
+
+Implemented the first exact executable layer. Positive-total natural weights
+now normalize to a mathlib PMF and are proved equal to the existing finite
+distribution embedding. Added the uniform `drawBelow` semantics, a validated
+deterministic trace event format with explicit failure modes, and an executable
+cumulative categorical selector. Lean proves that every in-range draw selects
+an in-range index and that selection succeeds exactly below total mass.
+Compiled examples cover zero-weight entries, cumulative boundaries, trace
+bound mismatches, and out-of-range draws. The exact PMF law and two-state
+finite-MH refinement were subsequently completed in the MVP above.
+
+## 2026-08-14: finite executable milestone planned
+
+Fixed the first executable slice around `Fin n`, positive-total natural
+weights, one uniform `drawBelow` primitive, and separate PMF, trace, and Julia
+execution semantics. The milestone will prove row-PMF equality between an
+executable proposal/accept/reject program and the existing finite MH kernel,
+then emit and exhaustively test the two-state reference implementation. The
+roadmap keeps integer overflow, Julia runtime behavior, and emitter correctness
+as explicit boundaries rather than folding them into the Lean theorem. The
+earlier standalone Julia proposal has been consolidated into the architecture
+and finite roadmap so scope, component ownership, and implementation order have
+single canonical homes.
+
 ## 2026-08-14: verified-samplers repository skeleton
 
 Reorganized the project around a language-neutral repository boundary. The

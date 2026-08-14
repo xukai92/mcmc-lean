@@ -5,6 +5,14 @@ defaultTargets = ["Mcmc"]
 [[lean_lib]]
 name = "Mcmc"
 
+[[lean_exe]]
+name = "mcmc_oracle"
+root = "Mcmc.Oracle"
+
+[[lean_exe]]
+name = "generate_julia"
+root = "Mcmc.GenerateJulia"
+
 [[require]]
 name = "mathlib"
 git = "https://github.com/leanprover-community/mathlib4.git"

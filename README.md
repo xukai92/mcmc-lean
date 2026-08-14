@@ -92,6 +92,29 @@ concrete sticky HMC/RWMH mixture in every nonempty finite dimension.
 It has the analogous bounded-observable estimator wrapper with marginal
 expectation convergence left explicit.
 
+### Executable finite MVP
+
+The finite executable vertical slice is operational. Lean proves that the
+cumulative natural-weight selector has exactly its normalized PMF and that the
+two-state executable MH step has the same row PMF as the existing verified
+finite MH kernel. A compiled Lean binary is the conformance oracle. Lean also
+emits the production Julia core, which is exercised against the oracle on
+every valid categorical and two-state MH trace.
+
+The public Julia interface uses positional RNG dispatch:
+
+```julia
+using VerifiedSamplers, Random
+
+target = FiniteWeights([1, 0, 2])
+samples = sample(MersenneTwister(1), target, 100)
+chain = sample(MersenneTwister(2), TwoStateMH(), false, 100)
+```
+
+The no-RNG methods delegate to `Random.default_rng()`. Julia indices are
+one-based at the public categorical API; the generated core and Lean `Fin`
+encoding are zero-based.
+
 ## What “HMC” means here
 
 The paper's main results concern multinomial HMC. Accordingly, the formalized
@@ -214,14 +237,17 @@ lake env lean Mcmc/Hamiltonian/LocalContractivity.lean
 ```
 
 From the repository root, `make formal`, `make julia`, and `make test` provide
-the corresponding aggregate entry points. `make generate` is reserved for the
-explicit Lean-to-Julia reference emitter and is currently a placeholder.
+the corresponding aggregate entry points. `make oracle` compiles the Lean
+conformance oracle, `make generate` explicitly regenerates the committed Julia
+core, and `make check-generated` checks freshness without modifying the tree.
+The [testing strategy](docs/testing.md) records the exact, differential,
+statistical, and skeletoned future test layers.
 
 ## Repository guide
 
 - [`formal/`](formal/): pinned Lean project containing the `Mcmc` library.
 - [`VerifiedSamplers.jl/`](VerifiedSamplers.jl/): Julia package, with
-  compiler-emitted reference code and maintained optimized code in separate
+  compiler-emitted generated code and maintained optimized code in separate
   internal submodules.
 
 - [`formal/Mcmc/Finite/`](formal/Mcmc/Finite/): elementary finite kernels,
@@ -250,6 +276,10 @@ explicit Lean-to-Julia reference emitter and is currently a placeholder.
   local coupled-HMC accessibility.
 - [`docs/architecture.md`](docs/architecture.md): dependency graphs from
   mathlib measures and kernels through RWMH/HMC to Xu et al.'s meeting theorem.
+- [`docs/executable-architecture.md`](docs/executable-architecture.md): the
+  executable scope, assurance levels, and cross-language component architecture.
+- [`docs/finite-executable-roadmap.md`](docs/finite-executable-roadmap.md): the
+  exact finite end-to-end milestone and completion gates.
 - [`docs/betancourt17-coverage.md`](docs/betancourt17-coverage.md): mapping of
   Betancourt's conceptual HMC construction to the reusable correctness layer.
 - [`docs/neal12-coverage.md`](docs/neal12-coverage.md): mapping of Neal's HMC

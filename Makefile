@@ -1,22 +1,25 @@
-.PHONY: all formal julia test generate check-generated
+.PHONY: all formal oracle julia test generate check-generated
 
 all: formal
 
 formal:
 	$(MAKE) -C formal build
 
+oracle:
+	cd formal && lake build mcmc_oracle
+
 julia:
 	julia --project=VerifiedSamplers.jl -e 'using Pkg; Pkg.test()'
 
-test: formal julia
+test: formal oracle check-generated julia
 
-# The Lean-to-Julia emitter will replace this placeholder in the first
-# executable-sampler milestone. Generation remains explicit and never runs as
-# a side effect of an ordinary Lean or Julia build.
 generate:
-	@echo "Julia reference generator is not implemented yet."
+	cd formal && lake build generate_julia
+	formal/.lake/build/bin/generate_julia VerifiedSamplers.jl/src/Generated/FiniteCore.jl
 
-# CI will eventually regenerate into a temporary directory and compare it with
-# VerifiedSamplers.jl/src/Reference/.
 check-generated:
-	@echo "Generated-reference freshness check is not implemented yet."
+	cd formal && lake build generate_julia
+	@tmp_file=$$(mktemp); \
+	trap 'rm -f "$$tmp_file"' EXIT; \
+	formal/.lake/build/bin/generate_julia "$$tmp_file"; \
+	cmp "$$tmp_file" VerifiedSamplers.jl/src/Generated/FiniteCore.jl

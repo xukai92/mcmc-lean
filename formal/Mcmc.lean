@@ -11,6 +11,12 @@ import Mcmc.Finite.GreedyTransport
 import Mcmc.Finite.GreedyTransportCompleteness
 import Mcmc.Finite.MetropolisHastings
 import Mcmc.Examples.TwoState
+import Mcmc.Executable.Finite.Weights
+import Mcmc.Executable.Finite.Trace
+import Mcmc.Executable.Finite.Categorical
+import Mcmc.Executable.Finite.Examples
+import Mcmc.Executable.Finite.MetropolisHastings
+import Mcmc.Executable.Finite.TwoState
 import Mcmc.Hamiltonian.Leapfrog
 import Mcmc.Hamiltonian.Assumptions
 import Mcmc.Hamiltonian.ExactFlow
