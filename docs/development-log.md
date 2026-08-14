@@ -14,6 +14,11 @@ The entry descriptors are explicitly anchored to the existing exact
 categorical and generic finite-MH PMF theorems. Compiler semantic preservation
 from command IR through emitted Julia remains a future theorem, so exhaustive
 Lean/generated/optimized trace tests continue to guard that boundary.
+Recorded the follow-up migration: add a command-IR trace interpreter, prove it
+equal to the older replay functions, then make that interpreter canonical and
+deprecate the duplicate replay algorithms. The same interpreter/denotation
+pattern extends to continuous measure semantics, while concrete `Float64` and
+RNG behavior remains a separate refinement boundary.
 
 ## 2026-08-14: continuous executable primitive boundary
 

@@ -176,8 +176,7 @@ generated Julia behavior is not silently included in this theorem.
 
 ### Phase C: Julia emission and runtime — complete generically
 
-- Use the deterministic finite-core emitter (a reusable restricted AST remains
-  a post-MVP compiler extension).
+- Use the typed finite command IR and restricted validated Julia AST/printer.
 - Add the production and trace `draw_below!` runtime implementations.
 - Emit generic categorical and finite-MH transitions into the `Generated`
   submodule, retaining the two-state convenience specialization.
@@ -214,9 +213,19 @@ The finite milestone is complete only when:
 
 ## Explicitly deferred
 
+- Give the finite command IR a deterministic Lean trace interpreter and prove
+  it equal to the existing `replayCategorical` and `replayMHStep` functions.
+  After that migration, make the IR interpreter the canonical executable Lean
+  implementation and deprecate the independently maintained replay
+  algorithms. The compiled Lean oracle remains useful, but should be built
+  from the canonical IR interpreter rather than from a second algorithm.
+- Prove semantic preservation from the finite command IR through the
+  restricted Julia AST lowering. Actual Julia execution and runtime primitives
+  remain an explicitly documented implementation boundary.
 - arbitrary finite Lean state encodings;
 - continuous distributions and Gaussian primitive contracts;
 - `Float64` refinement and numerical error bounds;
 - RWMH, leapfrog, endpoint HMC, multinomial HMC, and couplings;
 - adaptation, NUTS, GPU execution, and optimized implementations; and
-- a proof of semantic preservation for the Julia emitter itself.
+- a proof connecting the modeled restricted Julia semantics to the actual
+  Julia implementation.

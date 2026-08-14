@@ -269,6 +269,28 @@ Compiler semantic preservation is a future theorem. Until then, generated
 Julia correctness is conditional on the emitter, printer, and runtime contract,
 even though the source executable configuration has a proved PMF refinement.
 
+### Canonical-interpreter migration
+
+The current finite layer predates the command IR, so the verified
+`replayCategorical` and `replayMHStep` functions and the newer IR temporarily
+describe the same control flow separately. This duplication is transitional.
+The planned migration is to define deterministic trace semantics for the
+command IR, prove those semantics equal to the existing replay functions, and
+then make the IR interpreter the canonical executable Lean implementation.
+The old independently maintained replay algorithms can then be deprecated;
+the compiled Lean oracle will remain, but will execute the IR interpreter.
+
+This architecture also applies to general-state and continuous samplers at the
+semantic level, but not by reusing the finite command IR unchanged. A
+continuous sampler IR needs ideal primitives whose denotations are mathlib
+`Measure` or `ProbabilityTheory.Kernel` objects, such as exact standard-normal
+and unit-uniform draws. Its deterministic trace interpreter can use exact real
+events, while a Julia backend uses floating-point and concrete RNG operations.
+The measure-level sampler theorem can therefore be exact, but connecting it to
+actual `Float64` Julia requires a separate numerical/RNG refinement or an
+explicit approximation theorem; executable computation cannot in general
+enumerate or represent an arbitrary continuous measure exactly.
+
 ## Julia package architecture
 
 ### Runtime submodule
