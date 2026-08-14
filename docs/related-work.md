@@ -60,6 +60,47 @@ distance and its linearly scaling total-variation mismatch term, while the
 optimal-transport construction uses squared distance and second-moment
 optimality.
 
+### Practical Hamiltonian Monte Carlo on Riemannian manifolds
+
+Xu and Ge introduce general-relativistic HMC (GR-HMC), combining a
+position-dependent Riemannian metric with relativistic momentum to obtain a
+position-dependent velocity bound.  They derive a generalized Hamiltonian,
+implicit generalized-leapfrog updates, efficient derivative expressions, and
+a proposed multivariate momentum sampler.
+
+- Kai Xu and Hong Ge,
+  [Practical Hamiltonian Monte Carlo on Riemannian Manifolds via Relativity
+  Theory](https://proceedings.mlr.press/v235/xu24i.html), ICML 2024.
+
+The paper's validity discussion is informal and delegates generalized-
+leapfrog and correction correctness to established techniques.  A
+machine-checked development must expose solvability, measurability,
+reversibility, and volume preservation of the selected implicit update before
+deducing target invariance.
+
+There is also a dimension-sensitive issue in the printed momentum sampler.
+Equation (10) derives the two-dimensional radial Jacobian, while Algorithm 1
+reuses that law in general dimension and samples spherical angles
+independently and uniformly.  In dimensions greater than two the radial
+Jacobian is `r^(d-1)`, and uniform spherical direction is not produced by
+independent uniform coordinate angles.  The formalization roadmap therefore
+separates the printed construction from a corrected radial/uniform-direction
+pushforward whose distributional correctness must be proved.
+
+Under the paper's stated factorization `AᵀA = G⁻¹`, the affine assignment at
+the end of Algorithm 1 also requires an inverse: transporting an isotropic
+draw `z` by `p=A⁻¹z` gives the desired quadratic form `‖Ap‖²=‖z‖²`.  The
+printed `p=Aᵀz` is not equivalent for a general metric.  The corrected
+formalization uses an invertible continuous factor and its inverse explicitly.
+
+The initial algebra audit also distinguishes the mass argument and velocity
+bound printed after Equation (9) from the derivative of Equation (8).  For a
+factor `AᵀA = G⁻¹`, the kinetic quadratic form is `‖Ap‖²`, while the velocity
+numerator is `G⁻¹p`; these cannot generally be collapsed to the printed norm
+ratio for an anisotropic metric.  The formalization uses the direct bound
+`c‖G⁻¹p‖/‖Ap‖` and reserves the paper's simpler expression for cases where
+additional structure proves it.
+
 ### A categorical account of Metropolis--Hastings
 
 Cornish and Wang give an abstract account of MH in Markov categories. They

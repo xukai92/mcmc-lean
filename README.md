@@ -9,6 +9,23 @@ The main research target is Xu, Fjelde, Sutton, and Ge,
 (AISTATS 2021). The development defines RWMH and multinomial HMC themselves;
 they are not represented by opaque kernels assumed to be correct.
 
+The second paper target is Xu and Ge,
+[“Practical Hamiltonian Monte Carlo on Riemannian Manifolds via Relativity Theory”](https://proceedings.mlr.press/v235/xu24i.html)
+(ICML 2024). Its corrected relativistic momentum law, Riemannian Hamiltonian,
+diagonal SoftAbs calculus, generalized-leapfrog obligations, and
+endpoint-Metropolis and randomized-multinomial GR-HMC kernels are formalized.
+Lean proves phase and position invariance under explicit solver obligations;
+the concrete SoftAbs metric discharges the measure, Jacobian, and derivative
+certificates. See
+[the Xu--Ge roadmap](docs/xu24-roadmap.md).
+The paper's natural finite fixed-point implementation is also formalized:
+Lean proves that six iterations need not solve the implicit equations, so the
+experimental iteration count is not treated as an exact reversibility or
+volume-preservation certificate.
+Equation-by-equation status, corrections, and remaining implementation
+obligations are recorded in the
+[Xu--Ge coverage audit](docs/xu24-coverage.md).
+
 ## Current status
 
 The repository now contains machine-checked implementations and proofs for:
@@ -18,6 +35,9 @@ The repository now contains machine-checked implementations and proofs for:
 - finite-dimensional leapfrog dynamics and full multinomial HMC, including
   momentum refresh, randomized trajectory origin, multinomial selection, and
   target invariance;
+- corrected relativistic and Riemannian momentum measures, the diagonal
+  SoftAbs Hamiltonian and its derivatives, and endpoint and multinomial
+  GR-HMC target-invariance theorems;
 - maximal and optimal-transport trajectory-index couplings, with exact HMC
   marginals;
 - a measurable finite optimal-transport selector with proved optimality;
@@ -84,10 +104,14 @@ RWMH kernel has the verified RWMH kernel as both marginals.
 
 ## Paper-statement audit
 
-The repository preserves an important distinction discovered during
-formalization.
+Formalization exposed statements in both paper targets that require corrected
+quantifiers, formulas, algorithms, or explicit hypotheses. The concise audit
+is grouped by paper below; the linked coverage documents give theorem-level
+details.
 
-### Condition 1: contraction must use a positive window
+### Xu et al. (2021): Couplings for Multinomial HMC
+
+#### Condition 1: contraction must use a positive window
 
 Xu et al.'s printed Condition 1 requires one subunit contraction rate for all
 sufficiently small trajectory lengths. Under the direct discrete
@@ -129,7 +153,7 @@ that local strong convexity supports the needed contraction after fixing a
 kinetic cutoff and selecting a nondegenerate time window, not uniformly over
 arbitrarily short trajectories.
 
-### Exponent-two contraction: the unconditional route is obstructed
+#### Exponent-two contraction: the unconditional route is obstructed
 
 The exponent-two optimal-transport condition has an additional limitation.
 For the scalar standard Gaussian on `Set.univ` and windows containing short
@@ -153,6 +177,61 @@ HMC/RWMH kernels, the repaired first-moment accessibility route still yields
 the paper's geometric meeting conclusion. Geometric meeting, in turn, should
 not be described as marginal convergence from arbitrary initial states
 without a separate ergodicity argument.
+
+### Xu and Ge (2024): Relativistic Riemannian HMC
+
+The GR-HMC invariance argument is valid after correcting the momentum sampler
+and velocity formula and making the numerical-integrator obligations explicit.
+The full equation-by-equation record is in the
+[Xu--Ge coverage audit](docs/xu24-coverage.md).
+
+#### Algorithm 1: momentum sampling
+
+Three printed steps are not correct in general dimension:
+
+- the radial density needs the dimension-dependent Jacobian `r^(d-1)`; the
+  printed factor `r` is specific to dimension two;
+- independently uniform spherical angles do not generate a uniform spherical
+  direction above dimension two; and
+- under the paper's convention `A_qᵀ A_q = G_q⁻¹`, an isotropic draw `z` must
+  be transported as `p = A_q⁻¹ z`, not generally as `p = A_qᵀ z`.
+
+Lean formalizes the corrected radial law, uniform spherical direction, and
+inverse-factor transport, then proves that their pushforward is the intended
+normalized conditional momentum measure.
+
+#### Equation (9): velocity and anisotropic bound
+
+Hamiltonian velocity is `∇ₚH`, not the printed `∇qH`. For the stated factor
+convention its value is
+
+```text
+v(q,p) = G_q⁻¹ p / M(q,p).
+```
+
+The subsequent substitution and norm ratio printed in the paper do not follow
+from `A_qᵀ A_q = G_q⁻¹`. Lean proves the corrected anisotropic bound and a
+concrete two-dimensional counterexample to the printed ratio.
+
+#### Section 5.2: symmetry is not the only validity requirement
+
+Momentum symmetry is necessary but insufficient for the complete
+position-dependent algorithm. Correctness also needs a normalized measurable
+conditional momentum family, reconstruction of the phase target, an exact
+measurable/reversible/volume-preserving generalized-leapfrog selection, and a
+valid endpoint-Metropolis or multinomial correction. These are separate named
+certificates in Lean, and both corrected GR-HMC kernels are proved invariant
+when they hold.
+
+#### Six fixed-point iterations are approximate, not exact
+
+The experimental choice of six fixed-point iterations does not generally
+solve the implicit generalized-leapfrog equations. Lean gives a scalar
+counterexample where the sixth iterate is not a fixed point. Under explicit
+contraction assumptions Lean instead proves convergence to the unique implicit
+solution and quantitative geometric error bounds. Those results justify a
+controlled approximation, but do not by themselves establish exact reversal
+or phase-volume preservation for the finite iterate.
 
 ## Main theorem boundary
 
@@ -243,6 +322,9 @@ lake env lean McmcLean/Hamiltonian/LocalContractivity.lean
   kernel accessibility.
 - [`McmcLean/Hamiltonian/CoupledMixture.lean`](McmcLean/Hamiltonian/CoupledMixture.lean):
   verified HMC/RWMH mixtures and geometric meeting-tail theorems.
+- [`McmcLean/Relativistic/`](McmcLean/Relativistic/): corrected relativistic
+  momentum laws, Riemannian Hamiltonians, generalized-leapfrog obligations,
+  and conditional endpoint-Metropolis GR-HMC invariance.
 - [`McmcLean/Hamiltonian/QuadraticGaussian.lean`](McmcLean/Hamiltonian/QuadraticGaussian.lean)
   and [`QuadraticGaussianXu.lean`](McmcLean/Hamiltonian/QuadraticGaussianXu.lean):
   validated Gaussian specializations.
@@ -252,6 +334,8 @@ lake env lean McmcLean/Hamiltonian/LocalContractivity.lean
 - [`docs/roadmap.md`](docs/roadmap.md): dependency-ordered research roadmap.
 - [`docs/architecture.md`](docs/architecture.md): dependency graphs from
   mathlib measures and kernels through RWMH/HMC to Xu et al.'s meeting theorem.
+- [`docs/xu24-roadmap.md`](docs/xu24-roadmap.md): roadmap and statement audit
+  for relativistic Riemannian HMC from Xu and Ge (2024).
 - [`docs/paper-coverage.md`](docs/paper-coverage.md): claim-by-claim mapping
   from the paper's algorithms and Section 4 results to compiled Lean artifacts.
 - [`docs/development-log.md`](docs/development-log.md): chronological proof

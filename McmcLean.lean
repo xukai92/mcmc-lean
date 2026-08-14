@@ -36,6 +36,7 @@ import McmcLean.Kernel.CoupledMetropolisHastings
 import McmcLean.Kernel.DensityCoupling
 import McmcLean.Kernel.EuclideanGaussianProposalCoupling
 import McmcLean.Kernel.DetailedBalance
+import McmcLean.Kernel.DeterministicMetropolis
 import McmcLean.Kernel.GaussianRandomWalk
 import McmcLean.Kernel.GaussianProposalCoupling
 import McmcLean.Kernel.Meeting
@@ -44,3 +45,17 @@ import McmcLean.Kernel.MetropolisHastings
 import McmcLean.Kernel.ParameterizedDensityCoupling
 import McmcLean.Kernel.RandomWalkMetropolisHastings
 import McmcLean.Kernel.UnbiasedEstimator
+import McmcLean.Relativistic.Kinetic
+import McmcLean.Relativistic.Momentum
+import McmcLean.Relativistic.Riemannian
+import McmcLean.Relativistic.Hamiltonian
+import McmcLean.Relativistic.Derivatives
+import McmcLean.Relativistic.SoftAbs
+import McmcLean.Relativistic.SoftAbsKernel
+import McmcLean.Relativistic.ScalarMetric
+import McmcLean.Relativistic.GeneralizedLeapfrog
+import McmcLean.Relativistic.FixedPointIteration
+import McmcLean.Relativistic.EndpointMetropolis
+import McmcLean.Relativistic.Multinomial
+import McmcLean.Relativistic.ConstantMetric
+import McmcLean.Relativistic.ConstantMetricEndpoint

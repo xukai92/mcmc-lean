@@ -30,6 +30,21 @@ theorem phaseVolume_eq_volume :
     phaseVolume (ι := ι) = (volume : Measure (PhaseSpace ι)) := by
   exact (Measure.volume_eq_prod (Position ι) (Momentum ι)).symm
 
+/-- Negating momentum while retaining position preserves product phase-space
+Lebesgue measure. -/
+theorem measurePreserving_momentumFlip :
+    MeasurePreserving (momentumFlip : PhaseSpace ι → PhaseSpace ι)
+      phaseVolume phaseVolume := by
+  unfold momentumFlip phaseVolume
+  have hneg : MeasurePreserving (fun p : Momentum ι => -p)
+      (volume : Measure (Momentum ι)) volume := by
+    refine ⟨measurable_neg, ?_⟩
+    simpa [abs_pow] using
+      (Measure.map_addHaar_smul (volume : Measure (Momentum ι))
+        (r := (-1 : ℝ)) (by norm_num))
+  exact (MeasurePreserving.id (volume : Measure (Position ι))).prod
+    hneg
+
 /-- Momentum half-kick as a map of the full phase space. -/
 noncomputable def kickPhase (gradient : Position ι → Position ι) (ε : ℝ)
     (z : PhaseSpace ι) : PhaseSpace ι :=

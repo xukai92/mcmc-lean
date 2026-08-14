@@ -1,5 +1,271 @@
 # Development log
 
+## 2026-08-14: diagonal SoftAbs kernel closure
+
+Proved joint measurability of the complete diagonal-SoftAbs GR Hamiltonian
+from a measurable potential and coordinatewise measurable Hessian diagonal.
+The exact factor-volume theorem now yields its measurable normalized momentum
+family. New endpoint-Metropolis and multinomial position-kernel theorems prove
+invariance of the intended position target for the concrete SoftAbs metric;
+their only remaining numerical premise is the explicit generalized-leapfrog
+`IsValid` certificate. The coverage audit now removes the previously open
+SoftAbs measure-interface obligation.
+
+Strengthened the corrected fixed-point analysis. Under an explicit
+`ContractingWith K` hypothesis, both implicit finite loops now converge to
+their unique fixed points, with a priori geometric distance bounds after any
+number of iterations. Separately, measurable Hamiltonian derivative fields
+make each finite loop and the complete finite generalized-leapfrog update
+measurable. `FiniteFixedPointIsValid` therefore derives its measurability field
+and retains only zero residual, uniqueness, time reversal, and phase-volume
+preservation as solver-specific obligations. These results quantify the
+paper's approximation practice without incorrectly promoting a fixed count to
+an exact integrator.
+
+Closed the removable SoftAbs branch at zero. Lean proves
+`x cosh x - sinh x = o(x²)` from the hyperbolic derivative identities and
+shows `x sinh x ~ x²`; hence the unit SoftAbs difference quotient tends to
+zero. Scaling gives differentiability of `softAbs α` at zero for every
+`α>0`, and the existing quotient proof handles all nonzero points.
+`diagonalSoftAbsDerivativeData` and
+`diagonalSoftAbsMetricEquation12CertificateOfDifferentiable` now turn any
+coordinatewise differentiable Hessian diagonal into the complete Equation
+(12) certificate with no nonzero-eigenvalue assumption.
+
+## 2026-08-14: relativistic Riemannian HMC formalization begins
+
+Added the Xu and Ge 2024 roadmap and began its lowest algebraic layer.  The
+new relativistic module defines special-relativistic mass, kinetic energy, and
+velocity and targets the strict speed bound underlying the paper's
+Riemannian construction.  The roadmap records two proof boundaries from the
+initial paper audit: the printed higher-dimensional momentum sampler uses the
+two-dimensional radial Jacobian and independent uniform spherical angles, and
+the paper's sampler-validity discussion is informal.  The corrected
+formalization will prove the dimension-dependent radial/directional
+pushforward and will make generalized-leapfrog solvability, reversibility,
+volume preservation, and measurability explicit.
+
+The first radial-momentum layer now uses the dimension-dependent polar
+Jacobian `r^(d-1)`.  Lean proves that it reduces to the paper's printed factor
+`r` in dimension two and proves a concrete mismatch at radius two in
+dimension three.  Mathlib's `Measure.toSphere` and `Measure.volumeIoiPow`
+provide the intended foundation for the corrected radial/uniform-direction
+measure pushforward.
+
+Added an abstract factored Riemannian layer that keeps the quadratic-form
+factor and inverse-metric action distinct.  Lean proves positivity of the
+general-relativistic mass and the corrected anisotropic velocity bound
+`‖G⁻¹p‖ / (‖Ap‖/c)`.  The paper audit now records that the mass argument and
+norm ratio printed after Equation (9) do not follow in general from
+`AᵀA = G⁻¹`.  The audit is now machine checked by the anisotropic instance
+`A = diag(2,1)`, `G⁻¹ = diag(4,1)`, `p = (1,1)`, for which Lean proves the
+corrected ratio is strictly larger than the printed ratio.
+
+The corrected polar sampler is now connected end to end at the unnormalized
+measure level.  Using mathlib's Haar sphere measure, `volumeIoiPow (d-1)`, and
+the measurable polar synthesis map, Lean proves that the sampler's pushforward
+is exactly the Cartesian measure with relativistic Boltzmann density.  This is
+the distributional identity missing from the paper's printed
+higher-dimensional Algorithm 1.
+
+Added the raw position-dependent factored-metric interface and the complete
+nonseparable GR Hamiltonian from Equation (8).  The factor, inverse-metric
+action, and log determinant remain separate so their matrix and calculus
+compatibility cannot be assumed accidentally.  The full Hamiltonian is proved
+invariant under momentum flip, the mass is positive for positive physical
+parameters, and the corrected pointwise anisotropic speed bound is lifted to
+the position-dependent interface.
+
+Strengthened the factored-metric interface so its quadratic-form factor is a
+continuous linear equivalence.  This makes the corrected affine momentum
+transport definable without a choice of inverse: the conditional momentum
+measure at `q` is the map of the isotropic relativistic measure by
+`factor(q)⁻¹`.  The audit records that Algorithm 1's printed `A_qᵀ` transport
+is inconsistent with its stated `A_qᵀA_q=G_q⁻¹` convention unless additional
+special structure makes transpose and inverse coincide.
+
+Closed the normalization obligation for positive mass and speed parameters.
+The relativistic radial energy strictly dominates `c*r`; the resulting
+Boltzmann density is bounded by an integrable Gamma tail.  Lean uses this to
+prove finite, nonzero Cartesian mass and constructs a normalized
+`ProbabilityMeasure`.  Transporting it through `factor(q)⁻¹` gives an actual
+position-dependent momentum probability law, and mapping that law forward by
+`factor(q)` is proved to recover the normalized isotropic law exactly.
+
+Formalized the generalized implicit-leapfrog equations from the paper and a
+selection interface that witnesses an actual solution.  Existence is kept
+strictly separate from measurability, uniqueness, momentum-flip time
+reversibility, and phase-volume preservation; the later kernel theorem will
+consume an explicit certificate containing all four obligations.  Lean also
+proves directly from the equations that every selected implementation is the
+identity at zero step size.
+
+Added the first concrete metric specialization.  For `A=G⁻¹=I` and zero log
+determinant, Lean proves that the GR kinetic energy and velocity reduce exactly
+to their special-relativistic forms, the normalized conditional momentum law
+is the isotropic relativistic probability, and the momentum family satisfies
+the kernel measurability obligation.  The resulting concrete momentum kernel
+is a proved mathlib Markov kernel.
+
+Added the generic deterministic Metropolis layer needed for endpoint GR-HMC.
+A measurable deterministic map now yields a proposal kernel, a zero-safe
+symmetric-minimum acceptance probability, and a completed Markov kernel with
+an explicit accept-or-retain row formula.  The accepted-flow multiplication
+identity is proved for positive finite target weights.  For every measurable
+involutive proposal preserving the reference measure, Lean now proves that
+the accepted flow and completed Metropolis kernel are reversible with respect
+to the weighted target measure, and hence that the completed kernel preserves
+that target.  Applying this theorem to GR-HMC still requires a measurable
+generalized-leapfrog endpoint map together with its time-reversal and
+phase-volume certificates.
+
+Connected that generic result to generalized leapfrog. Lean derives the
+inverse-step identity `step(-ε) (step ε z) = z` from the implicit equations and
+their uniqueness, rather than adding it as another unsupported assumption.
+The paper's time-reversal condition then makes momentum flip after a step an
+involution. Momentum flip is separately proved to preserve finite-dimensional
+phase Lebesgue measure, so a valid generalized-leapfrog certificate makes the
+whole endpoint proposal volume preserving.
+
+The resulting endpoint-Metropolis GR-HMC kernel is now defined against the
+full position-dependent Hamiltonian. Lean proves it is Markov, reversible,
+and invariant for the unnormalized GR Boltzmann measure. The result remains
+explicitly conditional on existence, uniqueness, measurability, reversal, and
+volume preservation of the selected implicit solver.
+
+Added the complete user-facing position transition: it draws from the
+position-dependent relativistic momentum kernel, runs endpoint-corrected
+GR-HMC in phase space, and projects to position. Lean proves this kernel is
+Markov and preserves any position target satisfying an explicit disintegration
+compatibility equation with the normalized conditional momentum law. The
+equation deliberately exposes the metric determinant/Jacobian obligation;
+deriving it for a concrete nonconstant factored metric, multinomial correction,
+and concrete nonconstant solver certificates remain to be formalized.
+
+Auditing the identity-metric compatibility proof exposed an internal norm
+mismatch: `Momentum ι = ι → ℝ` has mathlib's product/sup norm, whereas the
+Hamiltonian's `euclideanNorm` is `L²`. The earlier generic ambient-norm radial
+measure was therefore not the Hamiltonian momentum law above dimension one.
+The corrected construction now starts on `EuclideanSpace ℝ ι`, uses the proven
+polar sampler there, and transports through mathlib's volume-preserving
+Euclidean coordinate equivalence. Lean proves the resulting Cartesian density
+is exactly the density formed from `euclideanNorm`; all Riemannian momentum
+refresh definitions now use this corrected law.
+
+The identity-metric compatibility equation is now proved completely. The GR
+phase measure factors into the ordinary position Boltzmann measure and the
+unnormalized corrected relativistic momentum measure. After accounting for
+the momentum partition function, the normalized refresh law reconstructs that
+phase measure. Consequently Lean proves the full identity-metric position
+endpoint GR-HMC kernel preserves its position target, conditional only on the
+explicit generalized-leapfrog validity certificate.
+
+The general metric determinant obligation is now isolated as
+`HasCompatibleFactorVolume`, an exact statement about Lebesgue measure under
+the inverse factor. Lean proves that this certificate identifies the
+transported conditional momentum measure with the full Riemannian kinetic
+density, including its log-determinant term. A position-dependent scalar-factor
+metric satisfies the certificate, so this is no longer only a constant-metric
+test. The final kernel-level reconstruction is not yet derived automatically
+from this certificate; the general position-invariance theorem still takes
+its explicit compatibility equation as a hypothesis.
+
+Added the multinomial GR-HMC correction. A generic orbit theorem proves that
+uniform random re-rooting followed by positive finite weighted index selection
+along a measurable measure-preserving permutation is a Markov kernel reversible
+for the corresponding weighted base measure. A uniquely selected generalized-
+leapfrog step instantiates the permutation, with its negative step as inverse.
+Consequently the multinomial GR phase kernel is reversible and invariant, and
+its momentum-refresh/projected position kernel preserves every explicitly
+compatible position target. The identity metric supplies a concrete end-to-end
+position-invariance instance. These results remain conditional on the selected
+implicit solver's validity certificate, not merely on its equations.
+
+Completed `docs/xu24-coverage.md`, an equation-by-equation and algorithm-level
+audit against the published ICML paper. It records machine-checked,
+conditional, corrected, and implementation-only items separately. In
+particular, Equation (9) also has a derivative-variable typo (`∇q H` where
+Hamiltonian velocity is `∇p H`), Algorithm 1 has three independent general-
+dimension/transport defects, and Section 5.2's symmetry argument omits the
+conditional-law disintegration and numerical-map obligations. Equations
+(12)--(13), a concrete SoftAbs metric and derivative implementation, and an
+exactly certified finite-iteration implicit solver remain outside the current
+executable instance. Experimental stability and ESS results are not promoted
+to universal theorems.
+
+Closed the general metric-to-kernel compatibility gap. Lean now proves the
+normalized conditional momentum density row by row, derives kernel
+measurability from the joint density, and reconstructs the GR phase target from
+the scaled position target and refresh kernel. The position-dependent scalar
+factor consequently has full endpoint and multinomial position-invariance
+theorems. Its Hamiltonian measurability is derived from measurable potential
+and positive measurable scale fields, leaving only the explicit generalized-
+leapfrog validity certificate as the numerical premise.
+
+Formalized Equation (13) as a genuine Fréchet-derivative identity. The
+special-relativistic kinetic derivative is first proved directionally and
+then lifted to `fderiv`; composition with the position-fixed metric factor
+gives the GR momentum derivative `G⁻¹p/M`. The theorem requires the precise
+bilinear compatibility condition `⟪A x, A y⟫ = ⟪G⁻¹x, y⟫`, exposing rather
+than hiding the paper's `AᵀA = G⁻¹` obligation. This isolated Equation (12),
+which additionally requires derivatives of the position-dependent metric
+data, as the next calculus obligation.
+
+Formalized Equation (12) in directional Fréchet-derivative form. A new
+`Equation12Certificate` records the precise matrix-calculus obligations:
+the derivative of `pᵀG⁻¹p` is
+`-pᵀG⁻¹(dG)G⁻¹p`, and the derivative of `log det G` is
+`tr(G⁻¹dG)`. Lean derives both the published inverse-mass/trace kinetic
+formula and the complete Hamiltonian position derivative from this
+certificate. Thus Equations (12)--(13) are no longer open abstract calculus
+claims; the remaining implementation task is to construct the certificate
+for the paper's concrete SoftAbs or diagonal-SoftAbs metric.
+
+Added the paper's diagonal SoftAbs metric from Section 5.4. The scalar
+transform is defined as `x / tanh(αx)` away from zero and by its limiting
+value `1/α` at zero; Lean proves it is strictly positive for `α>0`. The
+resulting diagonal metric has inverse-square-root factor, inverse action, and
+log determinant, and Lean proves `AᵀA=G⁻¹` and specializes Equation (13) to
+it. Lean also proves exact factor-volume compatibility: mathlib's determinant
+change-of-variables theorem reduces the inverse-factor Jacobian to the product
+of positive square-root eigenvalues, which is shown equal to the exponential
+of half the stored log determinant. Its Equation (12) certificate still
+depends on differentiability of the supplied Hessian diagonal.
+
+Closed the matrix-calculus part of that remaining Equation (12) obligation.
+`DiagonalEigenvalueDerivativeData` records coordinatewise Fréchet derivatives
+of the positive diagonal eigenvalues. Lean automatically constructs
+`Equation12Certificate`, proving both the derivative of the inverse quadratic
+form and the derivative of the log determinant as the required trace. Thus a
+concrete target now only needs to differentiate its Hessian diagonal through
+the scalar SoftAbs transform; smoothness at a zero Hessian entry remains an
+explicit analytic boundary.
+
+Proved the SoftAbs chain rule away from zero. Real `tanh` is differentiable,
+the quotient branch is differentiable for `α>0` and a nonzero input, and
+`diagonalSoftAbsDerivativeDataOfNonzero` now turns any differentiable Hessian
+diagonal with nonzero entries at the current position into the complete
+Equation (12) certificate. Only the removable zero-eigenvalue branch remains
+outside this scalar calculus layer.
+
+Formalized the practical finite fixed-point loops used for generalized
+leapfrog. `finiteFixedPointGeneralizedLeapfrog_satisfies_iff` proves that the
+returned transition satisfies Equations (6)--(7) exactly iff the last values
+of both loops are genuine fixed points. A one-dimensional compiled
+counterexample uses the experimental count `n=6`: the half-momentum iteration
+alternates between zero and one, so its sixth value is not fixed and the full
+update does not satisfy the generalized-leapfrog equations. Consequently the
+paper's finite iteration count cannot justify exact reversibility or volume
+preservation without further assumptions, convergence-to-tolerance analysis,
+or an additional correction mechanism.
+
+Added the corrected finite-solver interface. `FiniteFixedPointIsExact`
+requires both implicit residuals to vanish; only then does
+`finiteFixedPointSelection` construct a genuine generalized-leapfrog
+selection. `FiniteFixedPointIsValid` additionally requires measurability,
+uniqueness, time reversal, and volume preservation. The six-step example
+proves that even the first, zero-residual premise fails in general.
+
 This file records completed milestones, current limitations, and likely next
 steps. It is descriptive rather than a promise about release dates.
 
