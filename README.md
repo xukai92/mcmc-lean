@@ -18,12 +18,20 @@ The algorithms are defined as mathlib kernels rather than assumed through
 opaque interfaces. Any corrected, conditional, obstructed, or empirical paper
 statement is classified in its corresponding coverage audit.
 
+Betancourt's [*A Conceptual Introduction to Hamiltonian Monte
+Carlo*](https://arxiv.org/abs/1701.02434) is used as a foundational HMC
+reference. Its lift--evolve--project correctness spine and the boundary between
+invariance, convergence, and conceptual guidance are mapped in the
+[foundation coverage note](docs/betancourt17-coverage.md).
+
 ## Current status
 
 The repository now contains machine-checked implementations and proofs for:
 
 - general-state Metropolis--Hastings, Gaussian RWMH, and coupled Gaussian
   RWMH as mathlib Markov kernels;
+- a general lift--evolve--project invariance theorem for auxiliary-variable
+  MCMC, including a deterministic measure-preserving-flow specialization;
 - finite-dimensional leapfrog dynamics and full multinomial HMC, including
   momentum refresh, randomized trajectory origin, multinomial selection, and
   target invariance;
@@ -224,6 +232,8 @@ lake env lean McmcLean/Hamiltonian/LocalContractivity.lean
   local coupled-HMC accessibility.
 - [`docs/architecture.md`](docs/architecture.md): dependency graphs from
   mathlib measures and kernels through RWMH/HMC to Xu et al.'s meeting theorem.
+- [`docs/betancourt17-coverage.md`](docs/betancourt17-coverage.md): mapping of
+  Betancourt's conceptual HMC construction to the reusable correctness layer.
 - [`docs/xu21-coverage.md`](docs/xu21-coverage.md) and
   [`docs/xu21-roadmap.md`](docs/xu21-roadmap.md): claim audit and roadmap for
   Xu et al. (2021).

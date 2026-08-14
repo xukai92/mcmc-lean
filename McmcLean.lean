@@ -39,6 +39,7 @@ import McmcLean.Kernel.DetailedBalance
 import McmcLean.Kernel.DeterministicMetropolis
 import McmcLean.Kernel.GaussianRandomWalk
 import McmcLean.Kernel.GaussianProposalCoupling
+import McmcLean.Kernel.LiftEvolveProject
 import McmcLean.Kernel.Meeting
 import McmcLean.Kernel.MeetingDrift
 import McmcLean.Kernel.MetropolisHastings

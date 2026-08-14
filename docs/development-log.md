@@ -1,5 +1,19 @@
 # Development log
 
+## 2026-08-14: auxiliary-variable HMC foundation
+
+Added a general measure-theoretic lift--evolve--project kernel and proved that
+it preserves a position target whenever the lift produces an extended target,
+the extended transition preserves that target, and projection recovers the
+position target. A deterministic measure-preserving-map specialization covers
+the ideal Hamiltonian-flow construction. A conditional-auxiliary-kernel
+corollary automatically discharges the canonical product lift and first
+projection equations. The Euclidean multinomial-HMC and both endpoint and
+multinomial GR-HMC position-invariance proofs now consume this common result
+instead of repeating measure-composition arguments. Added a coverage note mapping
+Betancourt's conceptual HMC review to the machine-checked foundation and
+separating invariance from unproved ergodic or efficiency claims.
+
 ## 2026-08-14: per-paper documentation cleanup
 
 Standardized the paper documentation as `xu21-{coverage,roadmap}.md` and

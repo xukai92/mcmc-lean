@@ -24,6 +24,22 @@ exists.
 
 ## Direct mathematical precedents
 
+### A conceptual introduction to Hamiltonian Monte Carlo
+
+Betancourt presents HMC as an auxiliary-variable transition: lift a position
+to phase space with a momentum distribution, evolve along Hamiltonian
+trajectories, and project back. The review also explains why symplectic
+integrators and a trajectory-level correction are central to practical HMC,
+while explicitly prioritizing intuition over exhaustive technical rigor.
+
+- Michael Betancourt, [A Conceptual Introduction to Hamiltonian Monte
+  Carlo](https://arxiv.org/abs/1701.02434), 2017, revised 2018.
+
+This decomposition motivates the repository's generic
+`liftEvolveProject_invariant` theorem. The exact mapping, implemented pieces,
+and convergence boundary are recorded in the [foundation coverage
+note](betancourt17-coverage.md).
+
 ### Couplings for multinomial Hamiltonian Monte Carlo
 
 Xu, Fjelde, Sutton, and Ge construct maximal and transport-based couplings for

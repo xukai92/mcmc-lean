@@ -198,13 +198,10 @@ theorem positionMultinomialGRHMC_invariant
     riemannianMomentumKernel metric m c hm hc hmeasurableMomentum
   let phaseKernel :=
     multinomialGRHMCPhase potential metric m c selection hvalid hH ε L
-  rw [Kernel.Invariant]
-  unfold positionMultinomialGRHMC
-  rw [← Measure.map_comp _ _ measurable_fst, ← Measure.comp_assoc]
-  change Measure.map Prod.fst
-      (phaseKernel ∘ₘ
-        ((Kernel.id ×ₖ momentumKernel) ∘ₘ positionTarget)) = positionTarget
-  rw [← Measure.compProd_eq_comp_prod]
+  change (McmcLean.Kernel.liftEvolveProject
+    (riemannianPositionMomentumLift metric m c hm hc hmeasurableMomentum)
+    phaseKernel (Prod.fst : PhaseSpace ι → Position ι)
+    measurable_fst).Invariant positionTarget
   have hphase := multinomialGRHMCPhase_invariant potential metric m c selection
     hvalid hH ε L
   change phaseKernel.Invariant
@@ -212,8 +209,8 @@ theorem positionMultinomialGRHMC_invariant
   change positionTarget ⊗ₘ momentumKernel =
     generalRelativisticPhaseTarget potential metric m c at hcompat
   rw [← hcompat] at hphase
-  rw [hphase]
-  change (positionTarget ⊗ₘ momentumKernel).fst = positionTarget
-  exact Measure.fst_compProd positionTarget momentumKernel
+  unfold riemannianPositionMomentumLift
+  exact McmcLean.Kernel.compProdEvolveFst_invariant positionTarget
+    momentumKernel phaseKernel hphase
 
 end McmcLean.Relativistic

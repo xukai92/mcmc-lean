@@ -1,5 +1,6 @@
 import McmcLean.Hamiltonian.Invariance
 import McmcLean.Hamiltonian.MomentumRefresh
+import McmcLean.Kernel.LiftEvolveProject
 import Mathlib.MeasureTheory.Measure.WithDensity
 import Mathlib.Probability.Kernel.Composition.Lemmas
 
@@ -294,16 +295,19 @@ theorem positionMultinomialHMC_invariant
       phaseBoltzmannTarget potential) :
     (positionMultinomialHMC potential gradient ε L hpotential hgradient
       momentumTarget).Invariant positionTarget := by
-  rw [Kernel.Invariant]
-  unfold positionMultinomialHMC
-  rw [← Measure.map_comp _ _ measurable_fst]
-  rw [← Measure.comp_assoc]
-  rw [positionMomentumLift_comp positionTarget momentumTarget]
+  change (McmcLean.Kernel.liftEvolveProject
+    (positionMomentumLift momentumTarget)
+    (randomizedMultinomialLeapfrogKernel potential gradient ε L
+      hpotential hgradient)
+    (Prod.fst : PhaseSpace ι → Position ι) measurable_fst).Invariant
+      positionTarget
   have htrajectory := randomizedMultinomialLeapfrogKernel_invariant
     hpotential hgradient ε L
   rw [← hfactor] at htrajectory
-  rw [htrajectory]
-  rw [Measure.map_fst_prod, measure_univ, one_smul]
+  unfold positionMomentumLift
+  apply McmcLean.Kernel.compProdEvolveFst_invariant
+  rw [Measure.compProd_const]
+  exact htrajectory
 
 /-- Multinomial HMC with the standard Gaussian momentum law. -/
 noncomputable def standardPhaseMultinomialHMC
@@ -376,12 +380,12 @@ theorem standardPositionMultinomialHMC_invariant
   letI : SFinite (positionBoltzmannTarget potential) := by
     unfold positionBoltzmannTarget
     infer_instance
-  rw [Kernel.Invariant]
-  unfold standardPositionMultinomialHMC positionMultinomialHMC
-  rw [← Measure.map_comp _ _ measurable_fst]
-  rw [← Measure.comp_assoc]
-  rw [positionMomentumLift_comp
-    (positionBoltzmannTarget potential) standardMomentumMeasure]
+  change (McmcLean.Kernel.liftEvolveProject
+    (positionMomentumLift standardMomentumMeasure)
+    (randomizedMultinomialLeapfrogKernel potential gradient ε L
+      hpotential hgradient)
+    (Prod.fst : PhaseSpace ι → Position ι) measurable_fst).Invariant
+      (positionBoltzmannTarget potential)
   have hbase :
       (randomizedMultinomialLeapfrogKernel potential gradient ε L
         hpotential hgradient).Invariant (phaseBoltzmannTarget potential) :=
@@ -389,7 +393,9 @@ theorem standardPositionMultinomialHMC_invariant
   have htrajectory := Kernel.Invariant.smul hbase
     (standardMomentumPrefactor (ι := ι))
   rw [← positionBoltzmann_prod_standardMomentum hpotential] at htrajectory
-  rw [htrajectory]
-  rw [Measure.map_fst_prod, measure_univ, one_smul]
+  unfold positionMomentumLift
+  apply McmcLean.Kernel.compProdEvolveFst_invariant
+  rw [Measure.compProd_const]
+  exact htrajectory
 
 end McmcLean.Hamiltonian
