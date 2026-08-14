@@ -24,6 +24,22 @@ exists.
 
 ## Direct mathematical precedents
 
+### MCMC using Hamiltonian dynamics
+
+Neal's review gives the classical endpoint-Metropolis HMC construction and
+surveys partial momentum refreshment, windowed acceptance, approximate
+trajectory computation, short-cut trajectories, and tempering. It explicitly
+separates invariance of the basic transition from ergodicity, noting periodic
+parameter choices for which ergodicity fails.
+
+- Radford M. Neal, [MCMC using Hamiltonian
+  dynamics](https://arxiv.org/abs/1206.1901), in *Handbook of Markov Chain
+  Monte Carlo*, 2011; arXiv version 2012.
+
+The review motivates the generic invariant-momentum-transition layer and
+clarifies which variants need additional kernels or symmetry proofs. The
+mapping is recorded in the [foundation coverage note](neal12-coverage.md).
+
 ### A conceptual introduction to Hamiltonian Monte Carlo
 
 Betancourt presents HMC as an auxiliary-variable transition: lift a position

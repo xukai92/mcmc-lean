@@ -25,13 +25,43 @@ open ProbabilityTheory
 
 variable {ι : Type*} [Fintype ι]
 
+/-- Retain position while applying an arbitrary transition to momentum.  This
+is the phase-space lifting used by full refreshment, partial refreshment, and
+other momentum updates. -/
+noncomputable def momentumTransition
+    (momentumKernel : Kernel (Momentum ι) (Momentum ι)) :
+    Kernel (PhaseSpace ι) (PhaseSpace ι) :=
+  Kernel.id ∥ₖ momentumKernel
+
+instance momentumTransition_isMarkovKernel
+    (momentumKernel : Kernel (Momentum ι) (Momentum ι))
+    [IsMarkovKernel momentumKernel] :
+    IsMarkovKernel (momentumTransition momentumKernel) := by
+  unfold momentumTransition
+  infer_instance
+
+omit [Fintype ι] in
+/-- Any invariant momentum transition lifts to an invariant transition for
+the product phase target.  The momentum transition need not be an independent
+resampling step or reversible. -/
+theorem momentumTransition_invariant
+    (positionTarget : Measure (Position ι)) [SFinite positionTarget]
+    (momentumTarget : Measure (Momentum ι)) [SFinite momentumTarget]
+    (momentumKernel : Kernel (Momentum ι) (Momentum ι))
+    [IsMarkovKernel momentumKernel]
+    (hinvariant : momentumKernel.Invariant momentumTarget) :
+    (momentumTransition momentumKernel).Invariant
+      (positionTarget.prod momentumTarget) := by
+  rw [ProbabilityTheory.Kernel.Invariant, momentumTransition,
+    ← Measure.prod_comp_right, hinvariant]
+
 /-- Retain the position coordinate and independently resample momentum from
 `momentumTarget`.  This parameterized form separates the HMC construction
 from the later choice of a Gaussian kinetic law. -/
 noncomputable def momentumRefreshWith
     (momentumTarget : Measure (Momentum ι)) :
     Kernel (PhaseSpace ι) (PhaseSpace ι) :=
-  Kernel.id ∥ₖ Kernel.const (Momentum ι) momentumTarget
+  momentumTransition (Kernel.const (Momentum ι) momentumTarget)
 
 instance momentumRefreshWith_isMarkovKernel
     (momentumTarget : Measure (Momentum ι))
@@ -48,9 +78,9 @@ theorem momentumRefreshWith_invariant
     [IsProbabilityMeasure momentumTarget] :
     (momentumRefreshWith momentumTarget).Invariant
       (positionTarget.prod momentumTarget) := by
-  rw [Kernel.Invariant, momentumRefreshWith]
-  rw [← Measure.prod_comp_right]
-  rw [Measure.const_comp, measure_univ, one_smul]
+  unfold momentumRefreshWith
+  apply momentumTransition_invariant positionTarget momentumTarget
+  rw [Kernel.Invariant, Measure.const_comp, measure_univ, one_smul]
 
 /-- Independent standard Gaussian momentum coordinates. -/
 noncomputable def standardMomentumMeasure : Measure (Momentum ι) :=
@@ -170,8 +200,8 @@ instance momentumRefresh_isMarkovKernel :
 theorem momentumRefresh_apply (z : PhaseSpace ι) :
     momentumRefresh z =
       (Measure.dirac z.1).prod standardMomentumMeasure := by
-  rw [momentumRefresh, momentumRefreshWith, Kernel.parallelComp_apply, Kernel.id_apply,
-    Kernel.const_apply]
+  rw [momentumRefresh, momentumRefreshWith, momentumTransition,
+    Kernel.parallelComp_apply, Kernel.id_apply, Kernel.const_apply]
 
 /-- Momentum refresh leaves the current position unchanged. -/
 theorem momentumRefresh_fst (z : PhaseSpace ι) :

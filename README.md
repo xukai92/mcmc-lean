@@ -23,6 +23,10 @@ Carlo*](https://arxiv.org/abs/1701.02434) is used as a foundational HMC
 reference. Its lift--evolve--project correctness spine and the boundary between
 invariance, convergence, and conceptual guidance are mapped in the
 [foundation coverage note](docs/betancourt17-coverage.md).
+Neal's [*MCMC using Hamiltonian
+dynamics*](https://arxiv.org/abs/1206.1901) additionally informs the endpoint
+Metropolis, momentum-transition, partial-refreshment, and windowed-HMC
+boundaries recorded in its [foundation coverage note](docs/neal12-coverage.md).
 
 ## Current status
 
@@ -32,6 +36,8 @@ The repository now contains machine-checked implementations and proofs for:
   RWMH as mathlib Markov kernels;
 - a general lift--evolve--project invariance theorem for auxiliary-variable
   MCMC, including a deterministic measure-preserving-flow specialization;
+- a phase-space lifting theorem for arbitrary invariant momentum transitions,
+  with full independent refreshment as a specialization;
 - finite-dimensional leapfrog dynamics and full multinomial HMC, including
   momentum refresh, randomized trajectory origin, multinomial selection, and
   target invariance;
@@ -234,6 +240,8 @@ lake env lean McmcLean/Hamiltonian/LocalContractivity.lean
   mathlib measures and kernels through RWMH/HMC to Xu et al.'s meeting theorem.
 - [`docs/betancourt17-coverage.md`](docs/betancourt17-coverage.md): mapping of
   Betancourt's conceptual HMC construction to the reusable correctness layer.
+- [`docs/neal12-coverage.md`](docs/neal12-coverage.md): mapping of Neal's HMC
+  review and variants to implemented foundations and remaining boundaries.
 - [`docs/xu21-coverage.md`](docs/xu21-coverage.md) and
   [`docs/xu21-roadmap.md`](docs/xu21-roadmap.md): claim audit and roadmap for
   Xu et al. (2021).

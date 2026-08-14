@@ -1,5 +1,16 @@
 # Development log
 
+## 2026-08-14: invariant momentum-transition foundation
+
+Following the factorization emphasized in Neal's HMC review, generalized the
+phase-space refresh layer from independent resampling to an arbitrary Markov
+momentum transition preserving the momentum target. Full momentum refreshment
+is now a specialization of this theorem. This supplies the common foundation
+for a future partial Gaussian AR(1) refresh kernel without claiming that the
+concrete AR(1) invariance proof is already complete. Added a coverage note
+mapping endpoint correction, approximate proposal dynamics, windowed
+selection, parameter randomization, and their theorem boundaries.
+
 ## 2026-08-14: auxiliary-variable HMC foundation
 
 Added a general measure-theoretic lift--evolve--project kernel and proved that
