@@ -1,13 +1,13 @@
-# Roadmap
+# Xu et al. 2021 formalization roadmap
 
-This is the dependency-ordered plan for formalizing Xu, Fjelde, Sutton, and
+This document records the dependency-ordered formalization of Xu, Fjelde, Sutton, and
 Ge, [“Couplings for Multinomial Hamiltonian Monte Carlo”](https://proceedings.mlr.press/v130/xu21i.html)
 (AISTATS 2021). It records current proof boundaries rather than every
 historical intermediate lemma.
 
 ## Target theorem surface
 
-The project aims to machine-check:
+The machine-checked theorem surface covers:
 
 1. the RWMH and multinomial-HMC algorithms used by the paper;
 2. their coupled versions and exact marginal identities;
@@ -21,7 +21,7 @@ The algorithms are part of the theorem, not unexplained kernel assumptions.
 Experimental comparisons and floating-point implementations are separate
 goals.
 
-See [`paper-coverage.md`](paper-coverage.md) for the claim-by-claim audit of
+See [`xu21-coverage.md`](xu21-coverage.md) for the claim-by-claim audit of
 Algorithms 1--6 and the Section 4 theorem chain.
 
 ## Completed foundations
@@ -109,45 +109,18 @@ Algorithms 1--6 and the Section 4 theorem chain.
   proves all required drift and geometric premises for the explicit
   `ε = √2`, `L = 1` multinomial-HMC transition.
 
-## Statement corrections and limitations
+## Design implications from the statement audit
 
-### Printed Condition 1
+The canonical corrections, obstructions, and theorem references are
+maintained in the [2021 coverage audit](xu21-coverage.md). They led to three
+architectural choices here:
 
-The direct discrete reading of the paper's Condition 1 includes `L = 0` among
-all sufficiently small trajectory lengths. This is the identity transition,
-so any nontrivial state set forces the contraction rate to be at least one.
-The impossibility theorem is formalized.
-
-The library retains the printed condition but uses explicit repaired
-interfaces for nontrivial results:
-
-- a positive-integration-window condition;
-- a stronger window and rate uniform over all kinetic cutoffs; and
-- a cutoff-wise positive-window condition.
-
-Compact local strong convexity proves the cutoff-wise version. The stronger
-uniform-over-cutoffs version remains a valid optional hypothesis but is not
-silently inferred. The meeting proof needs only one positive-mass cutoff, so
-the cutoff-wise route suffices for local accessibility.
-
-### Optimal-transport route
-
-The finite transport implementation and all kernel bridges are complete.
-However, the paper-style exponent-two contraction certificate is not an
-unconditional Gaussian theorem. In the scalar standard-Gaussian case on
-`Set.univ`, Lean proves a short-time index-mass obstruction for relevant
-windows. Conditional exponent-two implications remain available and are
-labelled accordingly.
-
-### General drift
-
-Regularity and local strong convexity do not by themselves imply the global
-Foster--Lyapunov drift condition used by Theorem 4.1. The general composition
-therefore takes a `XuTheorem41DriftAssumptions` certificate for the same
-selected `ε,L` HMC/RWMH kernels.
-
-The finite-dimensional standard-Gaussian family supplies such certificates.
-Additional target families require target-specific drift proofs.
+- use positive integration-time windows, with a cutoff-wise interface where
+  that is what compact analysis proves;
+- keep exponent-two transport results conditional when the audited regime is
+  obstructed, while using the proved first-moment route downstream; and
+- require target-specific Foster--Lyapunov drift rather than inferring it from
+  local strong convexity.
 
 ## Follow-on work outside the target theorem surface
 

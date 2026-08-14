@@ -1,4 +1,4 @@
-# Xu et al. paper coverage
+# Xu et al. 2021 coverage audit
 
 This document audits the compiled Lean development against Xu, Fjelde,
 Sutton, and Ge, [“Couplings for Multinomial Hamiltonian Monte
@@ -16,6 +16,18 @@ The paper's RWMH and HMC transitions are part of the formalization. They are
 not opaque kernels whose correctness is assumed. An abstract kernel theorem
 counts as a reusable intermediate result, but not as a completed algorithmic
 instance until its hypotheses have been proved for the concrete transition.
+
+Status terminology is shared with the 2024 audit:
+
+- **proved**: represented by definitions and machine-checked theorems;
+- **conditional**: proved from an explicit certificate still required of a
+  concrete target or implementation;
+- **corrected**: the printed statement cannot be used as written and Lean
+  formalizes a labeled replacement;
+- **obstructed**: Lean proves a counterexample or incompatibility under the
+  audited quantifiers; and
+- **out of scope**: empirical, floating-point, or implementation-engineering
+  claims not promoted to mathematical theorems.
 
 ## Algorithms
 
@@ -41,6 +53,39 @@ instance until its hypotheses have been proved for the concrete transition.
 | Lemma 4.3: maximal coupling | `maximalTrajectoryIndexCoupling_cost_le_add_totalVariation_mul` and maximal-coupling contraction results in `Hamiltonian/LocalContractivity.lean` | The finite cost decomposition and the repaired first-moment contraction route are proved. The paper's exponent-two formulation is retained as a conditional interface; a scalar Gaussian short-time obstruction prevents presenting it as an unconditional theorem under the relevant broad quantifiers. |
 | Lemma 4.4: optimal transport | `transportTrajectoryIndexCoupling_minimal` and `transportTrajectoryIndexCoupling_cost_le_add_totalVariation_mul`; measurable greedy transport selector and kernel lift | The finite optimality and inheritance of any established maximal-coupling cost bound are proved. A general unconditional exponent-two contraction theorem is not proved; it remains conditional, and the scalar Gaussian obstruction is documented. |
 | Theorem 4.1 | `XuTheorem41DriftAssumptions` and `exists_geometric_exactLagOneMeetingTail_stickyHmcRwmh` in `Hamiltonian/CoupledMixture.lean` | The drift/small-set implication to a geometric exact lag-one meeting tail is proved for the concrete sticky HMC/RWMH mixture. For a general target it requires the paper's target-specific drift certificate for the same selected kernels. Local strong convexity alone does not imply that global drift premise. |
+
+## Statement corrections and obstructions
+
+### Condition 1 requires a positive integration-time window
+
+The direct discrete reading of printed Condition 1 includes `L = 0`, for
+which the HMC transition is the identity. On any region containing two
+distinct positions, Lean proves this forces the proposed contraction rate to
+be at least one. Merely writing `L > 0` is insufficient if `εL` may still
+approach zero while one fixed subunit rate is required.
+
+The corrected interfaces impose
+
+```text
+0 < T_min ≤ εL ≤ T_max
+```
+
+and distinguish a single-window statement from the cutoff-wise form actually
+obtained from compact local strong convexity. One fixed positive-mass kinetic
+cutoff suffices for the downstream relaxed-accessibility and meeting proof.
+
+### The unconditional exponent-two route is obstructed
+
+For the scalar Gaussian example in the audited short-time regime, nearby
+chains can assign different multinomial index masses at first order in their
+initial separation, while a squared-distance contraction budget is only
+second order. Lean therefore does not promote the broad unconditional
+exponent-two claim to a theorem.
+
+The completed meeting argument uses a first-moment maximal coupling, whose
+total-variation mismatch has the correct scaling, together with the paper's
+separate global drift premise. This changes the justified proof route, not the
+implemented HMC/RWMH algorithm or the final geometric meeting conclusion.
 
 ## Fully instantiated and conditional endpoints
 

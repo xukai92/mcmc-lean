@@ -1,5 +1,14 @@
 # Development log
 
+## 2026-08-14: per-paper documentation cleanup
+
+Standardized the paper documentation as `xu21-{coverage,roadmap}.md` and
+`xu24-{coverage,roadmap}.md`. The README now gives only headline corrections
+and links to the canonical coverage audits. Detailed statement repairs,
+obstructions, implications, and theorem references live in the corresponding
+coverage file; the related-work note now links there instead of duplicating
+the audits.
+
 ## 2026-08-14: diagonal SoftAbs kernel closure
 
 Proved joint measurability of the complete diagonal-SoftAbs GR Hamiltonian
@@ -281,7 +290,7 @@ steps. It is descriptive rather than a promise about release dates.
 
 ## 2026-08-13: paper coverage audit
 
-Added `docs/paper-coverage.md`, a claim-by-claim map from Algorithms 1--6,
+Added `docs/xu21-coverage.md`, a claim-by-claim map from Algorithms 1--6,
 Assumptions 1--2, Condition 1, Propositions 4.1--4.2, Lemmas 4.1--4.4, and
 Theorem 4.1 of Xu et al. to the compiled Lean artifacts. The audit explicitly
 requires the concrete RWMH and multinomial-HMC kernels and their marginal and

@@ -1,11 +1,11 @@
 # Xu and Ge 2024 formalization roadmap
 
-The next theorem target is Kai Xu and Hong Ge, “Practical Hamiltonian Monte
+This document records the formalization of Kai Xu and Hong Ge, “Practical Hamiltonian Monte
 Carlo on Riemannian Manifolds via Relativity Theory,” ICML 2024.  The paper is
 primarily an algorithm and validity paper: Section 5.2 gives an informal
 correctness argument rather than a numbered convergence theorem.  This
-roadmap therefore treats construction of the actual GR-HMC kernel and a proof
-of target invariance as the principal endpoint.
+roadmap treats construction of the actual GR-HMC kernel and a proof of target
+invariance as the principal endpoint.
 
 ## Intended dependency chain
 
@@ -20,108 +20,18 @@ relativistic scalar/vector algebra
   -> target invariance
 ```
 
-## Paper-statement audit
+## Design implications from the statement audit
 
-The completed item-by-item status table is maintained in
-[the Xu--Ge coverage audit](xu24-coverage.md). This roadmap retains the design
-rationale and milestone history.
+The canonical item-by-item corrections and theorem references are maintained
+in the [2024 coverage audit](xu24-coverage.md). They led to four architectural
+choices here:
 
-### Multivariate momentum sampler
-
-Equation (10) derives a radial density proportional to
-`exp(-K(r)) * r` in two dimensions.  Algorithm 1 then applies that same radial
-law in general dimension and samples the spherical-coordinate angles
-independently and uniformly.  Those instructions require correction for
-dimension greater than two: polar change of variables contributes the radial
-Jacobian `r^(d-1)`, and independent uniform spherical angles do not produce a
-uniform direction on a higher-dimensional sphere.
-
-The formalization will preserve a faithful representation of the printed
-algorithm where useful, but will not claim that it samples the stated
-multivariate momentum law in arbitrary dimension.  The corrected construction
-will use a uniform spherical direction (for example, normalized Gaussian
-coordinates) and the dimension-dependent radial law.  Its pushforward must be
-proved equal to the desired momentum measure before it is used by GR-HMC.
-
-There is also a representation-level distinction inside Lean. The project
-stores momentum as a finite function `ι → ℝ`; mathlib gives that type the
-product/sup norm, while the Hamiltonian uses the Euclidean `L²` norm. A radial
-density written directly as a function of mathlib's ambient `‖p‖` would
-therefore be wrong in dimension greater than one. The corrected construction
-now builds the polar law on `EuclideanSpace ℝ ι` and transports it through
-mathlib's volume-preserving coordinate equivalence. Lean proves that the
-transported density is exactly the Hamiltonian's Euclidean momentum density.
-
-### Algorithm validity
-
-Section 5.2 appeals informally to symmetry of the momentum distribution,
-generalized leapfrog integration, and established Metropolis or multinomial
-corrections.  In the formalization these become separate explicit obligations:
-
-- the position-dependent momentum law has the claimed density and
-  normalization;
-- the implicit generalized leapfrog equations have a selected solution;
-- the selected numerical map is measurable, reversible, and volume
-  preserving; and
-- the corrected transition preserves the intended joint and position
-  targets.
-
-No claim of target invariance will be made from momentum symmetry alone.
-
-### Affine transformation in Algorithm 1
-
-With the paper's factorization `A_qᵀ A_q = G_q⁻¹`, Equation (8) depends on
-`‖A_q p‖²`.  Therefore an isotropic relativistic draw `z` must be transported
-as
-
-```text
-p = A_q⁻¹ z,
-```
-
-which makes `A_q p = z`.  Algorithm 1 instead prints `p = A_qᵀ z`.  These maps
-are not equal for a general metric; even in one dimension they have reciprocal
-scales.  The formalized conditional momentum measure uses the inverse factor.
-Any alternative convention must change the stated factorization consistently.
-
-### Velocity formula and bound after Equation (9)
-
-Let `A_qᵀ A_q = G_q⁻¹`.  Equation (8) depends on
-`pᵀ G_q⁻¹ p = ‖A_q p‖²`, so direct differentiation with respect to momentum
-gives
-
-```text
-v(q,p) = G_q⁻¹ p / M(q,p),
-M(q,p) = m * sqrt(‖A_q p‖² / (m² c²) + 1).
-```
-
-The printed left-hand side `v_G := ∇q H` is also inconsistent with Hamilton's
-equations: velocity is the momentum derivative `∇p H`. The Lean definition
-uses the momentum derivative.
-
-The printed Equation (9) instead writes `M_G(q, A_q p)` and then replaces its
-quadratic form by `pᵀp`; that substitution does not follow from
-`A_qᵀ A_q = G_q⁻¹`.  The following displayed bound
-`‖A_q p‖ / ‖p‖ * c` is likewise not the general norm bound for an anisotropic
-metric.  Without additional spectral or alignment assumptions, the direct
-bound is
-
-```text
-‖v(q,p)‖ < c * ‖G_q⁻¹ p‖ / ‖A_q p‖.
-```
-
-The Lean interface keeps the factor `A_q` and inverse-metric action `G_q⁻¹`
-separate and proves this corrected bound.  Lean also gives the explicit
-two-dimensional counterexample `A = diag(2,1)`, `G⁻¹ = diag(4,1)`, and
-`p = (1,1)`: the corrected ratio `‖G⁻¹p‖/‖Ap‖` is strictly larger than the
-printed `‖Ap‖/‖p‖` ratio.
-
-### Numerical stability
-
-The paper's comparative stability and efficiency results are empirical.
-Machine-checkable replacements require a specified error quantity and explicit
-analytic assumptions.  The pointwise velocity-bound theorem is a precise
-formal target; a universal claim that GR-HMC has smaller numerical error than
-RHMC is not inferred from that bound alone.
+- construct the corrected dimension-dependent momentum law and prove its
+  pushforward before using it as a refresh kernel;
+- keep the metric factor and inverse-metric action distinct;
+- represent generalized leapfrog through an explicit exact-solution validity
+  certificate; and
+- separate mathematical invariance from empirical stability and efficiency.
 
 ## Milestones
 

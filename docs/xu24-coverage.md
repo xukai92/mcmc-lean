@@ -19,6 +19,8 @@ Status meanings:
   numerical implementation must still discharge;
 - **corrected**: the printed statement or algorithm is false or inconsistent
   as written, and Lean formalizes a corrected replacement;
+- **obstructed**: Lean proves a counterexample or incompatibility under the
+  audited quantifiers; and
 - **out of scope**: background, implementation engineering, or an empirical
   claim rather than a correctness result of the GR-HMC kernel.
 

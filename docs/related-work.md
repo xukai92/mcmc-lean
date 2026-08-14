@@ -32,7 +32,7 @@ with coupled random-walk Metropolis--Hastings. Their proof proceeds through
 local contractivity under a globally Lipschitz gradient and local strong
 convexity, a total-variation estimate for multinomial trajectory weights, and
 drift/small-set results adapted from Heng and Jacob. This paper is the primary
-long-term theorem target for this repository.
+coupling and meeting-time target of the repository.
 
 - Kai Xu, Tor Erlend Fjelde, Charles Sutton, and Hong Ge,
   [Couplings for Multinomial Hamiltonian Monte Carlo](https://proceedings.mlr.press/v130/xu21i.html),
@@ -44,21 +44,10 @@ kernels with correct marginals, Hamiltonian and leapfrog analysis, categorical
 maximal and optimal-transport couplings, drift conditions, and a geometric
 meeting-time theorem must all be connected explicitly.
 
-The formalization also exposes a quantifier issue in the paper's printed
-Condition 1. It asks for a fixed contraction rate below one uniformly over all
-smaller integration times. With `L=0` admitted by the direct natural-number
-encoding, the transition is the identity and the inequality forces the rate
-to be at least one on every nontrivial set; this contradiction is proved in
-Lean. If the authors intend positive natural numbers, integration times can
-still approach zero through `ε→0` at fixed positive `L`, suggesting the same
-identity-limit obstruction. The repository therefore distinguishes the
-verbatim statement from an explicitly labeled positive-integration-window
-repair rather than presenting the latter as the published theorem.
-Within that repaired interface, the formalization preserves the paper's
-different moment choices: maximal coupling is developed with first-moment
-distance and its linearly scaling total-variation mismatch term, while the
-optimal-transport construction uses squared distance and second-moment
-optimality.
+The formalization exposes a zero-time quantifier obstruction in printed
+Condition 1 and a separate obstruction to the broad unconditional
+exponent-two route. The canonical statements, repairs, implications, and Lean
+artifacts are recorded in the [2021 coverage audit](xu21-coverage.md).
 
 ### Practical Hamiltonian Monte Carlo on Riemannian manifolds
 
@@ -72,34 +61,11 @@ a proposed multivariate momentum sampler.
   [Practical Hamiltonian Monte Carlo on Riemannian Manifolds via Relativity
   Theory](https://proceedings.mlr.press/v235/xu24i.html), ICML 2024.
 
-The paper's validity discussion is informal and delegates generalized-
-leapfrog and correction correctness to established techniques.  A
-machine-checked development must expose solvability, measurability,
-reversibility, and volume preservation of the selected implicit update before
-deducing target invariance.
-
-There is also a dimension-sensitive issue in the printed momentum sampler.
-Equation (10) derives the two-dimensional radial Jacobian, while Algorithm 1
-reuses that law in general dimension and samples spherical angles
-independently and uniformly.  In dimensions greater than two the radial
-Jacobian is `r^(d-1)`, and uniform spherical direction is not produced by
-independent uniform coordinate angles.  The formalization roadmap therefore
-separates the printed construction from a corrected radial/uniform-direction
-pushforward whose distributional correctness must be proved.
-
-Under the paper's stated factorization `AᵀA = G⁻¹`, the affine assignment at
-the end of Algorithm 1 also requires an inverse: transporting an isotropic
-draw `z` by `p=A⁻¹z` gives the desired quadratic form `‖Ap‖²=‖z‖²`.  The
-printed `p=Aᵀz` is not equivalent for a general metric.  The corrected
-formalization uses an invertible continuous factor and its inverse explicitly.
-
-The initial algebra audit also distinguishes the mass argument and velocity
-bound printed after Equation (9) from the derivative of Equation (8).  For a
-factor `AᵀA = G⁻¹`, the kinetic quadratic form is `‖Ap‖²`, while the velocity
-numerator is `G⁻¹p`; these cannot generally be collapsed to the printed norm
-ratio for an anisotropic metric.  The formalization uses the direct bound
-`c‖G⁻¹p‖/‖Ap‖` and reserves the paper's simpler expression for cases where
-additional structure proves it.
+The validity discussion is informal, and formalization exposes corrections to
+the dimension-dependent momentum sampler, affine transport, and Equation (9),
+plus an obstruction to treating six fixed-point iterations as an exact
+integrator. The canonical statements, corrected formulas, implications, and
+Lean artifacts are recorded in the [2024 coverage audit](xu24-coverage.md).
 
 ### A categorical account of Metropolis--Hastings
 

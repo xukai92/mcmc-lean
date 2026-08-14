@@ -157,4 +157,5 @@ initial states. Those obligations remain explicit at theorem endpoints.
 - `McmcLean/Kernel/UnbiasedEstimator.lean` develops downstream estimator
   consequences.
 
-See `paper-coverage.md` for a claim-by-claim correspondence with the paper.
+See [`xu21-coverage.md`](xu21-coverage.md) for the claim-by-claim
+correspondence with the 2021 paper.
