@@ -362,6 +362,29 @@ The intended order after the finite milestone is:
 This sequence is guidance, not a claim that later numerical or convergence
 obligations are already discharged.
 
+### Continuous Gaussian RWMH status
+
+The primitive and program boundaries are now concrete.
+`Mcmc.Executable.IR` supplies an intrinsically typed first-order syntax with
+typed de Bruijn variables, pure expressions, syntactic `let` and `sample`
+binders, exact kernel semantics, and deterministic trace semantics. Lean proves
+that every program denotes a Markov kernel. The standard-normal law is exactly
+mathlib's `volume.withDensity (gaussianPDF 0 1)`.
+
+The first continuous program draws standard-normal noise and translates it by
+the current scalar state. Lean proves its measure is `gaussianReal current 1`
+and is exactly the corresponding proposal row in the existing density-based
+RWMH construction. The current Julia `GaussianRWMH` is maintained under
+`Optimized`, consumes explicitly typed `Float64` trace events in tests, and
+uses `randn`/`rand` for production draws. Its moment and deterministic replay
+tests are implementation evidence only. The complete standard-Gaussian-target
+IR program, its accept-or-retain replay theorem, the exact unit-uniform
+threshold integral, and pointwise equality with `densityAcceptance` are now
+proved. Still required for full continuous RWMH refinement is their final
+composition into kernel equality with
+`Mcmc.Kernel.randomWalkMetropolisHastings`. The exact assumptions at the Julia
+boundary are listed in the [continuous executable contract](continuous-executable-contract.md).
+
 ## Validation flow
 
 The root workflow is:

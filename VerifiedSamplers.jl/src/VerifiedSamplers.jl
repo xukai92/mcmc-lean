@@ -7,7 +7,41 @@ include("Runtime/Runtime.jl")
 include("Generated/Generated.jl")
 include("Optimized/Optimized.jl")
 
-export FiniteWeights, FiniteKernelWeights, FiniteMH, TwoStateMH, sample
+export FiniteWeights, FiniteKernelWeights, FiniteMH, TwoStateMH, GaussianRWMH, sample
+
+struct GaussianRWMH{F}
+    logdensity::F
+    scale::Float64
+    function GaussianRWMH(logdensity::F, scale::Real) where {F}
+        converted = Float64(scale)
+        isfinite(converted) && converted > 0.0 ||
+            throw(ArgumentError("scale must be finite and positive"))
+        new{F}(logdensity, converted)
+    end
+end
+
+function step(rng::AbstractRNG, sampler::GaussianRWMH, current::Real)
+    source = Runtime.RNGSource(rng)
+    Optimized.gaussian_rwmh_step!(source, sampler.logdensity,
+        sampler.scale, Float64(current))
+end
+
+step(sampler::GaussianRWMH, current::Real) =
+    step(Random.default_rng(), sampler, current)
+
+function sample(rng::AbstractRNG, sampler::GaussianRWMH, initial::Real, count::Integer)
+    count >= 0 || throw(ArgumentError("sample count must be nonnegative"))
+    samples = Vector{Float64}(undef, count)
+    current = Float64(initial)
+    for index in eachindex(samples)
+        current = step(rng, sampler, current)
+        samples[index] = current
+    end
+    samples
+end
+
+sample(sampler::GaussianRWMH, initial::Real, count::Integer) =
+    sample(Random.default_rng(), sampler, initial, count)
 
 struct FiniteWeights
     weights::Vector{BigInt}

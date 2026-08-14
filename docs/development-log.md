@@ -1,5 +1,40 @@
 # Development log
 
+## 2026-08-14: continuous executable primitive boundary
+
+Added result-typed ideal sampler primitives for positive bounded naturals,
+the standard normal, and the unit uniform. Their Lean denotations are
+probability measures, and the standard-normal denotation is proved equal to
+the exact mathlib Gaussian density measure used by the existing general-state
+RWMH theory. Added kind-tagged mathematical trace replay with explicit
+exhaustion, mismatch, and range failures.
+
+Added a separately labeled one-dimensional Float64 Gaussian RWMH
+implementation to Julia, including positional-RNG sampling, typed normal and
+uniform replay events, deterministic accept/reject checks, and a normal-target
+moment test. This is a tested optimized implementation, not generated code or
+a proof of floating-point equivalence. The remaining continuous milestone is
+the compositional first-order sampler IR and its ideal RWMH refinement theorem,
+followed by an explicit Julia numeric/RNG contract.
+
+## 2026-08-14: typed sampler IR and Gaussian proposal refinement
+
+Added an intrinsically typed first-order sampler IR. Typed de Bruijn variables
+make `let` and stochastic bind inspectable syntax rather than embedded Lean
+continuations. Pure expressions, exact mathlib-kernel semantics, and
+deterministic kind-tagged trace replay share the same program, and Lean proves
+that every program interpretation is a Markov kernel.
+
+Implemented the scalar ideal standard-Gaussian proposal program and proved
+that it replays as addition, denotes `gaussianReal current 1`, and equals the
+proposal row used by the existing density-based RWMH construction. Added the
+continuous executable contract separating exact measures, ideal-real replay,
+and Julia Float64/RNG assumptions. The complete IR step and its trace theorem
+are now implemented, its real threshold is proved pointwise equal to the
+existing zero-safe density acceptance, and the unit-uniform accept/reject
+integral is proved exactly. The remaining theorem boundary is their final
+composition into equality with the existing verified RWMH kernel.
+
 ## 2026-08-14: generic executable finite MH
 
 Generalized the exact proposal/accept/reject PMF from the two-state fixture to

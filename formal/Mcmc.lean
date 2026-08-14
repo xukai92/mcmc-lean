@@ -18,6 +18,9 @@ import Mcmc.Executable.Finite.Examples
 import Mcmc.Executable.Finite.MetropolisHastings
 import Mcmc.Executable.Finite.TwoState
 import Mcmc.Executable.Finite.AsymmetricThreeState
+import Mcmc.Executable.Primitive
+import Mcmc.Executable.IR
+import Mcmc.Executable.GaussianRWMH
 import Mcmc.Hamiltonian.Leapfrog
 import Mcmc.Hamiltonian.Assumptions
 import Mcmc.Hamiltonian.ExactFlow

@@ -18,7 +18,28 @@ end
         @test_skip false
     end
     @testset "continuous normal-target moment matching" begin
-        @test_skip false
+        sampler = GaussianRWMH(x -> -x^2 / 2, 1.0)
+        chain = sample(MersenneTwister(2026), sampler, 0.0, 50_000)
+        retained = @view chain[5_001:end]
+        @test abs(mean(retained)) < 0.08
+        @test abs(var(retained) - 1.0) < 0.12
+
+        accept_trace = Runtime.FloatTraceSource([
+            Runtime.NormalEvent(0.5), Runtime.UniformEvent(0.8)])
+        @test Optimized.gaussian_rwmh_step!(accept_trace, x -> -x^2 / 2,
+            1.0, 0.0) == 0.5
+        reject_trace = Runtime.FloatTraceSource([
+            Runtime.NormalEvent(2.0), Runtime.UniformEvent(0.9)])
+        @test Optimized.gaussian_rwmh_step!(reject_trace, x -> -x^2 / 2,
+            1.0, 0.0) == 0.0
+        @test Runtime.remaining(accept_trace) == 0
+        @test hasmethod(sample, Tuple{AbstractRNG, typeof(sampler), Real, Integer})
+        @test hasmethod(Base.step, Tuple{AbstractRNG, typeof(sampler), Real})
+        @test_throws ArgumentError GaussianRWMH(identity, 0.0)
+        @test_throws ArgumentError Runtime.standard_normal!(
+            Runtime.FloatTraceSource([Runtime.UniformEvent(0.5)]))
+        @test_throws ArgumentError Runtime.uniform_unit!(
+            Runtime.FloatTraceSource([Runtime.UniformEvent(1.0)]))
     end
     @testset "DHMC categorical target" begin
         @test_skip false

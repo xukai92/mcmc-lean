@@ -125,6 +125,31 @@ The no-RNG methods delegate to `Random.default_rng()`. Julia indices are
 one-based at the public categorical API; the generated core and Lean `Fin`
 encoding are zero-based.
 
+### Continuous executable boundary
+
+The next executable layer has begun with typed ideal primitives for bounded
+natural draws, a standard normal, and a unit uniform. Lean identifies the
+standard-normal denotation with mathlib's exact Gaussian density measure and
+validates kind-tagged mathematical traces. The Julia package separately
+provides a tested one-dimensional `Float64` Gaussian RWMH implementation:
+
+```julia
+sampler = GaussianRWMH(x -> -x^2 / 2, 1.0)
+chain = sample(MersenneTwister(4), sampler, 0.0, 10_000)
+```
+
+The typed first-order Lean IR now has exact kernel and trace interpretations,
+and its scalar standard-Gaussian proposal program is proved equal to the
+proposal row of the existing verified RWMH construction. Full accept/reject
+refinement remains open. This Julia sampler is not yet generated, and no
+theorem equates its finite-precision law with the exact Lean kernel. The
+explicit boundary is deliberate:
+mathlib `ℝ`, `gaussianReal`, and `Measure` are semantic objects, whereas Julia
+uses `Float64` and the selected `AbstractRNG` implementation.
+
+See the [continuous executable contract](docs/continuous-executable-contract.md)
+for the exact theorem and runtime boundaries.
+
 ## What “HMC” means here
 
 The paper's main results concern multinomial HMC. Accordingly, the formalized

@@ -1,8 +1,17 @@
 module Optimized
 
-using ...Runtime: AbstractRandomSource, draw_below!
+using ...Runtime: AbstractRandomSource, draw_below!, standard_normal!, uniform_unit!
 
-export categorical_index!, finite_mh_step!, two_state_mh_step!
+export categorical_index!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!
+
+"""Tested Float64 Gaussian RWMH step; not an exact realization of Lean `ℝ`."""
+function gaussian_rwmh_step!(source::AbstractRandomSource, logdensity,
+        scale::Float64, current::Float64)
+    isfinite(scale) && scale > 0.0 || throw(ArgumentError("scale must be finite and positive"))
+    proposal = current + scale * standard_normal!(source)
+    logratio = logdensity(proposal) - logdensity(current)
+    log(uniform_unit!(source)) < min(0.0, logratio) ? proposal : current
+end
 
 """Maintained categorical implementation using cumulative sums and binary search."""
 function categorical_index!(source::AbstractRandomSource, weights::AbstractVector{<:Integer})
