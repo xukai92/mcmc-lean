@@ -245,14 +245,18 @@ The finite layer uses a deterministic Lean emitter for the generic natural-
 weight categorical and MH algorithms:
 
 ```text
-proved generic finite executable algorithm
-  -> fixed generated-core template
+typed finite entry descriptor
+  -> backend-neutral typed command IR
+  -> restricted validated Julia AST
+  -> deterministic Julia printer
   -> Generated core files
 ```
 
-A typed language-neutral IR and restricted Julia AST remain a compiler
-hardening step; they are not silently claimed by the generic refinement
-theorem.
+The command IR contains the categorical scan and generic MH control flow,
+including validation, proposal, zero-safe integer acceptance, and rejection.
+It has no Julia syntax. Julia's one-based indexing is introduced only by the
+backend lowering. The restricted AST has no raw-source escape constructor and
+rejects identifiers, types, and imports outside its finite allowlist.
 
 Generation uses stable formatting so identical Lean input gives byte-identical
 output.
@@ -303,7 +307,7 @@ separate machine-checked refinement theorem.
 | Generic executable MH to existing row PMF | Proved in Lean |
 | Existing finite MH detailed balance/invariance | Already proved in Lean |
 | Trace evaluator behavior | Defined and proved in Lean |
-| Lean finite template to Julia source | Deterministic, tested emitter; initially trusted |
+| Finite command IR to Julia AST/source | Deterministic, validated, and tested lowering; semantic preservation remains trusted |
 | Julia parsing and execution | Julia toolchain assumption |
 | Production `draw_below!` distribution | Documented runtime/RNG assumption |
 | Julia trace replay against Lean fixtures | Exhaustive finite testing |

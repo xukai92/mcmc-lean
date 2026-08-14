@@ -38,6 +38,15 @@ include("future_continuous.jl")
     @test_throws ArgumentError Generated.categorical_index!(Runtime.TraceSource([0]), [0, 0])
     @test_throws EOFError Generated.categorical_index!(Runtime.TraceSource(Int[]), [1])
     @test_throws ArgumentError Generated.categorical_index!(Runtime.TraceSource([1]), [1])
+
+    large_weights = [typemax(Int), typemax(Int)]
+    large_draw = BigInt(typemax(Int))
+    generated_source = Runtime.TraceSource([large_draw])
+    optimized_source = Runtime.TraceSource([large_draw])
+    @test Generated.categorical_index!(generated_source, large_weights) == 1
+    @test Optimized.categorical_index!(optimized_source, large_weights) == 1
+    @test generated_source.requested_bounds == [2 * BigInt(typemax(Int))]
+    @test optimized_source.requested_bounds == generated_source.requested_bounds
 end
 
 @testset "two-state MH exhaustive traces" begin

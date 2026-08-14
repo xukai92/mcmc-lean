@@ -72,10 +72,11 @@ correctness theorem is added.
 
 ### Embedding and compiler
 
-The emitter is a narrow deterministic template for the proved generic finite
-algorithm; it does not claim to translate arbitrary Lean expressions. A
-small deeply embedded, intrinsically typed finite IR is the intended route to
-generalizing code generation after the MVP.
+The emitter consumes typed finite entry descriptors, elaborates them to a
+small backend-neutral command IR, and structurally lowers that IR to a
+restricted validated Julia AST. It does not translate arbitrary Lean
+expressions. The AST has no raw-source escape constructor, and Julia-specific
+one-based indexing appears only in the Julia lowering.
 
 The emitter writes only under `VerifiedSamplers.jl/src/Generated/` and inserts
 a compiler-emitted, do-not-edit header. Generation is invoked explicitly with
@@ -97,6 +98,12 @@ formal/Mcmc/Executable/Finite/Categorical.lean
 formal/Mcmc/Executable/Finite/MetropolisHastings.lean
   executable proposal/accept/reject program and refinement theorem
 
+formal/Mcmc/Executable/Finite/Program.lean
+  typed compiler entries and links to the exact PMF refinement theorems
+
+formal/Mcmc/Executable/Finite/CompilerIR.lean
+  backend-neutral typed categorical and generic MH control flow
+
 formal/Mcmc/Executable/Finite/TwoState.lean
   exact end-to-end instantiation of the existing example
 
@@ -108,6 +115,10 @@ formal/Mcmc/Oracle.lean
 
 formal/Mcmc/GenerateJulia.lean
   deterministic finite-core generation entry point
+
+formal/Mcmc/Codegen/Julia/Ast.lean
+formal/Mcmc/Codegen/Julia/Finite.lean
+  restricted Julia AST/printer and structural finite-IR lowering
 ```
 
 Public reusable modules are imported by `formal/Mcmc.lean`. The generator is a

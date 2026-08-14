@@ -1,5 +1,20 @@
 # Development log
 
+## 2026-08-14: finite generation moved to typed compiler IR
+
+Replaced the algorithm-sized Julia source template with typed finite entry
+descriptors, a backend-neutral typed command IR, and structural lowering to a
+restricted Julia AST. The IR now contains the cumulative categorical selector
+and generic finite MH validation/proposal/accept/reject control flow; Julia's
+one-based indexing is confined to the backend. The AST has no raw-source
+escape constructor and validates its identifier, type, and import allowlists
+before deterministic printing.
+
+The entry descriptors are explicitly anchored to the existing exact
+categorical and generic finite-MH PMF theorems. Compiler semantic preservation
+from command IR through emitted Julia remains a future theorem, so exhaustive
+Lean/generated/optimized trace tests continue to guard that boundary.
+
 ## 2026-08-14: continuous executable primitive boundary
 
 Added result-typed ideal sampler primitives for positive bounded naturals,

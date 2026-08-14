@@ -274,7 +274,8 @@ lake env lean Mcmc/Hamiltonian/LocalContractivity.lean
 From the repository root, `make formal`, `make julia`, and `make test` provide
 the corresponding aggregate entry points. `make oracle` compiles the Lean
 conformance oracle, `make generate` explicitly regenerates the committed Julia
-core, and `make check-generated` checks freshness without modifying the tree.
+core from a backend-neutral typed finite IR through a restricted Julia AST,
+and `make check-generated` checks freshness without modifying the tree.
 The [testing strategy](docs/testing.md) records the exact, differential,
 statistical, and skeletoned future test layers.
 
