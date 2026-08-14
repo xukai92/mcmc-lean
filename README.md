@@ -1,8 +1,9 @@
-# mcmc-lean
+# verified-samplers
 
-`mcmc-lean` formalizes Markov chain Monte Carlo algorithms and coupling
-arguments in Lean 4 on mathlib's measure and `ProbabilityTheory.Kernel`
-interfaces.
+`verified-samplers` formalizes Markov chain Monte Carlo algorithms and coupling
+arguments in Lean 4 and is developing an auditable Julia reference and runtime
+layer. The mathematical development uses mathlib's measure and
+`ProbabilityTheory.Kernel` interfaces.
 
 The two paper targets are:
 
@@ -199,6 +200,7 @@ HMC contraction.
 The repository pins Lean and mathlib. From the repository root:
 
 ```sh
+cd formal
 lake update
 lake exe cache get
 lake build
@@ -207,33 +209,43 @@ lake build
 For a narrow check while editing the main analytic module:
 
 ```sh
-lake env lean McmcLean/Hamiltonian/LocalContractivity.lean
+cd formal
+lake env lean Mcmc/Hamiltonian/LocalContractivity.lean
 ```
+
+From the repository root, `make formal`, `make julia`, and `make test` provide
+the corresponding aggregate entry points. `make generate` is reserved for the
+explicit Lean-to-Julia reference emitter and is currently a placeholder.
 
 ## Repository guide
 
-- [`McmcLean/Finite/`](McmcLean/Finite/): elementary finite kernels,
+- [`formal/`](formal/): pinned Lean project containing the `Mcmc` library.
+- [`VerifiedSamplers.jl/`](VerifiedSamplers.jl/): Julia package, with
+  compiler-emitted reference code and maintained optimized code in separate
+  internal submodules.
+
+- [`formal/Mcmc/Finite/`](formal/Mcmc/Finite/): elementary finite kernels,
   couplings, transport, and finite-to-mathlib bridges.
-- [`McmcLean/Kernel/`](McmcLean/Kernel/): general-state MH/RWMH, coupled
+- [`formal/Mcmc/Kernel/`](formal/Mcmc/Kernel/): general-state MH/RWMH, coupled
   kernels, path laws, meeting events, and drift machinery.
-- [`McmcLean/Hamiltonian/Leapfrog.lean`](McmcLean/Hamiltonian/Leapfrog.lean):
+- [`formal/Mcmc/Hamiltonian/Leapfrog.lean`](formal/Mcmc/Hamiltonian/Leapfrog.lean):
   leapfrog definitions and deterministic identities.
-- [`McmcLean/Hamiltonian/HMC.lean`](McmcLean/Hamiltonian/HMC.lean):
+- [`formal/Mcmc/Hamiltonian/HMC.lean`](formal/Mcmc/Hamiltonian/HMC.lean):
   phase- and position-space multinomial HMC and invariance.
-- [`McmcLean/Hamiltonian/CoupledMultinomialHMC.lean`](McmcLean/Hamiltonian/CoupledMultinomialHMC.lean):
+- [`formal/Mcmc/Hamiltonian/CoupledMultinomialHMC.lean`](formal/Mcmc/Hamiltonian/CoupledMultinomialHMC.lean):
   coupled multinomial HMC with exact marginals.
-- [`McmcLean/Hamiltonian/LocalContractivity.lean`](McmcLean/Hamiltonian/LocalContractivity.lean):
+- [`formal/Mcmc/Hamiltonian/LocalContractivity.lean`](formal/Mcmc/Hamiltonian/LocalContractivity.lean):
   Xu conditions, contraction estimates, numerical-error analysis, and
   kernel accessibility.
-- [`McmcLean/Hamiltonian/CoupledMixture.lean`](McmcLean/Hamiltonian/CoupledMixture.lean):
+- [`formal/Mcmc/Hamiltonian/CoupledMixture.lean`](formal/Mcmc/Hamiltonian/CoupledMixture.lean):
   verified HMC/RWMH mixtures and geometric meeting-tail theorems.
-- [`McmcLean/Relativistic/`](McmcLean/Relativistic/): corrected relativistic
+- [`formal/Mcmc/Relativistic/`](formal/Mcmc/Relativistic/): corrected relativistic
   momentum laws, Riemannian Hamiltonians, generalized-leapfrog obligations,
   and conditional endpoint-Metropolis and multinomial GR-HMC invariance.
-- [`McmcLean/Hamiltonian/QuadraticGaussian.lean`](McmcLean/Hamiltonian/QuadraticGaussian.lean)
-  and [`QuadraticGaussianXu.lean`](McmcLean/Hamiltonian/QuadraticGaussianXu.lean):
+- [`formal/Mcmc/Hamiltonian/QuadraticGaussian.lean`](formal/Mcmc/Hamiltonian/QuadraticGaussian.lean)
+  and [`QuadraticGaussianXu.lean`](formal/Mcmc/Hamiltonian/QuadraticGaussianXu.lean):
   validated Gaussian specializations.
-- [`McmcLean/Hamiltonian/LogisticRegression.lean`](McmcLean/Hamiltonian/LogisticRegression.lean):
+- [`formal/Mcmc/Hamiltonian/LogisticRegression.lean`](formal/Mcmc/Hamiltonian/LogisticRegression.lean):
   verified regularized-logistic potential, gradient, paper assumptions, and
   local coupled-HMC accessibility.
 - [`docs/architecture.md`](docs/architecture.md): dependency graphs from

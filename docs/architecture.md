@@ -113,7 +113,7 @@ flowchart LR
 ```
 
 The reusable finite coupling and transport definitions live under
-`McmcLean/Finite/`. Their measurable kernel lifts connect finite index
+`formal/Mcmc/Finite/`. Their measurable kernel lifts connect finite index
 couplings back to the continuous phase-space kernels.
 
 ## Logical boundary of the main theorem
@@ -137,24 +137,24 @@ initial states. Those obligations remain explicit at theorem endpoints.
 
 ## Main module map
 
-- `McmcLean/Kernel/MetropolisHastings.lean` defines general-state MH.
-- `McmcLean/Kernel/RandomWalkMetropolisHastings.lean` specializes it to
+- `formal/Mcmc/Kernel/MetropolisHastings.lean` defines general-state MH.
+- `formal/Mcmc/Kernel/RandomWalkMetropolisHastings.lean` specializes it to
   Gaussian RWMH.
-- `McmcLean/Kernel/CoupledMetropolisHastings.lean` constructs coupled MH with
+- `formal/Mcmc/Kernel/CoupledMetropolisHastings.lean` constructs coupled MH with
   proved marginals.
-- `McmcLean/Hamiltonian/Leapfrog.lean` defines the deterministic integrator.
-- `McmcLean/Hamiltonian/MultinomialHMC.lean` constructs the multinomial-HMC
+- `formal/Mcmc/Hamiltonian/Leapfrog.lean` defines the deterministic integrator.
+- `formal/Mcmc/Hamiltonian/MultinomialHMC.lean` constructs the multinomial-HMC
   transition.
-- `McmcLean/Hamiltonian/Invariance.lean` proves its invariance properties.
-- `McmcLean/Hamiltonian/CoupledMultinomialHMC.lean` constructs coupled HMC with
+- `formal/Mcmc/Hamiltonian/Invariance.lean` proves its invariance properties.
+- `formal/Mcmc/Hamiltonian/CoupledMultinomialHMC.lean` constructs coupled HMC with
   proved marginals.
-- `McmcLean/Hamiltonian/LocalContractivity.lean` connects the repaired Xu
+- `formal/Mcmc/Hamiltonian/LocalContractivity.lean` connects the repaired Xu
   conditions to local accessibility.
-- `McmcLean/Kernel/MeetingDrift.lean` contains the abstract drift and meeting
+- `formal/Mcmc/Kernel/MeetingDrift.lean` contains the abstract drift and meeting
   machinery.
-- `McmcLean/Hamiltonian/CoupledMixture.lean` assembles the concrete mixture and
+- `formal/Mcmc/Hamiltonian/CoupledMixture.lean` assembles the concrete mixture and
   Xu-style geometric meeting theorem.
-- `McmcLean/Kernel/UnbiasedEstimator.lean` develops downstream estimator
+- `formal/Mcmc/Kernel/UnbiasedEstimator.lean` develops downstream estimator
   consequences.
 
 See [`xu21-coverage.md`](xu21-coverage.md) for the claim-by-claim

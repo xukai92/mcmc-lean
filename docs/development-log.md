@@ -1,5 +1,15 @@
 # Development log
 
+## 2026-08-14: verified-samplers repository skeleton
+
+Reorganized the project around a language-neutral repository boundary. The
+Lean project now lives under `formal/`, and its public module and namespace are
+renamed from `McmcLean` to `Mcmc`. Added the `VerifiedSamplers.jl` package with
+separate internal `Reference` and `Optimized` submodules. The former is the
+future explicit destination of compiler-emitted code; ordinary builds and
+package installation will not rewrite it. Added root Make targets for formal
+and Julia validation plus documented generation placeholders.
+
 ## 2026-08-14: invariant momentum-transition foundation
 
 Following the factorization emphasized in Neal's HMC review, generalized the
@@ -1421,7 +1431,7 @@ does not cover windows starting after physical time one.
 
 ## 2026-08-13: Algorithm 5 finite marginal repair
 
-Added `McmcLean.Finite.MarginalRepair`. For an arbitrary joint PMF and desired
+Added `Mcmc.Finite.MarginalRepair`. For an arbitrary joint PMF and desired
 finite marginals, equation (20)'s retained coefficient is represented as the
 finite minimum of one and all active target/candidate marginal ratios. Lean
 proves that coefficient is admissible and maximal among every admissible
@@ -1439,7 +1449,7 @@ couplings whose marginals are exactly the verified multinomial HMC kernel.
 
 ## 2026-08-13: quantitative exact-flow contraction margin
 
-`McmcLean.Hamiltonian.ExactFlow` now differentiates the full first-variation
+`Mcmc.Hamiltonian.ExactFlow` now differentiates the full first-variation
 formula without assuming equal momentum at the comparison time. Two
 applications of the derivative monotonicity theorem show that a uniform
 second-variation margin `c` over `[0,t]`, together with shared initial
@@ -1529,7 +1539,7 @@ infrastructure.  A concrete finite LP tie-breaking construction is therefore
 still required rather than assuming measurability of `Classical.choose`.
 
 The deterministic tie-breaking half of that construction is now available in
-`McmcLean.Finite.MeasurableSelection`.  For any finite candidate type and
+`Mcmc.Finite.MeasurableSelection`.  For any finite candidate type and
 jointly measurable extended-nonnegative score, `fintypeArgmin` chooses an
 actual minimum, is measurable, and preserves measurability when used to
 evaluate a jointly measurable candidate family.  This avoids any measurable
@@ -1541,13 +1551,13 @@ marginals, and prove that at least one candidate attains the global transport
 minimum.  The pinned mathlib source has no ready-made finite LP vertex theorem,
 so that completeness argument remains to be formalized locally.
 
-`McmcLean.Finite.GreedyTransport` now provides a measurable finite selector.
+`Mcmc.Finite.GreedyTransport` now provides a measurable finite selector.
 A complete edge order greedily allocates residual row and column masses;
 conservation and exhaustion prove that every candidate is a PMF coupling.
 Finite argmin measurably selects the least-cost candidate.
 
 The analytic half of that combinatorial proof is now in
-`McmcLean.Finite.TransportPolytope`. Finite ENNReal masses are embedded in a
+`Mcmc.Finite.TransportPolytope`. Finite ENNReal masses are embedded in a
 real transport polytope, proved to be a nonempty closed subset of mathlib's
 compact standard simplex. Hence linear transport cost attains a minimum, and
 a quadratic concentration tie-breaker attains a maximum on the optimal face.
@@ -1566,7 +1576,7 @@ cycle is reindexed into this presentation, so the selected optimizer's
 positive-support graph is acyclic.
 
 The forest-to-greedy algebraic half is now complete in
-`McmcLean.Finite.GreedyTransportCompleteness`. Remaining row and column masses
+`Mcmc.Finite.GreedyTransportCompleteness`. Remaining row and column masses
 are defined relative to an unprocessed edge list, together with the precise
 leaf-elimination predicate. Lean proves that greedy allocation at each leaf
 is exactly its prescribed target mass and maintains an exact invariant for

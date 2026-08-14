@@ -165,8 +165,10 @@ architectural choices here:
 For every code change:
 
 ```sh
+cd formal
 lake env lean <changed-module>
 lake build
+cd ..
 git diff --check
 ```
 

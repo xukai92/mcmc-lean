@@ -5,9 +5,9 @@ the entire repository.
 
 ## Project purpose
 
-`mcmc-lean` develops machine-checked correctness results for Markov chain
-Monte Carlo algorithms in Lean 4. The current result is a finite-state proof
-of Metropolis--Hastings detailed balance and stationarity.
+`verified-samplers` develops machine-checked MCMC algorithms and connects them
+to auditable executable reference implementations. The formal layer is written
+in Lean 4; the maintained runtime package is Julia.
 
 Be precise about theorem strength:
 
@@ -24,28 +24,32 @@ architecture for general-state kernels.
 
 ## Repository layout
 
-- `McmcLean/Finite/MarkovKernel.lean`: elementary finite distributions,
+- `formal/Mcmc/Finite/MarkovKernel.lean`: elementary finite distributions,
   kernels, reversibility, and stationarity.
-- `McmcLean/Finite/MetropolisHastings.lean`: finite-state MH construction and
+- `formal/Mcmc/Finite/MetropolisHastings.lean`: finite-state MH construction and
   its correctness proof.
-- `McmcLean/Examples/`: small concrete theorem instantiations.
-- `McmcLean.lean`: library import surface.
+- `formal/Mcmc/Examples/`: small concrete theorem instantiations.
+- `formal/Mcmc.lean`: library import surface.
+- `VerifiedSamplers.jl/src/Reference/`: destination for compiler-emitted Julia.
+- `VerifiedSamplers.jl/src/Optimized/`: maintained Julia implementations.
 - `docs/development-log.md`: completed milestones, limitations, and roadmap.
 - `docs/related-work.md`: literature survey and design implications.
 
-Put reusable definitions and theorems under `McmcLean/`. Examples should
+Put reusable definitions and theorems under `formal/Mcmc/`. Examples should
 instantiate general results rather than contain essential library arguments.
-Update `McmcLean.lean` when adding a public module.
+Update `formal/Mcmc.lean` when adding a public module.
 
 ## Toolchain and commands
 
-The repository pins Lean and mathlib in `lean-toolchain` and `lakefile.toml`.
+The formal project pins Lean and mathlib in `formal/lean-toolchain` and
+`formal/lakefile.toml`.
 Use the pinned versions; do not update them incidentally.
 
 From the repository root:
 
 ```sh
 # Fetch dependencies and the mathlib binary cache when setting up a clone.
+cd formal
 lake update
 lake exe cache get
 
@@ -53,8 +57,12 @@ lake exe cache get
 lake build
 
 # Useful while iterating on one module.
-lake env lean McmcLean/Finite/MetropolisHastings.lean
+lake env lean Mcmc/Finite/MetropolisHastings.lean
 ```
+
+The root `Makefile` provides `make formal`, `make julia`, and `make test`.
+Reference generation is explicit through `make generate`; it must not occur as
+an implicit side effect of an ordinary build.
 
 Run the narrow module check while developing, then run `lake build` before
 finishing any code change. Documentation-only changes do not require a build
@@ -62,7 +70,7 @@ unless they alter commands, module names, or generated documentation inputs.
 
 ## Proof and code conventions
 
-- Use namespaces matching the module path, currently rooted at `McmcLean`.
+- Use namespaces matching the module path, currently rooted at `Mcmc`.
 - Add module docstrings (`/-! ... -/`) and docstrings for public definitions
   and main theorems.
 - Prefer small named lemmas with mathematically meaningful statements over a

@@ -11,13 +11,13 @@ Neal separates an HMC iteration into momentum refreshment and a
 Metropolis-corrected numerical trajectory. The repository reflects that
 factorization:
 
-- `McmcLean.Hamiltonian.momentumTransition_invariant` lifts any invariant
+- `Mcmc.Hamiltonian.momentumTransition_invariant` lifts any invariant
   momentum kernel to an invariant phase-space transition. Full independent
   refreshment is its constant-kernel specialization.
-- `McmcLean.Kernel.deterministicMetropolis_invariant` proves correctness of an
+- `Mcmc.Kernel.deterministicMetropolis_invariant` proves correctness of an
   endpoint proposal from measurability, involutivity, reference-volume
   preservation, and the exact target weight.
-- `McmcLean.Kernel.liftEvolveProject_invariant` then transports phase-space
+- `Mcmc.Kernel.liftEvolveProject_invariant` then transports phase-space
   invariance to the position target.
 
 The endpoint theorem captures Neal's use of a momentum flip to make a
@@ -51,7 +51,7 @@ generalized HMC.
 
 The randomized-origin, canonical-weight selection argument underlying the
 repository's multinomial HMC is formalized by
-`McmcLean.Kernel.orbitMultinomialKernel`. It is closely related to Neal's
+`Mcmc.Kernel.orbitMultinomialKernel`. It is closely related to Neal's
 windowed trajectory reasoning and streaming weighted selection. Neal's exact
 two-window accept/reject construction is not currently exposed as its own
 kernel, so no equivalence with that algorithm is claimed.

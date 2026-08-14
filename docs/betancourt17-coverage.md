@@ -9,7 +9,7 @@ geometric or empirical discussion is intended as a formal theorem.
 
 The paper's ideal HMC transition has three stages: sample momentum to lift a
 position into phase space, evolve under Hamiltonian flow, and discard momentum.
-`McmcLean.Kernel.liftEvolveProject_invariant` now formalizes the abstract
+`Mcmc.Kernel.liftEvolveProject_invariant` now formalizes the abstract
 measure-theoretic argument. Its hypotheses deliberately expose all three
 obligations:
 
@@ -21,7 +21,7 @@ obligations:
 measure-preserving map, matching ideal Hamiltonian flow.
 `compProdEvolveFst_invariant` specializes the lift to a conditional auxiliary
 kernel and discharges the canonical product-measure and projection equations.
-`McmcLean.Hamiltonian.positionMultinomialHMC_invariant` is an instance of the general
+`Mcmc.Hamiltonian.positionMultinomialHMC_invariant` is an instance of the general
 theorem, with randomized leapfrog trajectory selection as the invariant
 phase-space evolution. The endpoint and multinomial GR-HMC position theorems
 use the conditional-kernel specialization for their position-dependent
@@ -30,12 +30,12 @@ momentum laws.
 For numerical HMC, the repository separately proves the ingredients emphasized
 by the paper:
 
-- `McmcLean/Hamiltonian/VolumePreservation.lean` proves phase-volume preservation for
+- `formal/Mcmc/Hamiltonian/VolumePreservation.lean` proves phase-volume preservation for
   leapfrog steps and their iterates;
-- `McmcLean/Hamiltonian/RandomizedTrajectory.lean` implements random trajectory origin;
-- `McmcLean/Hamiltonian/Multinomial.lean` implements canonical-density-weighted state
+- `formal/Mcmc/Hamiltonian/RandomizedTrajectory.lean` implements random trajectory origin;
+- `formal/Mcmc/Hamiltonian/Multinomial.lean` implements canonical-density-weighted state
   selection; and
-- `McmcLean/Hamiltonian/Invariance.lean` proves invariance of the resulting corrected
+- `formal/Mcmc/Hamiltonian/Invariance.lean` proves invariance of the resulting corrected
   phase-space transition.
 
 This matches the static trajectory construction in Appendix A.2 rather than
