@@ -92,14 +92,16 @@ concrete sticky HMC/RWMH mixture in every nonempty finite dimension.
 It has the analogous bounded-observable estimator wrapper with marginal
 expectation convergence left explicit.
 
-### Executable finite MVP
+### Executable finite samplers
 
 The finite executable vertical slice is operational. Lean proves that the
-cumulative natural-weight selector has exactly its normalized PMF and that the
-two-state executable MH step has the same row PMF as the existing verified
-finite MH kernel. A compiled Lean binary is the conformance oracle. Lean also
-emits the production Julia core, which is exercised against the oracle on
-every valid categorical and two-state MH trace.
+cumulative natural-weight selector has exactly its normalized PMF. For any
+strictly positive target weights and positive-total proposal rows on `Fin n`,
+Lean proves that the generic executable MH step has the same row PMF as the
+existing verified finite MH kernel, including asymmetric and zero proposal
+edges. A compiled Lean binary is the conformance oracle. Lean also emits the
+generic Julia core, which is exercised against the oracle and a maintained
+optimized implementation on exhaustive small finite traces.
 
 The public Julia interface uses positional RNG dispatch:
 
@@ -109,6 +111,14 @@ using VerifiedSamplers, Random
 target = FiniteWeights([1, 0, 2])
 samples = sample(MersenneTwister(1), target, 100)
 chain = sample(MersenneTwister(2), TwoStateMH(), false, 100)
+
+proposal = FiniteKernelWeights([
+    [1, 2, 1],
+    [1, 1, 1],
+    [0, 2, 1],
+])
+sampler = FiniteMH(FiniteWeights([1, 2, 3]), proposal)
+generic_chain = sample(MersenneTwister(3), sampler, 1, 100)
 ```
 
 The no-RNG methods delegate to `Random.default_rng()`. Julia indices are

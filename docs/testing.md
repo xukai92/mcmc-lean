@@ -16,6 +16,10 @@ empirical distribution diagnostics, and future numerical-sampler tests.
   checks using batch-means standard errors.
 - `test/unit.jl` checks RNG and trace-source contracts, bounds, exhaustion,
   invalid weights, and public argument validation.
+- `test/generic_mh.jl` exhaustively enumerates an asymmetric three-state
+  proposal with zero edges. It compares exact rational MH rows, the Lean
+  oracle, generated Julia, and optimized Julia, then checks normalization and
+  stationarity.
 
 The optimized categorical implementation uses cumulative sums and binary
 search, whereas the generated implementation uses a linear cumulative scan.

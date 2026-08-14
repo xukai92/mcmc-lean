@@ -12,6 +12,7 @@ const ORACLE = joinpath(REPO_ROOT, "formal", ".lake", "build", "bin", "mcmc_orac
 include("properties.jl")
 include("geweke.jl")
 include("unit.jl")
+include("generic_mh.jl")
 include("future_continuous.jl")
 
 @testset "finite categorical core" begin

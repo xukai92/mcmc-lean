@@ -17,11 +17,11 @@ Lean executable finite MH program
   -> exhaustive finite and trace-level tests
 ```
 
-The delivered MVP is the existing two-state target and proposal.
-Natural-weight data and categorical sampling are generic over `Fin n`; the
-end-to-end MH refinement is deliberately the fixed two-state MVP. The
-milestone does not include continuous sampling, floating point, HMC,
-adaptation, or an optimized Julia implementation.
+The original MVP was the existing two-state target and proposal. The second
+finite phase is also complete: natural-weight categorical sampling, MH
+semantics, and row-PMF refinement are generic over `Fin n`, and the Julia API
+accepts arbitrary validated finite configurations. This milestone does not
+include continuous sampling, floating point, HMC, or adaptation.
 
 ## Locked design decisions
 
@@ -72,8 +72,8 @@ correctness theorem is added.
 
 ### Embedding and compiler
 
-The MVP emitter is a narrow deterministic template for the proved two-state
-configuration; it does not claim to translate arbitrary Lean expressions. A
+The emitter is a narrow deterministic template for the proved generic finite
+algorithm; it does not claim to translate arbitrary Lean expressions. A
 small deeply embedded, intrinsically typed finite IR is the intended route to
 generalizing code generation after the MVP.
 
@@ -99,6 +99,9 @@ formal/Mcmc/Executable/Finite/MetropolisHastings.lean
 
 formal/Mcmc/Executable/Finite/TwoState.lean
   exact end-to-end instantiation of the existing example
+
+formal/Mcmc/Executable/Finite/AsymmetricThreeState.lean
+  generic refinement instantiation with unequal rows and a one-way edge
 
 formal/Mcmc/Oracle.lean
   compiled command-line conformance oracle
@@ -128,9 +131,9 @@ statements with the following content.
 
 1. Normalizing positive-total natural weights produces the intended PMF.
 2. Cumulative selection driven by a uniform `drawBelow(total)` has that PMF.
-3. For the delivered two-state configuration, the executable proposal and
+3. For any validated finite configuration, the executable proposal and
    integer acceptance control flow has the stated exact PMF.
-4. For both two-state inputs, the complete executable MH step denotes
+4. For every input state, the complete executable MH step denotes
    `Mcmc.Finite.MetropolisHastings.kernel ... |>.rowPMF`.
 6. Consequently, its measure-kernel denotation is the existing embedded
    mathlib kernel and inherits the proved detailed balance and invariance
@@ -150,7 +153,7 @@ generated Julia behavior is not silently included in this theorem.
 - Implement cumulative categorical selection.
 - Prove its exact PMF law, including zero-weight entries and boundary draws.
 
-### Phase B: executable finite MH — complete for the MVP configuration
+### Phase B: executable finite MH — complete generically
 
 - Define natural-weight target and proposal representations and their
   realization into the existing real-valued finite definitions.
@@ -160,12 +163,13 @@ generated Julia behavior is not silently included in this theorem.
 - Instantiate the two-state example, including acceptance, rejection, and
   self-proposal traces.
 
-### Phase C: Julia emission and runtime — complete for the MVP
+### Phase C: Julia emission and runtime — complete generically
 
 - Use the deterministic finite-core emitter (a reusable restricted AST remains
   a post-MVP compiler extension).
 - Add the production and trace `draw_below!` runtime implementations.
-- Emit the two-state transition into the `Generated` submodule.
+- Emit generic categorical and finite-MH transitions into the `Generated`
+  submodule, retaining the two-state convenience specialization.
 - Drive generation through the Lake generator and root Make target.
 - Make `make check-generated` regenerate in a temporary directory and fail on
   any diff.
@@ -173,6 +177,8 @@ generated Julia behavior is not silently included in this theorem.
 ### Phase D: end-to-end validation — complete
 
 - Exhaustively test every valid primitive draw for the two-state example.
+- Exhaustively test an asymmetric three-state configuration with zero edges
+  against exact rational rows, the Lean oracle, and both Julia cores.
 - Test invalid bounds, exhausted traces, out-of-range draws, zero proposal
   probabilities, self proposals, acceptance, and rejection.
 - Compare Lean trace fixtures with Julia trace diagnostics and final states.
@@ -190,17 +196,14 @@ The finite milestone is complete only when:
   reproduced by `make generate`;
 - Julia installation does not require Lean;
 - deterministic trace replay agrees across Lean fixtures and Julia;
-- exhaustive two-state tests cover all finite random choices and specified
-  failures; and
+- exhaustive two-state and asymmetric small-kernel tests cover all represented
+  finite random choices and specified failures; and
 - documentation lists the Julia emitter and `draw_below!` implementation as
   trusted boundaries, distinct from the machine-checked PMF refinement.
 
 ## Explicitly deferred
 
 - arbitrary finite Lean state encodings;
-- generic arbitrary-size executable-MH refinement (the categorical PMF theorem
-  is already generic, while the delivered end-to-end MH refinement is the
-  two-state MVP);
 - continuous distributions and Gaussian primitive contracts;
 - `Float64` refinement and numerical error bounds;
 - RWMH, leapfrog, endpoint HMC, multinomial HMC, and couplings;

@@ -17,11 +17,32 @@ function categorical_index!(source::AbstractRandomSource, weights::AbstractVecto
 end
 
 function two_state_mh_step!(source::AbstractRandomSource, current::Integer)
-    0 <= current < 2 || throw(ArgumentError("state must be 0 or 1"))
-    proposed = categorical_index!(source, BigInt[1, 1])
+    finite_mh_step!(source, BigInt[1, 3], [BigInt[1, 1], BigInt[1, 1]], current)
+end
+
+function finite_mh_step!(source::AbstractRandomSource,
+        target::AbstractVector{<:Integer}, proposal::AbstractVector, current::Integer)
+    target_weights = BigInt.(target)
+    all(weight -> weight > 0, target_weights) ||
+        throw(ArgumentError("target weights must be positive"))
+    state_count = length(target_weights)
+    length(proposal) == state_count || throw(DimensionMismatch("proposal row count"))
+    0 <= current < state_count || throw(ArgumentError("current state is out of range"))
+    rows = [BigInt.(row) for row in proposal]
+    all(row -> length(row) == state_count, rows) ||
+        throw(DimensionMismatch("proposal column count"))
+    all(row -> all(weight -> weight >= 0, row) && sum(row) > 0, rows) ||
+        throw(ArgumentError("proposal rows need nonnegative weights and positive totals"))
+
+    proposed = categorical_index!(source, rows[current + 1])
     proposed == current && return current
-    upper = current == 0 ? big(2) : big(6)
-    threshold = big(2)
+    current_total = sum(rows[current + 1])
+    proposed_total = sum(rows[proposed + 1])
+    forward = rows[current + 1][proposed + 1]
+    reverse = rows[proposed + 1][current + 1]
+    upper = target_weights[current + 1] * forward * proposed_total
+    threshold = min(upper,
+        target_weights[proposed + 1] * reverse * current_total)
     draw_below!(source, upper) < threshold ? proposed : current
 end
 

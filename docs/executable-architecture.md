@@ -241,16 +241,18 @@ must never be emitted as arbitrary trusted Julia calls.
 
 ### Generator executable
 
-The finite MVP uses a deterministic, deliberately narrow Lean emitter:
+The finite layer uses a deterministic Lean emitter for the generic natural-
+weight categorical and MH algorithms:
 
 ```text
-proved two-state executable configuration
+proved generic finite executable algorithm
   -> fixed generated-core template
   -> Generated core files
 ```
 
-A typed language-neutral IR and restricted Julia AST remain the next compiler
-generalization; they are not claimed as delivered by the MVP.
+A typed language-neutral IR and restricted Julia AST remain a compiler
+hardening step; they are not silently claimed by the generic refinement
+theorem.
 
 Generation uses stable formatting so identical Lean input gives byte-identical
 output.
@@ -298,7 +300,7 @@ separate machine-checked refinement theorem.
 |---|---|
 | Natural weights to PMF | Proved in Lean |
 | Generic categorical PMF denotation | Proved in Lean |
-| Two-state executable MH to existing row PMF | Proved in Lean |
+| Generic executable MH to existing row PMF | Proved in Lean |
 | Existing finite MH detailed balance/invariance | Already proved in Lean |
 | Trace evaluator behavior | Defined and proved in Lean |
 | Lean finite template to Julia source | Deterministic, tested emitter; initially trusted |

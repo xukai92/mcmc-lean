@@ -1,5 +1,21 @@
 # Development log
 
+## 2026-08-14: generic executable finite MH
+
+Generalized the exact proposal/accept/reject PMF from the two-state fixture to
+arbitrary `Fin n`. Lean now proves row-PMF equality with the existing finite
+MH kernel for every strictly positive natural-weight target and every
+positive-total natural proposal row, including asymmetric and zero proposal
+edges. The diagonal case is derived from normalization after proving every
+off-diagonal mass algebraically.
+
+Generalized the emitted and optimized Julia cores, compiled Lean oracle, and
+public API. `FiniteKernelWeights` validates square nonnegative proposal
+matrices with positive row totals; `FiniteMH` exposes positional-RNG `step` and
+`sample` methods. An asymmetric three-state example with zero edges is
+exhaustively enumerated and compared across exact rational expectations, the
+Lean oracle, generated Julia, and optimized Julia.
+
 ## 2026-08-14: differential and statistical Julia test layers
 
 Added a maintained optimized finite implementation using cumulative sums and
