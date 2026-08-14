@@ -259,51 +259,8 @@ statistical, and skeletoned future test layers.
 - [`VerifiedSamplers.jl/`](VerifiedSamplers.jl/): Julia package, with
   compiler-emitted generated code and maintained optimized code in separate
   internal submodules.
-
-- [`formal/Mcmc/Finite/`](formal/Mcmc/Finite/): elementary finite kernels,
-  couplings, transport, and finite-to-mathlib bridges.
-- [`formal/Mcmc/Kernel/`](formal/Mcmc/Kernel/): general-state MH/RWMH, coupled
-  kernels, path laws, meeting events, and drift machinery.
-- [`formal/Mcmc/Hamiltonian/Leapfrog.lean`](formal/Mcmc/Hamiltonian/Leapfrog.lean):
-  leapfrog definitions and deterministic identities.
-- [`formal/Mcmc/Hamiltonian/HMC.lean`](formal/Mcmc/Hamiltonian/HMC.lean):
-  phase- and position-space multinomial HMC and invariance.
-- [`formal/Mcmc/Hamiltonian/CoupledMultinomialHMC.lean`](formal/Mcmc/Hamiltonian/CoupledMultinomialHMC.lean):
-  coupled multinomial HMC with exact marginals.
-- [`formal/Mcmc/Hamiltonian/LocalContractivity.lean`](formal/Mcmc/Hamiltonian/LocalContractivity.lean):
-  Xu conditions, contraction estimates, numerical-error analysis, and
-  kernel accessibility.
-- [`formal/Mcmc/Hamiltonian/CoupledMixture.lean`](formal/Mcmc/Hamiltonian/CoupledMixture.lean):
-  verified HMC/RWMH mixtures and geometric meeting-tail theorems.
-- [`formal/Mcmc/Relativistic/`](formal/Mcmc/Relativistic/): corrected relativistic
-  momentum laws, Riemannian Hamiltonians, generalized-leapfrog obligations,
-  and conditional endpoint-Metropolis and multinomial GR-HMC invariance.
-- [`formal/Mcmc/Hamiltonian/QuadraticGaussian.lean`](formal/Mcmc/Hamiltonian/QuadraticGaussian.lean)
-  and [`QuadraticGaussianXu.lean`](formal/Mcmc/Hamiltonian/QuadraticGaussianXu.lean):
-  validated Gaussian specializations.
-- [`formal/Mcmc/Hamiltonian/LogisticRegression.lean`](formal/Mcmc/Hamiltonian/LogisticRegression.lean):
-  verified regularized-logistic potential, gradient, paper assumptions, and
-  local coupled-HMC accessibility.
-- [`docs/architecture.md`](docs/architecture.md): dependency graphs from
-  mathlib measures and kernels through RWMH/HMC to Xu et al.'s meeting theorem.
-- [`docs/executable-architecture.md`](docs/executable-architecture.md): the
-  executable scope, assurance levels, and cross-language component architecture.
-- [`docs/finite-executable-roadmap.md`](docs/finite-executable-roadmap.md): the
-  exact finite end-to-end milestone and completion gates.
-- [`docs/betancourt17-coverage.md`](docs/betancourt17-coverage.md): mapping of
-  Betancourt's conceptual HMC construction to the reusable correctness layer.
-- [`docs/neal12-coverage.md`](docs/neal12-coverage.md): mapping of Neal's HMC
-  review and variants to implemented foundations and remaining boundaries.
-- [`docs/xu21-coverage.md`](docs/xu21-coverage.md) and
-  [`docs/xu21-roadmap.md`](docs/xu21-roadmap.md): claim audit and roadmap for
-  Xu et al. (2021).
-- [`docs/xu24-coverage.md`](docs/xu24-coverage.md) and
-  [`docs/xu24-roadmap.md`](docs/xu24-roadmap.md): claim audit and roadmap for
-  Xu and Ge (2024).
-- [`docs/development-log.md`](docs/development-log.md): chronological proof
-  milestones and limitations.
-- [`docs/related-work.md`](docs/related-work.md): literature and architecture
-  notes.
+- [`docs/`](docs/): architecture notes, coverage audits, roadmaps, and the
+  development log.
 
 ## License
 
