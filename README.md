@@ -91,16 +91,12 @@ both implicit maps globally contract when `3|ε|/2 < 1`, and the selected solve
 is unique, measurable, approached by the finite loops, and momentum-flip
 reversible. Its Banach-selected half-momentum, next-position, and full-step
 maps are also continuous as functions of the incoming state. Phase-volume
-preservation is reduced to the remaining explicit
-unit-Jacobian certificate. Its mixed-partial equality and determinant
-cancellation are already proved. The step is factored into two explicit
-triangular maps, their two globally selected implicit inverses, and the exact
-relations connecting those four stages. In scalar coordinates Lean computes
-the full derivative and determinant of the incoming map, proves it everywhere
-nonsingular from the contraction bound, and consequently proves the actual
-Banach-selected half-momentum inverse differentiable. The analogous implicit
-position inverse and final determinant product are the remaining analytic
-steps.
+preservation is now unconditional under the same step bound. Lean factors the
+step into four triangular stages, constructs both continuous global Banach
+inverses, proves them differentiable by the inverse-function theorem, computes
+all four `2×2` determinant factors, cancels them using the checked mixed-
+partial identity, transports the result to `PhaseSpace Unit`, and applies the
+Haar change-of-variables theorem.
 
 Betancourt's [*A Conceptual Introduction to Hamiltonian Monte
 Carlo*](https://arxiv.org/abs/1701.02434) is used as a foundational HMC

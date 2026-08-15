@@ -58,7 +58,10 @@ reversal and finite-difference unit-Jacobian checks; the latter remains an
 empirical regression rather than a measure-preservation proof. Lean separately
 proves that an exact differentiability/unit-Jacobian certificate would imply
 phase-volume preservation, but the finite-difference check does not construct
-that certificate.
+that certificate. For the bounded nonconstant metric `2 + sin(q)`, Lean now
+constructs the exact certificate and proves phase-volume preservation; the
+Julia residual/reversal tests remain implementation regressions for finite
+floating-point iterations rather than that exact proof.
 
 The bilinear exact solver has a stronger formal check:
 `bilinearContractiveSolverAt_volumePreserving` proves exact phase-volume

@@ -1269,6 +1269,17 @@ differentiable. The position mixed partial is also bounded by two and its
 corresponding diagonal factor is proved nonzero, preparing the symmetric
 position-stage argument.
 
+Closed the bounded position-dependent solver's final analytic endpoint. A
+second parameterized Banach construction gives a continuous global inverse of
+the left position map; its explicit triangular derivative is nonsingular, so
+the inverse is differentiable. Lean identifies the complete solver with the
+composition of incoming inverse, right map, left inverse, and outgoing map,
+computes the derivative determinant of every stage, and uses the mixed-partial
+identity to cancel the incoming/right and left/outgoing factors exactly. A
+linear equivalence between scalar coordinates and `PhaseSpace Unit` transports
+determinant one, and `boundedScalarContractiveSolverAt_volumePreserving`
+proves preservation of product phase volume for every `3|ε|/2 < 1`.
+
 ## Next steps
 
 1. Extend the complete finite-dimensional standard-Gaussian Theorem 4.1

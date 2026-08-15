@@ -160,9 +160,11 @@ is also retained. Opposite-step uniqueness now proves that the exact step is
 bijective, and a reusable change-of-variables theorem turns an explicit
 differentiability/unit-Jacobian certificate into product phase-volume
 preservation. The smooth test model's concrete certificate remains open. The
-bounded positive nonconstant metric client below closes the metric and
-contraction obligations, but retains the same explicit Jacobian endpoint
-before it supplies the entire validity certificate consumed by GR-HMC.
+bounded positive nonconstant metric client below closes the metric,
+contraction, differentiability, exact unit-Jacobian, and phase-volume
+obligations. Its exact Banach selection therefore supplies the complete formal
+integrator validity result; Float64 finite loops remain governed by the
+separate residual/refinement boundary.
 
 For comparison, `bilinearContractiveSolverAt_volumePreserving` closes the
 measure-theoretic argument for the bilinear implicit stress model in every

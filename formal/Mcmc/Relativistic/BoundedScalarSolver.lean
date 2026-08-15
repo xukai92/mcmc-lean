@@ -727,6 +727,254 @@ theorem boundedScalar_nextPosition_contracting (ε : ℝ)
           exact (boundedScalarMomentumDerivative_lipschitz_position p).dist_le_mul x y
       _ = _ := by ring
 
+noncomputable def boundedScalarLeftInverseUpdateReal
+    (ε : ℝ) (y : ℝ × ℝ) (q : ℝ) : ℝ :=
+  y.1 + (ε / 2) * boundedScalarMomentumDerivativeReal (q, y.2)
+
+theorem boundedScalarMomentumDerivativeReal_lipschitz_fst (p : ℝ) :
+    LipschitzWith 2 (fun q => boundedScalarMomentumDerivativeReal (q, p)) := by
+  apply LipschitzWith.of_dist_le_mul
+  intro q r
+  unfold boundedScalarMomentumDerivativeReal
+  have hv := (scaledVelocityProfile_lipschitz p).dist_le_mul
+    (2 + Real.sin q) (2 + Real.sin r)
+  have hs := boundedScalarScale_lipschitz.dist_le_mul q r
+  calc
+    dist (scaledVelocityProfile p (2 + Real.sin q))
+        (scaledVelocityProfile p (2 + Real.sin r)) ≤
+      2 * dist (2 + Real.sin q) (2 + Real.sin r) := hv
+    _ ≤ 2 * dist q r := by
+      gcongr
+      simpa using hs
+
+theorem boundedScalarLeftInverseUpdateReal_contracting
+    (ε : ℝ) (hstep : |ε / 2| * 3 < 1) (y : ℝ × ℝ) :
+    ContractingWith (boundedScalarPositionRate ε)
+      (boundedScalarLeftInverseUpdateReal ε y) := by
+  constructor
+  · change |ε / 2| * 2 < 1
+    nlinarith [abs_nonneg (ε / 2)]
+  · apply LipschitzWith.of_dist_le_mul
+    intro q r
+    rw [Real.dist_eq]
+    change |(y.1 + (ε / 2) * boundedScalarMomentumDerivativeReal (q, y.2)) -
+        (y.1 + (ε / 2) * boundedScalarMomentumDerivativeReal (r, y.2))| ≤
+      (|ε / 2| * 2) * |q - r|
+    rw [show (y.1 + (ε / 2) * boundedScalarMomentumDerivativeReal (q, y.2)) -
+        (y.1 + (ε / 2) * boundedScalarMomentumDerivativeReal (r, y.2)) =
+      (ε / 2) * (boundedScalarMomentumDerivativeReal (q, y.2) -
+        boundedScalarMomentumDerivativeReal (r, y.2)) by ring,
+      abs_mul]
+    calc
+      |ε / 2| * |boundedScalarMomentumDerivativeReal (q, y.2) -
+          boundedScalarMomentumDerivativeReal (r, y.2)| ≤
+        |ε / 2| * (2 * |q - r|) := by
+          gcongr
+          simpa [Real.dist_eq] using
+            (boundedScalarMomentumDerivativeReal_lipschitz_fst y.2).dist_le_mul q r
+      _ = _ := by ring
+
+/-- Global Banach-selected inverse of the left triangular position map. -/
+noncomputable def boundedScalarLeftSolveReal (ε : ℝ)
+    (hstep : |ε / 2| * 3 < 1) (y : ℝ × ℝ) : ℝ × ℝ :=
+  ((boundedScalarLeftInverseUpdateReal_contracting ε hstep y).fixedPoint
+      (boundedScalarLeftInverseUpdateReal ε y), y.2)
+
+theorem continuous_boundedScalarLeftSolveReal
+    (ε : ℝ) (hstep : |ε / 2| * 3 < 1) :
+    Continuous (boundedScalarLeftSolveReal ε hstep) := by
+  let K := boundedScalarPositionRate ε
+  let update := boundedScalarLeftInverseUpdateReal ε
+  have hK : (K : ℝ) < 1 := by
+    change |ε / 2| * 2 < 1
+    nlinarith [abs_nonneg (ε / 2)]
+  have hjoint : Continuous fun z : (ℝ × ℝ) × ℝ => update z.1 z.2 := by
+    unfold update boundedScalarLeftInverseUpdateReal
+    have he : Continuous fun _ : (ℝ × ℝ) × ℝ => ε / 2 := continuous_const
+    exact continuous_fst.fst.add (he.mul
+      (differentiable_boundedScalarMomentumDerivativeReal.continuous.comp
+        (continuous_snd.prodMk continuous_fst.snd)))
+  have hlip : ∀ y, LipschitzWith K (update y) := fun y =>
+    (boundedScalarLeftInverseUpdateReal_contracting ε hstep y).2
+  have hfixed := continuous_fixedPoint_of_continuous_uniform_contracting
+    K hK update hjoint hlip
+  unfold boundedScalarLeftSolveReal
+  exact hfixed.prodMk continuous_snd
+
+theorem boundedScalarLeftMapReal_leftInverse_leftSolveReal
+    (ε : ℝ) (hstep : |ε / 2| * 3 < 1) :
+    Function.LeftInverse (boundedScalarLeftMapReal ε)
+      (boundedScalarLeftSolveReal ε hstep) := by
+  intro y
+  let q := (boundedScalarLeftInverseUpdateReal_contracting ε hstep y).fixedPoint
+    (boundedScalarLeftInverseUpdateReal ε y)
+  have hfixed :=
+    (boundedScalarLeftInverseUpdateReal_contracting ε hstep y).fixedPoint_isFixedPt
+  change (q - (ε / 2) * boundedScalarMomentumDerivativeReal (q, y.2), y.2) = y
+  have hq : q = y.1 + (ε / 2) *
+      boundedScalarMomentumDerivativeReal (q, y.2) := by
+    simpa [q, boundedScalarLeftInverseUpdateReal] using hfixed.symm
+  apply Prod.ext
+  · dsimp only
+    linarith
+  · rfl
+
+theorem boundedScalarLeftSolveReal_leftMapReal
+    (ε : ℝ) (hstep : |ε / 2| * 3 < 1) (z : ℝ × ℝ) :
+    boundedScalarLeftSolveReal ε hstep (boundedScalarLeftMapReal ε z) = z := by
+  let y := boundedScalarLeftMapReal ε z
+  let contraction := boundedScalarLeftInverseUpdateReal_contracting ε hstep y
+  have hzFixed : Function.IsFixedPt
+      (boundedScalarLeftInverseUpdateReal ε y) z.1 := by
+    unfold Function.IsFixedPt boundedScalarLeftInverseUpdateReal y
+    simp [boundedScalarLeftMapReal]
+  have hq : z.1 = contraction.fixedPoint
+      (boundedScalarLeftInverseUpdateReal ε y) := contraction.fixedPoint_unique hzFixed
+  unfold boundedScalarLeftSolveReal
+  change (contraction.fixedPoint (boundedScalarLeftInverseUpdateReal ε y), y.2) = z
+  rw [← hq]
+  simp [y, boundedScalarLeftMapReal]
+
+noncomputable def boundedScalarLeftFDerivReal (ε : ℝ) (z : ℝ × ℝ) :
+    ℝ × ℝ →L[ℝ] ℝ × ℝ :=
+  (Matrix.toLin (.finTwoProd ℝ) (.finTwoProd ℝ)
+    !![1 - (ε / 2) *
+          fderiv ℝ boundedScalarMomentumDerivativeReal z (1, 0),
+        -(ε / 2) * fderiv ℝ boundedScalarMomentumDerivativeReal z (0, 1);
+      0, 1]).toContinuousLinearMap
+
+theorem hasFDerivAt_boundedScalarLeftMapReal (ε : ℝ) (z : ℝ × ℝ) :
+    HasFDerivAt (boundedScalarLeftMapReal ε)
+      (boundedScalarLeftFDerivReal ε z) z := by
+  unfold boundedScalarLeftFDerivReal boundedScalarLeftMapReal
+  rw [Matrix.toLin_finTwoProd_toContinuousLinearMap]
+  convert! HasFDerivAt.prodMk (𝕜 := ℝ)
+    (hasFDerivAt_fst.sub
+      ((differentiable_boundedScalarMomentumDerivativeReal z).hasFDerivAt.const_mul
+        (ε / 2))) hasFDerivAt_snd using 2
+  · apply ContinuousLinearMap.ext
+    intro v
+    rcases v with ⟨v₁, v₂⟩
+    have hv : fderiv ℝ boundedScalarMomentumDerivativeReal z (v₁, v₂) =
+        v₁ * fderiv ℝ boundedScalarMomentumDerivativeReal z (1, 0) +
+          v₂ * fderiv ℝ boundedScalarMomentumDerivativeReal z (0, 1) := by
+      have hvec : (v₁, v₂) = v₁ • (1, 0) + v₂ • (0, 1) := by
+        ext <;> simp
+      simpa only [map_add, map_smul, smul_eq_mul] using
+        congrArg (fderiv ℝ boundedScalarMomentumDerivativeReal z) hvec
+    change (1 - ε / 2 * fderiv ℝ boundedScalarMomentumDerivativeReal z (1, 0)) * v₁ +
+        (-(ε / 2) * fderiv ℝ boundedScalarMomentumDerivativeReal z (0, 1)) * v₂ =
+      v₁ - ε / 2 * fderiv ℝ boundedScalarMomentumDerivativeReal z (v₁, v₂)
+    rw [hv]
+    ring
+  · simp
+
+theorem det_boundedScalarLeftFDerivReal (ε : ℝ) (z : ℝ × ℝ) :
+    (boundedScalarLeftFDerivReal ε z).det =
+      1 - (ε / 2) *
+        fderiv ℝ boundedScalarMomentumDerivativeReal z (1, 0) := by
+  unfold boundedScalarLeftFDerivReal
+  simp only [LinearMap.det_toContinuousLinearMap, LinearMap.det_toLin,
+    Matrix.det_fin_two_of]
+  ring
+
+theorem fderiv_boundedScalarMomentumDerivativeReal_fst (q p : ℝ) :
+    fderiv ℝ boundedScalarMomentumDerivativeReal (q, p) (1, 0) =
+      deriv (fun r => scaledVelocityProfile p (2 + Real.sin r)) q := by
+  have hinner : HasFDerivAt (fun r : ℝ => (r, p))
+      (ContinuousLinearMap.inl ℝ ℝ ℝ) q := hasFDerivAt_prodMk_left q p
+  have hcomp :=
+    (differentiable_boundedScalarMomentumDerivativeReal (q, p)).hasFDerivAt.comp
+      q hinner
+  have hderiv : HasDerivAt
+      (fun r => scaledVelocityProfile p (2 + Real.sin r))
+      (fderiv ℝ boundedScalarMomentumDerivativeReal (q, p) (1, 0)) q := by
+    convert! hcomp.hasDerivAt using 1
+  rw [hderiv.deriv]
+
+noncomputable def boundedScalarRightFDerivReal (ε : ℝ) (z : ℝ × ℝ) :
+    ℝ × ℝ →L[ℝ] ℝ × ℝ :=
+  (Matrix.toLin (.finTwoProd ℝ) (.finTwoProd ℝ)
+    !![1 + (ε / 2) * fderiv ℝ boundedScalarMomentumDerivativeReal z (1, 0),
+        (ε / 2) * fderiv ℝ boundedScalarMomentumDerivativeReal z (0, 1);
+      0, 1]).toContinuousLinearMap
+
+theorem hasFDerivAt_boundedScalarRightMapReal (ε : ℝ) (z : ℝ × ℝ) :
+    HasFDerivAt (boundedScalarRightMapReal ε)
+      (boundedScalarRightFDerivReal ε z) z := by
+  unfold boundedScalarRightFDerivReal boundedScalarRightMapReal
+  rw [Matrix.toLin_finTwoProd_toContinuousLinearMap]
+  convert! HasFDerivAt.prodMk (𝕜 := ℝ)
+    (hasFDerivAt_fst.add
+      ((differentiable_boundedScalarMomentumDerivativeReal z).hasFDerivAt.const_mul
+        (ε / 2))) hasFDerivAt_snd using 2
+  · apply ContinuousLinearMap.ext
+    intro v
+    rcases v with ⟨v₁, v₂⟩
+    have hv : fderiv ℝ boundedScalarMomentumDerivativeReal z (v₁, v₂) =
+        v₁ * fderiv ℝ boundedScalarMomentumDerivativeReal z (1, 0) +
+          v₂ * fderiv ℝ boundedScalarMomentumDerivativeReal z (0, 1) := by
+      have hvec : (v₁, v₂) = v₁ • (1, 0) + v₂ • (0, 1) := by ext <;> simp
+      simpa only [map_add, map_smul, smul_eq_mul] using
+        congrArg (fderiv ℝ boundedScalarMomentumDerivativeReal z) hvec
+    change (1 + ε / 2 * fderiv ℝ boundedScalarMomentumDerivativeReal z (1, 0)) * v₁ +
+        (ε / 2 * fderiv ℝ boundedScalarMomentumDerivativeReal z (0, 1)) * v₂ =
+      v₁ + ε / 2 * fderiv ℝ boundedScalarMomentumDerivativeReal z (v₁, v₂)
+    rw [hv]
+    ring
+  · simp
+
+theorem det_boundedScalarRightFDerivReal (ε : ℝ) (z : ℝ × ℝ) :
+    (boundedScalarRightFDerivReal ε z).det =
+      1 + (ε / 2) *
+        fderiv ℝ boundedScalarMomentumDerivativeReal z (1, 0) := by
+  unfold boundedScalarRightFDerivReal
+  simp only [LinearMap.det_toContinuousLinearMap, LinearMap.det_toLin,
+    Matrix.det_fin_two_of]
+  ring
+
+noncomputable def boundedScalarOutgoingFDerivReal (ε : ℝ) (z : ℝ × ℝ) :
+    ℝ × ℝ →L[ℝ] ℝ × ℝ :=
+  (Matrix.toLin (.finTwoProd ℝ) (.finTwoProd ℝ)
+    !![1, 0;
+      -(ε / 2) * fderiv ℝ boundedScalarPositionDerivativeReal z (1, 0),
+      1 - (ε / 2) *
+        fderiv ℝ boundedScalarPositionDerivativeReal z (0, 1)]).toContinuousLinearMap
+
+theorem hasFDerivAt_boundedScalarOutgoingMapReal (ε : ℝ) (z : ℝ × ℝ) :
+    HasFDerivAt (boundedScalarOutgoingMapReal ε)
+      (boundedScalarOutgoingFDerivReal ε z) z := by
+  unfold boundedScalarOutgoingFDerivReal boundedScalarOutgoingMapReal
+  rw [Matrix.toLin_finTwoProd_toContinuousLinearMap]
+  convert! HasFDerivAt.prodMk (𝕜 := ℝ) hasFDerivAt_fst
+    (hasFDerivAt_snd.sub
+      ((differentiable_boundedScalarPositionDerivativeReal z).hasFDerivAt.const_mul
+        (ε / 2))) using 2
+  · simp
+  · apply ContinuousLinearMap.ext
+    intro v
+    rcases v with ⟨v₁, v₂⟩
+    have hv : fderiv ℝ boundedScalarPositionDerivativeReal z (v₁, v₂) =
+        v₁ * fderiv ℝ boundedScalarPositionDerivativeReal z (1, 0) +
+          v₂ * fderiv ℝ boundedScalarPositionDerivativeReal z (0, 1) := by
+      have hvec : (v₁, v₂) = v₁ • (1, 0) + v₂ • (0, 1) := by ext <;> simp
+      simpa only [map_add, map_smul, smul_eq_mul] using
+        congrArg (fderiv ℝ boundedScalarPositionDerivativeReal z) hvec
+    change (-(ε / 2) * fderiv ℝ boundedScalarPositionDerivativeReal z (1, 0)) * v₁ +
+        (1 - ε / 2 * fderiv ℝ boundedScalarPositionDerivativeReal z (0, 1)) * v₂ =
+      v₂ - ε / 2 * fderiv ℝ boundedScalarPositionDerivativeReal z (v₁, v₂)
+    rw [hv]
+    ring
+
+theorem det_boundedScalarOutgoingFDerivReal (ε : ℝ) (z : ℝ × ℝ) :
+    (boundedScalarOutgoingFDerivReal ε z).det =
+      1 - (ε / 2) *
+        fderiv ℝ boundedScalarPositionDerivativeReal z (0, 1) := by
+  unfold boundedScalarOutgoingFDerivReal
+  simp only [LinearMap.det_toContinuousLinearMap, LinearMap.det_toLin,
+    Matrix.det_fin_two_of]
+  ring
+
 /-- Exact Banach-selected generalized-leapfrog solver for an actual complete
 position-dependent GR Hamiltonian at every nonzero step satisfying
 `3 |ε| / 2 < 1`. -/
@@ -866,6 +1114,40 @@ theorem continuous_boundedScalarRealOfPhase :
   unfold boundedScalarRealOfPhase
   fun_prop
 
+theorem differentiable_boundedScalarPhaseOfReal :
+    Differentiable ℝ boundedScalarPhaseOfReal := by
+  unfold boundedScalarPhaseOfReal
+  fun_prop
+
+theorem differentiable_boundedScalarRealOfPhase :
+    Differentiable ℝ boundedScalarRealOfPhase := by
+  unfold boundedScalarRealOfPhase
+  fun_prop
+
+noncomputable def boundedScalarPhaseRealLinearEquiv :
+    (ℝ × ℝ) ≃ₗ[ℝ] PhaseSpace Unit where
+  toFun := boundedScalarPhaseOfReal
+  invFun := boundedScalarRealOfPhase
+  left_inv := boundedScalarRealOfPhase_phaseOfReal
+  right_inv := boundedScalarPhaseOfReal_realOfPhase
+  map_add' x y := by
+    ext i <;> cases i <;> rfl
+  map_smul' c x := by
+    ext i <;> cases i <;> rfl
+
+noncomputable def boundedScalarPhaseRealContinuousLinearEquiv :
+    (ℝ × ℝ) ≃L[ℝ] PhaseSpace Unit :=
+  boundedScalarPhaseRealLinearEquiv.toContinuousLinearEquivOfContinuous
+    continuous_boundedScalarPhaseOfReal
+
+@[simp] theorem boundedScalarPhaseRealContinuousLinearEquiv_apply (z : ℝ × ℝ) :
+    boundedScalarPhaseRealContinuousLinearEquiv z = boundedScalarPhaseOfReal z := rfl
+
+@[simp] theorem boundedScalarPhaseRealContinuousLinearEquiv_symm_apply
+    (z : PhaseSpace Unit) :
+    boundedScalarPhaseRealContinuousLinearEquiv.symm z =
+      boundedScalarRealOfPhase z := rfl
+
 /-- Scalar-coordinate global inverse selected by the first Banach solve. -/
 noncomputable def boundedScalarHalfSolveReal (ε : ℝ)
     (hstep : |ε / 2| * 3 < 1) (z : ℝ × ℝ) : ℝ × ℝ :=
@@ -895,6 +1177,47 @@ theorem boundedScalarIncomingMapReal_leftInverse_halfSolveReal
       boundedScalarPositionDerivativeReal, boundedScalarPositionDerivative,
       boundedScalarPhaseOfReal, boundedScalarScale, scalarPositionProfile] at hi ⊢
     linarith
+
+noncomputable def boundedScalarStepReal (ε : ℝ)
+    (hstep : |ε / 2| * 3 < 1) (z : ℝ × ℝ) : ℝ × ℝ :=
+  boundedScalarRealOfPhase
+    ((boundedScalarContractiveSolverAt ε hstep).step
+      (boundedScalarPhaseOfReal z))
+
+theorem boundedScalarStepReal_eq_triangular_composition
+    (ε : ℝ) (hstep : |ε / 2| * 3 < 1) :
+    boundedScalarStepReal ε hstep =
+      boundedScalarOutgoingMapReal ε ∘
+        boundedScalarLeftSolveReal ε hstep ∘
+          boundedScalarRightMapReal ε ∘
+            boundedScalarHalfSolveReal ε hstep := by
+  funext z
+  let solver := boundedScalarContractiveSolverAt ε hstep
+  let phase := boundedScalarPhaseOfReal z
+  let pHalf := solver.halfMomentum phase Unit.unit
+  let qNext := solver.nextPosition phase Unit.unit
+  have hq : qNext = z.1 + (ε / 2) *
+      (boundedScalarMomentumDerivativeReal (z.1, pHalf) +
+        boundedScalarMomentumDerivativeReal (qNext, pHalf)) := by
+    have h := congrFun (solver.satisfies phase).2.1 Unit.unit
+    simpa [qNext, pHalf, phase, boundedScalarPhaseOfReal,
+      boundedScalarMomentumDerivativeReal, boundedScalarMomentumDerivative,
+      boundedScalarScale, ContractiveGeneralizedLeapfrogSolverAt.step,
+      mul_add] using h
+  have hmiddle : boundedScalarRightMapReal ε (z.1, pHalf) =
+      boundedScalarLeftMapReal ε (qNext, pHalf) := by
+    apply Prod.ext
+    · simp [boundedScalarRightMapReal, boundedScalarLeftMapReal]
+      linarith
+    · rfl
+  change boundedScalarRealOfPhase (solver.step phase) = _
+  simp only [Function.comp_apply]
+  change boundedScalarRealOfPhase (solver.step phase) =
+    boundedScalarOutgoingMapReal ε
+      (boundedScalarLeftSolveReal ε hstep
+        (boundedScalarRightMapReal ε (z.1, pHalf)))
+  rw [hmiddle, boundedScalarLeftSolveReal_leftMapReal]
+  rfl
 
 /-! The four explicit triangular maps below expose the exact inverse-map
 decomposition needed by the differentiability proof. -/
@@ -1249,6 +1572,169 @@ theorem differentiable_boundedScalarHalfSolveReal
   intro z
   rw [(hasFDerivAt_boundedScalarIncomingMapReal ε z).fderiv]
   exact det_boundedScalarIncomingFDerivReal_ne_zero ε hstep z
+
+theorem det_boundedScalarLeftFDerivReal_ne_zero
+    (ε : ℝ) (hstep : |ε / 2| * 3 < 1) (z : ℝ × ℝ) :
+    (boundedScalarLeftFDerivReal ε z).det ≠ 0 := by
+  rw [det_boundedScalarLeftFDerivReal,
+    fderiv_boundedScalarMomentumDerivativeReal_fst]
+  exact boundedScalar_position_derivative_factor_ne_zero ε hstep z.1 z.2
+
+theorem differentiable_boundedScalarLeftSolveReal
+    (ε : ℝ) (hstep : |ε / 2| * 3 < 1) :
+    Differentiable ℝ (boundedScalarLeftSolveReal ε hstep) := by
+  apply differentiable_of_continuous_leftInverse_of_det_fderiv_ne_zero
+    (boundedScalarLeftMapReal ε)
+      (boundedScalarLeftSolveReal ε hstep)
+    (differentiable_boundedScalarLeftMapReal ε)
+    (continuous_boundedScalarLeftSolveReal ε hstep)
+    (boundedScalarLeftMapReal_leftInverse_leftSolveReal ε hstep)
+  intro z
+  rw [(hasFDerivAt_boundedScalarLeftMapReal ε z).fderiv]
+  exact det_boundedScalarLeftFDerivReal_ne_zero ε hstep z
+
+theorem differentiable_boundedScalarStepReal
+    (ε : ℝ) (hstep : |ε / 2| * 3 < 1) :
+    Differentiable ℝ (boundedScalarStepReal ε hstep) := by
+  rw [boundedScalarStepReal_eq_triangular_composition]
+  exact (differentiable_boundedScalarOutgoingMapReal ε).comp
+    ((differentiable_boundedScalarLeftSolveReal ε hstep).comp
+      ((differentiable_boundedScalarRightMapReal ε).comp
+        (differentiable_boundedScalarHalfSolveReal ε hstep)))
+
+theorem boundedScalar_step_eq_scalar_conjugation
+    (ε : ℝ) (hstep : |ε / 2| * 3 < 1) :
+    (boundedScalarContractiveSolverAt ε hstep).step =
+      boundedScalarPhaseOfReal ∘ boundedScalarStepReal ε hstep ∘
+        boundedScalarRealOfPhase := by
+  funext z
+  simp [Function.comp_apply, boundedScalarStepReal]
+
+theorem differentiable_boundedScalarContractiveSolverAt_step
+    (ε : ℝ) (hstep : |ε / 2| * 3 < 1) :
+    Differentiable ℝ (boundedScalarContractiveSolverAt ε hstep).step := by
+  rw [boundedScalar_step_eq_scalar_conjugation]
+  exact differentiable_boundedScalarPhaseOfReal.comp
+    ((differentiable_boundedScalarStepReal ε hstep).comp
+      differentiable_boundedScalarRealOfPhase)
+
+theorem boundedScalar_fderiv_mixed_eq (z : ℝ × ℝ) :
+    fderiv ℝ boundedScalarPositionDerivativeReal z (0, 1) =
+      fderiv ℝ boundedScalarMomentumDerivativeReal z (1, 0) := by
+  rw [fderiv_boundedScalarPositionDerivativeReal_snd,
+    fderiv_boundedScalarMomentumDerivativeReal_fst]
+  exact boundedScalar_mixed_derivatives_eq z.1 z.2
+
+theorem det_fderiv_boundedScalarStepReal
+    (ε : ℝ) (hstep : |ε / 2| * 3 < 1) (z : ℝ × ℝ) :
+    let half := boundedScalarHalfSolveReal ε hstep z
+    let right := boundedScalarRightMapReal ε half
+    let next := boundedScalarLeftSolveReal ε hstep right
+    (fderiv ℝ (boundedScalarStepReal ε hstep) z).det =
+      (boundedScalarOutgoingFDerivReal ε next).det *
+        (fderiv ℝ (boundedScalarLeftSolveReal ε hstep) right).det *
+        (boundedScalarRightFDerivReal ε half).det *
+        (fderiv ℝ (boundedScalarHalfSolveReal ε hstep) z).det := by
+  dsimp only
+  rw [boundedScalarStepReal_eq_triangular_composition]
+  let half := boundedScalarHalfSolveReal ε hstep z
+  let right := boundedScalarRightMapReal ε half
+  let next := boundedScalarLeftSolveReal ε hstep right
+  have hhalf := (differentiable_boundedScalarHalfSolveReal ε hstep z).hasFDerivAt
+  have hright := hasFDerivAt_boundedScalarRightMapReal ε half
+  have hleft := (differentiable_boundedScalarLeftSolveReal ε hstep right).hasFDerivAt
+  have hout := hasFDerivAt_boundedScalarOutgoingMapReal ε next
+  have hcomp := hout.comp z (hleft.comp z (hright.comp z hhalf))
+  rw [hcomp.fderiv]
+  simp only [det_continuousLinearMap_comp]
+  ring
+
+theorem det_fderiv_boundedScalarStepReal_eq_one
+    (ε : ℝ) (hstep : |ε / 2| * 3 < 1) (z : ℝ × ℝ) :
+    (fderiv ℝ (boundedScalarStepReal ε hstep) z).det = 1 := by
+  let half := boundedScalarHalfSolveReal ε hstep z
+  let right := boundedScalarRightMapReal ε half
+  let next := boundedScalarLeftSolveReal ε hstep right
+  have hinverse := det_fderiv_mul_det_fderiv_of_leftInverse
+    (boundedScalarIncomingMapReal ε) (boundedScalarHalfSolveReal ε hstep)
+    (differentiable_boundedScalarIncomingMapReal ε)
+    (differentiable_boundedScalarHalfSolveReal ε hstep)
+    (boundedScalarIncomingMapReal_leftInverse_halfSolveReal ε hstep) z
+  have hleftInverse := det_fderiv_mul_det_fderiv_of_leftInverse
+    (boundedScalarLeftMapReal ε) (boundedScalarLeftSolveReal ε hstep)
+    (differentiable_boundedScalarLeftMapReal ε)
+    (differentiable_boundedScalarLeftSolveReal ε hstep)
+    (boundedScalarLeftMapReal_leftInverse_leftSolveReal ε hstep) right
+  have hincoming : (fderiv ℝ (boundedScalarIncomingMapReal ε) half).det =
+      (boundedScalarIncomingFDerivReal ε half).det := by
+    rw [(hasFDerivAt_boundedScalarIncomingMapReal ε half).fderiv]
+  have hleft : (fderiv ℝ (boundedScalarLeftMapReal ε) next).det =
+      (boundedScalarLeftFDerivReal ε next).det := by
+    rw [(hasFDerivAt_boundedScalarLeftMapReal ε next).fderiv]
+  have hrightIncoming : (boundedScalarRightFDerivReal ε half).det =
+      (boundedScalarIncomingFDerivReal ε half).det := by
+    rw [det_boundedScalarRightFDerivReal,
+      det_boundedScalarIncomingFDerivReal,
+      boundedScalar_fderiv_mixed_eq]
+  have houtLeft : (boundedScalarOutgoingFDerivReal ε next).det =
+      (boundedScalarLeftFDerivReal ε next).det := by
+    rw [det_boundedScalarOutgoingFDerivReal,
+      det_boundedScalarLeftFDerivReal,
+      boundedScalar_fderiv_mixed_eq]
+  rw [det_fderiv_boundedScalarStepReal]
+  rw [houtLeft, hrightIncoming]
+  rw [hincoming] at hinverse
+  rw [hleft] at hleftInverse
+  nlinarith
+
+theorem det_fderiv_boundedScalarContractiveSolverAt_step_eq_one
+    (ε : ℝ) (hstep : |ε / 2| * 3 < 1) (z : PhaseSpace Unit) :
+    (fderiv ℝ (boundedScalarContractiveSolverAt ε hstep).step z).det = 1 := by
+  let e := boundedScalarPhaseRealContinuousLinearEquiv
+  let r := boundedScalarRealOfPhase z
+  let L := fderiv ℝ (boundedScalarStepReal ε hstep) r
+  have hin : HasFDerivAt (e.symm : PhaseSpace Unit → ℝ × ℝ)
+      (e.symm : PhaseSpace Unit →L[ℝ] ℝ × ℝ) z := e.symm.hasFDerivAt
+  have hmiddle : HasFDerivAt (boundedScalarStepReal ε hstep) L r :=
+    (differentiable_boundedScalarStepReal ε hstep r).hasFDerivAt
+  have hout : HasFDerivAt (e : ℝ × ℝ → PhaseSpace Unit)
+      (e : ℝ × ℝ →L[ℝ] PhaseSpace Unit)
+      (boundedScalarStepReal ε hstep r) := e.hasFDerivAt
+  have hcomp := hout.comp z (hmiddle.comp z hin)
+  have hactual : HasFDerivAt
+      (boundedScalarContractiveSolverAt ε hstep).step
+      ((e : ℝ × ℝ →L[ℝ] PhaseSpace Unit).comp
+        (L.comp (e.symm : PhaseSpace Unit →L[ℝ] ℝ × ℝ))) z := by
+    rw [boundedScalar_step_eq_scalar_conjugation]
+    convert! hcomp using 1
+  rw [hactual.fderiv]
+  have hconj := LinearMap.det_conj L.toLinearMap
+    boundedScalarPhaseRealLinearEquiv
+  have heq :
+      ((e : ℝ × ℝ →L[ℝ] PhaseSpace Unit).comp
+        (L.comp (e.symm : PhaseSpace Unit →L[ℝ] ℝ × ℝ))).det = L.det := by
+    change LinearMap.det
+        ((boundedScalarPhaseRealLinearEquiv : (ℝ × ℝ) →ₗ[ℝ] PhaseSpace Unit).comp
+          (L.toLinearMap.comp
+            (boundedScalarPhaseRealLinearEquiv.symm :
+              PhaseSpace Unit →ₗ[ℝ] (ℝ × ℝ)))) = LinearMap.det L.toLinearMap
+    simpa only [LinearMap.comp_assoc] using hconj
+  rw [heq]
+  exact det_fderiv_boundedScalarStepReal_eq_one ε hstep r
+
+theorem boundedScalarJacobianCertificate
+    (ε : ℝ) (hstep : |ε / 2| * 3 < 1) :
+    BoundedScalarJacobianCertificate ε hstep where
+  differentiable := differentiable_boundedScalarContractiveSolverAt_step ε hstep
+  absDetOne z := by
+    rw [det_fderiv_boundedScalarContractiveSolverAt_step_eq_one]
+    norm_num
+
+theorem boundedScalarContractiveSolverAt_volumePreserving
+    (ε : ℝ) (hstep : |ε / 2| * 3 < 1) :
+    MeasurePreserving (boundedScalarContractiveSolverAt ε hstep).step
+      (phaseVolume : Measure (PhaseSpace Unit)) phaseVolume :=
+  (boundedScalarJacobianCertificate ε hstep).volumePreserving
 
 /-- Algebraic determinant cancellation behind generalized leapfrog: the
 incoming and outgoing implicit-coordinate factors cancel separately once the

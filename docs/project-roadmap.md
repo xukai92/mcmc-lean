@@ -98,11 +98,11 @@ proving contraction and phase volume for that actual derivative pair, and
 refining Float64 residuals to that exact selection remain before B2 is
 complete.
 
-The bounded scalar client `2 + sin(q)` now closes the actual-derivative
-contraction portion: for `3|ε|/2 < 1` Lean constructs the exact unique solver
-and proves finite-loop convergence, measurability, and reversal. The remaining
-formal endpoint is its unit-Jacobian/phase-volume certificate. Float64 loops
-retain measured residuals and are not identified with the exact fixed point.
+The bounded scalar client `2 + sin(q)` closes the actual-derivative solver:
+for `3|ε|/2 < 1` Lean constructs the exact unique solver and proves finite-loop
+convergence, measurability, reversal, differentiability, exact unit Jacobian,
+and product-phase-volume preservation. Float64 loops retain measured residuals
+and are not identified with the exact fixed point.
 
 The mixed-partial and scalar determinant-cancellation portions of that
 certificate are now machine checked. A reusable theorem proves continuity of
@@ -110,10 +110,8 @@ the fixed point of a jointly continuous uniformly contractive family, and the
 bounded scalar client instantiates it for both implicit solves and the full
 step. Four explicit triangular maps and three checked identities now expose
 the solver as the incoming inverse, right/left position transfer, and outgoing
-map used by the paper's Jacobian calculation. What remains is the
-implicit-function step for the position inverse and the final derivative
-composition, after which the existing Haar change-of-variables theorem closes
-phase volume.
+map used by the paper's Jacobian calculation. Both inverse selections are now
+proved differentiable and the final derivative composition is closed.
 
 The generic inverse-function wrapper needed for that upgrade is now proved:
 an everywhere-nonsingular differentiable finite-dimensional map with a
@@ -122,14 +120,16 @@ bounded client also exposes scalar-coordinate callback maps on `ℝ × ℝ`; the
 incoming derivative calculation and its transport across the `Unit → ℝ`
 phase-space equivalence are now discharged.
 
-The incoming half-momentum stage is now complete. Its scalar-coordinate
+The incoming half-momentum stage is complete. Its scalar-coordinate
 Fréchet derivative is represented by an explicit `2×2` triangular matrix;
 Lean proves the matrix is the actual derivative, computes its determinant,
 identifies the diagonal entry with the one-variable derivative, bounds that
 mixed derivative by three, and proves nonsingularity under `3|ε|/2 < 1`.
-The global inverse theorem then proves the actual continuous Banach-selected
-half solve differentiable. The same construction remains for the implicit
-position stage before multiplying the four determinant factors.
+The global inverse theorem proves the actual continuous Banach-selected half
+solve differentiable. The symmetric construction proves the position inverse
+differentiable; all four determinant factors are computed and cancel by mixed-
+partial equality. Linear conjugacy transfers determinant one to
+`PhaseSpace Unit`, and the Haar theorem proves exact phase-volume preservation.
 
 ## Track C: later breadth branches
 

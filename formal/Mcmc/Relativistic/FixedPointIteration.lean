@@ -94,6 +94,30 @@ theorem differentiable_of_continuous_leftInverse_of_det_fderiv_ne_zero
   exact (hfAt.of_local_left_inverse hg.continuousAt
     (Filter.Eventually.of_forall hleft)).differentiableAt
 
+/-- Determinants of the derivatives of differentiable global inverse maps
+multiply to one at corresponding points. -/
+theorem det_fderiv_mul_det_fderiv_of_leftInverse
+    {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
+    [FiniteDimensional ℝ E]
+    (f g : E → E) (hf : Differentiable ℝ f) (hg : Differentiable ℝ g)
+    (hleft : Function.LeftInverse f g) (x : E) :
+    (fderiv ℝ f (g x)).det * (fderiv ℝ g x).det = 1 := by
+  have hcomp := fderiv_comp (𝕜 := ℝ) (f := g) (g := f) (x := x)
+    (hf (g x)) (hg x)
+  have hfun : f ∘ g = id := funext hleft
+  rw [hfun] at hcomp
+  have hdet := congrArg ContinuousLinearMap.det hcomp
+  simpa [ContinuousLinearMap.det, LinearMap.det_comp, LinearMap.det_id] using hdet.symm
+
+/-- Determinant multiplicativity specialized to continuous endomorphisms. -/
+theorem det_continuousLinearMap_comp
+    {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
+    [FiniteDimensional ℝ E] (f g : E →L[ℝ] E) :
+    (f.comp g).det = f.det * g.det := by
+  change LinearMap.det (f.toLinearMap.comp g.toLinearMap) =
+    LinearMap.det f.toLinearMap * LinearMap.det g.toLinearMap
+  exact LinearMap.det_comp _ _
+
 /-- Fixed-point update for the implicit first momentum half-step. -/
 noncomputable def halfMomentumFixedPointUpdate
     (positionDerivative : PhaseSpace ι → Position ι)
