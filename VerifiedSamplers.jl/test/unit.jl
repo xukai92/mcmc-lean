@@ -11,6 +11,9 @@
     @test_throws EOFError Runtime.draw_below!(trace_source, 1)
 
     @test_throws ArgumentError Runtime.draw_below!(Runtime.TraceSource([3]), 3)
+    float_indices = Runtime.FloatTraceSource([Runtime.IndexEvent(big(1))])
+    @test Runtime.draw_below!(float_indices, 3) == 1
+    @test Runtime.remaining(float_indices) == 0
     @test_throws ArgumentError Reference.categorical_index!(Runtime.TraceSource([0]), [1, -1])
     @test_throws ArgumentError Optimized.categorical_index!(Runtime.TraceSource([0]), [1, -1])
     @test_throws ArgumentError sample(MersenneTwister(1), FiniteWeights([1]), -1)
@@ -56,10 +59,10 @@ end
 end
 
 @testset "versioned reference IR" begin
-    @test Reference.IR_FORMAT_VERSION == 6
+    @test Reference.IR_FORMAT_VERSION == 7
     @test sort!(collect(keys(Reference.PROGRAMS))) ==
         ["categorical_index!", "dense_hmc_step!", "diagonal_hmc_step!",
-        "finite_mh_step!", "gaussian_rwmh_step!", "scalar_hmc_step!",
+        "finite_mh_step!", "gaussian_rwmh_step!", "multinomial_hmc_step!", "scalar_hmc_step!",
         "vector_hmc_step!"]
     @test_throws ErrorException Reference.parse_document("(unterminated")
     mktemp() do path, stream

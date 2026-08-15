@@ -5,7 +5,7 @@ import Mcmc.Executable.IRFormat
 
 namespace Mcmc.Executable.Finite.CompilerIR.Tests
 
-example : Mcmc.Executable.IRFormat.version = 6 := rfl
+example : Mcmc.Executable.IRFormat.version = 7 := rfl
 
 example : runCategorical [1, 0, 2] [⟨3, 1⟩] = .ok (2, []) := by
   native_decide

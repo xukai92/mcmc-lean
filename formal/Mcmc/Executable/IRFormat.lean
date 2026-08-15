@@ -1,6 +1,7 @@
 import Mcmc.Executable.Finite.CompilerIR
 import Mcmc.Executable.Continuous.CompilerIR
 import Mcmc.Executable.Continuous.MetricCompilerIR
+import Mcmc.Executable.Continuous.MultinomialCompilerIR
 
 /-!
 # Versioned textual format for sampler IR
@@ -13,7 +14,7 @@ namespace Mcmc.Executable.IRFormat
 
 open Finite.CompilerIR
 
-def version : Nat := 6
+def version : Nat := 7
 
 private def quote (value : String) : String :=
   let escapedBackslash := value.replace "\\" "\\\\"
@@ -175,6 +176,7 @@ def render : String :=
     continuousProgramRender Continuous.CompilerIR.scalarHmcProgram,
     continuousProgramRender Continuous.CompilerIR.vectorHmcProgram,
     Continuous.MetricCompilerIR.diagonalHmcProgram.render,
-    Continuous.MetricCompilerIR.denseHmcProgram.render] ++ "\n"
+    Continuous.MetricCompilerIR.denseHmcProgram.render,
+    Continuous.MultinomialCompilerIR.program.render] ++ "\n"
 
 end Mcmc.Executable.IRFormat

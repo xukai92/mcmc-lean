@@ -10,8 +10,47 @@ include("Optimized/Optimized.jl")
 include("Certificates/Certificates.jl")
 
 export FiniteWeights, FiniteKernelWeights, FiniteMH, TwoStateMH, GaussianRWMH,
-    ScalarHMC, VectorHMC, DiagonalMetric, DenseMetric, MetricHMC, sample
+    ScalarHMC, VectorHMC, MultinomialHMC, DiagonalMetric, DenseMetric, MetricHMC, sample
 export Certificates
+
+struct MultinomialHMC{F,G}
+    logdensity::F
+    gradient::G
+    step_size::Float64
+    steps::Int
+    function MultinomialHMC(logdensity::F, gradient::G, step_size::Real,
+            steps::Integer=10) where {F,G}
+        converted = Float64(step_size)
+        isfinite(converted) && converted > 0 ||
+            throw(ArgumentError("step size must be finite and positive"))
+        steps > 0 || throw(ArgumentError("trajectory length must be positive"))
+        new{F,G}(logdensity, gradient, converted, Int(steps))
+    end
+end
+
+function step(rng::AbstractRNG, sampler::MultinomialHMC,
+        current::AbstractVector{<:Real})
+    Reference.multinomial_hmc_step!(Runtime.RNGSource(rng), sampler.logdensity,
+        sampler.gradient, sampler.step_size, sampler.steps, current)
+end
+
+step(sampler::MultinomialHMC, current::AbstractVector{<:Real}) =
+    step(Random.default_rng(), sampler, current)
+
+function sample(rng::AbstractRNG, sampler::MultinomialHMC,
+        initial::AbstractVector{<:Real}, count::Integer)
+    count >= 0 || throw(ArgumentError("sample count must be nonnegative"))
+    current = Float64.(initial)
+    samples = Matrix{Float64}(undef, length(current), count)
+    for index in axes(samples, 2)
+        current = step(rng, sampler, current)
+        samples[:, index] = current
+    end
+    samples
+end
+
+sample(sampler::MultinomialHMC, initial::AbstractVector{<:Real}, count::Integer) =
+    sample(Random.default_rng(), sampler, initial, count)
 
 struct DiagonalMetric
     mass::Vector{Float64}

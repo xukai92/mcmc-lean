@@ -4,10 +4,10 @@ using LinearAlgebra
 
 using ..Runtime: AbstractRandomSource, draw_below!, standard_normal!, uniform_unit!
 
-export categorical_index!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!, scalar_hmc_step!, vector_hmc_step!, metric_hmc_step!,
+export categorical_index!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!, scalar_hmc_step!, vector_hmc_step!, metric_hmc_step!, multinomial_hmc_step!,
     IR_FORMAT_VERSION
 
-const IR_FORMAT_VERSION = 6
+const IR_FORMAT_VERSION = 7
 
 struct SList
     items::Vector{Any}
@@ -220,6 +220,14 @@ function eval_expr(raw, env::Dict{String,Any})
         return _metric_hmc_step!(source, env["logdensity"], env["gradient"],
             step_size, steps, current, mass, kind)
     end
+    if tag == "multinomial-hmc"
+        source = eval_expr(node[2], env)
+        step_size = Float64(eval_expr(node[3], env))
+        steps = Int(eval_expr(node[4], env))
+        current = eval_expr(node[5], env)
+        return _multinomial_hmc_step!(source, env["logdensity"], env["gradient"],
+            step_size, steps, current)
+    end
     if tag == "categorical"
         source = eval_expr(node[2], env)
         weights = eval_expr(node[3], env)
@@ -402,6 +410,46 @@ function metric_hmc_step!(source::AbstractRandomSource, logdensity, gradient,
     name = mass isa AbstractVector ? "diagonal_hmc_step!" : "dense_hmc_step!"
     Float64.(run_program(name, source, logdensity, gradient, step_size, steps,
         current, mass))
+end
+
+function _multinomial_hmc_step!(source::AbstractRandomSource, logdensity, gradient,
+        step_size::Float64, steps::Integer, current::AbstractVector{<:Real})
+    steps > 0 || throw(ArgumentError("trajectory length must be positive"))
+    q0 = Float64.(current)
+    isempty(q0) && throw(ArgumentError("position cannot be empty"))
+    p0 = [standard_normal!(source) for _ in eachindex(q0)]
+    origin = Int(draw_below!(source, steps + 1))
+    trajectory = Vector{Tuple{Vector{Float64},Vector{Float64}}}(undef, steps + 1)
+    for index in 0:steps
+        q, p = copy(q0), copy(p0)
+        signed_step = index >= origin ? step_size : -step_size
+        for _ in 1:abs(index - origin)
+            half = p .- (signed_step / 2) .* gradient(q)
+            q = q .+ signed_step .* half
+            p = half .- (signed_step / 2) .* gradient(q)
+        end
+        trajectory[index + 1] = (q, p)
+    end
+    logweights = [logdensity(q) - sum(abs2, p) / 2 for (q, p) in trajectory]
+    maximum_weight = maximum(logweights)
+    weights = exp.(logweights .- maximum_weight)
+    draw = uniform_unit!(source) * sum(weights)
+    selected = length(weights)
+    cumulative = 0.0
+    for index in eachindex(weights)
+        cumulative += weights[index]
+        if draw < cumulative
+            selected = index
+            break
+        end
+    end
+    trajectory[selected][1]
+end
+
+function multinomial_hmc_step!(source::AbstractRandomSource, logdensity, gradient,
+        step_size::Float64, steps::Integer, current::AbstractVector{<:Real})
+    Float64.(run_program("multinomial_hmc_step!", source, logdensity, gradient,
+        step_size, steps, current))
 end
 
 end

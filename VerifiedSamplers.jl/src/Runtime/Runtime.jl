@@ -3,7 +3,7 @@ module Runtime
 using Random
 
 export AbstractRandomSource, RNGSource, TraceSource, FloatTraceSource,
-    NormalEvent, UniformEvent, draw_below!, standard_normal!, uniform_unit!, remaining
+    NormalEvent, UniformEvent, IndexEvent, draw_below!, standard_normal!, uniform_unit!, remaining
 
 abstract type AbstractRandomSource end
 
@@ -31,6 +31,9 @@ end
 struct UniformEvent <: FloatTraceEvent
     value::Float64
 end
+struct IndexEvent <: FloatTraceEvent
+    value::BigInt
+end
 mutable struct FloatTraceSource <: AbstractRandomSource
     events::Vector{FloatTraceEvent}
     position::Int
@@ -56,6 +59,16 @@ function uniform_unit!(source::FloatTraceSource)
     event isa UniformEvent || throw(ArgumentError("expected a unit-uniform trace event"))
     0.0 <= event.value < 1.0 || throw(ArgumentError("unit-uniform trace value is out of range"))
     source.position += 1
+    event.value
+end
+
+function draw_below!(source::FloatTraceSource, upper::Integer)
+    upper > 0 || throw(ArgumentError("draw bound must be positive"))
+    source.position <= length(source.events) || throw(EOFError())
+    event = source.events[source.position]
+    event isa IndexEvent || throw(ArgumentError("expected an index trace event"))
+    source.position += 1
+    0 <= event.value < upper || throw(ArgumentError("trace draw is outside requested bound"))
     event.value
 end
 

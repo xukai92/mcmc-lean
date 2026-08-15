@@ -35,6 +35,29 @@
     end
 end
 
+@testset "executable multinomial HMC" begin
+    logdensity = q -> -sum(abs2, q) / 2
+    gradient = identity
+    events = [Runtime.NormalEvent(0.4), Runtime.NormalEvent(-0.3),
+        Runtime.IndexEvent(big(1)), Runtime.UniformEvent(0.65)]
+    reference_source = Runtime.FloatTraceSource(events)
+    optimized_source = Runtime.FloatTraceSource(events)
+    reference = Reference.multinomial_hmc_step!(reference_source, logdensity,
+        gradient, 0.15, 3, [0.2, -0.1])
+    optimized = Optimized.multinomial_hmc_step!(optimized_source, logdensity,
+        gradient, 0.15, 3, [0.2, -0.1])
+    @test optimized ≈ reference atol=2e-14
+    @test Runtime.remaining(reference_source) == 0
+    @test Runtime.remaining(optimized_source) == 0
+
+    sampler = MultinomialHMC(logdensity, gradient, 0.2, 6)
+    chain = sample(MersenneTwister(0x4d484d43), sampler, [0.0, 0.0], 25_000)
+    retained = chain[:, 2501:end]
+    @test maximum(abs.(vec(mean(retained; dims=2)))) < 0.08
+    @test maximum(abs.(vec(var(retained; dims=2)) .- 1)) < 0.12
+    @test_throws ArgumentError MultinomialHMC(logdensity, gradient, 0.2, 0)
+end
+
 @testset "future: continuous and mixed-state diagnostics" begin
     @testset "Geweke forward/backward joint-distribution test" begin
         @test_skip false

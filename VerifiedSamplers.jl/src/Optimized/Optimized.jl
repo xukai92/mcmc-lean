@@ -5,7 +5,8 @@ using LinearAlgebra
 using ...Runtime: AbstractRandomSource, draw_below!, standard_normal!, uniform_unit!
 
 export categorical_index!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!,
-    scalar_hmc_step!, vector_hmc_step!, metric_hmc_step!, leapfrog, vector_leapfrog
+    scalar_hmc_step!, vector_hmc_step!, metric_hmc_step!, multinomial_hmc_step!,
+    leapfrog, vector_leapfrog
 
 """One scalar velocity-Verlet/leapfrog step with unit mass."""
 function leapfrog(gradient, step_size::Float64, position::Float64, momentum::Float64)
@@ -71,6 +72,35 @@ function metric_hmc_step!(source::AbstractRandomSource, logdensity, gradient,
     proposed_energy = -logdensity(q) + dot(p, solve_mass(p)) / 2
     log(uniform_unit!(source)) < min(0.0, current_energy - proposed_energy) ?
         q : Float64.(current)
+end
+
+"""Independent Float64 randomized-origin multinomial HMC implementation."""
+function multinomial_hmc_step!(source::AbstractRandomSource, logdensity, gradient,
+        step_size::Float64, steps::Integer, current::AbstractVector{<:Real})
+    steps > 0 || throw(ArgumentError("trajectory length must be positive"))
+    q = Float64.(current)
+    isempty(q) && throw(ArgumentError("position cannot be empty"))
+    p = [standard_normal!(source) for _ in eachindex(q)]
+    origin = Int(draw_below!(source, steps + 1))
+    for _ in 1:origin
+        q, p = vector_leapfrog(gradient, -step_size, q, p)
+    end
+    trajectory = Vector{Tuple{Vector{Float64},Vector{Float64}}}(undef, steps + 1)
+    trajectory[1] = (copy(q), copy(p))
+    for index in 2:(steps + 1)
+        q, p = vector_leapfrog(gradient, step_size, q, p)
+        trajectory[index] = (copy(q), copy(p))
+    end
+    logweights = [logdensity(position) - sum(abs2, momentum) / 2
+        for (position, momentum) in trajectory]
+    weights = exp.(logweights .- maximum(logweights))
+    target = uniform_unit!(source) * sum(weights)
+    cumulative = 0.0
+    for (index, weight) in pairs(weights)
+        cumulative += weight
+        target < cumulative && return trajectory[index][1]
+    end
+    trajectory[end][1]
 end
 
 """Independent Float64 implementation of scalar one-step endpoint HMC."""

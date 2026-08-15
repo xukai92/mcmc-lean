@@ -1,5 +1,21 @@
 # Development log
 
+## 2026-08-15: generated executable multinomial HMC
+
+Added a typed randomized-origin multinomial-HMC artifact and advanced the
+generated sampler format to version 7. Lean proves that mapping the joint
+uniform-origin/Boltzmann-index program through its deterministic trajectory
+result gives exactly the existing verified multinomial PMF and kernel row.
+The complete executable semantics is the standard-Gaussian
+refresh–evolve–project kernel and inherits its position-target invariance.
+
+Julia Reference interprets the generated command; Optimized independently
+constructs the re-rooted trajectory. The public `MultinomialHMC` API follows
+the positional-RNG convention. Fixed-trace differential tests and a
+two-dimensional Gaussian moment test cover event ordering, indexing, and the
+public sampling path. Float64 weight normalization and categorical selection
+remain under the documented bounded-refinement boundary.
+
 ## 2026-08-15: backend-facing bounded decision certificates
 
 Added operation-level Lean certificates for RWMH and endpoint HMC. Proposal,

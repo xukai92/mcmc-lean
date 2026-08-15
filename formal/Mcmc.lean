@@ -36,6 +36,8 @@ import Mcmc.Executable.Continuous.BackendCertificates
 import Mcmc.Executable.Continuous.MetricHMC
 import Mcmc.Executable.Continuous.MetricCompilerIR
 import Mcmc.Executable.Continuous.GaussianTransport
+import Mcmc.Executable.Continuous.MultinomialHMC
+import Mcmc.Executable.Continuous.MultinomialCompilerIR
 import Mcmc.Docs.Graph
 import Mcmc.Hamiltonian.Leapfrog
 import Mcmc.Hamiltonian.Assumptions

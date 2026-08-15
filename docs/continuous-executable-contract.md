@@ -59,8 +59,9 @@ input or probabilistic assumption.
 
 ## Julia layer
 
-The version-6 artifact contains scalar and vector-valued multi-step endpoint
-HMC (introduced in version 5), together with constant-metric programs.
+The version-7 artifact contains scalar and vector-valued multi-step endpoint
+HMC (introduced in version 5), constant-metric programs (version 6), and the
+randomized-origin multinomial-HMC command.
 Its explicit callbacks are the target log density and the gradient of the
 negative log density, together with positive step size and trajectory length.
 Lean proves the command trace formula, its integrator equals the established
@@ -86,7 +87,7 @@ bounded HMC layer gives coordinatewise trajectory certificates and a stable
 acceptance theorem outside the explicit uniform/threshold error band.
 Constant diagonal and dense metrics have exact Lean velocity maps,
 time-reversal and endpoint-invariance theorems. Their type-indexed commands are
-part of generated IR version 6 and are interpreted by Julia Reference. Lean
+part of generated IR version 7 and are interpreted by Julia Reference. Lean
 proves that applying an invertible factor to standard momentum gives the
 pushforward Gaussian law, identifies its determinant-normalized quadratic
 kinetic density, and instantiates refreshed position-target invariance.
@@ -111,6 +112,22 @@ Reference and Optimized are compared on deterministic accept and reject traces
 across multiple callbacks and positive scales, and the public path has a
 normal-target moment test. These tests can expose implementation defects but do
 not prove equality of probability laws.
+
+## Multinomial HMC
+
+The generated multinomial command consumes one standard-normal event per
+coordinate, an exact bounded integer origin event, and a unit-uniform event
+for cumulative Boltzmann-weight selection. Lean proves that the corresponding
+ideal finite choice law maps exactly to `randomizedMultinomialLeapfrogPMF` and
+to the row of the verified invariant kernel. The complete ideal command uses
+standard-Gaussian momentum refresh and preserves the position Boltzmann
+target.
+
+Julia evaluates stabilized Float64 log weights and cumulative sums. Reference
+and Optimized use independently organized trajectory construction and are
+differentially tested, but equality with the ideal categorical law remains
+conditional on bounds for trajectory energies, `exp`, summation, and the
+selection-boundary margin.
 
 ## Required refinement assumptions
 
