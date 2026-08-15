@@ -18,7 +18,17 @@ passes a seeded categorical-frequency diagnostic.
 This closes the executable diagnostic skeleton, but not the entire paper
 proof. Almost-everywhere phase-volume preservation, random-order
 reversibility, the mixed smooth/discontinuous integrator, randomized-step
-ergodicity, and a Lean invariant-kernel client remain explicit obligations.
+ergodicity, and a Lean invariant kernel for repeated coordinate trajectories
+remain explicit obligations.
+
+The formal one-step boundary is now stronger than the initial energy lemma.
+For unit-rate exponential kinetic energy Lean computes the crossing-event
+probability exactly as `min 1 (exp (-ΔU))`; for negative-log positive target
+weights this is `min 1 (π(candidate) / π(current))`. A positive symmetric
+finite coordinate proposal therefore has exactly the ordinary MH acceptance
+law, and the resulting `oneStepDiscontinuousKernel` is proved stationary.
+Repeated-coordinate trajectories still require the paper's separate
+distributional-reversibility argument.
 
 ## 2026-08-15: finite slice, planar reversible jump, and PDMP generators
 

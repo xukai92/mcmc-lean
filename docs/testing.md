@@ -126,8 +126,9 @@ The warmup trajectory itself is not treated as stationary output.
 The categorical DHMC frequency check is an implementation regression, not a
 replacement for the paper's almost-everywhere volume-preservation and
 random-order reversibility arguments. Lean currently proves the exact
-crossing/reflection energy identity; the full phase-kernel invariance theorem
-remains a separate obligation.
+crossing/reflection energy identity and identifies a single positive symmetric
+finite update with a stationary MH kernel. Full repeated-trajectory
+phase-kernel invariance remains a separate obligation.
 
 Run the complete cross-language suite with:
 

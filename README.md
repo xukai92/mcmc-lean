@@ -152,7 +152,10 @@ The executable breadth layer now also includes categorical discontinuous HMC.
 crossing-or-reflection update on a cyclic categorical embedding; Reference and
 Optimized implementations pass deterministic trace and stationary-frequency
 tests. Lean proves the corresponding scalar Hamiltonian is preserved exactly.
-This does not yet claim the full discontinuous-HMC correctness theorem:
+It also proves that exponentially refreshed Laplace kinetic energy gives
+exactly the usual Metropolis acceptance probability and derives stationarity
+of the positive symmetric finite one-step kernel. This does not yet claim the
+full discontinuous-HMC correctness theorem:
 almost-everywhere volume preservation, distributional reversibility of random
 coordinate orders, and phase-kernel invariance remain to be formalized.
 
