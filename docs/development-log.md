@@ -90,6 +90,20 @@ timestamp product probability measure. This is the standard conditional-time
 ingredient for a homogeneous Poisson process; measurable sorting and the
 dependent mixture over counts are not yet claimed.
 
+Added a sound measurable-ordering boundary rather than assuming a library sort
+is measurable. `TimestampOrdering` requires a measurable map, monotone output,
+and equality to an input permutation. The first nontrivial two-timestamp
+`min/max` sorting network discharges all three conditions. Any certified
+network now pushes the iid law to ordered timestamps and then measurably to
+inter-candidate waits, with both probability normalizations inherited.
+
+The one-candidate conditional path is integrated end to end. A sampled
+timestamp is retained in an augmented state while the process flows to it,
+applies the accepted/virtual event kernel, and then flows for the residual
+horizon. Kernel composition proves every stage and the final conditional
+uniform-time kernel Markov. General fixed-count schedule integration still
+needs a certified sorting network family and a measurable fold over its waits.
+
 ## 2026-08-15: categorical discontinuous-HMC vertical slice
 
 Added the Laplace-momentum crossing/reflection algebra from Nishimura, Dunson,

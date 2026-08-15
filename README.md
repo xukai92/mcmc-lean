@@ -170,6 +170,12 @@ The conditional continuous-time ingredient is now present: for every positive
 horizon and fixed candidate count, Lean constructs the iid uniform timestamp
 product measure and proves it is a probability law. Sorting those timestamps
 and mixing the conditional laws over the Poisson count remain the next bridge.
+Measurable sorting is represented by an explicit certificate that also proves
+monotonicity and preservation up to permutation; the two-candidate `min/max`
+network is certified, and every certified ordering induces probability laws
+for ordered timestamps and inter-candidate waits. The one-candidate case is
+fully integrated as a Markov kernel: sample its uniform conditional timestamp,
+flow, thin the event, and flow through the residual horizon.
 
 For positive-horizon particle Gibbs, the finite library now proves a concrete
 arbitrary-horizon result: with any finite particle index type containing at

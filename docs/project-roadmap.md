@@ -268,7 +268,10 @@ breadth branches are:
   homogeneous-clock candidate count has the exact Poisson law and is almost
   surely finite. Conditional on a positive horizon and fixed count, the iid
   continuous-uniform timestamp product law is constructed and proved a
-  probability measure.
+  probability measure. Certified measurable timestamp orderings induce ordered
+  timestamp and inter-wait probability laws; the two-event `min/max` sorting
+  network is checked. The one-candidate conditional law is fully connected to
+  flow, thinning, and residual-horizon execution as a Markov kernel.
   Concrete one-dimensional Zig-Zag and finite-dimensional BPS clients provide
   their linear flows, event kernels, and bounded-thinning constructors. The
   one-dimensional Zig-Zag generator cancellation and finite-dimensional BPS
