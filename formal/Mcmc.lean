@@ -36,6 +36,7 @@ import Mcmc.Examples.EuclideanBirthDeathReversibleJump
 import Mcmc.Examples.StateIndexedPMMH
 import Mcmc.Examples.ParticleGibbs
 import Mcmc.Examples.ComposableInference
+import Mcmc.Examples.GeneralStatePgHmc
 import Mcmc.Executable.Finite.Weights
 import Mcmc.Executable.Finite.Trace
 import Mcmc.Executable.Finite.Categorical

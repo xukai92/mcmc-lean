@@ -76,10 +76,12 @@ work.
 
 ## Remaining milestones
 
-1. Instantiate the proved general-state `pgHmcKernel_stationary` theorem with a
-   substantive mixed discrete/continuous model. The measure-kernel composition
-   and auxiliary conditional factorization are complete; only the concrete
-   model client remains.
+1. Extend the concrete model library beyond the completed independent mixed
+   client. `Examples.GeneralStatePgHmc` now combines a uniform Boolean
+   auxiliary block, an exact two-block factorization, and the actual Gaussian
+   SoftAbs multinomial GR-HMC transition, proving stationarity of their
+   composition. A dependent latent/continuous likelihood would be the next
+   richer model, not a missing foundation theorem.
 2. Complete runtime callback refinement beyond the new checked semantic
    binding. `ComposableSemantics.BoundOperator` now pairs every generated
    descriptor with its actual full-state kernel and invariance proof, and

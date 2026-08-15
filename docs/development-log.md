@@ -17,6 +17,13 @@ Julia now mirrors the finite coroutine semantics with an explicit immutable
 tested. The implementation intentionally avoids copying Julia `Task` stacks:
 all semantically relevant suspension state is visible copyable data.
 
+Added a compiled mixed discrete/continuous client. A uniform Boolean auxiliary
+is paired with the normalized Gaussian SoftAbs target; Lean proves the exact
+forward/reverse factorization and then composes its two-block update with the
+actual multinomial Gaussian SoftAbs GR-HMC kernel. This model is independent
+across the auxiliary boundary, but it closes the end-to-end general-state
+PG--HMC instantiation without disguising a callback as a theorem.
+
 ## 2026-08-15: normalized targets and refresh-augmented GR-HMC convergence
 
 Added a reusable bridge from any nonzero finite invariant measure to mathlib's
@@ -27,10 +34,11 @@ eventwise inequalities with geometric remainder `p^n` and proves that remainder
 tends to zero when `p<1`.
 
 Instantiated the construction with the concrete Gaussian diagonal-SoftAbs
-multinomial GR-HMC transition. The Gaussian target is proved nonzero, while its
-finite-mass certificate remains an explicit typeclass premise. The resulting
-claim is deliberately about the refresh-augmented sampler and is not presented
-as a convergence theorem for bare GR-HMC.
+multinomial GR-HMC transition. The Gaussian target is proved finite and
+nonzero by identifying its quadratic Boltzmann factor with the unnormalized
+measure underlying the standard product Gaussian. The resulting claim is
+deliberately about the refresh-augmented sampler and is not presented as a
+convergence theorem for bare GR-HMC.
 
 ## 2026-08-15: next-phase solver, particle-count boundary, and composable inference
 

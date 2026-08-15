@@ -23,6 +23,50 @@ noncomputable abbrev gaussianSoftAbsPositionTarget : Measure (Position ι) :=
   generalRelativisticPositionTarget (gaussianSoftAbsPotential (ι := ι))
     1 1 (by norm_num) (by norm_num)
 
+omit [Nonempty ι] [DecidableEq ι] in
+/-- The Gaussian position Boltzmann measure is the same unnormalized
+quadratic measure as the standard kinetic Boltzmann measure. -/
+theorem gaussianSoftAbs_positionBoltzmannTarget_eq_kinetic :
+    positionBoltzmannTarget (gaussianSoftAbsPotential (ι := ι)) =
+      (kineticBoltzmannTarget : Measure (Momentum ι)) := by
+  unfold positionBoltzmannTarget kineticBoltzmannTarget
+  congr 1
+  funext q
+  unfold positionBoltzmannWeight kineticBoltzmannWeight
+    gaussianSoftAbsPotential kineticEnergy squaredEuclideanNorm euclideanInner
+  congr 2
+  ring_nf
+
+omit [Nonempty ι] [DecidableEq ι] in
+/-- The quadratic Boltzmann measure has finite total mass, derived from the
+already normalized standard product Gaussian. -/
+theorem gaussianSoftAbs_positionBoltzmannTarget_lt_top :
+    positionBoltzmannTarget (gaussianSoftAbsPotential (ι := ι)) Set.univ < ∞ := by
+  rw [gaussianSoftAbs_positionBoltzmannTarget_eq_kinetic]
+  rw [lt_top_iff_ne_top]
+  intro htop
+  have hprefactor : standardMomentumPrefactor (ι := ι) ≠ 0 := by
+    unfold standardMomentumPrefactor standardGaussianPrefactor
+    apply Finset.prod_ne_zero_iff.mpr
+    intro i _hi
+    rw [ENNReal.ofReal_ne_zero_iff]
+    positivity
+  have huniv := congrArg (fun μ : Measure (Momentum ι) => μ Set.univ)
+    (standardMomentumMeasure_eq_smul_kinetic (ι := ι))
+  have hscaled : standardMomentumPrefactor (ι := ι) • (∞ : ENNReal) = ∞ := by
+    simp [hprefactor]
+  rw [measure_univ, Measure.smul_apply, htop, hscaled] at huniv
+  exact ENNReal.one_ne_top huniv
+
+instance gaussianSoftAbsPositionTarget.instIsFiniteMeasure :
+    IsFiniteMeasure (gaussianSoftAbsPositionTarget (ι := ι)) := by
+  unfold gaussianSoftAbsPositionTarget generalRelativisticPositionTarget
+  constructor
+  rw [Measure.coe_nnreal_smul_apply]
+  exact ENNReal.mul_lt_top
+    ENNReal.coe_lt_top
+    gaussianSoftAbs_positionBoltzmannTarget_lt_top
+
 omit [DecidableEq ι] in
 /-- The Gaussian SoftAbs target has positive mass. -/
 theorem gaussianSoftAbsPositionTarget_ne_zero :
@@ -65,7 +109,6 @@ noncomputable abbrev gaussianSoftAbsMultinomialTransition (ε : ℝ) (L : ℕ) :
 /-- Mix GR-HMC (weight `p`) with an exact independent normalized-target draw
 (weight `1-p`). -/
 noncomputable def gaussianSoftAbsRefreshAugmented
-    [IsFiniteMeasure (gaussianSoftAbsPositionTarget (ι := ι))]
     (p : Set.Icc (0 : NNReal) 1) (ε : ℝ) (L : ℕ) :=
   Mcmc.Kernel.refreshAugmented p
     (gaussianSoftAbsMultinomialTransition (ι := ι) ε L)
@@ -73,7 +116,6 @@ noncomputable def gaussianSoftAbsRefreshAugmented
       (gaussianSoftAbsPositionTarget (ι := ι)))
 
 instance gaussianSoftAbsRefreshAugmented.instIsMarkovKernel
-    [IsFiniteMeasure (gaussianSoftAbsPositionTarget (ι := ι))]
     (p : Set.Icc (0 : NNReal) 1) (ε : ℝ) (L : ℕ) :
     IsMarkovKernel (gaussianSoftAbsRefreshAugmented (ι := ι) p ε L) := by
   unfold gaussianSoftAbsRefreshAugmented
@@ -82,7 +124,6 @@ instance gaussianSoftAbsRefreshAugmented.instIsMarkovKernel
 /-- The refresh-augmented transition preserves the normalized Gaussian
 SoftAbs position target. -/
 theorem gaussianSoftAbsRefreshAugmented_invariant
-    [IsFiniteMeasure (gaussianSoftAbsPositionTarget (ι := ι))]
     (p : Set.Icc (0 : NNReal) 1) (ε : ℝ) (L : ℕ) :
     (gaussianSoftAbsRefreshAugmented (ι := ι) p ε L).Invariant
       (Mcmc.Kernel.finiteNormalize
@@ -94,7 +135,6 @@ theorem gaussianSoftAbsRefreshAugmented_invariant
 
 /-- Upper half of the eventwise geometric convergence certificate. -/
 theorem gaussianSoftAbsRefreshAugmented_lawAtTime_apply_le
-    [IsFiniteMeasure (gaussianSoftAbsPositionTarget (ι := ι))]
     (p : Set.Icc (0 : NNReal) 1) (hp0 : 0 < p.1)
     (ε : ℝ) (L n : ℕ) (initial : Measure (Position ι))
     [IsProbabilityMeasure initial] {s : Set (Position ι)}
@@ -115,7 +155,6 @@ theorem gaussianSoftAbsRefreshAugmented_lawAtTime_apply_le
 
 /-- Lower half of the eventwise geometric convergence certificate. -/
 theorem gaussianSoftAbsRefreshAugmented_target_apply_le_lawAtTime
-    [IsFiniteMeasure (gaussianSoftAbsPositionTarget (ι := ι))]
     (p : Set.Icc (0 : NNReal) 1) (hp0 : 0 < p.1)
     (ε : ℝ) (L n : ℕ) (initial : Measure (Position ι))
     [IsProbabilityMeasure initial] {s : Set (Position ι)}
