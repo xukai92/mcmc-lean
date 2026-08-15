@@ -1,4 +1,4 @@
-import Mcmc.Kernel.Coupling
+import Mcmc.Kernel.CoupledChain
 import Mathlib.MeasureTheory.Measure.Sub
 
 /-!
@@ -176,6 +176,161 @@ theorem minorizationResidual_invariant
   apply (ENNReal.mul_left_inj (ENNReal.coe_ne_zero.mpr hrpos.ne')
     ENNReal.coe_ne_top).mp
   simpa [mul_comm] using hscaled
+
+/-- Evolving any probability law through a minorized transition exposes the
+same refresh/residual mixture as the pointwise kernel decomposition. -/
+theorem minorized_comp_measure_eq
+    (transition : Kernel α α) [IsMarkovKernel transition]
+    (target initial : Measure α) [IsProbabilityMeasure target]
+    [IsProbabilityMeasure initial]
+    (ε : Set.Icc (0 : NNReal) 1) (hε : ε.1 < 1)
+    (hminor : UniformlyMinorizes transition ε.1 target) :
+    transition ∘ₘ initial =
+      (ε.1 : ENNReal) • target + ((1 - ε.1 : NNReal) : ENNReal) •
+        (minorizationResidual transition target ε hε hminor ∘ₘ initial) := by
+  let residual := minorizationResidual transition target ε hε hminor
+  calc
+    transition ∘ₘ initial =
+        Mcmc.Kernel.mixture ε (Kernel.const α target) residual ∘ₘ initial := by
+      exact congrArg (fun k : Kernel α α => k ∘ₘ initial)
+        (mixture_minorizationResidual_eq transition target ε hε hminor).symm
+    _ = (ε.1 : ENNReal) • target +
+        ((1 - ε.1 : NNReal) : ENNReal) • (residual ∘ₘ initial) := by
+      rw [mixture_comp_measure, Measure.const_comp, measure_univ, one_smul]
+      ext s hs
+      simp only [Measure.add_apply, Measure.smul_apply]
+      rfl
+
+/-- Exact regenerative representation of every finite-time law.  Its first
+coefficient is the probability that at least one refresh has occurred; the
+second is the probability of taking only residual branches. -/
+theorem lawAtTime_eq_refresh_add_residual
+    (transition : Kernel α α) [IsMarkovKernel transition]
+    (target initial : Measure α) [IsProbabilityMeasure target]
+    [IsProbabilityMeasure initial]
+    (ε : Set.Icc (0 : NNReal) 1) (hε : ε.1 < 1)
+    (hminor : UniformlyMinorizes transition ε.1 target)
+    (hinvariant : transition.Invariant target) (n : ℕ) :
+    lawAtTime initial transition n =
+      ((1 - (1 - ε.1) ^ n : NNReal) : ENNReal) • target +
+        (((1 - ε.1) ^ n : NNReal) : ENNReal) •
+          lawAtTime initial
+            (minorizationResidual transition target ε hε hminor) n := by
+  let residual := minorizationResidual transition target ε hε hminor
+  have hresidual : residual.Invariant target :=
+    minorizationResidual_invariant transition target ε hε hminor hinvariant
+  induction n with
+  | zero => simp [lawAtTime_zero]
+  | succ n ih =>
+      rw [lawAtTime_succ,
+        minorized_comp_measure_eq transition target
+          (lawAtTime initial transition n) ε hε hminor,
+        ih, Measure.comp_add]
+      simp_rw [Measure.comp_smul]
+      rw [hresidual.def, ← lawAtTime_succ]
+      simp only [pow_succ]
+      let r : NNReal := 1 - ε.1
+      have hrle : r ≤ 1 := by simp [r]
+      have hrpowle : r ^ n ≤ 1 := pow_le_one₀ (by positivity) hrle
+      have hrprodle : r ^ n * r ≤ 1 := by
+        exact mul_le_one₀ hrpowle (by positivity) hrle
+      have hsum : ε.1 + r = 1 := by
+        simp [r, add_tsub_cancel_of_le ε.property.2]
+      have hcoef : ε.1 + r * (1 - r ^ n) = 1 - r ^ n * r := by
+        apply NNReal.eq
+        have hsumR := congrArg (fun z : NNReal => (z : ℝ)) hsum
+        norm_num at hsumR
+        simp only [NNReal.coe_add, NNReal.coe_mul, NNReal.coe_sub hrpowle,
+          NNReal.coe_sub hrprodle, NNReal.coe_one]
+        nlinarith
+      ext s hs
+      simp only [Measure.add_apply, Measure.smul_apply, smul_eq_mul]
+      change (ε.1 : ENNReal) * target s + (r : ENNReal) *
+          (((1 - r ^ n : NNReal) : ENNReal) * target s +
+            ((r ^ n : NNReal) : ENNReal) *
+              lawAtTime initial residual (n + 1) s) =
+        ((1 - r ^ n * r : NNReal) : ENNReal) * target s +
+          ((r ^ n * r : NNReal) : ENNReal) *
+            lawAtTime initial residual (n + 1) s
+      rw [mul_add, ← mul_assoc, ← mul_assoc, ← ENNReal.coe_mul,
+        ← ENNReal.coe_mul, ← add_assoc, ← add_mul, ← ENNReal.coe_add,
+        hcoef]
+      simp [mul_comm]
+
+/-- The regenerative representation gives the upper half of an eventwise
+total-variation bound with geometric remainder `(1-ε)^n`. -/
+theorem lawAtTime_apply_le_target_add_geometric
+    (transition : Kernel α α) [IsMarkovKernel transition]
+    (target initial : Measure α) [IsProbabilityMeasure target]
+    [IsProbabilityMeasure initial]
+    (ε : Set.Icc (0 : NNReal) 1) (hε : ε.1 < 1)
+    (hminor : UniformlyMinorizes transition ε.1 target)
+    (hinvariant : transition.Invariant target) (n : ℕ)
+    {s : Set α} (_hs : MeasurableSet s) :
+    lawAtTime initial transition n s ≤
+      target s + (((1 - ε.1) ^ n : NNReal) : ENNReal) := by
+  rw [lawAtTime_eq_refresh_add_residual transition target initial ε hε
+    hminor hinvariant n, Measure.add_apply, Measure.smul_apply,
+    Measure.smul_apply]
+  let r : NNReal := (1 - ε.1) ^ n
+  have hrle : r ≤ 1 := pow_le_one₀ (by positivity) (by simp)
+  have hresidual : lawAtTime initial
+      (minorizationResidual transition target ε hε hminor) n s ≤ 1 := by
+    calc
+      _ ≤ lawAtTime initial
+          (minorizationResidual transition target ε hε hminor) n Set.univ :=
+        measure_mono (Set.subset_univ s)
+      _ = 1 := measure_univ
+  change ((1 - r : NNReal) : ENNReal) * target s + (r : ENNReal) * _ ≤
+    target s + (r : ENNReal)
+  calc
+    _ ≤ 1 * target s + (r : ENNReal) * 1 := by
+      gcongr
+      exact_mod_cast (show 1 - r ≤ 1 from tsub_le_self)
+    _ = target s + (r : ENNReal) := by simp
+
+/-- The symmetric half of the eventwise geometric bound. -/
+theorem target_apply_le_lawAtTime_add_geometric
+    (transition : Kernel α α) [IsMarkovKernel transition]
+    (target initial : Measure α) [IsProbabilityMeasure target]
+    [IsProbabilityMeasure initial]
+    (ε : Set.Icc (0 : NNReal) 1) (hε : ε.1 < 1)
+    (hminor : UniformlyMinorizes transition ε.1 target)
+    (hinvariant : transition.Invariant target) (n : ℕ)
+    {s : Set α} (_hs : MeasurableSet s) :
+    target s ≤ lawAtTime initial transition n s +
+      (((1 - ε.1) ^ n : NNReal) : ENNReal) := by
+  rw [lawAtTime_eq_refresh_add_residual transition target initial ε hε
+    hminor hinvariant n, Measure.add_apply, Measure.smul_apply,
+    Measure.smul_apply]
+  let r : NNReal := (1 - ε.1) ^ n
+  have hrle : r ≤ 1 := pow_le_one₀ (by positivity) (by simp)
+  have hsplit : ((1 - r : NNReal) : ENNReal) * target s +
+      (r : ENNReal) * target s = target s := by
+    rw [← add_mul, ← ENNReal.coe_add, tsub_add_cancel_of_le hrle]
+    simp
+  calc
+    target s = ((1 - r : NNReal) : ENNReal) * target s +
+        (r : ENNReal) * target s := hsplit.symm
+    _ ≤ (((1 - r : NNReal) : ENNReal) * target s +
+          (r : ENNReal) * lawAtTime initial
+            (minorizationResidual transition target ε hε hminor) n s) + r := by
+      have hb : (r : ENNReal) * target s ≤ (r : ENNReal) := by
+        have ht : target s ≤ (1 : ENNReal) := calc
+          target s ≤ target Set.univ := measure_mono (Set.subset_univ s)
+          _ = 1 := measure_univ
+        calc
+          (r : ENNReal) * target s ≤ r * 1 :=
+            mul_le_mul_right ht (r : ENNReal)
+          _ = r := mul_one _
+      calc
+        _ ≤ ((1 - r : NNReal) : ENNReal) * target s + r :=
+          add_le_add_right hb _
+        _ ≤ (((1 - r : NNReal) : ENNReal) * target s +
+              (r : ENNReal) * lawAtTime initial
+                (minorizationResidual transition target ε hε hminor) n s) + r := by
+          gcongr
+          exact le_add_right le_rfl
 
 /-- A coupling certificate giving a uniform geometric off-diagonal bound for
 all finite iterates. -/

@@ -179,4 +179,76 @@ theorem independenceMetropolisHastings_uniformlyMinorizes_of_le_mul
     independence_acceptedDensity_lower_of_le_mul targetWeight proposalWeight M
       hM0 hMtop htarget0 htargetTop hproposal0 hproposalTop hbound x y
 
+/-- Quantitative independence-MH convergence from a bounded importance
+weight.  For every probability initial law and measurable event, both
+directions of the discrepancy from the normalized target are bounded by
+`(1 - 1 / M)^n`.  The strict hypothesis `1 < M` covers the nontrivial
+regenerative case; `M = 1` is the exact-proposal boundary case. -/
+theorem independenceMetropolisHastings_geometric_eventwise
+    (reference : Measure State) [SFinite reference]
+    (targetWeight proposalWeight : State → ENNReal)
+    (htarget : Measurable targetWeight) (hproposal : Measurable proposalWeight)
+    (htargetNorm : ∫⁻ y, targetWeight y ∂reference = 1)
+    (hproposalNorm : ∫⁻ y, proposalWeight y ∂reference = 1)
+    (M : NNReal) (hM : 1 < M)
+    (htarget0 : ∀ x, targetWeight x ≠ 0)
+    (htargetTop : ∀ x, targetWeight x ≠ ∞)
+    (hproposal0 : ∀ x, proposalWeight x ≠ 0)
+    (hproposalTop : ∀ x, proposalWeight x ≠ ∞)
+    (hbound : ∀ x, targetWeight x ≤ (M : ENNReal) * proposalWeight x)
+    (initial : Measure State) [IsProbabilityMeasure initial]
+    (n : ℕ) {s : Set State} (hs : MeasurableSet s) :
+    lawAtTime initial
+        (independenceMetropolisHastings reference targetWeight proposalWeight
+          hproposal hproposalNorm) n s ≤
+        densityTarget reference targetWeight s +
+          (((1 - 1 / M) ^ n : NNReal) : ENNReal) ∧
+      densityTarget reference targetWeight s ≤
+        lawAtTime initial
+            (independenceMetropolisHastings reference targetWeight proposalWeight
+              hproposal hproposalNorm) n s +
+          (((1 - 1 / M) ^ n : NNReal) : ENNReal) := by
+  let transition := independenceMetropolisHastings reference targetWeight
+    proposalWeight hproposal hproposalNorm
+  let target := densityTarget reference targetWeight
+  let εval : NNReal := 1 / M
+  have hM0 : (M : ENNReal) ≠ 0 := by
+    exact ENNReal.coe_ne_zero.mpr (ne_of_gt (lt_trans zero_lt_one hM))
+  have hMnn0 : M ≠ 0 := ne_of_gt (lt_trans zero_lt_one hM)
+  have hMtop : (M : ENNReal) ≠ ∞ := ENNReal.coe_ne_top
+  have hεle : εval ≤ 1 := by
+    exact (div_le_one (by positivity)).2 (le_of_lt hM)
+  let ε : Set.Icc (0 : NNReal) 1 := ⟨εval, by exact ⟨by positivity, hεle⟩⟩
+  have hε : ε.1 < 1 := by
+    change 1 / M < 1
+    exact (div_lt_one (by positivity)).2 hM
+  letI : IsProbabilityMeasure target :=
+    densityTarget_isProbability reference targetWeight htargetNorm
+  letI : IsMarkovKernel transition :=
+    independenceMetropolisHastings_isMarkov reference targetWeight proposalWeight
+      htarget hproposal hproposalNorm
+  have hminor : UniformlyMinorizes transition ε.1 target := by
+    have h := independenceMetropolisHastings_uniformlyMinorizes_of_le_mul
+      reference targetWeight proposalWeight htarget hproposal hproposalNorm
+      (M : ENNReal) hM0 hMtop htarget0 htargetTop hproposal0 hproposalTop hbound
+    simpa [transition, target, ε, εval, one_div,
+      ENNReal.coe_inv hMnn0] using h
+  have hfinite : ∀ x y, forwardDensityFlow targetWeight
+      (independenceProposalDensity proposalWeight) x y ≠ ∞ := by
+    intro x y
+    exact ENNReal.mul_ne_top (htargetTop x) (hproposalTop y)
+  have hinvariant : transition.Invariant target := by
+    simpa [transition, target, independenceMetropolisHastings] using
+      densityMetropolisHastings_invariant reference targetWeight
+        (independenceProposalDensity proposalWeight) htarget
+        (measurable_uncurry_independenceProposalDensity hproposal)
+        (fun _ => hproposalNorm) hfinite
+  constructor
+  · simpa [transition, target, ε, εval] using
+      lawAtTime_apply_le_target_add_geometric transition target initial ε hε
+        hminor hinvariant n hs
+  · simpa [transition, target, ε, εval] using
+      target_apply_le_lawAtTime_add_geometric transition target initial ε hε
+        hminor hinvariant n hs
+
 end Mcmc.Kernel

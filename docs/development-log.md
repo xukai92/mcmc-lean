@@ -10,8 +10,12 @@ residual Markov kernel, with an exact proof that restoring the refresh
 component recovers the original transition. Specialized general-state
 independence MH to state-independent proposal densities and proved the
 classical bounded target-to-proposal density ratio yields the `1 / M` target
-minorization. The remaining step before calling this a convergence result is
-the finite-time geometric bound itself.
+minorization. The residual is proved target-invariant, its finite-time law has
+an exact regenerative decomposition, and both directions of every measurable
+event discrepancy are bounded by `(1 - 1 / M)^n` for the nontrivial `M > 1`
+case. This is a genuine quantitative convergence theorem, not an inference
+from stationarity alone. The exact-proposal boundary `M = 1` remains a
+separate simplification theorem.
 
 Added finite-dimensional state-dependent Gaussian proposals, ULA, and MALA.
 Lean proves proposal normalization, the Markov property of ULA, and the Markov,

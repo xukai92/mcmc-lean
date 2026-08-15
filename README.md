@@ -26,8 +26,9 @@ targets with executable work and the broader
 [algorithm scope review](docs/algorithm-scope-review.md). Finite Gibbs,
 two-temperature tempering, finite pseudo-marginal MH, executable Xu et al.
 coupling, and general-state MALA correctness are complete. A bounded-weight
-independence-MH minorization is also proved; its explicit finite-time geometric
-bound and corrected Xu--Ge execution are next.
+independence-MH minorization, exact regenerative representation, and explicit
+`(1 - 1 / M)^n` eventwise convergence bound are also proved. Auxiliary-variable
+slice sampling and corrected Xu--Ge execution are next.
 
 Betancourt's [*A Conceptual Introduction to Hamiltonian Monte
 Carlo*](https://arxiv.org/abs/1701.02434) is used as a foundational HMC
@@ -46,7 +47,8 @@ The repository now contains machine-checked implementations and proofs for:
 - general-state Metropolis--Hastings, Gaussian RWMH, and coupled Gaussian
   RWMH as mathlib Markov kernels;
 - general-state independence MH with the classical bounded-density-ratio
-  `1 / M` target minorization and exact Doeblin residual decomposition;
+  `1 / M` target minorization, exact Doeblin residual decomposition, and
+  two-sided eventwise convergence rate `(1 - 1 / M)^n` for `M > 1`;
 - finite-dimensional state-dependent Gaussian proposals, with ULA proved
   Markov but not target-exact and MALA proved reversible and target-invariant;
 - reusable finite identity, composition, mixture, and coordinate-lift
