@@ -1,4 +1,4 @@
-import Mcmc.PDMP.Generator
+import Mcmc.PDMP.Uniformization
 
 /-!
 # Symmetric finite velocity-switching generator
@@ -29,6 +29,34 @@ theorem rates_reversible (switchRate : ℝ) (hnonneg : 0 ≤ switchRate) :
   intro current proposed
   cases current <;> cases proposed <;>
     simp [rates, velocityTarget]
+
+theorem exitRate_eq (switchRate : ℝ) (hnonneg : 0 ≤ switchRate)
+    (velocity : Bool) :
+    (rates switchRate hnonneg).exitRate velocity = switchRate := by
+  cases velocity <;>
+    simp [FiniteRateGenerator.exitRate, rates]
+
+/-- Uniformizing at the exact switch rate produces the deterministic embedded
+velocity-flip chain. -/
+noncomputable def flipKernel (switchRate : ℝ) (hpositive : 0 < switchRate) :
+    Mcmc.Finite.MarkovKernel Bool :=
+  (rates switchRate (le_of_lt hpositive)).uniformizedKernel switchRate hpositive
+    (fun velocity => by rw [exitRate_eq])
+
+theorem flipKernel_stationary (switchRate : ℝ) (hpositive : 0 < switchRate) :
+    (flipKernel switchRate hpositive).Stationary velocityTarget := by
+  exact FiniteRateGenerator.uniformizedKernel_stationary
+    (rates switchRate (le_of_lt hpositive)) velocityTarget
+    (rates_reversible switchRate (le_of_lt hpositive)) switchRate hpositive
+    (fun velocity => by rw [exitRate_eq])
+
+@[simp] theorem flipKernel_prob_not (switchRate : ℝ)
+    (hpositive : 0 < switchRate) (velocity : Bool) :
+    (flipKernel switchRate hpositive).prob velocity (!velocity) = 1 := by
+  unfold flipKernel
+  rw [FiniteRateGenerator.uniformizedKernel_prob_ne]
+  · simp [rates, hpositive.ne']
+  · cases velocity <;> decide
 
 /-- The symmetric velocity-flip generator has zero expectation under the
 uniform velocity target for every observable. -/

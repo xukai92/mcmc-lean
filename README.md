@@ -114,8 +114,11 @@ determinant factor and yields a complete tagged-target invariance theorem.
 Continuous-time samplers now begin in a separate `Mcmc.PDMP` namespace.
 Generator invariance, rate-biased jump-flux balance, and finite reversible-rate
 generator balance are formalized, with a symmetric two-velocity switching
-client. This is not yet a BPS/Zig-Zag process-existence, nonexplosion, or
-convergence theorem.
+client. Bounded finite rates now also produce an exact uniformization kernel;
+rate reversibility implies detailed balance and stationarity of that embedded
+chain, and uniformizing the velocity client at its switch rate gives the
+deterministic flip kernel. The real-time Poisson path, semigroup,
+nonexplosion, and BPS/Zig-Zag convergence layers remain open.
 
 For positive-horizon particle Gibbs, the finite library now proves a concrete
 arbitrary-horizon result: with any finite particle index type containing at

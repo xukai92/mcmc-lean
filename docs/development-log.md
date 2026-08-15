@@ -1382,6 +1382,15 @@ arbitrary-horizon TV convergence of bootstrap PG; the Boolean one-transition
 example instantiates it. This proves convergence, but not a
 sharp particle-count rate from bounded-potential constants.
 
+Extended the separate continuous-time branch with finite bounded-rate
+uniformization. `FiniteRateGenerator.uniformizedKernel` converts a rate matrix
+with off-diagonal exit rate bounded by `Λ` into the exact embedded Markov
+kernel, and Lean proves its row normalization, reversibility, and stationarity
+from rate detailed balance. The symmetric velocity-switching client
+uniformized at its exact switch rate is the deterministic flip chain. This is
+the checked event skeleton; a Poisson-clock path measure, semigroup,
+nonexplosion proof, and general BPS/Zig-Zag convergence are not claimed.
+
 The Gaussian diagonal-SoftAbs client is now end-to-end. Lean connects the
 actual Gaussian Hessian to a strictly non-identity SoftAbs metric, packages the
 explicit separable update as a valid generalized-leapfrog selection, and

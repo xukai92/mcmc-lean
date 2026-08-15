@@ -110,6 +110,7 @@ import Mcmc.Kernel.IndependenceMetropolis
 import Mcmc.Kernel.Langevin
 import Mcmc.Kernel.Slice
 import Mcmc.PDMP.Generator
+import Mcmc.PDMP.Uniformization
 import Mcmc.Kernel.CoupledChain
 import Mcmc.Kernel.CoupledMetropolisHastings
 import Mcmc.Kernel.DensityCoupling
