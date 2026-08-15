@@ -43,3 +43,22 @@
     @test_throws ArgumentError generated_schedule("unknown", Dict())
     @test_throws ArgumentError generated_schedule("ge-pg-hmc", Dict())
 end
+
+@testset "explicit observation suspend/resume" begin
+    factors = [state -> state + 1, state -> 2 * state, _ -> 0.5]
+    initial = observation_cursor(3, factors)
+    paused = run_observations(initial, 1)
+    resumed = run_observations(paused, 2)
+    uninterrupted = run_observations(initial, 3)
+
+    @test paused.accumulated_weight == 4.0
+    @test resumed.accumulated_weight == uninterrupted.accumulated_weight == 12.0
+    @test resumed.position == uninterrupted.position == 4
+    @test resume_observation(resumed) === nothing
+
+    clone = deepcopy(paused)
+    @test run_observations(clone, 2).accumulated_weight == 12.0
+    @test paused.position == 2
+    @test_throws ArgumentError run_observations(initial, -1)
+    @test_throws DomainError resume_observation(observation_cursor(1, [_ -> -1.0]))
+end

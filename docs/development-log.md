@@ -3,6 +3,20 @@
 Entries through the earlier 2026-08-13 work are preserved in the
 [development-log archive](development-log-archive.md).
 
+## 2026-08-15: semantic schedule bindings and explicit Julia cursors
+
+Added `ComposableSemantics`, which binds portable operator descriptors to
+actual full-state Lean kernels, exact scopes, Markov instances, and common-
+target invariance proofs. A bound schedule preserves descriptor order and its
+executed kernel preserves the target. This closes the metadata-to-mathematics
+side of the bridge; equality of a Julia callback with the bound kernel remains
+an explicit refinement obligation.
+
+Julia now mirrors the finite coroutine semantics with an explicit immutable
+`ObservationCursor`. Pause, deep-copy, resume, completion, and validation are
+tested. The implementation intentionally avoids copying Julia `Task` stacks:
+all semantically relevant suspension state is visible copyable data.
+
 ## 2026-08-15: normalized targets and refresh-augmented GR-HMC convergence
 
 Added a reusable bridge from any nonzero finite invariant measure to mathlib's

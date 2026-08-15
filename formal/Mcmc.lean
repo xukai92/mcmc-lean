@@ -48,6 +48,7 @@ import Mcmc.Executable.Finite.CompilerIR
 import Mcmc.Executable.Finite.CompilerIRInterpreter
 import Mcmc.Executable.IRFormat
 import Mcmc.Executable.ComposableIR
+import Mcmc.Executable.ComposableSemantics
 import Mcmc.Executable.Finite.IRTests
 import Mcmc.Executable.Primitive
 import Mcmc.Executable.IR

@@ -80,18 +80,21 @@ work.
    substantive mixed discrete/continuous model. The measure-kernel composition
    and auxiliary conditional factorization are complete; only the concrete
    model client remains.
-2. Strengthen the generated blocked-engine metadata bridge into semantic
-   callback refinement. Version-12 IR now emits the Lean-checked PG--HMC names,
-   scopes, order, and coverage, and Julia instantiates those descriptors from
-   named transitions; equality between each callback and its formal kernel
-   remains an explicit obligation.
+2. Complete runtime callback refinement beyond the new checked semantic
+   binding. `ComposableSemantics.BoundOperator` now pairs every generated
+   descriptor with its actual full-state kernel and invariance proof, and
+   `BoundSchedule.kernel_invariant` proves that descriptor-ordered execution
+   preserves the target. Julia callback equality with those bound kernels
+   remains an explicit language-boundary obligation.
 3. Instantiate the new reroot-invariant dynamic-candidate theorem with a
    concrete doubling/U-turn NUTS tree. Lean now proves detailed balance and
    stationarity from symmetric membership and reroot-invariant normalization,
    including nonconstant equivalence-class candidate sets; tree construction,
    subtree exclusion, and the certificate remain.
-4. Connect the proved finite suspend/resume semantics to Julia task copying and
-   generated trace-state descriptions; the mathematical arbitrary-pause
-   refinement to completed traces is now machine checked.
+4. Extend generated trace-state descriptions if richer source programs need
+   them. Julia now uses an explicit, copyable `ObservationCursor` matching the
+   proved finite suspend/resume state and tests pause/copy/resume against
+   uninterrupted execution. It deliberately does not copy opaque Julia
+   `Task` stacks; all resumable state is represented as ordinary data.
 5. Keep the stochastic-volatility, Gaussian-mixture, AD, and runtime results
    as reproducible empirical suites rather than paper-wide theorems.
