@@ -16,6 +16,7 @@ import Mcmc.Finite.ParticleEstimator
 import Mcmc.Finite.SequentialMonteCarlo
 import Mcmc.Finite.ParticleMCMC
 import Mcmc.Finite.ParticleGibbsConvergence
+import Mcmc.Finite.Doeblin
 import Mcmc.Finite.Coupling
 import Mcmc.Finite.MarginalRepair
 import Mcmc.Finite.Transport

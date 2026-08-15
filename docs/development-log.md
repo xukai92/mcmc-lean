@@ -1295,11 +1295,17 @@ future construction.
   composition theorem combines an exact auxiliary-variable conditional PG
   update with any invariant HMC update. This is a stationarity result; it does
   not silently claim convergence.
+- The finite quantitative foundation now includes an exact Doeblin refresh
+  certificate `P = εΠ + (1-ε)R`, its finite-time regenerative identity, a
+  uniform `(1-ε)^n` total-variation bound, and convergence for `ε > 0`.
+  Positive-horizon particle Gibbs is connected to this theorem using its
+  actual extended-state kernel. Concrete models must still prove the positive
+  refresh decomposition; the theorem does not infer it from stationarity.
 
 1. Instantiate the general-state PG--HMC theorem with a substantive mixed
    discrete/continuous model.
-2. Develop positive-horizon particle-Gibbs rates and particle-count
-   asymptotics under explicit hypotheses.
+2. Discharge the positive-horizon particle-Gibbs refresh certificate for
+   bounded-potential model classes and sharpen its particle-count dependence.
 3. Certify a practical diagonal SoftAbs solver and restricted Float64/Julia
    refinement.
 4. Extend the Ge, Xu, GR-HMC convergence, dynamic-NUTS, slice, reversible-

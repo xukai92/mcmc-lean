@@ -192,6 +192,14 @@ instantiation whose PG side is discharged by the exact auxiliary-variable
 factorization theorem. Positive-horizon PG convergence remains a distinct
 finite quantitative obligation.
 
+That quantitative obligation now has a checked target interface. A finite
+refresh decomposition yields an exact regenerative law and a uniform
+geometric TV bound; positive-horizon particle Gibbs specializes it to the
+concrete extended-state kernel. Deriving a positive coefficient from bounded
+Feynman--Kac potentials, and its dependence on particle count and horizon,
+remains model-specific work. The unconditional zero-horizon `N⁻ᵏ` result and
+the one-particle identity obstruction remain the exact particle-count anchors.
+
 After those foundations and the paper execution milestones, select the
 remaining branches based on research value and shared infrastructure:
 
