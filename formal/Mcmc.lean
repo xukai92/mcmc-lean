@@ -33,7 +33,9 @@ import Mcmc.Executable.Continuous.NumericalRefinement
 import Mcmc.Executable.Continuous.BoundedRWMH
 import Mcmc.Executable.Continuous.BoundedHMC
 import Mcmc.Executable.Continuous.BackendCertificates
+import Mcmc.Executable.Continuous.BoundedMultinomial
 import Mcmc.Executable.Continuous.MetricHMC
+import Mcmc.Executable.Continuous.MetricMultinomialHMC
 import Mcmc.Executable.Continuous.MetricCompilerIR
 import Mcmc.Executable.Continuous.GaussianTransport
 import Mcmc.Executable.Continuous.MultinomialHMC

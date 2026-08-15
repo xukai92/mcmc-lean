@@ -19,6 +19,7 @@ inductive MetricInput : Kind → Type where
 Its index guarantees that the command and metric input have the same shape. -/
 inductive Command : Kind → Type where
   | hmcStep (metricInput : MetricInput kind) : Command kind
+  | multinomialHmcStep (metricInput : MetricInput kind) : Command kind
 
 structure Program (kind : Kind) where
   name : String
@@ -35,6 +36,16 @@ def denseHmcProgram : Program .dense where
   metricInput := .denseMass
   body := .hmcStep .denseMass
 
+def diagonalMultinomialHmcProgram : Program .diagonal where
+  name := "diagonal_multinomial_hmc_step!"
+  metricInput := .diagonalMass
+  body := .multinomialHmcStep .diagonalMass
+
+def denseMultinomialHmcProgram : Program .dense where
+  name := "dense_multinomial_hmc_step!"
+  metricInput := .denseMass
+  body := .multinomialHmcStep .denseMass
+
 private def quote (value : String) : String := "\"" ++ value ++ "\""
 
 def Program.render {kind : Kind} (program : Program kind) : String :=
@@ -44,12 +55,15 @@ def Program.render {kind : Kind} (program : Program kind) : String :=
   let metricKind := match kind with
     | .diagonal => "diagonal"
     | .dense => "dense"
+  let operation := match program.body with
+    | .hmcStep _ => "metric-hmc"
+    | .multinomialHmcStep _ => "metric-multinomial-hmc"
   "(program " ++ quote program.name ++
     " (inputs (input source \"source\") (input log-density \"logdensity\")" ++
     " (input gradient \"gradient\") (input real \"step_size\")" ++
     " (input nat \"steps\") (input real-vector \"current\")" ++
     " (input " ++ metricType ++ " \"mass\"))" ++
-    " (body (return (metric-hmc " ++ metricKind ++
+    " (body (return (" ++ operation ++ " " ++ metricKind ++
       " (var source \"source\") (var real \"step_size\")" ++
       " (var nat \"steps\") (var real-vector \"current\")" ++
       " (var " ++ metricType ++ " \"mass\")))))"

@@ -10,7 +10,8 @@ include("Optimized/Optimized.jl")
 include("Certificates/Certificates.jl")
 
 export FiniteWeights, FiniteKernelWeights, FiniteMH, TwoStateMH, GaussianRWMH,
-    ScalarHMC, VectorHMC, MultinomialHMC, DiagonalMetric, DenseMetric, MetricHMC, sample
+    ScalarHMC, VectorHMC, MultinomialHMC, MetricMultinomialHMC,
+    DiagonalMetric, DenseMetric, MetricHMC, sample
 export Certificates
 
 struct MultinomialHMC{F,G}
@@ -93,6 +94,48 @@ end
 
 metric_mass(metric::DiagonalMetric) = metric.mass
 metric_mass(metric::DenseMetric) = metric.mass
+
+struct MetricMultinomialHMC{F,G,M}
+    logdensity::F
+    gradient::G
+    metric::M
+    step_size::Float64
+    steps::Int
+    function MetricMultinomialHMC(logdensity::F, gradient::G, metric::M,
+            step_size::Real, steps::Integer=10) where
+            {F,G,M<:Union{DiagonalMetric,DenseMetric}}
+        converted = Float64(step_size)
+        isfinite(converted) && converted > 0 ||
+            throw(ArgumentError("step size must be finite and positive"))
+        steps > 0 || throw(ArgumentError("trajectory length must be positive"))
+        new{F,G,M}(logdensity, gradient, metric, converted, Int(steps))
+    end
+end
+
+function step(rng::AbstractRNG, sampler::MetricMultinomialHMC,
+        current::AbstractVector{<:Real})
+    Reference.metric_multinomial_hmc_step!(Runtime.RNGSource(rng),
+        sampler.logdensity, sampler.gradient, sampler.step_size, sampler.steps,
+        current, metric_mass(sampler.metric))
+end
+
+step(sampler::MetricMultinomialHMC, current::AbstractVector{<:Real}) =
+    step(Random.default_rng(), sampler, current)
+
+function sample(rng::AbstractRNG, sampler::MetricMultinomialHMC,
+        initial::AbstractVector{<:Real}, count::Integer)
+    count >= 0 || throw(ArgumentError("sample count must be nonnegative"))
+    current = Float64.(initial)
+    samples = Matrix{Float64}(undef, length(current), count)
+    for index in axes(samples, 2)
+        current = step(rng, sampler, current)
+        samples[:, index] = current
+    end
+    samples
+end
+
+sample(sampler::MetricMultinomialHMC, initial::AbstractVector{<:Real},
+        count::Integer) = sample(Random.default_rng(), sampler, initial, count)
 
 function step(rng::AbstractRNG, sampler::MetricHMC,
         current::AbstractVector{<:Real})

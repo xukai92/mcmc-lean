@@ -4,10 +4,10 @@ using LinearAlgebra
 
 using ..Runtime: AbstractRandomSource, draw_below!, standard_normal!, uniform_unit!
 
-export categorical_index!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!, scalar_hmc_step!, vector_hmc_step!, metric_hmc_step!, multinomial_hmc_step!,
+export categorical_index!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!, scalar_hmc_step!, vector_hmc_step!, metric_hmc_step!, multinomial_hmc_step!, metric_multinomial_hmc_step!,
     IR_FORMAT_VERSION
 
-const IR_FORMAT_VERSION = 7
+const IR_FORMAT_VERSION = 8
 
 struct SList
     items::Vector{Any}
@@ -142,6 +142,33 @@ end
 
 const PROGRAMS = load_programs(joinpath(@__DIR__, "Samplers.ir"))
 
+function checked_logdensity(callback, state)
+    value = callback(state)
+    value isa Real || throw(ArgumentError("logdensity must return a real scalar"))
+    converted = Float64(value)
+    isfinite(converted) || throw(DomainError(value, "logdensity must be finite"))
+    converted
+end
+
+function checked_gradient(callback, state::Real)
+    value = callback(state)
+    value isa Real || throw(ArgumentError("scalar gradient must return a real scalar"))
+    converted = Float64(value)
+    isfinite(converted) || throw(DomainError(value, "gradient must be finite"))
+    converted
+end
+
+
+function checked_gradient(callback, state::AbstractVector)
+    value = callback(state)
+    value isa AbstractVector ||
+        throw(ArgumentError("vector gradient must return a vector"))
+    length(value) == length(state) || throw(DimensionMismatch("gradient dimension"))
+    converted = Float64.(value)
+    all(isfinite, converted) || throw(DomainError(value, "gradient must be finite"))
+    converted
+end
+
 function eval_expr(raw, env::Dict{String,Any})
     node = items(aslist(raw))
     tag = atom(node[1])
@@ -227,6 +254,16 @@ function eval_expr(raw, env::Dict{String,Any})
         current = eval_expr(node[5], env)
         return _multinomial_hmc_step!(source, env["logdensity"], env["gradient"],
             step_size, steps, current)
+    end
+    if tag == "metric-multinomial-hmc"
+        kind = Symbol(atom(node[2]))
+        source = eval_expr(node[3], env)
+        step_size = Float64(eval_expr(node[4], env))
+        steps = Int(eval_expr(node[5], env))
+        current = eval_expr(node[6], env)
+        mass = eval_expr(node[7], env)
+        return _metric_multinomial_hmc_step!(source, env["logdensity"],
+            env["gradient"], step_size, steps, current, mass, kind)
     end
     if tag == "categorical"
         source = eval_expr(node[2], env)
@@ -345,7 +382,9 @@ function gaussian_rwmh_step!(source::AbstractRandomSource, logdensity,
         scale::Float64, current::Float64)
     isfinite(scale) && scale > 0.0 ||
         throw(ArgumentError("scale must be finite and positive"))
-    Float64(run_program("gaussian_rwmh_step!", source, logdensity, scale, current))
+    isfinite(current) || throw(ArgumentError("current state must be finite"))
+    checked = value -> checked_logdensity(logdensity, value)
+    Float64(run_program("gaussian_rwmh_step!", source, checked, scale, current))
 end
 
 """Float64 interpretation of the serialized scalar one-step HMC program."""
@@ -354,7 +393,10 @@ function scalar_hmc_step!(source::AbstractRandomSource, logdensity, gradient,
     isfinite(step_size) && step_size > 0.0 ||
         throw(ArgumentError("step size must be finite and positive"))
     steps > 0 || throw(ArgumentError("leapfrog steps must be positive"))
-    Float64(run_program("scalar_hmc_step!", source, logdensity, gradient,
+    isfinite(current) || throw(ArgumentError("current state must be finite"))
+    checked_log = value -> checked_logdensity(logdensity, value)
+    checked_grad = value -> checked_gradient(gradient, value)
+    Float64(run_program("scalar_hmc_step!", source, checked_log, checked_grad,
         step_size, current, steps))
 end
 
@@ -366,7 +408,10 @@ function vector_hmc_step!(source::AbstractRandomSource, logdensity, gradient,
     steps > 0 || throw(ArgumentError("leapfrog steps must be positive"))
     isempty(current) && throw(ArgumentError("position cannot be empty"))
     position = Float64.(current)
-    result = run_program("vector_hmc_step!", source, logdensity, gradient,
+    all(isfinite, position) || throw(ArgumentError("position must be finite"))
+    checked_log = value -> checked_logdensity(logdensity, value)
+    checked_grad = value -> checked_gradient(gradient, value)
+    result = run_program("vector_hmc_step!", source, checked_log, checked_grad,
         step_size, steps, length(position), position)
     Float64.(result)
 end
@@ -386,7 +431,11 @@ function _metric_hmc_step!(source::AbstractRandomSource, logdensity, gradient,
         velocity = p -> p ./ mass
     elseif kind === :dense
         size(mass) == (dimension, dimension) || throw(DimensionMismatch("mass dimension"))
-        factor = cholesky(Symmetric(Matrix{Float64}(mass))).L
+        matrix = Matrix{Float64}(mass)
+        all(isfinite, matrix) || throw(ArgumentError("mass matrix must be finite"))
+        issymmetric(matrix) || throw(ArgumentError("mass matrix must be symmetric"))
+        isposdef(matrix) || throw(ArgumentError("mass matrix must be positive definite"))
+        factor = cholesky(Symmetric(matrix)).L
         momentum = factor * z
         velocity = p -> factor' \ (factor \ p)
     else
@@ -407,8 +456,11 @@ end
 
 function metric_hmc_step!(source::AbstractRandomSource, logdensity, gradient,
         step_size::Float64, steps::Integer, current::AbstractVector{<:Real}, mass)
+    all(isfinite, current) || throw(ArgumentError("position must be finite"))
     name = mass isa AbstractVector ? "diagonal_hmc_step!" : "dense_hmc_step!"
-    Float64.(run_program(name, source, logdensity, gradient, step_size, steps,
+    checked_log = value -> checked_logdensity(logdensity, value)
+    checked_grad = value -> checked_gradient(gradient, value)
+    Float64.(run_program(name, source, checked_log, checked_grad, step_size, steps,
         current, mass))
 end
 
@@ -448,8 +500,72 @@ end
 
 function multinomial_hmc_step!(source::AbstractRandomSource, logdensity, gradient,
         step_size::Float64, steps::Integer, current::AbstractVector{<:Real})
-    Float64.(run_program("multinomial_hmc_step!", source, logdensity, gradient,
+    all(isfinite, current) || throw(ArgumentError("position must be finite"))
+    checked_log = value -> checked_logdensity(logdensity, value)
+    checked_grad = value -> checked_gradient(gradient, value)
+    Float64.(run_program("multinomial_hmc_step!", source, checked_log, checked_grad,
         step_size, steps, current))
+end
+
+function _metric_multinomial_hmc_step!(source::AbstractRandomSource, logdensity,
+        gradient, step_size::Float64, steps::Integer,
+        current::AbstractVector{<:Real}, mass, kind::Symbol)
+    steps > 0 || throw(ArgumentError("trajectory length must be positive"))
+    q0 = Float64.(current)
+    isempty(q0) && throw(ArgumentError("position cannot be empty"))
+    z = [standard_normal!(source) for _ in eachindex(q0)]
+    if kind === :diagonal
+        length(mass) == length(q0) || throw(DimensionMismatch("mass dimension"))
+        all(x -> isfinite(x) && x > 0, mass) ||
+            throw(ArgumentError("diagonal mass must be finite and positive"))
+        p0 = sqrt.(mass) .* z
+        velocity = p -> p ./ mass
+    elseif kind === :dense
+        size(mass) == (length(q0), length(q0)) ||
+            throw(DimensionMismatch("mass dimension"))
+        matrix = Matrix{Float64}(mass)
+        all(isfinite, matrix) || throw(ArgumentError("mass matrix must be finite"))
+        issymmetric(matrix) || throw(ArgumentError("mass matrix must be symmetric"))
+        isposdef(matrix) || throw(ArgumentError("mass matrix must be positive definite"))
+        factor = cholesky(Symmetric(matrix)).L
+        p0 = factor * z
+        velocity = p -> factor' \ (factor \ p)
+    else
+        error("unsupported metric kind: $kind")
+    end
+    origin = Int(draw_below!(source, steps + 1))
+    trajectory = Vector{Tuple{Vector{Float64},Vector{Float64}}}(undef, steps + 1)
+    for index in 0:steps
+        q, p = copy(q0), copy(p0)
+        signed_step = index >= origin ? step_size : -step_size
+        for _ in 1:abs(index - origin)
+            half = p .- (signed_step / 2) .* gradient(q)
+            q = q .+ signed_step .* velocity(half)
+            p = half .- (signed_step / 2) .* gradient(q)
+        end
+        trajectory[index + 1] = (q, p)
+    end
+    logweights = [logdensity(q) - dot(p, velocity(p)) / 2 for (q, p) in trajectory]
+    weights = exp.(logweights .- maximum(logweights))
+    draw = uniform_unit!(source) * sum(weights)
+    cumulative = 0.0
+    for (index, weight) in pairs(weights)
+        cumulative += weight
+        draw < cumulative && return trajectory[index][1]
+    end
+    trajectory[end][1]
+end
+
+function metric_multinomial_hmc_step!(source::AbstractRandomSource, logdensity,
+        gradient, step_size::Float64, steps::Integer,
+        current::AbstractVector{<:Real}, mass)
+    all(isfinite, current) || throw(ArgumentError("position must be finite"))
+    name = mass isa AbstractVector ? "diagonal_multinomial_hmc_step!" :
+        "dense_multinomial_hmc_step!"
+    checked_log = value -> checked_logdensity(logdensity, value)
+    checked_grad = value -> checked_gradient(gradient, value)
+    Float64.(run_program(name, source, checked_log, checked_grad, step_size, steps,
+        current, mass))
 end
 
 end

@@ -2,6 +2,7 @@ import Mathlib.Probability.Distributions.Gaussian.Multivariate
 import Mathlib.MeasureTheory.Measure.Lebesgue.Basic
 import Mcmc.Hamiltonian.HMC
 import Mcmc.Executable.Continuous.MetricHMC
+import Mcmc.Executable.Continuous.MetricMultinomialHMC
 
 /-!
 # Linear transport of Gaussian momentum
@@ -187,6 +188,55 @@ theorem endpointMetricHmcPositionKernel_invariant_cholesky
     unfold metricKineticBoltzmannTarget
     infer_instance
   apply endpointMetricHmcPositionKernel_invariant metric hpotential
+    (Mcmc.Hamiltonian.measurable_kineticEnergy.comp factor.symm.measurable)
+    hgradient (standardMomentumMeasure.map factor)
+  rw [map_standardMomentumMeasure_eq_metricKineticTarget factor scale hvolume]
+  change (normalization⁻¹ • metricPositionBoltzmannTarget potential).prod
+      (normalization • metricKineticBoltzmannTarget
+        (transformedKineticEnergy factor)) = _
+  rw [Measure.prod_smul_right, Measure.prod_smul_left, smul_smul,
+    ENNReal.mul_inv_cancel hnormalization hnormalization_top, one_smul]
+  exact (metricPhaseBoltzmannTarget_eq_prod hpotential
+    (Mcmc.Hamiltonian.measurable_kineticEnergy.comp
+      factor.symm.measurable)).symm
+
+/-- Cholesky-refreshed position invariance for constant-metric multinomial
+HMC. -/
+theorem metricMultinomialHmcPositionKernel_invariant_cholesky
+    (metric : ConstantMetric ι) (factor : Momentum ι ≃ᵐ Momentum ι)
+    (scale : ENNReal)
+    (hvolume : (volume : Measure (Momentum ι)).map factor = scale • volume)
+    (hnormalization :
+      Mcmc.Hamiltonian.standardMomentumPrefactor (ι := ι) * scale ≠ 0)
+    (hnormalization_top :
+      Mcmc.Hamiltonian.standardMomentumPrefactor (ι := ι) * scale ≠
+        (⊤ : ENNReal))
+    {potential : Position ι → ℝ} {gradient : Position ι → Momentum ι}
+    (hpotential : Measurable potential) (hgradient : Measurable gradient)
+    (ε : ℝ) (L : Nat) :
+    (metricMultinomialHmcPositionKernel metric potential
+      (transformedKineticEnergy factor) gradient
+      (standardMomentumMeasure.map factor) ε L hpotential
+      (Mcmc.Hamiltonian.measurable_kineticEnergy.comp factor.symm.measurable)
+      hgradient).Invariant
+      ((Mcmc.Hamiltonian.standardMomentumPrefactor (ι := ι) * scale)⁻¹ •
+        metricPositionBoltzmannTarget potential) := by
+  let normalization :=
+    Mcmc.Hamiltonian.standardMomentumPrefactor (ι := ι) * scale
+  change normalization ≠ 0 at hnormalization
+  change normalization ≠ (⊤ : ENNReal) at hnormalization_top
+  letI : IsProbabilityMeasure (standardMomentumMeasure.map factor) :=
+    Measure.isProbabilityMeasure_map factor.measurable.aemeasurable
+  letI : SFinite (metricPositionBoltzmannTarget potential) := by
+    unfold metricPositionBoltzmannTarget
+    infer_instance
+  letI : SFinite (normalization⁻¹ • metricPositionBoltzmannTarget potential) :=
+    inferInstance
+  letI : SFinite
+      (metricKineticBoltzmannTarget (transformedKineticEnergy factor)) := by
+    unfold metricKineticBoltzmannTarget
+    infer_instance
+  apply metricMultinomialHmcPositionKernel_invariant metric hpotential
     (Mcmc.Hamiltonian.measurable_kineticEnergy.comp factor.symm.measurable)
     hgradient (standardMomentumMeasure.map factor)
   rw [map_standardMomentumMeasure_eq_metricKineticTarget factor scale hvolume]

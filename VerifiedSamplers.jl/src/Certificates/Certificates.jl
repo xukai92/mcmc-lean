@@ -2,6 +2,7 @@ module Certificates
 
 export BoundWitness, DecisionCertificate, certify_bound, certify_decision,
     SamplerDecisionCertificate, certify_rwmh_decision, certify_hmc_decision,
+    MultinomialSelectionCertificate, certify_multinomial_selection,
     is_stable, uncertainty_band
 
 """A checked, execution-specific absolute-error claim.
@@ -16,6 +17,41 @@ struct BoundWitness
     ideal::BigFloat
     bound::BigFloat
     observed_error::BigFloat
+end
+
+"""Execution-specific cumulative-boundary certificate for multinomial selection."""
+struct MultinomialSelectionCertificate
+    boundaries::Vector{BoundWitness}
+    uniform::BoundWitness
+    minimum_margin::BigFloat
+    uncertainty::BigFloat
+end
+
+is_stable(certificate::MultinomialSelectionCertificate) =
+    certificate.uncertainty < certificate.minimum_margin
+uncertainty_band(certificate::MultinomialSelectionCertificate) =
+    certificate.uncertainty
+
+"""Check cumulative-weight bounds and the distance to every selection boundary.
+
+Conditional on the supplied ideal values and common boundary bound, stability
+implies the Float64 and ideal categorical scans select the same index.
+"""
+function certify_multinomial_selection(computed_boundaries::AbstractVector{<:Real},
+        ideal_boundaries::AbstractVector{<:Real}, boundary_bound::Real,
+        computed_uniform::Real, ideal_uniform::Real, uniform_bound::Real;
+        precision::Integer=256)
+    length(computed_boundaries) == length(ideal_boundaries) ||
+        throw(DimensionMismatch("boundary vectors must have equal length"))
+    isempty(computed_boundaries) && throw(ArgumentError("boundaries cannot be empty"))
+    boundaries = [certify_bound(computed_boundaries[i], ideal_boundaries[i],
+        boundary_bound; precision=precision) for i in eachindex(computed_boundaries)]
+    uniform = certify_bound(computed_uniform, ideal_uniform, uniform_bound;
+        precision=precision)
+    minimum_margin = minimum(abs(uniform.ideal - boundary.ideal)
+        for boundary in boundaries)
+    MultinomialSelectionCertificate(boundaries, uniform, minimum_margin,
+        uniform.bound + BigFloat(boundary_bound))
 end
 
 function certify_bound(computed::Real, ideal::Real, bound::Real;

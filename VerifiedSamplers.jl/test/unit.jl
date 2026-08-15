@@ -56,12 +56,42 @@ end
         computed_uniform=0.5, ideal_uniform=big"0.5", uniform_bound=0)
     @test hmc.algorithm == :hmc
     @test Certificates.is_stable(hmc)
+
+    multinomial = Certificates.certify_multinomial_selection(
+        [0.2, 0.6, 1.0], BigFloat[0.2, 0.6, 1.0], 1e-15,
+        0.4, BigFloat(0.4), 1e-15)
+    @test Certificates.is_stable(multinomial)
+    near_boundary = Certificates.certify_multinomial_selection(
+        [0.2, 0.6, 1.0], BigFloat[0.2, 0.6, 1.0], 1e-3,
+        0.6005, BigFloat(0.6005), 1e-3)
+    @test !Certificates.is_stable(near_boundary)
+    @test_throws DimensionMismatch Certificates.certify_multinomial_selection(
+        [0.5], BigFloat[0.5, 1.0], 0, 0.2, BigFloat(0.2), 0)
+end
+
+
+@testset "continuous callback and state validation" begin
+    @test_throws ArgumentError Reference.gaussian_rwmh_step!(
+        Runtime.FloatTraceSource(Runtime.FloatTraceEvent[]), identity, 1.0, Inf)
+    @test_throws DomainError Reference.gaussian_rwmh_step!(
+        Runtime.FloatTraceSource([Runtime.NormalEvent(0.0)]), _ -> NaN, 1.0, 0.0)
+    @test_throws DimensionMismatch Reference.vector_hmc_step!(
+        Runtime.FloatTraceSource([Runtime.NormalEvent(0.0), Runtime.NormalEvent(0.0)]),
+        q -> -sum(abs2, q) / 2, _ -> [0.0], 0.1, 2, [0.0, 0.0])
+    @test_throws DomainError Reference.multinomial_hmc_step!(
+        Runtime.FloatTraceSource([Runtime.NormalEvent(0.0), Runtime.IndexEvent(big(0))]),
+        q -> -sum(abs2, q) / 2, _ -> [Inf], 0.1, 1, [0.0])
+    @test_throws ArgumentError Reference.metric_hmc_step!(
+        Runtime.FloatTraceSource([Runtime.NormalEvent(0.0), Runtime.NormalEvent(0.0)]),
+        q -> -sum(abs2, q) / 2, identity, 0.1, 1, [0.0, 0.0],
+        [1.0 0.5; 0.0 1.0])
 end
 
 @testset "versioned reference IR" begin
-    @test Reference.IR_FORMAT_VERSION == 7
+    @test Reference.IR_FORMAT_VERSION == 8
     @test sort!(collect(keys(Reference.PROGRAMS))) ==
-        ["categorical_index!", "dense_hmc_step!", "diagonal_hmc_step!",
+        ["categorical_index!", "dense_hmc_step!", "dense_multinomial_hmc_step!",
+        "diagonal_hmc_step!", "diagonal_multinomial_hmc_step!",
         "finite_mh_step!", "gaussian_rwmh_step!", "multinomial_hmc_step!", "scalar_hmc_step!",
         "vector_hmc_step!"]
     @test_throws ErrorException Reference.parse_document("(unterminated")

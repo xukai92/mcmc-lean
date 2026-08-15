@@ -14,7 +14,7 @@ namespace Mcmc.Executable.IRFormat
 
 open Finite.CompilerIR
 
-def version : Nat := 7
+def version : Nat := 8
 
 private def quote (value : String) : String :=
   let escapedBackslash := value.replace "\\" "\\\\"
@@ -177,6 +177,8 @@ def render : String :=
     continuousProgramRender Continuous.CompilerIR.vectorHmcProgram,
     Continuous.MetricCompilerIR.diagonalHmcProgram.render,
     Continuous.MetricCompilerIR.denseHmcProgram.render,
+    Continuous.MetricCompilerIR.diagonalMultinomialHmcProgram.render,
+    Continuous.MetricCompilerIR.denseMultinomialHmcProgram.render,
     Continuous.MultinomialCompilerIR.program.render] ++ "\n"
 
 end Mcmc.Executable.IRFormat

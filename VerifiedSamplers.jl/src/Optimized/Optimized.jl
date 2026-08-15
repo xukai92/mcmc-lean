@@ -6,6 +6,7 @@ using ...Runtime: AbstractRandomSource, draw_below!, standard_normal!, uniform_u
 
 export categorical_index!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!,
     scalar_hmc_step!, vector_hmc_step!, metric_hmc_step!, multinomial_hmc_step!,
+    metric_multinomial_hmc_step!,
     leapfrog, vector_leapfrog
 
 """One scalar velocity-Verlet/leapfrog step with unit mass."""
@@ -92,6 +93,55 @@ function multinomial_hmc_step!(source::AbstractRandomSource, logdensity, gradien
         trajectory[index] = (copy(q), copy(p))
     end
     logweights = [logdensity(position) - sum(abs2, momentum) / 2
+        for (position, momentum) in trajectory]
+    weights = exp.(logweights .- maximum(logweights))
+    target = uniform_unit!(source) * sum(weights)
+    cumulative = 0.0
+    for (index, weight) in pairs(weights)
+        cumulative += weight
+        target < cumulative && return trajectory[index][1]
+    end
+    trajectory[end][1]
+end
+
+"""Independent constant-metric randomized-origin multinomial HMC."""
+function metric_multinomial_hmc_step!(source::AbstractRandomSource, logdensity,
+        gradient, step_size::Float64, steps::Integer,
+        current::AbstractVector{<:Real}, mass)
+    steps > 0 || throw(ArgumentError("trajectory length must be positive"))
+    q = Float64.(current)
+    isempty(q) && throw(ArgumentError("position cannot be empty"))
+    noise = [standard_normal!(source) for _ in eachindex(q)]
+    if mass isa AbstractVector
+        length(mass) == length(q) || throw(DimensionMismatch("mass dimension"))
+        all(x -> isfinite(x) && x > 0, mass) ||
+            throw(ArgumentError("diagonal mass must be finite and positive"))
+        p = sqrt.(mass) .* noise
+        velocity = x -> x ./ mass
+    else
+        size(mass) == (length(q), length(q)) ||
+            throw(DimensionMismatch("mass dimension"))
+        factor = cholesky(Symmetric(Matrix{Float64}(mass))).L
+        p = factor * noise
+        velocity = x -> factor' \ (factor \ x)
+    end
+    origin = Int(draw_below!(source, steps + 1))
+    advance = function (q, p, ε)
+        half = p .- (ε / 2) .* gradient(q)
+        next_q = q .+ ε .* velocity(half)
+        next_p = half .- (ε / 2) .* gradient(next_q)
+        next_q, next_p
+    end
+    for _ in 1:origin
+        q, p = advance(q, p, -step_size)
+    end
+    trajectory = Vector{Tuple{Vector{Float64},Vector{Float64}}}(undef, steps + 1)
+    trajectory[1] = (copy(q), copy(p))
+    for index in 2:(steps + 1)
+        q, p = advance(q, p, step_size)
+        trajectory[index] = (copy(q), copy(p))
+    end
+    logweights = [logdensity(position) - dot(momentum, velocity(momentum)) / 2
         for (position, momentum) in trajectory]
     weights = exp.(logweights .- maximum(logweights))
     target = uniform_unit!(source) * sum(weights)

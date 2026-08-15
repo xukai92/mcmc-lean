@@ -58,6 +58,30 @@ end
     @test_throws ArgumentError MultinomialHMC(logdensity, gradient, 0.2, 0)
 end
 
+@testset "constant-metric multinomial HMC" begin
+    covariance = [1.0 0.4; 0.4 1.8]
+    precision = inv(covariance)
+    logdensity = q -> -dot(q, precision * q) / 2
+    gradient = q -> precision * q
+    for mass in ([1.0, 1.8], covariance)
+        events = [Runtime.NormalEvent(0.3), Runtime.NormalEvent(-0.5),
+            Runtime.IndexEvent(big(2)), Runtime.UniformEvent(0.45)]
+        reference_source = Runtime.FloatTraceSource(events)
+        optimized_source = Runtime.FloatTraceSource(events)
+        reference = Reference.metric_multinomial_hmc_step!(reference_source,
+            logdensity, gradient, 0.12, 4, [0.1, -0.2], mass)
+        optimized = Optimized.metric_multinomial_hmc_step!(optimized_source,
+            logdensity, gradient, 0.12, 4, [0.1, -0.2], mass)
+        @test optimized ≈ reference atol=3e-14
+        @test Runtime.remaining(reference_source) == 0
+        @test Runtime.remaining(optimized_source) == 0
+    end
+    sampler = MetricMultinomialHMC(logdensity, gradient,
+        DenseMetric(covariance), 0.18, 6)
+    chain = sample(MersenneTwister(0x4d4d484d), sampler, zeros(2), 25_000)[:, 2501:end]
+    @test maximum(abs.(cov(permutedims(chain)) - covariance)) < 0.15
+end
+
 @testset "future: continuous and mixed-state diagnostics" begin
     @testset "Geweke forward/backward joint-distribution test" begin
         @test_skip false

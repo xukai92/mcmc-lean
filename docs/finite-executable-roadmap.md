@@ -217,7 +217,7 @@ The finite milestone is complete only when:
 
 The continuous follow-ons now include Gaussian RWMH, endpoint and
 constant-metric HMC, and randomized-origin multinomial HMC in the committed
-version-7 artifact. Their exact Lean semantics, Float64 qualifications, and
+version-8 artifact. Their exact Lean semantics, Float64 qualifications, and
 remaining coupled/Riemannian work are tracked in the
 [continuous executable contract](continuous-executable-contract.md) and the
 [current executable roadmap](executable-roadmap.md). This finite roadmap is

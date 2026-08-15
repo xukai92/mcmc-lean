@@ -175,7 +175,7 @@ still inputs to this theorem rather than assumed facts.
 | Ideal trace | Proved for arbitrary scalar log densities and real scales |
 | Exact kernel | Proved for measurable log densities and positive scales |
 | Stationarity | Proved for the normalized `exp ∘ logdensity` target |
-| Julia Reference | Interprets the committed version-7 sampler IR |
+| Julia Reference | Interprets the committed version-8 sampler IR |
 | Julia Optimized | Independently implemented and differentially tested |
 | Bounded numeric refinement | Proved composition and decision-stability theorems, conditional on concrete operation-error certificates |
 | Julia execution certificates | Per-run checked RWMH/HMC decision witnesses with explicit callback, libm, and RNG bounds |
@@ -192,7 +192,7 @@ established `leapfrogN` map for every trajectory length, and proves exact
 phase-volume preservation and Boltzmann-target invariance of the corresponding
 phase kernel. The complete refresh–evolve–project position kernel is also
 defined and proved invariant for every compatible position target. The
-version-7 artifact is interpreted by Julia Reference and
+version-8 artifact is interpreted by Julia Reference and
 differentially tested against Optimized, including energy, reversibility,
 numerical-volume, Gaussian-moment, and non-Gaussian quartic-moment tests:
 
@@ -226,7 +226,7 @@ chain = sample(MersenneTwister(9), sampler, zeros(2), 10_000)
 Lean defines the corresponding diagonal and dense inverse-mass velocity maps,
 proves exact time reversal, endpoint-proposal involution, phase-volume
 preservation, Boltzmann phase invariance, and refreshed position invariance.
-The version-7 artifact retains the type-indexed diagonal and dense commands
+The version-8 artifact retains the type-indexed diagonal and dense commands
 introduced in version 6, so Julia Reference executes both through the
 generated IR. Lean also proves the
 linear/Cholesky Gaussian pushforward law and its determinant-normalized
@@ -252,9 +252,14 @@ Lean proves that the ideal origin/index choice program has exactly the
 existing `randomizedMultinomialLeapfrogPMF` law, identifies its measure with
 the verified kernel row, and assigns the complete refresh–evolve–project
 command the proved invariant position kernel. Julia Reference interprets the
-generated version-7 command; Optimized independently builds the re-rooted
+generated version-8 command; Optimized independently builds the re-rooted
 trajectory. Float64 Boltzmann weights and categorical boundary decisions
 retain the explicit numerical-refinement qualification.
+
+The same algorithm is available with diagonal or dense constant metrics via
+`MetricMultinomialHMC`. Lean proves orbit-kernel phase and refreshed-position
+invariance, including the Cholesky-refreshed specialization. The artifact
+contains separate metric-kind-correct commands.
 
 ## What “HMC” means here
 
