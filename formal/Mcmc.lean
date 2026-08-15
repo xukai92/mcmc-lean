@@ -15,6 +15,7 @@ import Mcmc.Finite.GreedyTransport
 import Mcmc.Finite.GreedyTransportCompleteness
 import Mcmc.Finite.MetropolisHastings
 import Mcmc.Examples.TwoState
+import Mcmc.Examples.TwoModelReversibleJump
 import Mcmc.Executable.Finite.Weights
 import Mcmc.Executable.Finite.Trace
 import Mcmc.Executable.Finite.Categorical
@@ -85,6 +86,7 @@ import Mcmc.Kernel.MeetingDrift
 import Mcmc.Kernel.MetropolisHastings
 import Mcmc.Kernel.ParameterizedDensityCoupling
 import Mcmc.Kernel.RandomWalkMetropolisHastings
+import Mcmc.Kernel.ReversibleJump
 import Mcmc.Kernel.UnbiasedEstimator
 import Mcmc.Relativistic.Kinetic
 import Mcmc.Relativistic.Momentum

@@ -129,11 +129,14 @@ reverse moves, and the acceptance ratio includes move probabilities,
 auxiliary densities, and the absolute Jacobian. This proves detailed balance,
 not traversal or convergence across models.
 
-**Repository fit.** After the general-state MH and change-of-variables layers,
-represent model-tagged spaces, paired move types, auxiliary kernels, and a
-measurable equivalence; prove accepted-flow balance before specializing to a
-Euclidean Jacobian formula. A finite disjoint-union birth/death example can
-exercise zero reverse-proposal cases earlier.
+**Repository fit.** The two-model tagged reference, density-level RJ-MH kernel,
+Markov/reversibility/invariance theorems, and symmetric cross-model accepted
+flow are now machine checked. A transport-density certificate states that the
+auxiliary transport pushes forward to the claimed proposal density and proves
+its normalization; this is the exact slot for a Jacobian theorem. The compiled
+two-singleton-model example exercises cross-model movement but is periodic.
+Next add a nontrivial Euclidean birth/death transport and prove its
+change-of-variables density rather than assuming a Jacobian factor.
 
 ### Roberts and Rosenthal (2007): adaptive MCMC -- P2
 

@@ -87,15 +87,16 @@ The pre-Xu dependency order is:
 4. measurable uniform-under-the-graph and level-set kernels for a concrete
    exact slice sampler -- the vertical kernel and under-graph identity are
    complete; the horizontal disintegration remains;
-5. tagged disjoint-union reference measures and change-of-variables lemmas for
-   reversible-jump MH; and
+5. tagged disjoint-union reference measures and transport-density certificates
+   for reversible-jump MH -- complete at the abstract level, with a finite
+   two-model example; a nontrivial Euclidean Jacobian client remains; and
 6. finite SMC on top of pseudo-marginal MH, then particle independent MH and
    particle marginal MH.
 
 Items 4--6 are intentionally ordered: the remaining slice work needs a
 measurable horizontal conditional with finite positive level-set mass;
-reversible jump additionally needs
-dimension-changing transport/Jacobian infrastructure; particle MCMC needs an
+reversible jump's next client needs a concrete dimension-changing
+transport/Jacobian theorem; particle MCMC needs an
 SMC estimator law before the existing pseudo-marginal theorem applies.
 
 After those foundations and the paper execution milestones, select the
@@ -103,7 +104,7 @@ remaining branches based on research value and shared infrastructure:
 
 - NUTS finite candidate trees before adaptation or modern multinomial NUTS;
 - concrete slice kernels on the completed two-block conditional foundation;
-- reversible-jump MCMC after tagged-space change of variables;
+- nontrivial reversible-jump transports on the completed tagged-space layer;
 - particle MCMC after finite SMC and pseudo-marginal foundations;
 - adaptive MCMC only with explicit nonhomogeneous-chain semantics,
   diminishing adaptation, and containment; and

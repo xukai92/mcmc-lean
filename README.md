@@ -57,6 +57,9 @@ The repository now contains machine-checked implementations and proofs for:
 - a concrete measurable vertical slice-height Markov kernel and proof that
   its lifted weighted target is exactly Lebesgue measure under the target
   graph; horizontal level-set disintegration remains explicit;
+- tagged two-model reversible-jump MH with a common reference measure,
+  transport-density certificate, cross-model accepted-flow symmetry, and
+  Markov/reversibility/invariance theorems;
 - reusable finite identity, composition, mixture, and coordinate-lift
   combinators; finite one-site, random-scan, and systematic-scan Gibbs;
 - two-temperature parallel tempering with an MH-corrected swap, product-target

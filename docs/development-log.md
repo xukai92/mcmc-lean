@@ -3,6 +3,21 @@
 Entries through the earlier 2026-08-13 work are preserved in the
 [development-log archive](development-log-archive.md).
 
+## 2026-08-15: tagged-space reversible-jump foundation
+
+Added the common reference measure on a two-model disjoint union and packaged
+general density MH as a reversible-jump specification. Lean proves the
+resulting kernel is Markov, reversible, and target-invariant. Cross-model
+accepted flow is exposed explicitly and remains symmetric even when one
+proposal direction has zero density.
+
+A transport-density certificate now isolates the real reversible-jump
+obligation: the dimension-changing auxiliary transport must push its source
+law to the claimed destination density, where a Euclidean client would prove
+the Jacobian formula. Probability auxiliary laws imply normalization of the
+certified cross-model density. A two-singleton-model example compiles and is
+documented as periodic, hence invariant but not claimed convergent.
+
 ## 2026-08-15: general-state auxiliary Gibbs and slice interface
 
 Added a measure-theoretic two-block conditional sampler on mathlib kernels.
