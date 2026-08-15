@@ -30,7 +30,9 @@ independence-MH minorization, exact regenerative representation, and explicit
 `(1 - 1 / M)^n` eventwise convergence bound are also proved. The pre-Xu
 foundation also has a finite adaptive-MCMC counterexample: state-dependent
 selection can destroy stationarity even when every frozen kernel preserves
-the target. Multi-time SMC and corrected Xu--Ge execution remain next.
+the target. A finite-horizon homogeneous Feynman--Kac/SMC expectation theorem
+is also complete; time-inhomogeneous particle systems, ancestry, and corrected
+Xu--Ge execution remain next.
 
 Betancourt's [*A Conceptual Introduction to Hamiltonian Monte
 Carlo*](https://arxiv.org/abs/1701.02434) is used as a foundational HMC
@@ -66,8 +68,9 @@ The repository now contains machine-checked implementations and proofs for:
   proved unbiased, together with the resulting pseudo-marginal MH extended
   stationarity and exact target marginal;
 - unbiased multinomial ancestor resampling, heterogeneous propagation, and a
-  one-step bootstrap resample--propagate expectation identity; multi-time SMC
-  remains separate;
+  one-step bootstrap resample--propagate expectation identity, lifted to an
+  arbitrary finite-horizon homogeneous Feynman--Kac expectation theorem for
+  strictly positive potentials;
 - reusable finite identity, composition, mixture, and coordinate-lift
   combinators; finite one-site, random-scan, and systematic-scan Gibbs;
 - finite state-dependent kernel selection and a checked counterexample showing

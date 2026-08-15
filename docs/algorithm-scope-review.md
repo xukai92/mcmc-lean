@@ -185,9 +185,11 @@ their average importance weight are now machine checked for every positive
 particle count. They instantiate pseudo-marginal MH with exact extended
 stationarity and the desired state marginal. Multinomial ancestry resampling,
 heterogeneous propagation, and the one-step bootstrap expectation identity
-are now machine checked as well. The next SMC obligation is the multi-time
-product normalizing-constant estimator and explicit ancestry law before naming
-a PIMH/PMMH client.
+are now machine checked as well. Iterated Feynman--Kac operators now prove the
+product normalizing-constant expectation identity at every finite horizon for
+a homogeneous model with strictly positive potential. Time-inhomogeneous
+potentials, explicit ancestry, and a packaged estimator remain before naming a
+PIMH/PMMH client.
 Conditional SMC and particle Gibbs follow. Keep fixed-particle stationarity,
 chain convergence, and consistency as particle count grows as separate theorem
 families.

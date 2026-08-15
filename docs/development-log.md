@@ -3,6 +3,21 @@
 Entries through the earlier 2026-08-13 work are preserved in the
 [development-log archive](development-log-archive.md).
 
+## 2026-08-15: finite-horizon homogeneous SMC identity
+
+Defined normalized empirical potential weights for strictly positive finite
+potentials and proved the weighted resample--propagate identity: the current
+average potential cancels the resampling normalizer exactly. Defined matching
+one-particle and particle Feynman--Kac transforms and proved by induction that
+their iterates agree on empirical averages for every finite horizon. Averaging
+an iid initial cloud therefore yields exactly the corresponding one-particle
+Feynman--Kac expectation.
+
+This is the homogeneous finite-horizon normalizing-estimator theorem (take the
+terminal observable to be one), expressed through nested conditional
+expectations. It does not yet package time-varying models or explicit ancestry,
+nor prove particle-filter convergence or efficiency.
+
 ## 2026-08-15: finite adaptive-kernel boundary
 
 Added state-dependent selection from a family of finite Markov kernels and a

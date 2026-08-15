@@ -247,6 +247,130 @@ theorem resamplePropagate_particleAverage_expectation
   exact multinomialResampling_unbiased weights particles
     (fun x => ∑ y, transition.prob x y * observable y)
 
+/-- Normalized empirical potential weights. Strict positivity is a convenient
+finite prerequisite; support-sensitive zero handling can be added separately. -/
+noncomputable def normalizedPotentialWeights
+    (potential : Sample → ℝ) (hpotential : ∀ x, 0 < potential x)
+    (particles : Particle → Sample) : Distribution Particle where
+  mass i := potential (particles i) / ∑ j, potential (particles j)
+  nonneg i := div_nonneg (le_of_lt (hpotential _))
+    (Finset.sum_nonneg fun j _ => le_of_lt (hpotential (particles j)))
+  sum_mass := by
+    rw [← Finset.sum_div]
+    exact div_self (ne_of_gt (Finset.sum_pos
+      (fun j _ => hpotential (particles j)) Finset.univ_nonempty))
+
+omit [DecidableEq Sample] in
+/-- Multiplying the normalized resample--propagate expectation by the current
+average potential cancels the empirical normalizer. This is the local
+Feynman--Kac identity used in the multi-time induction. -/
+theorem weighted_resamplePropagate_identity
+    (potential : Sample → ℝ) (hpotential : ∀ x, 0 < potential x)
+    (particles : Particle → Sample) (transition : MarkovKernel Sample)
+    (observable : Sample → ℝ) :
+    particleAverage potential particles *
+        (∑ ancestors,
+          (multinomialResampling
+            (normalizedPotentialWeights potential hpotential particles)).mass ancestors *
+          (∑ next, (propagatedPopulation transition particles ancestors).mass next *
+            particleAverage observable next)) =
+      particleAverage
+        (fun x => potential x *
+          ∑ y, transition.prob x y * observable y) particles := by
+  rw [resamplePropagate_particleAverage_expectation]
+  unfold particleAverage normalizedPotentialWeights
+  have hsum : (∑ j, potential (particles j)) ≠ 0 :=
+    ne_of_gt (Finset.sum_pos (fun j _ => hpotential (particles j))
+      Finset.univ_nonempty)
+  have hcard : (Fintype.card Particle : ℝ) ≠ 0 := by
+    exact_mod_cast Fintype.card_ne_zero
+  change ((∑ i, potential (particles i)) / Fintype.card Particle) *
+      (∑ i, (potential (particles i) / ∑ j, potential (particles j)) *
+        ∑ y, transition.prob (particles i) y * observable y) =
+    (∑ i, potential (particles i) *
+      ∑ y, transition.prob (particles i) y * observable y) /
+        Fintype.card Particle
+  field_simp
+  rw [Finset.mul_sum]
+  apply Finset.sum_congr rfl
+  intro i _
+  field_simp
+
+/-- One-particle unnormalized Feynman--Kac transform. -/
+noncomputable def feynmanKacTransform (potential : Sample → ℝ)
+    (transition : MarkovKernel Sample) (observable : Sample → ℝ) : Sample → ℝ :=
+  fun x => potential x * ∑ y, transition.prob x y * observable y
+
+/-- Particle Feynman--Kac transform: multiply the conditional expectation
+after multinomial resample--propagate by the current average potential. -/
+noncomputable def particleFeynmanKacTransform
+    (potential : Sample → ℝ) (hpotential : ∀ x, 0 < potential x)
+    (transition : MarkovKernel Sample)
+    (observable : (Particle → Sample) → ℝ) : (Particle → Sample) → ℝ :=
+  fun particles => particleAverage potential particles *
+    ∑ ancestors,
+      (multinomialResampling
+        (normalizedPotentialWeights potential hpotential particles)).mass ancestors *
+      ∑ next, (propagatedPopulation transition particles ancestors).mass next *
+        observable next
+
+omit [DecidableEq Sample] in
+/-- The particle transform maps an empirical average to the empirical average
+of the exact one-particle Feynman--Kac transform. -/
+theorem particleFeynmanKacTransform_particleAverage
+    (potential : Sample → ℝ) (hpotential : ∀ x, 0 < potential x)
+    (transition : MarkovKernel Sample) (observable : Sample → ℝ)
+    (particles : Particle → Sample) :
+    particleFeynmanKacTransform potential hpotential transition
+        (particleAverage observable) particles =
+      particleAverage (feynmanKacTransform potential transition observable)
+        particles := by
+  exact weighted_resamplePropagate_identity potential hpotential particles
+    transition observable
+
+omit [DecidableEq Sample] in
+/-- Arbitrary finite-horizon Feynman--Kac identity, conditional on the initial
+particle cloud. Iteration expands to the usual product of successive average
+potentials and nested resample--propagate expectations. -/
+theorem particleFeynmanKacTransform_iterate
+    (potential : Sample → ℝ) (hpotential : ∀ x, 0 < potential x)
+    (transition : MarkovKernel Sample) (observable : Sample → ℝ)
+    (n : ℕ) (particles : Particle → Sample) :
+    (particleFeynmanKacTransform potential hpotential transition)^[n]
+        (particleAverage observable) particles =
+      particleAverage ((feynmanKacTransform potential transition)^[n] observable)
+        particles := by
+  induction n generalizing observable with
+  | zero => rfl
+  | succ n ih =>
+      rw [Function.iterate_succ_apply, Function.iterate_succ_apply]
+      have hmap :
+          particleFeynmanKacTransform potential hpotential transition
+              (particleAverage (Particle := Particle) observable) =
+            particleAverage (Particle := Particle)
+              (feynmanKacTransform potential transition observable) := by
+        funext cloud
+        exact particleFeynmanKacTransform_particleAverage potential hpotential
+          transition observable cloud
+      rw [hmap]
+      exact ih (feynmanKacTransform potential transition observable)
+
+omit [DecidableEq Sample] in
+/-- After an iid initial cloud, the finite-horizon particle normalizing
+estimator has exactly the corresponding one-particle Feynman--Kac expectation. -/
+theorem iid_particleFeynmanKacTransform_iterate_expectation
+    (initial : Distribution Sample) (potential : Sample → ℝ)
+    (hpotential : ∀ x, 0 < potential x) (transition : MarkovKernel Sample)
+    (observable : Sample → ℝ) (n : ℕ) :
+    ∑ particles, (iidPopulation (Particle := Particle) initial).mass particles *
+        ((particleFeynmanKacTransform potential hpotential transition)^[n]
+          (particleAverage observable) particles) =
+      ∑ x, initial.mass x *
+        ((feynmanKacTransform potential transition)^[n] observable) x := by
+  simp_rw [particleFeynmanKacTransform_iterate potential hpotential transition
+    observable n]
+  exact iidPopulation_particleAverage_expectation initial _
+
 /-- Lift a state-indexed one-particle unbiased score into a finite iid particle
 estimator usable by pseudo-marginal MH. -/
 noncomputable def estimator

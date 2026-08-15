@@ -93,8 +93,11 @@ The pre-Xu dependency order is:
 6. finite particle methods -- iid particle-average unbiasedness and its
    pseudo-marginal MH client are complete; multinomial resampling,
    heterogeneous propagation, and their one-step Feynman--Kac expectation
-   identity are also complete. The multi-time normalizing-constant theorem and
-   ancestry history come next, followed by PIMH and particle marginal MH.
+   identity are also complete. Iterated operators now prove the arbitrary
+   finite-horizon homogeneous Feynman--Kac expectation identity under strictly
+   positive potentials. Time-inhomogeneous models, explicit ancestry history,
+   and a packaged estimator client come next, followed by PIMH and particle
+   marginal MH.
 7. adaptive-MCMC boundary -- finite state-dependent kernel selection and a
    counterexample where two frozen target-invariant kernels combine into a
    non-invariant selected kernel are complete. Nonhomogeneous path semantics,
@@ -127,8 +130,9 @@ obligations.
 
 ## Immediate plan
 
-A1--A4 and B1 are complete. The next reusable branch is the multi-time finite
-SMC estimator law, followed by a pseudo-marginal client. Horizontal slice
+A1--A4 and B1 are complete. The next reusable branch packages the completed
+homogeneous finite-horizon SMC law as a pseudo-marginal estimator, then extends
+it to time-inhomogeneous potentials and explicit ancestry. Horizontal slice
 disintegration and a nontrivial reversible-jump Jacobian client remain
 independent open branches. The next paper-execution branch is B2. None of
 these is needed to support the completed finite Gibbs, tempering,
