@@ -123,7 +123,7 @@ joint parameter/selected-trajectory expectation against each parameter's own
 Feynman--Kac model. A concrete Boolean example uses different potential and
 transition kernels at its two parameter values. These are stationarity and
 exact-marginal results, not chain-convergence or particle-efficiency results.
-Conditional SMC and particle Gibbs remain separate.
+At that checkpoint, conditional SMC and particle Gibbs remained separate.
 
 ## 2026-08-15: conditional-SMC specification and particle-Gibbs kernel
 
@@ -136,10 +136,25 @@ compatibility, and the exact marginal-times-conditional factorization.
 Composing that conditional refresh with uniform terminal-index reselection
 gives a finite particle-Gibbs kernel with machine-checked extended-target
 stationarity and exact normalized Feynman--Kac path marginal. A separate
-forced-coordinate population law and recursive forced-lineage generator are
-now defined and normalized compositionally. The remaining M1 obligation is the
-pointwise equivalence between that concrete generator and the exact conditional
-specification. No chain-convergence or particle-efficiency claim is made.
+forced-coordinate population law and recursive forced-lineage generator were
+then defined and normalized compositionally. At that checkpoint, the remaining
+M1 obligation was pointwise equivalence between that concrete generator and the
+exact conditional specification. No chain-convergence or particle-efficiency
+claim is made.
+
+The remaining equivalence is now closed. Lean proves the recursive suffix mass
+formula, the normalized Feynman--Kac trajectory marginal, equality of the full
+forced-lineage law with the conditional selected-particle law on every positive
+supported path, and row-level agreement with the stationary conditional-SMC
+kernel. This completes the finite conditional-SMC and particle-Gibbs Phase I
+milestones without adding a convergence or particle-efficiency claim.
+
+The Phase I core release audit then passed end to end: `lake build` completed
+all 3901 jobs; the Julia package tests passed (with only the intentionally
+marked future tests broken/skipped); generated IR and generated documentation
+matched byte-for-byte; Documenter built successfully; `git diff --check`
+passed; and the changed Lean sources contain no `sorry`, `admit`, or `axiom`.
+See [the evidence table](core-release-audit.md) for the milestone boundaries.
 
 ## 2026-08-15: corrected executable relativistic constant-metric client
 

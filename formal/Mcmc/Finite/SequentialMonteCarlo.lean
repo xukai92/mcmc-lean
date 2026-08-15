@@ -1017,6 +1017,408 @@ noncomputable def forcedLineageLaw (initial : Distribution Sample)
                 (forcedLineageSuffixLaw steps first future hfuture particles retained)
                 fun suffix => ((particles, suffix.1), suffix.2)
 
+/-- Unnormalized one-particle Feynman--Kac density of a fixed path suffix,
+excluding the initial-state mass. -/
+noncomputable def pathSuffixDensity :
+    (steps : List (FeynmanKacStep Sample)) → Sample → List Sample → ℝ
+  | [], _, [] => 1
+  | [], _, _ :: _ => 0
+  | _ :: _, _, [] => 0
+  | step :: steps, current, next :: future =>
+      step.potential current * step.transition.prob current next *
+        pathSuffixDensity steps next future
+
+/-- Support condition needed by conditional SMC: every transition traversed
+by the retained reference path has positive probability. Potentials are
+already strictly positive in `FeynmanKacStep`. -/
+def PathSuffixSupported :
+    (steps : List (FeynmanKacStep Sample)) → Sample → List Sample → Prop
+  | [], _, [] => True
+  | [], _, _ :: _ => False
+  | _ :: _, _, [] => False
+  | step :: steps, current, next :: future =>
+      0 < step.transition.prob current next ∧
+        PathSuffixSupported steps next future
+
+omit [DecidableEq Sample] in
+theorem pathSuffixDensity_pos
+    (steps : List (FeynmanKacStep Sample)) (current : Sample)
+    (future : List Sample) (hsupport : PathSuffixSupported steps current future) :
+    0 < pathSuffixDensity steps current future := by
+  induction steps generalizing current future with
+  | nil =>
+      cases future <;> simp_all [PathSuffixSupported, pathSuffixDensity]
+  | cons step steps ih =>
+      cases future with
+      | nil => simp [PathSuffixSupported] at hsupport
+      | cons next future =>
+          simp only [PathSuffixSupported] at hsupport
+          simp only [pathSuffixDensity]
+          exact mul_pos (mul_pos (step.potential_pos current) hsupport.1)
+            (ih next future hsupport.2)
+
+/-- Pointwise density formula for the concrete forced-lineage suffix. This is
+the algebraic core of its equivalence with exact conditional SMC. -/
+theorem forcedLineageSuffixLaw_mass
+    (steps : List (FeynmanKacStep Sample)) (current : Sample)
+    (future : List Sample) (hlength : future.length = steps.length)
+    (hsupport : PathSuffixSupported steps current future)
+    (particles : Particle → Sample) (retained : Particle)
+    (hretained : particles retained = current)
+    (suffix : Continuation Particle Sample steps × Particle) :
+    (forcedLineageSuffixLaw steps current future hlength particles retained).mass suffix =
+      if initialAncestor steps suffix.1 suffix.2 = retained ∧
+          selectedTrajectory steps particles suffix.1 suffix.2 = current :: future then
+        (continuationLaw steps particles).mass suffix.1 *
+          historyValue steps (fun _ => 1) particles suffix.1 /
+            pathSuffixDensity steps current future
+      else 0 := by
+  induction steps generalizing current future particles retained with
+  | nil =>
+      cases future with
+      | nil =>
+          rcases suffix with ⟨continuation, terminal⟩
+          rcases continuation with ⟨u⟩
+          cases u
+          by_cases hterminal : terminal = retained
+          · subst terminal
+            have hcard : (Fintype.card Particle : ℝ) ≠ 0 := by
+              exact_mod_cast Fintype.card_ne_zero
+            simp [forcedLineageSuffixLaw, pointDistribution, initialAncestor,
+              selectedTrajectory, continuationLaw, historyValue,
+              pathSuffixDensity, hretained, particleAverage, hcard]
+          · simp [forcedLineageSuffixLaw, pointDistribution, initialAncestor,
+              selectedTrajectory, hterminal]
+      | cons next future => simp at hlength
+  | cons step steps ih =>
+      cases future with
+      | nil => simp at hlength
+      | cons next future =>
+          rcases suffix with ⟨⟨ancestors, nextParticles, tail⟩, terminal⟩
+          simp only [PathSuffixSupported] at hsupport
+          have htailLength : future.length = steps.length := by simpa using hlength
+          unfold forcedLineageSuffixLaw
+          simp only [Distribution.bind_mass, Distribution.map]
+          have heq (as : Particle → Particle) (ps : Particle → Sample)
+              (rest : Continuation Particle Sample steps × Particle) :
+              (((show Continuation Particle Sample (step :: steps) from
+                    (ancestors, nextParticles, tail)), terminal) =
+                  ((show Continuation Particle Sample (step :: steps) from
+                    (as, ps, rest.1)), rest.2)) ↔
+                as = ancestors ∧ ps = nextParticles ∧ rest = (tail, terminal) := by
+            constructor
+            · intro h
+              cases h
+              exact ⟨rfl, rfl, Prod.ext rfl rfl⟩
+            · rintro ⟨rfl, rfl, rfl⟩
+              rfl
+          simp only [heq]
+          simp
+          have hinner (nextRetained : Particle) :
+              (∑ as,
+                (forcedIndependentPopulation
+                  (fun _ => normalizedPotentialWeights step.potential
+                    step.potential_pos particles)
+                  nextRetained retained).mass as *
+                ∑ ps,
+                  (forcedIndependentPopulation
+                    (fun i => rowDistribution step.transition (particles (as i)))
+                    nextRetained next).mass ps *
+                  ∑ rest,
+                    if as = ancestors ∧ ps = nextParticles ∧
+                        rest = (tail, terminal) then
+                      (forcedLineageSuffixLaw steps next future htailLength
+                        ps nextRetained).mass rest
+                    else 0) =
+                (forcedIndependentPopulation
+                  (fun _ => normalizedPotentialWeights step.potential
+                    step.potential_pos particles)
+                  nextRetained retained).mass ancestors *
+                (forcedIndependentPopulation
+                  (fun i => rowDistribution step.transition (particles (ancestors i)))
+                  nextRetained next).mass nextParticles *
+                (forcedLineageSuffixLaw steps next future htailLength
+                  nextParticles nextRetained).mass (tail, terminal) := by
+            rw [Finset.sum_eq_single ancestors]
+            · rw [Finset.sum_eq_single nextParticles]
+              · rw [Finset.sum_eq_single (tail, terminal)]
+                · simp only [true_and, ↓reduceIte]
+                  ring
+                · intro rest _ hrest
+                  simp [hrest]
+                · simp
+              · intro ps _ hps
+                simp [hps]
+              · simp
+            · intro as _ has
+              simp [has]
+            · simp
+          simp_rw [hinner]
+          let lineage := initialAncestor steps tail terminal
+          by_cases htrajectory :
+              selectedTrajectory steps nextParticles tail terminal = next :: future
+          · have hnext : nextParticles lineage = next := by
+              have hhead := congrArg List.head? htrajectory
+              rw [selectedTrajectory_head?] at hhead
+              simpa [lineage] using hhead
+            by_cases hancestor : ancestors lineage = retained
+            · have hweight : 0 <
+                  (normalizedPotentialWeights step.potential step.potential_pos
+                    particles).mass retained := by
+                unfold normalizedPotentialWeights
+                exact div_pos (by simpa [hretained] using step.potential_pos current)
+                  (Finset.sum_pos (fun i _ => step.potential_pos (particles i))
+                    Finset.univ_nonempty)
+              have htransition : 0 <
+                  (rowDistribution step.transition
+                    (particles (ancestors lineage))).mass next := by
+                simpa [rowDistribution, hancestor, hretained] using hsupport.1
+              have hfullAncestor :
+                  initialAncestor (step :: steps) (ancestors, nextParticles, tail)
+                    terminal = retained := by
+                simpa only [initialAncestor, lineage] using hancestor
+              have hfullTrajectory :
+                  selectedTrajectory (step :: steps) particles
+                    (ancestors, nextParticles, tail) terminal =
+                      current :: next :: future := by
+                simp only [selectedTrajectory, lineage, hancestor, hretained,
+                  htrajectory]
+              rw [Finset.sum_eq_single lineage]
+              · rw [forcedIndependentPopulation_mass_eq_div
+                  (law := fun _ => normalizedPotentialWeights step.potential
+                    step.potential_pos particles)
+                  (retained := lineage) (value := retained) hweight ancestors]
+                rw [forcedIndependentPopulation_mass_eq_div
+                  (law := fun i => rowDistribution step.transition
+                    (particles (ancestors i)))
+                  (retained := lineage) (value := next) htransition nextParticles]
+                rw [ih next future htailLength hsupport.2 nextParticles lineage
+                  hnext (tail, terminal)]
+                simp only [hancestor, hnext, htrajectory, lineage, true_and,
+                  ↓reduceIte]
+                simp only [hfullAncestor, hfullTrajectory, and_self, if_true]
+                have hresample :
+                    (independentPopulation
+                      (fun _ => normalizedPotentialWeights step.potential
+                        step.potential_pos particles)).mass ancestors =
+                      (multinomialResampling
+                        (normalizedPotentialWeights step.potential
+                          step.potential_pos particles)).mass ancestors := by
+                  rfl
+                have hpropagate :
+                    (independentPopulation
+                      (fun i => rowDistribution step.transition
+                        (particles (ancestors i)))).mass nextParticles =
+                      (propagatedPopulation step.transition particles ancestors).mass
+                        nextParticles := by
+                  rfl
+                rw [hresample, hpropagate]
+                simp only [uniformParticleDistribution, continuationLaw, historyValue,
+                  pathSuffixDensity, rowDistribution, hretained]
+                change (1 / (Fintype.card Particle : ℝ)) *
+                    ((multinomialResampling
+                        (normalizedPotentialWeights step.potential
+                          step.potential_pos particles)).mass ancestors /
+                      (normalizedPotentialWeights step.potential
+                        step.potential_pos particles).mass retained *
+                    ((propagatedPopulation step.transition particles ancestors).mass
+                          nextParticles /
+                        step.transition.prob current next) *
+                    ((continuationLaw steps nextParticles).mass tail *
+                        historyValue steps (fun _ => 1) nextParticles tail /
+                          pathSuffixDensity steps next future)) =
+                  ((multinomialResampling
+                      (normalizedPotentialWeights step.potential
+                        step.potential_pos particles)).mass ancestors *
+                    (propagatedPopulation step.transition particles ancestors).mass
+                      nextParticles *
+                    (continuationLaw steps nextParticles).mass tail) *
+                  (((∑ i, step.potential (particles i)) /
+                      (Fintype.card Particle : ℝ)) *
+                    historyValue steps (fun _ => 1) nextParticles tail) /
+                  (step.potential current * step.transition.prob current next *
+                    pathSuffixDensity steps next future)
+                have hcard : (Fintype.card Particle : ℝ) ≠ 0 := by
+                  exact_mod_cast Fintype.card_ne_zero
+                have hsum : (∑ i, step.potential (particles i)) ≠ 0 :=
+                  ne_of_gt (Finset.sum_pos
+                    (fun i _ => step.potential_pos (particles i))
+                    Finset.univ_nonempty)
+                have hpot : step.potential current ≠ 0 :=
+                  ne_of_gt (step.potential_pos current)
+                have htrans : step.transition.prob current next ≠ 0 :=
+                  ne_of_gt hsupport.1
+                simp only [normalizedPotentialWeights]
+                rw [hretained]
+                field_simp
+              · intro other _ hother
+                by_cases hotherNext : nextParticles other = next
+                · rw [ih next future htailLength hsupport.2 nextParticles other
+                    hotherNext (tail, terminal)]
+                  have hlineage : initialAncestor steps tail terminal ≠ other := by
+                    simpa [lineage, eq_comm] using hother
+                  simp [hlineage]
+                · rw [forcedIndependentPopulation_incompatible_zero _ other next
+                    nextParticles hotherNext]
+                  ring
+              · simp
+            · rw [show (∑ x,
+                    uniformParticleDistribution.mass x *
+                      ((forcedIndependentPopulation
+                        (fun _ => normalizedPotentialWeights step.potential
+                          step.potential_pos particles) x retained).mass ancestors *
+                        (forcedIndependentPopulation
+                          (fun i => rowDistribution step.transition
+                            (particles (ancestors i))) x next).mass nextParticles *
+                        (forcedLineageSuffixLaw steps next future htailLength
+                          nextParticles x).mass (tail, terminal))) = 0 by
+                  apply Finset.sum_eq_zero
+                  intro other _
+                  by_cases hotherNext : nextParticles other = next
+                  · rw [ih next future htailLength hsupport.2 nextParticles other
+                      hotherNext (tail, terminal)]
+                    by_cases hotherLineage :
+                        initialAncestor steps tail terminal = other
+                    · subst other
+                      rw [forcedIndependentPopulation_incompatible_zero _ lineage
+                        retained ancestors hancestor]
+                      ring
+                    · simp [hotherLineage]
+                  · rw [forcedIndependentPopulation_incompatible_zero _ other next
+                      nextParticles hotherNext]
+                    ring]
+              simp [initialAncestor, selectedTrajectory, lineage, hancestor,
+                htrajectory]
+          · rw [show (∑ x,
+                  uniformParticleDistribution.mass x *
+                    ((forcedIndependentPopulation
+                      (fun _ => normalizedPotentialWeights step.potential
+                        step.potential_pos particles) x retained).mass ancestors *
+                      (forcedIndependentPopulation
+                        (fun i => rowDistribution step.transition
+                          (particles (ancestors i))) x next).mass nextParticles *
+                      (forcedLineageSuffixLaw steps next future htailLength
+                        nextParticles x).mass (tail, terminal))) = 0 by
+                apply Finset.sum_eq_zero
+                intro other _
+                by_cases hotherNext : nextParticles other = next
+                · rw [ih next future htailLength hsupport.2 nextParticles other
+                    hotherNext (tail, terminal)]
+                  simp [htrajectory]
+                · rw [forcedIndependentPopulation_incompatible_zero _ other next
+                    nextParticles hotherNext]
+                  ring]
+            simp [initialAncestor, selectedTrajectory, htrajectory]
+
+/-- The concrete forced-lineage construction is the selected-particle target
+restricted to one supported path, up to the path-marginal normalizer. -/
+theorem forcedLineageLaw_mass_eq_scaled_target
+    (initial : Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : 0 < normalizingConstant initial steps)
+    (first : Sample) (future : List Sample)
+    (hlength : future.length = steps.length)
+    (hinitial : 0 < initial.mass first)
+    (hsupport : PathSuffixSupported steps first future)
+    (selected : History (Particle := Particle) steps × Particle) :
+    (forcedLineageLaw (Particle := Particle) initial steps (first :: future)
+      (by simpa using congrArg Nat.succ hlength)).mass selected =
+      if selectedTrajectory steps selected.1.1 selected.1.2 selected.2 =
+          first :: future then
+        (selectedParticleTarget (Particle := Particle) initial steps
+          hnormalizer).mass selected * normalizingConstant initial steps /
+            (initial.mass first * pathSuffixDensity steps first future)
+      else 0 := by
+  rcases selected with ⟨⟨particles, continuation⟩, terminal⟩
+  unfold forcedLineageLaw
+  simp only [Distribution.bind_mass, Distribution.map]
+  have heq (ps : Particle → Sample)
+      (suffix : Continuation Particle Sample steps × Particle) :
+      (((particles, continuation), terminal) = ((ps, suffix.1), suffix.2)) ↔
+        ps = particles ∧ suffix = (continuation, terminal) := by
+    constructor
+    · intro h
+      cases h
+      exact ⟨rfl, Prod.ext rfl rfl⟩
+    · rintro ⟨rfl, rfl⟩
+      rfl
+  simp only [heq]
+  have hinner (retained : Particle) :
+      (∑ ps,
+        (forcedIndependentPopulation (fun _ => initial) retained first).mass ps *
+          ∑ suffix,
+            (forcedLineageSuffixLaw steps first future hlength ps retained).mass
+                suffix *
+              if ps = particles ∧ suffix = (continuation, terminal) then 1 else 0) =
+        (forcedIndependentPopulation (fun _ => initial) retained first).mass
+            particles *
+          (forcedLineageSuffixLaw steps first future hlength particles retained).mass
+            (continuation, terminal) := by
+    rw [Finset.sum_eq_single particles]
+    · rw [Finset.sum_eq_single (continuation, terminal)]
+      · simp
+      · intro suffix _ hsuffix
+        simp [hsuffix]
+      · simp
+    · intro ps _ hps
+      simp [hps]
+    · simp
+  simp_rw [hinner]
+  let lineage := initialAncestor steps continuation terminal
+  by_cases htrajectory :
+      selectedTrajectory steps particles continuation terminal = first :: future
+  · have hfirst : particles lineage = first := by
+      have hhead := congrArg List.head? htrajectory
+      rw [selectedTrajectory_head?] at hhead
+      simpa [lineage] using hhead
+    rw [Finset.sum_eq_single lineage]
+    · rw [forcedIndependentPopulation_mass_eq_div
+        (law := fun _ => initial) (retained := lineage) (value := first)
+        hinitial particles]
+      rw [forcedLineageSuffixLaw_mass steps first future hlength hsupport
+        particles lineage hfirst (continuation, terminal)]
+      simp only [hfirst, htrajectory, lineage, true_and, if_true]
+      simp only [uniformParticleDistribution, selectedParticleTarget, historyLaw,
+        normalizingWeight, fullHistoryValue]
+      have hcard : (Fintype.card Particle : ℝ) ≠ 0 := by
+        exact_mod_cast Fintype.card_ne_zero
+      have hpathDensity :
+          initial.mass first * pathSuffixDensity steps first future ≠ 0 :=
+        mul_ne_zero (ne_of_gt hinitial)
+          (ne_of_gt (pathSuffixDensity_pos steps first future hsupport))
+      have hiid :
+          (independentPopulation (fun _ : Particle => initial)).mass particles =
+            (iidPopulation initial).mass particles := by
+        rfl
+      rw [hiid]
+      field_simp
+    · intro other _ hother
+      by_cases hotherFirst : particles other = first
+      · rw [forcedLineageSuffixLaw_mass steps first future hlength hsupport
+          particles other hotherFirst (continuation, terminal)]
+        have hlineage : initialAncestor steps continuation terminal ≠ other := by
+          simpa [lineage, eq_comm] using hother
+        simp [hlineage]
+      · rw [forcedIndependentPopulation_incompatible_zero _ other first particles
+          hotherFirst]
+        ring
+    · simp
+  · rw [show (∑ retained,
+          uniformParticleDistribution.mass retained *
+            ((forcedIndependentPopulation (fun _ => initial) retained first).mass
+                particles *
+              (forcedLineageSuffixLaw steps first future hlength particles retained).mass
+                (continuation, terminal))) = 0 by
+        apply Finset.sum_eq_zero
+        intro retained _
+        by_cases hretained : particles retained = first
+        · rw [forcedLineageSuffixLaw_mass steps first future hlength hsupport
+            particles retained hretained (continuation, terminal)]
+          simp [htrajectory]
+        · rw [forcedIndependentPopulation_incompatible_zero _ retained first particles
+            hretained]
+          ring]
+    simp [htrajectory]
+
 /-- Marginal mass of one trajectory under the selected-particle extended
 target. This is the finite normalizer for exact conditional SMC. -/
 noncomputable def selectedTrajectoryMass (initial : Distribution Sample)
@@ -1041,6 +1443,66 @@ theorem selectedTrajectoryMass_nonneg (initial : Distribution Sample)
     exact (selectedParticleTarget (Particle := Particle) initial steps
       hnormalizer).nonneg selected
   · simp [htrajectory]
+
+/-- The trajectory marginal of the selected-particle target is the normalized
+finite Feynman--Kac path density. -/
+theorem selectedTrajectoryMass_eq_pathDensity_div
+    (initial : Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : 0 < normalizingConstant initial steps)
+    (first : Sample) (future : List Sample)
+    (hlength : future.length = steps.length)
+    (hinitial : 0 < initial.mass first)
+    (hsupport : PathSuffixSupported steps first future) :
+    selectedTrajectoryMass (Particle := Particle) initial steps hnormalizer
+        (first :: future) =
+      initial.mass first * pathSuffixDensity steps first future /
+        normalizingConstant initial steps := by
+  let hpathLength : (first :: future).length = steps.length + 1 := by
+    simpa using congrArg Nat.succ hlength
+  have hsum :=
+    (forcedLineageLaw (Particle := Particle) initial steps (first :: future)
+      hpathLength).sum_mass
+  rw [show (∑ selected,
+      (forcedLineageLaw (Particle := Particle) initial steps (first :: future)
+        hpathLength).mass selected) =
+      selectedTrajectoryMass (Particle := Particle) initial steps hnormalizer
+          (first :: future) * normalizingConstant initial steps /
+        (initial.mass first * pathSuffixDensity steps first future) by
+    unfold selectedTrajectoryMass
+    rw [Finset.sum_mul, Finset.sum_div]
+    apply Finset.sum_congr rfl
+    intro selected _
+    rw [forcedLineageLaw_mass_eq_scaled_target initial steps hnormalizer first
+      future hlength hinitial hsupport selected]
+    by_cases htrajectory :
+        selectedTrajectory steps selected.1.1 selected.1.2 selected.2 =
+          first :: future
+    · simp [htrajectory]
+    · simp [htrajectory]] at hsum
+  have hnormalizer_ne : normalizingConstant initial steps ≠ 0 :=
+    ne_of_gt hnormalizer
+  have hdensity_ne :
+      initial.mass first * pathSuffixDensity steps first future ≠ 0 :=
+    mul_ne_zero (ne_of_gt hinitial)
+      (ne_of_gt (pathSuffixDensity_pos steps first future hsupport))
+  have hsuffix_ne : pathSuffixDensity steps first future ≠ 0 :=
+    ne_of_gt (pathSuffixDensity_pos steps first future hsupport)
+  field_simp [hsuffix_ne] at hsum ⊢
+  nlinarith
+
+theorem selectedTrajectoryMass_pos_of_supported
+    (initial : Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : 0 < normalizingConstant initial steps)
+    (first : Sample) (future : List Sample)
+    (hlength : future.length = steps.length)
+    (hinitial : 0 < initial.mass first)
+    (hsupport : PathSuffixSupported steps first future) :
+    0 < selectedTrajectoryMass (Particle := Particle) initial steps hnormalizer
+      (first :: future) := by
+  rw [selectedTrajectoryMass_eq_pathDensity_div initial steps hnormalizer first
+    future hlength hinitial hsupport]
+  exact div_pos (mul_pos hinitial
+    (pathSuffixDensity_pos steps first future hsupport)) hnormalizer
 
 /-- Exact conditional law of an SMC history and retained terminal index given
 its selected ancestral trajectory. This is the specification that a concrete
@@ -1085,6 +1547,41 @@ noncomputable def conditionalSelectedParticleLaw (initial : Distribution Sample)
             split <;> simp_all
         _ = _ := by rw [← Finset.sum_div]; rfl]
     exact div_self (ne_of_gt hpath)
+
+/-- Concrete forced-lineage conditional SMC exactly implements the abstract
+conditional law on every positive, supported reference path. -/
+theorem forcedLineageLaw_eq_conditionalSelectedParticleLaw
+    (initial : Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : 0 < normalizingConstant initial steps)
+    (first : Sample) (future : List Sample)
+    (hlength : future.length = steps.length)
+    (hinitial : 0 < initial.mass first)
+    (hsupport : PathSuffixSupported steps first future) :
+    forcedLineageLaw (Particle := Particle) initial steps (first :: future)
+        (by simpa using congrArg Nat.succ hlength) =
+      conditionalSelectedParticleLaw (Particle := Particle) initial steps
+        hnormalizer (first :: future)
+        (selectedTrajectoryMass_pos_of_supported initial steps hnormalizer first
+          future hlength hinitial hsupport) := by
+  apply Distribution.ext
+  funext selected
+  rw [forcedLineageLaw_mass_eq_scaled_target initial steps hnormalizer first
+    future hlength hinitial hsupport selected]
+  simp only [conditionalSelectedParticleLaw]
+  rw [selectedTrajectoryMass_eq_pathDensity_div initial steps hnormalizer first
+    future hlength hinitial hsupport]
+  by_cases htrajectory :
+      selectedTrajectory steps selected.1.1 selected.1.2 selected.2 =
+        first :: future
+  · simp only [htrajectory, if_true]
+    have hnormalizer_ne : normalizingConstant initial steps ≠ 0 :=
+      ne_of_gt hnormalizer
+    have hdensity_ne :
+        initial.mass first * pathSuffixDensity steps first future ≠ 0 :=
+      mul_ne_zero (ne_of_gt hinitial)
+        (ne_of_gt (pathSuffixDensity_pos steps first future hsupport))
+    field_simp
+  · simp [htrajectory]
 
 /-- Conditional SMC is supported entirely on histories whose retained
 genealogy is the supplied reference trajectory. -/
@@ -1168,6 +1665,35 @@ theorem conditionalSMCKernel_prob_eq_law (initial : Distribution Sample)
     else if proposed = current then 1 else 0) = _
   rw [dif_pos hpath]
   rfl
+
+/-- On a supported current trajectory, the abstract conditional-SMC kernel
+row is computed exactly by the recursive forced-lineage sampler. -/
+theorem conditionalSMCKernel_prob_eq_forcedLineageLaw
+    (initial : Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : 0 < normalizingConstant initial steps)
+    (current proposed : History (Particle := Particle) steps × Particle)
+    (first : Sample) (future : List Sample)
+    (hcurrent : selectedTrajectory steps current.1.1 current.1.2 current.2 =
+      first :: future)
+    (hinitial : 0 < initial.mass first)
+    (hsupport : PathSuffixSupported steps first future) :
+    (conditionalSMCKernel (Particle := Particle) initial steps hnormalizer).prob
+        current proposed =
+      (forcedLineageLaw (Particle := Particle) initial steps (first :: future)
+        (by simpa [← hcurrent] using
+          selectedTrajectory_length steps current.1.1 current.1.2 current.2)).mass
+        proposed := by
+  have hlength : future.length = steps.length := by
+    have := selectedTrajectory_length steps current.1.1 current.1.2 current.2
+    simpa [hcurrent] using this
+  have hpath := selectedTrajectoryMass_pos_of_supported
+    (Particle := Particle) initial steps hnormalizer first future hlength hinitial
+      hsupport
+  rw [conditionalSMCKernel_prob_eq_law initial steps hnormalizer current proposed
+    (by simpa [hcurrent] using hpath)]
+  rw [forcedLineageLaw_eq_conditionalSelectedParticleLaw initial steps hnormalizer
+    first future hlength hinitial hsupport]
+  simp only [hcurrent]
 
 end ConditionalSMC
 

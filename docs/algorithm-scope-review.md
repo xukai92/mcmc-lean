@@ -253,8 +253,11 @@ has the exact normalized Feynman--Kac expectation for every path observable.
 Finite PIMH is now defined as independence MH proposing a fresh SMC history and
 terminal index. Its extended target is stationary and its stationary selected
 path is exact. This is not a convergence theorem: irreducibility, convergence
-rates, and particle efficiency remain unproved. Conditional SMC and particle
-Gibbs remain separate clients.
+rates, and particle efficiency remain unproved. Conditional SMC is now
+implemented by recursive forced-lineage sampling and proved equal to the exact
+conditional selected-particle law on supported positive paths. Particle Gibbs
+composes that refresh with uniform selected-index refresh and has proved
+extended-target stationarity.
 
 Finite PMMH is now complete for parameter-indexed initial particle laws and
 fixed-horizon schedules whose potentials and transition kernels may also depend
@@ -263,8 +266,9 @@ auxiliary type; the estimator retains both the complete SMC history and selected
 index. Lean proves extended-target stationarity, the exact requested parameter
 marginal, and the correct joint parameter/selected-path expectation for the
 corresponding parameter-specific Feynman--Kac model. Conditional SMC and
-particle Gibbs remain. Stationarity is not asserted to imply convergence from
-arbitrary initialization. Keep fixed-particle stationarity,
+particle Gibbs are also complete at fixed finite horizon and particle count.
+Stationarity is not asserted to imply convergence from arbitrary
+initialization. Keep fixed-particle stationarity,
 chain convergence, and consistency as particle count grows as separate theorem
 families.
 

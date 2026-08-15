@@ -23,6 +23,8 @@ arguments, and explicit audits of the targeted papers.
   Riemannian execution.
 - [Testing strategy](testing.md) separates proved properties from executable,
   differential, and statistical tests.
+- [Phase I core release audit](core-release-audit.md) maps each completed
+  milestone to its formal or executable evidence and records its exact scope.
 - [Development log](development-log.md) records current completed work and
   remaining obligations; its [archive](development-log-archive.md) preserves
   older milestone detail.

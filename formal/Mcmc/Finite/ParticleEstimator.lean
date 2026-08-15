@@ -190,6 +190,51 @@ theorem forcedIndependentPopulation_coordinate_probability
       simp]
   exact (forcedIndependentPopulation law retained value).sum_mass
 
+omit [Nonempty Particle] in
+/-- Conditioning an independent product on one positive-mass coordinate is
+exactly the forced-coordinate product law. -/
+theorem forcedIndependentPopulation_mass_eq_div
+    (law : Particle → Distribution Sample) (retained : Particle) (value : Sample)
+    (hvalue : 0 < (law retained).mass value)
+    (samples : Particle → Sample) :
+    (forcedIndependentPopulation law retained value).mass samples =
+      if samples retained = value then
+        (independentPopulation law).mass samples / (law retained).mass value
+      else 0 := by
+  classical
+  by_cases hsample : samples retained = value
+  · simp only [hsample, if_true]
+    unfold forcedIndependentPopulation independentPopulation pointDistribution
+    change (∏ i, (if i = retained then
+        { mass := fun sample => if sample = value then 1 else 0
+          nonneg := fun sample => by split <;> norm_num
+          sum_mass := by simp : Distribution Sample }
+        else law i).mass (samples i)) =
+      (∏ i, (law i).mass (samples i)) / (law retained).mass value
+    let f : Particle → ℝ := fun i => (law i).mass (samples i)
+    have hfull := Finset.mul_prod_erase Finset.univ f
+      (Finset.mem_univ retained)
+    have hforced :
+        (∏ i, (if i = retained then
+          { mass := fun sample => if sample = value then 1 else 0
+            nonneg := fun sample => by split <;> norm_num
+            sum_mass := by simp : Distribution Sample }
+          else law i).mass (samples i)) =
+        ∏ i ∈ Finset.univ.erase retained, f i := by
+      rw [← Finset.prod_erase Finset.univ (a := retained)]
+      · apply Finset.prod_congr rfl
+        intro i hi
+        have hir : i ≠ retained := (Finset.mem_erase.mp hi).1
+        simp [hir, f]
+      · simp [hsample]
+    rw [hforced]
+    dsimp only [f] at hfull
+    rw [← hfull]
+    field_simp
+    simp [f, hsample, mul_comm]
+  · rw [forcedIndependentPopulation_incompatible_zero law retained value samples hsample]
+    simp [hsample]
+
 omit [DecidableEq Sample] [Nonempty Particle] in
 /-- Each coordinate of an independently propagated population has its
 specified transition law. -/

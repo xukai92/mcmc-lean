@@ -40,8 +40,14 @@ stored ancestry now extracts a correctly sized full genealogy with proved
 initial/terminal endpoints. Its full path-observable many-to-one law, complete
 finite PIMH stationary exactness, and their dependency chain are now proved;
 finite PMMH is also proved when the initial law, every potential, and every
-transition kernel depend on the parameter at a common finite horizon. Particle
-Gibbs and corrected Xu--Ge execution remain.
+transition kernel depend on the parameter at a common finite horizon. Finite
+conditional SMC is implemented by a recursive forced-lineage sampler and
+proved equal to the exact conditional selected-particle law on positive
+supported paths; composing it with terminal-index refresh gives stationary
+finite particle Gibbs. Corrected Xu--Ge execution is available directly for
+constant diagonal metrics and through an explicit certificate-gated
+position-dependent interface. The [Phase I release audit](docs/core-release-audit.md)
+records the evidence and remaining numerical boundary.
 
 Betancourt's [*A Conceptual Introduction to Hamiltonian Monte
 Carlo*](https://arxiv.org/abs/1701.02434) is used as a foundational HMC

@@ -24,6 +24,21 @@ theorem normalizer_positive :
     0 < normalizingConstant initial ([] : List (FeynmanKacStep Bool)) := by
   norm_num [normalizingConstant, feynmanKacSequence, initial, Fintype.sum_bool]
 
+theorem initial_positive (x : Bool) : 0 < initial.mass x := by
+  cases x <;> norm_num [initial]
+
+/-- The executable forced-lineage construction is the exact conditional law,
+already in the zero-transition model used by this small client. -/
+example (first : Bool) :
+    forcedLineageLaw (Particle := Bool) initial [] [first] rfl =
+      conditionalSelectedParticleLaw (Particle := Bool) initial []
+        normalizer_positive [first]
+        (selectedTrajectoryMass_pos_of_supported initial [] normalizer_positive
+          first [] rfl (initial_positive first) trivial) := by
+  simpa using forcedLineageLaw_eq_conditionalSelectedParticleLaw
+    (Particle := Bool) initial [] normalizer_positive first [] rfl
+      (initial_positive first) trivial
+
 /-- The concrete two-particle Gibbs kernel preserves its selected-particle
 extended target. -/
 example :

@@ -116,10 +116,12 @@ The pre-Xu dependency order is:
    stationarity and selected-path expectation. A finite PMMH client is also
    complete for parameter-indexed initial laws and fixed-horizon schedules
    whose potentials and transitions may depend on the parameter, including its
-   exact parameter marginal and joint parameter/path expectation. Conditional
-   The exact conditional-history specification and particle-Gibbs stationarity
-   are complete. The concrete recursive forced-lineage generator is defined;
-   its equivalence to the conditional specification remains.
+   exact parameter marginal and joint parameter/path expectation. The exact
+   conditional-history specification and particle-Gibbs stationarity
+   are complete. The concrete recursive forced-lineage generator now has a
+   pointwise density theorem and is proved equal to the exact conditional law
+   on every positive supported path. The abstract total kernel retains its
+   identity fallback on zero-mass fibers.
 7. adaptive-MCMC boundary -- finite state-dependent kernel selection and a
    counterexample where two frozen target-invariant kernels combine into a
    non-invariant selected kernel are complete. Predetermined nonhomogeneous law
@@ -140,9 +142,10 @@ The pre-Xu dependency order is:
    marginals. Unbounded-history adaptation still requires enlarging the finite
    parameter state.
 
-The slice and first Euclidean reversible-jump clients are complete. Full
-particle MCMC still needs the remaining conditional-SMC constructions before
-particle Gibbs can be instantiated.
+The slice and first Euclidean reversible-jump clients are complete. The finite
+particle-MCMC spine through conditional SMC and particle Gibbs is complete at
+fixed particle count and finite horizon. Convergence, mixing rates, and
+particle-count asymptotics remain separate later layers.
 
 After those foundations and the paper execution milestones, select the
 remaining branches based on research value and shared infrastructure:
@@ -167,11 +170,13 @@ obligations.
 
 ## Immediate plan
 
-A1--A4 and B1 are complete. Fully state-indexed finite PMMH is complete. The
-next particle branch is conditional SMC, followed by particle Gibbs. Practical
-slice transitions and richer
-reversible-jump clients are optional breadth branches. The next
-paper-execution branch is B2. None of
-these is needed to support the completed finite Gibbs, tempering,
+A1--A4 and B1 are complete. Phase I is complete: fully state-indexed finite
+PMMH, concrete conditional SMC, particle Gibbs, the consolidated particle-MCMC
+surface, corrected relativistic execution, and its guarded implicit-solver
+certificate interface are all present. Practical slice transitions and richer
+reversible-jump clients are optional breadth branches. Subsequent work can
+strengthen the B2 numerical refinement, particle convergence/asymptotics, and
+the paper-specific theorem instances. None of these is needed to support the
+completed finite Gibbs, tempering,
 pseudo-marginal, independence-MH, MALA, adaptive-boundary, or Xu et al.
 coupling claims.
