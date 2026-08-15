@@ -215,7 +215,12 @@ specialization is on this trajectory space rather than the more restrictive
 retained-history space, and any pointwise minorization constructs the residual
 certificate automatically. Deriving a positive coefficient from bounded
 Feynman--Kac potentials, and its dependence on particle count and horizon,
-remains model-specific work. The unconditional zero-horizon `N⁻ᵏ` result and
+remains model-specific work. The intermediate support interface is now
+machine checked: `ParticleGibbsFiberConnectivity` reduces positivity of each
+collapsed trajectory transition to a positive selected-history witness and a
+positive terminal-index edge between the corresponding fibers, and this
+criterion implies total-variation convergence. The unconditional zero-horizon
+`N⁻ᵏ` result and
 the one-particle identity obstruction remain the exact particle-count anchors.
 For finite clients, strict positivity of the complete trajectory transition
 matrix already discharges convergence: the library constructs an explicit

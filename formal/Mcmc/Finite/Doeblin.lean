@@ -344,6 +344,41 @@ abbrev ParticleGibbsRefreshCertificate
       initial steps hnormalizer)
     (trajectoryTarget (Particle := Particle) initial steps hnormalizer)
 
+/-- A concrete support witness for positive-horizon particle Gibbs. For every
+pair of trajectories, one selected-particle state in the current fiber must
+have positive extended-target mass and one positive terminal-index refresh
+edge must reach the proposed fiber. Unlike a blanket positivity assumption on
+the collapsed matrix, this exposes the exact conditional-SMC obligation. -/
+def ParticleGibbsFiberConnectivity
+    (initial : Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : 0 < normalizingConstant initial steps) : Prop :=
+  ∀ current proposed : Trajectory steps,
+    ∃ liftCurrent liftProposed : History (Particle := Particle) steps × Particle,
+      selectedTrajectoryVector steps liftCurrent = current ∧
+      selectedTrajectoryVector steps liftProposed = proposed ∧
+      0 < (selectedParticleTarget (Particle := Particle)
+        initial steps hnormalizer).mass liftCurrent ∧
+      0 < (selectedIndexRefreshKernel (Particle := Particle) steps).prob
+        liftCurrent liftProposed
+
+/-- Fiber connectivity makes every entry of the collapsed trajectory kernel
+strictly positive. -/
+theorem trajectoryParticleGibbsKernel_prob_pos_of_fiberConnectivity
+    (initial : Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : 0 < normalizingConstant initial steps)
+    (hconnect : ParticleGibbsFiberConnectivity (Particle := Particle)
+      initial steps hnormalizer)
+    (current proposed : Trajectory steps) :
+    0 < (trajectoryParticleGibbsKernel (Particle := Particle)
+      initial steps hnormalizer).prob current proposed := by
+  obtain ⟨liftCurrent, liftProposed, hcurrent, hproposed, htarget, hedge⟩ :=
+    hconnect current proposed
+  exact Mcmc.Finite.Conditional.collapsedKernel_prob_pos_of_witness
+    (selectedParticleTarget (Particle := Particle) initial steps hnormalizer)
+    (selectedTrajectoryVector steps)
+    (selectedIndexRefreshKernel (Particle := Particle) steps)
+    current proposed liftCurrent liftProposed hcurrent hproposed htarget hedge
+
 /-- Positive-horizon finite particle Gibbs converges geometrically whenever
 the concrete conditional-SMC construction supplies a positive refresh
 certificate.  The bound is uniform over the initial extended state law. -/
@@ -407,6 +442,27 @@ theorem particleGibbs_totalVariation_tendsto_zero_of_strictlyPositive
     (RefreshDecomposition.ofStrictlyPositive_coefficient_pos hpositive
       (trajectoryParticleGibbsKernel_stationary (Particle := Particle)
         initial steps hnormalizer)) initialLaw
+
+/-- A client-facing positive-horizon convergence theorem stated directly in
+terms of conditional-SMC fiber connectivity. -/
+theorem particleGibbs_totalVariation_tendsto_zero_of_fiberConnectivity
+    [Nonempty Sample]
+    (initial : Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : 0 < normalizingConstant initial steps)
+    (hconnect : ParticleGibbsFiberConnectivity (Particle := Particle)
+      initial steps hnormalizer)
+    (initialLaw : Distribution (Trajectory steps)) :
+    Filter.Tendsto (fun n =>
+      Nonhomogeneous.distributionTotalVariation
+        (Nonhomogeneous.iterateLaw initialLaw
+          (trajectoryParticleGibbsKernel (Particle := Particle)
+            initial steps hnormalizer) n)
+        (trajectoryTarget (Particle := Particle) initial steps hnormalizer))
+      Filter.atTop (nhds 0) :=
+  particleGibbs_totalVariation_tendsto_zero_of_strictlyPositive
+    initial steps hnormalizer
+    (trajectoryParticleGibbsKernel_prob_pos_of_fiberConnectivity
+      initial steps hnormalizer hconnect) initialLaw
 
 end ParticleGibbs
 

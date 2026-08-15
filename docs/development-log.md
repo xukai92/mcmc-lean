@@ -1359,6 +1359,17 @@ future construction.
 
 ## Next steps
 
+Added the model-facing support bridge for positive-horizon particle Gibbs.
+`collapsedKernel_prob_pos_of_witness` proves that one positive extended-state
+edge between two statistic fibers induces a positive collapsed transition;
+its full-support corollary handles dense extended kernels. The new
+`ParticleGibbsFiberConnectivity` specializes that witness to selected SMC
+histories and terminal-index refresh, and
+`particleGibbs_totalVariation_tendsto_zero_of_fiberConnectivity` turns it into
+trajectory-space TV convergence. This does not yet derive a sharp coefficient
+from upper and lower potential bounds; it exposes exactly the model-specific
+history witnesses needed for that derivation.
+
 The Gaussian diagonal-SoftAbs client is now end-to-end. Lean connects the
 actual Gaussian Hessian to a strictly non-identity SoftAbs metric, packages the
 explicit separable update as a valid generalized-leapfrog selection, and

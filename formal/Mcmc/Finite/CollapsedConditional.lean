@@ -135,6 +135,75 @@ noncomputable def collapsedKernel (target : Distribution Extended)
     Distribution.map ((conditionalRow target statistic s).evolve evolve)
       statistic
 
+/-- A positive extended-state edge between the current and proposed fibers
+gives a positive edge of the collapsed kernel. This witness form is useful
+when the extended evolution is sparse, as in particle Gibbs. -/
+theorem collapsedKernel_prob_pos_of_witness
+    (target : Distribution Extended) (statistic : Extended → Statistic)
+    (evolve : MarkovKernel Extended)
+    (current proposed : Statistic) (liftCurrent liftProposed : Extended)
+    (hcurrent : statistic liftCurrent = current)
+    (hproposed : statistic liftProposed = proposed)
+    (htarget : 0 < target.mass liftCurrent)
+    (hevolve : 0 < evolve.prob liftCurrent liftProposed) :
+    0 < (collapsedKernel target statistic evolve).prob current proposed := by
+  have hfiber : 0 < fiberMass target statistic current := by
+    rw [← hcurrent]
+    exact fiberMass_pos_of_mass_pos target statistic liftCurrent
+      htarget
+  have hconditional :
+      0 < (conditionalRow target statistic current).mass liftCurrent := by
+    simp [conditionalRow, hfiber, fiberLaw, hcurrent, htarget]
+  have hevolved :
+      0 < ((conditionalRow target statistic current).evolve evolve).mass
+        liftProposed := by
+    rw [Distribution.evolve_mass]
+    refine lt_of_lt_of_le
+      (mul_pos hconditional hevolve) ?_
+    exact Finset.single_le_sum
+      (fun x _ => mul_nonneg
+        ((conditionalRow target statistic current).nonneg x)
+        (evolve.nonneg x liftProposed)) (Finset.mem_univ liftCurrent)
+  change 0 < (Distribution.map
+    ((conditionalRow target statistic current).evolve evolve)
+    statistic).mass proposed
+  unfold Distribution.map
+  rw [Distribution.bind_mass]
+  change 0 < ∑ x,
+    ((conditionalRow target statistic current).evolve evolve).mass x *
+      (if proposed = statistic x then 1 else 0)
+  have hterm : 0 <
+      ((conditionalRow target statistic current).evolve evolve).mass
+          liftProposed *
+        (if proposed = statistic liftProposed then 1 else 0) := by
+    simpa [hproposed.symm] using hevolved
+  exact hterm.trans_le (Finset.single_le_sum
+    (fun x _ => show 0 ≤
+        ((conditionalRow target statistic current).evolve evolve).mass x *
+          (if proposed = statistic x then 1 else 0) from
+      mul_nonneg
+        (((conditionalRow target statistic current).evolve evolve).nonneg x)
+        (by by_cases h : proposed = statistic x <;> simp [h]))
+    (Finset.mem_univ liftProposed))
+
+/-- A collapsed kernel has full support when the extended target and evolution
+have full support and every statistic value has an extended representative.
+This supplies a reusable route from an exact lift--evolve--project
+construction to finite-state Doeblin convergence. -/
+theorem collapsedKernel_prob_pos
+    (target : Distribution Extended) (statistic : Extended → Statistic)
+    (evolve : MarkovKernel Extended)
+    (htarget : ∀ x, 0 < target.mass x)
+    (hevolve : ∀ x y, 0 < evolve.prob x y)
+    (hsurjective : Function.Surjective statistic)
+    (current proposed : Statistic) :
+    0 < (collapsedKernel target statistic evolve).prob current proposed := by
+  obtain ⟨liftCurrent, hcurrent⟩ := hsurjective current
+  obtain ⟨liftProposed, hproposed⟩ := hsurjective proposed
+  exact collapsedKernel_prob_pos_of_witness target statistic evolve
+    current proposed liftCurrent liftProposed hcurrent hproposed
+    (htarget liftCurrent) (hevolve liftCurrent liftProposed)
+
 /-- The collapsed statistic kernel preserves the statistic marginal whenever
 the extended evolution preserves the extended target. -/
 theorem collapsedKernel_stationary (target : Distribution Extended)
