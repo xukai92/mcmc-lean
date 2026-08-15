@@ -202,7 +202,11 @@ The terminal index is now traced backward through every stored ancestor map;
 Lean proves the selected genealogy has one state per population and the exact
 initial and terminal endpoints. A full path-observable many-to-one theorem is
 still required: terminal-marginal exactness alone does not identify the joint
-trajectory law used by PIMH.
+trajectory law used by PIMH. The one-transition base is now machine checked for
+every parent--child observable: potential weighting cancels normalized
+resampling, propagation supplies the exact transition expectation, and iid
+initialization recovers the one-particle Feynman--Kac pair law. The recursive
+multi-time lift remains.
 Conditional SMC and particle Gibbs follow. Keep fixed-particle stationarity,
 chain convergence, and consistency as particle count grows as separate theorem
 families.

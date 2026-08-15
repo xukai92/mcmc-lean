@@ -85,6 +85,8 @@ The repository now contains machine-checked implementations and proofs for:
   observable/eventwise identification of its Feynman--Kac terminal marginal;
 - backward tracing through stored ancestor maps, producing a selected genealogy
   of the correct length with machine-checked initial and terminal endpoints;
+- the one-transition many-to-one identity for arbitrary parent--child
+  observables, both conditional on the current cloud and after iid initialization;
 - reusable finite identity, composition, mixture, and coordinate-lift
   combinators; finite one-site, random-scan, and systematic-scan Gibbs;
 - finite state-dependent kernel selection and a checked counterexample showing

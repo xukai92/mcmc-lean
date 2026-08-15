@@ -354,6 +354,103 @@ theorem selectedTrajectory_head? (steps : List (FeynmanKacStep Sample))
       some (particles (initialAncestor steps history terminal)) := by
   cases steps <;> rfl
 
+omit [DecidableEq Sample] [Nonempty Particle] in
+/-- Conditional propagation expectation for an observable of each selected
+ancestor and its propagated child. -/
+theorem propagatedPopulation_pairAverage_expectation
+    (transition : MarkovKernel Sample) (particles : Particle → Sample)
+    (ancestors : Particle → Particle) (observable : Sample → Sample → ℝ) :
+    ∑ next, (propagatedPopulation transition particles ancestors).mass next *
+        ((∑ i, observable (particles (ancestors i)) (next i)) /
+          Fintype.card Particle) =
+      (∑ i, ∑ y, transition.prob (particles (ancestors i)) y *
+        observable (particles (ancestors i)) y) / Fintype.card Particle := by
+  classical
+  calc
+    _ = (∑ i, ∑ next,
+        (propagatedPopulation transition particles ancestors).mass next *
+          observable (particles (ancestors i)) (next i)) /
+        Fintype.card Particle := by
+      simp_rw [div_eq_mul_inv, ← mul_assoc, Finset.mul_sum]
+      rw [← Finset.sum_mul]
+      congr 1
+      rw [Finset.sum_comm]
+    _ = _ := by
+      congr 1
+      apply Finset.sum_congr rfl
+      intro i _
+      exact independentPopulation_coordinate_expectation
+        (fun j => rowDistribution transition (particles (ancestors j)))
+        (fun y => observable (particles (ancestors i)) y) i
+
+omit [DecidableEq Sample] in
+/-- One-transition many-to-one identity conditional on the current population:
+potential weighting, multinomial resampling, propagation, and uniform child
+selection recover the exact empirical Feynman--Kac pair expectation. -/
+theorem weighted_resamplePropagate_pair_identity
+    (potential : Sample → ℝ) (hpotential : ∀ x, 0 < potential x)
+    (particles : Particle → Sample) (transition : MarkovKernel Sample)
+    (observable : Sample → Sample → ℝ) :
+    particleAverage potential particles *
+      (∑ ancestors,
+        (multinomialResampling
+          (normalizedPotentialWeights potential hpotential particles)).mass ancestors *
+        (∑ next, (propagatedPopulation transition particles ancestors).mass next *
+          ((∑ i, observable (particles (ancestors i)) (next i)) /
+            Fintype.card Particle))) =
+      particleAverage (fun x => potential x *
+        ∑ y, transition.prob x y * observable x y) particles := by
+  simp_rw [propagatedPopulation_pairAverage_expectation]
+  change particleAverage potential particles *
+      (∑ ancestors,
+        (multinomialResampling
+          (normalizedPotentialWeights potential hpotential particles)).mass ancestors *
+        particleAverage
+          (fun i => ∑ y, transition.prob (particles i) y * observable (particles i) y)
+          ancestors) = _
+  rw [multinomialResampling_unbiased
+    (normalizedPotentialWeights potential hpotential particles)
+    (fun i => i)
+    (fun i => ∑ y, transition.prob (particles i) y * observable (particles i) y)]
+  unfold particleAverage normalizedPotentialWeights
+  have hsum : (∑ j, potential (particles j)) ≠ 0 :=
+    ne_of_gt (Finset.sum_pos (fun j _ => hpotential (particles j))
+      Finset.univ_nonempty)
+  have hcard : (Fintype.card Particle : ℝ) ≠ 0 := by
+    exact_mod_cast Fintype.card_ne_zero
+  change ((∑ i, potential (particles i)) / Fintype.card Particle) *
+      (∑ i, potential (particles i) / (∑ j, potential (particles j)) *
+        (∑ y, transition.prob (particles i) y * observable (particles i) y)) =
+    (∑ i, potential (particles i) *
+      (∑ y, transition.prob (particles i) y * observable (particles i) y)) /
+        Fintype.card Particle
+  field_simp
+  rw [Finset.mul_sum]
+  apply Finset.sum_congr rfl
+  intro i _
+  field_simp
+
+omit [DecidableEq Sample] in
+/-- One-transition many-to-one identity after an iid initial population. This
+is the full unnormalized Feynman--Kac expectation for an arbitrary observable
+of the parent--child path. -/
+theorem iid_weighted_resamplePropagate_pair_identity
+    (initial : Distribution Sample) (potential : Sample → ℝ)
+    (hpotential : ∀ x, 0 < potential x) (transition : MarkovKernel Sample)
+    (observable : Sample → Sample → ℝ) :
+    ∑ particles, (iidPopulation (Particle := Particle) initial).mass particles *
+      (particleAverage potential particles *
+        (∑ ancestors,
+          (multinomialResampling
+            (normalizedPotentialWeights potential hpotential particles)).mass ancestors *
+          (∑ next, (propagatedPopulation transition particles ancestors).mass next *
+            ((∑ i, observable (particles (ancestors i)) (next i)) /
+              Fintype.card Particle)))) =
+      ∑ x, initial.mass x *
+        (potential x * ∑ y, transition.prob x y * observable x y) := by
+  simp_rw [weighted_resamplePropagate_pair_identity]
+  exact iidPopulation_particleAverage_expectation initial _
+
 omit [DecidableEq Sample] [DecidableEq Particle] in
 /-- A concrete history value factors into its normalizing weight and the
 terminal empirical observable. -/

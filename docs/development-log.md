@@ -3,6 +3,20 @@
 Entries through the earlier 2026-08-13 work are preserved in the
 [development-log archive](development-log-archive.md).
 
+## 2026-08-15: one-transition SMC many-to-one identity
+
+Proved a conditional propagation identity for arbitrary observables of a
+resampled ancestor and its propagated child. Combining it with multinomial
+resampling and empirical-potential normalization shows that the average
+potential cancels the resampling denominator and recovers the exact empirical
+Feynman--Kac parent--child expectation. Averaging an iid initial cloud gives the
+corresponding exact one-particle pair expectation.
+
+This is the one-transition many-to-one base case for the selected genealogy.
+It is stronger than terminal-only correctness but not yet the arbitrary-horizon
+path law: recursively threading prefix-dependent observables through later
+ancestor maps remains the next theorem. No PIMH or convergence claim is made.
+
 ## 2026-08-15: selected ancestry extraction
 
 Added recursive backward-index tracing through every stored multinomial
