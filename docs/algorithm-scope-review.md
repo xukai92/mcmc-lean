@@ -194,7 +194,10 @@ normalized product weight instantiates pseudo-marginal MH with exact extended
 stationarity and state marginal. The initial law, potential, and transition at
 every step may now depend on the proposed state, provided all schedules share a
 finite horizon and have positive normalizers. A selected latent trajectory
-remains before naming a PIMH/PMMH client.
+remains before naming a PIMH/PMMH client. The intermediate selected-terminal
+result is complete: weighting a history by its normalizing estimate and
+selecting a terminal particle uniformly gives exactly the normalized
+Feynman--Kac terminal marginal, for arbitrary observables and singleton events.
 Conditional SMC and particle Gibbs follow. Keep fixed-particle stationarity,
 chain convergence, and consistency as particle count grows as separate theorem
 families.

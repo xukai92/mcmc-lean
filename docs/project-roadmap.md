@@ -100,7 +100,9 @@ The pre-Xu dependency order is:
    population/ancestry histories, its product-weight expectation theorem, and
    an exact pseudo-marginal client are complete. Initial laws, potentials, and
    transition kernels may all depend on the proposed state at a common finite
-   horizon. Selected trajectories, PIMH, and particle marginal MH remain.
+   horizon. Weighting histories by their estimator and uniformly selecting a
+   terminal particle now has the exact normalized Feynman--Kac terminal
+   marginal. Full ancestral trajectories, PIMH, and particle marginal MH remain.
 7. adaptive-MCMC boundary -- finite state-dependent kernel selection and a
    counterexample where two frozen target-invariant kernels combine into a
    non-invariant selected kernel are complete. Nonhomogeneous path semantics,
@@ -133,9 +135,9 @@ obligations.
 
 ## Immediate plan
 
-A1--A4 and B1 are complete. The next particle branch adds a selected latent
-trajectory to the completed state-indexed explicit-history pseudo-marginal
-client, preparing PIMH/PMMH. Horizontal slice
+A1--A4 and B1 are complete. The next particle branch follows the completed
+exact selected-terminal marginal backward through ancestry to obtain a full
+selected latent trajectory, preparing PIMH/PMMH. Horizontal slice
 disintegration and a nontrivial reversible-jump Jacobian client remain
 independent open branches. The next paper-execution branch is B2. None of
 these is needed to support the completed finite Gibbs, tempering,

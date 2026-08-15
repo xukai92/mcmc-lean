@@ -284,6 +284,135 @@ theorem normalizingWeight_expectation (initial : Distribution Sample)
         normalizingWeight steps history = normalizingConstant initial steps := by
   exact historyLaw_value_expectation initial steps (fun _ => 1)
 
+/-- Terminal population reached by a concrete ancestry/population history. -/
+def terminalPopulation :
+    (steps : List (FeynmanKacStep Sample)) → (Particle → Sample) →
+      Continuation Particle Sample steps → Particle → Sample
+  | [], particles, _ => particles
+  | _ :: steps, _, history => terminalPopulation steps history.2.1 history.2.2
+
+omit [DecidableEq Sample] [DecidableEq Particle] in
+/-- A concrete history value factors into its normalizing weight and the
+terminal empirical observable. -/
+theorem historyValue_eq_normalizingWeight_mul_terminalAverage
+    (steps : List (FeynmanKacStep Sample)) (observable : Sample → ℝ)
+    (particles : Particle → Sample) (history : Continuation Particle Sample steps) :
+    historyValue steps observable particles history =
+      historyValue steps (fun _ => 1) particles history *
+        particleAverage observable (terminalPopulation steps particles history) := by
+  induction steps generalizing particles with
+  | nil =>
+      unfold historyValue terminalPopulation particleAverage
+      have hcard : (Fintype.card Particle : ℝ) ≠ 0 := by
+        exact_mod_cast Fintype.card_ne_zero
+      simp [hcard]
+  | cons step steps ih =>
+      unfold historyValue terminalPopulation
+      rw [ih]
+      ring
+
+/-- History-weighted SMC target augmented by a uniformly selected terminal
+particle. Its selected state has the normalized Feynman--Kac terminal law. -/
+noncomputable def selectedParticleTarget (initial : Distribution Sample)
+    (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : 0 < normalizingConstant initial steps) :
+    Distribution (History (Particle := Particle) steps × Particle) where
+  mass selected :=
+    (historyLaw (Particle := Particle) initial steps).mass selected.1 *
+      normalizingWeight steps selected.1 /
+      normalizingConstant initial steps / Fintype.card Particle
+  nonneg selected := div_nonneg
+    (div_nonneg (mul_nonneg
+      ((historyLaw (Particle := Particle) initial steps).nonneg selected.1)
+      (normalizingWeight_nonneg steps selected.1)) (le_of_lt hnormalizer))
+    (by positivity)
+  sum_mass := by
+    rw [Fintype.sum_prod_type]
+    have hcard : (Fintype.card Particle : ℝ) ≠ 0 := by
+      exact_mod_cast Fintype.card_ne_zero
+    have hcancel (a : ℝ) : (Fintype.card Particle : ℝ) *
+        (a / Fintype.card Particle) = a := by field_simp
+    simp only [Finset.sum_const, Finset.card_univ, nsmul_eq_mul]
+    simp_rw [hcancel]
+    rw [show (∑ history,
+        (historyLaw (Particle := Particle) initial steps).mass history *
+          normalizingWeight steps history / normalizingConstant initial steps) =
+      (∑ history,
+        (historyLaw (Particle := Particle) initial steps).mass history *
+          normalizingWeight steps history) / normalizingConstant initial steps by
+      rw [Finset.sum_div]]
+    rw [normalizingWeight_expectation]
+    exact div_self (ne_of_gt hnormalizer)
+
+omit [DecidableEq Sample] in
+/-- Exact selected-terminal expectation under the history-weighted SMC target. -/
+theorem selectedParticleTarget_expectation (initial : Distribution Sample)
+    (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : 0 < normalizingConstant initial steps)
+    (observable : Sample → ℝ) :
+    ∑ selected, (selectedParticleTarget (Particle := Particle) initial steps
+        hnormalizer).mass selected *
+      observable (terminalPopulation steps selected.1.1 selected.1.2 selected.2) =
+      (∑ x, initial.mass x * feynmanKacSequence steps observable x) /
+        normalizingConstant initial steps := by
+  rw [Fintype.sum_prod_type]
+  have hcard : (Fintype.card Particle : ℝ) ≠ 0 := by
+    exact_mod_cast Fintype.card_ne_zero
+  change ∑ history, ∑ i,
+      ((historyLaw (Particle := Particle) initial steps).mass history *
+        normalizingWeight steps history / normalizingConstant initial steps /
+        Fintype.card Particle) *
+      observable (terminalPopulation steps history.1 history.2 i) = _
+  calc
+    _ = ∑ history,
+        (historyLaw (Particle := Particle) initial steps).mass history /
+          normalizingConstant initial steps *
+        (normalizingWeight steps history *
+          particleAverage observable
+            (terminalPopulation steps history.1 history.2)) := by
+      apply Finset.sum_congr rfl
+      intro history _
+      unfold particleAverage
+      field_simp
+      conv_lhs => rw [Finset.mul_sum]
+      conv_rhs => rw [Finset.mul_sum]
+      apply Finset.sum_congr rfl
+      intro i _
+      field_simp
+    _ = ∑ history,
+        (historyLaw (Particle := Particle) initial steps).mass history /
+          normalizingConstant initial steps *
+        fullHistoryValue steps observable history := by
+      apply Finset.sum_congr rfl
+      intro history _
+      simp only [normalizingWeight, fullHistoryValue]
+      congr 1
+      exact (historyValue_eq_normalizingWeight_mul_terminalAverage steps observable
+        history.1 history.2).symm
+    _ = (∑ history,
+        (historyLaw (Particle := Particle) initial steps).mass history *
+          fullHistoryValue steps observable history) /
+          normalizingConstant initial steps := by
+      rw [Finset.sum_div]
+      apply Finset.sum_congr rfl
+      intro history _
+      ring
+    _ = _ := by rw [historyLaw_value_expectation]
+
+/-- Eventwise form of the selected-terminal marginal identity. -/
+theorem selectedParticleTarget_terminal_event (initial : Distribution Sample)
+    (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : 0 < normalizingConstant initial steps) (terminal : Sample) :
+    ∑ selected, (selectedParticleTarget (Particle := Particle) initial steps
+        hnormalizer).mass selected *
+      (if terminalPopulation steps selected.1.1 selected.1.2 selected.2 = terminal
+        then 1 else 0) =
+      (∑ x, initial.mass x * feynmanKacSequence steps
+        (fun y => if y = terminal then 1 else 0) x) /
+          normalizingConstant initial steps :=
+  selectedParticleTarget_expectation initial steps hnormalizer
+    (fun y => if y = terminal then 1 else 0)
+
 section PseudoMarginalClient
 
 variable {State : Type*} [Fintype State] [DecidableEq State]

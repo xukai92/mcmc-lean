@@ -3,6 +3,20 @@
 Entries through the earlier 2026-08-13 work are preserved in the
 [development-log archive](development-log-archive.md).
 
+## 2026-08-15: selected-particle Feynman--Kac marginal
+
+Added terminal-population extraction from explicit SMC histories and proved
+that every concrete history value factors into its normalizing weight times a
+terminal empirical average. Defined the normalized extended target obtained by
+weighting the SMC history law with its normalizing estimate and selecting a
+terminal particle uniformly.
+
+Lean proves that every observable of the selected terminal state has exactly
+the normalized one-particle Feynman--Kac expectation; a singleton-event theorem
+states the marginal mass directly. This is the selected-terminal exactness
+lemma beneath particle MCMC. It is not yet the full ancestral-trajectory target
+used by PIMH/PMMH, and it makes no chain-convergence claim.
+
 ## 2026-08-15: state-indexed finite SMC schedules
 
 Generalized the explicit-history pseudo-marginal client so the initial law and
