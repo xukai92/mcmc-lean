@@ -3,6 +3,20 @@
 Entries through the earlier 2026-08-13 work are preserved in the
 [development-log archive](development-log-archive.md).
 
+## 2026-08-15: random adaptive state-marginal dynamics
+
+Defined state and parameter marginals of finite augmented laws and the exact
+next-state mixture obtained by averaging the currently selected kernel row over
+the augmented law. Lean proves that evolving the augmented process and then
+summing out the updated parameter gives exactly this mixture; the parameter
+update cannot alter the same-step state marginal.
+
+Defined the adaptive state law at every time and proved its successor identity.
+The total-variation distance of the next state law from a target is bounded by
+the current augmented-law average of the selected row's distance to that
+target. This supplies the explicit marginal object for the eventual adaptive
+convergence theorem, but does not itself show that the bound vanishes.
+
 ## 2026-08-15: adaptive finite-window TV estimates
 
 Proved symmetry and the triangle inequality for finite distribution total

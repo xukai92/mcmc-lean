@@ -353,6 +353,145 @@ def Process.augmentedKernel (process : Process State Parameter) :
       (process.update current.1 current.2 _).sum_mass, mul_one]
     exact (process.kernel current.2).sum_prob current.1
 
+/-- State marginal of a finite augmented law. -/
+def stateMarginal (law : Distribution (State × Parameter)) : Distribution State where
+  mass x := ∑ parameter, law.mass (x, parameter)
+  nonneg x := Finset.sum_nonneg fun parameter _ => law.nonneg (x, parameter)
+  sum_mass := by
+    rw [show (∑ x, ∑ parameter, law.mass (x, parameter)) =
+      ∑ pair : State × Parameter, law.mass pair by rw [Fintype.sum_prod_type]]
+    exact law.sum_mass
+
+/-- Parameter marginal of a finite augmented law. -/
+def parameterMarginal (law : Distribution (State × Parameter)) : Distribution Parameter where
+  mass parameter := ∑ x, law.mass (x, parameter)
+  nonneg parameter := Finset.sum_nonneg fun x _ => law.nonneg (x, parameter)
+  sum_mass := by
+    rw [Finset.sum_comm]
+    rw [show (∑ x, ∑ parameter, law.mass (x, parameter)) =
+      ∑ pair : State × Parameter, law.mass pair by rw [Fintype.sum_prod_type]]
+    exact law.sum_mass
+
+/-- Exact next-state law after mixing the currently selected kernel over the
+current augmented law. -/
+def nextStateLaw (process : Process State Parameter)
+    (law : Distribution (State × Parameter)) : Distribution State where
+  mass y := ∑ current, law.mass current *
+    (process.kernel current.2).prob current.1 y
+  nonneg y := Finset.sum_nonneg fun current _ => mul_nonneg
+    (law.nonneg current) ((process.kernel current.2).nonneg current.1 y)
+  sum_mass := by
+    rw [Finset.sum_comm]
+    calc
+      ∑ current, ∑ y, law.mass current *
+          (process.kernel current.2).prob current.1 y =
+        ∑ current, law.mass current *
+          ∑ y, (process.kernel current.2).prob current.1 y := by
+            apply Finset.sum_congr rfl
+            intro current _
+            rw [Finset.mul_sum]
+      _ = ∑ current, law.mass current := by
+        simp_rw [(process.kernel _).sum_prob, mul_one]
+      _ = 1 := law.sum_mass
+
+/-- Summing parameter updates out of one augmented transition gives exactly
+the mixed next-state law; the update mechanism cannot alter that same-step
+state marginal. -/
+theorem stateMarginal_evolve_augmentedKernel (process : Process State Parameter)
+    (law : Distribution (State × Parameter)) :
+    stateMarginal (law.evolve process.augmentedKernel) = nextStateLaw process law := by
+  apply Distribution.ext
+  funext y
+  change ∑ parameter, (law.evolve process.augmentedKernel).mass (y, parameter) =
+    ∑ current, law.mass current * (process.kernel current.2).prob current.1 y
+  simp_rw [Distribution.evolve_mass]
+  change ∑ nextParameter, ∑ current : State × Parameter,
+      law.mass current *
+        ((process.kernel current.2).prob current.1 y *
+          (process.update current.1 current.2 y).mass nextParameter) = _
+  rw [Finset.sum_comm]
+  apply Finset.sum_congr rfl
+  intro current _
+  rw [show (∑ nextParameter,
+      law.mass current *
+        ((process.kernel current.2).prob current.1 y *
+          (process.update current.1 current.2 y).mass nextParameter)) =
+      (law.mass current * (process.kernel current.2).prob current.1 y) *
+        ∑ nextParameter, (process.update current.1 current.2 y).mass nextParameter by
+      rw [Finset.mul_sum]
+      apply Finset.sum_congr rfl
+      intro nextParameter _
+      ring,
+    (process.update current.1 current.2 y).sum_mass, mul_one]
+
+/-- State marginal at time `n` under the random adaptive process. -/
+def stateLawAt (process : Process State Parameter)
+    (initial : Distribution (State × Parameter)) (n : ℕ) : Distribution State :=
+  stateMarginal (Nonhomogeneous.lawAt initial (fun _ => process.augmentedKernel) n)
+
+theorem stateLawAt_succ (process : Process State Parameter)
+    (initial : Distribution (State × Parameter)) (n : ℕ) :
+    stateLawAt process initial (n + 1) =
+      nextStateLaw process
+        (Nonhomogeneous.lawAt initial (fun _ => process.augmentedKernel) n) := by
+  unfold stateLawAt
+  rw [Nonhomogeneous.lawAt, stateMarginal_evolve_augmentedKernel]
+
+/-- TV distance between one selected kernel row and a target distribution. -/
+noncomputable def rowDistanceToTarget (process : Process State Parameter)
+    (target : Distribution State) (current : State × Parameter) : ℝ :=
+  (∑ y, |(process.kernel current.2).prob current.1 y - target.mass y|) / 2
+
+/-- The adaptive next-state law is no farther from the target than the current
+law-weighted average distance of selected kernel rows from that target. -/
+theorem nextStateLaw_distance_le (process : Process State Parameter)
+    (target : Distribution State) (law : Distribution (State × Parameter)) :
+    distributionTotalVariation (nextStateLaw process law) target ≤
+      ∑ current, law.mass current * rowDistanceToTarget process target current := by
+  unfold distributionTotalVariation rowDistanceToTarget
+  rw [show (∑ current, law.mass current *
+      ((∑ y, |(process.kernel current.2).prob current.1 y - target.mass y|) / 2)) =
+      (∑ current, law.mass current *
+        ∑ y, |(process.kernel current.2).prob current.1 y - target.mass y|) / 2 by
+    rw [Finset.sum_div]
+    apply Finset.sum_congr rfl
+    intro current _
+    ring]
+  apply div_le_div_of_nonneg_right _ (by norm_num)
+  calc
+    ∑ y, |(nextStateLaw process law).mass y - target.mass y| =
+        ∑ y, |∑ current, law.mass current *
+          ((process.kernel current.2).prob current.1 y - target.mass y)| := by
+      apply Finset.sum_congr rfl
+      intro y _
+      apply congrArg abs
+      change (∑ current, law.mass current *
+          (process.kernel current.2).prob current.1 y) - target.mass y =
+        ∑ current, law.mass current *
+          ((process.kernel current.2).prob current.1 y - target.mass y)
+      simp_rw [mul_sub]
+      rw [Finset.sum_sub_distrib, ← Finset.sum_mul, law.sum_mass, one_mul]
+    _ ≤ ∑ y, ∑ current, law.mass current *
+        |(process.kernel current.2).prob current.1 y - target.mass y| := by
+      apply Finset.sum_le_sum
+      intro y _
+      calc
+        |∑ current, law.mass current *
+            ((process.kernel current.2).prob current.1 y - target.mass y)| ≤
+          ∑ current, |law.mass current *
+            ((process.kernel current.2).prob current.1 y - target.mass y)| :=
+              Finset.abs_sum_le_sum_abs _ _
+        _ = _ := by
+          apply Finset.sum_congr rfl
+          intro current _
+          rw [abs_mul, abs_of_nonneg (law.nonneg current)]
+    _ = ∑ current, law.mass current *
+        ∑ y, |(process.kernel current.2).prob current.1 y - target.mass y| := by
+      rw [Finset.sum_comm]
+      apply Finset.sum_congr rfl
+      intro current _
+      rw [Finset.mul_sum]
+
 /-- Probability, under the current augmented law and one adaptive transition,
 that the next selected state kernel differs from the current one by more than
 `ε` in at least one row. -/

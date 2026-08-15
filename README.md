@@ -110,6 +110,8 @@ The repository now contains machine-checked implementations and proofs for:
   simultaneous uniform mixing implies Containment;
 - total-variation triangle/contraction lemmas, one-step uniform kernel
   perturbation, and a telescoping finite-window schedule comparison bound;
+- state and parameter marginals of random adaptive laws, the exact mixed
+  next-state law, and a law-weighted row-to-target TV bound;
 - two-temperature parallel tempering with an MH-corrected swap, product-target
   stationarity, and an exact cold-marginal theorem;
 - finite pseudo-marginal MH with a nonnegative unbiased estimator, including

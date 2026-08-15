@@ -185,6 +185,12 @@ contractive; replacing a kernel costs at most its law-weighted row TV and hence
 any uniform row bound; and two predetermined schedules differ by at most the
 sum of their per-step row-TV bounds. The missing step is probabilistic control
 of the random adaptive window using Diminishing Adaptation and Containment.
+The random process now also exposes its exact state and parameter marginals.
+Summing the parameter update out of an augmented transition is proved to give
+the current-law mixture of selected state-kernel rows. Its next-state distance
+to target is bounded by the augmented-law average of each selected row's
+distance to target; this identifies the precise marginal quantity the final
+convergence theorem must drive to zero.
 Production warmup should be described as an inhomogeneous phase followed by a
 frozen proved kernel.
 

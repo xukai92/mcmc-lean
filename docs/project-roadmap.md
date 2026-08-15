@@ -125,8 +125,9 @@ The pre-Xu dependency order is:
    Containment are complete; simultaneous uniform mixing implies Containment.
    Distribution-TV triangle and Markov contraction, one-step kernel
    perturbation, and a telescoping predetermined-schedule comparison are also
-   complete. Unbounded-history adaptation and the random adaptive finite-window
-   convergence theorem remain.
+   complete. State/parameter marginals, the exact adaptive next-state mixture,
+   and its weighted row-to-target TV bound are complete. Unbounded-history
+   adaptation and the random adaptive finite-window convergence theorem remain.
 
 Items 4--6 are intentionally ordered: the remaining slice work needs a
 measurable horizontal conditional with finite positive level-set mass;
