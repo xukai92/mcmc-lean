@@ -131,6 +131,43 @@ end
         # For density proportional to exp(-x^4/4), E[X^2] ≈ 0.67597824.
         @test abs(mean(abs2, quartic_chain) - 0.67597824) < 0.08
     end
+    @testset "vector HMC reference, integrator, and moments" begin
+        logdensity = q -> -sum(abs2, q) / 2
+        gradient = identity
+        events = [Runtime.NormalEvent(0.5), Runtime.NormalEvent(-0.75),
+            Runtime.UniformEvent(0.2)]
+        reference_source = Runtime.FloatTraceSource(events)
+        optimized_source = Runtime.FloatTraceSource(events)
+        reference = Reference.vector_hmc_step!(reference_source,
+            logdensity, gradient, 0.25, 4, [0.2, -0.1])
+        optimized = Optimized.vector_hmc_step!(optimized_source,
+            logdensity, gradient, 0.25, 4, [0.2, -0.1])
+        @test optimized == reference
+        @test Runtime.remaining(reference_source) == 0
+        @test Runtime.remaining(optimized_source) == 0
+
+        q0, p0 = [0.7, -0.2], [-0.4, 0.9]
+        q, p = copy(q0), copy(p0)
+        for _ in 1:20
+            q, p = Optimized.vector_leapfrog(gradient, 0.05, q, p)
+        end
+        p = -p
+        for _ in 1:20
+            q, p = Optimized.vector_leapfrog(gradient, 0.05, q, p)
+        end
+        @test q ≈ q0 atol=1e-12
+        @test p ≈ -p0 atol=1e-12
+
+        sampler = VectorHMC(logdensity, gradient, 0.18, 6)
+        chain = sample(MersenneTwister(0x8c21), sampler, [0.0, 0.0], 40_000)
+        retained = @view chain[:, 4001:end]
+        @test all(abs.(vec(mean(retained; dims=2))) .< 0.08)
+        covariance = cov(permutedims(retained))
+        @test maximum(abs.(covariance - I)) < 0.12
+        @test size(sample(MersenneTwister(1), sampler, [0.0, 0.0], 3)) == (2, 3)
+        @test_throws ArgumentError VectorHMC(logdensity, gradient, 0.0)
+        @test_throws ArgumentError step(MersenneTwister(1), sampler, Float64[])
+    end
     @testset "DHMC categorical target" begin
         @test_skip false
     end

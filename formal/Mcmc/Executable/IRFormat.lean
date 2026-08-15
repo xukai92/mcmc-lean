@@ -12,7 +12,7 @@ namespace Mcmc.Executable.IRFormat
 
 open Finite.CompilerIR
 
-def version : Nat := 4
+def version : Nat := 5
 
 private def quote (value : String) : String :=
   let escapedBackslash := value.replace "\\" "\\\\"
@@ -90,6 +90,7 @@ private def continuousTyRender :
   | .real => "real"
   | .bool => "bool"
   | .nat => "nat"
+  | .realVector => "real-vector"
 
 private def continuousExprRender : {type : Continuous.CompilerIR.Ty} →
     Continuous.CompilerIR.Expr type → String
@@ -119,6 +120,20 @@ private def continuousExprRender : {type : Continuous.CompilerIR.Ty} →
       list ["leapfrog-momentum", continuousExprRender stepSize,
         continuousExprRender steps, continuousExprRender position,
         continuousExprRender momentum]
+  | _, .vectorLogDensity value =>
+      list ["vector-log-density", continuousExprRender value]
+  | _, .vectorGradient value =>
+      list ["vector-gradient", continuousExprRender value]
+  | _, .vectorLeapfrogPosition stepSize steps position momentum =>
+      list ["vector-leapfrog-position", continuousExprRender stepSize,
+        continuousExprRender steps, continuousExprRender position,
+        continuousExprRender momentum]
+  | _, .vectorLeapfrogMomentum stepSize steps position momentum =>
+      list ["vector-leapfrog-momentum", continuousExprRender stepSize,
+        continuousExprRender steps, continuousExprRender position,
+        continuousExprRender momentum]
+  | _, .squaredNorm value =>
+      list ["squared-norm", continuousExprRender value]
 
 private def continuousStmtRender : Continuous.CompilerIR.Stmt → String
   | .letE destination value =>
@@ -127,10 +142,14 @@ private def continuousStmtRender : Continuous.CompilerIR.Stmt → String
       list ["sample-standard-normal", quote destination.name]
   | .sampleUniformUnit destination =>
       list ["sample-uniform-unit", quote destination.name]
+  | .sampleStandardNormalVector destination dimension =>
+      list ["sample-standard-normal-vector", quote destination.name,
+        continuousExprRender dimension]
   | .ifThen condition body =>
       list ["if", continuousExprRender condition,
         list ("body" :: body.map continuousStmtRender)]
   | .return value => list ["return", continuousExprRender value]
+  | .returnVector value => list ["return", continuousExprRender value]
 
 private def continuousProgramRender
     (program : Continuous.CompilerIR.Program) : String :=
@@ -141,7 +160,9 @@ private def continuousProgramRender
       | none => []
       | some name => [list ["input", "gradient", quote name]]) ++
       program.realInputs.map (fun name => list ["input", "real", quote name]) ++
-      program.natInputs.map fun name => list ["input", "nat", quote name]
+      program.natInputs.map (fun name => list ["input", "nat", quote name]) ++
+      program.vectorInputs.map (fun name =>
+        list ["input", "real-vector", quote name])
   list ["program", quote program.name, list ("inputs" :: inputs),
     list ("body" :: program.body.map continuousStmtRender)]
 
@@ -150,6 +171,7 @@ def render : String :=
   list ["verified-samplers-ir", toString version,
     programRender categoricalProgram, programRender metropolisHastingsProgram,
     continuousProgramRender Continuous.CompilerIR.gaussianRwmhProgram,
-    continuousProgramRender Continuous.CompilerIR.scalarHmcProgram] ++ "\n"
+    continuousProgramRender Continuous.CompilerIR.scalarHmcProgram,
+    continuousProgramRender Continuous.CompilerIR.vectorHmcProgram] ++ "\n"
 
 end Mcmc.Executable.IRFormat

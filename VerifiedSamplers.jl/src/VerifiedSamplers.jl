@@ -8,7 +8,49 @@ include("Reference/Reference.jl")
 include("Optimized/Optimized.jl")
 
 export FiniteWeights, FiniteKernelWeights, FiniteMH, TwoStateMH, GaussianRWMH,
-    ScalarHMC, sample
+    ScalarHMC, VectorHMC, sample
+
+struct VectorHMC{F,G}
+    logdensity::F
+    gradient::G
+    step_size::Float64
+    steps::Int
+    function VectorHMC{F,G}(logdensity::F, gradient::G,
+            step_size::Float64, steps::Int) where {F,G}
+        isfinite(step_size) && step_size > 0.0 ||
+            throw(ArgumentError("step size must be finite and positive"))
+        steps > 0 || throw(ArgumentError("leapfrog steps must be positive"))
+        new{F,G}(logdensity, gradient, step_size, steps)
+    end
+end
+
+VectorHMC(logdensity::F, gradient::G, step_size::Real,
+    steps::Integer=10) where {F,G} =
+    VectorHMC{F,G}(logdensity, gradient, Float64(step_size), Int(steps))
+
+function step(rng::AbstractRNG, sampler::VectorHMC,
+        current::AbstractVector{<:Real})
+    Reference.vector_hmc_step!(Runtime.RNGSource(rng), sampler.logdensity,
+        sampler.gradient, sampler.step_size, sampler.steps, current)
+end
+
+step(sampler::VectorHMC, current::AbstractVector{<:Real}) =
+    step(Random.default_rng(), sampler, current)
+
+function sample(rng::AbstractRNG, sampler::VectorHMC,
+        initial::AbstractVector{<:Real}, count::Integer)
+    count >= 0 || throw(ArgumentError("sample count must be nonnegative"))
+    current = Float64.(initial)
+    samples = Matrix{Float64}(undef, length(current), count)
+    for index in axes(samples, 2)
+        current = step(rng, sampler, current)
+        samples[:, index] = current
+    end
+    samples
+end
+
+sample(sampler::VectorHMC, initial::AbstractVector{<:Real}, count::Integer) =
+    sample(Random.default_rng(), sampler, initial, count)
 
 struct ScalarHMC{F,G}
     logdensity::F

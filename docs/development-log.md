@@ -1,5 +1,22 @@
 # Development log
 
+## 2026-08-15: vector-valued executable HMC
+
+Extended the generated sampler artifact to version 5 with a typed real-vector
+command surface, vector target and gradient callbacks, dimension-indexed
+standard-normal momentum draws, vector leapfrog expressions, kinetic energy,
+and endpoint acceptance. Julia Reference interprets that generated program;
+Optimized supplies an independent implementation. The public `VectorHMC` API
+uses positional RNG dispatch and returns samples as columns of a matrix.
+
+The exact endpoint-HMC phase and refresh–evolve–project position invariance
+theorems were generalized from `Unit` to every finite coordinate type. Lean
+also proves that list-valued executable leapfrog is exactly coordinate
+serialization of the existing `Fin n → ℝ` Hamiltonian map. Tests cover
+deterministic Reference/Optimized agreement, event consumption,
+multidimensional reversibility, and two-dimensional Gaussian moments and
+covariance. Finite-precision refinement remains separate and deferred.
+
 ## 2026-08-15: multi-step working scalar HMC sampler
 
 Generalized the executable scalar HMC transition from one leapfrog step to any

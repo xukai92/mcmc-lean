@@ -3,7 +3,7 @@ module Optimized
 using ...Runtime: AbstractRandomSource, draw_below!, standard_normal!, uniform_unit!
 
 export categorical_index!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!,
-    scalar_hmc_step!, leapfrog
+    scalar_hmc_step!, vector_hmc_step!, leapfrog, vector_leapfrog
 
 """One scalar velocity-Verlet/leapfrog step with unit mass."""
 function leapfrog(gradient, step_size::Float64, position::Float64, momentum::Float64)
@@ -11,6 +11,35 @@ function leapfrog(gradient, step_size::Float64, position::Float64, momentum::Flo
     next_position = position + step_size * half_momentum
     next_momentum = half_momentum - step_size * gradient(next_position) / 2
     next_position, next_momentum
+end
+
+"""One vector velocity-Verlet/leapfrog step with unit mass."""
+function vector_leapfrog(gradient, step_size::Float64,
+        position::AbstractVector{<:Real}, momentum::AbstractVector{<:Real})
+    half_momentum = momentum .- (step_size / 2) .* gradient(position)
+    next_position = position .+ step_size .* half_momentum
+    next_momentum = half_momentum .- (step_size / 2) .* gradient(next_position)
+    next_position, next_momentum
+end
+
+"""Independent Float64 implementation of vector endpoint HMC."""
+function vector_hmc_step!(source::AbstractRandomSource, logdensity, gradient,
+        step_size::Float64, steps::Integer, current::AbstractVector{<:Real})
+    isfinite(step_size) && step_size > 0.0 ||
+        throw(ArgumentError("step size must be finite and positive"))
+    steps > 0 || throw(ArgumentError("leapfrog steps must be positive"))
+    isempty(current) && throw(ArgumentError("position cannot be empty"))
+    initial = Float64.(current)
+    momentum = [standard_normal!(source) for _ in eachindex(initial)]
+    next_position, next_momentum = copy(initial), copy(momentum)
+    for _ in 1:steps
+        next_position, next_momentum = vector_leapfrog(
+            gradient, step_size, next_position, next_momentum)
+    end
+    current_energy = -logdensity(initial) + sum(abs2, momentum) / 2
+    next_energy = -logdensity(next_position) + sum(abs2, next_momentum) / 2
+    log(uniform_unit!(source)) < min(0.0, current_energy - next_energy) ?
+        next_position : initial
 end
 
 """Independent Float64 implementation of scalar one-step endpoint HMC."""

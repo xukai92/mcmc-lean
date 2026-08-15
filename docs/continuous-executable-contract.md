@@ -59,7 +59,8 @@ input or probabilistic assumption.
 
 ## Julia layer
 
-The version-4 artifact additionally contains scalar multi-step endpoint HMC.
+The version-5 artifact additionally contains scalar and vector-valued
+multi-step endpoint HMC.
 Its explicit callbacks are the target log density and the gradient of the
 negative log density, together with positive step size and trajectory length.
 Lean proves the command trace formula, its integrator equals the established
@@ -70,7 +71,16 @@ Markov kernel and proved invariant for every compatible position target. The Jul
 Reference/Optimized agreement and integrator property tests remain Float64
 implementation evidence subject to the same numerical-refinement boundary.
 
-The version-2 artifact contains the continuous RWMH command program. Julia
+The vector command uses a runtime dimension, a real-vector position, one
+standard-normal event per coordinate, vector log-density/gradient callbacks,
+and a unit uniform. Its Julia Reference interpretation is driven entirely by
+the serialized program. Optimized is independent. Lean's endpoint-HMC
+invariance theorem is dimension-polymorphic, and
+`vectorLeapfrogN_positionList` proves that the list-valued executable
+integrator is the coordinate serialization of the `Fin n → ℝ`
+Hamiltonian integrator.
+
+The same artifact contains the continuous RWMH command program. Julia
 Reference interprets its expressions, callback calls, draws, branch, and
 return; public `GaussianRWMH` uses this path. Optimized remains an independent
 differential-test implementation. Both use:

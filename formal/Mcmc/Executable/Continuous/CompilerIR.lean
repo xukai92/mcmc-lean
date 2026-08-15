@@ -18,12 +18,14 @@ inductive Ty where
   | real
   | bool
   | nat
+  | realVector
   deriving DecidableEq, Repr
 
 abbrev Ty.denote : Ty → Type
   | .real => ℝ
   | .bool => Bool
   | .nat => Nat
+  | .realVector => List ℝ
 
 /-- Named typed variable in the portable command language. -/
 structure Var (type : Ty) where
@@ -48,14 +50,24 @@ inductive Expr : Ty → Type where
       (position momentum : Expr .real) : Expr .real
   | leapfrogMomentum (stepSize : Expr .real) (steps : Expr .nat)
       (position momentum : Expr .real) : Expr .real
+  | vectorLogDensity (value : Expr .realVector) : Expr .real
+  | vectorGradient (value : Expr .realVector) : Expr .realVector
+  | vectorLeapfrogPosition (stepSize : Expr .real) (steps : Expr .nat)
+      (position momentum : Expr .realVector) : Expr .realVector
+  | vectorLeapfrogMomentum (stepSize : Expr .real) (steps : Expr .nat)
+      (position momentum : Expr .realVector) : Expr .realVector
+  | squaredNorm (value : Expr .realVector) : Expr .real
 
 /-- First-order continuous commands. -/
 inductive Stmt where
   | letE (destination : Var type) (value : Expr type)
   | sampleStandardNormal (destination : Var .real)
   | sampleUniformUnit (destination : Var .real)
+  | sampleStandardNormalVector (destination : Var .realVector)
+      (dimension : Expr .nat)
   | ifThen (condition : Expr .bool) (body : List Stmt)
   | return (value : Expr .real)
+  | returnVector (value : Expr .realVector)
 
 /-- Portable program descriptor with explicit runtime inputs. -/
 structure Program where
@@ -65,6 +77,7 @@ structure Program where
   gradientInput : Option String := none
   realInputs : List String
   natInputs : List String := []
+  vectorInputs : List String := []
   body : List Stmt
 
 def noiseVar : Var .real := ⟨"noise"⟩
@@ -101,9 +114,12 @@ structure Env where
   trace : List IR.Event
   logDensity : ℝ → ℝ
   gradient : ℝ → ℝ := fun _ => 0
+  vectorLogDensity : List ℝ → ℝ := fun _ => 0
+  vectorGradient : List ℝ → List ℝ := fun value => value.map fun _ => 0
   reals : List (String × ℝ) := []
   bools : List (String × Bool) := []
   nats : List (String × Nat) := []
+  vectors : List (String × List ℝ) := []
 
 private def lookup (name : String) : List (String × α) → Option α
   | [] => none
@@ -120,6 +136,7 @@ private def Env.get {type : Ty} (env : Env) (target : Var type) : Option
   | .real => lookup target.name env.reals
   | .bool => lookup target.name env.bools
   | .nat => lookup target.name env.nats
+  | .realVector => lookup target.name env.vectors
 
 private def Env.set {type : Ty} (env : Env) (target : Var type)
     (value : type.denote) : Env :=
@@ -127,6 +144,7 @@ private def Env.set {type : Ty} (env : Env) (target : Var type)
   | .real => { env with reals := store target.name value env.reals }
   | .bool => { env with bools := store target.name value env.bools }
   | .nat => { env with nats := store target.name value env.nats }
+  | .realVector => { env with vectors := store target.name value env.vectors }
 
 /-- Errors of the portable continuous interpreter. -/
 inductive RuntimeError where
@@ -152,6 +170,27 @@ noncomputable def scalarLeapfrogN (gradient : ℝ → ℝ) (stepSize : ℝ) :
       let halfMomentum := previous.2 - stepSize * gradient previous.1 / 2
       let nextPosition := previous.1 + stepSize * halfMomentum
       let nextMomentum := halfMomentum - stepSize * gradient nextPosition / 2
+      (nextPosition, nextMomentum)
+
+noncomputable def vectorSubScaled (left : List ℝ) (scale : ℝ)
+    (right : List ℝ) : List ℝ :=
+  List.zipWith (fun x y => x - scale * y) left right
+
+noncomputable def vectorAddScaled (left : List ℝ) (scale : ℝ)
+    (right : List ℝ) : List ℝ :=
+  List.zipWith (fun x y => x + scale * y) left right
+
+/-- Dimension-polymorphic, unit-mass leapfrog iteration used by vector HMC. -/
+noncomputable def vectorLeapfrogN (gradient : List ℝ → List ℝ)
+    (stepSize : ℝ) : Nat → List ℝ → List ℝ → List ℝ × List ℝ
+  | 0, position, momentum => (position, momentum)
+  | steps + 1, position, momentum =>
+      let previous := vectorLeapfrogN gradient stepSize steps position momentum
+      let halfMomentum := vectorSubScaled previous.2 (stepSize / 2)
+        (gradient previous.1)
+      let nextPosition := vectorAddScaled previous.1 stepSize halfMomentum
+      let nextMomentum := vectorSubScaled halfMomentum (stepSize / 2)
+        (gradient nextPosition)
       (nextPosition, nextMomentum)
 
 /-- Evaluate one pure expression against an explicit target callback. -/
@@ -207,10 +246,32 @@ noncomputable def evalExpr : {type : Ty} → Expr type → Env →
       let (position, env) ← evalExpr position env
       let (momentum, env) ← evalExpr momentum env
       return ((scalarLeapfrogN env.gradient stepSize steps position momentum).2, env)
+  | _, .vectorLogDensity value, env => do
+      let (value, env) ← evalExpr value env
+      return (env.vectorLogDensity value, env)
+  | _, .vectorGradient value, env => do
+      let (value, env) ← evalExpr value env
+      return (env.vectorGradient value, env)
+  | _, .vectorLeapfrogPosition stepSize steps position momentum, env => do
+      let (stepSize, env) ← evalExpr stepSize env
+      let (steps, env) ← evalExpr steps env
+      let (position, env) ← evalExpr position env
+      let (momentum, env) ← evalExpr momentum env
+      return ((vectorLeapfrogN env.vectorGradient stepSize steps position momentum).1, env)
+  | _, .vectorLeapfrogMomentum stepSize steps position momentum, env => do
+      let (stepSize, env) ← evalExpr stepSize env
+      let (steps, env) ← evalExpr steps env
+      let (position, env) ← evalExpr position env
+      let (momentum, env) ← evalExpr momentum env
+      return ((vectorLeapfrogN env.vectorGradient stepSize steps position momentum).2, env)
+  | _, .squaredNorm value, env => do
+      let (value, env) ← evalExpr value env
+      return (value.foldl (fun total x => total + x * x) 0, env)
 
 inductive Control where
   | next (env : Env)
   | returned (value : ℝ) (env : Env)
+  | returnedVector (value : List ℝ) (env : Env)
 
 private def Stmt.cost : Stmt → Nat
   | .ifThen _ body => 1 + body.foldl (fun total statement => total + statement.cost) 0
@@ -241,16 +302,32 @@ noncomputable def runStatementsFuel : Nat → List Stmt → Env →
           | .error error => .error (.primitive error)
           | .ok draw => runStatementsFuel fuel rest
               ({ env with trace := draw.remaining }.set destination draw.value)
+      | .sampleStandardNormalVector destination dimension => do
+          let (dimension, env) ← evalExpr dimension env
+          let rec drawVector : Nat → Env → Except RuntimeError (List ℝ × Env)
+            | 0, env => .ok ([], env)
+            | count + 1, env =>
+                match IR.Prim.replay .standardNormal env.trace with
+                | .error error => .error (.primitive error)
+                | .ok draw => do
+                    let (tail, env) ← drawVector count { env with trace := draw.remaining }
+                    return (draw.value :: tail, env)
+          let (values, env) ← drawVector dimension env
+          runStatementsFuel fuel rest (env.set destination values)
       | .ifThen condition body => do
           let (condition, env) ← evalExpr condition env
           if condition then
             match ← runStatementsFuel fuel body env with
             | .returned value env => return .returned value env
+            | .returnedVector value env => return .returnedVector value env
             | .next env => runStatementsFuel fuel rest env
           else runStatementsFuel fuel rest env
       | .return value => do
           let (value, env) ← evalExpr value env
           return .returned value env
+      | .returnVector value => do
+          let (value, env) ← evalExpr value env
+          return .returnedVector value env
 
 /-- Interpret a statement list using the syntax-derived fuel bound. -/
 noncomputable def runStatements (statements : List Stmt) (env : Env) :
@@ -266,6 +343,7 @@ noncomputable def runGaussianRwmh (logDensity : ℝ → ℝ) (scale current : �
   match ← runStatements gaussianRwmhProgram.body env with
   | .next _ => .error .programDidNotReturn
   | .returned value env => .ok ⟨value, env.trace⟩
+  | .returnedVector _ _ => .error .programDidNotReturn
 
 /-- Mathematical standard-Gaussian log weight used by the proved exact
 specialization. -/
@@ -330,6 +408,11 @@ def currentEnergyVar : Var .real := ⟨"current_energy"⟩
 def nextEnergyVar : Var .real := ⟨"next_energy"⟩
 def stepSizeVar : Var .real := ⟨"step_size"⟩
 def stepsVar : Var .nat := ⟨"steps"⟩
+def dimensionVar : Var .nat := ⟨"dimension"⟩
+def vectorCurrentVar : Var .realVector := ⟨"current"⟩
+def vectorMomentumVar : Var .realVector := ⟨"momentum"⟩
+def vectorNextPositionVar : Var .realVector := ⟨"next_position"⟩
+def vectorNextMomentumVar : Var .realVector := ⟨"next_momentum"⟩
 
 private def two : Expr .real := .real 2
 
@@ -364,6 +447,38 @@ def scalarHmcProgram : Program where
         [.return (.var nextPositionVar)],
       .return (.var currentVar)]
 
+/-- Dimension-polymorphic, unit-mass endpoint HMC. Its runtime dimension is
+checked against the current position by the maintained interpreters. -/
+def vectorHmcProgram : Program where
+  name := "vector_hmc_step!"
+  sourceInput := "source"
+  logDensityInput := "logdensity"
+  gradientInput := some "gradient"
+  realInputs := [stepSizeVar.name]
+  natInputs := [stepsVar.name, dimensionVar.name]
+  vectorInputs := [vectorCurrentVar.name]
+  body :=
+    [.sampleStandardNormalVector vectorMomentumVar (.var dimensionVar),
+      .letE vectorNextPositionVar
+        (.vectorLeapfrogPosition (.var stepSizeVar) (.var stepsVar)
+          (.var vectorCurrentVar) (.var vectorMomentumVar)),
+      .letE vectorNextMomentumVar
+        (.vectorLeapfrogMomentum (.var stepSizeVar) (.var stepsVar)
+          (.var vectorCurrentVar) (.var vectorMomentumVar)),
+      .letE currentEnergyVar
+        (.add (.sub (.real 0) (.vectorLogDensity (.var vectorCurrentVar)))
+          (.div (.squaredNorm (.var vectorMomentumVar)) two)),
+      .letE nextEnergyVar
+        (.add (.sub (.real 0) (.vectorLogDensity (.var vectorNextPositionVar)))
+          (.div (.squaredNorm (.var vectorNextMomentumVar)) two)),
+      .letE thresholdVar
+        (.exp (.min (.real 0)
+          (.sub (.var currentEnergyVar) (.var nextEnergyVar)))),
+      .sampleUniformUnit uniformVar,
+      .ifThen (.lt (.var uniformVar) (.var thresholdVar))
+        [.returnVector (.var vectorNextPositionVar)],
+      .returnVector (.var vectorCurrentVar)]
+
 /-- Execute scalar one-step HMC against ideal-real callbacks and events. -/
 noncomputable def runScalarHmc (logDensity gradient : ℝ → ℝ)
     (stepSize : ℝ) (steps : Nat) (current : ℝ) (trace : List IR.Event) :
@@ -375,6 +490,23 @@ noncomputable def runScalarHmc (logDensity gradient : ℝ → ℝ)
   match ← runStatements scalarHmcProgram.body env with
   | .next _ => .error .programDidNotReturn
   | .returned value env => .ok ⟨value, env.trace⟩
+  | .returnedVector _ _ => .error .programDidNotReturn
+
+/-- Ideal-real interpretation of the vector HMC program. -/
+noncomputable def runVectorHmc (logDensity : List ℝ → ℝ)
+    (gradient : List ℝ → List ℝ) (stepSize : ℝ) (steps : Nat)
+    (current : List ℝ) (trace : List IR.Event) :
+    Except RuntimeError (IR.Replay (List ℝ)) := do
+  let env : Env :=
+    { trace, logDensity := fun _ => 0, vectorLogDensity := logDensity,
+      vectorGradient := gradient,
+      reals := [(stepSizeVar.name, stepSize)],
+      nats := [(stepsVar.name, steps), (dimensionVar.name, current.length)],
+      vectors := [(vectorCurrentVar.name, current)] }
+  match ← runStatements vectorHmcProgram.body env with
+  | .next _ => .error .programDidNotReturn
+  | .returned _ _ => .error .programDidNotReturn
+  | .returnedVector value env => .ok ⟨value, env.trace⟩
 
 /-- The portable HMC program performs exactly one velocity-Verlet/leapfrog
 step followed by the endpoint Hamiltonian correction. -/

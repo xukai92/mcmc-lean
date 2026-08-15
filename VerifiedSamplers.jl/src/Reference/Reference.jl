@@ -2,10 +2,10 @@ module Reference
 
 using ..Runtime: AbstractRandomSource, draw_below!, standard_normal!, uniform_unit!
 
-export categorical_index!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!, scalar_hmc_step!,
+export categorical_index!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!, scalar_hmc_step!, vector_hmc_step!,
     IR_FORMAT_VERSION
 
-const IR_FORMAT_VERSION = 4
+const IR_FORMAT_VERSION = 5
 
 struct SList
     items::Vector{Any}
@@ -181,6 +181,9 @@ function eval_expr(raw, env::Dict{String,Any})
     tag == "to-exact-matrix" && return [BigInt.(row) for row in eval_expr(node[2], env)]
     tag == "log-density" && return env["logdensity"](eval_expr(node[2], env))
     tag == "gradient" && return env["gradient"](eval_expr(node[2], env))
+    tag == "vector-log-density" && return env["logdensity"](eval_expr(node[2], env))
+    tag == "vector-gradient" && return env["gradient"](eval_expr(node[2], env))
+    tag == "squared-norm" && return sum(abs2, eval_expr(node[2], env); init=0.0)
     if tag == "leapfrog-position" || tag == "leapfrog-momentum"
         step_size = Float64(eval_expr(node[2], env))
         steps = Int(eval_expr(node[3], env))
@@ -192,6 +195,18 @@ function eval_expr(raw, env::Dict{String,Any})
             momentum = half_momentum - step_size * env["gradient"](position) / 2
         end
         return tag == "leapfrog-position" ? position : momentum
+    end
+    if tag == "vector-leapfrog-position" || tag == "vector-leapfrog-momentum"
+        step_size = Float64(eval_expr(node[2], env))
+        steps = Int(eval_expr(node[3], env))
+        position = Float64.(eval_expr(node[4], env))
+        momentum = Float64.(eval_expr(node[5], env))
+        for _ in 1:steps
+            half_momentum = momentum .- (step_size / 2) .* env["gradient"](position)
+            position = position .+ step_size .* half_momentum
+            momentum = half_momentum .- (step_size / 2) .* env["gradient"](position)
+        end
+        return tag == "vector-leapfrog-position" ? position : momentum
     end
     if tag == "categorical"
         source = eval_expr(node[2], env)
@@ -235,6 +250,9 @@ function execute_block(body, env::Dict{String,Any})
             env[atom(node[2])] = standard_normal!(env["source"])
         elseif tag == "sample-uniform-unit"
             env[atom(node[2])] = uniform_unit!(env["source"])
+        elseif tag == "sample-standard-normal-vector"
+            dimension = Int(eval_expr(node[3], env))
+            env[atom(node[2])] = [standard_normal!(env["source"]) for _ in 1:dimension]
         elseif tag == "if"
             if eval_expr(node[2], env)
                 result = execute_block(items(aslist(node[3]))[2:end], env)
@@ -258,9 +276,11 @@ function run_program(name::String, arguments...)
     env = Dict{String,Any}()
     for ((input_kind, input_name), value) in zip(program.inputs, arguments)
         valid = input_kind == "source" ? value isa AbstractRandomSource :
-            input_kind == "log-density" || input_kind == "gradient" ? applicable(value, 0.0) :
+            input_kind == "log-density" || input_kind == "gradient" ?
+                (applicable(value, 0.0) || applicable(value, Float64[])) :
             input_kind == "real" ? value isa Real : true
         valid = input_kind == "nat" ? value isa Integer && value >= 0 : valid
+        valid = input_kind == "real-vector" ? value isa AbstractVector{<:Real} : valid
         valid || throw(ArgumentError("invalid $input_kind input: $input_name"))
         env[input_name] = value
     end
@@ -315,6 +335,19 @@ function scalar_hmc_step!(source::AbstractRandomSource, logdensity, gradient,
     steps > 0 || throw(ArgumentError("leapfrog steps must be positive"))
     Float64(run_program("scalar_hmc_step!", source, logdensity, gradient,
         step_size, current, steps))
+end
+
+"""Float64 interpretation of the serialized vector endpoint-HMC program."""
+function vector_hmc_step!(source::AbstractRandomSource, logdensity, gradient,
+        step_size::Float64, steps::Integer, current::AbstractVector{<:Real})
+    isfinite(step_size) && step_size > 0.0 ||
+        throw(ArgumentError("step size must be finite and positive"))
+    steps > 0 || throw(ArgumentError("leapfrog steps must be positive"))
+    isempty(current) && throw(ArgumentError("position cannot be empty"))
+    position = Float64.(current)
+    result = run_program("vector_hmc_step!", source, logdensity, gradient,
+        step_size, steps, length(position), position)
+    Float64.(result)
 end
 
 end

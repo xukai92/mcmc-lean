@@ -175,7 +175,7 @@ still inputs to this theorem rather than assumed facts.
 | Ideal trace | Proved for arbitrary scalar log densities and real scales |
 | Exact kernel | Proved for measurable log densities and positive scales |
 | Stationarity | Proved for the normalized `exp ∘ logdensity` target |
-| Julia Reference | Interprets the committed version-2 sampler IR |
+| Julia Reference | Interprets the committed version-5 sampler IR |
 | Julia Optimized | Independently implemented and differentially tested |
 | Bounded numeric refinement | Proved composition and decision-stability theorems, conditional on concrete operation-error certificates |
 | Julia Float64/RNG certificates | Required for the supported Julia/libm/RNG versions; no witness yet |
@@ -183,21 +183,32 @@ still inputs to this theorem rather than assumed facts.
 See the [continuous executable contract](docs/continuous-executable-contract.md)
 for the exact theorem and runtime boundaries.
 
-The executable HMC slice is also operational: scalar, unit-mass,
+The executable HMC slice is also operational: scalar and vector-valued, unit-mass,
 endpoint-corrected HMC with any positive finite number of leapfrog steps. Lean
 proves its ideal trace formula, identifies its deterministic update with the
 established `leapfrogN` map for every trajectory length, and proves exact
 phase-volume preservation and Boltzmann-target invariance of the corresponding
 phase kernel. The complete refresh–evolve–project position kernel is also
 defined and proved invariant for every compatible position target. The
-version-4 artifact is interpreted by Julia Reference and
+version-5 artifact is interpreted by Julia Reference and
 differentially tested against Optimized, including energy, reversibility,
 numerical-volume, Gaussian-moment, and non-Gaussian quartic-moment tests:
 
 ```julia
 sampler = ScalarHMC(x -> -x^4 / 4, x -> x^3, 0.15, 6)
 chain = sample(MersenneTwister(7), sampler, 0.0, 10_000)
+
+vector_sampler = VectorHMC(q -> -sum(abs2, q) / 2, identity, 0.18, 6)
+# Columns are successive two-dimensional states.
+vector_chain = sample(MersenneTwister(8), vector_sampler, [0.0, 0.0], 10_000)
 ```
+
+The vector program draws one normal momentum per coordinate and is generated
+from the typed Lean command IR. Lean proves that its list-valued integrator is
+extensionally the existing `Position (Fin n)` leapfrog map, and the generic
+exact endpoint kernel is invariant in every finite dimension. Reference and
+Optimized agree on fixed traces, and the public sampler is tested on a
+two-dimensional Gaussian.
 
 As for RWMH, the Float64/RNG refinement remains explicit and deferred.
 
