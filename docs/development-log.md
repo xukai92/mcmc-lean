@@ -75,6 +75,14 @@ rates are measurable and globally bounded by the supplied clock. This is exact
 bounded thinning per candidate, not yet the stopping construction at a fixed
 time horizon.
 
+The conditional fixed-horizon executor is now also checked: it consumes a
+finite list of candidate waits while each fits in the remaining horizon,
+applies flow then accepted/virtual jump, ignores an over-horizon candidate,
+and fills all residual time with deterministic flow. Every branch is a Markov
+kernel. The homogeneous clock's candidate count on a finite horizon is given
+its exact Poisson law and proved almost surely finite. What remains is the
+joint law coupling that count to ordered candidate times and the executor.
+
 ## 2026-08-15: categorical discontinuous-HMC vertical slice
 
 Added the Laplace-momentum crossing/reflection algebra from Nishimura, Dunson,

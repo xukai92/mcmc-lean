@@ -112,4 +112,86 @@ theorem ThinnedFlowSimulator.iterate_add
       simulator.iterate m ∘ₖ simulator.iterate n := by
   exact Kernel.pow_add simulator.candidateKernel m n
 
+/-- Execute a supplied finite candidate-wait list up to a fixed horizon. A
+candidate whose wait exceeds the remaining horizon is ignored and the process
+flows exactly to the horizon; after the list is exhausted, the residual time
+is also filled by deterministic flow. -/
+noncomputable def ThinnedFlowSimulator.executeUntil
+    (simulator : ThinnedFlowSimulator State) :
+    NNReal → List NNReal → Kernel State State
+  | horizon, [] => simulator.semiflow.kernel horizon
+  | horizon, wait :: waits =>
+      if wait ≤ horizon then
+        simulator.executeUntil (horizon - wait) waits ∘ₖ
+          (simulator.mechanism.uniformizedKernel simulator.clock.rate ∘ₖ
+            simulator.semiflow.kernel wait)
+      else
+        simulator.semiflow.kernel horizon
+
+instance ThinnedFlowSimulator.executeUntil.instIsMarkovKernel
+    (simulator : ThinnedFlowSimulator State)
+    (horizon : NNReal) (waits : List NNReal) :
+    IsMarkovKernel (simulator.executeUntil horizon waits) := by
+  letI : IsMarkovKernel
+      (simulator.mechanism.uniformizedKernel simulator.clock.rate) :=
+    simulator.mechanism.uniformizedKernel_isMarkov simulator.clock.rate
+      simulator.clock.positive simulator.rate_le_clock
+  induction waits generalizing horizon with
+  | nil =>
+      simp only [ThinnedFlowSimulator.executeUntil]
+      infer_instance
+  | cons wait waits ih =>
+      rw [ThinnedFlowSimulator.executeUntil]
+      split
+      · letI : IsMarkovKernel
+            (simulator.executeUntil (horizon - wait) waits) :=
+          ih (horizon - wait)
+        infer_instance
+      · infer_instance
+
+@[simp] theorem ThinnedFlowSimulator.executeUntil_nil
+    (simulator : ThinnedFlowSimulator State) (horizon : NNReal) :
+    simulator.executeUntil horizon [] = simulator.semiflow.kernel horizon := rfl
+
+/-- A first candidate beyond the horizon has no effect; the result is exactly
+the deterministic flow to the horizon. -/
+theorem ThinnedFlowSimulator.executeUntil_of_horizon_lt
+    (simulator : ThinnedFlowSimulator State) (horizon wait : NNReal)
+    (waits : List NNReal) (h : horizon < wait) :
+    simulator.executeUntil horizon (wait :: waits) =
+      simulator.semiflow.kernel horizon := by
+  rw [ThinnedFlowSimulator.executeUntil, if_neg (not_le.mpr h)]
+
+/-- If the first candidate occurs within the horizon, execution factors into
+that flow/thinning event followed by execution over the residual horizon. -/
+theorem ThinnedFlowSimulator.executeUntil_of_le
+    (simulator : ThinnedFlowSimulator State) (horizon wait : NNReal)
+    (waits : List NNReal) (h : wait ≤ horizon) :
+    simulator.executeUntil horizon (wait :: waits) =
+      simulator.executeUntil (horizon - wait) waits ∘ₖ
+        (simulator.mechanism.uniformizedKernel simulator.clock.rate ∘ₖ
+          simulator.semiflow.kernel wait) := by
+  rw [ThinnedFlowSimulator.executeUntil, if_pos h]
+
+/-- Poisson law of the number of homogeneous clock candidates on a fixed
+horizon. -/
+noncomputable def ThinnedFlowSimulator.candidateCountMeasure
+    (simulator : ThinnedFlowSimulator State) (horizon : NNReal) : Measure ℕ :=
+  poissonMeasure (simulator.clock.rate * horizon)
+
+instance ThinnedFlowSimulator.candidateCountMeasure.instIsProbabilityMeasure
+    (simulator : ThinnedFlowSimulator State) (horizon : NNReal) :
+    IsProbabilityMeasure (simulator.candidateCountMeasure horizon) := by
+  unfold ThinnedFlowSimulator.candidateCountMeasure
+  infer_instance
+
+/-- A bounded homogeneous proposal clock has only finitely many candidates on
+every finite horizon. -/
+theorem ThinnedFlowSimulator.candidateCount_finite_ae
+    (simulator : ThinnedFlowSimulator State) (horizon : NNReal) :
+    ∀ᵐ n ∂simulator.candidateCountMeasure horizon,
+      ∃ bound : ℕ, n ≤ bound := by
+  unfold ThinnedFlowSimulator.candidateCountMeasure
+  exact poisson_count_finite_ae (simulator.clock.rate * horizon)
+
 end Mcmc.PDMP

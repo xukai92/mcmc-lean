@@ -263,12 +263,16 @@ breadth branches are:
   schedule composition are now defined. Joint measurability supports random
   exponential waits, and globally bounded state-dependent intensities now have
   an exact per-candidate thinning kernel and fixed candidate-count iterates.
+  A conditional fixed-horizon executor now consumes candidate waits, fills the
+  residual horizon by deterministic flow, and is proved Markov; its bounded
+  homogeneous-clock candidate count has the exact Poisson law and is almost
+  surely finite.
   Concrete one-dimensional Zig-Zag and finite-dimensional BPS clients provide
   their linear flows, event kernels, and bounded-thinning constructors. The
   one-dimensional Zig-Zag generator cancellation and finite-dimensional BPS
-  reflection geometry are checked; fixed-horizon stopping/path construction,
-  unbounded-rate Lyapunov arguments, process-level stationarity, and
-  convergence remain.
+  reflection geometry are checked; coupling the Poisson count to ordered event
+  times in a joint fixed-horizon path law, unbounded-rate Lyapunov arguments,
+  process-level stationarity, and convergence remain.
 
 Sequence-parallel evaluation is an execution-refinement project downstream of
 exact seeded trace semantics. Full solver convergence may refine a sequential
