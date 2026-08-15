@@ -147,6 +147,36 @@ theorem distributionTotalVariation_nonneg (first second : Distribution State) :
     0 ≤ distributionTotalVariation first second := by
   exact div_nonneg (Finset.sum_nonneg fun x _ => abs_nonneg _) (by norm_num)
 
+theorem distributionTotalVariation_symm (first second : Distribution State) :
+    distributionTotalVariation first second = distributionTotalVariation second first := by
+  unfold distributionTotalVariation
+  apply congrArg (fun z : ℝ => z / 2)
+  apply Finset.sum_congr rfl
+  intro x _
+  rw [abs_sub_comm]
+
+@[simp] theorem distributionTotalVariation_self (law : Distribution State) :
+    distributionTotalVariation law law = 0 := by
+  simp [distributionTotalVariation]
+
+theorem distributionTotalVariation_triangle (first second third : Distribution State) :
+    distributionTotalVariation first third ≤
+      distributionTotalVariation first second +
+        distributionTotalVariation second third := by
+  unfold distributionTotalVariation
+  rw [← add_div]
+  apply div_le_div_of_nonneg_right _ (by norm_num)
+  rw [← Finset.sum_add_distrib]
+  apply Finset.sum_le_sum
+  intro x _
+  calc
+    |first.mass x - third.mass x| =
+        |(first.mass x - second.mass x) + (second.mass x - third.mass x)| := by
+      congr 1
+      ring
+    _ ≤ |first.mass x - second.mass x| + |second.mass x - third.mass x| :=
+      abs_add_le _ _
+
 theorem distributionTotalVariation_le_one (first second : Distribution State) :
     distributionTotalVariation first second ≤ 1 := by
   unfold distributionTotalVariation
@@ -163,6 +193,129 @@ theorem distributionTotalVariation_le_one (first second : Distribution State) :
       rw [Finset.sum_add_distrib, first.sum_mass, second.sum_mass]
       norm_num
     _ = 1 * 2 := by norm_num
+
+/-- Applying a common Markov kernel contracts finite total variation. -/
+theorem distributionTotalVariation_evolve_le (first second : Distribution State)
+    (kernel : MarkovKernel State) :
+    distributionTotalVariation (first.evolve kernel) (second.evolve kernel) ≤
+      distributionTotalVariation first second := by
+  unfold distributionTotalVariation
+  apply div_le_div_of_nonneg_right _ (by norm_num)
+  calc
+    ∑ y, |(first.evolve kernel).mass y - (second.evolve kernel).mass y| ≤
+        ∑ y, ∑ x, |first.mass x - second.mass x| * kernel.prob x y := by
+      apply Finset.sum_le_sum
+      intro y _
+      rw [Distribution.evolve_mass, Distribution.evolve_mass,
+        ← Finset.sum_sub_distrib]
+      calc
+        |∑ x, (first.mass x * kernel.prob x y -
+          second.mass x * kernel.prob x y)| =
+            |∑ x, (first.mass x - second.mass x) * kernel.prob x y| := by
+              apply congrArg abs
+              apply Finset.sum_congr rfl
+              intro x _
+              ring
+        _ ≤ ∑ x, |(first.mass x - second.mass x) * kernel.prob x y| :=
+          Finset.abs_sum_le_sum_abs _ _
+        _ = ∑ x, |first.mass x - second.mass x| * kernel.prob x y := by
+          apply Finset.sum_congr rfl
+          intro x _
+          rw [abs_mul, abs_of_nonneg (kernel.nonneg x y)]
+    _ = ∑ x, ∑ y, |first.mass x - second.mass x| * kernel.prob x y := by
+      rw [Finset.sum_comm]
+    _ = ∑ x, |first.mass x - second.mass x| := by
+      apply Finset.sum_congr rfl
+      intro x _
+      rw [← Finset.mul_sum, kernel.sum_prob, mul_one]
+
+/-- Changing the kernel for a fixed input law is bounded by the law-weighted
+row total variation. -/
+theorem distributionTotalVariation_evolve_kernel_le (law : Distribution State)
+    (first second : MarkovKernel State) :
+    distributionTotalVariation (law.evolve first) (law.evolve second) ≤
+      ∑ x, law.mass x * rowTotalVariation first second x := by
+  unfold distributionTotalVariation rowTotalVariation
+  rw [show (∑ x, law.mass x * ((∑ y, |first.prob x y - second.prob x y|) / 2)) =
+      (∑ x, law.mass x * ∑ y, |first.prob x y - second.prob x y|) / 2 by
+    rw [Finset.sum_div]
+    apply Finset.sum_congr rfl
+    intro x _
+    ring]
+  apply div_le_div_of_nonneg_right _ (by norm_num)
+  calc
+    ∑ y, |(law.evolve first).mass y - (law.evolve second).mass y| ≤
+        ∑ y, ∑ x, law.mass x * |first.prob x y - second.prob x y| := by
+      apply Finset.sum_le_sum
+      intro y _
+      rw [Distribution.evolve_mass, Distribution.evolve_mass,
+        ← Finset.sum_sub_distrib]
+      calc
+        |∑ x, (law.mass x * first.prob x y - law.mass x * second.prob x y)| =
+            |∑ x, law.mass x * (first.prob x y - second.prob x y)| := by
+              apply congrArg abs
+              apply Finset.sum_congr rfl
+              intro x _
+              ring
+        _ ≤ ∑ x, |law.mass x * (first.prob x y - second.prob x y)| :=
+          Finset.abs_sum_le_sum_abs _ _
+        _ = ∑ x, law.mass x * |first.prob x y - second.prob x y| := by
+          apply Finset.sum_congr rfl
+          intro x _
+          rw [abs_mul, abs_of_nonneg (law.nonneg x)]
+    _ = ∑ x, law.mass x * ∑ y, |first.prob x y - second.prob x y| := by
+      rw [Finset.sum_comm]
+      apply Finset.sum_congr rfl
+      intro x _
+      rw [Finset.mul_sum]
+
+/-- Uniform row-TV control gives the corresponding one-step perturbation
+bound for every input law. -/
+theorem distributionTotalVariation_evolve_kernel_le_of_distance
+    (law : Distribution State) (first second : MarkovKernel State) (ε : ℝ)
+    (hdistance : KernelDistanceLE first second ε) :
+    distributionTotalVariation (law.evolve first) (law.evolve second) ≤ ε := by
+  calc
+    distributionTotalVariation (law.evolve first) (law.evolve second) ≤
+        ∑ x, law.mass x * rowTotalVariation first second x :=
+      distributionTotalVariation_evolve_kernel_le law first second
+    _ ≤ ∑ x, law.mass x * ε := by
+      apply Finset.sum_le_sum
+      intro x _
+      exact mul_le_mul_of_nonneg_left (hdistance x) (law.nonneg x)
+    _ = ε := by rw [← Finset.sum_mul, law.sum_mass, one_mul]
+
+/-- Finite-window perturbation estimate: laws driven by two predetermined
+kernel schedules differ by at most the sum of their uniform row-TV changes. -/
+theorem lawAt_schedule_comparison (initial : Distribution State)
+    (first second : ℕ → MarkovKernel State) (ε : ℕ → ℝ)
+    (hdistance : ∀ k, KernelDistanceLE (first k) (second k) (ε k)) (n : ℕ) :
+    distributionTotalVariation (lawAt initial first n) (lawAt initial second n) ≤
+      ∑ k ∈ Finset.range n, ε k := by
+  induction n with
+  | zero => simp [lawAt]
+  | succ n ih =>
+      rw [lawAt, lawAt]
+      calc
+        distributionTotalVariation
+            ((lawAt initial first n).evolve (first n))
+            ((lawAt initial second n).evolve (second n)) ≤
+          distributionTotalVariation
+              ((lawAt initial first n).evolve (first n))
+              ((lawAt initial second n).evolve (first n)) +
+            distributionTotalVariation
+              ((lawAt initial second n).evolve (first n))
+              ((lawAt initial second n).evolve (second n)) :=
+          distributionTotalVariation_triangle _ _ _
+        _ ≤ distributionTotalVariation (lawAt initial first n)
+              (lawAt initial second n) + ε n :=
+          add_le_add
+            (distributionTotalVariation_evolve_le _ _ _)
+            (distributionTotalVariation_evolve_kernel_le_of_distance
+              (lawAt initial second n) (first n) (second n) (ε n) (hdistance n))
+        _ ≤ (∑ k ∈ Finset.range n, ε k) + ε n := add_le_add ih le_rfl
+        _ = ∑ k ∈ Finset.range (n + 1), ε k := by
+          rw [Finset.sum_range_succ]
 
 /-- A kernel is within `ε` of its target by a given horizon, uniformly over
 finite starting states. -/

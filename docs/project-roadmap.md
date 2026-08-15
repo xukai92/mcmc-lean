@@ -123,7 +123,10 @@ The pre-Xu dependency order is:
    proved diminishing under arbitrary parameter updates. Finite distribution
    TV, uniform mixing by a horizon, adaptive mixing-failure probability, and
    Containment are complete; simultaneous uniform mixing implies Containment.
-   Unbounded-history adaptation and the finite-window convergence theorem remain.
+   Distribution-TV triangle and Markov contraction, one-step kernel
+   perturbation, and a telescoping predetermined-schedule comparison are also
+   complete. Unbounded-history adaptation and the random adaptive finite-window
+   convergence theorem remain.
 
 Items 4--6 are intentionally ordered: the remaining slice work needs a
 measurable horizontal conditional with finite positive level-set mass;

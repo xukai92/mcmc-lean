@@ -108,6 +108,8 @@ The repository now contains machine-checked implementations and proofs for:
 - finite distribution total variation, uniform mixing-by-horizon,
   adaptive mixing-failure probabilities, Containment, and the theorem that
   simultaneous uniform mixing implies Containment;
+- total-variation triangle/contraction lemmas, one-step uniform kernel
+  perturbation, and a telescoping finite-window schedule comparison bound;
 - two-temperature parallel tempering with an MH-corrected swap, product-target
   stationarity, and an exact cold-marginal theorem;
 - finite pseudo-marginal MH with a nonnegative unbiased estimator, including

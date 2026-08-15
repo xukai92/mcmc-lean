@@ -177,9 +177,16 @@ kernel is proved sufficient for Containment.
 This finite Markovian model can encode fixed finite adaptation memory but not
 an unbounded history without enlarging the state type. Diminishing Adaptation
 plus Containment is still not yet a repository convergence theorem: the
-Roberts--Rosenthal finite-window coupling argument remains. Production warmup
-should be described as an inhomogeneous phase followed by a frozen proved
-kernel.
+Roberts--Rosenthal random finite-window coupling argument remains.
+
+Its deterministic analytic core is now machine checked. Finite distribution TV
+is symmetric and satisfies the triangle inequality; common-kernel evolution is
+contractive; replacing a kernel costs at most its law-weighted row TV and hence
+any uniform row bound; and two predetermined schedules differ by at most the
+sum of their per-step row-TV bounds. The missing step is probabilistic control
+of the random adaptive window using Diminishing Adaptation and Containment.
+Production warmup should be described as an inhomogeneous phase followed by a
+frozen proved kernel.
 
 ### Andrieu and Roberts (2009): pseudo-marginal MH -- P1
 

@@ -3,6 +3,21 @@
 Entries through the earlier 2026-08-13 work are preserved in the
 [development-log archive](development-log-archive.md).
 
+## 2026-08-15: adaptive finite-window TV estimates
+
+Proved symmetry and the triangle inequality for finite distribution total
+variation. Lean now verifies the two analytic estimates underlying adaptive
+finite-window comparisons: applying a common Markov kernel contracts TV, and
+changing the kernel for a fixed input law costs at most the law-weighted row
+TV, hence at most any uniform row-TV bound.
+
+By induction, laws driven from the same initial distribution by two
+predetermined kernel schedules differ after any finite horizon by at most the
+sum of their per-step uniform kernel distances. This is the deterministic
+telescoping core of the Roberts--Rosenthal proof. It is not yet the random
+adaptive convergence theorem: Diminishing Adaptation and Containment still
+must control the good finite-window event and its complement.
+
 ## 2026-08-15: finite adaptive Containment
 
 Added point-mass distributions, homogeneous finite-kernel iteration, and
