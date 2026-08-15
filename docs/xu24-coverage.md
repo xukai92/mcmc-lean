@@ -39,7 +39,7 @@ Status meanings:
 | Equations (10)--(11), polar momentum sampler | corrected | The correct dimension-`d` radial Jacobian is `r^(d-1)`, represented by `relativisticRadialWeight`; `relativisticRadialWeight_two` explains why the printed `r` is valid only in dimension two, and `relativisticRadialWeight_three_at_two_ne_printed` proves a concrete higher-dimensional mismatch. The corrected direction is uniform spherical measure, not independent uniform spherical angles. `relativisticPolarMomentumMeasure_eq_cartesian` and `euclideanRelativisticPolarMomentumMeasure_eq` prove that the corrected polar construction has the desired Cartesian density. |
 | Equation (12), cached position derivative | proved for diagonal SoftAbs | `fderiv_riemannianRelativisticKineticEnergy_position_apply` proves the two-term inverse-mass/trace formula. `diagonalSoftAbsMetricEquation12CertificateOfDifferentiable` constructs the complete certificate from any coordinatewise differentiable Hessian diagonal, including at zero entries. |
 | Equation (13), momentum derivative | proved under factor compatibility | `fderiv_generalRelativisticHamiltonian_momentum_apply` proves that the Fréchet momentum derivative applied to any direction is pairing with `G⁻¹p/M`. The explicit hypothesis is the bilinear form of `AᵀA = G⁻¹`. |
-| Diagonal SoftAbs approximation, Section 5.4 | metric, measure, and diagonal calculus proved | `softAbs` implements `x coth(αx)` with value `1/α` at zero. Lean proves positivity, differentiability everywhere (including the removable zero branch), `AᵀA=G⁻¹`, Equations (12)--(13), and exact factor-volume compatibility. Only the implicit-solver validity certificate remains conditional. |
+| Diagonal SoftAbs approximation, Section 5.4 | metric, measure, and diagonal calculus proved | `softAbs` implements `x coth(αx)` with value `1/α` at zero. Lean proves positivity, differentiability everywhere (including the removable zero branch), `AᵀA=G⁻¹`, Equations (12)--(13), and exact factor-volume compatibility. Its target-specific implicit-solver validity certificate remains conditional. The separate bounded nonconstant `2 + sin(q)` metric client now has a complete exact solver and phase-volume theorem. |
 
 ## Algorithm 1: momentum sampling
 
@@ -146,15 +146,17 @@ GR-HMC convergence claim.
 
 ## Remaining formal boundary
 
-The main paper-level validity result is formalized. A verified executable
-instance for the paper's practical implementation still requires additional
-hypotheses or an exact/corrected implicit solver satisfying
-   `GeneralizedLeapfrogSelection.IsValid`; the natural finite implementation
-   is defined, contraction certificates give convergence and quantitative
-   iteration-error bounds, `FiniteFixedPointIsValid` gives the corrected exact
-   interface, and six iterations are proved insufficient in general. Given a
-coordinatewise differentiable and measurable Hessian diagonal, all diagonal
-SoftAbs calculus and measure/kernel obligations are now discharged.
+The main paper-level validity result is formalized, and the bounded
+nonconstant metric supplies a fully valid exact generalized-leapfrog client.
+The paper's practical diagonal SoftAbs implementation still requires
+additional target hypotheses or an exact/corrected implicit solver satisfying
+`GeneralizedLeapfrogSelection.IsValid`; the natural finite implementation is
+defined, contraction certificates give convergence and quantitative
+iteration-error bounds, `FiniteFixedPointIsValid` gives the corrected exact
+interface, and six iterations are proved insufficient in general. Given a
+coordinatewise differentiable and measurable Hessian diagonal, all remaining
+SoftAbs obligations are therefore solver-specific rather than metric or
+kernel-measure obligations.
 
 Until those are discharged, the formalized kernels are mathematical GR-HMC
 algorithms with exact conditional correctness theorems, not certification of

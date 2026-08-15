@@ -1280,12 +1280,28 @@ linear equivalence between scalar coordinates and `PhaseSpace Unit` transports
 determinant one, and `boundedScalarContractiveSolverAt_volumePreserving`
 proves preservation of product phase volume for every `3|ε|/2 < 1`.
 
+Reconciled the active roadmaps after that proof. B2 is now recorded complete
+at the exact and certificate-gated runtime levels; remaining Xu--Ge work is
+classified as restricted Float64 refinement and a target-specific solver
+certificate for the paper-style diagonal SoftAbs client. The executable
+roadmap no longer describes the implemented corrected Riemannian runtime as
+future construction.
+
 ## Next steps
 
-1. Extend the complete finite-dimensional standard-Gaussian Theorem 4.1
-   instance to broader step counts and target classes under explicit drift
-   hypotheses.
-2. Instantiate an applied target such as logistic regression under explicit
-   coercivity and moment assumptions.
-3. Formalize the unbiased-estimator expectation, variance, and expected-cost
-   consequences after the geometric meeting-tail theorem.
+- The general-state composable-inference layer is now machine checked:
+  target-preserving kernels carry optional variable-scope metadata, arbitrary
+  finite schedules preserve their common `Measure`, and a named PG--HMC
+  composition theorem combines an exact auxiliary-variable conditional PG
+  update with any invariant HMC update. This is a stationarity result; it does
+  not silently claim convergence.
+
+1. Instantiate the general-state PG--HMC theorem with a substantive mixed
+   discrete/continuous model.
+2. Develop positive-horizon particle-Gibbs rates and particle-count
+   asymptotics under explicit hypotheses.
+3. Certify a practical diagonal SoftAbs solver and restricted Float64/Julia
+   refinement.
+4. Extend the Ge, Xu, GR-HMC convergence, dynamic-NUTS, slice, reversible-
+   jump, adaptation, particle-asymptotic, and PDMP branches tracked in the
+   overall roadmap.

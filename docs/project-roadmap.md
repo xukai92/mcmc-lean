@@ -69,12 +69,7 @@ Version-9 shared-randomness commands cover coupled multinomial HMC, sticky
 Gaussian RWMH, and their mixture. Lean proves both ideal marginals equal the
 verified single-chain kernels, and Julia exposes replay-level meeting events.
 
-### B2. Executable Xu and Ge (2024) sampler
-
-Implement the corrected radial/spherical momentum construction,
-inverse-factor transport, and nonseparable multinomial transition. Approximate
-implicit solves must return residual or integrator certificates consumed by
-the existing conditional theorem; a fixed iteration count is insufficient.
+### B2. Executable Xu and Ge (2024) sampler — complete at the exact and guarded-runtime levels
 
 IR version 10 now contains a working corrected diagonal constant-metric
 relativistic multinomial specialization, with Reference/Optimized Julia replay
@@ -84,19 +79,8 @@ Banach-fixed-point counterpart and proves uniqueness and convergence of the
 finite loops. Lean now also has a fixed-step interface and a concrete
 smooth momentum-even nonseparable instance: both implicit maps contract under
 the explicit condition `|εa/2| < 1`, giving a measurable exact unique solve,
-convergent finite loops, and momentum-flip reversal. Proving phase-volume
-preservation is now reduced to an explicit differentiability/unit-Jacobian
-certificate: opposite-step uniqueness already supplies bijectivity, and Lean
-proves that the certificate implies preservation of product phase volume.
-The bilinear stress model now closes this argument unconditionally in every
-finite dimension through its exact reciprocal-scaling formula. Proving the
-certificate for the smooth momentum-even model, instantiating a solver with
-the derivatives of the canonical globally positive nonconstant
-`1 + ‖q‖²` metric Hamiltonian (whose factor-volume and measurability
-obligations and Equations (12)--(13) derivative callbacks are now discharged),
-proving contraction and phase volume for that actual derivative pair, and
-refining Float64 residuals to that exact selection remain before B2 is
-complete.
+convergent finite loops, and momentum-flip reversal. The bilinear stress model
+closes phase volume unconditionally in every finite dimension.
 
 The bounded scalar client `2 + sin(q)` closes the actual-derivative solver:
 for `3|ε|/2 < 1` Lean constructs the exact unique solver and proves finite-loop
@@ -130,6 +114,10 @@ solve differentiable. The symmetric construction proves the position inverse
 differentiable; all four determinant factors are computed and cancel by mixed-
 partial equality. Linear conjugacy transfers determinant one to
 `PhaseSpace Unit`, and the Haar theorem proves exact phase-volume preservation.
+The remaining B2 work is refinement rather than sampler construction:
+finite-precision Julia iterations must be related to an exact selection, and
+the paper's practical diagonal SoftAbs target class still needs its own
+solver certificate.
 
 ## Track C: later breadth branches
 
@@ -196,6 +184,13 @@ The slice and first Euclidean reversible-jump clients are complete. The finite
 particle-MCMC spine through conditional SMC and particle Gibbs is complete at
 fixed particle count and finite horizon. Convergence, mixing rates, and
 particle-count asymptotics remain separate later layers.
+
+General-state composable inference is also complete at the common-target
+stationarity layer. `Mcmc.Kernel.ComposableInference` supplies scoped
+operators, arbitrary finite schedules, a named PG--HMC composition, and an
+instantiation whose PG side is discharged by the exact auxiliary-variable
+factorization theorem. Positive-horizon PG convergence remains a distinct
+finite quantitative obligation.
 
 After those foundations and the paper execution milestones, select the
 remaining branches based on research value and shared infrastructure:
