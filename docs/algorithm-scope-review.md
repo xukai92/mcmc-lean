@@ -151,9 +151,16 @@ strong LLN or CLT.
 are now machine checked: identity and flip kernels each preserve the uniform
 two-state target, but selecting between them from the current state destroys
 stationarity. Thus even common frozen-kernel invariance is insufficient before
-one reaches the stronger question of adaptive convergence. Later define
-history-dependent kernel selection, kernel total variation,
-diminishing adaptation, mixing times, and containment, then formalize the
+one reaches the stronger question of adaptive convergence.
+
+Predetermined nonhomogeneous finite-chain semantics are now machine checked:
+Lean defines the law at every time and proves that if every scheduled kernel
+preserves a common target, starting at that target preserves it at every finite
+time. Finite row total variation lies in `[0,1]`, and deterministic uniform
+diminishing schedules are defined; a frozen schedule is proved diminishing.
+This is not yet Roberts--Rosenthal Diminishing Adaptation, which is convergence
+in probability for a random history-dependent process. Next define that random
+selection semantics, mixing times, and containment, then formalize the
 finite-window coupling argument. Production warmup should be described as an
 inhomogeneous phase followed by a frozen proved kernel.
 

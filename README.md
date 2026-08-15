@@ -99,6 +99,9 @@ The repository now contains machine-checked implementations and proofs for:
 - finite state-dependent kernel selection and a checked counterexample showing
   that common invariance of all frozen kernels does not imply invariance after
   state-dependent selection;
+- predetermined nonhomogeneous finite-chain evolution, preservation under a
+  common stationary target, finite row total variation, and deterministic
+  diminishing-schedule vocabulary;
 - two-temperature parallel tempering with an MH-corrected swap, product-target
   stationarity, and an exact cold-marginal theorem;
 - finite pseudo-marginal MH with a nonnegative unbiased estimator, including

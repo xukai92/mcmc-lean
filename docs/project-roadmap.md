@@ -114,8 +114,11 @@ The pre-Xu dependency order is:
    Gibbs remain.
 7. adaptive-MCMC boundary -- finite state-dependent kernel selection and a
    counterexample where two frozen target-invariant kernels combine into a
-   non-invariant selected kernel are complete. Nonhomogeneous path semantics,
-   diminishing adaptation, mixing times, and containment remain separate.
+   non-invariant selected kernel are complete. Predetermined nonhomogeneous law
+   evolution, common-stationarity preservation, row total variation, and a
+   deterministic diminishing-schedule definition are also complete.
+   History-dependent random adaptation, convergence in probability, mixing
+   times, and containment remain separate.
 
 Items 4--6 are intentionally ordered: the remaining slice work needs a
 measurable horizontal conditional with finite positive level-set mass;
@@ -133,8 +136,9 @@ remaining branches based on research value and shared infrastructure:
 - nontrivial reversible-jump transports on the completed tagged-space layer;
 - particle MCMC after finite SMC and pseudo-marginal foundations;
 - adaptive MCMC beyond the completed boundary counterexample only with
-  explicit nonhomogeneous-chain semantics, diminishing adaptation, and
-  containment; and
+  the completed predetermined nonhomogeneous semantics and deterministic
+  diminishing vocabulary extended to random history-dependent adaptation,
+  convergence in probability, and containment; and
 - BPS/Zig-Zag only in a separate continuous-time PDMP architecture.
 
 Sequence-parallel evaluation is an execution-refinement project downstream of

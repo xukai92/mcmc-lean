@@ -3,6 +3,23 @@
 Entries through the earlier 2026-08-13 work are preserved in the
 [development-log archive](development-log-archive.md).
 
+## 2026-08-15: predetermined nonhomogeneous adaptive foundation
+
+Defined evolution through finite and time-indexed predetermined kernel
+schedules. Lean proves that a common stationary target remains the law after
+every finite prefix when the chain starts at that target. This positive theorem
+is intentionally contrasted with the existing state-dependent-selection
+counterexample: predetermined scheduling is not adaptive selection from the
+current chain state.
+
+Added finite row total-variation distance, including nonnegativity, symmetry,
+the unit upper bound, and uniform kernel-distance predicates. Defined a
+deterministic diminishing-schedule condition and proved every frozen schedule
+satisfies it. Roberts--Rosenthal diminishing adaptation for a random
+history-dependent process, mixing times, containment, and convergence remain
+future theorems; none follows from common invariance or deterministic
+diminishing alone.
+
 ## 2026-08-15: finite PMMH stationary exactness
 
 Packaged a complete SMC history and selected terminal index as the auxiliary
