@@ -1,5 +1,12 @@
 # Development log
 
+## 2026-08-15: sampler-wide IR artifact naming
+
+Renamed the mixed finite/continuous artifact from `Reference/Finite.ir` to
+`Reference/Samplers.ir` and moved its versioned serializer from the finite
+namespace to `Mcmc.Executable.IRFormat`. Format version 2 and the serialized
+program data are unchanged.
+
 ## 2026-08-15: continuous RWMH enters the interpreted sampler artifact
 
 Extended the sampler artifact to version 2 with an inspectable scalar Gaussian
@@ -22,7 +29,7 @@ boundaries pending a separate numerical refinement proof.
 
 Made the finite command IR an executable cross-language artifact. Lean now has
 a deterministic command interpreter, emits a versioned S-expression
-`Reference/Finite.ir`, and builds the conformance oracle on the IR interpreter.
+`Reference/Samplers.ir`, and builds the conformance oracle on the IR interpreter.
 Julia's maintained `VerifiedSamplers.Reference` module parses and interprets
 that data using the shared `draw_below!` runtime contract. The public finite
 API and exhaustive tests now compare this interpreted reference with the

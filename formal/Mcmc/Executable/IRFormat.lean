@@ -2,13 +2,15 @@ import Mcmc.Executable.Finite.CompilerIR
 import Mcmc.Executable.Continuous.CompilerIR
 
 /-!
-# Versioned textual format for finite sampler IR
+# Versioned textual format for sampler IR
 
 The artifact is data, not Julia source. Its deliberately small S-expression
 format is consumed by the maintained Julia reference interpreter.
 -/
 
-namespace Mcmc.Executable.Finite.CompilerIR.Format
+namespace Mcmc.Executable.IRFormat
+
+open Finite.CompilerIR
 
 def version : Nat := 2
 
@@ -126,10 +128,10 @@ private def continuousProgramRender
   list ["program", quote program.name, list ("inputs" :: inputs),
     list ("body" :: program.body.map continuousStmtRender)]
 
-/-- Serialize all finite reference entry programs with a format version. -/
+/-- Serialize all reference entry programs with a format version. -/
 def render : String :=
   list ["verified-samplers-ir", toString version,
     programRender categoricalProgram, programRender metropolisHastingsProgram,
     continuousProgramRender Continuous.CompilerIR.gaussianRwmhProgram] ++ "\n"
 
-end Mcmc.Executable.Finite.CompilerIR.Format
+end Mcmc.Executable.IRFormat

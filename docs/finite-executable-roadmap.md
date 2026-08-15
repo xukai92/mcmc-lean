@@ -78,7 +78,7 @@ Lean serializes the backend-neutral command IR into a small versioned
 S-expression data format. Julia-specific one-based indexing appears only in
 the maintained `VerifiedSamplers.Reference` interpreter.
 
-The serializer writes only `VerifiedSamplers.jl/src/Reference/Finite.ir`.
+The serializer writes only `VerifiedSamplers.jl/src/Reference/Samplers.ir`.
 Generation is invoked explicitly with
 `make generate`; ordinary Lean builds, Julia installation, and tests never
 rewrite source files.
@@ -107,7 +107,7 @@ formal/Mcmc/Executable/Finite/CompilerIR.lean
 formal/Mcmc/Executable/Finite/CompilerIRInterpreter.lean
   deterministic Lean trace interpreter for the command IR
 
-formal/Mcmc/Executable/Finite/IRFormat.lean
+formal/Mcmc/Executable/IRFormat.lean
   deterministic versioned S-expression serialization
 
 formal/Mcmc/Executable/Finite/TwoState.lean

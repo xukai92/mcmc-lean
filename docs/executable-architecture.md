@@ -55,7 +55,7 @@ docs/                           cross-layer specifications and assurance notes
 Makefile                        explicit build, generation, and validation entry points
 ```
 
-Only the Lean serializer writes `VerifiedSamplers.jl/src/Reference/Finite.ir`.
+Only the Lean serializer writes `VerifiedSamplers.jl/src/Reference/Samplers.ir`.
 The Julia interpreter, runtime, and optimized sources are maintained by hand.
 The IR artifact is committed so installing the Julia package does not require
 Lean.
@@ -304,7 +304,7 @@ overflow cannot silently change a probability.
 ### Reference submodule
 
 `VerifiedSamplers.Reference` contains the maintained generic interpreter and
-the emitted, versioned `Finite.ir` artifact. Its functions accept a source
+the emitted, versioned `Samplers.ir` artifact. Its functions accept a source
 explicitly and never access Julia's global RNG.
 
 ### Optimized submodule

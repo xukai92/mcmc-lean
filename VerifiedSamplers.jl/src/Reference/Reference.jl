@@ -121,7 +121,7 @@ function load_programs(path::String)
     programs
 end
 
-const PROGRAMS = load_programs(joinpath(@__DIR__, "Finite.ir"))
+const PROGRAMS = load_programs(joinpath(@__DIR__, "Samplers.ir"))
 
 function eval_expr(raw, env::Dict{String,Any})
     node = items(aslist(raw))

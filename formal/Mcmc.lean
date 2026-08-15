@@ -21,7 +21,7 @@ import Mcmc.Executable.Finite.AsymmetricThreeState
 import Mcmc.Executable.Finite.Program
 import Mcmc.Executable.Finite.CompilerIR
 import Mcmc.Executable.Finite.CompilerIRInterpreter
-import Mcmc.Executable.Finite.IRFormat
+import Mcmc.Executable.IRFormat
 import Mcmc.Executable.Finite.IRTests
 import Mcmc.Executable.Primitive
 import Mcmc.Executable.IR

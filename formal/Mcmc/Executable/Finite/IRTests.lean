@@ -1,11 +1,11 @@
 import Mcmc.Executable.Finite.CompilerIRInterpreter
-import Mcmc.Executable.Finite.IRFormat
+import Mcmc.Executable.IRFormat
 
 /-! Compile-time regressions for the canonical finite sampler IR. -/
 
 namespace Mcmc.Executable.Finite.CompilerIR.Tests
 
-example : Format.version = 2 := rfl
+example : Mcmc.Executable.IRFormat.version = 2 := rfl
 
 example : runCategorical [1, 0, 2] [⟨3, 1⟩] = .ok (2, []) := by
   native_decide
