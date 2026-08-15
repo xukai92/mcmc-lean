@@ -280,6 +280,47 @@ private def Stmt.cost : Stmt → Nat
 private def statementsCost (statements : List Stmt) : Nat :=
   statements.foldl (fun total statement => total + statement.cost) 0
 
+/-- Consume exactly `count` standard-normal events. Kept separate from the
+statement interpreter so trace consumption can be proved by induction. -/
+noncomputable def drawStandardNormalVector : Nat → Env →
+    Except RuntimeError (List ℝ × Env)
+  | 0, env => .ok ([], env)
+  | count + 1, env =>
+      match IR.Prim.replay .standardNormal env.trace with
+      | .error error => .error (.primitive error)
+      | .ok draw => do
+          let (tail, env) ← drawStandardNormalVector count
+            { env with trace := draw.remaining }
+          return (draw.value :: tail, env)
+
+theorem drawStandardNormalVector_replays (values : List ℝ) (env : Env) :
+    drawStandardNormalVector values.length
+        { env with trace := values.map IR.Event.standardNormal ++ env.trace } =
+      .ok (values, env) := by
+  induction values generalizing env with
+  | nil => rfl
+  | cons value values ih =>
+      simp [drawStandardNormalVector, IR.Prim.replay, ih]
+
+noncomputable def replayStandardNormalVector : Nat → List IR.Event →
+    Except RuntimeError (IR.Replay (List ℝ))
+  | 0, trace => .ok ⟨[], trace⟩
+  | count + 1, trace =>
+      match IR.Prim.replay .standardNormal trace with
+      | .error error => .error (.primitive error)
+      | .ok draw => do
+          let tail ← replayStandardNormalVector count draw.remaining
+          return ⟨draw.value :: tail.value, tail.remaining⟩
+
+@[simp] theorem replayStandardNormalVector_replays
+    (values : List ℝ) (rest : List IR.Event) :
+    replayStandardNormalVector values.length
+        (values.map IR.Event.standardNormal ++ rest) = .ok ⟨values, rest⟩ := by
+  induction values with
+  | nil => rfl
+  | cons value values ih =>
+      simp [replayStandardNormalVector, IR.Prim.replay, ih]
+
 /-- Fuel-indexed ideal-real interpreter. Fuel is exposed only to make recursive
 control flow structurally transparent to Lean; public execution derives a
 sufficient bound from the syntax. -/
@@ -304,15 +345,7 @@ noncomputable def runStatementsFuel : Nat → List Stmt → Env →
               ({ env with trace := draw.remaining }.set destination draw.value)
       | .sampleStandardNormalVector destination dimension => do
           let (dimension, env) ← evalExpr dimension env
-          let rec drawVector : Nat → Env → Except RuntimeError (List ℝ × Env)
-            | 0, env => .ok ([], env)
-            | count + 1, env =>
-                match IR.Prim.replay .standardNormal env.trace with
-                | .error error => .error (.primitive error)
-                | .ok draw => do
-                    let (tail, env) ← drawVector count { env with trace := draw.remaining }
-                    return (draw.value :: tail, env)
-          let (values, env) ← drawVector dimension env
+          let (values, env) ← drawStandardNormalVector dimension env
           runStatementsFuel fuel rest (env.set destination values)
       | .ifThen condition body => do
           let (condition, env) ← evalExpr condition env
@@ -497,16 +530,37 @@ noncomputable def runVectorHmc (logDensity : List ℝ → ℝ)
     (gradient : List ℝ → List ℝ) (stepSize : ℝ) (steps : Nat)
     (current : List ℝ) (trace : List IR.Event) :
     Except RuntimeError (IR.Replay (List ℝ)) := do
-  let env : Env :=
-    { trace, logDensity := fun _ => 0, vectorLogDensity := logDensity,
-      vectorGradient := gradient,
-      reals := [(stepSizeVar.name, stepSize)],
-      nats := [(stepsVar.name, steps), (dimensionVar.name, current.length)],
-      vectors := [(vectorCurrentVar.name, current)] }
-  match ← runStatements vectorHmcProgram.body env with
-  | .next _ => .error .programDidNotReturn
-  | .returned _ _ => .error .programDidNotReturn
-  | .returnedVector value env => .ok ⟨value, env.trace⟩
+  let momentum ← replayStandardNormalVector current.length trace
+  let uniform ← match IR.Prim.replay .uniformUnit momentum.remaining with
+    | .error error => .error (.primitive error)
+    | .ok draw => .ok draw
+  let next := vectorLeapfrogN gradient stepSize steps current momentum.value
+  let currentEnergy := -logDensity current +
+    momentum.value.foldl (fun total x => total + x * x) 0 / 2
+  let nextEnergy := -logDensity next.1 +
+    next.2.foldl (fun total x => total + x * x) 0 / 2
+  return ⟨if uniform.value < Real.exp (min 0 (currentEnergy - nextEnergy))
+    then next.1 else current, uniform.remaining⟩
+
+/-- The vector command consumes one normal event per coordinate followed by
+one uniform event and returns precisely the endpoint-corrected HMC result. -/
+theorem runVectorHmc_refines (logDensity : List ℝ → ℝ)
+    (gradient : List ℝ → List ℝ) (stepSize : ℝ) (steps : Nat)
+    (current momentum : List ℝ) (hlen : momentum.length = current.length)
+    (uniform : ℝ) (hunit : 0 ≤ uniform ∧ uniform < 1)
+    (rest : List IR.Event) :
+    let next := vectorLeapfrogN gradient stepSize steps current momentum
+    let currentEnergy := -logDensity current +
+      momentum.foldl (fun total x => total + x * x) 0 / 2
+    let nextEnergy := -logDensity next.1 +
+      next.2.foldl (fun total x => total + x * x) 0 / 2
+    runVectorHmc logDensity gradient stepSize steps current
+        (momentum.map IR.Event.standardNormal ++
+          .uniformUnit uniform :: rest) =
+      .ok ⟨if uniform < Real.exp (min 0 (currentEnergy - nextEnergy))
+        then next.1 else current, rest⟩ := by
+  simp [runVectorHmc, ← hlen,
+    IR.Prim.replay, hunit, except_ok_bind]
 
 /-- The portable HMC program performs exactly one velocity-Verlet/leapfrog
 step followed by the endpoint Hamiltonian correction. -/

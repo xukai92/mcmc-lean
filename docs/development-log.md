@@ -1,5 +1,23 @@
 # Development log
 
+## 2026-08-15: vector trace, bounded refinement, and constant metrics
+
+Closed the ideal vector-HMC replay theorem: a transition consumes exactly one
+standard-normal event per coordinate and one unit-uniform event, exposes the
+multi-step endpoint energies and acceptance branch, and returns the untouched
+trace suffix. Added backend-independent coordinatewise leapfrog, energy,
+threshold, and decision-stability certificates for bounded numerical
+refinement.
+
+Added public constant-metric HMC with positive diagonal and symmetric
+positive-definite dense masses. Reference and Optimized implementations are
+differentially tested. Lean defines diagonal and dense inverse-mass velocity
+maps and proves one-step and arbitrary finite-step phase-volume preservation.
+Tests now cover a correlated Gaussian, an ill-conditioned Gaussian,
+Reference/Optimized fixed-trace agreement, and finite-difference dense-metric
+phase-volume preservation. A concrete Float64 error witness and the
+measure-level Cholesky/Gaussian refinement remain explicit future obligations.
+
 ## 2026-08-15: vector-valued executable HMC
 
 Extended the generated sampler artifact to version 5 with a typed real-vector

@@ -31,6 +31,8 @@ import Mcmc.Executable.Continuous.RWMH
 import Mcmc.Executable.Continuous.HMC
 import Mcmc.Executable.Continuous.NumericalRefinement
 import Mcmc.Executable.Continuous.BoundedRWMH
+import Mcmc.Executable.Continuous.BoundedHMC
+import Mcmc.Executable.Continuous.MetricHMC
 import Mcmc.Docs.Graph
 import Mcmc.Hamiltonian.Leapfrog
 import Mcmc.Hamiltonian.Assumptions

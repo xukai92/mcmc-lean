@@ -1,6 +1,7 @@
 module VerifiedSamplers
 
 using Random
+using LinearAlgebra
 import Base: step
 
 include("Runtime/Runtime.jl")
@@ -8,7 +9,74 @@ include("Reference/Reference.jl")
 include("Optimized/Optimized.jl")
 
 export FiniteWeights, FiniteKernelWeights, FiniteMH, TwoStateMH, GaussianRWMH,
-    ScalarHMC, VectorHMC, sample
+    ScalarHMC, VectorHMC, DiagonalMetric, DenseMetric, MetricHMC, sample
+
+struct DiagonalMetric
+    mass::Vector{Float64}
+    function DiagonalMetric(mass::AbstractVector{<:Real})
+        converted = Float64.(mass)
+        isempty(converted) && throw(ArgumentError("mass cannot be empty"))
+        all(x -> isfinite(x) && x > 0, converted) ||
+            throw(ArgumentError("diagonal mass must be finite and positive"))
+        new(converted)
+    end
+end
+
+struct DenseMetric
+    mass::Matrix{Float64}
+    function DenseMetric(mass::AbstractMatrix{<:Real})
+        converted = Matrix{Float64}(mass)
+        size(converted, 1) == size(converted, 2) ||
+            throw(DimensionMismatch("mass matrix must be square"))
+        issymmetric(converted) || throw(ArgumentError("mass matrix must be symmetric"))
+        isposdef(converted) || throw(ArgumentError("mass matrix must be positive definite"))
+        new(converted)
+    end
+end
+
+struct MetricHMC{F,G,M}
+    logdensity::F
+    gradient::G
+    metric::M
+    step_size::Float64
+    steps::Int
+    function MetricHMC(logdensity::F, gradient::G, metric::M,
+            step_size::Real, steps::Integer=10) where {F,G,M<:Union{DiagonalMetric,DenseMetric}}
+        converted = Float64(step_size)
+        isfinite(converted) && converted > 0 ||
+            throw(ArgumentError("step size must be finite and positive"))
+        steps > 0 || throw(ArgumentError("leapfrog steps must be positive"))
+        new{F,G,M}(logdensity, gradient, metric, converted, Int(steps))
+    end
+end
+
+metric_mass(metric::DiagonalMetric) = metric.mass
+metric_mass(metric::DenseMetric) = metric.mass
+
+function step(rng::AbstractRNG, sampler::MetricHMC,
+        current::AbstractVector{<:Real})
+    Reference.metric_hmc_step!(Runtime.RNGSource(rng), sampler.logdensity,
+        sampler.gradient, sampler.step_size, sampler.steps, current,
+        metric_mass(sampler.metric))
+end
+
+step(sampler::MetricHMC, current::AbstractVector{<:Real}) =
+    step(Random.default_rng(), sampler, current)
+
+function sample(rng::AbstractRNG, sampler::MetricHMC,
+        initial::AbstractVector{<:Real}, count::Integer)
+    count >= 0 || throw(ArgumentError("sample count must be nonnegative"))
+    current = Float64.(initial)
+    samples = Matrix{Float64}(undef, length(current), count)
+    for index in axes(samples, 2)
+        current = step(rng, sampler, current)
+        samples[:, index] = current
+    end
+    samples
+end
+
+sample(sampler::MetricHMC, initial::AbstractVector{<:Real}, count::Integer) =
+    sample(Random.default_rng(), sampler, initial, count)
 
 struct VectorHMC{F,G}
     logdensity::F

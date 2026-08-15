@@ -1,9 +1,11 @@
 module Optimized
 
+using LinearAlgebra
+
 using ...Runtime: AbstractRandomSource, draw_below!, standard_normal!, uniform_unit!
 
 export categorical_index!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!,
-    scalar_hmc_step!, vector_hmc_step!, leapfrog, vector_leapfrog
+    scalar_hmc_step!, vector_hmc_step!, metric_hmc_step!, leapfrog, vector_leapfrog
 
 """One scalar velocity-Verlet/leapfrog step with unit mass."""
 function leapfrog(gradient, step_size::Float64, position::Float64, momentum::Float64)
@@ -40,6 +42,35 @@ function vector_hmc_step!(source::AbstractRandomSource, logdensity, gradient,
     next_energy = -logdensity(next_position) + sum(abs2, next_momentum) / 2
     log(uniform_unit!(source)) < min(0.0, current_energy - next_energy) ?
         next_position : initial
+end
+
+"""Independent constant-metric endpoint HMC implementation."""
+function metric_hmc_step!(source::AbstractRandomSource, logdensity, gradient,
+        step_size::Float64, steps::Integer, current::AbstractVector{<:Real}, mass)
+    q = Float64.(current)
+    isempty(q) && throw(ArgumentError("position cannot be empty"))
+    if mass isa AbstractVector
+        length(mass) == length(q) || throw(DimensionMismatch("mass dimension"))
+        all(x -> isfinite(x) && x > 0, mass) ||
+            throw(ArgumentError("diagonal mass must be finite and positive"))
+        p = sqrt.(mass) .* [standard_normal!(source) for _ in eachindex(q)]
+        solve_mass = x -> x ./ mass
+    else
+        size(mass) == (length(q), length(q)) || throw(DimensionMismatch("mass dimension"))
+        decomposition = cholesky(Symmetric(Matrix{Float64}(mass)))
+        p = decomposition.L * [standard_normal!(source) for _ in eachindex(q)]
+        solve_mass = x -> decomposition \ x
+    end
+    initial_p = copy(p)
+    for _ in 1:steps
+        p .-= (step_size / 2) .* gradient(q)
+        q .+= step_size .* solve_mass(p)
+        p .-= (step_size / 2) .* gradient(q)
+    end
+    current_energy = -logdensity(current) + dot(initial_p, solve_mass(initial_p)) / 2
+    proposed_energy = -logdensity(q) + dot(p, solve_mass(p)) / 2
+    log(uniform_unit!(source)) < min(0.0, current_energy - proposed_energy) ?
+        q : Float64.(current)
 end
 
 """Independent Float64 implementation of scalar one-step endpoint HMC."""

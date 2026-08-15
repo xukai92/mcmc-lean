@@ -1,8 +1,10 @@
 module Reference
 
+using LinearAlgebra
+
 using ..Runtime: AbstractRandomSource, draw_below!, standard_normal!, uniform_unit!
 
-export categorical_index!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!, scalar_hmc_step!, vector_hmc_step!,
+export categorical_index!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!, scalar_hmc_step!, vector_hmc_step!, metric_hmc_step!,
     IR_FORMAT_VERSION
 
 const IR_FORMAT_VERSION = 5
@@ -348,6 +350,37 @@ function vector_hmc_step!(source::AbstractRandomSource, logdensity, gradient,
     result = run_program("vector_hmc_step!", source, logdensity, gradient,
         step_size, steps, length(position), position)
     Float64.(result)
+end
+
+"""Reference endpoint HMC for a constant diagonal or dense mass matrix."""
+function metric_hmc_step!(source::AbstractRandomSource, logdensity, gradient,
+        step_size::Float64, steps::Integer, current::AbstractVector{<:Real}, mass)
+    dimension = length(current)
+    dimension > 0 || throw(ArgumentError("position cannot be empty"))
+    z = [standard_normal!(source) for _ in 1:dimension]
+    if mass isa AbstractVector
+        length(mass) == dimension || throw(DimensionMismatch("mass dimension"))
+        all(x -> isfinite(x) && x > 0, mass) ||
+            throw(ArgumentError("diagonal mass must be finite and positive"))
+        momentum = sqrt.(mass) .* z
+        velocity = p -> p ./ mass
+    else
+        size(mass) == (dimension, dimension) || throw(DimensionMismatch("mass dimension"))
+        factor = cholesky(Symmetric(Matrix{Float64}(mass))).L
+        momentum = factor * z
+        velocity = p -> factor' \ (factor \ p)
+    end
+    position = Float64.(current)
+    initial_momentum = copy(momentum)
+    for _ in 1:steps
+        momentum = momentum .- (step_size / 2) .* gradient(position)
+        position = position .+ step_size .* velocity(momentum)
+        momentum = momentum .- (step_size / 2) .* gradient(position)
+    end
+    current_energy = -logdensity(current) + dot(initial_momentum, velocity(initial_momentum)) / 2
+    next_energy = -logdensity(position) + dot(momentum, velocity(momentum)) / 2
+    log(uniform_unit!(source)) < min(0.0, current_energy - next_energy) ?
+        position : Float64.(current)
 end
 
 end

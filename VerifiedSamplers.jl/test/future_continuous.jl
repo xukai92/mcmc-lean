@@ -168,6 +168,64 @@ end
         @test_throws ArgumentError VectorHMC(logdensity, gradient, 0.0)
         @test_throws ArgumentError step(MersenneTwister(1), sampler, Float64[])
     end
+    @testset "constant-metric vector HMC" begin
+        covariance = [1.0 0.85; 0.85 2.0]
+        precision = inv(covariance)
+        logdensity = q -> -dot(q, precision * q) / 2
+        gradient = q -> precision * q
+
+        for mass in ([1.0, 2.0], [1.0 0.3; 0.3 1.5])
+            events = [Runtime.NormalEvent(0.4), Runtime.NormalEvent(-0.7),
+                Runtime.UniformEvent(0.25)]
+            reference_source = Runtime.FloatTraceSource(events)
+            optimized_source = Runtime.FloatTraceSource(events)
+            reference = Reference.metric_hmc_step!(reference_source,
+                logdensity, gradient, 0.12, 5, [0.2, -0.1], mass)
+            optimized = Optimized.metric_hmc_step!(optimized_source,
+                logdensity, gradient, 0.12, 5, [0.2, -0.1], mass)
+            @test optimized ≈ reference atol=2e-15
+            @test Runtime.remaining(reference_source) == 0
+            @test Runtime.remaining(optimized_source) == 0
+        end
+
+        diagonal_sampler = MetricHMC(logdensity, gradient,
+            DiagonalMetric(diag(covariance)), 0.14, 7)
+        diagonal_chain = sample(MersenneTwister(0xd1a6), diagonal_sampler,
+            [0.0, 0.0], 35_000)[:, 3501:end]
+        @test maximum(abs.(cov(permutedims(diagonal_chain)) - covariance)) < 0.15
+
+        dense_sampler = MetricHMC(logdensity, gradient,
+            DenseMetric(covariance), 0.16, 6)
+        dense_chain = sample(MersenneTwister(0xde45), dense_sampler,
+            [0.0, 0.0], 35_000)[:, 3501:end]
+        @test maximum(abs.(cov(permutedims(dense_chain)) - covariance)) < 0.15
+
+        # Finite-difference phase Jacobian for a dense constant metric.
+        mass = [1.0 0.25; 0.25 1.4]
+        phase_map = function (state)
+            q, p = state[1:2], state[3:4]
+            p_half = p - 0.05 .* gradient(q)
+            q_next = q + 0.1 .* (mass \ p_half)
+            p_next = p_half - 0.05 .* gradient(q_next)
+            [q_next; p_next]
+        end
+        point, δ = [0.3, -0.2, 0.4, 0.1], 1e-6
+        jacobian = hcat([(phase_map(point + δ .* (1:4 .== j)) -
+            phase_map(point - δ .* (1:4 .== j))) ./ (2δ) for j in 1:4]...)
+        @test det(jacobian) ≈ 1.0 atol=1e-8
+
+        ill_covariance = Diagonal([1e-2, 1e2])
+        ill_precision = inv(ill_covariance)
+        ill_sampler = MetricHMC(q -> -dot(q, ill_precision * q) / 2,
+            q -> ill_precision * q, DenseMetric(Matrix(ill_precision)), 0.15, 8)
+        ill_chain = sample(MersenneTwister(0x111c), ill_sampler,
+            [0.0, 0.0], 25_000)[:, 2501:end]
+        standardized_variances = vec(var(ill_chain; dims=2)) ./ diag(ill_covariance)
+        @test maximum(abs.(standardized_variances .- 1)) < 0.18
+
+        @test_throws ArgumentError DiagonalMetric([1.0, 0.0])
+        @test_throws ArgumentError DenseMetric([1.0 2.0; 2.0 1.0])
+    end
     @testset "DHMC categorical target" begin
         @test_skip false
     end

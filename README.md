@@ -210,6 +210,23 @@ exact endpoint kernel is invariant in every finite dimension. Reference and
 Optimized agree on fixed traces, and the public sampler is tested on a
 two-dimensional Gaussian.
 
+Constant-metric execution is also available through `MetricHMC` with either
+`DiagonalMetric` or symmetric positive-definite `DenseMetric`:
+
+```julia
+Σ = [1.0 0.8; 0.8 2.0]
+precision = inv(Σ)
+sampler = MetricHMC(q -> -dot(q, precision * q) / 2,
+    q -> precision * q, DenseMetric(Σ), 0.15, 6)
+chain = sample(MersenneTwister(9), sampler, zeros(2), 10_000)
+```
+
+Lean defines the corresponding diagonal and dense inverse-mass velocity maps
+and proves every finite constant-metric leapfrog trajectory preserves phase
+volume. Positive-definiteness and Cholesky momentum generation are currently
+validated at the Julia boundary; their measure-level refinement is a later
+obligation.
+
 As for RWMH, the Float64/RNG refinement remains explicit and deferred.
 
 ## What “HMC” means here

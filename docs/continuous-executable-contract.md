@@ -80,6 +80,15 @@ invariance theorem is dimension-polymorphic, and
 integrator is the coordinate serialization of the `Fin n → ℝ`
 Hamiltonian integrator.
 
+The vector replay theorem now covers the complete normal-event prefix,
+uniform event, endpoint energies, decision, result, and remaining trace. The
+bounded HMC layer gives coordinatewise trajectory certificates and a stable
+acceptance theorem outside the explicit uniform/threshold error band.
+Constant diagonal and dense metrics have exact Lean velocity maps and
+phase-volume-preservation proofs. Julia checks positive-definiteness and uses
+Cholesky momentum generation; a theorem connecting that concrete operation to
+the corresponding Gaussian momentum measure is not yet claimed.
+
 The same artifact contains the continuous RWMH command program. Julia
 Reference interprets its expressions, callback calls, draws, branch, and
 return; public `GaussianRWMH` uses this path. Optimized remains an independent
