@@ -543,7 +543,38 @@ end
         @test frequencies[2] < frequencies[3]
     end
     @testset "adaptation correctness" begin
-        @test_skip false
+        config = WarmupGaussianRWMH(x -> -x^2 / 2, 0.15, 1_000;
+            target_accept=0.44, learning_rate=0.6,
+            min_scale=0.05, max_scale=4.0)
+        first = warmup(MersenneTwister(0xada7), config, 0.0)
+        second = warmup(MersenneTwister(0xada7), config, 0.0)
+        @test first.state == second.state
+        @test first.scales == second.scales
+        @test first.accepted == second.accepted
+        @test first.sampler.scale == first.scales[end]
+        @test all(scale -> 0.05 <= scale <= 4.0, first.scales)
+        observed_changes = abs.(diff(log.(first.scales)))
+        allowed_changes = config.learning_rate ./ sqrt.(1:config.iterations)
+        @test all(observed_changes .<= allowed_changes .+ 1e-14)
+
+        # Once warmup returns, ordinary frozen-kernel sampling is exactly the
+        # existing GaussianRWMH API.
+        frozen_rng = MersenneTwister(0xf20a)
+        direct_rng = MersenneTwister(0xf20a)
+        @test sample(frozen_rng, first.sampler, first.state, 100) ==
+            sample(direct_rng, GaussianRWMH(config.logdensity,
+                first.scales[end]), first.state, 100)
+
+        chain = sample(MersenneTwister(0xada8), config, 0.0, 30_000)[3001:end]
+        @test abs(mean(chain)) < 0.07
+        @test abs(var(chain) - 1) < 0.10
+
+        @test_throws ArgumentError WarmupGaussianRWMH(identity, 0.0, 10)
+        @test_throws ArgumentError WarmupGaussianRWMH(identity, 1.0, -1)
+        @test_throws ArgumentError WarmupGaussianRWMH(identity, 1.0, 10;
+            target_accept=1.0)
+        @test_throws ArgumentError WarmupGaussianRWMH(identity, 1.0, 10;
+            min_scale=2.0, max_scale=1.0)
     end
     @testset "ESS and gradient-count benchmarks" begin
         function autocorrelation_ess(values; max_lag=min(1_000, length(values) ÷ 4))

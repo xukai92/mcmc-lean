@@ -135,6 +135,14 @@ then applies the checked Doeblin layer. Its coefficient is deliberately
 conservative; sharp dependence on particle count, horizon, and bounded
 potentials remains separate quantitative work.
 
+The Julia layer also exposes bounded warmup-only tuning for Gaussian RWMH.
+`WarmupGaussianRWMH` uses diminishing `1/√n` Robbins--Monro log-scale updates,
+clamps the proposal scale, and returns a frozen `GaussianRWMH` for retained
+sampling. The warmup trajectory is explicitly not advertised as stationary;
+the existing Lean adaptive-MCMC results describe the mathematical conditions,
+while cross-language refinement of this particular floating-point tuner
+remains separate.
+
 Betancourt's [*A Conceptual Introduction to Hamiltonian Monte
 Carlo*](https://arxiv.org/abs/1701.02434) is used as a foundational HMC
 reference. Its lift--evolve--project correctness spine and the boundary between

@@ -114,8 +114,12 @@ invariance theorems; they do not replace them.
 
 It retains skipped testsets only for:
 
-- DHMC categorical targets;
-- adaptation.
+- DHMC categorical targets.
+
+Warmup-only Gaussian-RWMH adaptation is active. Tests verify deterministic
+replay, scale bounds, the `1/√n` update envelope, exact freezing into the
+ordinary `GaussianRWMH` API, validation failures, and normal-target moments.
+The warmup trajectory itself is not treated as stationary output.
 
 These become active only when the corresponding executable APIs and contracts exist. In
 particular, a finite-difference Jacobian check will be classified as an

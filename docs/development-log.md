@@ -1429,6 +1429,17 @@ endpoint log density twice per transition. These are reproducible regression
 budgets, not complexity theorems or universal efficiency comparisons. Only
 the unavailable DHMC categorical and runtime-adaptation suites remain skipped.
 
+Added bounded warmup-only Gaussian-RWMH adaptation to the public Julia API.
+`WarmupGaussianRWMH` applies clamped Robbins--Monro log-scale updates with gain
+`η/√n`; `warmup` returns the final state, full scale/acceptance trace, and an
+ordinary frozen `GaussianRWMH`. Retained `sample` calls run only that frozen
+kernel after warmup. Tests cover seeded replay, diminishing update bounds,
+scale bounds, frozen-kernel equivalence, validation, and normal moments. This
+does not claim the warmup path is stationary and does not identify this
+finite-precision runtime with the random-adaptation convergence theorem in
+Lean without an additional refinement proof. DHMC is now the only skipped
+diagnostic family.
+
 The Gaussian diagonal-SoftAbs client is now end-to-end. Lean connects the
 actual Gaussian Hessian to a strictly non-identity SoftAbs metric, packages the
 explicit separable update as a valid generalized-leapfrog selection, and

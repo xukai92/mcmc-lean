@@ -10,6 +10,7 @@ include("Reference/Reference.jl")
 include("Optimized/Optimized.jl")
 
 export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, TwoStateMH, GaussianRWMH,
+    WarmupGaussianRWMH, GaussianRWMHWarmupResult, warmup,
     ScalarHMC, VectorHMC, MultinomialHMC, MetricMultinomialHMC,
     DiagonalMetric, DenseMetric, MetricHMC, RelativisticMultinomialHMC,
     GaussianSoftAbsGRHMC,
@@ -752,6 +753,86 @@ end
 
 sample(sampler::GaussianRWMH, initial::Real, count::Integer) =
     sample(Random.default_rng(), sampler, initial, count)
+
+"""Bounded, warmup-only Robbins--Monro tuning for Gaussian RWMH.
+
+The log proposal scale changes by `learning_rate / sqrt(iteration)` times the
+acceptance error and is clamped to `[min_scale, max_scale]`. Retained sampling
+uses the frozen `GaussianRWMH` returned by `warmup`; no stationarity claim is
+made for the warmup trajectory itself.
+"""
+struct WarmupGaussianRWMH{F}
+    logdensity::F
+    initial_scale::Float64
+    iterations::Int
+    target_accept::Float64
+    learning_rate::Float64
+    min_scale::Float64
+    max_scale::Float64
+end
+
+function WarmupGaussianRWMH(logdensity::F, initial_scale::Real,
+        iterations::Integer; target_accept::Real=0.44,
+        learning_rate::Real=0.5, min_scale::Real=1e-4,
+        max_scale::Real=1e2) where {F}
+    scale, target, learning = Float64(initial_scale), Float64(target_accept),
+        Float64(learning_rate)
+    lower, upper = Float64(min_scale), Float64(max_scale)
+    isfinite(scale) && scale > 0 ||
+        throw(ArgumentError("initial scale must be finite and positive"))
+    iterations >= 0 || throw(ArgumentError("warmup iterations must be nonnegative"))
+    isfinite(target) && 0 < target < 1 ||
+        throw(ArgumentError("target acceptance must lie strictly between zero and one"))
+    isfinite(learning) && learning > 0 ||
+        throw(ArgumentError("learning rate must be finite and positive"))
+    isfinite(lower) && isfinite(upper) && 0 < lower <= upper ||
+        throw(ArgumentError("scale bounds must be finite, positive, and ordered"))
+    lower <= scale <= upper ||
+        throw(ArgumentError("initial scale must lie within the scale bounds"))
+    WarmupGaussianRWMH{F}(logdensity, scale, Int(iterations), target,
+        learning, lower, upper)
+end
+
+struct GaussianRWMHWarmupResult{F}
+    sampler::GaussianRWMH{F}
+    state::Float64
+    scales::Vector{Float64}
+    accepted::BitVector
+end
+
+function warmup(rng::AbstractRNG, config::WarmupGaussianRWMH, initial::Real)
+    current = Float64(initial)
+    isfinite(current) || throw(ArgumentError("initial state must be finite"))
+    scales = Vector{Float64}(undef, config.iterations + 1)
+    accepted = falses(config.iterations)
+    log_scale = log(config.initial_scale)
+    scales[1] = config.initial_scale
+    for iteration in 1:config.iterations
+        sampler = GaussianRWMH(config.logdensity, exp(log_scale))
+        next = step(rng, sampler, current)
+        accepted[iteration] = next != current
+        current = next
+        gain = config.learning_rate / sqrt(iteration)
+        log_scale = clamp(log_scale + gain *
+            (accepted[iteration] - config.target_accept),
+            log(config.min_scale), log(config.max_scale))
+        scales[iteration + 1] = exp(log_scale)
+    end
+    frozen = GaussianRWMH(config.logdensity, scales[end])
+    GaussianRWMHWarmupResult(frozen, current, scales, accepted)
+end
+
+warmup(config::WarmupGaussianRWMH, initial::Real) =
+    warmup(Random.default_rng(), config, initial)
+
+function sample(rng::AbstractRNG, config::WarmupGaussianRWMH,
+        initial::Real, count::Integer)
+    result = warmup(rng, config, initial)
+    sample(rng, result.sampler, result.state, count)
+end
+
+sample(config::WarmupGaussianRWMH, initial::Real, count::Integer) =
+    sample(Random.default_rng(), config, initial, count)
 
 struct FiniteWeights
     weights::Vector{BigInt}
