@@ -36,7 +36,9 @@ finite law is now realized over explicit ancestry and population histories and
 feeds an exact pseudo-marginal client whose complete fixed-horizon schedule may
 depend on the proposed state. A history-weighted uniformly selected terminal
 particle is also proved to have the normalized Feynman--Kac terminal marginal;
-full selected-trajectory particle MCMC and corrected Xu--Ge execution remain.
+stored ancestry now extracts a correctly sized full genealogy with proved
+initial/terminal endpoints. Its full path-observable many-to-one law, complete
+particle MCMC, and corrected Xu--Ge execution remain.
 
 Betancourt's [*A Conceptual Introduction to Hamiltonian Monte
 Carlo*](https://arxiv.org/abs/1701.02434) is used as a foundational HMC
@@ -81,6 +83,8 @@ The repository now contains machine-checked implementations and proofs for:
   including state-indexed potentials and transitions at a common horizon;
 - the normalized history-weighted selected-particle target and exact
   observable/eventwise identification of its Feynman--Kac terminal marginal;
+- backward tracing through stored ancestor maps, producing a selected genealogy
+  of the correct length with machine-checked initial and terminal endpoints;
 - reusable finite identity, composition, mixture, and coordinate-lift
   combinators; finite one-site, random-scan, and systematic-scan Gibbs;
 - finite state-dependent kernel selection and a checked counterexample showing

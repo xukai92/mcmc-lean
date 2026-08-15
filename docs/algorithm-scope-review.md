@@ -198,6 +198,11 @@ remains before naming a PIMH/PMMH client. The intermediate selected-terminal
 result is complete: weighting a history by its normalizing estimate and
 selecting a terminal particle uniformly gives exactly the normalized
 Feynman--Kac terminal marginal, for arbitrary observables and singleton events.
+The terminal index is now traced backward through every stored ancestor map;
+Lean proves the selected genealogy has one state per population and the exact
+initial and terminal endpoints. A full path-observable many-to-one theorem is
+still required: terminal-marginal exactness alone does not identify the joint
+trajectory law used by PIMH.
 Conditional SMC and particle Gibbs follow. Keep fixed-particle stationarity,
 chain convergence, and consistency as particle count grows as separate theorem
 families.

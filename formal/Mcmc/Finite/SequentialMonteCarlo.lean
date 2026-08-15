@@ -291,6 +291,69 @@ def terminalPopulation :
   | [], particles, _ => particles
   | _ :: steps, _, history => terminalPopulation steps history.2.1 history.2.2
 
+/-- Index in the current population ancestral to a selected terminal index. -/
+def initialAncestor :
+    (steps : List (FeynmanKacStep Sample)) →
+      Continuation Particle Sample steps → Particle → Particle
+  | [], _, terminal => terminal
+  | _ :: steps, history, terminal =>
+      history.1 (initialAncestor steps history.2.2 terminal)
+
+/-- Full state trajectory obtained by tracing a selected terminal particle
+backward through every stored ancestor map. -/
+def selectedTrajectory :
+    (steps : List (FeynmanKacStep Sample)) → (Particle → Sample) →
+      Continuation Particle Sample steps → Particle → List Sample
+  | [], particles, _, terminal => [particles terminal]
+  | _ :: steps, particles, history, terminal =>
+      particles (history.1 (initialAncestor steps history.2.2 terminal)) ::
+        selectedTrajectory steps history.2.1 history.2.2 terminal
+
+omit [Fintype Particle] [DecidableEq Sample] [DecidableEq Particle]
+    [Nonempty Particle] in
+/-- A selected genealogy contains one state per population. -/
+theorem selectedTrajectory_length (steps : List (FeynmanKacStep Sample))
+    (particles : Particle → Sample) (history : Continuation Particle Sample steps)
+    (terminal : Particle) :
+    (selectedTrajectory steps particles history terminal).length = steps.length + 1 := by
+  induction steps generalizing particles with
+  | nil => rfl
+  | cons step steps ih =>
+      simp only [selectedTrajectory, List.length_cons, List.length_cons]
+      rw [ih]
+
+omit [Fintype Particle] [DecidableEq Sample] [DecidableEq Particle]
+    [Nonempty Particle] in
+/-- The final state of the traced genealogy is the selected terminal particle. -/
+theorem selectedTrajectory_getLast? (steps : List (FeynmanKacStep Sample))
+    (particles : Particle → Sample) (history : Continuation Particle Sample steps)
+    (terminal : Particle) :
+    (selectedTrajectory steps particles history terminal).getLast? =
+      some (terminalPopulation steps particles history terminal) := by
+  induction steps generalizing particles with
+  | nil => rfl
+  | cons step steps ih =>
+      unfold selectedTrajectory terminalPopulation
+      have htail : selectedTrajectory steps history.2.1 history.2.2 terminal ≠ [] := by
+        cases steps <;> simp [selectedTrajectory]
+      rw [show particles (history.1 (initialAncestor steps history.2.2 terminal)) ::
+          selectedTrajectory steps history.2.1 history.2.2 terminal =
+        [particles (history.1 (initialAncestor steps history.2.2 terminal))] ++
+          selectedTrajectory steps history.2.1 history.2.2 terminal by rfl,
+        List.getLast?_append_of_ne_nil _ htail]
+      exact ih history.2.1 history.2.2
+
+omit [Fintype Particle] [DecidableEq Sample] [DecidableEq Particle]
+    [Nonempty Particle] in
+/-- The first state of the traced genealogy is the corresponding ancestor in
+the initial population. -/
+theorem selectedTrajectory_head? (steps : List (FeynmanKacStep Sample))
+    (particles : Particle → Sample) (history : Continuation Particle Sample steps)
+    (terminal : Particle) :
+    (selectedTrajectory steps particles history terminal).head? =
+      some (particles (initialAncestor steps history terminal)) := by
+  cases steps <;> rfl
+
 omit [DecidableEq Sample] [DecidableEq Particle] in
 /-- A concrete history value factors into its normalizing weight and the
 terminal empirical observable. -/
@@ -412,6 +475,23 @@ theorem selectedParticleTarget_terminal_event (initial : Distribution Sample)
           normalizingConstant initial steps :=
   selectedParticleTarget_expectation initial steps hnormalizer
     (fun y => if y = terminal then 1 else 0)
+
+omit [DecidableEq Sample] in
+/-- The terminal endpoint theorem restated directly through the extracted
+ancestral trajectory. -/
+theorem selectedTrajectory_terminal_expectation (initial : Distribution Sample)
+    (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : 0 < normalizingConstant initial steps)
+    (observable : Option Sample → ℝ) :
+    ∑ selected, (selectedParticleTarget (Particle := Particle) initial steps
+        hnormalizer).mass selected *
+      observable (selectedTrajectory steps selected.1.1 selected.1.2
+        selected.2).getLast? =
+      (∑ x, initial.mass x * feynmanKacSequence steps
+        (fun y => observable (some y)) x) / normalizingConstant initial steps := by
+  simp_rw [selectedTrajectory_getLast?]
+  exact selectedParticleTarget_expectation initial steps hnormalizer
+    (fun y => observable (some y))
 
 section PseudoMarginalClient
 

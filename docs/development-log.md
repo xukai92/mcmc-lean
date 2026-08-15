@@ -3,6 +3,21 @@
 Entries through the earlier 2026-08-13 work are preserved in the
 [development-log archive](development-log-archive.md).
 
+## 2026-08-15: selected ancestry extraction
+
+Added recursive backward-index tracing through every stored multinomial
+ancestor map and extracted the corresponding full state genealogy for a
+selected terminal particle. Lean proves that the path has exactly one more
+state than the number of SMC transitions, starts at the computed initial
+ancestor, and ends at the previously verified selected terminal state. The
+exact terminal expectation is restated directly through this path endpoint.
+
+This closes the data-structure and endpoint layer but not the full PIMH path
+law. The next mathematical obligation is a many-to-one identity for arbitrary
+observables of the entire selected genealogy. The existing terminal-observable
+identity is strictly weaker and is not presented as trajectory exactness or
+chain convergence.
+
 ## 2026-08-15: selected-particle Feynman--Kac marginal
 
 Added terminal-population extraction from explicit SMC histories and proved
