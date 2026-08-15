@@ -248,9 +248,10 @@ breadth branches are:
   diminishing vocabulary, augmented random-adaptation semantics, and
   convergence-in-probability definition and completed finite
   Roberts--Rosenthal convergence theorem; and
-- BPS/Zig-Zag process construction, real-time Poisson event simulation,
-  nonexplosion, and convergence on top of the separate PDMP generator,
-  jump-flux, and completed finite bounded-rate uniformization foundations.
+- BPS/Zig-Zag path construction, Chapman--Kolmogorov composition,
+  general-state event simulation, nonexplosion, and convergence on top of the
+  separate PDMP generator, jump-flux, finite bounded-rate uniformization, and
+  completed Poissonized real-time transition-kernel foundations.
 
 Sequence-parallel evaluation is an execution-refinement project downstream of
 exact seeded trace semantics. Full solver convergence may refine a sequential

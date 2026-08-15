@@ -117,8 +117,12 @@ generator balance are formalized, with a symmetric two-velocity switching
 client. Bounded finite rates now also produce an exact uniformization kernel;
 rate reversibility implies detailed balance and stationarity of that embedded
 chain, and uniformizing the velocity client at its switch rate gives the
-deterministic flip kernel. The real-time Poisson path, semigroup,
-nonexplosion, and BPS/Zig-Zag convergence layers remain open.
+deterministic flip kernel. The finite branch now also constructs the exact
+real-time transition kernel as a Poisson mixture of embedded-chain iterates,
+proves its series formula, normalization, zero-time identity, and stationarity,
+and instantiates it for velocity switching. The Chapman--Kolmogorov law,
+càdlàg path measure, general-state nonexplosion, and BPS/Zig-Zag convergence
+layers remain open.
 
 For positive-horizon particle Gibbs, the finite library now proves a concrete
 arbitrary-horizon result: with any finite particle index type containing at

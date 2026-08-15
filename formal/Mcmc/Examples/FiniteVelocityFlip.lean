@@ -1,4 +1,4 @@
-import Mcmc.PDMP.Uniformization
+import Mcmc.PDMP.Poissonization
 
 /-!
 # Symmetric finite velocity-switching generator
@@ -49,6 +49,17 @@ theorem flipKernel_stationary (switchRate : ℝ) (hpositive : 0 < switchRate) :
     (rates switchRate (le_of_lt hpositive)) velocityTarget
     (rates_reversible switchRate (le_of_lt hpositive)) switchRate hpositive
     (fun velocity => by rw [exitRate_eq])
+
+/-- The exact real-time Poissonized velocity process preserves the uniform
+velocity target at every nonnegative time. -/
+theorem timeKernel_stationary (switchRate : ℝ) (hpositive : 0 < switchRate)
+    (t : NNReal) :
+    ((rates switchRate (le_of_lt hpositive)).timeKernel switchRate hpositive
+      (fun velocity => by rw [exitRate_eq]) t).Stationary velocityTarget :=
+  FiniteRateGenerator.timeKernel_stationary
+    (rates switchRate (le_of_lt hpositive)) velocityTarget
+    (rates_reversible switchRate (le_of_lt hpositive)) switchRate hpositive
+    (fun velocity => by rw [exitRate_eq]) t
 
 @[simp] theorem flipKernel_prob_not (switchRate : ℝ)
     (hpositive : 0 < switchRate) (velocity : Bool) :

@@ -1391,6 +1391,16 @@ uniformized at its exact switch rate is the deterministic flip chain. This is
 the checked event skeleton; a Poisson-clock path measure, semigroup,
 nonexplosion proof, and general BPS/Zig-Zag convergence are not claimed.
 
+Added the next real-time layer for finite bounded-rate jump processes.
+`poissonizedKernel` integrates the `n`-step embedded kernel against mathlib's
+Poisson measure; Lean proves integrability, row normalization, the explicit
+Poisson series, the zero-intensity identity, and preservation of every
+stationary target. `FiniteRateGenerator.timeKernel` uses intensity `Λt`, and
+the velocity-flip example proves stationarity at every nonnegative time. This
+is a family of exact real-time transition kernels, not yet a proved semigroup
+or a path-space process; Chapman--Kolmogorov, càdlàg paths, and general-state
+nonexplosion remain explicit obligations.
+
 The Gaussian diagonal-SoftAbs client is now end-to-end. Lean connects the
 actual Gaussian Hessian to a strictly non-identity SoftAbs metric, packages the
 explicit separable update as a valid generalized-leapfrog selection, and
