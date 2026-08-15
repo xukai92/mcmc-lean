@@ -65,6 +65,12 @@ The bilinear exact solver has a stronger formal check:
 preservation in arbitrary finite dimension. No numerical tolerance enters
 that result.
 
+The same position-dependent suite now evaluates the complete bounded-metric
+GR callbacks for `scale(q) = 2 + sin(q)`. Reference and Optimized iterations
+agree, both residuals fall below tolerance, and opposite-step replay checks
+momentum-flip reversal. Lean separately proves the global contraction and
+exact reversal statements.
+
 `test/composable.jl` checks declared-variable coverage, overlapping scopes,
 left-to-right PG/HMC-style execution order, repeated sampling, and invalid
 scope configurations for the executable composable-inference API.

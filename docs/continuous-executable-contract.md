@@ -159,9 +159,10 @@ measurability, and momentum-flip reversal. A bilinear closed-form stress test
 is also retained. Opposite-step uniqueness now proves that the exact step is
 bijective, and a reusable change-of-variables theorem turns an explicit
 differentiability/unit-Jacobian certificate into product phase-volume
-preservation. The concrete certificate and instantiation by a globally
-positive nonconstant Riemannian metric remain before this supplies the entire
-validity certificate consumed by GR-HMC.
+preservation. The smooth test model's concrete certificate remains open. The
+bounded positive nonconstant metric client below closes the metric and
+contraction obligations, but retains the same explicit Jacobian endpoint
+before it supplies the entire validity certificate consumed by GR-HMC.
 
 For comparison, `bilinearContractiveSolverAt_volumePreserving` closes the
 measure-theoretic argument for the bilinear implicit stress model in every
@@ -169,6 +170,13 @@ finite dimension: the exact selected map is a pair of reciprocal dilations,
 whose Haar scaling factors cancel. That theorem validates the solver
 machinery but does not identify the bilinear model with the complete
 momentum-even GR Hamiltonian.
+
+The bounded scalar GR example uses the same callbacks in Lean and Julia. Its
+factor is `2 + sin(q)` and its compensating potential cancels the
+log-determinant term. Lean proves the exact implicit maps contract for
+`3|ε|/2 < 1`; Julia's Reference and Optimized loops are differential-tested
+for residual convergence and reversal. Their measured nonzero residuals are
+still approximation evidence, not equality with the Banach-selected point.
 
 A small positive residual is not reclassified as equality. Consequently the
 practical Float64 solver is useful for diagnostics and convergence testing but

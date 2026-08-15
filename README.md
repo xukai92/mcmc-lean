@@ -69,8 +69,9 @@ step-size contraction condition, exact uniqueness, iteration convergence,
 measurability, and momentum-flip reversal. Lean now derives bijectivity from
 the opposite-step exact solver and proves that a differentiable unit-Jacobian
 certificate implies preservation of product phase volume. Proving that
-Jacobian certificate for this concrete step, and instantiating the solver with
-a globally positive nonconstant Riemannian-metric Hamiltonian, remain open.
+Jacobian certificate for this smooth test step remains open; the bounded
+Riemannian-metric solver instantiated below has the analogous explicit
+Jacobian endpoint.
 
 The bilinear implicit stress model additionally has a closed-form exact step,
 and Lean proves directly in every finite dimension that its reciprocal
@@ -82,6 +83,14 @@ close the contraction and phase-volume analysis for its generalized-leapfrog
 solve. Its actual position and momentum derivatives are now connected to the
 complete GR Hamiltonian by machine-checked Equations (12) and (13), rather
 than supplied as unrelated callbacks.
+
+The exact solver client uses the bounded nonconstant factor `2 + sin(q)` and
+compensating potential `log(2 + sin(q))`; its complete GR Hamiltonian reduces
+to `√(1 + ((2 + sin q)p)²)`. Lean proves the callbacks are its derivatives,
+both implicit maps globally contract when `3|ε|/2 < 1`, and the selected solve
+is unique, measurable, approached by the finite loops, and momentum-flip
+reversible. Phase-volume preservation is reduced to the remaining explicit
+unit-Jacobian certificate.
 
 Betancourt's [*A Conceptual Introduction to Hamiltonian Monte
 Carlo*](https://arxiv.org/abs/1701.02434) is used as a foundational HMC

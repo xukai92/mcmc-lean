@@ -98,6 +98,12 @@ proving contraction and phase volume for that actual derivative pair, and
 refining Float64 residuals to that exact selection remain before B2 is
 complete.
 
+The bounded scalar client `2 + sin(q)` now closes the actual-derivative
+contraction portion: for `3|ε|/2 < 1` Lean constructs the exact unique solver
+and proves finite-loop convergence, measurability, and reversal. The remaining
+formal endpoint is its unit-Jacobian/phase-volume certificate. Float64 loops
+retain measured residuals and are not identified with the exact fixed point.
+
 ## Track C: later breadth branches
 
 The pre-Xu dependency order is:

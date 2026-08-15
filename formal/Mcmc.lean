@@ -115,6 +115,7 @@ import Mcmc.Relativistic.ScalarMetric
 import Mcmc.Relativistic.GeneralizedLeapfrog
 import Mcmc.Relativistic.FixedPointIteration
 import Mcmc.Relativistic.PositionDependentSolver
+import Mcmc.Relativistic.BoundedScalarSolver
 import Mcmc.Relativistic.EndpointMetropolis
 import Mcmc.Relativistic.Multinomial
 import Mcmc.Relativistic.ConstantMetric

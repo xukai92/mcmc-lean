@@ -144,6 +144,33 @@ end
         (phase_map(center + [0, δ]) -
         phase_map(center - [0, δ])) / (2δ))
     @test det(jacobian) ≈ 1.0 atol=2e-8
+
+    # Complete GR Hamiltonian with bounded nonconstant factor s(q)=2+sin(q)
+    # and compensating potential log(s): H(q,p)=sqrt(1+(s(q)*p)^2).
+    bounded_position_derivative(q, p) = begin
+        s = 2 + sin(q[1])
+        [s * cos(q[1]) * p[1]^2 / sqrt(1 + (s * p[1])^2)]
+    end
+    bounded_momentum_derivative(q, p) = begin
+        s = 2 + sin(q[1])
+        [s^2 * p[1] / sqrt(1 + (s * p[1])^2)]
+    end
+    qb, pb, εb = [0.25], [-0.35], 0.15
+    bounded_reference = Reference.fixed_point_generalized_leapfrog(
+        bounded_position_derivative, bounded_momentum_derivative,
+        qb, -pb, εb; max_iterations=300, atol=1e-14, rtol=1e-14)
+    bounded_optimized = Optimized.fixed_point_generalized_leapfrog(
+        bounded_position_derivative, bounded_momentum_derivative,
+        qb, -pb, εb; max_iterations=300, atol=1e-14, rtol=1e-14)
+    bounded_backward = Reference.fixed_point_generalized_leapfrog(
+        bounded_position_derivative, bounded_momentum_derivative,
+        qb, pb, -εb; max_iterations=300, atol=1e-14, rtol=1e-14)
+    @test bounded_reference[1] ≈ bounded_optimized[1] atol=2e-14 rtol=0
+    @test bounded_reference[2] ≈ bounded_optimized[2] atol=2e-14 rtol=0
+    @test bounded_reference[1] ≈ bounded_backward[1] atol=2e-13 rtol=0
+    @test -bounded_reference[2] ≈ bounded_backward[2] atol=2e-13 rtol=0
+    @test bounded_reference[3].half_momentum_residual.computed < 1e-13
+    @test bounded_reference[3].position_residual.computed < 1e-13
 end
 
 @testset "executable multinomial HMC" begin

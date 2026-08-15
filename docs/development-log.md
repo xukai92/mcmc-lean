@@ -83,6 +83,17 @@ certificate, proves `AᵀA = G⁻¹`, and instantiates both paper Equations (12)
 The remaining analytic task is proving the fixed-point contraction and
 phase-volume certificate for a useful nonzero step size.
 
+Closed the contraction endpoint with a bounded nonconstant metric client.
+For `scale(q) = 2 + sin(q)` and potential `log(scale(q))`, the complete GR
+Hamiltonian is exactly `sqrt(1 + (scale(q)p)^2)`. Lean proves the implemented
+callbacks are its derivatives, establishes global relativistic-profile
+Lipschitz bounds, and proves both implicit maps contract for `3|ε|/2 < 1`.
+The exact Banach solve is unique, measurable, the limit of both finite loops,
+and momentum-flip reversible. Reference and Optimized Julia implementations
+agree on these callbacks and pass residual and reversal tests. Its remaining
+formal endpoint is the isolated differentiability/unit-Jacobian certificate;
+opposite-step uniqueness already supplies bijectivity.
+
 ## 2026-08-15: adaptive convergence, exact slice disintegration, and Euclidean RJ
 
 Completed the finite Roberts--Rosenthal argument. An anchored augmented process
