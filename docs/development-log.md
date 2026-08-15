@@ -104,6 +104,14 @@ horizon. Kernel composition proves every stage and the final conditional
 uniform-time kernel Markov. General fixed-count schedule integration still
 needs a certified sorting network family and a measurable fold over its waits.
 
+The dependent count/schedule measure is now available without using a fragile
+measurable structure on dependent sums. Fixed-size wait vectors embed into a
+common `(count, padded sequence)` carrier. Given a certified timestamp ordering
+for every count, the Poisson-weighted sum of conditional schedule laws is
+proved a probability measure, and mapping to `count` is proved exactly equal
+to the source Poisson measure. Constructing the all-count sorting-network
+family remains an explicit combinatorial obligation rather than an axiom.
+
 ## 2026-08-15: categorical discontinuous-HMC vertical slice
 
 Added the Laplace-momentum crossing/reflection algebra from Nishimura, Dunson,

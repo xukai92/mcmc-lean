@@ -176,6 +176,10 @@ network is certified, and every certified ordering induces probability laws
 for ordered timestamps and inter-candidate waits. The one-candidate case is
 fully integrated as a Markov kernel: sample its uniform conditional timestamp,
 flow, thin the event, and flow through the residual horizon.
+Given a certified ordering at every finite count, Lean now also constructs the
+dependent joint law of the Poisson count and its padded ordered-wait sequence,
+proves it is a probability measure, and proves its count marginal is exactly
+the original Poisson law.
 
 For positive-horizon particle Gibbs, the finite library now proves a concrete
 arbitrary-horizon result: with any finite particle index type containing at

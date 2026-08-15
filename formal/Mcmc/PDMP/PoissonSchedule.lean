@@ -156,4 +156,102 @@ instance PositiveHorizon.candidateWaitsMeasure.instIsProbabilityMeasure
   exact Measure.isProbabilityMeasure_map
     (measurable_orderedTimestampsToWaits n).aemeasurable
 
+/-- Common measurable carrier for schedules of every finite size. Coordinates
+past `candidateCount` are padding and carry no semantic events. -/
+abbrev CandidateScheduleSample := ℕ × (ℕ → NNReal)
+
+/-- Embed a fixed-size wait vector into the common schedule carrier. -/
+def padCandidateWaits (n : ℕ) (waits : Fin n → NNReal) :
+    CandidateScheduleSample :=
+  (n, fun k => if h : k < n then waits ⟨k, h⟩ else 0)
+
+theorem measurable_padCandidateWaits (n : ℕ) :
+    Measurable (padCandidateWaits n) := by
+  apply measurable_const.prodMk
+  apply measurable_pi_lambda
+  intro k
+  change Measurable (fun waits : Fin n → NNReal =>
+    if h : k < n then waits ⟨k, h⟩ else 0)
+  by_cases h : k < n
+  · simp only [h, dite_true]
+    exact measurable_pi_apply (⟨k, h⟩ : Fin n)
+  · simp only [h, dite_false]
+    exact measurable_const
+
+/-- Conditional schedule law on the common carrier at a fixed count. -/
+noncomputable def PositiveHorizon.fixedScheduleMeasure
+    (horizon : PositiveHorizon) (ordering : TimestampOrdering n) :
+    Measure CandidateScheduleSample :=
+  Measure.map (padCandidateWaits n)
+    (horizon.candidateWaitsMeasure ordering)
+
+instance PositiveHorizon.fixedScheduleMeasure.instIsProbabilityMeasure
+    (horizon : PositiveHorizon) (ordering : TimestampOrdering n) :
+    IsProbabilityMeasure (horizon.fixedScheduleMeasure ordering) := by
+  unfold PositiveHorizon.fixedScheduleMeasure
+  exact Measure.isProbabilityMeasure_map
+    (measurable_padCandidateWaits n).aemeasurable
+
+private theorem tsum_poisson_singletons (intensity : NNReal) :
+    ∑' n : ℕ, poissonMeasure intensity {n} = 1 := by
+  rw [← measure_iUnion]
+  · rw [show (⋃ n : ℕ, ({n} : Set ℕ)) = Set.univ by ext; simp]
+    simp
+  · intro i j hij
+    exact Set.disjoint_singleton.2 hij
+  · exact fun i => MeasurableSet.singleton i
+
+/-- Joint law of a Poisson candidate count and its conditional ordered wait
+sequence. The family argument makes the measurable-sorting obligation
+explicit at every count. -/
+noncomputable def poissonCandidateScheduleMeasure
+    (intensity : NNReal) (horizon : PositiveHorizon)
+    (orderings : ∀ n, TimestampOrdering n) :
+    Measure CandidateScheduleSample :=
+  Measure.sum fun n : ℕ =>
+    poissonMeasure intensity {n} •
+      horizon.fixedScheduleMeasure (orderings n)
+
+instance poissonCandidateScheduleMeasure.instIsProbabilityMeasure
+    (intensity : NNReal) (horizon : PositiveHorizon)
+    (orderings : ∀ n, TimestampOrdering n) :
+    IsProbabilityMeasure
+      (poissonCandidateScheduleMeasure intensity horizon orderings) := by
+  constructor
+  rw [poissonCandidateScheduleMeasure, Measure.sum_apply _ MeasurableSet.univ]
+  simp only [Measure.smul_apply, measure_univ, smul_eq_mul, mul_one]
+  exact tsum_poisson_singletons intensity
+
+/-- The count marginal of the joint schedule law is exactly the supplied
+Poisson law. -/
+theorem poissonCandidateScheduleMeasure_map_fst
+    (intensity : NNReal) (horizon : PositiveHorizon)
+    (orderings : ∀ n, TimestampOrdering n) :
+    Measure.map Prod.fst
+        (poissonCandidateScheduleMeasure intensity horizon orderings) =
+      poissonMeasure intensity := by
+  rw [Measure.ext_iff_singleton]
+  intro k
+  rw [Measure.map_apply measurable_fst (MeasurableSet.singleton k),
+    poissonCandidateScheduleMeasure,
+    Measure.sum_apply _ (MeasurableSet.singleton k |>.preimage measurable_fst)]
+  rw [tsum_eq_single k]
+  · unfold PositiveHorizon.fixedScheduleMeasure
+    rw [Measure.smul_apply, Measure.map_apply (measurable_padCandidateWaits k)
+      (MeasurableSet.singleton k |>.preimage measurable_fst)]
+    have hpre : padCandidateWaits k ⁻¹' (Prod.fst ⁻¹' {k}) = Set.univ := by
+      ext waits
+      simp [padCandidateWaits]
+    rw [hpre, measure_univ]
+    simp
+  · intro n hne
+    unfold PositiveHorizon.fixedScheduleMeasure
+    rw [Measure.smul_apply, Measure.map_apply (measurable_padCandidateWaits n)
+      (MeasurableSet.singleton k |>.preimage measurable_fst)]
+    have hpre : padCandidateWaits n ⁻¹' (Prod.fst ⁻¹' {k}) = ∅ := by
+      ext waits
+      simp [padCandidateWaits, hne]
+    rw [hpre, measure_empty]
+    simp
+
 end Mcmc.PDMP
