@@ -1,6 +1,7 @@
 import Mcmc.PDMP.EventSimulation
 import Mathlib.MeasureTheory.Measure.Lebesgue.EqHaar
 import Mathlib.MeasureTheory.Constructions.Pi
+import Mathlib.Data.Fin.Tuple.Sort
 import Mathlib.Tactic
 
 /-!
@@ -72,6 +73,80 @@ structure TimestampOrdering (n : ℕ) where
   monotone_order : ∀ times, Monotone (order times)
   permutes : ∀ times, ∃ permutation : Equiv.Perm (Fin n),
     order times = times ∘ permutation
+
+/-- Region on which a particular index permutation orders the timestamp
+values monotonically. -/
+def monotonePermutationRegion (permutation : Equiv.Perm (Fin n)) :
+    Set (Fin n → ℝ) :=
+  {times | Monotone (times ∘ permutation)}
+
+theorem measurableSet_monotonePermutationRegion
+    (permutation : Equiv.Perm (Fin n)) :
+    MeasurableSet (monotonePermutationRegion permutation) := by
+  rw [show monotonePermutationRegion permutation =
+      ⋂ i : Fin n, ⋂ j : Fin n,
+        if i < j then
+          {times : Fin n → ℝ | times (permutation i) ≤ times (permutation j)}
+        else Set.univ by
+    ext times
+    simp only [monotonePermutationRegion, Set.mem_setOf_eq, Set.mem_iInter]
+    constructor
+    · rw [monotone_iff_forall_lt]
+      intro h i j
+      split_ifs with hij
+      · exact h hij
+      · exact Set.mem_univ times
+    · intro h i j hij
+      rcases eq_or_lt_of_le hij with rfl | hijlt
+      · exact le_rfl
+      · have hij' := h i j
+        rw [if_pos hijlt] at hij'
+        simpa [Function.comp_apply] using hij']
+  apply MeasurableSet.iInter
+  intro i
+  apply MeasurableSet.iInter
+  intro j
+  split
+  · exact measurableSet_le (measurable_pi_apply (permutation i))
+      (measurable_pi_apply (permutation j))
+  · exact MeasurableSet.univ
+
+/-- Sorting the values of a finite real tuple is measurable. The proof glues
+the finitely many coordinate permutations over their measurable monotonicity
+regions; `Tuple.unique_monotone` proves agreement on overlaps. -/
+theorem measurable_tupleSortValues (n : ℕ) :
+    Measurable (fun times : Fin n → ℝ => times ∘ Tuple.sort times) := by
+  let region : Equiv.Perm (Fin n) → Set (Fin n → ℝ) :=
+    monotonePermutationRegion
+  let permute : Equiv.Perm (Fin n) → (Fin n → ℝ) → (Fin n → ℝ) :=
+    fun permutation times => times ∘ permutation
+  have hregion : ∀ permutation, MeasurableSet (region permutation) :=
+    measurableSet_monotonePermutationRegion
+  have hpermute : ∀ permutation, Measurable (permute permutation) := by
+    intro permutation
+    apply measurable_pi_lambda
+    intro i
+    exact measurable_pi_apply (permutation i)
+  have hagree : Pairwise fun first second =>
+      Set.EqOn (permute first) (permute second)
+        (region first ∩ region second) := by
+    intro first second _ times htimes
+    exact Tuple.unique_monotone htimes.1 htimes.2
+  obtain ⟨ordered, hordered, hagrees⟩ :=
+    exists_measurable_piecewise region hregion permute hpermute hagree
+  have heq : ordered = fun times : Fin n → ℝ =>
+      times ∘ Tuple.sort times := by
+    funext times
+    exact hagrees (Tuple.sort times)
+      (show times ∈ region (Tuple.sort times) from Tuple.monotone_sort times)
+  rwa [← heq]
+
+/-- Certified measurable timestamp ordering at every finite count. -/
+noncomputable def timestampOrdering (n : ℕ) : TimestampOrdering n where
+  order := fun times => times ∘ Tuple.sort times
+  measurable_order := measurable_tupleSortValues n
+  monotone_order := Tuple.monotone_sort
+  permutes := fun times => ⟨Tuple.sort times, rfl⟩
 
 /-- Conditional law of ordered candidate timestamps obtained by pushing iid
 uniform times through a certified measurable ordering. -/
@@ -253,5 +328,26 @@ theorem poissonCandidateScheduleMeasure_map_fst
       simp [padCandidateWaits, hne]
     rw [hpre, measure_empty]
     simp
+
+/-- Unconditional homogeneous-clock schedule law using the certified
+all-count tuple ordering. -/
+noncomputable def poissonCandidateSchedule
+    (intensity : NNReal) (horizon : PositiveHorizon) :
+    Measure CandidateScheduleSample :=
+  poissonCandidateScheduleMeasure intensity horizon timestampOrdering
+
+instance poissonCandidateSchedule.instIsProbabilityMeasure
+    (intensity : NNReal) (horizon : PositiveHorizon) :
+    IsProbabilityMeasure (poissonCandidateSchedule intensity horizon) := by
+  unfold poissonCandidateSchedule
+  infer_instance
+
+/-- The concrete unconditional schedule retains the exact Poisson count
+marginal. -/
+theorem poissonCandidateSchedule_map_fst
+    (intensity : NNReal) (horizon : PositiveHorizon) :
+    Measure.map Prod.fst (poissonCandidateSchedule intensity horizon) =
+      poissonMeasure intensity :=
+  poissonCandidateScheduleMeasure_map_fst intensity horizon timestampOrdering
 
 end Mcmc.PDMP

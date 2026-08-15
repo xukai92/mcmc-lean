@@ -171,16 +171,17 @@ The conditional continuous-time ingredient is now present: for every positive
 horizon and fixed candidate count, Lean constructs the iid uniform timestamp
 product measure and proves it is a probability law. The remaining ordering
 obligation is exposed through the certificate described next.
-Measurable sorting is represented by an explicit certificate that also proves
-monotonicity and preservation up to permutation; the two-candidate `min/max`
-network is certified, and every certified ordering induces probability laws
-for ordered timestamps and inter-candidate waits. The one-candidate case is
+Measurable sorting is proved for every finite real tuple by gluing coordinate
+permutations across their measurable monotonicity regions. The resulting
+all-count certificate proves monotonicity and preservation up to permutation;
+the two-candidate `min/max` network is also checked directly. Every certified
+ordering induces probability laws for ordered timestamps and inter-candidate
+waits. The one-candidate case is
 fully integrated as a Markov kernel: sample its uniform conditional timestamp,
 flow, thin the event, and flow through the residual horizon.
-Given a certified ordering at every finite count, Lean now also constructs the
-dependent joint law of the Poisson count and its padded ordered-wait sequence,
-proves it is a probability measure, and proves its count marginal is exactly
-the original Poisson law.
+Lean now constructs the unconditional dependent joint law of the Poisson count
+and its padded ordered-wait sequence, proves it is a probability measure, and
+proves its count marginal is exactly the original Poisson law.
 
 For positive-horizon particle Gibbs, the finite library now proves a concrete
 arbitrary-horizon result: with any finite particle index type containing at

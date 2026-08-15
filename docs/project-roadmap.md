@@ -272,14 +272,14 @@ breadth branches are:
   timestamp and inter-wait probability laws; the two-event `min/max` sorting
   network is checked. The one-candidate conditional law is fully connected to
   flow, thinning, and residual-horizon execution as a Markov kernel.
-  Conditional on an all-count ordering certificate, the dependent joint
-  Poisson-count/padded-wait law is normalized and has the exact Poisson count
-  marginal.
+  The all-count ordering certificate is now constructed by measurable finite
+  gluing. The resulting unconditional joint Poisson-count/padded-wait law is
+  normalized and has the exact Poisson count marginal.
   Concrete one-dimensional Zig-Zag and finite-dimensional BPS clients provide
   their linear flows, event kernels, and bounded-thinning constructors. The
   one-dimensional Zig-Zag generator cancellation and finite-dimensional BPS
-  reflection geometry are checked; an all-count certified sorting-network
-  family, measurable multi-event execution, unbounded-rate Lyapunov arguments,
+  reflection geometry are checked; measurable multi-event execution,
+  unbounded-rate Lyapunov arguments,
   process-level stationarity, and convergence remain.
 
 Sequence-parallel evaluation is an execution-refinement project downstream of
