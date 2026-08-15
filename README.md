@@ -60,6 +60,9 @@ The repository now contains machine-checked implementations and proofs for:
 - tagged two-model reversible-jump MH with a common reference measure,
   transport-density certificate, cross-model accepted-flow symmetry, and
   Markov/reversibility/invariance theorems;
+- finite iid particle clouds whose average nonnegative importance weight is
+  proved unbiased, together with the resulting pseudo-marginal MH extended
+  stationarity and exact target marginal; sequential SMC remains separate;
 - reusable finite identity, composition, mixture, and coordinate-lift
   combinators; finite one-site, random-scan, and systematic-scan Gibbs;
 - two-temperature parallel tempering with an MH-corrected swap, product-target

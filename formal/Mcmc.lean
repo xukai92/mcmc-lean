@@ -6,6 +6,7 @@ import Mcmc.Finite.Combinators
 import Mcmc.Finite.Gibbs
 import Mcmc.Finite.ParallelTempering
 import Mcmc.Finite.PseudoMarginal
+import Mcmc.Finite.ParticleEstimator
 import Mcmc.Finite.Coupling
 import Mcmc.Finite.MarginalRepair
 import Mcmc.Finite.Transport

@@ -3,6 +3,21 @@
 Entries through the earlier 2026-08-13 work are preserved in the
 [development-log archive](development-log-archive.md).
 
+## 2026-08-15: finite iid particle-estimator prerequisite
+
+Added finite iid particle populations for every positive finite particle
+index type. Lean proves population normalization, the weighted expectation of
+each coordinate, and exact nonnegativity and unbiasedness of the average of
+unit-mean particle weights. The result is packaged as the estimator consumed
+by finite pseudo-marginal MH.
+
+The resulting particle-importance MH kernel has machine-checked extended
+stationarity and the exact requested state marginal for every positive finite
+particle count. This is not yet bootstrap SMC, PIMH, PMMH, or particle Gibbs:
+sequential propagation, resampling, ancestry, and Feynman--Kac
+normalizing-constant unbiasedness remain explicit next obligations. No chain
+convergence or particle-count consistency is claimed.
+
 ## 2026-08-15: tagged-space reversible-jump foundation
 
 Added the common reference measure on a two-model disjoint union and packaged

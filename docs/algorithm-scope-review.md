@@ -176,11 +176,15 @@ marginal is exact for fixed particle count under the stated support and
 resampling assumptions. This exactness is not finite-particle independence or
 automatic convergence; path degeneracy can still make the methods inefficient.
 
-**Repository fit.** Build finite Feynman--Kac/SMC primitives and an unbiased
-normalizing-constant estimator, then reuse the pseudo-marginal marginalization
-theorem for a tiny finite PIMH/PMMH example. Conditional SMC and particle Gibbs
-follow. Keep fixed-particle stationarity, chain convergence, and consistency as
-particle count grows as separate theorem families.
+**Repository fit.** Finite iid particle populations and exact unbiasedness of
+their average importance weight are now machine checked for every positive
+particle count. They instantiate pseudo-marginal MH with exact extended
+stationarity and the desired state marginal. This is a prerequisite, not yet
+SMC: next build finite Feynman--Kac propagation, unbiased resampling, ancestry,
+and the normalizing-constant estimator before naming a PIMH/PMMH client.
+Conditional SMC and particle Gibbs follow. Keep fixed-particle stationarity,
+chain convergence, and consistency as particle count grows as separate theorem
+families.
 
 ## HMC foundations and practical variants
 

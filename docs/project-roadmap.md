@@ -90,14 +90,17 @@ The pre-Xu dependency order is:
 5. tagged disjoint-union reference measures and transport-density certificates
    for reversible-jump MH -- complete at the abstract level, with a finite
    two-model example; a nontrivial Euclidean Jacobian client remains; and
-6. finite SMC on top of pseudo-marginal MH, then particle independent MH and
-   particle marginal MH.
+6. finite particle methods -- iid particle-average unbiasedness and its
+   pseudo-marginal MH client are complete; finite Feynman--Kac propagation,
+   unbiased resampling, and the SMC normalizing-constant theorem come next,
+   followed by PIMH and particle marginal MH.
 
 Items 4--6 are intentionally ordered: the remaining slice work needs a
 measurable horizontal conditional with finite positive level-set mass;
 reversible jump's next client needs a concrete dimension-changing
-transport/Jacobian theorem; particle MCMC needs an
-SMC estimator law before the existing pseudo-marginal theorem applies.
+transport/Jacobian theorem; full particle MCMC still needs an SMC estimator
+law before the existing pseudo-marginal theorem can be instantiated with a
+sequential particle filter rather than the completed iid importance cloud.
 
 After those foundations and the paper execution milestones, select the
 remaining branches based on research value and shared infrastructure:
