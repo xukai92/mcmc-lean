@@ -13,10 +13,11 @@ their iterates agree on empirical averages for every finite horizon. Averaging
 an iid initial cloud therefore yields exactly the corresponding one-particle
 Feynman--Kac expectation.
 
-This is the homogeneous finite-horizon normalizing-estimator theorem (take the
-terminal observable to be one), expressed through nested conditional
-expectations. It does not yet package time-varying models or explicit ancestry,
-nor prove particle-filter convergence or efficiency.
+This is the finite-horizon normalizing-estimator theorem (take the terminal
+observable to be one), expressed through nested conditional expectations. A
+list-indexed extension proves the same identity for time-varying potentials and
+transition kernels. It does not yet package explicit ancestry as a finite
+estimator state, nor prove particle-filter convergence or efficiency.
 
 ## 2026-08-15: finite adaptive-kernel boundary
 

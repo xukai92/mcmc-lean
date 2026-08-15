@@ -371,6 +371,61 @@ theorem iid_particleFeynmanKacTransform_iterate_expectation
     observable n]
   exact iidPopulation_particleAverage_expectation initial _
 
+/-- One time step of a finite, possibly time-inhomogeneous Feynman--Kac
+model. Strictly positive potentials make multinomial normalization total. -/
+structure FeynmanKacStep (Sample : Type*) [Fintype Sample] where
+  potential : Sample → ℝ
+  potential_pos : ∀ x, 0 < potential x
+  transition : MarkovKernel Sample
+
+/-- Backward composition of a time-varying sequence of exact one-particle
+Feynman--Kac transforms. -/
+noncomputable def feynmanKacSequence :
+    List (FeynmanKacStep Sample) → (Sample → ℝ) → Sample → ℝ
+  | [], observable => observable
+  | step :: steps, observable =>
+      feynmanKacTransform step.potential step.transition
+        (feynmanKacSequence steps observable)
+
+/-- Matching time-varying particle transform, expressed as nested conditional
+resample--propagate expectations. -/
+noncomputable def particleFeynmanKacSequence :
+    List (FeynmanKacStep Sample) →
+      ((Particle → Sample) → ℝ) → (Particle → Sample) → ℝ
+  | [], observable => observable
+  | step :: steps, observable =>
+      particleFeynmanKacTransform step.potential step.potential_pos
+        step.transition (particleFeynmanKacSequence steps observable)
+
+omit [DecidableEq Sample] in
+/-- Time-inhomogeneous finite-horizon SMC expectation identity, conditional on
+the initial cloud. -/
+theorem particleFeynmanKacSequence_particleAverage
+    (steps : List (FeynmanKacStep Sample)) (observable : Sample → ℝ) :
+    particleFeynmanKacSequence (Particle := Particle) steps
+        (particleAverage observable) =
+      particleAverage (feynmanKacSequence steps observable) := by
+  induction steps with
+  | nil => rfl
+  | cons step steps ih =>
+      rw [particleFeynmanKacSequence, feynmanKacSequence, ih]
+      funext particles
+      exact particleFeynmanKacTransform_particleAverage step.potential
+        step.potential_pos step.transition _ particles
+
+omit [DecidableEq Sample] in
+/-- An iid initial population turns the time-inhomogeneous particle sequence
+into exactly the corresponding one-particle Feynman--Kac expectation. -/
+theorem iid_particleFeynmanKacSequence_expectation
+    (initial : Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (observable : Sample → ℝ) :
+    ∑ particles, (iidPopulation (Particle := Particle) initial).mass particles *
+        particleFeynmanKacSequence (Particle := Particle) steps
+          (particleAverage observable) particles =
+      ∑ x, initial.mass x * feynmanKacSequence steps observable x := by
+  rw [particleFeynmanKacSequence_particleAverage steps observable]
+  exact iidPopulation_particleAverage_expectation initial _
+
 /-- Lift a state-indexed one-particle unbiased score into a finite iid particle
 estimator usable by pseudo-marginal MH. -/
 noncomputable def estimator

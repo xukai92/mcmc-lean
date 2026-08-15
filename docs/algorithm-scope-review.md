@@ -187,9 +187,9 @@ stationarity and the desired state marginal. Multinomial ancestry resampling,
 heterogeneous propagation, and the one-step bootstrap expectation identity
 are now machine checked as well. Iterated Feynman--Kac operators now prove the
 product normalizing-constant expectation identity at every finite horizon for
-a homogeneous model with strictly positive potential. Time-inhomogeneous
-potentials, explicit ancestry, and a packaged estimator remain before naming a
-PIMH/PMMH client.
+strictly positive potentials, both for homogeneous iteration and finite
+time-inhomogeneous sequences. Explicit ancestry and a packaged estimator
+remain before naming a PIMH/PMMH client.
 Conditional SMC and particle Gibbs follow. Keep fixed-particle stationarity,
 chain convergence, and consistency as particle count grows as separate theorem
 families.
