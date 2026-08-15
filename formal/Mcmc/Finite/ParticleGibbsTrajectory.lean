@@ -108,6 +108,92 @@ theorem selectedTrajectoryVector_pairedBoolHistory_true
         initialAncestor_pairedBoolHistory, List.Vector.toList] using
         (congrArg (List.cons proposed.head) htail).trans hcons
 
+/-- Generic two-lineage realization using one distinguished proposed index;
+all other particle indices follow the current trajectory. -/
+def pairedHistoryAt (proposedIndex : Particle) :
+    (steps : List (FeynmanKacStep Sample)) →
+      Trajectory steps → Trajectory steps → History (Particle := Particle) steps
+  | [], current, proposed =>
+      (fun i => if i = proposedIndex then proposed.head else current.head,
+        ULift.up ())
+  | _ :: steps, current, proposed =>
+      let tail := pairedHistoryAt proposedIndex steps current.tail proposed.tail
+      (fun i => if i = proposedIndex then proposed.head else current.head,
+        (fun i => i, tail.1, tail.2))
+
+omit [Fintype Particle] [Nonempty Particle] [DecidableEq Sample] in
+theorem initialAncestor_pairedHistoryAt (proposedIndex : Particle)
+    (steps : List (FeynmanKacStep Sample))
+    (current proposed : Trajectory steps) (terminal : Particle) :
+    initialAncestor steps
+      (pairedHistoryAt proposedIndex steps current proposed).2 terminal = terminal := by
+  induction steps generalizing terminal with
+  | nil => rfl
+  | cons step steps ih =>
+      simp [pairedHistoryAt, initialAncestor,
+        ih current.tail proposed.tail terminal]
+
+omit [Fintype Particle] [Nonempty Particle] [DecidableEq Sample] in
+theorem selectedTrajectoryVector_pairedHistoryAt_current
+    (currentIndex proposedIndex : Particle) (hne : currentIndex ≠ proposedIndex)
+    (steps : List (FeynmanKacStep Sample))
+    (current proposed : Trajectory steps) :
+    selectedTrajectoryVector steps
+      (pairedHistoryAt proposedIndex steps current proposed, currentIndex) =
+        current := by
+  induction steps with
+  | nil =>
+      rcases current with ⟨list, hlength⟩
+      cases list with
+      | nil => simp at hlength
+      | cons first rest =>
+          cases rest with
+          | nil =>
+              apply Subtype.ext
+              simp [pairedHistoryAt, selectedTrajectoryVector,
+                selectedTrajectory, hne]
+              rfl
+          | cons second rest => simp at hlength
+  | cons step steps ih =>
+      apply List.Vector.toList_injective
+      have htail := congrArg List.Vector.toList
+        (ih current.tail proposed.tail)
+      have hcons := congrArg List.Vector.toList
+        (List.Vector.cons_head_tail current)
+      simpa [pairedHistoryAt, selectedTrajectoryVector, selectedTrajectory,
+        initialAncestor_pairedHistoryAt, hne, List.Vector.toList] using
+        (congrArg (List.cons current.head) htail).trans hcons
+
+omit [Fintype Particle] [Nonempty Particle] [DecidableEq Sample] in
+theorem selectedTrajectoryVector_pairedHistoryAt_proposed
+    (proposedIndex : Particle) (steps : List (FeynmanKacStep Sample))
+    (current proposed : Trajectory steps) :
+    selectedTrajectoryVector steps
+      (pairedHistoryAt proposedIndex steps current proposed, proposedIndex) =
+        proposed := by
+  induction steps with
+  | nil =>
+      rcases proposed with ⟨list, hlength⟩
+      cases list with
+      | nil => simp at hlength
+      | cons first rest =>
+          cases rest with
+          | nil =>
+              apply Subtype.ext
+              simp [pairedHistoryAt, selectedTrajectoryVector,
+                selectedTrajectory]
+              rfl
+          | cons second rest => simp at hlength
+  | cons step steps ih =>
+      apply List.Vector.toList_injective
+      have htail := congrArg List.Vector.toList
+        (ih current.tail proposed.tail)
+      have hcons := congrArg List.Vector.toList
+        (List.Vector.cons_head_tail proposed)
+      simpa [pairedHistoryAt, selectedTrajectoryVector, selectedTrajectory,
+        initialAncestor_pairedHistoryAt, List.Vector.toList] using
+        (congrArg (List.cons proposed.head) htail).trans hcons
+
 /-- Exact normalized Feynman--Kac trajectory target, represented as the
 selected-trajectory marginal of the extended particle target. -/
 noncomputable def trajectoryTarget (initial : Distribution Sample)

@@ -118,7 +118,8 @@ client. This is not yet a BPS/Zig-Zag process-existence, nonexplosion, or
 convergence theorem.
 
 For positive-horizon particle Gibbs, the finite library now proves a concrete
-arbitrary-horizon result: with two particles, positive initial mass, and
+arbitrary-horizon result: with any finite particle index type containing at
+least two particles, positive initial mass, and
 full-support propagation at every Feynman--Kac step, the trajectory kernel
 converges in total variation from every initial trajectory law. The proof
 constructs two simultaneous genealogies for every pair of trajectories and

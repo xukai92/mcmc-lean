@@ -382,6 +382,21 @@ theorem particleGibbsPairRealizable_bool
     selectedTrajectoryVector_pairedBoolHistory_false steps current proposed,
     selectedTrajectoryVector_pairedBoolHistory_true steps current proposed⟩
 
+omit [Fintype Particle] [Nonempty Particle] [DecidableEq Sample] in
+/-- Any particle type with at least two indices realizes every pair of
+trajectories in a shared identity-ancestry history. -/
+theorem particleGibbsPairRealizable_of_nontrivial [Nontrivial Particle]
+    (steps : List (FeynmanKacStep Sample)) :
+    ParticleGibbsPairRealizable (Particle := Particle) steps := by
+  obtain ⟨currentIndex, proposedIndex, hne⟩ := exists_pair_ne Particle
+  intro current proposed
+  exact ⟨pairedHistoryAt proposedIndex steps current proposed,
+    currentIndex, proposedIndex,
+    selectedTrajectoryVector_pairedHistoryAt_current
+      currentIndex proposedIndex hne steps current proposed,
+    selectedTrajectoryVector_pairedHistoryAt_proposed
+      proposedIndex steps current proposed⟩
+
 /-- Full-support model ingredients reduce the analytic particle-Gibbs support
 obligation to simultaneous realizability of two genealogies. -/
 theorem particleGibbsFiberConnectivity_of_pairRealizable
@@ -503,6 +518,52 @@ theorem particleGibbs_totalVariation_tendsto_zero_of_fiberConnectivity
     initial steps hnormalizer
     (trajectoryParticleGibbsKernel_prob_pos_of_fiberConnectivity
       initial steps hnormalizer hconnect) initialLaw
+
+/-- At every finite horizon and for every particle count of at least two,
+full-support bootstrap particle Gibbs converges in total variation from every
+initial trajectory law. The theorem is parameterized by the finite particle
+index type; `[Nontrivial Particle]` is exactly the two-lineage requirement. -/
+theorem particleGibbs_totalVariation_tendsto_zero_of_fullSupport
+    [Nontrivial Particle] [Nonempty Sample]
+    (initial : Distribution Sample) (hinitial : ∀ x, 0 < initial.mass x)
+    (steps : List (FeynmanKacStep Sample))
+    (hsupport : FeynmanKacFullSupport steps)
+    (hnormalizer : 0 < normalizingConstant initial steps)
+    (initialLaw : Distribution (Trajectory steps)) :
+    Filter.Tendsto (fun n =>
+      Nonhomogeneous.distributionTotalVariation
+        (Nonhomogeneous.iterateLaw initialLaw
+          (trajectoryParticleGibbsKernel (Particle := Particle)
+            initial steps hnormalizer) n)
+        (trajectoryTarget (Particle := Particle) initial steps hnormalizer))
+      Filter.atTop (nhds 0) := by
+  apply particleGibbs_totalVariation_tendsto_zero_of_fiberConnectivity
+  exact particleGibbsFiberConnectivity_of_pairRealizable
+    initial hinitial steps hsupport hnormalizer
+      (particleGibbsPairRealizable_of_nontrivial steps)
+
+/-- Cardinality-form wrapper for the full-support theorem. This makes the
+particle-count boundary explicit: one particle is the identity obstruction,
+whereas every finite count `N ≥ 2` admits the two-lineage argument. -/
+theorem particleGibbs_totalVariation_tendsto_zero_of_two_le_card
+    [Nonempty Sample]
+    (hparticles : 2 ≤ Fintype.card Particle)
+    (initial : Distribution Sample) (hinitial : ∀ x, 0 < initial.mass x)
+    (steps : List (FeynmanKacStep Sample))
+    (hsupport : FeynmanKacFullSupport steps)
+    (hnormalizer : 0 < normalizingConstant initial steps)
+    (initialLaw : Distribution (Trajectory steps)) :
+    Filter.Tendsto (fun n =>
+      Nonhomogeneous.distributionTotalVariation
+        (Nonhomogeneous.iterateLaw initialLaw
+          (trajectoryParticleGibbsKernel (Particle := Particle)
+            initial steps hnormalizer) n)
+        (trajectoryTarget (Particle := Particle) initial steps hnormalizer))
+      Filter.atTop (nhds 0) := by
+  letI : Nontrivial Particle :=
+    Fintype.one_lt_card_iff_nontrivial.mp (lt_of_lt_of_le (by decide) hparticles)
+  exact particleGibbs_totalVariation_tendsto_zero_of_fullSupport
+    initial hinitial steps hsupport hnormalizer initialLaw
 
 /-- A fully model-checkable positive-horizon result for two-particle bootstrap
 particle Gibbs: positive initial mass and full-support propagation imply TV
