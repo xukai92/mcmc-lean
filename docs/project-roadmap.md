@@ -93,8 +93,10 @@ finite dimension through its exact reciprocal-scaling formula. Proving the
 certificate for the smooth momentum-even model, instantiating a solver with
 the derivatives of the canonical globally positive nonconstant
 `1 + ‖q‖²` metric Hamiltonian (whose factor-volume and measurability
-obligations are now discharged), and refining Float64 residuals to that exact
-selection remain before B2 is complete.
+obligations and Equations (12)--(13) derivative callbacks are now discharged),
+proving contraction and phase volume for that actual derivative pair, and
+refining Float64 residuals to that exact selection remain before B2 is
+complete.
 
 ## Track C: later breadth branches
 

@@ -1,4 +1,5 @@
 import Mcmc.Relativistic.Multinomial
+import Mcmc.Relativistic.Derivatives
 import Mathlib.MeasureTheory.Measure.Lebesgue.EqHaar
 
 /-!
@@ -32,6 +33,41 @@ theorem measurable_quadraticScalarScale :
   unfold quadraticScalarScale squaredEuclideanNorm euclideanInner
   fun_prop
 
+theorem differentiable_quadraticScalarScale :
+    Differentiable ℝ (quadraticScalarScale : Position ι → ℝ) := by
+  unfold quadraticScalarScale squaredEuclideanNorm euclideanInner
+  fun_prop
+
+/-- Directional derivative of the canonical scale in one dimension. -/
+theorem fderiv_quadraticScalarScale_unit_apply
+    (q u : Position Unit) :
+    fderiv ℝ (quadraticScalarScale : Position Unit → ℝ) q u =
+      2 * q Unit.unit * u Unit.unit := by
+  unfold quadraticScalarScale squaredEuclideanNorm euclideanInner
+  rw [fderiv_const_add, fderiv_fun_sum]
+  · simp only [Fintype.sum_unique]
+    have happ : fderiv ℝ (fun q : Position Unit => q Unit.unit) q u =
+        u Unit.unit := by
+      have h := congrArg (fun L : Position Unit →L[ℝ] ℝ => L u)
+        (hasFDerivAt_apply Unit.unit q).fderiv
+      simpa using h
+    change (fderiv ℝ (fun q : Position Unit =>
+      q Unit.unit * q Unit.unit) q) u = _
+    have hmul := fderiv_mul
+      (by fun_prop : DifferentiableAt ℝ
+        (fun q : Position Unit => q Unit.unit) q)
+      (by fun_prop : DifferentiableAt ℝ
+        (fun q : Position Unit => q Unit.unit) q)
+    have hmulapp := congrArg
+      (fun L : Position Unit →L[ℝ] ℝ => L u) hmul
+    rw [show (fun q : Position Unit => q Unit.unit * q Unit.unit) =
+      (fun q : Position Unit => q Unit.unit) *
+        (fun q : Position Unit => q Unit.unit) by rfl, hmulapp]
+    simp only [add_apply, smul_apply, smul_eq_mul, happ]
+    ring
+  · intro i hi
+    fun_prop
+
 /-- The canonical positive factor is not constant, already in one
 dimension. -/
 theorem quadraticScalarScale_nonconstant :
@@ -53,6 +89,13 @@ theorem scalarFactorJacobian_pos
   apply inv_pos.mpr
   exact abs_pos.mpr (pow_ne_zero _ (inv_ne_zero (hscale q).ne'))
 
+/-- In one dimension the scalar-factor Jacobian is the positive scale itself. -/
+theorem scalarFactorJacobian_unit_eq
+    (scale : Position Unit → ℝ) (hscale : ∀ q, 0 < scale q)
+    (q : Position Unit) : scalarFactorJacobian scale q = scale q := by
+  unfold scalarFactorJacobian
+  simp [abs_of_pos (hscale q)]
+
 /-- A scalar factored metric.  Its factor is `scale(q) I`, its inverse metric
 is `scale(q)² I`, and its log determinant is defined from the exact inverse-map
 Lebesgue scaling. -/
@@ -63,13 +106,6 @@ noncomputable def scalarFactoredRiemannianMetric
     (Units.mk0 (scale q) (hscale q).ne')
   inverseMetric q := (scale q) ^ 2 • LinearMap.id
   logDet q := -2 * Real.log (scalarFactorJacobian scale q)
-
-/-- Concrete globally positive nonconstant factored metric used as the target
-for the remaining exact generalized-leapfrog derivative instantiation. -/
-noncomputable def quadraticScalarRiemannianMetric :
-    FactoredRiemannianMetric ι :=
-  scalarFactoredRiemannianMetric quadraticScalarScale
-    quadraticScalarScale_pos
 
 @[simp]
 theorem scalarFactoredRiemannianMetric_factor_apply
@@ -86,6 +122,271 @@ theorem scalarFactoredRiemannianMetric_inverseMetric_apply
     (scalarFactoredRiemannianMetric scale hscale).inverseMetric q p =
       (scale q) ^ 2 • p := by
   simp [scalarFactoredRiemannianMetric]
+
+/-- Concrete globally positive nonconstant factored metric used as the target
+for the remaining exact generalized-leapfrog derivative instantiation. -/
+noncomputable def quadraticScalarRiemannianMetric :
+    FactoredRiemannianMetric ι :=
+  scalarFactoredRiemannianMetric quadraticScalarScale
+    quadraticScalarScale_pos
+
+theorem differentiableAt_quadraticScalar_factor_norm_sq_unit
+    (q : Position Unit) (p : Momentum Unit) :
+    DifferentiableAt ℝ (fun r => squaredEuclideanNorm
+      (((quadraticScalarRiemannianMetric (ι := Unit)).factor r) p)) q := by
+  rw [show (fun r => squaredEuclideanNorm
+      (((quadraticScalarRiemannianMetric (ι := Unit)).factor r) p)) =
+      fun r : Position Unit =>
+        (quadraticScalarScale r * p Unit.unit) *
+          (quadraticScalarScale r * p Unit.unit) by
+    funext r
+    simp [quadraticScalarRiemannianMetric,
+      scalarFactoredRiemannianMetric_factor_apply,
+      squaredEuclideanNorm, euclideanInner]]
+  exact (differentiable_quadraticScalarScale.differentiableAt.mul_const _).mul
+    (differentiable_quadraticScalarScale.differentiableAt.mul_const _)
+
+theorem fderiv_quadraticScalar_factor_norm_sq_unit_apply
+    (q : Position Unit) (p : Momentum Unit) (u : Position Unit) :
+    fderiv ℝ (fun r => squaredEuclideanNorm
+      (((quadraticScalarRiemannianMetric (ι := Unit)).factor r) p)) q u =
+      4 * quadraticScalarScale q * q Unit.unit * u Unit.unit *
+        p Unit.unit ^ 2 := by
+  have hscale : DifferentiableAt ℝ
+      (quadraticScalarScale : Position Unit → ℝ) q :=
+    (differentiable_quadraticScalarScale (ι := Unit)).differentiableAt
+  have hscaled : DifferentiableAt ℝ
+      (fun r : Position Unit => quadraticScalarScale r * p Unit.unit) q :=
+    hscale.mul_const _
+  have hmul := fderiv_mul hscaled hscaled
+  have hmulapp := congrArg
+    (fun L : Position Unit →L[ℝ] ℝ => L u) hmul
+  have hscaleMul := fderiv_mul_const hscale (p Unit.unit)
+  have hscaleMulApp := congrArg
+    (fun L : Position Unit →L[ℝ] ℝ => L u) hscaleMul
+  rw [show (fun r => squaredEuclideanNorm
+      (((quadraticScalarRiemannianMetric (ι := Unit)).factor r) p)) =
+      fun r : Position Unit =>
+        (quadraticScalarScale r * p Unit.unit) *
+          (quadraticScalarScale r * p Unit.unit) by
+    funext r
+    simp [quadraticScalarRiemannianMetric,
+      scalarFactoredRiemannianMetric_factor_apply,
+      squaredEuclideanNorm, euclideanInner]]
+  rw [show (fun r : Position Unit =>
+      (quadraticScalarScale r * p Unit.unit) *
+        (quadraticScalarScale r * p Unit.unit)) =
+      (fun r => quadraticScalarScale r * p Unit.unit) *
+        (fun r => quadraticScalarScale r * p Unit.unit) by rfl,
+    hmulapp]
+  simp only [add_apply, smul_apply, smul_eq_mul]
+  rw [hscaleMulApp]
+  simp only [smul_apply, smul_eq_mul]
+  rw [fderiv_quadraticScalarScale_unit_apply]
+  ring
+
+theorem quadraticScalarRiemannianMetric_logDet_unit (q : Position Unit) :
+    (quadraticScalarRiemannianMetric (ι := Unit)).logDet q =
+      -2 * Real.log (quadraticScalarScale q) := by
+  simp [quadraticScalarRiemannianMetric, scalarFactoredRiemannianMetric,
+    scalarFactorJacobian_unit_eq quadraticScalarScale
+      quadraticScalarScale_pos]
+
+theorem differentiableAt_quadraticScalarRiemannianMetric_logDet_unit
+    (q : Position Unit) :
+    DifferentiableAt ℝ
+      (quadraticScalarRiemannianMetric (ι := Unit)).logDet q := by
+  rw [show (quadraticScalarRiemannianMetric (ι := Unit)).logDet =
+      fun r => -2 * Real.log (quadraticScalarScale r) by
+    funext r
+    exact quadraticScalarRiemannianMetric_logDet_unit r]
+  exact ((Real.differentiableAt_log
+    (quadraticScalarScale_pos q).ne').comp q
+      (differentiable_quadraticScalarScale (ι := Unit)).differentiableAt).const_mul _
+
+theorem fderiv_quadraticScalarRiemannianMetric_logDet_unit_apply
+    (q u : Position Unit) :
+    fderiv ℝ (quadraticScalarRiemannianMetric (ι := Unit)).logDet q u =
+      -4 * q Unit.unit * u Unit.unit / quadraticScalarScale q := by
+  let scale : Position Unit → ℝ := quadraticScalarScale
+  have hscale : DifferentiableAt ℝ scale q :=
+    (differentiable_quadraticScalarScale (ι := Unit)).differentiableAt
+  have hlog : DifferentiableAt ℝ (Real.log ∘ scale) q :=
+    (Real.differentiableAt_log (quadraticScalarScale_pos q).ne').comp q hscale
+  rw [show (quadraticScalarRiemannianMetric (ι := Unit)).logDet =
+      fun r => -2 * Real.log (scale r) by
+    funext r
+    exact quadraticScalarRiemannianMetric_logDet_unit r]
+  have hconst := fderiv_const_mul hlog (-2 : ℝ)
+  have hconstApp := congrArg
+    (fun L : Position Unit →L[ℝ] ℝ => L u) hconst
+  rw [show (fun r : Position Unit => -2 * Real.log (scale r)) =
+      fun r => (-2 : ℝ) * (Real.log ∘ scale) r by rfl, hconstApp]
+  simp only [smul_apply, smul_eq_mul]
+  rw [fderiv_comp (f := scale) (g := Real.log) (x := q)
+    (Real.differentiableAt_log (quadraticScalarScale_pos q).ne') hscale,
+    ContinuousLinearMap.comp_apply,
+    (Real.hasDerivAt_log
+      (quadraticScalarScale_pos q).ne').hasFDerivAt.fderiv]
+  simp only [ContinuousLinearMap.toSpanSingleton_apply, smul_eq_mul]
+  rw [fderiv_quadraticScalarScale_unit_apply]
+  field_simp
+  ring
+
+/-- Directional derivative of the covariant metric
+`G(q) = quadraticScalarScale(q)⁻² I` in one dimension. -/
+noncomputable def quadraticScalarMetricVariationUnit
+    (q u : Position Unit) : Momentum Unit →ₗ[ℝ] Momentum Unit :=
+  (-4 * q Unit.unit * u Unit.unit / quadraticScalarScale q ^ 3) •
+    ContinuousLinearMap.id ℝ (Momentum Unit)
+
+@[simp]
+theorem quadraticScalarMetricVariationUnit_apply
+    (q u : Position Unit) (p : Momentum Unit) :
+    quadraticScalarMetricVariationUnit q u p =
+      (-4 * q Unit.unit * u Unit.unit / quadraticScalarScale q ^ 3) • p := by
+  rfl
+
+/-- Complete Equation (12) calculus certificate for the concrete positive
+nonconstant scalar metric in one dimension. -/
+noncomputable def quadraticScalarMetricEquation12CertificateUnit
+    (q : Position Unit) :
+    (quadraticScalarRiemannianMetric (ι := Unit)).Equation12Certificate q := by
+  refine {
+    metricVariation := quadraticScalarMetricVariationUnit q
+    differentiableAt_quadratic :=
+      differentiableAt_quadraticScalar_factor_norm_sq_unit q
+    fderiv_quadratic := ?_
+    differentiableAt_logDet :=
+      differentiableAt_quadraticScalarRiemannianMetric_logDet_unit q
+    fderiv_logDet := ?_ }
+  · intro p u
+    rw [fderiv_quadraticScalar_factor_norm_sq_unit_apply]
+    unfold euclideanInner
+    simp only [scalarFactoredRiemannianMetric_inverseMetric_apply,
+      quadraticScalarRiemannianMetric, Finset.univ_unique,
+      Finset.sum_singleton, Pi.smul_apply, smul_eq_mul,
+      quadraticScalarMetricVariationUnit_apply]
+    have hs : quadraticScalarScale q ≠ 0 :=
+      (quadraticScalarScale_pos q).ne'
+    field_simp [hs]
+  · intro u
+    rw [fderiv_quadraticScalarRiemannianMetric_logDet_unit_apply]
+    unfold coordinateTrace
+    simp only [Finset.univ_unique, Finset.sum_singleton,
+      LinearMap.comp_apply,
+      scalarFactoredRiemannianMetric_inverseMetric_apply,
+      quadraticScalarRiemannianMetric, Pi.smul_apply, smul_eq_mul,
+      quadraticScalarMetricVariationUnit_apply,
+      Pi.single_eq_same]
+    have hs : quadraticScalarScale q ≠ 0 :=
+      (quadraticScalarScale_pos q).ne'
+    field_simp [hs]
+
+/-- The concrete scalar factor and inverse metric satisfy
+`A(q)ᵀA(q) = G(q)⁻¹`. -/
+theorem quadraticScalarRiemannianMetric_factor_compatible
+    (q : Position Unit) (x y : Momentum Unit) :
+    euclideanInner
+        ((quadraticScalarRiemannianMetric (ι := Unit)).factor q x)
+        ((quadraticScalarRiemannianMetric (ι := Unit)).factor q y) =
+      euclideanInner
+        ((quadraticScalarRiemannianMetric (ι := Unit)).inverseMetric q x) y := by
+  simp only [quadraticScalarRiemannianMetric,
+    scalarFactoredRiemannianMetric_factor_apply,
+    scalarFactoredRiemannianMetric_inverseMetric_apply]
+  rw [euclideanInner_smul_left, euclideanInner_smul_left,
+    euclideanInner_smul_right]
+  ring
+
+/-- Equation (12) for the actual complete Hamiltonian of the concrete
+nonconstant metric. -/
+theorem fderiv_quadraticScalar_generalRelativisticHamiltonian_position_apply
+    (potential : Position Unit → ℝ) (q : Position Unit)
+    (p : Momentum Unit) (u : Position Unit) (m c : ℝ)
+    (hm : 0 < m) (hc : 0 < c)
+    (hpotential : DifferentiableAt ℝ potential q) :
+    fderiv ℝ (fun r => generalRelativisticHamiltonian potential
+      (quadraticScalarRiemannianMetric (ι := Unit)) m c (r, p)) q u =
+      fderiv ℝ potential q u +
+        (riemannianRelativisticMass quadraticScalarRiemannianMetric
+          m c q p)⁻¹ *
+          (-1 / 2 * euclideanInner
+            ((quadraticScalarRiemannianMetric (ι := Unit)).inverseMetric q p)
+            (quadraticScalarMetricVariationUnit q u
+              ((quadraticScalarRiemannianMetric (ι := Unit)).inverseMetric q p))) +
+        1 / 2 * coordinateTrace
+          (((quadraticScalarRiemannianMetric (ι := Unit)).inverseMetric q).comp
+            (quadraticScalarMetricVariationUnit q u)) := by
+  exact fderiv_generalRelativisticHamiltonian_position_apply potential
+    quadraticScalarRiemannianMetric
+    (quadraticScalarMetricEquation12CertificateUnit q)
+    m c p u hm hc hpotential
+
+/-- Equation (13) for the momentum derivative of the same concrete complete
+Hamiltonian. -/
+theorem fderiv_quadraticScalar_generalRelativisticHamiltonian_momentum_apply
+    (potential : Position Unit → ℝ) (q : Position Unit)
+    (p h : Momentum Unit) (m c : ℝ) (hm : 0 < m) (hc : 0 < c) :
+    fderiv ℝ (fun r => generalRelativisticHamiltonian potential
+      (quadraticScalarRiemannianMetric (ι := Unit)) m c (q, r)) p h =
+      euclideanInner
+        (riemannianRelativisticVelocity quadraticScalarRiemannianMetric
+          m c q p) h := by
+  exact fderiv_generalRelativisticHamiltonian_momentum_apply potential
+    quadraticScalarRiemannianMetric m c q p h hm hc
+    (quadraticScalarRiemannianMetric_factor_compatible q)
+
+/-- Coordinate Riesz representative of a scalar Fréchet derivative in the
+one-dimensional function-space representation used by the executable model. -/
+noncomputable def fderivGradientUnit
+    (f : Position Unit → ℝ) (q : Position Unit) : Position Unit :=
+  fun _ => fderiv ℝ f q (Pi.single Unit.unit 1)
+
+theorem fderiv_eq_euclideanInner_fderivGradientUnit
+    (f : Position Unit → ℝ) (q u : Position Unit) :
+    fderiv ℝ f q u = euclideanInner (fderivGradientUnit f q) u := by
+  have hu : u = u Unit.unit • (Pi.single Unit.unit 1 : Position Unit) := by
+    ext i
+    simp only [Pi.smul_apply, smul_eq_mul]
+    rw [Subsingleton.elim i Unit.unit]
+    simp
+  rw [hu, map_smul]
+  simp [fderivGradientUnit, euclideanInner]
+  ring
+
+/-- Actual position derivative callback of the complete GR Hamiltonian for
+the concrete nonconstant metric. -/
+noncomputable def quadraticScalarGRPositionDerivative
+    (potential : Position Unit → ℝ) (m c : ℝ) :
+    PhaseSpace Unit → Position Unit := fun z =>
+  fderivGradientUnit (fun q => generalRelativisticHamiltonian potential
+    (quadraticScalarRiemannianMetric (ι := Unit)) m c (q, z.2)) z.1
+
+/-- Actual momentum derivative callback of the same Hamiltonian. Equation
+(13) identifies it with the Riemannian relativistic velocity. -/
+noncomputable def quadraticScalarGRMomentumDerivative
+    (m c : ℝ) : PhaseSpace Unit → Momentum Unit := fun z =>
+  riemannianRelativisticVelocity
+    (quadraticScalarRiemannianMetric (ι := Unit)) m c z.1 z.2
+
+theorem quadraticScalarGRPositionDerivative_spec
+    (potential : Position Unit → ℝ) (m c : ℝ)
+    (z : PhaseSpace Unit) (u : Position Unit) :
+    fderiv ℝ (fun q => generalRelativisticHamiltonian potential
+      (quadraticScalarRiemannianMetric (ι := Unit)) m c (q, z.2)) z.1 u =
+      euclideanInner (quadraticScalarGRPositionDerivative potential m c z) u :=
+  fderiv_eq_euclideanInner_fderivGradientUnit _ _ _
+
+theorem quadraticScalarGRMomentumDerivative_spec
+    (potential : Position Unit → ℝ) (m c : ℝ)
+    (hm : 0 < m) (hc : 0 < c) (z : PhaseSpace Unit)
+    (h : Momentum Unit) :
+    fderiv ℝ (fun p => generalRelativisticHamiltonian potential
+      (quadraticScalarRiemannianMetric (ι := Unit)) m c (z.1, p)) z.2 h =
+      euclideanInner (quadraticScalarGRMomentumDerivative m c z) h := by
+  exact fderiv_quadraticScalar_generalRelativisticHamiltonian_momentum_apply
+    potential z.1 z.2 h m c hm hc
 
 /-- The scalar metric satisfies the exact factor-volume compatibility
 condition, including when `scale` varies with position. -/

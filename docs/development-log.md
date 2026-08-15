@@ -73,6 +73,16 @@ Hamiltonian. The remaining solver task is now the derivative and contraction
 analysis for this concrete Hamiltonian, rather than construction of a valid
 positive metric field.
 
+Completed the calculus side of that link in one dimension. Lean now constructs
+the covariant metric-variation map for `1 + ‖q‖²`, proves the quadratic-form
+and log-determinant derivative identities required by the Equation (12)
+certificate, proves `AᵀA = G⁻¹`, and instantiates both paper Equations (12) and
+(13) for the complete GR Hamiltonian. The resulting
+`quadraticScalarGRPositionDerivative` and
+`quadraticScalarGRMomentumDerivative` are exact Fréchet-derivative callbacks.
+The remaining analytic task is proving the fixed-point contraction and
+phase-volume certificate for a useful nonzero step size.
+
 ## 2026-08-15: adaptive convergence, exact slice disintegration, and Euclidean RJ
 
 Completed the finite Roberts--Rosenthal argument. An anchored augmented process

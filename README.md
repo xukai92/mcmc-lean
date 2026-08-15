@@ -78,8 +78,10 @@ position/momentum scalings preserve product phase volume. The repository
 contains positive nonconstant scalar and diagonal SoftAbs metric families and
 now a canonical smooth factor `1 + ‖q‖²`, with exact factor-volume
 compatibility and complete-Hamiltonian measurability. What remains is to
-instantiate an exact solver with the derivatives of one of those complete GR
-Hamiltonians.
+close the contraction and phase-volume analysis for its generalized-leapfrog
+solve. Its actual position and momentum derivatives are now connected to the
+complete GR Hamiltonian by machine-checked Equations (12) and (13), rather
+than supplied as unrelated callbacks.
 
 Betancourt's [*A Conceptual Introduction to Hamiltonian Monte
 Carlo*](https://arxiv.org/abs/1701.02434) is used as a foundational HMC
