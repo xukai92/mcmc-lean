@@ -1,6 +1,8 @@
 import Mcmc.Hamiltonian.RandomizedTrajectory
 import Mathlib.MeasureTheory.Group.Prod
 import Mathlib.MeasureTheory.Measure.Lebesgue.EqHaar
+import Mathlib.MeasureTheory.Measure.Haar.InnerProductSpace
+import Mathlib.MeasureTheory.Function.Jacobian
 
 /-!
 # Volume preservation of leapfrog integration
@@ -21,6 +23,31 @@ open MeasureTheory
 namespace Mcmc.Hamiltonian
 
 variable {ι : Type*} [Fintype ι]
+
+/-- A bijective differentiable map with unit absolute Jacobian determinant
+preserves any finite-dimensional additive Haar measure. This packages the
+change-of-variables step needed when volume preservation is established by a
+Jacobian calculation rather than by shear decomposition. -/
+theorem measurePreserving_of_bijective_differentiable_abs_det_one
+    {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
+    [FiniteDimensional ℝ E] [MeasurableSpace E] [BorelSpace E]
+    (μ : Measure E) [Measure.IsAddHaarMeasure μ]
+    (f : E → E) (hf : Differentiable ℝ f) (hbijective : Function.Bijective f)
+    (hdet : ∀ x, |(fderiv ℝ f x).det| = 1) :
+    MeasurePreserving f μ μ := by
+  have hmeasurable : Measurable f := hf.continuous.measurable
+  refine ⟨hmeasurable, ?_⟩
+  ext s hs
+  rw [Measure.map_apply hmeasurable hs]
+  let t := f ⁻¹' s
+  have ht : MeasurableSet t := hs.preimage hmeasurable
+  have hformula := lintegral_abs_det_fderiv_eq_addHaar_image
+    (μ := μ) (f := f) (f' := fun x => fderiv ℝ f x) ht
+    (fun x _ => (hf x).hasFDerivAt.hasFDerivWithinAt)
+    hbijective.injective.injOn
+  have himage : f '' t = s := Set.image_preimage_eq s hbijective.surjective
+  rw [himage] at hformula
+  simpa [t, hdet] using hformula
 
 /-- Product Lebesgue measure on position-momentum phase space. -/
 noncomputable def phaseVolume : Measure (PhaseSpace ι) :=

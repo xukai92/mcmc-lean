@@ -156,9 +156,19 @@ the concrete smooth momentum-even Hamiltonian
 than assuming contraction for every real step size. Lean verifies its stated
 derivatives, exact-solve uniqueness, convergence of both practical loops,
 measurability, and momentum-flip reversal. A bilinear closed-form stress test
-is also retained. Phase-volume preservation and instantiation by a globally
+is also retained. Opposite-step uniqueness now proves that the exact step is
+bijective, and a reusable change-of-variables theorem turns an explicit
+differentiability/unit-Jacobian certificate into product phase-volume
+preservation. The concrete certificate and instantiation by a globally
 positive nonconstant Riemannian metric remain before this supplies the entire
 validity certificate consumed by GR-HMC.
+
+For comparison, `bilinearContractiveSolverAt_volumePreserving` closes the
+measure-theoretic argument for the bilinear implicit stress model in every
+finite dimension: the exact selected map is a pair of reciprocal dilations,
+whose Haar scaling factors cancel. That theorem validates the solver
+machinery but does not identify the bilinear model with the complete
+momentum-even GR Hamiltonian.
 
 A small positive residual is not reclassified as equality. Consequently the
 practical Float64 solver is useful for diagnostics and convergence testing but

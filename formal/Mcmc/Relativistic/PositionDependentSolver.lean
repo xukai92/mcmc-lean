@@ -21,7 +21,7 @@ of the exact selected phase map remains a separate obligation.
 
 namespace Mcmc.Relativistic
 
-open Mcmc.Hamiltonian Filter Topology
+open Mcmc.Hamiltonian MeasureTheory Filter Topology
 
 /-- Scalar relativistic square-root profile. -/
 noncomputable def scalarRelativisticProfile (p : ℝ) : ℝ :=
@@ -350,5 +350,36 @@ theorem linearRelativisticContractiveSolverAt_reversible (a ε : ℝ)
       linarith
   exact (backward.unique z (-pHalf)
     (momentumFlip (forward.step (momentumFlip z))) hreverse).2
+
+/-- The remaining analytic data needed to promote the concrete exact solve
+from a reversible measurable integrator to a phase-volume-preserving one. The
+determinant field is the precise theorem suggested by the executable
+finite-difference regression; it is not inferred from that regression. -/
+structure LinearRelativisticJacobianCertificate (a ε : ℝ)
+    (hstep : |ε / 2 * a| < 1) : Prop where
+  differentiable : Differentiable ℝ
+    (linearRelativisticContractiveSolverAt a ε hstep).step
+  absDetOne : ∀ z,
+    |(fderiv ℝ (linearRelativisticContractiveSolverAt a ε hstep).step z).det| = 1
+
+/-- A unit-Jacobian certificate closes the exact phase-volume obligation by
+the finite-dimensional change-of-variables theorem. Bijectivity is derived,
+not assumed, from the unique opposite-step solve. -/
+theorem LinearRelativisticJacobianCertificate.volumePreserving
+    {a ε : ℝ} {hstep : |ε / 2 * a| < 1}
+    (certificate : LinearRelativisticJacobianCertificate a ε hstep) :
+    MeasurePreserving
+      (linearRelativisticContractiveSolverAt a ε hstep).step
+      (phaseVolume : Measure (PhaseSpace Unit)) phaseVolume := by
+  let hbackward : |(-ε) / 2 * a| < 1 := by
+    simpa [neg_div] using hstep
+  let forward := linearRelativisticContractiveSolverAt a ε hstep
+  let backward := linearRelativisticContractiveSolverAt a (-ε) hbackward
+  letI : Measure.IsAddHaarMeasure
+      (phaseVolume : Measure (PhaseSpace Unit)) :=
+    Measure.prod.instIsAddHaarMeasure _ _
+  exact measurePreserving_of_bijective_differentiable_abs_det_one
+    (phaseVolume : Measure (PhaseSpace Unit)) forward.step certificate.differentiable
+    (forward.step_bijective backward) certificate.absDetOne
 
 end Mcmc.Relativistic

@@ -55,7 +55,15 @@ implicit residuals, public-API validation, and a check that approximate
 residual data is not accepted as an exact solver certificate. The smooth
 momentum-even formal test Hamiltonian `a q √(1+p²)` is replayed in Julia with
 reversal and finite-difference unit-Jacobian checks; the latter remains an
-empirical regression rather than a measure-preservation proof.
+empirical regression rather than a measure-preservation proof. Lean separately
+proves that an exact differentiability/unit-Jacobian certificate would imply
+phase-volume preservation, but the finite-difference check does not construct
+that certificate.
+
+The bilinear exact solver has a stronger formal check:
+`bilinearContractiveSolverAt_volumePreserving` proves exact phase-volume
+preservation in arbitrary finite dimension. No numerical tolerance enters
+that result.
 
 `test/composable.jl` checks declared-variable coverage, overlapping scopes,
 left-to-right PG/HMC-style execution order, repeated sampling, and invalid

@@ -16,6 +16,7 @@ counterexample: finite iteration need not define a
 namespace Mcmc.Relativistic
 
 open Mcmc.Hamiltonian
+open MeasureTheory
 open Filter
 open Topology
 
@@ -201,6 +202,81 @@ theorem ContractiveGeneralizedLeapfrogSolverAt.unique
       rw [hpNext, hqEq]
       rfl
 
+/-- The exact contraction-selected solve at `-ε` is the inverse of the solve
+at `ε`, provided both fixed-step certificates are available. -/
+theorem ContractiveGeneralizedLeapfrogSolverAt.step_neg_step
+    {positionDerivative momentumDerivative : PhaseSpace ι → Position ι}
+    {ε : ℝ}
+    (forward : ContractiveGeneralizedLeapfrogSolverAt positionDerivative
+      momentumDerivative ε)
+    (backward : ContractiveGeneralizedLeapfrogSolverAt positionDerivative
+      momentumDerivative (-ε)) (z : PhaseSpace ι) :
+    backward.step (forward.step z) = z := by
+  let pHalf := forward.halfMomentum z
+  have hforward := forward.satisfies z
+  rcases hforward with ⟨hp, hq, hpNext⟩
+  have hreverse : GeneralizedLeapfrogEquations positionDerivative
+      momentumDerivative (-ε) (forward.step z) pHalf z := by
+    constructor
+    · dsimp only [pHalf]
+      ext i
+      have hi := congrFun hpNext i
+      simp only [Pi.sub_apply, Pi.smul_apply, neg_div,
+        smul_eq_mul] at hi ⊢
+      linarith
+    constructor
+    · dsimp only [pHalf]
+      ext i
+      have hi := congrFun hq i
+      simp only [Pi.add_apply, Pi.smul_apply, neg_div,
+        smul_eq_mul] at hi ⊢
+      linarith
+    · dsimp only [pHalf]
+      ext i
+      have hi := congrFun hp i
+      simp only [Pi.sub_apply, Pi.smul_apply, neg_div,
+        smul_eq_mul] at hi ⊢
+      linarith
+  exact (backward.unique (forward.step z) pHalf z hreverse).2.symm
+
+/-- Contraction certificates may carry different proof data, but their exact
+selected steps agree because the implicit solution is unique. -/
+theorem ContractiveGeneralizedLeapfrogSolverAt.step_eq
+    {positionDerivative momentumDerivative : PhaseSpace ι → Position ι}
+    {ε : ℝ}
+    (first second : ContractiveGeneralizedLeapfrogSolverAt positionDerivative
+      momentumDerivative ε) : first.step = second.step := by
+  funext z
+  exact (first.unique z (second.halfMomentum z) (second.step z)
+    (second.satisfies z)).2.symm
+
+/-- A pair of certified opposite-step solves are mutual inverses. -/
+theorem ContractiveGeneralizedLeapfrogSolverAt.step_bijective
+    {positionDerivative momentumDerivative : PhaseSpace ι → Position ι}
+    {ε : ℝ}
+    (forward : ContractiveGeneralizedLeapfrogSolverAt positionDerivative
+      momentumDerivative ε)
+    (backward : ContractiveGeneralizedLeapfrogSolverAt positionDerivative
+      momentumDerivative (-ε)) : Function.Bijective forward.step := by
+  have hleft : Function.LeftInverse backward.step forward.step :=
+    forward.step_neg_step backward
+  let forward' : ContractiveGeneralizedLeapfrogSolverAt positionDerivative
+      momentumDerivative (-(-ε)) := by
+    rw [neg_neg]
+    exact forward
+  have hforward' : forward'.step = forward.step := by
+    apply funext
+    intro z
+    have hsatisfies : GeneralizedLeapfrogEquations positionDerivative
+        momentumDerivative ε z (forward'.halfMomentum z) (forward'.step z) := by
+      simpa only [neg_neg] using forward'.satisfies z
+    exact (forward.unique z (forward'.halfMomentum z) (forward'.step z)
+      hsatisfies).2
+  have hright : Function.RightInverse backward.step forward.step := by
+    rw [← hforward']
+    exact backward.step_neg_step forward'
+  exact ⟨hleft.injective, hright.surjective⟩
+
 /-- A genuinely nonseparable bilinear Hamiltonian derivative:
 `∂H/∂q = a p`. -/
 def bilinearPositionDerivative (a : ℝ) : PhaseSpace ι → Position ι :=
@@ -355,6 +431,57 @@ theorem bilinearContractiveSolverAt_step_eq (a ε : ℝ)
     simp [bilinearPositionDerivative, bilinearExactHalfMomentum,
       bilinearExactStep, Pi.smul_apply]
     field_simp
+
+/-- In every finite dimension the exact bilinear implicit step preserves product phase
+volume. This is an analytic theorem about the exact Banach-selected map, not a
+finite-difference test of a truncated iteration. -/
+theorem bilinearContractiveSolverAt_volumePreserving (a ε : ℝ)
+    (hstep : |ε / 2 * a| < 1) :
+    MeasurePreserving
+      (bilinearContractiveSolverAt (ι := ι) a ε hstep).step
+      (phaseVolume : Measure (PhaseSpace ι)) phaseVolume := by
+  let r : ℝ := (1 + ε / 2 * a) / (1 - ε / 2 * a)
+  let s : ℝ := (1 - ε / 2 * a) / (1 + ε / 2 * a)
+  have hr : r ≠ 0 := by
+    have hneg := (abs_lt.mp hstep).1
+    have hpos := (abs_lt.mp hstep).2
+    dsimp [r]
+    apply div_ne_zero <;> linarith
+  have hs : s ≠ 0 := by
+    have hneg := (abs_lt.mp hstep).1
+    have hpos := (abs_lt.mp hstep).2
+    dsimp [s]
+    apply div_ne_zero <;> linarith
+  have hrs : r * s = 1 := by
+    have hnum : 1 + ε / 2 * a ≠ 0 := by
+      have := (abs_lt.mp hstep).1
+      linarith
+    have hden : 1 - ε / 2 * a ≠ 0 := by
+      have := (abs_lt.mp hstep).2
+      linarith
+    dsimp [r, s]
+    rw [div_mul_div_comm]
+    convert div_self (mul_ne_zero hnum hden) using 1
+    all_goals ring
+  rw [bilinearContractiveSolverAt_step_eq a ε hstep]
+  refine ⟨by unfold bilinearExactStep; fun_prop, ?_⟩
+  change Measure.map (Prod.map (r • ·) (s • ·))
+      ((volume : Measure (Position ι)).prod
+        (volume : Measure (Momentum ι))) = _
+  rw [← Measure.map_prod_map _ _ (by fun_prop) (by fun_prop),
+    Measure.map_addHaar_smul (volume : Measure (Position ι)) hr,
+    Measure.map_addHaar_smul (volume : Measure (Momentum ι)) hs,
+    Measure.prod_smul_left, Measure.prod_smul_right, smul_smul]
+  let d := Module.finrank ℝ (Position ι)
+  change (ENNReal.ofReal |(r ^ d)⁻¹| * ENNReal.ofReal |(s ^ d)⁻¹|) •
+      ((volume : Measure (Position ι)).prod
+        (volume : Measure (Momentum ι))) = phaseVolume
+  rw [← ENNReal.ofReal_mul (abs_nonneg ((r ^ d)⁻¹)), ← abs_mul]
+  have hinv : (r ^ d)⁻¹ * (s ^ d)⁻¹ = ((r * s) ^ d)⁻¹ := by
+    rw [mul_pow, mul_inv_rev]
+    exact mul_comm _ _
+  rw [hinv, hrs]
+  simp [phaseVolume]
 
 /-- Both practical fixed-point loops converge for the concrete bilinear
 solver whenever the explicit step-size condition holds. -/

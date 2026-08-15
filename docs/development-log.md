@@ -49,7 +49,20 @@ maps under `|εa/2| < 1`, and derives exact uniqueness, convergence of both
 finite iterations, measurability, and momentum-flip time reversal. Julia now
 tests the same callbacks for residual convergence, reversal, and an empirical
 finite-difference unit Jacobian. The Jacobian test is not promoted to a Lean
-phase-volume theorem.
+phase-volume theorem. Instead, Lean now proves the exact analytic boundary:
+opposite-step uniqueness makes the selected step bijective, and a
+differentiability plus unit-absolute-determinant certificate promotes it to a
+product-phase-volume-preserving map by Mathlib's additive-Haar
+change-of-variables theorem. The concrete Jacobian certificate itself remains
+to be proved; no numerical finite-difference result is used as its witness.
+
+Closed the phase-volume obligation completely for the bilinear implicit stress
+model. Its Banach-selected solve is proved equal to reciprocal scalar
+position/momentum dilations, and the exact Haar scaling formula proves product
+phase-volume preservation in every finite dimension. This is a genuine
+nonzero-step implicit-solver theorem, but the bilinear Hamiltonian is not
+momentum-even and is not presented as a GR target; the smooth momentum-even
+relativistic-shaped model retains its explicit Jacobian-certificate boundary.
 
 ## 2026-08-15: adaptive convergence, exact slice disintegration, and Euclidean RJ
 

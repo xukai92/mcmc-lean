@@ -85,8 +85,14 @@ finite loops. Lean now also has a fixed-step interface and a concrete
 smooth momentum-even nonseparable instance: both implicit maps contract under
 the explicit condition `|εa/2| < 1`, giving a measurable exact unique solve,
 convergent finite loops, and momentum-flip reversal. Proving phase-volume
-preservation and instantiating the solver with a globally positive nonconstant
-Riemannian metric—and refining Float64 residuals to that exact selection—remain
+preservation is now reduced to an explicit differentiability/unit-Jacobian
+certificate: opposite-step uniqueness already supplies bijectivity, and Lean
+proves that the certificate implies preservation of product phase volume.
+The bilinear stress model now closes this argument unconditionally in every
+finite dimension through its exact reciprocal-scaling formula. Proving the
+certificate for the smooth momentum-even model, instantiating a solver with
+the derivatives of the already-defined globally positive nonconstant metric
+Hamiltonians, and refining Float64 residuals to that exact selection remain
 before B2 is complete.
 
 ## Track C: later breadth branches
