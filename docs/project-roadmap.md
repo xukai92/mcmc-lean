@@ -266,12 +266,15 @@ breadth branches are:
   A conditional fixed-horizon executor now consumes candidate waits, fills the
   residual horizon by deterministic flow, and is proved Markov; its bounded
   homogeneous-clock candidate count has the exact Poisson law and is almost
-  surely finite.
+  surely finite. Conditional on a positive horizon and fixed count, the iid
+  continuous-uniform timestamp product law is constructed and proved a
+  probability measure.
   Concrete one-dimensional Zig-Zag and finite-dimensional BPS clients provide
   their linear flows, event kernels, and bounded-thinning constructors. The
   one-dimensional Zig-Zag generator cancellation and finite-dimensional BPS
-  reflection geometry are checked; coupling the Poisson count to ordered event
-  times in a joint fixed-horizon path law, unbounded-rate Lyapunov arguments,
+  reflection geometry are checked; measurably sorting the conditional times
+  and coupling them to the Poisson count in a joint fixed-horizon path law,
+  unbounded-rate Lyapunov arguments,
   process-level stationarity, and convergence remain.
 
 Sequence-parallel evaluation is an execution-refinement project downstream of

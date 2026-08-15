@@ -83,6 +83,13 @@ kernel. The homogeneous clock's candidate count on a finite horizon is given
 its exact Poisson law and proved almost surely finite. What remains is the
 joint law coupling that count to ordered candidate times and the executor.
 
+For that bridge, positive horizons now carry the normalized continuous uniform
+measure on `(0,T]`, with its probability normalization proved directly from
+Lebesgue interval volume. Every fixed candidate count has the corresponding iid
+timestamp product probability measure. This is the standard conditional-time
+ingredient for a homogeneous Poisson process; measurable sorting and the
+dependent mixture over counts are not yet claimed.
+
 ## 2026-08-15: categorical discontinuous-HMC vertical slice
 
 Added the Laplace-momentum crossing/reflection algebra from Nishimura, Dunson,
