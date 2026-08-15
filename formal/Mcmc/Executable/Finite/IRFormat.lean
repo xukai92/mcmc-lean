@@ -1,4 +1,5 @@
 import Mcmc.Executable.Finite.CompilerIR
+import Mcmc.Executable.Continuous.CompilerIR
 
 /-!
 # Versioned textual format for finite sampler IR
@@ -9,7 +10,7 @@ format is consumed by the maintained Julia reference interpreter.
 
 namespace Mcmc.Executable.Finite.CompilerIR.Format
 
-def version : Nat := 1
+def version : Nat := 2
 
 private def quote (value : String) : String :=
   let escapedBackslash := value.replace "\\" "\\\\"
@@ -82,9 +83,53 @@ private def programRender (program : Program) : String :=
     list ("inputs" :: program.inputs.map Input.render),
     list ("body" :: program.body.map stmtRender)]
 
+private def continuousTyRender :
+    Continuous.CompilerIR.Ty → String
+  | .real => "real"
+  | .bool => "bool"
+
+private def continuousExprRender : {type : Continuous.CompilerIR.Ty} →
+    Continuous.CompilerIR.Expr type → String
+  | type, .var value => list ["var", continuousTyRender type, quote value.name]
+  | _, .real value => list ["real", toString value]
+  | _, .add left right =>
+      list ["add", continuousExprRender left, continuousExprRender right]
+  | _, .sub left right =>
+      list ["sub-real", continuousExprRender left, continuousExprRender right]
+  | _, .mul left right =>
+      list ["mul", continuousExprRender left, continuousExprRender right]
+  | _, .exp value => list ["exp", continuousExprRender value]
+  | _, .min left right =>
+      list ["min", continuousExprRender left, continuousExprRender right]
+  | _, .lt left right =>
+      list ["lt", continuousExprRender left, continuousExprRender right]
+  | _, .logDensity value => list ["log-density", continuousExprRender value]
+
+private def continuousStmtRender : Continuous.CompilerIR.Stmt → String
+  | .letE destination value =>
+      list ["let", quote destination.name, continuousExprRender value]
+  | .sampleStandardNormal destination =>
+      list ["sample-standard-normal", quote destination.name]
+  | .sampleUniformUnit destination =>
+      list ["sample-uniform-unit", quote destination.name]
+  | .ifThen condition body =>
+      list ["if", continuousExprRender condition,
+        list ("body" :: body.map continuousStmtRender)]
+  | .return value => list ["return", continuousExprRender value]
+
+private def continuousProgramRender
+    (program : Continuous.CompilerIR.Program) : String :=
+  let inputs :=
+    [list ["input", "source", quote program.sourceInput],
+      list ["input", "log-density", quote program.logDensityInput]] ++
+      program.realInputs.map fun name => list ["input", "real", quote name]
+  list ["program", quote program.name, list ("inputs" :: inputs),
+    list ("body" :: program.body.map continuousStmtRender)]
+
 /-- Serialize all finite reference entry programs with a format version. -/
 def render : String :=
   list ["verified-samplers-ir", toString version,
-    programRender categoricalProgram, programRender metropolisHastingsProgram] ++ "\n"
+    programRender categoricalProgram, programRender metropolisHastingsProgram,
+    continuousProgramRender Continuous.CompilerIR.gaussianRwmhProgram] ++ "\n"
 
 end Mcmc.Executable.Finite.CompilerIR.Format

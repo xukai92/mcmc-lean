@@ -32,6 +32,20 @@ end
             Runtime.NormalEvent(2.0), Runtime.UniformEvent(0.9)])
         @test Optimized.gaussian_rwmh_step!(reject_trace, x -> -x^2 / 2,
             1.0, 0.0) == 0.0
+        for (events, expected) in (([
+                Runtime.NormalEvent(0.5), Runtime.UniformEvent(0.8)], 0.5), ([
+                Runtime.NormalEvent(2.0), Runtime.UniformEvent(0.9)], 0.0))
+            reference_source = Runtime.FloatTraceSource(events)
+            optimized_source = Runtime.FloatTraceSource(events)
+            reference = Reference.gaussian_rwmh_step!(reference_source,
+                x -> -x^2 / 2, 1.0, 0.0)
+            optimized = Optimized.gaussian_rwmh_step!(optimized_source,
+                x -> -x^2 / 2, 1.0, 0.0)
+            @test reference == expected
+            @test optimized == reference
+            @test Runtime.remaining(reference_source) == 0
+            @test Runtime.remaining(optimized_source) == 0
+        end
         @test Runtime.remaining(accept_trace) == 0
         @test hasmethod(sample, Tuple{AbstractRNG, typeof(sampler), Real, Integer})
         @test hasmethod(Base.step, Tuple{AbstractRNG, typeof(sampler), Real})

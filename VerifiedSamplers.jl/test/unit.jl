@@ -17,9 +17,9 @@
 end
 
 @testset "versioned reference IR" begin
-    @test Reference.IR_FORMAT_VERSION == 1
+    @test Reference.IR_FORMAT_VERSION == 2
     @test sort!(collect(keys(Reference.PROGRAMS))) ==
-        ["categorical_index!", "finite_mh_step!"]
+        ["categorical_index!", "finite_mh_step!", "gaussian_rwmh_step!"]
     @test_throws ErrorException Reference.parse_document("(unterminated")
     mktemp() do path, stream
         write(stream, "(verified-samplers-ir 2 bogus)\n")

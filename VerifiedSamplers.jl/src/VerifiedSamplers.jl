@@ -22,7 +22,7 @@ end
 
 function step(rng::AbstractRNG, sampler::GaussianRWMH, current::Real)
     source = Runtime.RNGSource(rng)
-    Optimized.gaussian_rwmh_step!(source, sampler.logdensity,
+    Reference.gaussian_rwmh_step!(source, sampler.logdensity,
         sampler.scale, Float64(current))
 end
 

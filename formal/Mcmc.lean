@@ -26,6 +26,7 @@ import Mcmc.Executable.Finite.IRTests
 import Mcmc.Executable.Primitive
 import Mcmc.Executable.IR
 import Mcmc.Executable.GaussianRWMH
+import Mcmc.Executable.Continuous.CompilerIR
 import Mcmc.Hamiltonian.Leapfrog
 import Mcmc.Hamiltonian.Assumptions
 import Mcmc.Hamiltonian.ExactFlow

@@ -1,5 +1,23 @@
 # Development log
 
+## 2026-08-15: continuous RWMH enters the interpreted sampler artifact
+
+Extended the sampler artifact to version 2 with an inspectable scalar Gaussian
+RWMH program. Julia Reference interprets its Float64 expressions and explicit
+normal/uniform commands; public `GaussianRWMH` steps now use Reference while
+Optimized remains an independent differential-test target.
+
+The named-variable command interpreter is deterministic and uses a
+syntax-derived fuel bound. Its Lean trace theorem proves the full proposed or
+retained result for valid normal/uniform traces at the exact standard-Gaussian
+specialization.
+
+At the exact layer, proved that the complete ideal standard-Gaussian RWMH
+program measure equals the existing verified density-based RWMH kernel row.
+The Julia trace comparisons and moment test remain implementation evidence:
+callbacks, Float64 arithmetic and `exp`, `randn`, and `rand` are explicit trust
+boundaries pending a separate numerical refinement proof.
+
 ## 2026-08-14: interpreted reference artifact replaces generated Julia code
 
 Made the finite command IR an executable cross-language artifact. Lean now has

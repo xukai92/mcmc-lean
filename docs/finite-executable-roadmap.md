@@ -215,14 +215,20 @@ The finite milestone is complete only when:
 
 ## Outside this finite milestone
 
+The first continuous follow-on is complete at the ideal semantic and
+interpreted-reference layers: version 2 of the artifact includes scalar
+Gaussian RWMH, Lean proves its standard-Gaussian trace and exact kernel-row
+refinements, and Julia Reference interprets it with differential tests against
+Optimized. A machine-checked numerical refinement from ideal reals and ideal
+primitives to Julia Float64/RNG behavior remains a later milestone.
+
 - Prove or otherwise reduce the trusted conformance boundary between the
   serialized command IR and the maintained Julia interpreter. Actual Julia
   execution and runtime primitives remain explicitly documented boundaries.
 - arbitrary finite Lean state encodings;
-- continuous distributions and Gaussian primitive contracts (developed in
-  their separate executable layer);
+- further continuous distributions and primitive contracts;
 - `Float64` refinement and numerical error bounds;
-- RWMH, leapfrog, endpoint HMC, multinomial HMC, and couplings;
+- leapfrog, endpoint HMC, multinomial HMC, and couplings;
 - adaptation, NUTS, GPU execution, and optimized implementations; and
 - a proof connecting the modeled restricted Julia semantics to the actual
   Julia implementation.

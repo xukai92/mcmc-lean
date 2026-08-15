@@ -263,4 +263,107 @@ theorem standardNormalMeasure_eq_rwmh_noise :
       volume.withDensity (gaussianPDF 0 1) :=
   standardNormalMeasure_eq_withDensity
 
+/-- Setwise expansion of the complete ideal RWMH program into proposal and
+accept-or-retain branches. -/
+theorem standardGaussianRwmhProgram_measure_apply (current : ℝ) (set : Set ℝ)
+    (hset : MeasurableSet set) :
+    (standardGaussianRwmhProgram current).measure set =
+      ∫⁻ noise : ℝ,
+        ENNReal.ofReal (standardGaussianAcceptance current (current + noise)) *
+            set.indicator 1 (current + noise) +
+          (1 - ENNReal.ofReal
+            (standardGaussianAcceptance current (current + noise))) *
+            set.indicator 1 current ∂standardNormalMeasure := by
+  rw [Program.measure, standardGaussianRwmhProgram,
+    Program.kernel_sample_apply _ _ _ hset]
+  apply lintegral_congr
+  intro noise
+  rw [standardGaussianRwmhAfterNoise, Program.kernel_letE_apply]
+  rw [standardGaussianRwmhAfterProposal,
+    Program.kernel_sample_apply _ _ _ hset]
+  simp only [standardGaussianRwmhAcceptBody, Program.kernel,
+    Kernel.deterministic_apply, Expr.eval, Var.get]
+  simp only [Measure.dirac_apply' _ hset, Prim.measure]
+  simp only [decide_eq_true_eq]
+  change (∫⁻ uniform, set.indicator 1
+    (if uniform < standardGaussianAcceptance current (current + noise)
+      then current + noise else current) ∂unitUniform) = _
+  rw [lintegral_unitUniform_acceptReject]
+  · exact (standardGaussianAcceptance_pos current (current + noise)).le
+  · exact standardGaussianAcceptance_le_one current (current + noise)
+
+/-- Full exact refinement: the complete ideal-real program has exactly the row
+measure of the existing verified scalar standard-Gaussian RWMH kernel. -/
+theorem standardGaussianRwmhProgram_refines_rwmh (current : ℝ) :
+    (standardGaussianRwmhProgram current).measure =
+      scalarStandardGaussianRwmhKernel current := by
+  let proposalDensity :=
+    Mcmc.Kernel.randomWalkProposalDensity (gaussianPDF 0 1)
+  let Q := Mcmc.Kernel.densityProposal volume proposalDensity
+  let accept := Mcmc.Kernel.densityAcceptance standardGaussianWeight proposalDensity
+  have hproposal : Measurable (Function.uncurry proposalDensity) :=
+    Mcmc.Kernel.measurable_uncurry_randomWalkProposalDensity
+      (measurable_gaussianPDF 0 1)
+  have hproposalNorm : ∀ x, ∫⁻ y, proposalDensity x y ∂volume = 1 :=
+    Mcmc.Kernel.randomWalkProposalDensity_normalized volume
+      (measurable_gaussianPDF 0 1)
+      (lintegral_gaussianPDF_eq_one 0 (by norm_num))
+  letI : IsMarkovKernel Q :=
+    Mcmc.Kernel.densityProposal_isMarkov volume hproposal hproposalNorm
+  have haccept : Measurable (Function.uncurry accept) :=
+    Mcmc.Kernel.measurable_uncurry_densityAcceptance
+      measurable_standardGaussianWeight hproposal
+  ext set hset
+  rw [standardGaussianRwmhProgram_measure_apply current set hset]
+  simp_rw [ofReal_standardGaussianAcceptance_eq_densityAcceptance]
+  have hmap : standardNormalMeasure.map (fun noise => current + noise) = Q current := by
+    rw [map_standardNormalMeasure_add]
+    exact (scalarStandardGaussianProposal_row current).symm
+  let integrand : ℝ → ENNReal := fun proposed =>
+    accept current proposed * set.indicator 1 proposed +
+      (1 - accept current proposed) * set.indicator 1 current
+  have hacceptRow : Measurable (accept current) :=
+    Measurable.of_uncurry_left haccept
+  have hindicator : Measurable (set.indicator (fun _ : ℝ => (1 : ENNReal))) :=
+    measurable_const.indicator hset
+  have hintegrand : Measurable integrand :=
+    (hacceptRow.mul hindicator).add
+      ((measurable_const.sub hacceptRow).mul measurable_const)
+  change (∫⁻ noise, integrand (current + noise) ∂standardNormalMeasure) = _
+  rw [← lintegral_map' hintegrand.aemeasurable (by fun_prop :
+    AEMeasurable (fun noise : ℝ => current + noise) standardNormalMeasure)]
+  rw [hmap]
+  rw [show scalarStandardGaussianRwmhKernel =
+      Mcmc.Kernel.metropolisHastings Q accept by rfl]
+  rw [Mcmc.Kernel.metropolisHastings_apply Q haccept current hset]
+  rw [show (∫⁻ proposed, integrand proposed ∂Q current) =
+      (∫⁻ proposed, accept current proposed * set.indicator 1 proposed ∂Q current) +
+      ∫⁻ proposed, (1 - accept current proposed) *
+        set.indicator 1 current ∂Q current by
+    exact lintegral_add_left (hacceptRow.mul hindicator) _]
+  congr 1
+  · rw [← lintegral_indicator hset]
+    apply lintegral_congr
+    intro proposed
+    by_cases hp : proposed ∈ set <;> simp [Set.indicator, hp]
+  · have hmul :
+        (∫⁻ proposed, (1 - accept current proposed) *
+          set.indicator 1 current ∂Q current) =
+        (∫⁻ proposed, 1 - accept current proposed ∂Q current) *
+          set.indicator 1 current := by
+      simpa only [Pi.sub_apply] using
+        (lintegral_mul_const (μ := Q current) (set.indicator 1 current)
+          (measurable_const.sub hacceptRow))
+    rw [hmul]
+    congr 1
+    rw [lintegral_sub hacceptRow
+      (ne_top_of_le_ne_top ENNReal.one_ne_top
+        (Mcmc.Kernel.acceptanceMass_le_one Q
+          (Mcmc.Kernel.densityAcceptance_le_one standardGaussianWeight
+            proposalDensity) current))
+      (ae_of_all _ fun proposed =>
+        Mcmc.Kernel.densityAcceptance_le_one standardGaussianWeight
+          proposalDensity current proposed)]
+    simp [Mcmc.Kernel.rejectionProbability, Mcmc.Kernel.acceptanceMass]
+
 end Mcmc.Executable

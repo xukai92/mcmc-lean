@@ -1,10 +1,11 @@
 module Reference
 
-using ..Runtime: AbstractRandomSource, draw_below!
+using ..Runtime: AbstractRandomSource, draw_below!, standard_normal!, uniform_unit!
 
-export categorical_index!, finite_mh_step!, two_state_mh_step!, IR_FORMAT_VERSION
+export categorical_index!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!,
+    IR_FORMAT_VERSION
 
-const IR_FORMAT_VERSION = 1
+const IR_FORMAT_VERSION = 2
 
 struct SList
     items::Vector{Any}
@@ -127,6 +128,7 @@ function eval_expr(raw, env::Dict{String,Any})
     tag = atom(node[1])
     tag == "var" && return env[atom(node[3])]
     tag == "nat" && return parse(BigInt, atom(node[2]))
+    tag == "real" && return parse(Float64, atom(node[2]))
     tag == "vector" && return BigInt[parse(BigInt, atom(value)) for value in node[2:end]]
     if tag == "matrix"
         return [BigInt[parse(BigInt, atom(value)) for value in items(aslist(row))[2:end]]
@@ -134,7 +136,9 @@ function eval_expr(raw, env::Dict{String,Any})
     end
     tag == "add" && return eval_expr(node[2], env) + eval_expr(node[3], env)
     tag == "sub" && return max(BigInt(0), eval_expr(node[2], env) - eval_expr(node[3], env))
+    tag == "sub-real" && return eval_expr(node[2], env) - eval_expr(node[3], env)
     tag == "mul" && return eval_expr(node[2], env) * eval_expr(node[3], env)
+    tag == "exp" && return exp(eval_expr(node[2], env))
     tag == "min" && return min(eval_expr(node[2], env), eval_expr(node[3], env))
     tag == "length" && return BigInt(length(eval_expr(node[2], env)))
     tag == "row-count" && return BigInt(length(eval_expr(node[2], env)))
@@ -157,6 +161,7 @@ function eval_expr(raw, env::Dict{String,Any})
     end
     tag == "to-exact-vector" && return BigInt.(eval_expr(node[2], env))
     tag == "to-exact-matrix" && return [BigInt.(row) for row in eval_expr(node[2], env)]
+    tag == "log-density" && return env["logdensity"](eval_expr(node[2], env))
     if tag == "categorical"
         source = eval_expr(node[2], env)
         weights = eval_expr(node[3], env)
@@ -172,7 +177,7 @@ function eval_expr(raw, env::Dict{String,Any})
 end
 
 struct Returned
-    value::BigInt
+    value::Any
 end
 
 function raise_failure(raw)
@@ -195,13 +200,17 @@ function execute_block(body, env::Dict{String,Any})
         elseif tag == "draw-below"
             env[atom(node[2])] = BigInt(draw_below!(eval_expr(node[3], env),
                 eval_expr(node[4], env)))
+        elseif tag == "sample-standard-normal"
+            env[atom(node[2])] = standard_normal!(env["source"])
+        elseif tag == "sample-uniform-unit"
+            env[atom(node[2])] = uniform_unit!(env["source"])
         elseif tag == "if"
             if eval_expr(node[2], env)
                 result = execute_block(items(aslist(node[3]))[2:end], env)
                 result isa Returned && return result
             end
         elseif tag == "return"
-            return Returned(BigInt(eval_expr(node[2], env)))
+            return Returned(eval_expr(node[2], env))
         elseif tag == "fail"
             raise_failure(node[2])
         else
@@ -248,5 +257,18 @@ end
 
 two_state_mh_step!(source::AbstractRandomSource, current::Integer) =
     finite_mh_step!(source, BigInt[1, 3], [BigInt[1, 1], BigInt[1, 1]], current)
+
+"""Float64 interpretation of the serialized ideal-real Gaussian RWMH program.
+
+This preserves the program's control flow and primitive ordering, but it is
+not an exact realization of Lean `ℝ`; arithmetic, `exp`, the callback, and RNG
+primitives use Julia's concrete Float64 semantics.
+"""
+function gaussian_rwmh_step!(source::AbstractRandomSource, logdensity,
+        scale::Float64, current::Float64)
+    isfinite(scale) && scale > 0.0 ||
+        throw(ArgumentError("scale must be finite and positive"))
+    Float64(run_program("gaussian_rwmh_step!", source, logdensity, scale, current))
+end
 
 end

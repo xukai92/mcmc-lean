@@ -131,11 +131,12 @@ encoding are zero-based.
 
 ### Continuous executable boundary
 
-The next executable layer has begun with typed ideal primitives for bounded
+The continuous executable layer uses typed ideal primitives for bounded
 natural draws, a standard normal, and a unit uniform. Lean identifies the
 standard-normal denotation with mathlib's exact Gaussian density measure and
-validates kind-tagged mathematical traces. The Julia package separately
-provides a tested one-dimensional `Float64` Gaussian RWMH implementation:
+validates kind-tagged mathematical traces. The versioned sampler artifact now
+contains an inspectable Gaussian RWMH program interpreted by Julia Reference;
+Optimized remains an independent tested `Float64` implementation:
 
 ```julia
 sampler = GaussianRWMH(x -> -x^2 / 2, 1.0)
@@ -143,11 +144,11 @@ chain = sample(MersenneTwister(4), sampler, 0.0, 10_000)
 ```
 
 The typed first-order Lean IR now has exact kernel and trace interpretations,
-and its scalar standard-Gaussian proposal program is proved equal to the
-proposal row of the existing verified RWMH construction. Full accept/reject
-refinement remains open. This Julia sampler is not yet generated, and no
-theorem equates its finite-precision law with the exact Lean kernel. The
-explicit boundary is deliberate:
+and the complete scalar standard-Gaussian program is proved to have the full
+proposal/accept-or-retain trace behavior and exactly the row measure of the
+existing verified RWMH construction. Public Julia sampling routes through the
+serialized IR interpreter. No theorem equates its finite-precision law with
+the exact Lean kernel; the explicit boundary is deliberate:
 mathlib `ℝ`, `gaussianReal`, and `Measure` are semantic objects, whereas Julia
 uses `Float64` and the selected `AbstractRNG` implementation.
 

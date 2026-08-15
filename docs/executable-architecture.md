@@ -396,14 +396,16 @@ mathlib's `volume.withDensity (gaussianPDF 0 1)`.
 The first continuous program draws standard-normal noise and translates it by
 the current scalar state. Lean proves its measure is `gaussianReal current 1`
 and is exactly the corresponding proposal row in the existing density-based
-RWMH construction. The current Julia `GaussianRWMH` is maintained under
-`Optimized`, consumes explicitly typed `Float64` trace events in tests, and
-uses `randn`/`rand` for production draws. Its moment and deterministic replay
-tests are implementation evidence only. The complete standard-Gaussian-target
+RWMH construction. The version-2 artifact now also contains a named-variable
+continuous RWMH program with explicit source, log-density, scale, and current
+inputs. Julia Reference interprets it and the public `GaussianRWMH` path uses
+Reference; Optimized remains an independent Float64 differential target. Both
+consume explicitly typed trace events in tests and use `randn`/`rand` for
+production draws. These tests are implementation evidence only. The complete standard-Gaussian-target
 IR program, its accept-or-retain replay theorem, the exact unit-uniform
 threshold integral, and pointwise equality with `densityAcceptance` are now
-proved. Still required for full continuous RWMH refinement is their final
-composition into kernel equality with
+proved, including their final composition into kernel equality with the
+standard-Gaussian specialization of
 `Mcmc.Kernel.randomWalkMetropolisHastings`. The exact assumptions at the Julia
 boundary are listed in the [continuous executable contract](continuous-executable-contract.md).
 
