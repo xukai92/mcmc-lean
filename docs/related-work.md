@@ -157,6 +157,13 @@ continuous-time semantics. Sequence-parallel evaluation sits downstream of a
 proved sequential transition: it refines how a seeded path is evaluated and
 does not replace the sampler's invariance or convergence proof.
 
+The repository now starts that distinct continuous-time branch with
+`Mcmc.PDMP.Generator`: it defines generator invariance on an explicit test
+class, proves rate-biased jump-flux expectation balance, and proves the finite
+reversible-rate generator identity. The `ct` node above is still not marked
+covered because construction of the continuous-time path law, event clocks,
+nonexplosion, and semigroup invariance remain separate obligations.
+
 ## Direct mathematical precedents
 
 ### MCMC using Hamiltonian dynamics

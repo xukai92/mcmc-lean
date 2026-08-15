@@ -28,6 +28,12 @@ explicitly deferred robustness or performance tests.
   model, and the exact zero-horizon `N⁻¹ I + (1-N⁻¹) Π` specialization. The
   frequency checks are runtime regressions, not substitutes for the Lean
   convergence theorem.
+- `test/integer_slice.jl` exhaustively replays the exact finite integer-slice
+  transition through independent Reference and Optimized implementations. It
+  checks draw bounds and consumption, public validation, implementation
+  agreement, and empirical recovery of a two-state target with weights
+  `[1, 2]`. Lean separately proves stationarity of the collapsed transition
+  for arbitrary positive finite integer weights.
 
 The optimized categorical implementation uses cumulative sums and binary
 search, whereas the reference IR interpreter uses a linear cumulative scan.

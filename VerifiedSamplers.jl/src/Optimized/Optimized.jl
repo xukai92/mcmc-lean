@@ -6,7 +6,7 @@ using ...Runtime: AbstractRandomSource, draw_below!, standard_normal!, uniform_u
 using ...Certificates: ImplicitSolveCertificate, certify_implicit_solve,
     certifies_exact_solver
 
-export categorical_index!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!,
+export categorical_index!, integer_slice_step!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!,
     finite_hmm_particle_gibbs_step!,
     scalar_hmc_step!, vector_hmc_step!, metric_hmc_step!, multinomial_hmc_step!,
     metric_multinomial_hmc_step!,
@@ -14,6 +14,27 @@ export categorical_index!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_st
     fixed_point_generalized_leapfrog,
     certified_relativistic_multinomial_hmc_step!,
     leapfrog, vector_leapfrog
+
+"""Allocation-free exact integer slice update on zero-based state indices."""
+function integer_slice_step!(source::AbstractRandomSource,
+        weights::AbstractVector{<:Integer}, current::Integer)
+    isempty(weights) && throw(ArgumentError("slice weights cannot be empty"))
+    all(>(0), weights) || throw(ArgumentError("slice weights must be positive"))
+    0 <= current < length(weights) || throw(ArgumentError("current state is out of range"))
+    height = draw_below!(source, weights[current + 1])
+    count = 0
+    for weight in weights
+        count += weight > height
+    end
+    rank = Int(draw_below!(source, count))
+    for index in eachindex(weights)
+        if weights[index] > height
+            rank == 0 && return index - 1
+            rank -= 1
+        end
+    end
+    error("unreachable integer-slice selection")
+end
 
 """Allocation-conscious fixed-point generalized-leapfrog solver.
 

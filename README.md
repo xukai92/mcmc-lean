@@ -102,6 +102,21 @@ all four `2×2` determinant factors, cancels them using the checked mixed-
 partial identity, transports the result to `PhaseSpace Unit`, and applies the
 Haar change-of-variables theorem.
 
+The optional breadth layer now includes an executable finite integer slice
+sampler. Lean builds its finite under-the-graph law, alternates exact
+conditionals through the collapsed-kernel construction, and proves the
+normalized integer-weight target stationary. Julia supplies independent
+Reference and Optimized implementations with exhaustive trace tests. The
+reversible-jump layer also has a zero-to-two-dimensional planar birth/death
+client: the product transport `(u₁,u₂) ↦ (2u₁,2u₂)` carries the checked inverse
+determinant factor and yields a complete tagged-target invariance theorem.
+
+Continuous-time samplers now begin in a separate `Mcmc.PDMP` namespace.
+Generator invariance, rate-biased jump-flux balance, and finite reversible-rate
+generator balance are formalized, with a symmetric two-velocity switching
+client. This is not yet a BPS/Zig-Zag process-existence, nonexplosion, or
+convergence theorem.
+
 Betancourt's [*A Conceptual Introduction to Hamiltonian Monte
 Carlo*](https://arxiv.org/abs/1701.02434) is used as a foundational HMC
 reference. Its lift--evolve--project correctness spine and the boundary between

@@ -188,7 +188,10 @@ The pre-Xu dependency order is:
    marginals. Unbounded-history adaptation still requires enlarging the finite
    parameter state.
 
-The slice and first Euclidean reversible-jump clients are complete. The finite
+The general-state disintegrated slice client and an exact executable finite
+integer slice client are complete. Reversible jump now includes both the
+scalar zero-to-one-dimensional client and a product-Jacobian-certified
+zero-to-two-dimensional planar birth/death client. The finite
 particle-MCMC spine through conditional SMC and particle Gibbs is complete at
 fixed particle count and finite horizon. Convergence, mixing rates, and
 particle-count asymptotics remain separate later layers.
@@ -223,17 +226,18 @@ breadth branches are:
 
 - numerical NUTS tree-building refinement beyond the completed finite
   certified-tree and stopped-doubling selection theorems;
-- practical stepping-out/shrinkage slice kernels beyond the exact
-  disintegration client;
-- richer reversible-jump transports beyond the checked scalar birth/death
-  scaling client;
+- continuous stepping-out/shrinkage implementations beyond the exact
+  disintegration and executable finite integer-slice clients;
+- reversible-jump transports beyond the checked scalar and planar
+  birth/death scaling clients;
 - particle MCMC after finite SMC and pseudo-marginal foundations;
 - adaptive MCMC beyond the completed boundary counterexample only with
   the completed predetermined nonhomogeneous semantics and deterministic
   diminishing vocabulary, augmented random-adaptation semantics, and
   convergence-in-probability definition and completed finite
   Roberts--Rosenthal convergence theorem; and
-- BPS/Zig-Zag only in a separate continuous-time PDMP architecture.
+- BPS/Zig-Zag process construction, event simulation, nonexplosion, and
+  convergence on top of the new separate PDMP generator/jump-flux foundation.
 
 Sequence-parallel evaluation is an execution-refinement project downstream of
 exact seeded trace semantics. Full solver convergence may refine a sequential

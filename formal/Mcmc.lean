@@ -8,6 +8,7 @@ import Mcmc.Finite.CollapsedConditional
 import Mcmc.Finite.Adaptive
 import Mcmc.Finite.AdaptiveConvergence
 import Mcmc.Finite.Gibbs
+import Mcmc.Finite.IntegerSlice
 import Mcmc.Finite.ComposableInference
 import Mcmc.Finite.ProbabilisticProgram
 import Mcmc.Finite.ProbabilisticCoroutine
@@ -34,10 +35,13 @@ import Mcmc.Finite.MetropolisHastings
 import Mcmc.Examples.TwoState
 import Mcmc.Examples.TwoModelReversibleJump
 import Mcmc.Examples.EuclideanBirthDeathReversibleJump
+import Mcmc.Examples.PlanarBirthDeathReversibleJump
 import Mcmc.Examples.StateIndexedPMMH
 import Mcmc.Examples.ParticleGibbs
 import Mcmc.Examples.ComposableInference
 import Mcmc.Examples.GeneralStatePgHmc
+import Mcmc.Examples.IntegerSlice
+import Mcmc.Examples.FiniteVelocityFlip
 import Mcmc.Executable.Finite.Weights
 import Mcmc.Executable.Finite.Trace
 import Mcmc.Executable.Finite.Categorical
@@ -105,6 +109,7 @@ import Mcmc.Kernel.RefreshAugmented
 import Mcmc.Kernel.IndependenceMetropolis
 import Mcmc.Kernel.Langevin
 import Mcmc.Kernel.Slice
+import Mcmc.PDMP.Generator
 import Mcmc.Kernel.CoupledChain
 import Mcmc.Kernel.CoupledMetropolisHastings
 import Mcmc.Kernel.DensityCoupling

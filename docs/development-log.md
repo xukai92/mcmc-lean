@@ -3,6 +3,31 @@
 Entries through the earlier 2026-08-13 work are preserved in the
 [development-log archive](development-log-archive.md).
 
+## 2026-08-15: finite slice, planar reversible jump, and PDMP generators
+
+Added an exact executable finite slice sampler for positive integer weights.
+Lean constructs the uniform finite under-the-graph law, refreshes the
+horizontal conditional, projects through the generic collapsed-kernel layer,
+identifies the position marginal, and proves stationarity. The two-state 1:2
+example compiles. Julia Reference and Optimized implementations consume the
+same two exact integer draws, agree exhaustively on all two-state traces, and
+pass a target-frequency diagnostic.
+
+Extended reversible jump from a scalar birth to a zero-to-two-dimensional
+planar birth. Two independent uniform auxiliaries are transported by
+`(u₁,u₂) ↦ (2u₁,2u₂)`; Lean composes the scalar change-of-variables theorem,
+checks the product inverse determinant, proves proposal normalization, and
+derives invariance of the complete tagged MH transition.
+
+Started the intentionally separate continuous-time architecture under
+`Mcmc.PDMP`. Generator invariance carries its test class and integrability
+premises explicitly. Rate-biased event measures and balanced jump flux give
+post/pre-event nonnegative expectation equality. For finite continuous-time
+rate matrices, detailed balance implies zero target expectation of the
+generator; a symmetric Boolean velocity-flip client instantiates the theorem.
+No continuous path construction, nonexplosion, BPS, or Zig-Zag convergence is
+claimed at this stage.
+
 ## 2026-08-15: semantic schedule bindings and explicit Julia cursors
 
 Added `ComposableSemantics`, which binds portable operator descriptors to

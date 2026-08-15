@@ -9,7 +9,7 @@ include("Certificates/Certificates.jl")
 include("Reference/Reference.jl")
 include("Optimized/Optimized.jl")
 
-export FiniteWeights, FiniteKernelWeights, FiniteMH, TwoStateMH, GaussianRWMH,
+export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, TwoStateMH, GaussianRWMH,
     ScalarHMC, VectorHMC, MultinomialHMC, MetricMultinomialHMC,
     DiagonalMetric, DenseMetric, MetricHMC, RelativisticMultinomialHMC,
     GaussianSoftAbsGRHMC,
@@ -777,6 +777,41 @@ end
 
 sample(target::FiniteWeights, count::Integer) =
     sample(Random.default_rng(), target, count)
+
+"""Exact finite slice sampler for strictly positive integer target weights."""
+struct FiniteIntegerSlice
+    weights::Vector{BigInt}
+    function FiniteIntegerSlice(weights::AbstractVector{<:Integer})
+        isempty(weights) && throw(ArgumentError("slice weights cannot be empty"))
+        all(>(0), weights) || throw(ArgumentError("slice weights must be positive"))
+        new(BigInt.(weights))
+    end
+end
+
+function step(rng::AbstractRNG, sampler::FiniteIntegerSlice, current::Integer)
+    source = Runtime.RNGSource(rng)
+    Reference.integer_slice_step!(source, sampler.weights, current - 1) + 1
+end
+
+step(sampler::FiniteIntegerSlice, current::Integer) =
+    step(Random.default_rng(), sampler, current)
+
+function sample(rng::AbstractRNG, sampler::FiniteIntegerSlice,
+        initial::Integer, count::Integer)
+    count >= 0 || throw(ArgumentError("sample count must be nonnegative"))
+    1 <= initial <= length(sampler.weights) ||
+        throw(ArgumentError("initial state is out of range"))
+    states = Vector{Int}(undef, count)
+    current = Int(initial)
+    for index in eachindex(states)
+        current = step(rng, sampler, current)
+        states[index] = current
+    end
+    states
+end
+
+sample(sampler::FiniteIntegerSlice, initial::Integer, count::Integer) =
+    sample(Random.default_rng(), sampler, initial, count)
 
 struct FiniteKernelWeights
     rows::Vector{Vector{BigInt}}
