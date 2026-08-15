@@ -250,9 +250,69 @@ end
     @test maximum(abs.(cov(permutedims(chain)) - covariance)) < 0.15
 end
 
-@testset "future: continuous and mixed-state diagnostics" begin
+@testset "continuous and mixed-state diagnostics" begin
     @testset "Geweke forward/backward joint-distribution test" begin
-        @test_skip false
+        # Hierarchical Gaussian model: θ ~ N(0,1), x | θ ~ N(θ,1).
+        # The forward path draws iid joint samples. The backward path alternates
+        # the exact x | θ update with HMC for θ | x, whose potential gradient is
+        # 2θ-x. Agreement is an implementation diagnostic, not a replacement
+        # for the Lean invariance theorem behind the HMC update.
+        function geweke_paths(seed, iterations, burnin)
+            forward_rng = MersenneTwister(seed)
+            forward_theta = randn(forward_rng, iterations - burnin)
+            forward_x = forward_theta .+ randn(forward_rng, iterations - burnin)
+
+            backward_rng = MersenneTwister(seed + 1)
+            observation = Ref(0.0)
+            theta_sampler = ScalarHMC(
+                θ -> -(θ^2 + (observation[] - θ)^2) / 2,
+                θ -> 2θ - observation[], 0.22, 5)
+            backward_theta = Vector{Float64}(undef, iterations - burnin)
+            backward_x = similar(backward_theta)
+            theta = 0.0
+            for iteration in 1:iterations
+                x = theta + randn(backward_rng)
+                observation[] = x
+                theta = step(backward_rng, theta_sampler, theta)
+                if iteration > burnin
+                    index = iteration - burnin
+                    backward_theta[index] = theta
+                    backward_x[index] = x
+                end
+            end
+            (; forward_theta, forward_x, backward_theta, backward_x)
+        end
+
+        function two_sample_ks(first, second)
+            left, right = sort(first), sort(second)
+            i = j = 0
+            distance = 0.0
+            while i < length(left) || j < length(right)
+                value = j == length(right) ||
+                    (i < length(left) && left[i + 1] <= right[j + 1]) ?
+                    left[i + 1] : right[j + 1]
+                while i < length(left) && left[i + 1] <= value
+                    i += 1
+                end
+                while j < length(right) && right[j + 1] <= value
+                    j += 1
+                end
+                distance = max(distance,
+                    abs(i / length(left) - j / length(right)))
+            end
+            distance
+        end
+
+        paths = geweke_paths(0x6e657765, 14_000, 2_000)
+        repeated = geweke_paths(0x6e657765, 14_000, 2_000)
+        @test paths.backward_theta == repeated.backward_theta
+        @test paths.backward_x == repeated.backward_x
+        @test two_sample_ks(paths.forward_theta, paths.backward_theta) < 0.06
+        @test two_sample_ks(paths.forward_x, paths.backward_x) < 0.06
+        @test abs(mean(paths.backward_theta)) < 0.07
+        @test abs(var(paths.backward_theta) - 1) < 0.10
+        @test abs(var(paths.backward_x) - 2) < 0.14
+        @test abs(cov(paths.backward_theta, paths.backward_x) - 1) < 0.10
     end
     @testset "continuous normal-target moment matching" begin
         sampler = GaussianRWMH(x -> -x^2 / 2, 1.0)

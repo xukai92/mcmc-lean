@@ -98,6 +98,10 @@ invariance theorems; they do not replace them.
 
 `test/future_continuous.jl` now actively checks:
 
+- a seeded Geweke forward/backward diagnostic for a hierarchical Gaussian
+  model, using exact forward simulation and public scalar HMC in the backward
+  conditional update; it compares both marginals, joint moments, and exact
+  seeded replay;
 - zero-momentum leapfrog behavior;
 - a 16-dimensional vector-HMC execution for shape and finite outputs;
 - ill-conditioned metric-HMC moment recovery;
@@ -107,7 +111,6 @@ invariance theorems; they do not replace them.
 
 It retains skipped testsets only for:
 
-- a full Geweke forward/backward joint-distribution test;
 - DHMC categorical targets;
 - adaptation; and
 - ESS and gradient-count benchmarks.

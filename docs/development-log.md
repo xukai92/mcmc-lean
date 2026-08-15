@@ -1409,6 +1409,16 @@ kernel with sequential composition of the `m`- and `n`-step kernels. The
 Poisson convolution/Fubini proof now closes the semigroup result rather than
 leaving that matrix-algebra obligation implicit.
 
+Activated the previously deferred Geweke forward/backward diagnostic. The
+test uses the hierarchical Gaussian model `θ ~ N(0,1)`, `x | θ ~ N(θ,1)`:
+the forward path is exact iid simulation, while the backward path alternates
+the exact observation conditional with the public scalar-HMC implementation
+for `θ | x`. Fixed seeds must replay exactly; two-sample marginal distances,
+variances, and the joint covariance are checked. This remains an empirical
+implementation diagnostic, not a substitute for the Lean HMC invariance
+theorem. Only DHMC, runtime adaptation, and ESS/gradient benchmarks remain
+skipped.
+
 The Gaussian diagonal-SoftAbs client is now end-to-end. Lean connects the
 actual Gaussian Hessian to a strictly non-identity SoftAbs metric, packages the
 explicit separable update as a valid generalized-leapfrog selection, and
