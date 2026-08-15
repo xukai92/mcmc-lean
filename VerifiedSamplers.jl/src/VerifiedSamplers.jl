@@ -12,6 +12,7 @@ include("Optimized/Optimized.jl")
 export FiniteWeights, FiniteKernelWeights, FiniteMH, TwoStateMH, GaussianRWMH,
     ScalarHMC, VectorHMC, MultinomialHMC, MetricMultinomialHMC,
     DiagonalMetric, DenseMetric, MetricHMC, RelativisticMultinomialHMC,
+    GaussianSoftAbsGRHMC,
     CertifiedRelativisticMultinomialHMC,
     Xu21CoupledSampler, ScopedInferenceOperator, ComposableSampler, covers,
     FiniteHMMParticleGibbs,
@@ -332,6 +333,54 @@ function sample(rng::AbstractRNG, sampler::RelativisticMultinomialHMC,
 end
 
 sample(sampler::RelativisticMultinomialHMC,
+        initial::AbstractVector{<:Real}, count::Integer) =
+    sample(Random.default_rng(), sampler, initial, count)
+
+"""Verified Gaussian diagonal-SoftAbs GR-HMC specialization.
+
+The target is the centered unit Gaussian in `dimension` coordinates. Its
+actual Hessian diagonal is one, so SoftAbs with positive `smoothing` produces
+the constant diagonal metric `coth(smoothing)`. The matching Lean client
+proves exact endpoint and multinomial invariance; this Julia implementation
+retains the documented Float64/RNG refinement boundary.
+"""
+struct GaussianSoftAbsGRHMC
+    dimension::Int
+    smoothing::Float64
+    sampler::RelativisticMultinomialHMC
+    function GaussianSoftAbsGRHMC(dimension::Integer, step_size::Real,
+            steps::Integer=10; smoothing::Real=1.0,
+            relativistic_mass::Real=1.0)
+        dimension > 0 || throw(ArgumentError("dimension must be positive"))
+        α = Float64(smoothing)
+        isfinite(α) && α > 0 ||
+            throw(ArgumentError("SoftAbs smoothing must be finite and positive"))
+        eigenvalue = 1 / tanh(α)
+        metric = DiagonalMetric(fill(eigenvalue, Int(dimension)))
+        logdensity = q -> -sum(abs2, q) / 2
+        gradient = q -> q
+        inner = RelativisticMultinomialHMC(logdensity, gradient, metric,
+            relativistic_mass, step_size, steps)
+        new(Int(dimension), α, inner)
+    end
+end
+
+function step(rng::AbstractRNG, sampler::GaussianSoftAbsGRHMC,
+        current::AbstractVector{<:Real})
+    length(current) == sampler.dimension || throw(DimensionMismatch("current state"))
+    step(rng, sampler.sampler, current)
+end
+
+step(sampler::GaussianSoftAbsGRHMC, current::AbstractVector{<:Real}) =
+    step(Random.default_rng(), sampler, current)
+
+function sample(rng::AbstractRNG, sampler::GaussianSoftAbsGRHMC,
+        initial::AbstractVector{<:Real}, count::Integer)
+    length(initial) == sampler.dimension || throw(DimensionMismatch("initial state"))
+    sample(rng, sampler.sampler, initial, count)
+end
+
+sample(sampler::GaussianSoftAbsGRHMC,
         initial::AbstractVector{<:Real}, count::Integer) =
     sample(Random.default_rng(), sampler, initial, count)
 

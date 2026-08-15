@@ -1289,6 +1289,13 @@ future construction.
 
 ## Next steps
 
+The Gaussian diagonal-SoftAbs client is now end-to-end. Lean connects the
+actual Gaussian Hessian to a strictly non-identity SoftAbs metric, packages the
+explicit separable update as a valid generalized-leapfrog selection, and
+proves endpoint and multinomial GR-HMC position invariance. Julia exposes
+`GaussianSoftAbsGRHMC`; the package suite checks seeded reproducibility,
+dimension and parameter validation, and finite outputs.
+
 - The general-state composable-inference layer is now machine checked:
   target-preserving kernels carry optional variable-scope metadata, arbitrary
   finite schedules preserve their common `Measure`, and a named PG--HMC

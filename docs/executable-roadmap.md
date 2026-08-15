@@ -19,6 +19,7 @@ The current version-10 artifact and Julia package provide:
 | Constant-metric multinomial HMC | Orbit-kernel phase and refreshed-position invariance, including Cholesky refresh | Typed diagonal/dense programs, differential tests, and correlated-Gaussian moments |
 | Xu et al. coupled HMC/RWMH | Each ideal coupled command has the verified single-chain kernel on both marginals | Version-9 Reference interpreter, shared-randomness replay, meeting flags, and faithfulness tests |
 | Corrected relativistic/Riemannian HMC | Corrected momentum law, inverse-factor transport, guarded generalized leapfrog, and a bounded nonconstant exact solver with phase-volume preservation | Version-10 Reference/Optimized implementations, residual certificates, differential replay, and position-dependent reversal tests |
+| Gaussian diagonal-SoftAbs GR-HMC | Actual Gaussian Hessian, non-identity SoftAbs metric, explicit valid generalized leapfrog, endpoint and multinomial position invariance | Public `GaussianSoftAbsGRHMC`, deterministic seeded replay, validation, and finite-output tests |
 
 The finite implementation is exact. Continuous Julia execution uses
 `Float64`, platform numerical libraries, callbacks, and concrete RNGs. Lean
@@ -74,11 +75,17 @@ boundary; the ideal marginal theorems are not silently transferred to Julia.
 
 ### 1. Refine executable relativistic/Riemannian HMC for Xu and Ge (2024)
 
-The corrected runtime is implemented. The remaining work is to relate a
-restricted Float64 execution to the exact solver: propagate bounded trajectory
-and residual errors, certify decisions away from numerical boundaries, and
-instantiate the paper-style diagonal SoftAbs client. A fixed iteration count
-alone remains insufficient as a correctness witness.
+The corrected runtime and the first target-derived diagonal SoftAbs client are
+implemented. For a centered Gaussian target, Lean proves that the supplied
+diagonal is the actual Hessian, the SoftAbs eigenvalue is non-identity, and the
+explicit separable generalized leapfrog satisfies every validity obligation;
+endpoint and multinomial position invariance follow. Julia exposes the same
+constant-Hessian specialization as `GaussianSoftAbsGRHMC`.
+
+The remaining work is the genuinely position-dependent paper-style SoftAbs
+client and its restricted Float64 refinement: propagate bounded trajectory and
+residual errors and certify decisions away from numerical boundaries. A fixed
+iteration count alone remains insufficient as a correctness witness.
 
 ### 2. Restricted callbacks, adaptation, and performance
 

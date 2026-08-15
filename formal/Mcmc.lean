@@ -58,6 +58,7 @@ import Mcmc.Executable.Continuous.BackendCertificates
 import Mcmc.Executable.Continuous.BoundedMultinomial
 import Mcmc.Executable.Continuous.MetricHMC
 import Mcmc.Executable.Continuous.SeparableGeneralizedLeapfrog
+import Mcmc.Executable.Continuous.GaussianSoftAbs
 import Mcmc.Executable.Continuous.MetricMultinomialHMC
 import Mcmc.Executable.Continuous.MetricCompilerIR
 import Mcmc.Executable.Continuous.GaussianTransport

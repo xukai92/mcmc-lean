@@ -60,6 +60,20 @@ end
     @test all(isfinite, samples)
 end
 
+@testset "Gaussian diagonal SoftAbs GR-HMC client" begin
+    sampler = GaussianSoftAbsGRHMC(2, 0.08, 3)
+    @test sampler.smoothing == 1.0
+    @test all(>(1.0), sampler.sampler.metric.mass)
+    first_chain = sample(MersenneTwister(431), sampler, [0.0, 0.0], 8)
+    second_chain = sample(MersenneTwister(431), sampler, [0.0, 0.0], 8)
+    @test first_chain == second_chain
+    @test size(first_chain) == (2, 8)
+    @test all(isfinite, first_chain)
+    @test_throws DimensionMismatch step(MersenneTwister(1), sampler, [0.0])
+    @test_throws ArgumentError GaussianSoftAbsGRHMC(0, 0.1)
+    @test_throws ArgumentError GaussianSoftAbsGRHMC(2, 0.1; smoothing=0.0)
+end
+
 @testset "certified position-dependent relativistic interface" begin
     exact_certificate = Certificates.certify_implicit_solve(0, 0, 0, 0;
         unique=true, reversible=true, volume_preserving=true)

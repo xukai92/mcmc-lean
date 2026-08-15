@@ -130,6 +130,15 @@ refresh, and target-compatibility obligations from coordinatewise measurable
 Hessian data. Their sole remaining numerical premise is the same explicit
 generalized-leapfrog validity certificate.
 
+The Gaussian executable client closes the first target-derived diagonal
+SoftAbs instance. Its supplied diagonal is proved to be the actual Gaussian
+Hessian, and `α = 1` produces a strictly non-identity eigenvalue. Since that
+metric is position-independent, the generalized equations reduce to an
+explicit separable leapfrog; Lean proves measurability, uniqueness, reversal,
+exact phase-volume preservation, and endpoint and multinomial position
+invariance. This does not certify the paper's genuinely position-dependent
+SoftAbs experiments.
+
 ## Claims not promoted to theorems
 
 Section 6 reports finite numerical experiments about divergences, Hamiltonian
@@ -148,7 +157,7 @@ GR-HMC convergence claim.
 
 The main paper-level validity result is formalized, and the bounded
 nonconstant metric supplies a fully valid exact generalized-leapfrog client.
-The paper's practical diagonal SoftAbs implementation still requires
+The paper's genuinely position-dependent diagonal SoftAbs implementation still requires
 additional target hypotheses or an exact/corrected implicit solver satisfying
 `GeneralizedLeapfrogSelection.IsValid`; the natural finite implementation is
 defined, contraction certificates give convergence and quantitative
