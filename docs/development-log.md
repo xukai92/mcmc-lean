@@ -1359,3 +1359,11 @@ in `N`, construction of the stationary residual kernel, the corresponding
 uniform geometric TV bound, and convergence from every initial trajectory law.
 The pointwise minorization remains a model-specific conditional-SMC obligation;
 it is not inferred from stationarity or from the name “bounded potential.”
+
+Added small-step finite probabilistic-program execution for the Ge et al.
+coroutine track. A cursor records the assumed state, accumulated observation
+weight, and remaining factors; `resume` consumes one observation and `run`
+supports arbitrary pause boundaries. Lean proves the prefix closed form,
+equality with completed `traceWeight`, and equivalence of paused/resumed versus
+uninterrupted execution. This is the mathematical state-machine refinement;
+Julia task copying and source-language lowering remain separate.

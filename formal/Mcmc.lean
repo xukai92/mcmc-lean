@@ -10,6 +10,7 @@ import Mcmc.Finite.AdaptiveConvergence
 import Mcmc.Finite.Gibbs
 import Mcmc.Finite.ComposableInference
 import Mcmc.Finite.ProbabilisticProgram
+import Mcmc.Finite.ProbabilisticCoroutine
 import Mcmc.Finite.CandidateMixture
 import Mcmc.Finite.ParallelTempering
 import Mcmc.Finite.PseudoMarginal

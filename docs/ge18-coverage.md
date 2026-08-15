@@ -10,7 +10,7 @@ implementation features and experiments.
 
 | Paper item | Repository evidence | Classification |
 |---|---|---|
-| A probabilistic model defines a posterior target over global and local variables | `Mcmc.Finite.ProbabilisticProgram.Model` gives finite `assume`/`observe` factor semantics, evidence, and a normalized posterior; the general-state `Measure` layer supplies the eventual continuous target | Machine checked for finite completed traces; coroutine execution remains implementation work |
+| A probabilistic model defines a posterior target over global and local variables | `Mcmc.Finite.ProbabilisticProgram.Model` gives finite `assume`/`observe` factor semantics, evidence, and a normalized posterior; `CoroutineState` gives one-observation suspend/resume semantics and refines completed traces; the general-state `Measure` layer supplies the continuous target | Machine checked for finite traces and arbitrary pause boundaries; Julia task/copying refinement remains implementation work |
 | MCMC engines act on manually selected subsets of variables | `Mcmc.Finite.ComposableInference.ScopedOperator` records scope metadata and the induced full-state kernel | Machine checked at the finite kernel level |
 | Selected subsets may overlap and their union should cover the model variables | `Covers` records union coverage; `schedule_stationary` deliberately needs neither coverage nor disjointness | Corrected separation: coverage is an inference-configuration condition, while stationarity follows from preservation by every full-state operator |
 | Operators can be composed into a Gibbs-style schedule | `schedule` and `schedule_stationary` prove that every finite schedule of common-target-stationary operators preserves the target | Machine checked |
@@ -35,8 +35,11 @@ hypotheses. At zero horizon, however, the state kernel is proved exactly equal
 to `N⁻¹ I + (1-N⁻¹) Π`; its total-variation error after `k` iterations is
 exactly `N⁻ᵏ` times the initial error. Thus every `N ≥ 2` converges
 geometrically in this specialization, while `N = 1` remains the identity.
-Positive-horizon rates and consistency as particle count grows remain
-separate quantitative goals.
+For positive horizons, a count-indexed `Fin N` theorem now derives a uniform
+geometric TV rate from an explicit pointwise bounded-model minorization and
+proves that its displayed refresh coefficient improves monotonically with
+`N`. Deriving that minorization from primitive potential and transition bounds
+for each concrete conditional-SMC generator remains model-specific.
 
 The executable `FiniteHMMParticleGibbs` mirrors this finite bootstrap case
 with integer weights and explicit RNG consumption. Reference and Optimized
@@ -63,13 +66,16 @@ efficiency dominance.
 
 ## Remaining milestones
 
-1. Lift the now-instantiated finite two-block theorem to a genuinely
-   continuous conditional target and the verified general-state HMC kernel.
+1. Instantiate the proved general-state `pgHmcKernel_stationary` theorem with a
+   substantive mixed discrete/continuous model. The measure-kernel composition
+   and auxiliary conditional factorization are complete; only the concrete
+   model client remains.
 2. Connect the executable blocked-engine callbacks to generated descriptions
    of the corresponding formal full-state kernels.
 3. Extend the proved static candidate-mixture condition to dynamically grown,
    symmetrically stopped NUTS trees before using NUTS as a verified component.
-4. Extend the finite completed-trace `assume`/`observe` semantics with
-   suspend/resume and a refinement theorem for the executable coroutine state.
+4. Connect the proved finite suspend/resume semantics to Julia task copying and
+   generated trace-state descriptions; the mathematical arbitrary-pause
+   refinement to completed traces is now machine checked.
 5. Keep the stochastic-volatility, Gaussian-mixture, AD, and runtime results
    as reproducible empirical suites rather than paper-wide theorems.
