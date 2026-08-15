@@ -1,6 +1,7 @@
 import Mcmc.PDMP.Uniformization
 import Mcmc.Finite.Combinators
 import Mathlib.Probability.Distributions.Poisson.Basic
+import Mathlib.MeasureTheory.Group.IntegralConvolution
 import Mathlib.Tactic
 
 /-!
@@ -74,6 +75,48 @@ private theorem iterate_prob_integrable (transition : MarkovKernel State)
       ((kernelIterate transition n).nonneg x y)]
     exact kernel_prob_le_one _ _ _
 
+private theorem iterate_prob_mul_integrable (transition : MarkovKernel State)
+    (r s : NNReal) (x y z : State) :
+    Integrable (fun counts : ℕ × ℕ =>
+      (kernelIterate transition counts.1).prob x y *
+        (kernelIterate transition counts.2).prob y z)
+      ((poissonMeasure r).prod (poissonMeasure s)) := by
+  refine Integrable.mono'
+    (integrable_const (μ := (poissonMeasure r).prod (poissonMeasure s)) (1 : ℝ))
+    Measurable.of_discrete.aestronglyMeasurable ?_
+  exact ae_of_all _ fun counts => by
+    rw [Real.norm_eq_abs, abs_of_nonneg (mul_nonneg
+      ((kernelIterate transition counts.1).nonneg x y)
+      ((kernelIterate transition counts.2).nonneg y z))]
+    exact mul_le_one₀ (kernel_prob_le_one _ _ _)
+      ((kernelIterate transition counts.2).nonneg y z)
+      (kernel_prob_le_one _ _ _)
+
+private theorem iterate_prob_integrable_conv (transition : MarkovKernel State)
+    (r s : NNReal) (x z : State) :
+    Integrable (fun n : ℕ => (kernelIterate transition n).prob x z)
+      ((poissonMeasure r).conv (poissonMeasure s)) := by
+  refine Integrable.mono'
+    (integrable_const (μ := (poissonMeasure r).conv (poissonMeasure s)) (1 : ℝ))
+    Measurable.of_discrete.aestronglyMeasurable ?_
+  exact ae_of_all _ fun n => by
+    rw [Real.norm_eq_abs, abs_of_nonneg
+      ((kernelIterate transition n).nonneg x z)]
+    exact kernel_prob_le_one _ _ _
+
+private theorem iterate_add_prob_integrable_prod
+    (transition : MarkovKernel State) (r s : NNReal) (x z : State) :
+    Integrable (fun counts : ℕ × ℕ =>
+      (kernelIterate transition (counts.1 + counts.2)).prob x z)
+      ((poissonMeasure r).prod (poissonMeasure s)) := by
+  refine Integrable.mono'
+    (integrable_const (μ := (poissonMeasure r).prod (poissonMeasure s)) (1 : ℝ))
+    Measurable.of_discrete.aestronglyMeasurable ?_
+  exact ae_of_all _ fun counts => by
+    rw [Real.norm_eq_abs, abs_of_nonneg
+      ((kernelIterate transition (counts.1 + counts.2)).nonneg x z)]
+    exact kernel_prob_le_one _ _ _
+
 /-- Exact transition kernel after a Poisson-distributed number of steps. -/
 noncomputable def poissonizedKernel (transition : MarkovKernel State)
     (r : NNReal) : MarkovKernel State where
@@ -108,6 +151,54 @@ theorem poissonizedKernel_prob_eq_tsum (transition : MarkovKernel State)
   · intro n hn
     norm_num [zero_pow hn]
 
+/-- Chapman--Kolmogorov law for Poissonized kernel iterates. Independent event
+counts add, and the convolution of Poisson laws adds their intensities. -/
+theorem poissonizedKernel_add (transition : MarkovKernel State) (r s : NNReal) :
+    poissonizedKernel transition (r + s) =
+      comp (poissonizedKernel transition s) (poissonizedKernel transition r) := by
+  apply MarkovKernel.ext
+  funext x z
+  change (∫ n : ℕ, (kernelIterate transition n).prob x z
+      ∂poissonMeasure (r + s)) =
+    ∑ y, (∫ m : ℕ, (kernelIterate transition m).prob x y ∂poissonMeasure r) *
+      ∫ n : ℕ, (kernelIterate transition n).prob y z ∂poissonMeasure s
+  symm
+  calc
+    (∑ y, (∫ m : ℕ, (kernelIterate transition m).prob x y ∂poissonMeasure r) *
+        ∫ n : ℕ, (kernelIterate transition n).prob y z ∂poissonMeasure s) =
+        ∑ y, ∫ counts : ℕ × ℕ,
+          (kernelIterate transition counts.1).prob x y *
+            (kernelIterate transition counts.2).prob y z
+          ∂((poissonMeasure r).prod (poissonMeasure s)) := by
+      apply Finset.sum_congr rfl
+      intro y _
+      rw [← integral_prod_mul]
+    _ = ∫ counts : ℕ × ℕ, ∑ y,
+          (kernelIterate transition counts.1).prob x y *
+            (kernelIterate transition counts.2).prob y z
+          ∂((poissonMeasure r).prod (poissonMeasure s)) := by
+      rw [integral_finsetSum Finset.univ (fun y _ =>
+        iterate_prob_mul_integrable transition r s x y z)]
+    _ = ∫ counts : ℕ × ℕ,
+          (kernelIterate transition (counts.1 + counts.2)).prob x z
+          ∂((poissonMeasure r).prod (poissonMeasure s)) := by
+      apply integral_congr_ae
+      exact ae_of_all _ fun counts => by
+        exact congrArg (fun kernel => kernel.prob x z)
+          (kernelIterate_add transition counts.1 counts.2).symm
+    _ = ∫ m : ℕ, ∫ n : ℕ,
+          (kernelIterate transition (m + n)).prob x z
+          ∂poissonMeasure s ∂poissonMeasure r := by
+      rw [integral_prod]
+      exact iterate_add_prob_integrable_prod transition r s x z
+    _ = ∫ n : ℕ, (kernelIterate transition n).prob x z
+          ∂((poissonMeasure r).conv (poissonMeasure s)) := by
+      exact (integral_conv
+        (iterate_prob_integrable_conv transition r s x z)).symm
+    _ = ∫ n : ℕ, (kernelIterate transition n).prob x z
+          ∂poissonMeasure (r + s) := by
+      rw [poissonMeasure_conv_poissonMeasure]
+
 /-- Poissonization preserves stationarity because every discrete iterate
 preserves the target. -/
 theorem poissonizedKernel_stationary (transition : MarkovKernel State)
@@ -122,13 +213,27 @@ theorem poissonizedKernel_stationary (transition : MarkovKernel State)
   simp_rw [kernelIterate_stationary transition target hstationary _ y]
   simp
 
+/-- Nonnegative Poisson intensity `Λt` associated with elapsed time `t`. -/
+def FiniteRateGenerator.clockIntensity (Λ : ℝ) (hΛ : 0 < Λ)
+    (t : NNReal) : NNReal :=
+  ⟨Λ * t, mul_nonneg (le_of_lt hΛ) t.2⟩
+
+@[simp] theorem FiniteRateGenerator.clockIntensity_add
+    (Λ : ℝ) (hΛ : 0 < Λ) (t u : NNReal) :
+    FiniteRateGenerator.clockIntensity Λ hΛ (t + u) =
+      FiniteRateGenerator.clockIntensity Λ hΛ t +
+        FiniteRateGenerator.clockIntensity Λ hΛ u := by
+  apply Subtype.ext
+  change Λ * ((t : ℝ) + (u : ℝ)) = Λ * (t : ℝ) + Λ * (u : ℝ)
+  ring
+
 /-- Real-time kernel of a bounded finite-rate generator obtained by first
 uniformizing at rate `Λ` and then using Poisson intensity `Λt`. -/
 noncomputable def FiniteRateGenerator.timeKernel
     (rates : FiniteRateGenerator State) (Λ : ℝ) (hΛ : 0 < Λ)
     (hbound : ∀ x, rates.exitRate x ≤ Λ) (t : NNReal) : MarkovKernel State :=
   poissonizedKernel (rates.uniformizedKernel Λ hΛ hbound)
-    ⟨Λ * t, mul_nonneg (le_of_lt hΛ) t.2⟩
+    (FiniteRateGenerator.clockIntensity Λ hΛ t)
 
 /-- Rate reversibility implies stationarity of every Poissonized real-time
 kernel. -/
@@ -140,16 +245,25 @@ theorem FiniteRateGenerator.timeKernel_stationary
   poissonizedKernel_stationary _ target
     (rates.uniformizedKernel_stationary target hrev Λ hΛ hbound) _
 
+/-- Chapman--Kolmogorov law for a bounded finite-rate generator. -/
+theorem FiniteRateGenerator.timeKernel_add
+    (rates : FiniteRateGenerator State) (Λ : ℝ) (hΛ : 0 < Λ)
+    (hbound : ∀ x, rates.exitRate x ≤ Λ) (t u : NNReal) :
+    rates.timeKernel Λ hΛ hbound (t + u) =
+      comp (rates.timeKernel Λ hΛ hbound u)
+        (rates.timeKernel Λ hΛ hbound t) := by
+  unfold FiniteRateGenerator.timeKernel
+  rw [FiniteRateGenerator.clockIntensity_add, poissonizedKernel_add]
+
 @[simp] theorem FiniteRateGenerator.timeKernel_zero
     (rates : FiniteRateGenerator State) (Λ : ℝ) (hΛ : 0 < Λ)
     (hbound : ∀ x, rates.exitRate x ≤ Λ) :
     rates.timeKernel Λ hΛ hbound 0 = identity := by
   unfold FiniteRateGenerator.timeKernel
-  let r : NNReal := ⟨Λ * (0 : NNReal), mul_nonneg (le_of_lt hΛ) (0 : NNReal).2⟩
-  have hr : r = 0 := by
+  have hr : FiniteRateGenerator.clockIntensity Λ hΛ 0 = 0 := by
     apply Subtype.ext
-    simp [r]
-  change poissonizedKernel (rates.uniformizedKernel Λ hΛ hbound) r = identity
+    change Λ * (0 : ℝ) = 0
+    ring
   rw [hr, poissonizedKernel_zero]
 
 end Mcmc.PDMP

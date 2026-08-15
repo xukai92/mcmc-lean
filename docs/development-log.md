@@ -1396,16 +1396,18 @@ Added the next real-time layer for finite bounded-rate jump processes.
 Poisson measure; Lean proves integrability, row normalization, the explicit
 Poisson series, the zero-intensity identity, and preservation of every
 stationary target. `FiniteRateGenerator.timeKernel` uses intensity `Λt`, and
-the velocity-flip example proves stationarity at every nonnegative time. This
-is a family of exact real-time transition kernels, not yet a proved semigroup
-or a path-space process; Chapman--Kolmogorov, càdlàg paths, and general-state
-nonexplosion remain explicit obligations.
+the velocity-flip example proves stationarity at every nonnegative time.
+Poisson convolution, Fubini, finite intermediate-state summation, and
+`kernelIterate_add` now prove `timeKernel_add`, the exact
+Chapman--Kolmogorov law. This is a stationary finite-state real-time semigroup,
+not yet a path-space process; càdlàg paths and general-state nonexplosion
+remain explicit obligations.
 
-Prepared the exact Chapman--Kolmogorov algebra: finite kernel composition is
+The exact Chapman--Kolmogorov algebra includes: finite kernel composition is
 now proved associative, and `kernelIterate_add` identifies the `(m+n)`-step
 kernel with sequential composition of the `m`- and `n`-step kernels. The
-remaining semigroup proof is therefore purely the Poisson convolution/Fubini
-step, rather than an untracked matrix-algebra obligation.
+Poisson convolution/Fubini proof now closes the semigroup result rather than
+leaving that matrix-algebra obligation implicit.
 
 The Gaussian diagonal-SoftAbs client is now end-to-end. Lean connects the
 actual Gaussian Hessian to a strictly non-identity SoftAbs metric, packages the
