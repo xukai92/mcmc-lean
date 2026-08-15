@@ -24,6 +24,14 @@ actual multinomial Gaussian SoftAbs GR-HMC kernel. This model is independent
 across the auxiliary boundary, but it closes the end-to-end general-state
 PG--HMC instantiation without disguising a callback as a theorem.
 
+Added the operational finite dynamic-tree boundary needed by NUTS-style
+selection. `CertifiedDynamicTree` records the candidate `Finset` at every root,
+root membership, and equality after rerooting at any admitted leaf; these facts
+now automatically imply reversible and stationary target-weighted selection.
+A variable-depth stopped-doubling client uses `2^depth` leaf indices and proves
+stationarity componentwise. Certification of a particular floating-point
+U-turn/subtree-exclusion builder remains a separate refinement task.
+
 ## 2026-08-15: normalized targets and refresh-augmented GR-HMC convergence
 
 Added a reusable bridge from any nonzero finite invariant measure to mathlib's

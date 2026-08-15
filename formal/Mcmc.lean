@@ -13,6 +13,7 @@ import Mcmc.Finite.ProbabilisticProgram
 import Mcmc.Finite.ProbabilisticCoroutine
 import Mcmc.Finite.CandidateMixture
 import Mcmc.Finite.DynamicCandidate
+import Mcmc.Finite.CertifiedDynamicTree
 import Mcmc.Finite.ParallelTempering
 import Mcmc.Finite.PseudoMarginal
 import Mcmc.Finite.ParticleEstimator

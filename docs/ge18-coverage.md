@@ -88,11 +88,15 @@ work.
    `BoundSchedule.kernel_invariant` proves that descriptor-ordered execution
    preserves the target. Julia callback equality with those bound kernels
    remains an explicit language-boundary obligation.
-3. Instantiate the new reroot-invariant dynamic-candidate theorem with a
-   concrete doubling/U-turn NUTS tree. Lean now proves detailed balance and
-   stationarity from symmetric membership and reroot-invariant normalization,
-   including nonconstant equivalence-class candidate sets; tree construction,
-   subtree exclusion, and the certificate remain.
+3. Connect a numerical U-turn builder to the completed finite-tree certificate.
+   `CertifiedDynamicTree` now expresses root inclusion and exact reroot equality
+   directly in terms of generated candidate `Finset`s and automatically yields
+   detailed balance and stationarity. `StoppedDoublingLeaf` instantiates
+   variable stopped depths with `2^depth` leaf indices and proves stationarity
+   of target-weighted selection from each completed component. What remains is
+   proving that a particular numerical subtree-exclusion/U-turn implementation
+   produces such a certified completed component; first-U-turn stopping is not
+   silently assumed safe.
 4. Extend generated trace-state descriptions if richer source programs need
    them. Julia now uses an explicit, copyable `ObservationCursor` matching the
    proved finite suspend/resume state and tests pause/copy/resume against
