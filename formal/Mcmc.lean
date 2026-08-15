@@ -30,6 +30,7 @@ import Mcmc.Executable.Continuous.CompilerIR
 import Mcmc.Executable.Continuous.RWMH
 import Mcmc.Executable.Continuous.HMC
 import Mcmc.Executable.Continuous.NumericalRefinement
+import Mcmc.Executable.Continuous.BoundedRWMH
 import Mcmc.Docs.Graph
 import Mcmc.Hamiltonian.Leapfrog
 import Mcmc.Hamiltonian.Assumptions

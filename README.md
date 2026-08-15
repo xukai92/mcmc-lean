@@ -162,6 +162,14 @@ Lean records the missing backend theorem as
 or Float64 witness. Thus downstream work can name the deferred obligation
 without silently assuming that it has already been proved.
 
+Lean now also provides a bounded refinement layer. It composes absolute error
+bounds for the affine proposal, callback log ratio, clamping, exponential
+threshold, and uniform draw. The Float64 and ideal executions provably take
+the same branch whenever the ideal uniform-to-threshold margin exceeds the
+combined threshold and uniform errors; any branch disagreement is confined to
+that explicit boundary band. Concrete Julia/libm/RNG error certificates are
+still inputs to this theorem rather than assumed facts.
+
 | Layer | Current guarantee |
 |---|---|
 | Ideal trace | Proved for arbitrary scalar log densities and real scales |
@@ -169,7 +177,8 @@ without silently assuming that it has already been proved.
 | Stationarity | Proved for the normalized `exp ∘ logdensity` target |
 | Julia Reference | Interprets the committed version-2 sampler IR |
 | Julia Optimized | Independently implemented and differentially tested |
-| Float64/RNG refinement | Explicitly specified by `NumericalRefinement`; no witness yet |
+| Bounded numeric refinement | Proved composition and decision-stability theorems, conditional on concrete operation-error certificates |
+| Julia Float64/RNG certificates | Required for the supported Julia/libm/RNG versions; no witness yet |
 
 See the [continuous executable contract](docs/continuous-executable-contract.md)
 for the exact theorem and runtime boundaries.

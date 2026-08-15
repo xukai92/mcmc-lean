@@ -90,6 +90,22 @@ not prove equality of probability laws.
 
 ## Required refinement assumptions
 
+`Mcmc.Executable.Continuous.BoundedRWMH` now discharges the generic error
+composition. Its `Approximates` relation and `RwmhErrorCertificate` prove:
+
+- an explicit affine-proposal error bound from current, scale, and noise
+  errors;
+- additive propagation of the two callback errors into the log ratio;
+- nonexpansiveness of clamping at zero;
+- one-Lipschitz transport through `exp` on the nonpositive half-line;
+- exact accept/reject agreement whenever the ideal comparison margin is
+  larger than the combined threshold/uniform error; and
+- a returned-state error bounded by the selected current/proposal budget.
+
+If the branches disagree, Lean proves that the ideal draw lies inside the
+same combined-error band around the threshold. This is the unavoidable
+boundary qualification for a discontinuous accept/reject decision.
+
 An eventual backend theorem or validated translation must account for each of
 the following separately:
 
@@ -101,13 +117,13 @@ the following separately:
 | Target expression to Julia callback | The callback implements the same log weight on the admitted domain, up to the stated numeric error. |
 | Ideal continuous IR to Julia | The maintained interpreter mirrors primitive order and control flow and is differentially tested; a machine-checked cross-language/numerical refinement remains future work. |
 
-Until these rows are discharged, the correct description is “an exact Lean
-RWMH kernel/program refinement, plus a serialized program interpreted and
-differentially tested under Julia Float64/RNG semantics.” It is not an exact
-executable realization of mathlib's continuous measure.
+The generic bounded-error composition is now discharged. What remains in the
+table is construction of concrete certificates for the supported Julia,
+`Float64`, libm, callback, and RNG implementations. Until those are supplied,
+the implementation is not an exact or quantitatively certified executable
+realization of mathlib's continuous measure.
 
-`Mcmc.Executable.Continuous.NumericalRefinement` records the deferred backend
-theorem as a structure relating backend values, callbacks, and sources to ideal
-reals and traces. No Julia/Float64 witness is defined. Assuming a value of this
-structure is therefore explicit at every use site and does not add an axiom to
-the trusted Lean environment.
+`NumericalRefinement` retains the exact backend contract, while
+`BoundedRWMH` gives the practically attainable finite-error contract. No
+Julia/Float64 witness is defined. Supplying either remains explicit at every
+use site and adds no axiom to the trusted Lean environment.

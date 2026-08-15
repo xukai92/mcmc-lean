@@ -1,5 +1,20 @@
 # Development log
 
+## 2026-08-15: bounded numerical refinement for scalar RWMH
+
+Added a theorem-backed finite-error layer between ideal-real RWMH and a
+floating-point backend. Absolute approximation bounds compose through the
+affine Gaussian proposal and callback log-ratio subtraction. Clamping at zero
+is nonexpansive, and Lean proves `exp` is one-Lipschitz on the resulting
+nonpositive domain, yielding a complete acceptance-threshold budget.
+
+The accept/reject comparison is proved stable whenever its ideal margin
+exceeds the combined uniform and threshold errors. Conversely, any changed
+branch is proved to lie inside exactly that error band. Under stability, the
+returned value approximates the ideal command-interpreter result by the error
+of the selected proposal/current branch. Concrete Julia `Float64`, libm,
+callback, and RNG error certificates remain explicit external obligations.
+
 ## 2026-08-15: executable scalar HMC vertical slice
 
 Extended the sampler artifact to version 3 with scalar, unit-mass,
