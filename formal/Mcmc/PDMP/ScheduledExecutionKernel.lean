@@ -1,4 +1,5 @@
 import Mcmc.PDMP.PoissonSchedule
+import Mcmc.Kernel.ParameterMixture
 import Mathlib.Probability.Kernel.Composition.Prod
 import Mathlib.Tactic
 
@@ -288,5 +289,57 @@ instance ThinnedFlowSimulator.horizonKernel.instIsMarkovKernel
     IsMarkovKernel (simulator.horizonKernel horizon) := by
   unfold ThinnedFlowSimulator.horizonKernel
   infer_instance
+
+/-- The horizon kernel is exactly an independent mixture of its fixed-schedule
+sections. -/
+theorem ThinnedFlowSimulator.horizonKernel_eq_independentParameterMixture
+    (simulator : ThinnedFlowSimulator State) (horizon : PositiveHorizon) :
+    simulator.horizonKernel horizon =
+      Mcmc.Kernel.independentParameterMixture
+        (simulator.executeScheduled horizon.duration)
+        (poissonCandidateSchedule
+          (simulator.clock.rate * horizon.duration) horizon) := rfl
+
+/-- A fixed-horizon sampler is target invariant whenever every deterministic
+schedule section of its executor is target invariant. -/
+theorem ThinnedFlowSimulator.horizonKernel_invariant_of_sections
+    (simulator : ThinnedFlowSimulator State) (horizon : PositiveHorizon)
+    (target : Measure State) [SFinite target]
+    (hsection : ∀ schedule : CandidateScheduleSample,
+      (Kernel.comap (simulator.executeScheduled horizon.duration)
+        (fun state => (state, schedule))
+        (measurable_id.prodMk measurable_const)).Invariant target) :
+    (simulator.horizonKernel horizon).Invariant target := by
+  rw [simulator.horizonKernel_eq_independentParameterMixture horizon]
+  exact Mcmc.Kernel.independentParameterMixture_invariant
+    (simulator.executeScheduled horizon.duration) target
+    (poissonCandidateSchedule
+      (simulator.clock.rate * horizon.duration) horizon) hsection
+
+/-- It suffices to prove invariance of the executor selected by each schedule's
+stored count. -/
+theorem ThinnedFlowSimulator.horizonKernel_invariant_of_count_sections
+    (simulator : ThinnedFlowSimulator State) (horizon : PositiveHorizon)
+    (target : Measure State) [SFinite target]
+    (hsection : ∀ schedule : CandidateScheduleSample,
+      (Kernel.comap
+        (simulator.executeScheduledCount horizon.duration schedule.1)
+        (fun state => (state, schedule))
+        (measurable_id.prodMk measurable_const)).Invariant target) :
+    (simulator.horizonKernel horizon).Invariant target := by
+  apply simulator.horizonKernel_invariant_of_sections horizon target
+  intro schedule
+  have heq : Kernel.comap (simulator.executeScheduled horizon.duration)
+      (fun state => (state, schedule))
+      (measurable_id.prodMk measurable_const) =
+      Kernel.comap
+        (simulator.executeScheduledCount horizon.duration schedule.1)
+        (fun state => (state, schedule))
+        (measurable_id.prodMk measurable_const) := by
+    ext state s hs
+    simp only [Kernel.comap_apply]
+    rw [simulator.executeScheduled_apply horizon.duration (state, schedule)]
+  rw [heq]
+  exact hsection schedule
 
 end Mcmc.PDMP

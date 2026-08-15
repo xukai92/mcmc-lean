@@ -126,6 +126,16 @@ is a complete process transition for globally bounded thinning on every
 positive horizon. Stationarity from generator cancellation, semigroup
 consistency across horizons, and convergence remain separate theorems.
 
+Added the reusable stationarity bridge for the next step. An independently
+parameterized family of Markov kernels preserves a target whenever every fixed
+parameter section preserves it; the proof uses product-measure Fubini rather
+than a finite-state expansion. The bounded horizon kernel is definitionally
+such an independent mixture over its Poisson schedule law. Lean now reduces
+its invariance first to all fixed-schedule sections and then to the executor
+selected by each schedule's stored count. Discharging those sections from
+separate flow/jump invariance is appropriate for constant-rate transport
+models; BPS/Zig-Zag instead require the stronger combined generator argument.
+
 ## 2026-08-15: categorical discontinuous-HMC vertical slice
 
 Added the Laplace-momentum crossing/reflection algebra from Nishimura, Dunson,

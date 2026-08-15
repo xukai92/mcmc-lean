@@ -279,6 +279,9 @@ breadth branches are:
   steps retain the schedule, runtime-count selection is proved Markov, residual
   flow reaches the horizon, and the exact Poisson schedule drives a complete
   bounded positive-horizon transition kernel.
+  A general independent-parameter mixture theorem now reduces stationarity of
+  this kernel to invariance of every fixed-count schedule section, without
+  asserting that generator cancellation alone has discharged that premise.
   Concrete one-dimensional Zig-Zag and finite-dimensional BPS clients provide
   their linear flows, event kernels, and bounded-thinning constructors. The
   one-dimensional Zig-Zag generator cancellation and finite-dimensional BPS
