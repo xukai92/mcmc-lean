@@ -147,12 +147,18 @@ on a genuinely position-dependent kinetic derivative. The returned
 `ImplicitSolveCertificate` records the measured half-momentum and position
 residuals.
 
-The formal counterpart is `ContractiveGeneralizedLeapfrogSolver`. Banach
-contraction certificates construct exact fixed points for both equations,
-prove uniqueness of the assembled generalized-leapfrog solution, and prove
-that the finite loops converge to it. Measurability, momentum reversal, and
-phase-volume preservation remain explicit fields before this exact selection
-can feed a verified GR-HMC kernel.
+The formal counterparts are `ContractiveGeneralizedLeapfrogSolver` and the
+step-restricted `ContractiveGeneralizedLeapfrogSolverAt`. Banach contraction
+certificates construct exact fixed points for both equations and prove
+uniqueness. The fixed-step interface is essential for nonseparable problems:
+the concrete smooth momentum-even Hamiltonian
+`H(q,p) = a q √(1+p²)` proves both loops contract under `|εa/2| < 1`, rather
+than assuming contraction for every real step size. Lean verifies its stated
+derivatives, exact-solve uniqueness, convergence of both practical loops,
+measurability, and momentum-flip reversal. A bilinear closed-form stress test
+is also retained. Phase-volume preservation and instantiation by a globally
+positive nonconstant Riemannian metric remain before this supplies the entire
+validity certificate consumed by GR-HMC.
 
 A small positive residual is not reclassified as equality. Consequently the
 practical Float64 solver is useful for diagnostics and convergence testing but

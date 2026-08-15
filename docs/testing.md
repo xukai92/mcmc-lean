@@ -24,8 +24,10 @@ explicitly deferred robustness or performance tests.
 - `test/particle_gibbs.jl` exercises exact-integer bootstrap particle Gibbs
   for a finite hidden Markov model. It checks fixed-trace
   Reference/Optimized agreement, the formally proved one-particle identity,
-  public validation, and empirical path frequencies on a symmetric two-state
-  model. The frequency check is a runtime regression, not a mixing theorem.
+  public validation, empirical path frequencies on a symmetric two-state
+  model, and the exact zero-horizon `N⁻¹ I + (1-N⁻¹) Π` specialization. The
+  frequency checks are runtime regressions, not substitutes for the Lean
+  convergence theorem.
 
 The optimized categorical implementation uses cumulative sums and binary
 search, whereas the reference IR interpreter uses a linear cumulative scan.
@@ -50,7 +52,10 @@ decision-certificate unit tests.
 Position-dependent generalized leapfrog now has Reference-versus-Optimized
 fixed-point tests using nonseparable derivatives, direct checks of both
 implicit residuals, public-API validation, and a check that approximate
-residual data is not accepted as an exact solver certificate.
+residual data is not accepted as an exact solver certificate. The smooth
+momentum-even formal test Hamiltonian `a q √(1+p²)` is replayed in Julia with
+reversal and finite-difference unit-Jacobian checks; the latter remains an
+empirical regression rather than a measure-preservation proof.
 
 `test/composable.jl` checks declared-variable coverage, overlapping scopes,
 left-to-right PG/HMC-style execution order, repeated sampling, and invalid

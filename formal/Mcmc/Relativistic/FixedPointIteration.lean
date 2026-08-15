@@ -121,6 +121,279 @@ structure ContractiveGeneralizedLeapfrogSolver
     ContractingWith (positionRate ε q pHalf)
       (positionFixedPointUpdate momentumDerivative ε q pHalf)
 
+/-- Contraction data at one fixed step size. Unlike the global solver above,
+this is usable for genuinely nonseparable Hamiltonians whose fixed-point maps
+contract only under a step-size restriction. -/
+structure ContractiveGeneralizedLeapfrogSolverAt
+    (positionDerivative momentumDerivative : PhaseSpace ι → Position ι)
+    (ε : ℝ) where
+  halfRate : PhaseSpace ι → NNReal
+  halfContracting : ∀ z, ContractingWith (halfRate z)
+    (halfMomentumFixedPointUpdate positionDerivative ε z)
+  positionRate : Position ι → Momentum ι → NNReal
+  positionContracting : ∀ q pHalf,
+    ContractingWith (positionRate q pHalf)
+      (positionFixedPointUpdate momentumDerivative ε q pHalf)
+
+/-- Exact half momentum at the certified fixed step size. -/
+noncomputable def ContractiveGeneralizedLeapfrogSolverAt.halfMomentum
+    {positionDerivative momentumDerivative : PhaseSpace ι → Position ι}
+    {ε : ℝ}
+    (solver : ContractiveGeneralizedLeapfrogSolverAt positionDerivative
+      momentumDerivative ε) (z : PhaseSpace ι) : Momentum ι :=
+  (solver.halfContracting z).fixedPoint
+    (halfMomentumFixedPointUpdate positionDerivative ε z)
+
+/-- Exact next position at the certified fixed step size. -/
+noncomputable def ContractiveGeneralizedLeapfrogSolverAt.nextPosition
+    {positionDerivative momentumDerivative : PhaseSpace ι → Position ι}
+    {ε : ℝ}
+    (solver : ContractiveGeneralizedLeapfrogSolverAt positionDerivative
+      momentumDerivative ε) (z : PhaseSpace ι) : Position ι :=
+  (solver.positionContracting z.1 (solver.halfMomentum z)).fixedPoint
+    (positionFixedPointUpdate momentumDerivative ε z.1
+      (solver.halfMomentum z))
+
+/-- Complete phase point returned by the two exact fixed-step solves. -/
+noncomputable def ContractiveGeneralizedLeapfrogSolverAt.step
+    {positionDerivative momentumDerivative : PhaseSpace ι → Position ι}
+    {ε : ℝ}
+    (solver : ContractiveGeneralizedLeapfrogSolverAt positionDerivative
+      momentumDerivative ε) (z : PhaseSpace ι) : PhaseSpace ι :=
+  let pHalf := solver.halfMomentum z
+  let qNext := solver.nextPosition z
+  (qNext, pHalf - (ε / 2) • positionDerivative (qNext, pHalf))
+
+/-- A fixed-step contraction solve satisfies all generalized-leapfrog
+equations exactly. -/
+theorem ContractiveGeneralizedLeapfrogSolverAt.satisfies
+    {positionDerivative momentumDerivative : PhaseSpace ι → Position ι}
+    {ε : ℝ}
+    (solver : ContractiveGeneralizedLeapfrogSolverAt positionDerivative
+      momentumDerivative ε) (z : PhaseSpace ι) :
+    GeneralizedLeapfrogEquations positionDerivative momentumDerivative ε z
+      (solver.halfMomentum z) (solver.step z) := by
+  exact ⟨(solver.halfContracting z).fixedPoint_isFixedPt.symm,
+    (solver.positionContracting z.1
+      (solver.halfMomentum z)).fixedPoint_isFixedPt.symm, rfl⟩
+
+/-- The fixed-step solution is unique. -/
+theorem ContractiveGeneralizedLeapfrogSolverAt.unique
+    {positionDerivative momentumDerivative : PhaseSpace ι → Position ι}
+    {ε : ℝ}
+    (solver : ContractiveGeneralizedLeapfrogSolverAt positionDerivative
+      momentumDerivative ε) (z : PhaseSpace ι) (pHalf : Momentum ι)
+    (zNext : PhaseSpace ι)
+    (h : GeneralizedLeapfrogEquations positionDerivative momentumDerivative
+      ε z pHalf zNext) :
+    pHalf = solver.halfMomentum z ∧ zNext = solver.step z := by
+  rcases h with ⟨hp, hq, hpNext⟩
+  have hpEq := (solver.halfContracting z).fixedPoint_unique hp.symm
+  subst pHalf
+  have hqEq := (solver.positionContracting z.1
+    (solver.halfMomentum z)).fixedPoint_unique hq.symm
+  constructor
+  · rfl
+  · apply Prod.ext
+    · exact hqEq
+    · change zNext.2 = solver.halfMomentum z - (ε / 2) •
+        positionDerivative (solver.nextPosition z, solver.halfMomentum z)
+      rw [hpNext, hqEq]
+      rfl
+
+/-- A genuinely nonseparable bilinear Hamiltonian derivative:
+`∂H/∂q = a p`. -/
+def bilinearPositionDerivative (a : ℝ) : PhaseSpace ι → Position ι :=
+  fun z => a • z.2
+
+/-- The companion derivative `∂H/∂p = a q`. Both implicit equations therefore
+depend on their unknowns. -/
+def bilinearMomentumDerivative (a : ℝ) : PhaseSpace ι → Position ι :=
+  fun z => a • z.1
+
+/-- Exact Lipschitz rate of both bilinear fixed-point maps. -/
+noncomputable def bilinearFixedPointRate (a ε : ℝ) : NNReal :=
+  ⟨|ε / 2 * a|, abs_nonneg _⟩
+
+theorem bilinear_halfMomentum_contracting (a ε : ℝ)
+    (hstep : |ε / 2 * a| < 1) (z : PhaseSpace ι) :
+    ContractingWith (bilinearFixedPointRate a ε)
+      (halfMomentumFixedPointUpdate (bilinearPositionDerivative a) ε z) := by
+  constructor
+  · exact hstep
+  · apply LipschitzWith.of_dist_le_mul
+    intro p q
+    rw [dist_eq_norm, dist_eq_norm]
+    change ‖(z.2 - (ε / 2) • a • p) -
+        (z.2 - (ε / 2) • a • q)‖ ≤
+      (bilinearFixedPointRate a ε : ℝ) * ‖p - q‖
+    change ‖(z.2 - (ε / 2) • a • p) -
+        (z.2 - (ε / 2) • a • q)‖ ≤ |ε / 2 * a| * ‖p - q‖
+    rw [show (z.2 - (ε / 2) • a • p) -
+        (z.2 - (ε / 2) • a • q) =
+      -(ε / 2 * a) • (p - q) by module]
+    norm_num [norm_smul, abs_mul, abs_div]
+
+theorem bilinear_nextPosition_contracting (a ε : ℝ)
+    (hstep : |ε / 2 * a| < 1) (q : Position ι) (p : Momentum ι) :
+    ContractingWith (bilinearFixedPointRate a ε)
+      (positionFixedPointUpdate (bilinearMomentumDerivative a) ε q p) := by
+  constructor
+  · exact hstep
+  · apply LipschitzWith.of_dist_le_mul
+    intro x y
+    rw [dist_eq_norm, dist_eq_norm]
+    change ‖(q + (ε / 2) • (a • q + a • x)) -
+        (q + (ε / 2) • (a • q + a • y))‖ ≤
+      (bilinearFixedPointRate a ε : ℝ) * ‖x - y‖
+    change ‖(q + (ε / 2) • (a • q + a • x)) -
+        (q + (ε / 2) • (a • q + a • y))‖ ≤
+      |ε / 2 * a| * ‖x - y‖
+    rw [show (q + (ε / 2) • (a • q + a • x)) -
+        (q + (ε / 2) • (a • q + a • y)) =
+      (ε / 2 * a) • (x - y) by module]
+    norm_num [norm_smul, abs_mul, abs_div]
+
+/-- Concrete exact implicit solver for the bilinear nonseparable Hamiltonian,
+valid precisely in the natural contraction regime `|εa/2| < 1`. -/
+noncomputable def bilinearContractiveSolverAt (a ε : ℝ)
+    (hstep : |ε / 2 * a| < 1) :
+    ContractiveGeneralizedLeapfrogSolverAt
+      (bilinearPositionDerivative (ι := ι) a)
+      (bilinearMomentumDerivative (ι := ι) a) ε where
+  halfRate _ := bilinearFixedPointRate a ε
+  halfContracting := bilinear_halfMomentum_contracting a ε hstep
+  positionRate _ _ := bilinearFixedPointRate a ε
+  positionContracting := bilinear_nextPosition_contracting a ε hstep
+
+/-- Closed-form half momentum for the bilinear implicit equation. -/
+noncomputable def bilinearExactHalfMomentum (a ε : ℝ)
+    (z : PhaseSpace ι) : Momentum ι :=
+  (1 / (1 + ε / 2 * a)) • z.2
+
+/-- Closed-form phase map selected by the bilinear implicit solver. -/
+noncomputable def bilinearExactStep (a ε : ℝ)
+    (z : PhaseSpace ι) : PhaseSpace ι :=
+  (((1 + ε / 2 * a) / (1 - ε / 2 * a)) • z.1,
+    ((1 - ε / 2 * a) / (1 + ε / 2 * a)) • z.2)
+
+theorem bilinearContractiveSolverAt_halfMomentum_eq (a ε : ℝ)
+    (hstep : |ε / 2 * a| < 1) (z : PhaseSpace ι) :
+    (bilinearContractiveSolverAt (ι := ι) a ε hstep).halfMomentum z =
+      bilinearExactHalfMomentum a ε z := by
+  rw [ContractiveGeneralizedLeapfrogSolverAt.halfMomentum]
+  symm
+  apply (bilinear_halfMomentum_contracting (ι := ι) a ε hstep z).fixedPoint_unique
+  have hdenom : 1 + ε / 2 * a ≠ 0 := by
+    have := (abs_lt.mp hstep).1
+    linarith
+  have hscalar :
+      1 - (ε / 2 * a) * (1 / (1 + ε / 2 * a)) =
+        1 / (1 + ε / 2 * a) := by
+    have hdenom' : 2 + ε * a ≠ 0 := by
+      intro hzero
+      apply hdenom
+      linarith
+    field_simp [hdenom']
+    ring
+  ext i
+  simp only [halfMomentumFixedPointUpdate, bilinearPositionDerivative,
+    bilinearExactHalfMomentum, Pi.sub_apply, Pi.smul_apply, smul_eq_mul]
+  change z.2 i - ε / 2 *
+      (a * ((1 / (1 + ε / 2 * a)) * z.2 i)) =
+    (1 / (1 + ε / 2 * a)) * z.2 i
+  calc
+    _ = (1 - (ε / 2 * a) * (1 / (1 + ε / 2 * a))) * z.2 i := by ring
+    _ = _ := by rw [hscalar]
+
+theorem bilinearContractiveSolverAt_nextPosition_eq (a ε : ℝ)
+    (hstep : |ε / 2 * a| < 1) (z : PhaseSpace ι) :
+    (bilinearContractiveSolverAt (ι := ι) a ε hstep).nextPosition z =
+      ((1 + ε / 2 * a) / (1 - ε / 2 * a)) • z.1 := by
+  rw [ContractiveGeneralizedLeapfrogSolverAt.nextPosition]
+  symm
+  apply (bilinear_nextPosition_contracting (ι := ι) a ε hstep z.1
+    ((bilinearContractiveSolverAt (ι := ι) a ε hstep).halfMomentum z)).fixedPoint_unique
+  have hdenom : 1 - ε / 2 * a ≠ 0 := by
+    have := (abs_lt.mp hstep).2
+    linarith
+  have hscalar :
+      1 + (ε / 2 * a) *
+          (1 + (1 + ε / 2 * a) / (1 - ε / 2 * a)) =
+        (1 + ε / 2 * a) / (1 - ε / 2 * a) := by
+    have hdenom' : 2 - ε * a ≠ 0 := by
+      intro hzero
+      apply hdenom
+      linarith
+    field_simp [hdenom']
+    ring
+  ext i
+  simp only [positionFixedPointUpdate, bilinearMomentumDerivative,
+    Pi.add_apply, Pi.smul_apply, smul_eq_mul]
+  change z.1 i + ε / 2 *
+      (a * z.1 i + a *
+        (((1 + ε / 2 * a) / (1 - ε / 2 * a)) * z.1 i)) =
+    ((1 + ε / 2 * a) / (1 - ε / 2 * a)) * z.1 i
+  calc
+    _ = (1 + (ε / 2 * a) *
+        (1 + (1 + ε / 2 * a) / (1 - ε / 2 * a))) * z.1 i := by ring
+    _ = _ := by rw [hscalar]
+
+/-- The contraction-selected solve agrees exactly with the closed-form
+symplectic scaling map. -/
+theorem bilinearContractiveSolverAt_step_eq (a ε : ℝ)
+    (hstep : |ε / 2 * a| < 1) :
+    (bilinearContractiveSolverAt (ι := ι) a ε hstep).step =
+      bilinearExactStep a ε := by
+  funext z
+  apply Prod.ext
+  · exact bilinearContractiveSolverAt_nextPosition_eq a ε hstep z
+  · rw [ContractiveGeneralizedLeapfrogSolverAt.step,
+      bilinearContractiveSolverAt_halfMomentum_eq,
+      bilinearContractiveSolverAt_nextPosition_eq]
+    ext i
+    simp [bilinearPositionDerivative, bilinearExactHalfMomentum,
+      bilinearExactStep, Pi.smul_apply]
+    field_simp
+
+/-- Both practical fixed-point loops converge for the concrete bilinear
+solver whenever the explicit step-size condition holds. -/
+theorem bilinear_finiteHalfMomentum_tendsto (a ε : ℝ)
+    (hstep : |ε / 2 * a| < 1) (z : PhaseSpace ι) :
+    Tendsto (fun n => finiteHalfMomentum (bilinearPositionDerivative a) n ε z)
+      atTop (𝓝 (bilinearExactHalfMomentum a ε z)) := by
+  rw [← bilinearContractiveSolverAt_halfMomentum_eq a ε hstep z]
+  let solver := bilinearContractiveSolverAt (ι := ι) a ε hstep
+  change Tendsto
+    (fun n => finiteHalfMomentum (bilinearPositionDerivative a) n ε z) atTop
+    (𝓝 ((solver.halfContracting z).fixedPoint
+      (halfMomentumFixedPointUpdate (bilinearPositionDerivative a) ε z)))
+  exact
+    finiteHalfMomentum_tendsto_fixedPoint
+      (bilinearPositionDerivative (ι := ι) a)
+      (solver.halfRate z) ε z (solver.halfContracting z)
+
+/-- The concrete position loop converges to its closed-form exact position
+once the exact half momentum is fixed. -/
+theorem bilinear_finiteNextPosition_tendsto (a ε : ℝ)
+    (hstep : |ε / 2 * a| < 1) (z : PhaseSpace ι) :
+    Tendsto (fun n => finiteNextPosition (bilinearMomentumDerivative a) n ε
+      z.1 ((bilinearContractiveSolverAt (ι := ι) a ε hstep).halfMomentum z))
+      atTop (𝓝 (((1 + ε / 2 * a) / (1 - ε / 2 * a)) • z.1)) := by
+  rw [← bilinearContractiveSolverAt_nextPosition_eq a ε hstep z]
+  let solver := bilinearContractiveSolverAt (ι := ι) a ε hstep
+  change Tendsto
+    (fun n => finiteNextPosition (bilinearMomentumDerivative a) n ε z.1
+      (solver.halfMomentum z)) atTop
+    (𝓝 ((solver.positionContracting z.1 (solver.halfMomentum z)).fixedPoint
+      (positionFixedPointUpdate (bilinearMomentumDerivative a) ε z.1
+        (solver.halfMomentum z))))
+  exact finiteNextPosition_tendsto_fixedPoint
+    (bilinearMomentumDerivative (ι := ι) a)
+    (solver.positionRate z.1 (solver.halfMomentum z)) ε z.1
+    (solver.halfMomentum z)
+    (solver.positionContracting z.1 (solver.halfMomentum z))
+
 /-- Exact first half-momentum obtained from the Banach fixed point selected by
 the supplied contraction certificate. -/
 noncomputable def ContractiveGeneralizedLeapfrogSolver.halfMomentum

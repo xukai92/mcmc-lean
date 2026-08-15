@@ -81,9 +81,13 @@ relativistic multinomial specialization, with Reference/Optimized Julia replay
 tests. A position-dependent fixed-point solver now exists in Reference and
 Optimized Julia with residual reporting, while Lean constructs its exact
 Banach-fixed-point counterpart and proves uniqueness and convergence of the
-finite loops. Proving measurability, reversal, and volume preservation for a
-concrete nonconstant metric—and refining Float64 residuals to that exact
-selection—remain before B2 is complete.
+finite loops. Lean now also has a fixed-step interface and a concrete
+smooth momentum-even nonseparable instance: both implicit maps contract under
+the explicit condition `|εa/2| < 1`, giving a measurable exact unique solve,
+convergent finite loops, and momentum-flip reversal. Proving phase-volume
+preservation and instantiating the solver with a globally positive nonconstant
+Riemannian metric—and refining Float64 residuals to that exact selection—remain
+before B2 is complete.
 
 ## Track C: later breadth branches
 

@@ -57,6 +57,18 @@ constant diagonal metrics and through an explicit certificate-gated
 position-dependent interface. The [Phase I release audit](docs/core-release-audit.md)
 records the evidence and remaining numerical boundary.
 
+For the zero-horizon particle-Gibbs specialization, Lean proves the exact
+kernel `N⁻¹ I + (1-N⁻¹) Π` and the exact `N⁻ᵏ` total-variation contraction
+factor. The Ge et al. layer also includes finite `assume`/`observe` posterior
+semantics and a carefully scoped stationary theorem for static candidate
+mixtures; dynamically stopped NUTS trees are not yet covered by that theorem.
+
+The implicit-solver foundation now includes a fixed-step, smooth,
+momentum-even nonseparable example `H(q,p) = a q √(1+p²)`. Lean proves the
+step-size contraction condition, exact uniqueness, iteration convergence,
+measurability, and momentum-flip reversal. A formal phase-volume theorem and a
+globally positive nonconstant Riemannian-metric instance remain open.
+
 Betancourt's [*A Conceptual Introduction to Hamiltonian Monte
 Carlo*](https://arxiv.org/abs/1701.02434) is used as a foundational HMC
 reference. Its lift--evolve--project correctness spine and the boundary between

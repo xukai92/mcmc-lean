@@ -30,6 +30,15 @@
     @test all(frequency -> abs(frequency - 0.25) < 0.035,
         values(frequencies))
 
+    # At horizon zero the exact formal kernel is N⁻¹ identity plus
+    # (1-N⁻¹) independent refresh from the initial law.
+    zero_horizon = FiniteHMMParticleGibbs([1, 3], transition,
+        zeros(Int, 0, 2), 4)
+    zero_rng = MersenneTwister(44)
+    zero_paths = [step(zero_rng, zero_horizon, [1])[1] for _ in 1:12_000]
+    retained_frequency = count(==(1), zero_paths) / length(zero_paths)
+    @test abs(retained_frequency - (1 / 4 + (3 / 4) * (1 / 4))) < 0.025
+
     @test_throws ArgumentError FiniteHMMParticleGibbs(initial, transition,
         potentials, 0)
     @test_throws DimensionMismatch step(MersenneTwister(1), sampler, [1])

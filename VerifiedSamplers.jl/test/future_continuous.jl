@@ -114,6 +114,36 @@ end
     @test public_result[1] ≈ reference[1] atol=1e-8
     @test_throws DimensionMismatch fixed_point_generalized_leapfrog(
         position_derivative, momentum_derivative, q, [0.4], ε)
+
+    # Smooth momentum-even formal test Hamiltonian H(q,p)=a*q*sqrt(1+p^2).
+    a = 0.35
+    even_position_derivative(q, p) = a .* sqrt.(1 .+ p.^2)
+    even_momentum_derivative(q, p) = a .* q .* p ./ sqrt.(1 .+ p.^2)
+    q0, p0, ε0 = [0.3], [-0.45], 0.2
+    forward = fixed_point_generalized_leapfrog(even_position_derivative,
+        even_momentum_derivative, q0, -p0, ε0;
+        max_iterations=300, atol=1e-14, rtol=1e-14)
+    backward = fixed_point_generalized_leapfrog(even_position_derivative,
+        even_momentum_derivative, q0, p0, -ε0;
+        max_iterations=300, atol=1e-14, rtol=1e-14)
+    @test forward[1] ≈ backward[1] atol=2e-13 rtol=0
+    @test -forward[2] ≈ backward[2] atol=2e-13 rtol=0
+    @test forward[3].half_momentum_residual.computed < 1e-13
+    @test forward[3].position_residual.computed < 1e-13
+
+    phase_map(qp) = begin
+        result = fixed_point_generalized_leapfrog(even_position_derivative,
+            even_momentum_derivative, [qp[1]], [qp[2]], ε0;
+            max_iterations=300, atol=1e-14, rtol=1e-14)
+        [result[1][1], result[2][1]]
+    end
+    δ = 1e-6
+    center = [q0[1], p0[1]]
+    jacobian = hcat((phase_map(center + [δ, 0]) -
+        phase_map(center - [δ, 0])) / (2δ),
+        (phase_map(center + [0, δ]) -
+        phase_map(center - [0, δ])) / (2δ))
+    @test det(jacobian) ≈ 1.0 atol=2e-8
 end
 
 @testset "executable multinomial HMC" begin

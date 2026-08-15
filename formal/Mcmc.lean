@@ -8,11 +8,14 @@ import Mcmc.Finite.Adaptive
 import Mcmc.Finite.AdaptiveConvergence
 import Mcmc.Finite.Gibbs
 import Mcmc.Finite.ComposableInference
+import Mcmc.Finite.ProbabilisticProgram
+import Mcmc.Finite.CandidateMixture
 import Mcmc.Finite.ParallelTempering
 import Mcmc.Finite.PseudoMarginal
 import Mcmc.Finite.ParticleEstimator
 import Mcmc.Finite.SequentialMonteCarlo
 import Mcmc.Finite.ParticleMCMC
+import Mcmc.Finite.ParticleGibbsConvergence
 import Mcmc.Finite.Coupling
 import Mcmc.Finite.MarginalRepair
 import Mcmc.Finite.Transport
@@ -111,6 +114,7 @@ import Mcmc.Relativistic.SoftAbsKernel
 import Mcmc.Relativistic.ScalarMetric
 import Mcmc.Relativistic.GeneralizedLeapfrog
 import Mcmc.Relativistic.FixedPointIteration
+import Mcmc.Relativistic.PositionDependentSolver
 import Mcmc.Relativistic.EndpointMetropolis
 import Mcmc.Relativistic.Multinomial
 import Mcmc.Relativistic.ConstantMetric

@@ -28,6 +28,29 @@ kernels preserve the target even when declared variable scopes overlap. A
 two-block PG--HMC theorem formalizes the paper's central composition pattern;
 coverage of all declared variables remains a separate configuration property.
 
+Added the quantitative special case that can be established without hidden
+mixing assumptions: zero-horizon particle Gibbs is exactly
+`N⁻¹ I + (1-N⁻¹) Π`, so its total-variation error contracts by exactly `N⁻¹`
+per iteration and tends to zero for `N ≥ 2`. The Julia finite-HMM test mirrors
+this formula empirically.
+
+Corrected the contraction API for genuinely implicit dynamics by adding a
+fixed-step solver certificate. A concrete nonseparable bilinear Hamiltonian
+now has machine-checked contraction of both implicit equations under
+`|εa/2| < 1`, exact fixed-point solutions, and uniqueness. Added finite
+probabilistic-program `assume`/`observe` factor semantics with normalized
+posterior, plus a stationary static candidate-mixture theorem. Dynamic NUTS
+stopping and coroutine refinement remain explicitly outside those theorems.
+
+Added a stronger smooth momentum-even solver model
+`H(q,p) = a q √(1+p²)`. Lean checks the two supplied derivatives against this
+Hamiltonian, proves their parity, proves global contraction of both implicit
+maps under `|εa/2| < 1`, and derives exact uniqueness, convergence of both
+finite iterations, measurability, and momentum-flip time reversal. Julia now
+tests the same callbacks for residual convergence, reversal, and an empirical
+finite-difference unit Jacobian. The Jacobian test is not promoted to a Lean
+phase-volume theorem.
+
 ## 2026-08-15: adaptive convergence, exact slice disintegration, and Euclidean RJ
 
 Completed the finite Roberts--Rosenthal argument. An anchored augmented process

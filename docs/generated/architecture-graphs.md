@@ -13,11 +13,14 @@ flowchart TB
   finite["Finite probability and transport"]
   smc["Finite Feynman--Kac and explicit SMC histories"]
   pmcmc["PIMH, PMMH, conditional SMC, and particle Gibbs"]
+  pgRate["Zero-horizon PG exact N-dependent rate"]
+  trace["Finite assume/observe posterior semantics"]
   composable["Scoped composable inference operators"]
   ge18["Ge et al. 2018 Turing core"]
   mh["General-state Metropolis--Hastings"]
   rwmh["Gaussian RWMH and coupling"]
   dynamics["Hamiltonian dynamics and leapfrog"]
+  implicit["Fixed-step exact implicit solver"]
   hmc["Multinomial HMC and coupling"]
   meeting["Meeting, drift, and tail bounds"]
   xu21["Xu et al. 2021 results"]
@@ -28,6 +31,9 @@ flowchart TB
   finite -->|trajectory-index laws| hmc
   finite --> smc
   smc -->|selected-path extended target| pmcmc
+  pmcmc -->|zero-horizon specialization| pgRate
+  finite -->|normalized factor semantics| trace
+  trace -->|common posterior target| composable
   pmcmc -->|PG component| composable
   mh --> rwmh
   dynamics --> hmc
@@ -38,6 +44,8 @@ flowchart TB
   hmc --> meeting
   meeting --> xu21
   dynamics --> relativistic
+  dynamics -->|generalized-leapfrog equations| implicit
+  implicit -->|existence, uniqueness, reversal| relativistic
   kernel --> relativistic
   relativistic --> xu24
 ```

@@ -10,7 +10,7 @@ implementation features and experiments.
 
 | Paper item | Repository evidence | Classification |
 |---|---|---|
-| A probabilistic model defines a posterior target over global and local variables | Existing finite `Distribution` and general-state `Measure` layers; a program-trace semantics remains later work | Mathematical interface, only partially instantiated |
+| A probabilistic model defines a posterior target over global and local variables | `Mcmc.Finite.ProbabilisticProgram.Model` gives finite `assume`/`observe` factor semantics, evidence, and a normalized posterior; the general-state `Measure` layer supplies the eventual continuous target | Machine checked for finite completed traces; coroutine execution remains implementation work |
 | MCMC engines act on manually selected subsets of variables | `Mcmc.Finite.ComposableInference.ScopedOperator` records scope metadata and the induced full-state kernel | Machine checked at the finite kernel level |
 | Selected subsets may overlap and their union should cover the model variables | `Covers` records union coverage; `schedule_stationary` deliberately needs neither coverage nor disjointness | Corrected separation: coverage is an inference-configuration condition, while stationarity follows from preservation by every full-state operator |
 | Operators can be composed into a Gibbs-style schedule | `schedule` and `schedule_stationary` prove that every finite schedule of common-target-stationary operators preserves the target | Machine checked |
@@ -18,6 +18,7 @@ implementation features and experiments.
 | Particle Gibbs can update latent/discrete variables and HMC can update differentiable continuous variables | `pgHmcKernel` and `pgHmcKernel_stationary` formalize the two-block pattern in Equations (7)--(8) through explicit slice-preservation hypotheses | Machine checked at the finite product-state level |
 | PG, PMMH, and SMC are available component engines | Finite SMC, concrete conditional SMC, PIMH, state-indexed PMMH, and particle Gibbs are proved in the particle-MCMC layer; Julia exposes an exact-integer finite-HMM PG runner | Machine checked for fixed finite state, horizon, and particle count; PG execution is differentially tested |
 | HMC/NUTS is not directly applicable to discrete variables | The current HMC interfaces act on Euclidean coordinates; no claim is made that ordinary gradient HMC updates discrete coordinates | Scope restriction, not a universal impossibility theorem |
+| Candidate-based trajectory selection preserves a target | `candidateMixture_stationary` proves this for state-independent selection among common-target stationary kernels | Machine checked sufficient condition; intentionally not a theorem about dynamically stopped NUTS trees |
 
 The important correction is that a declared variable scope does not itself
 justify an update. Each component must induce a Markov kernel on the complete
@@ -30,8 +31,12 @@ The repository now proves exact conditional SMC and particle-Gibbs
 stationarity. It also proves `particleGibbsKernel_unit_eq_identity`: with one
 particle, PG is exactly the identity transition. Thus the paper's practical PG
 claims cannot be strengthened to particle-count-uniform mixing without further
-hypotheses. Irreducibility, rates for two or more particles, and consistency as
-particle count grows remain separate quantitative goals.
+hypotheses. At zero horizon, however, the state kernel is proved exactly equal
+to `N⁻¹ I + (1-N⁻¹) Π`; its total-variation error after `k` iterations is
+exactly `N⁻ᵏ` times the initial error. Thus every `N ≥ 2` converges
+geometrically in this specialization, while `N = 1` remains the identity.
+Positive-horizon rates and consistency as particle count grows remain
+separate quantitative goals.
 
 The executable `FiniteHMMParticleGibbs` mirrors this finite bootstrap case
 with integer weights and explicit RNG consumption. Reference and Optimized
@@ -62,9 +67,9 @@ efficiency dominance.
    model and an HMC-like continuous conditional kernel.
 2. Connect the executable blocked-engine callbacks to generated descriptions
    of the corresponding formal full-state kernels.
-3. Formalize a finite candidate-tree NUTS kernel and its target-invariance
-   conditions before using NUTS as a verified component.
-4. Introduce a minimal probabilistic-program trace/state interface supporting
-   `assume`, `observe`, suspend/resume, and explicit target-density accounting.
+3. Extend the proved static candidate-mixture condition to dynamically grown,
+   symmetrically stopped NUTS trees before using NUTS as a verified component.
+4. Extend the finite completed-trace `assume`/`observe` semantics with
+   suspend/resume and a refinement theorem for the executable coroutine state.
 5. Keep the stochastic-volatility, Gaussian-mixture, AD, and runtime results
    as reproducible empirical suites rather than paper-wide theorems.
