@@ -1298,9 +1298,12 @@ future construction.
 - The finite quantitative foundation now includes an exact Doeblin refresh
   certificate `P = εΠ + (1-ε)R`, its finite-time regenerative identity, a
   uniform `(1-ε)^n` total-variation bound, and convergence for `ε > 0`.
-  Positive-horizon particle Gibbs is connected to this theorem using its
-  actual extended-state kernel. Concrete models must still prove the positive
-  refresh decomposition; the theorem does not infer it from stationarity.
+  Positive-horizon particle Gibbs is connected to this theorem on its proper
+  fixed-length trajectory state space, obtained by an exact finite
+  condition--evolve--project construction. A pointwise minorization now
+  automatically constructs the residual kernel and certificate. Concrete
+  bounded-potential models must still prove that positive lower bound; the
+  theorem does not infer it from stationarity.
 
 1. Instantiate the general-state PG--HMC theorem with a substantive mixed
    discrete/continuous model.

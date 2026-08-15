@@ -194,8 +194,12 @@ finite quantitative obligation.
 
 That quantitative obligation now has a checked target interface. A finite
 refresh decomposition yields an exact regenerative law and a uniform
-geometric TV bound; positive-horizon particle Gibbs specializes it to the
-concrete extended-state kernel. Deriving a positive coefficient from bounded
+geometric TV bound. Positive-horizon particle Gibbs now has a checked
+trajectory-state kernel, target marginal, and stationarity theorem built by
+exact conditional lift, terminal-index refresh, and projection. Its Doeblin
+specialization is on this trajectory space rather than the more restrictive
+retained-history space, and any pointwise minorization constructs the residual
+certificate automatically. Deriving a positive coefficient from bounded
 Feynman--Kac potentials, and its dependence on particle count and horizon,
 remains model-specific work. The unconditional zero-horizon `N⁻ᵏ` result and
 the one-particle identity obstruction remain the exact particle-count anchors.

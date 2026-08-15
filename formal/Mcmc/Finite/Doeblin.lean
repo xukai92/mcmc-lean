@@ -1,6 +1,7 @@
 import Mcmc.Finite.Adaptive
 import Mcmc.Finite.ParticleGibbsConvergence
 import Mcmc.Finite.SequentialMonteCarlo
+import Mcmc.Finite.ParticleGibbsTrajectory
 
 /-!
 # Finite refresh decompositions and geometric convergence
@@ -29,6 +30,67 @@ structure RefreshDecomposition (transition : MarkovKernel State)
 namespace RefreshDecomposition
 
 variable {transition : MarkovKernel State} {target : Distribution State}
+
+/-- Construct the residual kernel directly from a strict finite Doeblin
+minorization. This is the main client-facing route to a refresh certificate. -/
+noncomputable def ofMinorization (coefficient : ℝ)
+    (hcoeff0 : 0 ≤ coefficient) (hcoeff1 : coefficient < 1)
+    (hminor : ∀ x y, coefficient * target.mass y ≤ transition.prob x y)
+    (hinvariant : transition.Stationary target) :
+    RefreshDecomposition transition target := by
+  have hdenom : 1 - coefficient ≠ 0 := ne_of_gt (sub_pos.mpr hcoeff1)
+  let residual : MarkovKernel State :=
+    { prob := fun x y =>
+        (transition.prob x y - coefficient * target.mass y) /
+          (1 - coefficient)
+      nonneg := fun x y => div_nonneg (sub_nonneg.mpr (hminor x y))
+        (sub_nonneg.mpr hcoeff1.le)
+      sum_prob := fun x => by
+        rw [← Finset.sum_div, Finset.sum_sub_distrib,
+          transition.sum_prob, ← Finset.mul_sum, target.sum_mass]
+        field_simp [hdenom] }
+  have hresidual : residual.Stationary target := by
+    intro y
+    change (∑ x, target.mass x *
+      ((transition.prob x y - coefficient * target.mass y) /
+        (1 - coefficient))) = target.mass y
+    have hnum :
+        (∑ x, target.mass x *
+          (transition.prob x y - coefficient * target.mass y)) =
+        target.mass y * (1 - coefficient) := by
+      calc
+        ∑ x, target.mass x *
+            (transition.prob x y - coefficient * target.mass y) =
+            (∑ x, target.mass x * transition.prob x y) -
+              ∑ x, target.mass x * (coefficient * target.mass y) := by
+                simp_rw [mul_sub]
+                rw [Finset.sum_sub_distrib]
+        _ = target.mass y - coefficient * target.mass y := by
+            rw [hinvariant y]
+            rw [show (∑ x, target.mass x *
+                (coefficient * target.mass y)) =
+                coefficient * target.mass y by
+              rw [← Finset.sum_mul, target.sum_mass, one_mul]]
+        _ = target.mass y * (1 - coefficient) := by ring
+    simp_rw [← mul_div_assoc]
+    rw [← Finset.sum_div]
+    rw [hnum]
+    field_simp [hdenom]
+  refine
+    { coefficient := coefficient
+      coefficient_nonneg := hcoeff0
+      coefficient_lt_one := hcoeff1
+      residual := residual
+      residual_stationary := hresidual
+      transition_eq := ?_ }
+  apply MarkovKernel.ext
+  funext x y
+  change transition.prob x y = coefficient * target.mass y +
+    (1 - coefficient) *
+      ((transition.prob x y - coefficient * target.mass y) /
+        (1 - coefficient))
+  field_simp [hdenom]
+  ring
 
 /-- The residual-branch probability. -/
 def rate (certificate : RefreshDecomposition transition target) : ℝ :=
@@ -184,15 +246,16 @@ variable {Particle Sample : Type*} [Fintype Particle] [Nonempty Particle]
   [DecidableEq Particle] [Fintype Sample] [DecidableEq Sample]
 
 /-- The explicit additional obligation needed to turn positive-horizon
-particle-Gibbs stationarity into a geometric convergence theorem.  A client
-must exhibit a genuine target-refresh component of the concrete PG kernel;
-stationarity alone is intentionally insufficient. -/
+particle-Gibbs stationarity into a geometric convergence theorem on the
+trajectory state space. A client must exhibit a genuine target-refresh
+component; stationarity alone is intentionally insufficient. -/
 abbrev ParticleGibbsRefreshCertificate
     (initial : Distribution Sample) (steps : List (FeynmanKacStep Sample))
     (hnormalizer : 0 < normalizingConstant initial steps) :=
   RefreshDecomposition
-    (particleGibbsKernel (Particle := Particle) initial steps hnormalizer)
-    (selectedParticleTarget (Particle := Particle) initial steps hnormalizer)
+    (trajectoryParticleGibbsKernel (Particle := Particle)
+      initial steps hnormalizer)
+    (trajectoryTarget (Particle := Particle) initial steps hnormalizer)
 
 /-- Positive-horizon finite particle Gibbs converges geometrically whenever
 the concrete conditional-SMC construction supplies a positive refresh
@@ -202,12 +265,13 @@ theorem particleGibbs_totalVariation_le_geometric
     (hnormalizer : 0 < normalizingConstant initial steps)
     (certificate : ParticleGibbsRefreshCertificate (Particle := Particle)
       initial steps hnormalizer)
-    (initialLaw : Distribution (History (Particle := Particle) steps × Particle))
+    (initialLaw : Distribution (Trajectory steps))
     (n : ℕ) :
     Nonhomogeneous.distributionTotalVariation
       (Nonhomogeneous.iterateLaw initialLaw
-        (particleGibbsKernel (Particle := Particle) initial steps hnormalizer) n)
-      (selectedParticleTarget (Particle := Particle) initial steps hnormalizer) ≤
+        (trajectoryParticleGibbsKernel (Particle := Particle)
+          initial steps hnormalizer) n)
+      (trajectoryTarget (Particle := Particle) initial steps hnormalizer) ≤
       certificate.rate ^ n :=
   certificate.iterateLaw_totalVariation_le initialLaw n
 
@@ -217,12 +281,13 @@ theorem particleGibbs_totalVariation_tendsto_zero
     (certificate : ParticleGibbsRefreshCertificate (Particle := Particle)
       initial steps hnormalizer)
     (hpositive : 0 < certificate.coefficient)
-    (initialLaw : Distribution (History (Particle := Particle) steps × Particle)) :
+    (initialLaw : Distribution (Trajectory steps)) :
     Filter.Tendsto (fun n =>
       Nonhomogeneous.distributionTotalVariation
         (Nonhomogeneous.iterateLaw initialLaw
-          (particleGibbsKernel (Particle := Particle) initial steps hnormalizer) n)
-        (selectedParticleTarget (Particle := Particle) initial steps hnormalizer))
+          (trajectoryParticleGibbsKernel (Particle := Particle)
+            initial steps hnormalizer) n)
+        (trajectoryTarget (Particle := Particle) initial steps hnormalizer))
       Filter.atTop (nhds 0) :=
   certificate.iterateLaw_totalVariation_tendsto_zero hpositive initialLaw
 

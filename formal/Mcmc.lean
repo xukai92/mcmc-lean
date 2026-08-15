@@ -4,6 +4,7 @@ import Mcmc.Finite.MatrixKernel
 import Mcmc.Finite.Dynamics
 import Mcmc.Finite.Combinators
 import Mcmc.Finite.Conditional
+import Mcmc.Finite.CollapsedConditional
 import Mcmc.Finite.Adaptive
 import Mcmc.Finite.AdaptiveConvergence
 import Mcmc.Finite.Gibbs
@@ -16,6 +17,7 @@ import Mcmc.Finite.ParticleEstimator
 import Mcmc.Finite.SequentialMonteCarlo
 import Mcmc.Finite.ParticleMCMC
 import Mcmc.Finite.ParticleGibbsConvergence
+import Mcmc.Finite.ParticleGibbsTrajectory
 import Mcmc.Finite.Doeblin
 import Mcmc.Finite.Coupling
 import Mcmc.Finite.MarginalRepair
