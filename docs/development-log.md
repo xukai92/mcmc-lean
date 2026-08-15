@@ -3,6 +3,23 @@
 Entries through the earlier 2026-08-13 work are preserved in the
 [development-log archive](development-log-archive.md).
 
+## 2026-08-15: finite adaptive Containment
+
+Added point-mass distributions, homogeneous finite-kernel iteration, and
+finite distribution total variation with its `[0,1]` bounds. Defined uniform
+mixing by a fixed horizon for a target distribution.
+
+For the random adaptive process, defined the probability that the kernel
+selected at time `n`, started from the current chain state, remains farther
+than a TV tolerance from the target after a proposed horizon. Lean proves this
+failure probability lies in `[0,1]`. Containment is then stated as boundedness
+in probability of the required horizon along the actual augmented process.
+
+Simultaneous uniform mixing of all parameter-indexed kernels is proved to imply
+Containment for every initial augmented law. Diminishing Adaptation plus
+Containment is not yet labeled a convergence theorem: the finite-window
+coupling argument remains to be formalized.
+
 ## 2026-08-15: finite random Diminishing Adaptation semantics
 
 Defined a finite random adaptive process whose current tuning parameter selects

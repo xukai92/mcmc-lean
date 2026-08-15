@@ -105,6 +105,9 @@ The repository now contains machine-checked implementations and proofs for:
 - finite random parameter adaptation as an augmented Markov kernel, with the
   probability of successive kernel changes and a convergence-in-probability
   Diminishing Adaptation definition;
+- finite distribution total variation, uniform mixing-by-horizon,
+  adaptive mixing-failure probabilities, Containment, and the theorem that
+  simultaneous uniform mixing implies Containment;
 - two-temperature parallel tempering with an MH-corrected swap, product-target
   stationarity, and an exact cold-marginal theorem;
 - finite pseudo-marginal MH with a nonnegative unbiased estimator, including

@@ -167,11 +167,19 @@ stated as convergence of this probability to zero. If every parameter selects
 the same frozen state kernel, arbitrary random parameter updates are proved
 diminishing.
 
+Finite point-mass kernel iteration and distribution total variation now define
+uniform mixing by a fixed horizon. Lean measures, under the actual augmented
+law, the probability that the currently selected kernel has not reached a TV
+tolerance by that horizon. Containment is formalized as boundedness of this
+horizon in probability, and simultaneous uniform mixing of every parameter
+kernel is proved sufficient for Containment.
+
 This finite Markovian model can encode fixed finite adaptation memory but not
 an unbounded history without enlarging the state type. Diminishing Adaptation
-alone is still not convergence. Next define mixing times and Containment, then
-formalize the finite-window coupling argument. Production warmup should be
-described as an inhomogeneous phase followed by a frozen proved kernel.
+plus Containment is still not yet a repository convergence theorem: the
+Roberts--Rosenthal finite-window coupling argument remains. Production warmup
+should be described as an inhomogeneous phase followed by a frozen proved
+kernel.
 
 ### Andrieu and Roberts (2009): pseudo-marginal MH -- P1
 

@@ -120,8 +120,10 @@ The pre-Xu dependency order is:
    Finite random parameter adaptation is now an augmented Markov kernel; its
    successive-kernel change probability and convergence-in-probability
    Diminishing Adaptation condition are defined, with frozen state kernels
-   proved diminishing under arbitrary parameter updates. Unbounded-history
-   adaptation, mixing times, containment, and convergence remain separate.
+   proved diminishing under arbitrary parameter updates. Finite distribution
+   TV, uniform mixing by a horizon, adaptive mixing-failure probability, and
+   Containment are complete; simultaneous uniform mixing implies Containment.
+   Unbounded-history adaptation and the finite-window convergence theorem remain.
 
 Items 4--6 are intentionally ordered: the remaining slice work needs a
 measurable horizontal conditional with finite positive level-set mass;
@@ -142,7 +144,8 @@ remaining branches based on research value and shared infrastructure:
   the completed predetermined nonhomogeneous semantics and deterministic
   diminishing vocabulary, augmented random-adaptation semantics, and
   convergence-in-probability definition extended with mixing times,
-  containment, and the finite-window convergence argument; and
+  the completed finite Containment layer, and the remaining finite-window
+  convergence argument; and
 - BPS/Zig-Zag only in a separate continuous-time PDMP architecture.
 
 Sequence-parallel evaluation is an execution-refinement project downstream of

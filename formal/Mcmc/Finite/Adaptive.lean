@@ -127,6 +127,49 @@ theorem diminishingSchedule_const (kernel : MarkovKernel State) :
   refine ⟨0, fun n _ x => ?_⟩
   simpa using le_of_lt hε
 
+/-- Point mass at a finite state. -/
+def pointMass [DecidableEq State] (x : State) : Distribution State where
+  mass y := if y = x then 1 else 0
+  nonneg y := by split_ifs <;> norm_num
+  sum_mass := by simp
+
+/-- Homogeneous iteration of one finite kernel. -/
+def iterateLaw (initial : Distribution State) (kernel : MarkovKernel State) :
+    ℕ → Distribution State
+  | 0 => initial
+  | n + 1 => (iterateLaw initial kernel n).evolve kernel
+
+/-- Total-variation distance between finite distributions. -/
+noncomputable def distributionTotalVariation (first second : Distribution State) : ℝ :=
+  (∑ x, |first.mass x - second.mass x|) / 2
+
+theorem distributionTotalVariation_nonneg (first second : Distribution State) :
+    0 ≤ distributionTotalVariation first second := by
+  exact div_nonneg (Finset.sum_nonneg fun x _ => abs_nonneg _) (by norm_num)
+
+theorem distributionTotalVariation_le_one (first second : Distribution State) :
+    distributionTotalVariation first second ≤ 1 := by
+  unfold distributionTotalVariation
+  apply (div_le_iff₀ (by norm_num : (0 : ℝ) < 2)).2
+  calc
+    ∑ x, |first.mass x - second.mass x| ≤
+        ∑ x, (first.mass x + second.mass x) := by
+      apply Finset.sum_le_sum
+      intro x _
+      exact abs_sub_le_iff.mpr ⟨by
+        linarith [first.nonneg x, second.nonneg x], by
+        linarith [first.nonneg x, second.nonneg x]⟩
+    _ = 2 := by
+      rw [Finset.sum_add_distrib, first.sum_mass, second.sum_mass]
+      norm_num
+    _ = 1 * 2 := by norm_num
+
+/-- A kernel is within `ε` of its target by a given horizon, uniformly over
+finite starting states. -/
+def MixesWithin [DecidableEq State] (kernel : MarkovKernel State)
+    (target : Distribution State) (steps : ℕ) (ε : ℝ) : Prop :=
+  ∀ x, distributionTotalVariation (iterateLaw (pointMass x) kernel steps) target ≤ ε
+
 end Nonhomogeneous
 
 namespace RandomAdaptation
@@ -214,6 +257,77 @@ def DiminishingAdaptation [DecidableEq State]
   ∀ ε : ℝ, 0 < ε → ∀ δ : ℝ, 0 < δ → ∃ N : ℕ, ∀ n, N ≤ n →
     changeProbability process
       (Nonhomogeneous.lawAt initial (fun _ => process.augmentedKernel) n) ε ≤ δ
+
+/-- Probability that the kernel currently selected by the adaptive process has
+not reached `ε` total-variation accuracy by `steps`, from the current state. -/
+noncomputable def mixingFailureProbability [DecidableEq State]
+    (process : Process State Parameter) (target : Distribution State)
+    (law : Distribution (State × Parameter)) (steps : ℕ) (ε : ℝ) : ℝ :=
+  ∑ current, law.mass current *
+    (if ε < distributionTotalVariation
+      (iterateLaw (pointMass current.1) (process.kernel current.2) steps) target
+      then 1 else 0)
+
+theorem mixingFailureProbability_nonneg [DecidableEq State]
+    (process : Process State Parameter) (target : Distribution State)
+    (law : Distribution (State × Parameter)) (steps : ℕ) (ε : ℝ) :
+    0 ≤ mixingFailureProbability process target law steps ε := by
+  unfold mixingFailureProbability
+  apply Finset.sum_nonneg
+  intro current _
+  apply mul_nonneg (law.nonneg current)
+  split_ifs <;> norm_num
+
+theorem mixingFailureProbability_le_one [DecidableEq State]
+    (process : Process State Parameter) (target : Distribution State)
+    (law : Distribution (State × Parameter)) (steps : ℕ) (ε : ℝ) :
+    mixingFailureProbability process target law steps ε ≤ 1 := by
+  unfold mixingFailureProbability
+  calc
+    ∑ current, law.mass current *
+        (if ε < distributionTotalVariation
+          (iterateLaw (pointMass current.1) (process.kernel current.2) steps) target
+          then 1 else 0) ≤ ∑ current, law.mass current * 1 := by
+      apply Finset.sum_le_sum
+      intro current _
+      apply mul_le_mul_of_nonneg_left _ (law.nonneg current)
+      split_ifs <;> norm_num
+    _ = 1 := by simpa using law.sum_mass
+
+/-- Finite Containment: along the adaptive process, the horizon needed for the
+currently selected kernel to reach any fixed TV tolerance is bounded in
+probability. -/
+def Containment [DecidableEq State] (process : Process State Parameter)
+    (target : Distribution State) (initial : Distribution (State × Parameter)) : Prop :=
+  ∀ ε : ℝ, 0 < ε → ∀ δ : ℝ, 0 < δ → ∃ steps : ℕ, ∀ n,
+    mixingFailureProbability process target
+      (Nonhomogeneous.lawAt initial (fun _ => process.augmentedKernel) n)
+      steps ε ≤ δ
+
+/-- Simultaneous uniform mixing of every parameter kernel implies Containment
+for every initial augmented law. -/
+theorem containment_of_simultaneous_uniform_mixing [DecidableEq State]
+    (process : Process State Parameter) (target : Distribution State)
+    (hmix : ∀ ε : ℝ, 0 < ε → ∃ steps : ℕ, ∀ parameter,
+      MixesWithin (process.kernel parameter) target steps ε)
+    (initial : Distribution (State × Parameter)) :
+    Containment process target initial := by
+  intro ε hε δ hδ
+  obtain ⟨steps, hsteps⟩ := hmix ε hε
+  refine ⟨steps, fun n => ?_⟩
+  have hzero : mixingFailureProbability process target
+      (Nonhomogeneous.lawAt initial (fun _ => process.augmentedKernel) n)
+      steps ε = 0 := by
+    unfold mixingFailureProbability
+    apply Finset.sum_eq_zero
+    intro current _
+    apply mul_eq_zero_of_right
+    have hnot : ¬ ε < distributionTotalVariation
+        (iterateLaw (pointMass current.1) (process.kernel current.2) steps) target :=
+      not_lt_of_ge (hsteps current.2 current.1)
+    simp [hnot]
+  rw [hzero]
+  exact le_of_lt hδ
 
 /-- If every parameter selects the same frozen state kernel, arbitrary random
 parameter updates satisfy Diminishing Adaptation. This still gives no
