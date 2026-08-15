@@ -1375,3 +1375,11 @@ any admitted candidate. Target-weighted selection is then proved reversible
 and stationary. Decidable equivalence-class candidates instantiate the API and
 can vary genuinely between components. A concrete doubling/U-turn builder must
 still establish this certificate; naïve first-U-turn stopping is not covered.
+
+Added an exact general-state constrained-coordinate transport theorem. A
+kernel invariant for the pushforward target in unconstrained coordinates is
+conjugated through a measurable equivalence and proved invariant for the
+original constrained measure. The positive-real log/exp equivalence is a
+concrete client. This locates Jacobian correction at the pushed-density
+identification and prevents an unconstrained implementation from silently
+claiming the original density unchanged.

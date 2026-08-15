@@ -108,6 +108,7 @@ import Mcmc.Kernel.DeterministicMetropolis
 import Mcmc.Kernel.GaussianRandomWalk
 import Mcmc.Kernel.GaussianProposalCoupling
 import Mcmc.Kernel.LiftEvolveProject
+import Mcmc.Kernel.ConstrainedTransform
 import Mcmc.Kernel.Meeting
 import Mcmc.Kernel.MeetingDrift
 import Mcmc.Kernel.MetropolisHastings

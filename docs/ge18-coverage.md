@@ -54,7 +54,8 @@ The following are not promoted to mathematical theorems:
 - coroutine-based storage and copying of probabilistic-program states;
 - forward- versus reverse-mode automatic-differentiation performance;
 - vectorized random-variable speedups;
-- constrained-variable transformations without an explicit Jacobian theorem;
+- runtime constrained-variable transformations that have not been matched to
+  an explicit pushed-measure/Jacobian theorem;
 - the reported NUTS versus `Gibbs(PG, NUTS)` traces and mode exploration; and
 - the illustrative Turing/Stan timings, which the paper itself says are not
   serious benchmarks.
@@ -63,6 +64,15 @@ These belong in executable regression tests, reproducible experiments, or
 future compiler/refinement layers. In particular, the figures show behavior
 for specific models and configurations; they do not prove universal mixing or
 efficiency dominance.
+
+The mathematical constrained-coordinate foundation is now explicit.
+`transformedKernel_invariant` conjugates an unconstrained kernel by a measurable
+equivalence and transports invariance from the pushed target measure back to
+the constrained target. The standard positive-real log/exp equivalence is
+instantiated. Any Jacobian belongs in the density identification of that pushed
+measure; the theorem does not permit silently reusing the untransformed density.
+Generated Julia transforms and their floating-point refinement remain runtime
+work.
 
 ## Remaining milestones
 
