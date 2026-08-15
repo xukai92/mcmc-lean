@@ -3,6 +3,28 @@
 Entries through the earlier 2026-08-13 work are preserved in the
 [development-log archive](development-log-archive.md).
 
+## 2026-08-15: full path many-to-one theorem and finite PIMH
+
+Generalized the one-transition SMC identity to ancestors carrying arbitrary
+labels. This permits labels to be complete path prefixes: resampling inherits
+the selected ancestor's prefix and propagation appends the child state. Lean
+proves by induction over every finite schedule that the explicit-history
+expectation of any terminal label observable equals the exact one-particle
+Feynman--Kac value. Averaging the iid initial cloud gives the full many-to-one
+path theorem.
+
+Forward-propagated singleton prefixes are proved equal to the earlier
+backward-traced selected genealogy. Weighting the history law by its normalizing
+estimate and selecting a terminal index therefore gives the exact normalized
+Feynman--Kac expectation for every observable of the complete path.
+
+Defined finite PIMH as independence Metropolis--Hastings proposing a fresh SMC
+history and terminal index and targeting this history-weighted distribution.
+Lean proves extended-target stationarity and exact stationary selected-path
+expectations. No irreducibility, convergence-from-arbitrary-start, mixing-rate,
+or particle-efficiency claim is made; PMMH and particle Gibbs remain future
+clients.
+
 ## 2026-08-15: one-transition SMC many-to-one identity
 
 Proved a conditional propagation identity for arbitrary observables of a

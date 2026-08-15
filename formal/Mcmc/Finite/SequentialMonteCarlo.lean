@@ -383,6 +383,36 @@ theorem propagatedPopulation_pairAverage_expectation
         (fun j => rowDistribution transition (particles (ancestors j)))
         (fun y => observable (particles (ancestors i)) y) i
 
+omit [DecidableEq Sample] [Nonempty Particle] in
+/-- Labeled form of conditional propagation: each ancestor may carry arbitrary
+auxiliary data, such as its complete path prefix. -/
+theorem propagatedPopulation_labeledAverage_expectation {Label : Type*}
+    (transition : MarkovKernel Sample) (particles : Particle → Sample)
+    (labels : Particle → Label) (ancestors : Particle → Particle)
+    (observable : Label → Sample → ℝ) :
+    ∑ next, (propagatedPopulation transition particles ancestors).mass next *
+        ((∑ i, observable (labels (ancestors i)) (next i)) /
+          Fintype.card Particle) =
+      (∑ i, ∑ y, transition.prob (particles (ancestors i)) y *
+        observable (labels (ancestors i)) y) / Fintype.card Particle := by
+  classical
+  calc
+    _ = (∑ i, ∑ next,
+        (propagatedPopulation transition particles ancestors).mass next *
+          observable (labels (ancestors i)) (next i)) /
+        Fintype.card Particle := by
+      simp_rw [div_eq_mul_inv, ← mul_assoc, Finset.mul_sum]
+      rw [← Finset.sum_mul]
+      congr 1
+      rw [Finset.sum_comm]
+    _ = _ := by
+      congr 1
+      apply Finset.sum_congr rfl
+      intro i _
+      exact independentPopulation_coordinate_expectation
+        (fun j => rowDistribution transition (particles (ancestors j)))
+        (fun y => observable (labels (ancestors i)) y) i
+
 omit [DecidableEq Sample] in
 /-- One-transition many-to-one identity conditional on the current population:
 potential weighting, multinomial resampling, propagation, and uniform child
@@ -431,6 +461,53 @@ theorem weighted_resamplePropagate_pair_identity
   field_simp
 
 omit [DecidableEq Sample] in
+/-- Labeled one-transition many-to-one identity. Labels are inherited through
+the selected ancestor and may be extended by the propagated child. -/
+theorem weighted_resamplePropagate_labeled_identity {Label : Type*}
+    (potential : Sample → ℝ) (hpotential : ∀ x, 0 < potential x)
+    (particles : Particle → Sample) (labels : Particle → Label)
+    (transition : MarkovKernel Sample) (observable : Label → Sample → ℝ) :
+    particleAverage potential particles *
+      (∑ ancestors,
+        (multinomialResampling
+          (normalizedPotentialWeights potential hpotential particles)).mass ancestors *
+        (∑ next, (propagatedPopulation transition particles ancestors).mass next *
+          ((∑ i, observable (labels (ancestors i)) (next i)) /
+            Fintype.card Particle))) =
+      particleAverage (fun i => potential (particles i) *
+        ∑ y, transition.prob (particles i) y * observable (labels i) y)
+        (fun i => i) := by
+  simp_rw [propagatedPopulation_labeledAverage_expectation]
+  change particleAverage potential particles *
+      (∑ ancestors,
+        (multinomialResampling
+          (normalizedPotentialWeights potential hpotential particles)).mass ancestors *
+        particleAverage
+          (fun i => ∑ y, transition.prob (particles i) y * observable (labels i) y)
+          ancestors) = _
+  rw [multinomialResampling_unbiased
+    (normalizedPotentialWeights potential hpotential particles)
+    (fun i => i)
+    (fun i => ∑ y, transition.prob (particles i) y * observable (labels i) y)]
+  unfold particleAverage normalizedPotentialWeights
+  have hsum : (∑ j, potential (particles j)) ≠ 0 :=
+    ne_of_gt (Finset.sum_pos (fun j _ => hpotential (particles j))
+      Finset.univ_nonempty)
+  have hcard : (Fintype.card Particle : ℝ) ≠ 0 := by
+    exact_mod_cast Fintype.card_ne_zero
+  change ((∑ i, potential (particles i)) / Fintype.card Particle) *
+      (∑ i, potential (particles i) / (∑ j, potential (particles j)) *
+        (∑ y, transition.prob (particles i) y * observable (labels i) y)) =
+    (∑ i, potential (particles i) *
+      (∑ y, transition.prob (particles i) y * observable (labels i) y)) /
+        Fintype.card Particle
+  field_simp
+  rw [Finset.mul_sum]
+  apply Finset.sum_congr rfl
+  intro i _
+  field_simp
+
+omit [DecidableEq Sample] in
 /-- One-transition many-to-one identity after an iid initial population. This
 is the full unnormalized Feynman--Kac expectation for an arbitrary observable
 of the parent--child path. -/
@@ -450,6 +527,242 @@ theorem iid_weighted_resamplePropagate_pair_identity
         (potential x * ∑ y, transition.prob x y * observable x y) := by
   simp_rw [weighted_resamplePropagate_pair_identity]
   exact iidPopulation_particleAverage_expectation initial _
+
+/-- Exact one-particle Feynman--Kac value when each state carries an arbitrary
+recursively updated label. -/
+noncomputable def labeledFeynmanKacValue {Label : Type*}
+    (extend : Label → Sample → Label) :
+    List (FeynmanKacStep Sample) → (Label → ℝ) → Label → Sample → ℝ
+  | [], observable, label, _ => observable label
+  | step :: steps, observable, label, x =>
+      step.potential x * ∑ y, step.transition.prob x y *
+        labeledFeynmanKacValue extend steps observable (extend label y) y
+
+/-- Concrete product-weighted terminal label average along an explicit SMC
+history. -/
+noncomputable def labeledHistoryValue {Label : Type*}
+    (extend : Label → Sample → Label) :
+    (steps : List (FeynmanKacStep Sample)) → (Label → ℝ) →
+      (Particle → Label) → (Particle → Sample) →
+      Continuation Particle Sample steps → ℝ
+  | [], observable, labels, _, _ =>
+      (∑ i, observable (labels i)) / Fintype.card Particle
+  | step :: steps, observable, labels, particles, history =>
+      particleAverage step.potential particles *
+        labeledHistoryValue extend steps observable
+          (fun i => extend (labels (history.1 i)) (history.2.1 i))
+          history.2.1 history.2.2
+
+/-- Labels carried by the terminal population after following every ancestor
+map and deterministic label extension. -/
+def terminalLabels {Label : Type*} (extend : Label → Sample → Label) :
+    (steps : List (FeynmanKacStep Sample)) → (Particle → Label) →
+      Continuation Particle Sample steps → Particle → Label
+  | [], labels, _ => labels
+  | _ :: steps, labels, history =>
+      terminalLabels extend steps
+        (fun i => extend (labels (history.1 i)) (history.2.1 i)) history.2.2
+
+omit [Fintype Particle] [DecidableEq Sample] [DecidableEq Particle]
+    [Nonempty Particle] in
+/-- Forward propagation of arbitrary path prefixes agrees with backward
+genealogy tracing, up to replacing the initial singleton by the supplied
+prefix. -/
+theorem terminalLabels_append_eq_prefix_append_selectedTail
+    (steps : List (FeynmanKacStep Sample)) (labels : Particle → List Sample)
+    (particles : Particle → Sample) (history : Continuation Particle Sample steps)
+    (terminal : Particle) :
+    terminalLabels (fun path y => path ++ [y]) steps labels history terminal =
+      labels (initialAncestor steps history terminal) ++
+        (selectedTrajectory steps particles history terminal).tail := by
+  induction steps generalizing labels particles with
+  | nil => simp [terminalLabels, initialAncestor, selectedTrajectory]
+  | cons step steps ih =>
+      unfold terminalLabels initialAncestor selectedTrajectory
+      rw [ih]
+      let j := initialAncestor steps history.2.2 terminal
+      have hhead := selectedTrajectory_head? steps history.2.1 history.2.2 terminal
+      have hnonempty : selectedTrajectory steps history.2.1 history.2.2 terminal ≠ [] := by
+        cases steps <;> simp [selectedTrajectory]
+      cases hpath : selectedTrajectory steps history.2.1 history.2.2 terminal with
+      | nil => exact (hnonempty hpath).elim
+      | cons first rest =>
+          simp only [hpath, List.head?_cons, Option.some.injEq] at hhead
+          subst first
+          simp [List.append_assoc]
+
+omit [Fintype Particle] [DecidableEq Sample] [DecidableEq Particle]
+    [Nonempty Particle] in
+/-- Prefix propagation from singleton initial paths is exactly the previously
+defined selected ancestral trajectory. -/
+theorem terminalLabels_singleton_eq_selectedTrajectory
+    (steps : List (FeynmanKacStep Sample)) (particles : Particle → Sample)
+    (history : Continuation Particle Sample steps) (terminal : Particle) :
+    terminalLabels (fun path y => path ++ [y]) steps (fun i => [particles i])
+        history terminal = selectedTrajectory steps particles history terminal := by
+  rw [terminalLabels_append_eq_prefix_append_selectedTail]
+  have hhead := selectedTrajectory_head? steps particles history terminal
+  have hnonempty : selectedTrajectory steps particles history terminal ≠ [] := by
+    cases steps <;> simp [selectedTrajectory]
+  cases hpath : selectedTrajectory steps particles history terminal with
+  | nil => exact (hnonempty hpath).elim
+  | cons first rest =>
+      simp only [hpath, List.head?_cons, Option.some.injEq] at hhead
+      subst first
+      simp
+
+omit [DecidableEq Sample] [DecidableEq Particle] in
+/-- The labeled history value factors into the ordinary normalizing weight and
+the terminal empirical label observable. -/
+theorem labeledHistoryValue_eq_normalizingWeight_mul_terminalAverage
+    {Label : Type*} (extend : Label → Sample → Label)
+    (steps : List (FeynmanKacStep Sample)) (observable : Label → ℝ)
+    (labels : Particle → Label) (particles : Particle → Sample)
+    (history : Continuation Particle Sample steps) :
+    labeledHistoryValue extend steps observable labels particles history =
+      historyValue steps (fun _ => 1) particles history *
+        ((∑ i, observable (terminalLabels extend steps labels history i)) /
+          Fintype.card Particle) := by
+  induction steps generalizing labels particles with
+  | nil =>
+      unfold labeledHistoryValue historyValue terminalLabels particleAverage
+      have hcard : (Fintype.card Particle : ℝ) ≠ 0 := by
+        exact_mod_cast Fintype.card_ne_zero
+      simp [hcard]
+  | cons step steps ih =>
+      unfold labeledHistoryValue historyValue terminalLabels
+      rw [ih]
+      ring
+
+omit [DecidableEq Sample] in
+/-- Finite-horizon labeled many-to-one identity, conditional on the initial
+particle cloud. This is the induction theorem needed for full path prefixes. -/
+theorem continuationLaw_labeledHistoryValue_expectation {Label : Type*}
+    (extend : Label → Sample → Label) (steps : List (FeynmanKacStep Sample))
+    (observable : Label → ℝ) (labels : Particle → Label)
+    (particles : Particle → Sample) :
+    ∑ history, (continuationLaw (Particle := Particle) steps particles).mass history *
+        labeledHistoryValue extend steps observable labels particles history =
+      particleAverage
+        (fun i => labeledFeynmanKacValue extend steps observable
+          (labels i) (particles i)) (fun i => i) := by
+  induction steps generalizing labels particles with
+  | nil =>
+      simp [continuationLaw, labeledHistoryValue, labeledFeynmanKacValue,
+        particleAverage, Continuation]
+  | cons step steps ih =>
+      change
+        (∑ history : (Particle → Particle) × (Particle → Sample) ×
+            Continuation Particle Sample steps,
+          ((multinomialResampling
+            (normalizedPotentialWeights step.potential step.potential_pos particles)).mass
+              history.1 *
+            (propagatedPopulation step.transition particles history.1).mass history.2.1 *
+            (continuationLaw steps history.2.1).mass history.2.2) *
+          (particleAverage step.potential particles *
+            labeledHistoryValue extend steps observable
+              (fun i => extend (labels (history.1 i)) (history.2.1 i))
+              history.2.1 history.2.2)) = _
+      rw [Fintype.sum_prod_type]
+      simp_rw [Fintype.sum_prod_type]
+      simp_rw [show ∀ (ancestors : Particle → Particle) (next : Particle → Sample)
+          (tail : Continuation Particle Sample steps),
+          ((multinomialResampling
+              (normalizedPotentialWeights step.potential step.potential_pos particles)).mass
+                ancestors *
+            (propagatedPopulation step.transition particles ancestors).mass next *
+            (continuationLaw steps next).mass tail) *
+            (particleAverage step.potential particles *
+              labeledHistoryValue extend steps observable
+                (fun i => extend (labels (ancestors i)) (next i)) next tail) =
+          particleAverage step.potential particles *
+            (multinomialResampling
+              (normalizedPotentialWeights step.potential step.potential_pos particles)).mass
+                ancestors *
+            ((propagatedPopulation step.transition particles ancestors).mass next *
+              ((continuationLaw steps next).mass tail *
+                labeledHistoryValue extend steps observable
+                  (fun i => extend (labels (ancestors i)) (next i)) next tail)) by
+            intro ancestors next tail; ring]
+      simp_rw [← Finset.mul_sum, ih]
+      rw [show particleAverage
+          (fun i => labeledFeynmanKacValue extend (step :: steps) observable
+            (labels i) (particles i)) (fun i => i) =
+        particleAverage (fun i => step.potential (particles i) *
+          ∑ y, step.transition.prob (particles i) y *
+            labeledFeynmanKacValue extend steps observable (extend (labels i) y) y)
+          (fun i => i) by rfl]
+      simp_rw [show ∀ (a b : ℝ),
+          particleAverage step.potential particles * a * b =
+            particleAverage step.potential particles * (a * b) by
+        intro a b; ring]
+      rw [← Finset.mul_sum]
+      change particleAverage step.potential particles *
+          (∑ ancestors,
+            (multinomialResampling
+              (normalizedPotentialWeights step.potential step.potential_pos particles)).mass
+                ancestors *
+            (∑ next,
+              (propagatedPopulation step.transition particles ancestors).mass next *
+              ((∑ i, labeledFeynmanKacValue extend steps observable
+                (extend (labels (ancestors i)) (next i)) (next i)) /
+                Fintype.card Particle))) = _
+      exact weighted_resamplePropagate_labeled_identity step.potential
+        step.potential_pos particles labels step.transition
+        (fun label y => labeledFeynmanKacValue extend steps observable
+          (extend label y) y)
+
+/-- Exact path-space Feynman--Kac value, represented by successively appending
+states to a path prefix. -/
+noncomputable def pathFeynmanKacValue (steps : List (FeynmanKacStep Sample))
+    (observable : List Sample → ℝ) (initial : Sample) : ℝ :=
+  labeledFeynmanKacValue (fun path y => path ++ [y]) steps observable [initial] initial
+
+omit [DecidableEq Sample] in
+/-- Arbitrary-horizon many-to-one identity for complete path observables after
+an iid initial population. The left side uses the explicit ancestry history
+and deterministic propagation of path-prefix labels. -/
+theorem iid_labeledHistory_path_expectation
+    (initial : Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (observable : List Sample → ℝ) :
+    ∑ particles, (iidPopulation (Particle := Particle) initial).mass particles *
+      (∑ history, (continuationLaw (Particle := Particle) steps particles).mass history *
+        labeledHistoryValue (fun path y => path ++ [y]) steps observable
+          (fun i => [particles i]) particles history) =
+      ∑ x, initial.mass x * pathFeynmanKacValue steps observable x := by
+  simp_rw [continuationLaw_labeledHistoryValue_expectation]
+  exact iidPopulation_particleAverage_expectation (Particle := Particle) initial
+    (fun x => pathFeynmanKacValue steps observable x)
+
+omit [DecidableEq Sample] in
+/-- Complete explicit-history form of the arbitrary path-observable
+many-to-one identity. -/
+theorem historyLaw_labeled_path_expectation
+    (initial : Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (observable : List Sample → ℝ) :
+    ∑ history, (historyLaw (Particle := Particle) initial steps).mass history *
+      labeledHistoryValue (fun path y => path ++ [y]) steps observable
+        (fun i => [history.1 i]) history.1 history.2 =
+      ∑ x, initial.mass x * pathFeynmanKacValue steps observable x := by
+  rw [Fintype.sum_prod_type]
+  change ∑ particles, ∑ continuation,
+      ((iidPopulation (Particle := Particle) initial).mass particles *
+        (continuationLaw steps particles).mass continuation) *
+      labeledHistoryValue (fun path y => path ++ [y]) steps observable
+        (fun i => [particles i]) particles continuation = _
+  simp_rw [show ∀ (particles : Particle → Sample)
+      (continuation : Continuation Particle Sample steps),
+      ((iidPopulation (Particle := Particle) initial).mass particles *
+        (continuationLaw steps particles).mass continuation) *
+          labeledHistoryValue (fun path y => path ++ [y]) steps observable
+            (fun i => [particles i]) particles continuation =
+        (iidPopulation (Particle := Particle) initial).mass particles *
+          ((continuationLaw steps particles).mass continuation *
+            labeledHistoryValue (fun path y => path ++ [y]) steps observable
+              (fun i => [particles i]) particles continuation) by
+      intro particles continuation; ring,
+    ← Finset.mul_sum]
+  exact iid_labeledHistory_path_expectation initial steps observable
 
 omit [DecidableEq Sample] [DecidableEq Particle] in
 /-- A concrete history value factors into its normalizing weight and the
@@ -558,6 +871,141 @@ theorem selectedParticleTarget_expectation (initial : Distribution Sample)
       intro history _
       ring
     _ = _ := by rw [historyLaw_value_expectation]
+
+omit [DecidableEq Sample] in
+/-- Full arbitrary-horizon path-observable exactness under the selected-particle
+extended target, using the path prefixes propagated through stored ancestry. -/
+theorem selectedParticleTarget_path_expectation (initial : Distribution Sample)
+    (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : 0 < normalizingConstant initial steps)
+    (observable : List Sample → ℝ) :
+    ∑ selected, (selectedParticleTarget (Particle := Particle) initial steps
+        hnormalizer).mass selected *
+      observable (terminalLabels (fun path y => path ++ [y]) steps
+        (fun i => [selected.1.1 i]) selected.1.2 selected.2) =
+      (∑ x, initial.mass x * pathFeynmanKacValue steps observable x) /
+        normalizingConstant initial steps := by
+  rw [Fintype.sum_prod_type]
+  have hcard : (Fintype.card Particle : ℝ) ≠ 0 := by
+    exact_mod_cast Fintype.card_ne_zero
+  change ∑ history, ∑ i,
+      ((historyLaw (Particle := Particle) initial steps).mass history *
+        normalizingWeight steps history / normalizingConstant initial steps /
+        Fintype.card Particle) *
+      observable (terminalLabels (fun path y => path ++ [y]) steps
+        (fun j => [history.1 j]) history.2 i) = _
+  calc
+    _ = ∑ history,
+        (historyLaw (Particle := Particle) initial steps).mass history /
+          normalizingConstant initial steps *
+        (normalizingWeight steps history *
+          ((∑ i, observable (terminalLabels (fun path y => path ++ [y]) steps
+            (fun j => [history.1 j]) history.2 i)) / Fintype.card Particle)) := by
+      apply Finset.sum_congr rfl
+      intro history _
+      field_simp
+      conv_lhs => rw [Finset.mul_sum]
+      conv_rhs => rw [Finset.mul_sum]
+      apply Finset.sum_congr rfl
+      intro i _
+      field_simp
+    _ = ∑ history,
+        (historyLaw (Particle := Particle) initial steps).mass history /
+          normalizingConstant initial steps *
+        labeledHistoryValue (fun path y => path ++ [y]) steps observable
+          (fun i => [history.1 i]) history.1 history.2 := by
+      apply Finset.sum_congr rfl
+      intro history _
+      simp only [normalizingWeight]
+      congr 1
+      exact (labeledHistoryValue_eq_normalizingWeight_mul_terminalAverage
+        (fun path y => path ++ [y]) steps observable (fun i => [history.1 i])
+          history.1 history.2).symm
+    _ = (∑ history,
+        (historyLaw (Particle := Particle) initial steps).mass history *
+          labeledHistoryValue (fun path y => path ++ [y]) steps observable
+            (fun i => [history.1 i]) history.1 history.2) /
+          normalizingConstant initial steps := by
+      rw [Finset.sum_div]
+      apply Finset.sum_congr rfl
+      intro history _
+      ring
+    _ = _ := by rw [historyLaw_labeled_path_expectation]
+
+omit [DecidableEq Sample] in
+/-- Full path-observable exactness stated directly for the backward-traced
+selected genealogy. -/
+theorem selectedParticleTarget_selectedTrajectory_expectation
+    (initial : Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : 0 < normalizingConstant initial steps)
+    (observable : List Sample → ℝ) :
+    ∑ selected, (selectedParticleTarget (Particle := Particle) initial steps
+        hnormalizer).mass selected *
+      observable (selectedTrajectory steps selected.1.1 selected.1.2 selected.2) =
+      (∑ x, initial.mass x * pathFeynmanKacValue steps observable x) /
+        normalizingConstant initial steps := by
+  simp_rw [← terminalLabels_singleton_eq_selectedTrajectory]
+  exact selectedParticleTarget_path_expectation initial steps hnormalizer observable
+
+/-- Proposal law for PIMH: draw a fresh SMC history and then select one
+terminal particle uniformly. -/
+noncomputable def particleIndependentProposalLaw (initial : Distribution Sample)
+    (steps : List (FeynmanKacStep Sample)) :
+    Distribution (History (Particle := Particle) steps × Particle) where
+  mass proposed := (historyLaw (Particle := Particle) initial steps).mass proposed.1 /
+    Fintype.card Particle
+  nonneg proposed := div_nonneg
+    ((historyLaw (Particle := Particle) initial steps).nonneg proposed.1) (by positivity)
+  sum_mass := by
+    rw [Fintype.sum_prod_type]
+    have hcard : (Fintype.card Particle : ℝ) ≠ 0 := by
+      exact_mod_cast Fintype.card_ne_zero
+    simp only [Finset.sum_const, Finset.card_univ, nsmul_eq_mul]
+    simp_rw [show ∀ a : ℝ, (Fintype.card Particle : ℝ) *
+      (a / Fintype.card Particle) = a by intro a; field_simp]
+    exact (historyLaw (Particle := Particle) initial steps).sum_mass
+
+/-- Turn a finite distribution into the corresponding state-independent
+proposal kernel. -/
+def independentProposalKernel {α : Type*} [Fintype α]
+    (law : Distribution α) : MarkovKernel α where
+  prob _ proposed := law.mass proposed
+  nonneg _ proposed := law.nonneg proposed
+  sum_prob _ := law.sum_mass
+
+/-- Finite particle independent Metropolis--Hastings. A fresh particle system
+is proposed independently and MH-corrected toward the history-weighted target. -/
+noncomputable def pimhKernel (initial : Distribution Sample)
+    (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : 0 < normalizingConstant initial steps) :
+    MarkovKernel (History (Particle := Particle) steps × Particle) :=
+  MetropolisHastings.kernelAllowZeros
+    (selectedParticleTarget (Particle := Particle) initial steps hnormalizer)
+    (independentProposalKernel
+      (particleIndependentProposalLaw (Particle := Particle) initial steps))
+
+/-- Exact extended-target stationarity of finite PIMH. -/
+theorem pimhKernel_stationary (initial : Distribution Sample)
+    (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : 0 < normalizingConstant initial steps) :
+    (pimhKernel (Particle := Particle) initial steps hnormalizer).Stationary
+      (selectedParticleTarget (Particle := Particle) initial steps hnormalizer) :=
+  MetropolisHastings.stationary_allowZeros _ _
+
+omit [DecidableEq Sample] in
+/-- At PIMH stationarity, every selected-path observable has the exact
+normalized Feynman--Kac expectation. -/
+theorem pimh_stationary_selectedTrajectory_expectation
+    (initial : Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : 0 < normalizingConstant initial steps)
+    (observable : List Sample → ℝ) :
+    ∑ selected, (selectedParticleTarget (Particle := Particle) initial steps
+        hnormalizer).mass selected *
+      observable (selectedTrajectory steps selected.1.1 selected.1.2 selected.2) =
+      (∑ x, initial.mass x * pathFeynmanKacValue steps observable x) /
+        normalizingConstant initial steps :=
+  selectedParticleTarget_selectedTrajectory_expectation initial steps
+    hnormalizer observable
 
 /-- Eventwise form of the selected-terminal marginal identity. -/
 theorem selectedParticleTarget_terminal_event (initial : Distribution Sample)

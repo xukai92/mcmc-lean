@@ -104,8 +104,10 @@ The pre-Xu dependency order is:
    terminal particle now has the exact normalized Feynman--Kac terminal
    marginal. Backward ancestry tracing, path length, and endpoint identities are
    complete. The full path-observable many-to-one identity, PIMH, and particle
-   marginal MH remain. Its one-transition parent--child-observable base case is
-   machine checked; the recursive multi-time lift is the next proof.
+   marginal MH were the next obligations. The arbitrary-horizon labeled
+   many-to-one identity and its equivalence to backward genealogy tracing are
+   now complete, as is a finite PIMH kernel with exact extended-target
+   stationarity and selected-path expectation. PMMH and particle Gibbs remain.
 7. adaptive-MCMC boundary -- finite state-dependent kernel selection and a
    counterexample where two frozen target-invariant kernels combine into a
    non-invariant selected kernel are complete. Nonhomogeneous path semantics,
@@ -138,10 +140,9 @@ obligations.
 
 ## Immediate plan
 
-A1--A4 and B1 are complete. The next particle theorem iterates the completed
-one-transition parent--child many-to-one identity through the explicit history,
-upgrading genealogy extraction to arbitrary full-path observables and preparing
-PIMH/PMMH. Horizontal slice
+A1--A4 and B1 are complete. The next particle branch builds PMMH on the
+completed state-indexed SMC estimator and full selected-path/PIMH theorems;
+conditional SMC and particle Gibbs follow separately. Horizontal slice
 disintegration and a nontrivial reversible-jump Jacobian client remain
 independent open branches. The next paper-execution branch is B2. None of
 these is needed to support the completed finite Gibbs, tempering,

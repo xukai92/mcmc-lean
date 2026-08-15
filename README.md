@@ -38,7 +38,8 @@ depend on the proposed state. A history-weighted uniformly selected terminal
 particle is also proved to have the normalized Feynman--Kac terminal marginal;
 stored ancestry now extracts a correctly sized full genealogy with proved
 initial/terminal endpoints. Its full path-observable many-to-one law, complete
-particle MCMC, and corrected Xu--Ge execution remain.
+finite PIMH stationary exactness, and their dependency chain are now proved;
+PMMH/particle Gibbs and corrected Xu--Ge execution remain.
 
 Betancourt's [*A Conceptual Introduction to Hamiltonian Monte
 Carlo*](https://arxiv.org/abs/1701.02434) is used as a foundational HMC
@@ -87,6 +88,9 @@ The repository now contains machine-checked implementations and proofs for:
   of the correct length with machine-checked initial and terminal endpoints;
 - the one-transition many-to-one identity for arbitrary parent--child
   observables, both conditional on the current cloud and after iid initialization;
+- the arbitrary-horizon labeled many-to-one theorem, equality of propagated
+  path prefixes with backward genealogy tracing, and finite PIMH with exact
+  extended-target stationarity and selected-path Feynman--Kac expectations;
 - reusable finite identity, composition, mixture, and coordinate-lift
   combinators; finite one-site, random-scan, and systematic-scan Gibbs;
 - finite state-dependent kernel selection and a checked counterexample showing

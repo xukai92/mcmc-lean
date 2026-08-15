@@ -201,12 +201,21 @@ Feynman--Kac terminal marginal, for arbitrary observables and singleton events.
 The terminal index is now traced backward through every stored ancestor map;
 Lean proves the selected genealogy has one state per population and the exact
 initial and terminal endpoints. A full path-observable many-to-one theorem is
-still required: terminal-marginal exactness alone does not identify the joint
-trajectory law used by PIMH. The one-transition base is now machine checked for
+required because terminal-marginal exactness alone does not identify the joint
+trajectory law used by PIMH. The one-transition base is machine checked for
 every parent--child observable: potential weighting cancels normalized
 resampling, propagation supplies the exact transition expectation, and iid
-initialization recovers the one-particle Feynman--Kac pair law. The recursive
-multi-time lift remains.
+initialization recovers the one-particle Feynman--Kac pair law. That identity is
+now generalized to arbitrary inherited labels and iterated over every finite
+horizon. Propagated singleton path prefixes are proved equal to backward
+genealogy tracing. Consequently, the history-weighted selected-particle target
+has the exact normalized Feynman--Kac expectation for every path observable.
+
+Finite PIMH is now defined as independence MH proposing a fresh SMC history and
+terminal index. Its extended target is stationary and its stationary selected
+path is exact. This is not a convergence theorem: irreducibility, convergence
+rates, and particle efficiency remain unproved. PMMH, conditional SMC, and
+particle Gibbs remain separate clients.
 Conditional SMC and particle Gibbs follow. Keep fixed-particle stationarity,
 chain convergence, and consistency as particle count grows as separate theorem
 families.
