@@ -3,3 +3,5 @@
 *.olean
 *.ilean
 /VerifiedSamplers.jl/Manifest.toml
+/docs/build/
+/docs/.documenter-src/

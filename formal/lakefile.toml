@@ -13,6 +13,10 @@ root = "Mcmc.Oracle"
 name = "generate_ir"
 root = "Mcmc.GenerateIR"
 
+[[lean_exe]]
+name = "generate_docs"
+root = "Mcmc.GenerateDocs"
+
 [[require]]
 name = "mathlib"
 git = "https://github.com/leanprover-community/mathlib4.git"

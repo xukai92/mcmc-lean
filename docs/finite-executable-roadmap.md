@@ -216,13 +216,12 @@ The finite milestone is complete only when:
 ## Outside this finite milestone
 
 The first continuous follow-on is complete at the ideal semantic and
-interpreted-reference layers: version 2 of the artifact includes scalar
-Gaussian RWMH, Lean proves its standard-Gaussian trace and exact kernel-row
-refinements, and Julia Reference interprets it with differential tests against
-Optimized. The refinement now covers arbitrary measurable scalar log densities
-and positive scales, with explicit target normalization for stationary
-probability measures. A machine-checked numerical refinement from ideal reals and ideal
-primitives to Julia Float64/RNG behavior remains a later milestone.
+interpreted-reference layers. It covers arbitrary measurable scalar log
+densities and positive scales, with explicit normalization for stationary
+probability targets. Julia Reference interprets the version-2 artifact and is
+differentially tested against Optimized. See the
+[continuous executable contract](continuous-executable-contract.md) for the
+precise theorem surface and the deferred Float64/RNG refinement.
 
 - Prove or otherwise reduce the trusted conformance boundary between the
   serialized command IR and the maintained Julia interpreter. Actual Julia

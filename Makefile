@@ -1,4 +1,4 @@
-.PHONY: all formal oracle julia test generate check-generated
+.PHONY: all formal oracle julia test generate check-generated generate-docs check-docs-generated docs
 
 all: formal
 
@@ -23,3 +23,19 @@ check-generated:
 	trap 'rm -f "$$tmp_file"' EXIT; \
 	formal/.lake/build/bin/generate_ir "$$tmp_file"; \
 	cmp "$$tmp_file" VerifiedSamplers.jl/src/Reference/Samplers.ir
+
+generate-docs:
+	cd formal && lake build generate_docs
+	@mkdir -p docs/generated
+	formal/.lake/build/bin/generate_docs docs/generated/architecture-graphs.md
+
+check-docs-generated:
+	cd formal && lake build generate_docs
+	@tmp_file=$$(mktemp); \
+	trap 'rm -f "$$tmp_file"' EXIT; \
+	formal/.lake/build/bin/generate_docs "$$tmp_file"; \
+	cmp "$$tmp_file" docs/generated/architecture-graphs.md
+
+docs: generate-docs
+	julia --project=docs -e 'using Pkg; Pkg.instantiate()'
+	julia --project=docs docs/make.jl

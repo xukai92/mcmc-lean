@@ -393,24 +393,28 @@ binders, exact kernel semantics, and deterministic trace semantics. Lean proves
 that every program denotes a Markov kernel. The standard-normal law is exactly
 mathlib's `volume.withDensity (gaussianPDF 0 1)`.
 
-The first continuous program draws standard-normal noise and translates it by
-the current scalar state. Lean proves its measure is `gaussianReal current 1`
-and is exactly the corresponding proposal row in the existing density-based
-RWMH construction. The version-2 artifact now also contains a named-variable
-continuous RWMH program with explicit source, log-density, scale, and current
-inputs. Julia Reference interprets it and the public `GaussianRWMH` path uses
-Reference; Optimized remains an independent Float64 differential target. Both
-consume explicitly typed trace events in tests and use `randn`/`rand` for
-production draws. These tests are implementation evidence only. The complete standard-Gaussian-target
-IR program, its accept-or-retain replay theorem, the exact unit-uniform
-threshold integral, and pointwise equality with `densityAcceptance` are now
-proved. The canonical command interpreter additionally has a generic trace
-theorem for arbitrary log densities and scales. For measurable log densities
-and positive scales, its exact kernel semantics equals the corresponding
-verified Gaussian `Mcmc.Kernel.randomWalkMetropolisHastings` kernel and inherits
-target invariance; normalization yields a stationary probability measure. The
-exact assumptions at the Julia
-boundary are listed in the [continuous executable contract](continuous-executable-contract.md).
+The initial unit-scale standard-Gaussian specialization established the
+primitive laws, exact unit-uniform threshold integral, and complete
+accept-or-retain construction. The current theorem surface is generic over a
+scalar real log density and proposal scale:
+
+- deterministic replay is proved for every log-density function and real
+  scale;
+- the scaled standard-normal law is exactly the corresponding Gaussian
+  proposal row;
+- for measurable log densities and positive scales, the command program's
+  exact kernel equals the verified Gaussian
+  `Mcmc.Kernel.randomWalkMetropolisHastings` kernel; and
+- the `exp ∘ logDensity` target is invariant, and is a stationary probability
+  measure when explicitly normalized.
+
+The version-2 artifact contains this named-variable program with explicit
+source, log-density, scale, and current inputs. Julia Reference interprets it
+and the public `GaussianRWMH` path uses Reference. Optimized remains an
+independent Float64 differential target. Both use typed trace events in tests
+and `randn`/`rand` for production draws; this is implementation evidence, not
+a numerical-refinement theorem. The exact Julia boundary is listed in the
+[continuous executable contract](continuous-executable-contract.md).
 
 ## Validation flow
 

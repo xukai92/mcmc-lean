@@ -32,8 +32,8 @@ Lean proves every program kernel is Markov. A trace is an operational witness,
 not a random measure, and replay failure is not assigned probability mass.
 The ideal-real replay interpreter is intentionally `noncomputable`.
 
-For every scalar
-current state, `standardGaussianProposalProgram`:
+The foundational unit-scale specialization, `standardGaussianProposalProgram`,
+establishes that for every scalar current state it:
 
 - replays a normal event as `current + noise`;
 - denotes `gaussianReal current 1`; and
@@ -52,10 +52,10 @@ integrates to one, Lean also packages it as a stationary probability measure.
 
 The separately serializable named-variable command IR has a deterministic
 fuel-indexed Lean interpreter whose public fuel bound is computed from the
-syntax. Lean also proves that interpreting its generic RWMH program at the
-standard-Gaussian log density and unit scale returns the same complete
-proposal/accept-or-retain trace result. Fuel is an implementation device, not
-an additional runtime input or probabilistic assumption.
+syntax. Its generic trace theorem covers arbitrary log densities and scales;
+the standard-Gaussian/unit-scale theorem remains as a concrete regression
+specialization. Fuel is an implementation device, not an additional runtime
+input or probabilistic assumption.
 
 ## Julia layer
 
@@ -75,9 +75,10 @@ constructors and rejects kind mismatches and unit-uniform values outside
 `[0,1)`. These events contain floating-point values; they are not encodings of
 arbitrary Lean real numbers.
 
-Reference and Optimized are compared on deterministic accept and reject traces,
-and the public path has a normal-target moment test. These tests can expose
-implementation defects but do not prove equality of probability laws.
+Reference and Optimized are compared on deterministic accept and reject traces
+across multiple callbacks and positive scales, and the public path has a
+normal-target moment test. These tests can expose implementation defects but do
+not prove equality of probability laws.
 
 ## Required refinement assumptions
 

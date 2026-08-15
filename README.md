@@ -1,5 +1,7 @@
 # verified-samplers
 
+**[Documentation](https://xukai92.github.io/mcmc-lean/)**
+
 `verified-samplers` formalizes Markov chain Monte Carlo algorithms and coupling
 arguments in Lean 4 and is developing an auditable Julia reference and runtime
 layer. The mathematical development uses mathlib's measure and
@@ -160,6 +162,15 @@ Lean records the missing backend theorem as
 or Float64 witness. Thus downstream work can name the deferred obligation
 without silently assuming that it has already been proved.
 
+| Layer | Current guarantee |
+|---|---|
+| Ideal trace | Proved for arbitrary scalar log densities and real scales |
+| Exact kernel | Proved for measurable log densities and positive scales |
+| Stationarity | Proved for the normalized `exp ∘ logdensity` target |
+| Julia Reference | Interprets the committed version-2 sampler IR |
+| Julia Optimized | Independently implemented and differentially tested |
+| Float64/RNG refinement | Explicitly specified by `NumericalRefinement`; no witness yet |
+
 See the [continuous executable contract](docs/continuous-executable-contract.md)
 for the exact theorem and runtime boundaries.
 
@@ -289,6 +300,9 @@ the corresponding aggregate entry points. `make oracle` compiles the Lean
 conformance oracle, `make generate` explicitly regenerates the committed Julia
 reference IR artifact consumed by the maintained Julia interpreter,
 and `make check-generated` checks freshness without modifying the tree.
+`make docs` regenerates the Lean-owned architecture graphs and builds the
+Documenter site locally in `docs/build/`; `make check-docs-generated` verifies
+that the committed graph page is current.
 The [testing strategy](docs/testing.md) records the exact, differential,
 statistical, and skeletoned future test layers.
 

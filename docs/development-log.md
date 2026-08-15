@@ -1,5 +1,17 @@
 # Development log
 
+## 2026-08-15: Documenter site and Lean-owned architecture graphs
+
+Added a Documenter.jl site that publishes the existing canonical Markdown
+notes as a navigable GitHub Pages site. The root Makefile can build the site
+locally, and a GitHub Actions workflow checks and deploys it from `main`.
+
+Added typed documentation-graph data under `Mcmc.Docs` and a Lean executable
+that emits the committed Mermaid page. The initial generated diagrams cover
+the formalization dependency layers and the executable assurance chain. Edge
+labels distinguish proved refinement, generated artifacts, differential-test
+evidence, and the explicitly deferred floating-point refinement obligation.
+
 ## 2026-08-15: generic scalar Gaussian RWMH refinement
 
 Generalized the canonical continuous command trace theorem to arbitrary real
