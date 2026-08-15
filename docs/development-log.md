@@ -3,6 +3,21 @@
 Entries through the earlier 2026-08-13 work are preserved in the
 [development-log archive](development-log-archive.md).
 
+## 2026-08-15: normalized targets and refresh-augmented GR-HMC convergence
+
+Added a reusable bridge from any nonzero finite invariant measure to mathlib's
+normalized `ProbabilityMeasure`, together with an explicit independent-target
+refresh augmentation. If the original transition has weight `p`, the augmented
+kernel uniformly minorizes its normalized target by `1-p`; Lean proves both
+eventwise inequalities with geometric remainder `p^n` and proves that remainder
+tends to zero when `p<1`.
+
+Instantiated the construction with the concrete Gaussian diagonal-SoftAbs
+multinomial GR-HMC transition. The Gaussian target is proved nonzero, while its
+finite-mass certificate remains an explicit typeclass premise. The resulting
+claim is deliberately about the refresh-augmented sampler and is not presented
+as a convergence theorem for bare GR-HMC.
+
 ## 2026-08-15: next-phase solver, particle-count boundary, and composable inference
 
 Added the exact Banach-fixed-point construction missing from the generalized

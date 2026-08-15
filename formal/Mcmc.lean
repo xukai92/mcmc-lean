@@ -65,6 +65,7 @@ import Mcmc.Executable.Continuous.BoundedMultinomial
 import Mcmc.Executable.Continuous.MetricHMC
 import Mcmc.Executable.Continuous.SeparableGeneralizedLeapfrog
 import Mcmc.Executable.Continuous.GaussianSoftAbs
+import Mcmc.Executable.Continuous.GaussianSoftAbsConvergence
 import Mcmc.Executable.Continuous.MetricMultinomialHMC
 import Mcmc.Executable.Continuous.MetricCompilerIR
 import Mcmc.Executable.Continuous.GaussianTransport
@@ -97,6 +98,7 @@ import Mcmc.Kernel.Coupling
 import Mcmc.Kernel.AuxiliaryGibbs
 import Mcmc.Kernel.ComposableInference
 import Mcmc.Kernel.GeneralConvergence
+import Mcmc.Kernel.RefreshAugmented
 import Mcmc.Kernel.IndependenceMetropolis
 import Mcmc.Kernel.Langevin
 import Mcmc.Kernel.Slice

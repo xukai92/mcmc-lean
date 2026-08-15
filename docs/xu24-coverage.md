@@ -150,8 +150,14 @@ velocity bound and are not represented as Lean theorems.
 Likewise, the introductory statement that MCMC samples converge
 asymptotically is not established by detailed balance or invariance alone.
 No irreducibility, aperiodicity, recurrence, or quantitative convergence
-conditions for GR-HMC are stated in the paper, so this development makes no
-GR-HMC convergence claim.
+conditions for bare GR-HMC are stated in the paper, so this development makes
+no convergence claim for the unaugmented paper kernel. The separate
+`GaussianSoftAbsConvergence` client adds an explicit independent normalized-
+target refresh to the proved Gaussian SoftAbs multinomial transition. Under
+finiteness of that unnormalized target, Lean proves two-sided eventwise error
+at most `p^n` and that this remainder tends to zero for `p < 1`. This is a
+convergence theorem for the visibly refresh-augmented algorithm, not a retrofit
+of an unstated ergodicity hypothesis onto the paper.
 
 ## Remaining formal boundary
 
