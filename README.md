@@ -95,8 +95,12 @@ preservation is reduced to the remaining explicit
 unit-Jacobian certificate. Its mixed-partial equality and determinant
 cancellation are already proved. The step is factored into two explicit
 triangular maps, their two globally selected implicit inverses, and the exact
-relations connecting those four stages; differentiability of the selected
-inverse maps is the remaining analytic step.
+relations connecting those four stages. In scalar coordinates Lean computes
+the full derivative and determinant of the incoming map, proves it everywhere
+nonsingular from the contraction bound, and consequently proves the actual
+Banach-selected half-momentum inverse differentiable. The analogous implicit
+position inverse and final determinant product are the remaining analytic
+steps.
 
 Betancourt's [*A Conceptual Introduction to Hamiltonian Monte
 Carlo*](https://arxiv.org/abs/1701.02434) is used as a foundational HMC

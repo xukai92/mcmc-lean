@@ -354,9 +354,134 @@ noncomputable def boundedScalarPositionDerivativeReal (z : ℝ × ℝ) : ℝ :=
   Real.cos z.1 / (2 + Real.sin z.1) *
     scalarPositionProfile ((2 + Real.sin z.1) * z.2)
 
+noncomputable def boundedScalarLogDerivativeReal (q : ℝ) : ℝ :=
+  Real.cos q / (2 + Real.sin q)
+
+theorem differentiable_boundedScalarLogDerivativeReal :
+    Differentiable ℝ boundedScalarLogDerivativeReal := by
+  have hs : Differentiable ℝ fun q : ℝ => 2 + Real.sin q := by fun_prop
+  unfold boundedScalarLogDerivativeReal
+  exact Real.differentiable_cos.div hs
+    (fun q => by
+      have := Real.neg_one_le_sin q
+      linarith)
+
 /-- Scalar-coordinate form of the momentum callback. -/
 noncomputable def boundedScalarMomentumDerivativeReal (z : ℝ × ℝ) : ℝ :=
   scaledVelocityProfile z.2 (2 + Real.sin z.1)
+
+attribute [fun_prop] differentiable_scalarPositionProfile
+  differentiable_scaledVelocityProfile_uncurry
+
+theorem differentiable_boundedScalarPositionDerivativeReal :
+    Differentiable ℝ boundedScalarPositionDerivativeReal := by
+  rw [show boundedScalarPositionDerivativeReal = fun z : ℝ × ℝ =>
+      boundedScalarLogDerivativeReal z.1 *
+        scalarPositionProfile ((2 + Real.sin z.1) * z.2) by rfl]
+  exact (differentiable_boundedScalarLogDerivativeReal.comp
+      differentiable_fst).mul
+    (differentiable_scalarPositionProfile.comp
+      (((differentiable_const (c := (2 : ℝ))).add
+        (Real.differentiable_sin.comp differentiable_fst)).mul
+          differentiable_snd))
+
+theorem differentiable_boundedScalarMomentumDerivativeReal :
+    Differentiable ℝ boundedScalarMomentumDerivativeReal := by
+  unfold boundedScalarMomentumDerivativeReal
+  fun_prop
+
+attribute [fun_prop] differentiable_boundedScalarPositionDerivativeReal
+  differentiable_boundedScalarMomentumDerivativeReal
+
+noncomputable def boundedScalarIncomingMapReal (ε : ℝ) (z : ℝ × ℝ) : ℝ × ℝ :=
+  (z.1, z.2 + (ε / 2) * boundedScalarPositionDerivativeReal z)
+
+noncomputable def boundedScalarRightMapReal (ε : ℝ) (z : ℝ × ℝ) : ℝ × ℝ :=
+  (z.1 + (ε / 2) * boundedScalarMomentumDerivativeReal z, z.2)
+
+noncomputable def boundedScalarLeftMapReal (ε : ℝ) (z : ℝ × ℝ) : ℝ × ℝ :=
+  (z.1 - (ε / 2) * boundedScalarMomentumDerivativeReal z, z.2)
+
+noncomputable def boundedScalarOutgoingMapReal (ε : ℝ) (z : ℝ × ℝ) : ℝ × ℝ :=
+  (z.1, z.2 - (ε / 2) * boundedScalarPositionDerivativeReal z)
+
+theorem differentiable_boundedScalarIncomingMapReal (ε : ℝ) :
+    Differentiable ℝ (boundedScalarIncomingMapReal ε) := by
+  unfold boundedScalarIncomingMapReal
+  fun_prop
+
+theorem differentiable_boundedScalarRightMapReal (ε : ℝ) :
+    Differentiable ℝ (boundedScalarRightMapReal ε) := by
+  unfold boundedScalarRightMapReal
+  fun_prop
+
+theorem differentiable_boundedScalarLeftMapReal (ε : ℝ) :
+    Differentiable ℝ (boundedScalarLeftMapReal ε) := by
+  unfold boundedScalarLeftMapReal
+  fun_prop
+
+theorem differentiable_boundedScalarOutgoingMapReal (ε : ℝ) :
+    Differentiable ℝ (boundedScalarOutgoingMapReal ε) := by
+  unfold boundedScalarOutgoingMapReal
+  fun_prop
+
+/-- Explicit two-by-two derivative of the incoming triangular map. -/
+noncomputable def boundedScalarIncomingFDerivReal (ε : ℝ) (z : ℝ × ℝ) :
+    ℝ × ℝ →L[ℝ] ℝ × ℝ :=
+  (Matrix.toLin (.finTwoProd ℝ) (.finTwoProd ℝ)
+    !![1, 0;
+      (ε / 2) * fderiv ℝ boundedScalarPositionDerivativeReal z (1, 0),
+      1 + (ε / 2) *
+        fderiv ℝ boundedScalarPositionDerivativeReal z (0, 1)]).toContinuousLinearMap
+
+theorem hasFDerivAt_boundedScalarIncomingMapReal (ε : ℝ) (z : ℝ × ℝ) :
+    HasFDerivAt (boundedScalarIncomingMapReal ε)
+      (boundedScalarIncomingFDerivReal ε z) z := by
+  unfold boundedScalarIncomingFDerivReal boundedScalarIncomingMapReal
+  rw [Matrix.toLin_finTwoProd_toContinuousLinearMap]
+  convert! HasFDerivAt.prodMk (𝕜 := ℝ) hasFDerivAt_fst
+    (hasFDerivAt_snd.add
+      ((differentiable_boundedScalarPositionDerivativeReal z).hasFDerivAt.const_mul
+        (ε / 2))) using 2
+  · simp
+  · apply ContinuousLinearMap.ext
+    intro v
+    rcases v with ⟨v₁, v₂⟩
+    have hv : fderiv ℝ boundedScalarPositionDerivativeReal z (v₁, v₂) =
+        v₁ * fderiv ℝ boundedScalarPositionDerivativeReal z (1, 0) +
+          v₂ * fderiv ℝ boundedScalarPositionDerivativeReal z (0, 1) := by
+      have hvec : (v₁, v₂) = v₁ • (1, 0) + v₂ • (0, 1) := by
+        ext <;> simp
+      simpa only [map_add, map_smul, smul_eq_mul] using
+        congrArg (fderiv ℝ boundedScalarPositionDerivativeReal z) hvec
+    change (ε / 2 * fderiv ℝ boundedScalarPositionDerivativeReal z (1, 0)) * v₁ +
+        (1 + ε / 2 * fderiv ℝ boundedScalarPositionDerivativeReal z (0, 1)) * v₂ =
+      v₂ + ε / 2 * fderiv ℝ boundedScalarPositionDerivativeReal z (v₁, v₂)
+    rw [hv]
+    ring
+
+theorem det_boundedScalarIncomingFDerivReal (ε : ℝ) (z : ℝ × ℝ) :
+    (boundedScalarIncomingFDerivReal ε z).det =
+      1 + (ε / 2) *
+        fderiv ℝ boundedScalarPositionDerivativeReal z (0, 1) := by
+  unfold boundedScalarIncomingFDerivReal
+  simp only [LinearMap.det_toContinuousLinearMap, LinearMap.det_toLin,
+    Matrix.det_fin_two_of]
+  ring
+
+theorem fderiv_boundedScalarPositionDerivativeReal_snd (q p : ℝ) :
+    fderiv ℝ boundedScalarPositionDerivativeReal (q, p) (0, 1) =
+      deriv (fun r => Real.cos q / (2 + Real.sin q) *
+        scalarPositionProfile ((2 + Real.sin q) * r)) p := by
+  have hcomp :=
+    (differentiable_boundedScalarPositionDerivativeReal (q, p)).hasFDerivAt.comp
+      p (hasFDerivAt_prodMk_right q p)
+  have hderiv : HasDerivAt
+      (fun r => Real.cos q / (2 + Real.sin q) *
+        scalarPositionProfile ((2 + Real.sin q) * r))
+      (fderiv ℝ boundedScalarPositionDerivativeReal (q, p) (0, 1)) p := by
+    convert! hcomp.hasDerivAt using 1
+  rw [hderiv.deriv]
 
 theorem hasDerivAt_boundedScalarHamiltonian_position (q p : ℝ) :
     HasDerivAt (fun x => scalarRelativisticProfile ((2 + Real.sin x) * p))
@@ -716,6 +841,61 @@ theorem continuous_boundedScalarContractiveSolverAt_step (ε : ℝ)
   exact hnext.prodMk (hhalf.sub (he.smul
     (continuous_boundedScalarPositionDerivative.comp (hnext.prodMk hhalf))))
 
+noncomputable def boundedScalarPhaseOfReal (z : ℝ × ℝ) : PhaseSpace Unit :=
+  (fun _ => z.1, fun _ => z.2)
+
+noncomputable def boundedScalarRealOfPhase (z : PhaseSpace Unit) : ℝ × ℝ :=
+  (z.1 Unit.unit, z.2 Unit.unit)
+
+@[simp] theorem boundedScalarRealOfPhase_phaseOfReal (z : ℝ × ℝ) :
+    boundedScalarRealOfPhase (boundedScalarPhaseOfReal z) = z := by
+  rcases z with ⟨q, p⟩
+  rfl
+
+@[simp] theorem boundedScalarPhaseOfReal_realOfPhase (z : PhaseSpace Unit) :
+    boundedScalarPhaseOfReal (boundedScalarRealOfPhase z) = z := by
+  ext i <;> cases i <;> rfl
+
+theorem continuous_boundedScalarPhaseOfReal :
+    Continuous boundedScalarPhaseOfReal := by
+  unfold boundedScalarPhaseOfReal
+  fun_prop
+
+theorem continuous_boundedScalarRealOfPhase :
+    Continuous boundedScalarRealOfPhase := by
+  unfold boundedScalarRealOfPhase
+  fun_prop
+
+/-- Scalar-coordinate global inverse selected by the first Banach solve. -/
+noncomputable def boundedScalarHalfSolveReal (ε : ℝ)
+    (hstep : |ε / 2| * 3 < 1) (z : ℝ × ℝ) : ℝ × ℝ :=
+  let solver := boundedScalarContractiveSolverAt ε hstep
+  (z.1, solver.halfMomentum (boundedScalarPhaseOfReal z) Unit.unit)
+
+theorem continuous_boundedScalarHalfSolveReal (ε : ℝ)
+    (hstep : |ε / 2| * 3 < 1) :
+    Continuous (boundedScalarHalfSolveReal ε hstep) := by
+  unfold boundedScalarHalfSolveReal
+  exact continuous_fst.prodMk
+    (((continuous_apply Unit.unit).comp
+      (continuous_boundedScalarContractiveSolverAt_halfMomentum ε hstep)).comp
+        continuous_boundedScalarPhaseOfReal)
+
+theorem boundedScalarIncomingMapReal_leftInverse_halfSolveReal
+    (ε : ℝ) (hstep : |ε / 2| * 3 < 1) :
+    Function.LeftInverse (boundedScalarIncomingMapReal ε)
+      (boundedScalarHalfSolveReal ε hstep) := by
+  intro z
+  let solver := boundedScalarContractiveSolverAt ε hstep
+  have hp := (solver.satisfies (boundedScalarPhaseOfReal z)).1
+  ext
+  · rfl
+  · have hi := congrFun hp Unit.unit
+    simp [boundedScalarHalfSolveReal, boundedScalarIncomingMapReal,
+      boundedScalarPositionDerivativeReal, boundedScalarPositionDerivative,
+      boundedScalarPhaseOfReal, boundedScalarScale, scalarPositionProfile] at hi ⊢
+    linarith
+
 /-! The four explicit triangular maps below expose the exact inverse-map
 decomposition needed by the differentiability proof. -/
 
@@ -969,6 +1149,106 @@ theorem boundedScalar_mixed_derivatives_eq (q p : ℝ) :
   rw [deriv_boundedScalarPositionDerivative_momentum,
     deriv_boundedScalarMomentumDerivative_position]
   rw [scalarProfile_mixed_identity]
+
+theorem abs_deriv_boundedScalarPositionDerivative_momentum_le_three
+    (q p : ℝ) :
+    |deriv (fun r => Real.cos q / (2 + Real.sin q) *
+      scalarPositionProfile ((2 + Real.sin q) * r)) p| ≤ 3 := by
+  rw [deriv_boundedScalarPositionDerivative_momentum, abs_mul]
+  calc
+    |Real.cos q| *
+        |2 * scalarVelocityProfile ((2 + Real.sin q) * p) -
+          scalarVelocityProfile ((2 + Real.sin q) * p) ^ 3| ≤
+        1 * 3 := by
+      gcongr
+      · exact Real.abs_cos_le_one q
+      · calc
+          _ ≤ 2 * |scalarVelocityProfile ((2 + Real.sin q) * p)| +
+              |scalarVelocityProfile ((2 + Real.sin q) * p)| ^ 3 := by
+                calc
+                  _ ≤ |2 * scalarVelocityProfile ((2 + Real.sin q) * p)| +
+                      |scalarVelocityProfile ((2 + Real.sin q) * p) ^ 3| :=
+                    abs_sub _ _
+                  _ = _ := by
+                    rw [abs_mul, abs_of_nonneg (by norm_num : (0 : ℝ) ≤ 2),
+                      abs_pow]
+          _ ≤ 2 * 1 + 1 ^ 3 := by
+                gcongr <;> exact abs_scalarVelocityProfile_le_one _
+          _ = 3 := by norm_num
+    _ = 3 := by norm_num
+
+theorem abs_deriv_boundedScalarMomentumDerivative_position_le_two
+    (q p : ℝ) :
+    |deriv (fun r => scaledVelocityProfile p (2 + Real.sin r)) q| ≤ 2 := by
+  rw [deriv_boundedScalarMomentumDerivative_position, abs_mul]
+  calc
+    |Real.cos q| *
+        |scalarVelocityProfile ((2 + Real.sin q) * p) +
+          ((2 + Real.sin q) * p) /
+            scalarRelativisticProfile ((2 + Real.sin q) * p) ^ 3| ≤
+        1 * 2 := by
+      gcongr
+      · exact Real.abs_cos_le_one q
+      · calc
+          _ ≤ |scalarVelocityProfile ((2 + Real.sin q) * p)| +
+              |((2 + Real.sin q) * p) /
+                scalarRelativisticProfile ((2 + Real.sin q) * p) ^ 3| :=
+            abs_add_le _ _
+          _ ≤ 1 + 1 := add_le_add (abs_scalarVelocityProfile_le_one _)
+            (abs_div_scalarRelativisticProfile_cube_le_one _)
+          _ = 2 := by norm_num
+    _ = 2 := by norm_num
+
+theorem boundedScalar_incoming_derivative_factor_ne_zero
+    (ε : ℝ) (hstep : |ε / 2| * 3 < 1) (q p : ℝ) :
+    1 + (ε / 2) * deriv (fun r => Real.cos q / (2 + Real.sin q) *
+      scalarPositionProfile ((2 + Real.sin q) * r)) p ≠ 0 := by
+  have hbound := abs_deriv_boundedScalarPositionDerivative_momentum_le_three q p
+  have hsmall : |(ε / 2) * deriv (fun r => Real.cos q / (2 + Real.sin q) *
+      scalarPositionProfile ((2 + Real.sin q) * r)) p| < 1 := by
+    rw [abs_mul]
+    exact (mul_le_mul_of_nonneg_left hbound (abs_nonneg _)).trans_lt hstep
+  intro hzero
+  have : (ε / 2) * deriv (fun r => Real.cos q / (2 + Real.sin q) *
+      scalarPositionProfile ((2 + Real.sin q) * r)) p = -1 := by linarith
+  rw [this, abs_neg, abs_one] at hsmall
+  exact (lt_irrefl 1 hsmall)
+
+theorem boundedScalar_position_derivative_factor_ne_zero
+    (ε : ℝ) (hstep : |ε / 2| * 3 < 1) (q p : ℝ) :
+    1 - (ε / 2) * deriv (fun r => scaledVelocityProfile p (2 + Real.sin r)) q ≠ 0 := by
+  have hbound := abs_deriv_boundedScalarMomentumDerivative_position_le_two q p
+  have htwo : |ε / 2| * 2 < 1 := by
+    nlinarith [abs_nonneg (ε / 2)]
+  have hsmall : |(ε / 2) * deriv
+      (fun r => scaledVelocityProfile p (2 + Real.sin r)) q| < 1 := by
+    rw [abs_mul]
+    exact (mul_le_mul_of_nonneg_left hbound (abs_nonneg _)).trans_lt htwo
+  intro hzero
+  have : (ε / 2) * deriv
+      (fun r => scaledVelocityProfile p (2 + Real.sin r)) q = 1 := by linarith
+  rw [this, abs_one] at hsmall
+  exact (lt_irrefl 1 hsmall)
+
+theorem det_boundedScalarIncomingFDerivReal_ne_zero
+    (ε : ℝ) (hstep : |ε / 2| * 3 < 1) (z : ℝ × ℝ) :
+    (boundedScalarIncomingFDerivReal ε z).det ≠ 0 := by
+  rw [det_boundedScalarIncomingFDerivReal,
+    fderiv_boundedScalarPositionDerivativeReal_snd]
+  exact boundedScalar_incoming_derivative_factor_ne_zero ε hstep z.1 z.2
+
+theorem differentiable_boundedScalarHalfSolveReal
+    (ε : ℝ) (hstep : |ε / 2| * 3 < 1) :
+    Differentiable ℝ (boundedScalarHalfSolveReal ε hstep) := by
+  apply differentiable_of_continuous_leftInverse_of_det_fderiv_ne_zero
+    (boundedScalarIncomingMapReal ε)
+      (boundedScalarHalfSolveReal ε hstep)
+    (differentiable_boundedScalarIncomingMapReal ε)
+    (continuous_boundedScalarHalfSolveReal ε hstep)
+    (boundedScalarIncomingMapReal_leftInverse_halfSolveReal ε hstep)
+  intro z
+  rw [(hasFDerivAt_boundedScalarIncomingMapReal ε z).fderiv]
+  exact det_boundedScalarIncomingFDerivReal_ne_zero ε hstep z
 
 /-- Algebraic determinant cancellation behind generalized leapfrog: the
 incoming and outgoing implicit-coordinate factors cancel separately once the

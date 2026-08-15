@@ -111,16 +111,25 @@ bounded scalar client instantiates it for both implicit solves and the full
 step. Four explicit triangular maps and three checked identities now expose
 the solver as the incoming inverse, right/left position transfer, and outgoing
 map used by the paper's Jacobian calculation. What remains is the
-implicit-function step upgrading the two continuous, globally unique inverse
-selections to differentiable maps, after which the existing Haar
-change-of-variables theorem closes phase volume.
+implicit-function step for the position inverse and the final derivative
+composition, after which the existing Haar change-of-variables theorem closes
+phase volume.
 
 The generic inverse-function wrapper needed for that upgrade is now proved:
 an everywhere-nonsingular differentiable finite-dimensional map with a
 continuous global left inverse has a differentiable inverse selection. The
 bounded client also exposes scalar-coordinate callback maps on `ℝ × ℝ`; the
-remaining concrete calculation is their derivative nonsingularity and the
-transport back across the `Unit → ℝ` phase-space equivalence.
+incoming derivative calculation and its transport across the `Unit → ℝ`
+phase-space equivalence are now discharged.
+
+The incoming half-momentum stage is now complete. Its scalar-coordinate
+Fréchet derivative is represented by an explicit `2×2` triangular matrix;
+Lean proves the matrix is the actual derivative, computes its determinant,
+identifies the diagonal entry with the one-variable derivative, bounds that
+mixed derivative by three, and proves nonsingularity under `3|ε|/2 < 1`.
+The global inverse theorem then proves the actual continuous Banach-selected
+half solve differentiable. The same construction remains for the implicit
+position stage before multiplying the four determinant factors.
 
 ## Track C: later breadth branches
 

@@ -1258,6 +1258,17 @@ differentiability results for the scalar position and scaled-velocity
 profiles. This avoids relying on expensive unfolding through `Unit → ℝ` and
 sets up the remaining two-by-two determinant calculation.
 
+Closed the differentiability proof for the first implicit generalized-
+leapfrog stage. The incoming scalar triangular map now has an explicit
+Fréchet derivative matrix and checked determinant formula. The momentum mixed
+partial is bounded by three, so the contraction step-size condition makes the
+determinant nonzero everywhere. Scalar/`PhaseSpace Unit` equivalences connect
+the actual Banach-selected half-momentum solve to a continuous global inverse;
+the reusable inverse theorem therefore proves that selected solve
+differentiable. The position mixed partial is also bounded by two and its
+corresponding diagonal factor is proved nonzero, preparing the symmetric
+position-stage argument.
+
 ## Next steps
 
 1. Extend the complete finite-dimensional standard-Gaussian Theorem 4.1
