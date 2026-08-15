@@ -3,6 +3,20 @@
 Entries through the earlier 2026-08-13 work are preserved in the
 [development-log archive](development-log-archive.md).
 
+## 2026-08-15: finite PMMH stationary exactness
+
+Packaged a complete SMC history and selected terminal index as the auxiliary
+state of a unit-mean pseudo-marginal estimator, allowing the initial particle
+law to depend on the proposed parameter while sharing a finite step schedule.
+Defined the resulting particle marginal Metropolis--Hastings kernel.
+
+Lean proves extended-target stationarity and the exact requested parameter
+marginal. It also proves that each parameter slice of the extended target is
+the parameter mass times its history-weighted selected-particle target. Hence
+every joint parameter/selected-path observable has the target-weighted exact
+normalized Feynman--Kac expectation. State-indexed step schedules, conditional
+SMC, and particle Gibbs remain; no convergence or efficiency result is claimed.
+
 ## 2026-08-15: full path many-to-one theorem and finite PIMH
 
 Generalized the one-transition SMC identity to ancestors carrying arbitrary

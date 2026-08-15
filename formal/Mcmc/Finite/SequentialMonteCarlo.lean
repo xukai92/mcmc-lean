@@ -1101,6 +1101,124 @@ theorem kernel_state_marginal (target : Distribution State)
   PseudoMarginal.state_marginal target
     (estimator (Particle := Particle) initial steps hnormalizer) x
 
+/-- PMMH estimator state: a complete SMC history together with its selected
+terminal-particle index. -/
+noncomputable def pmmhEstimator (initial : State → Distribution Sample)
+    (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : ∀ x, 0 < normalizingConstant (initial x) steps) :
+    PseudoMarginal.Estimator State
+      (History (Particle := Particle) steps × Particle) where
+  law x := particleIndependentProposalLaw (Particle := Particle) (initial x) steps
+  value x selected := normalizingWeight steps selected.1 /
+    normalizingConstant (initial x) steps
+  nonneg x selected := div_nonneg (normalizingWeight_nonneg steps selected.1)
+    (le_of_lt (hnormalizer x))
+  unbiased x := by
+    rw [Fintype.sum_prod_type]
+    have hcard : (Fintype.card Particle : ℝ) ≠ 0 := by
+      exact_mod_cast Fintype.card_ne_zero
+    change ∑ history, ∑ _i : Particle,
+      ((historyLaw (Particle := Particle) (initial x) steps).mass history /
+        Fintype.card Particle) *
+      (normalizingWeight steps history / normalizingConstant (initial x) steps) = 1
+    simp only [Finset.sum_const, Finset.card_univ, nsmul_eq_mul]
+    simp_rw [show ∀ a b : ℝ, (Fintype.card Particle : ℝ) *
+        ((a / Fintype.card Particle) * b) = a * b by
+      intro a b; field_simp]
+    rw [show (∑ history,
+        (historyLaw (Particle := Particle) (initial x) steps).mass history *
+          (normalizingWeight steps history / normalizingConstant (initial x) steps)) =
+      (∑ history,
+        (historyLaw (Particle := Particle) (initial x) steps).mass history *
+          normalizingWeight steps history) / normalizingConstant (initial x) steps by
+      simp_rw [div_eq_mul_inv, ← mul_assoc]
+      rw [Finset.sum_mul]]
+    rw [normalizingWeight_expectation]
+    exact div_self (ne_of_gt (hnormalizer x))
+
+/-- Finite particle marginal Metropolis--Hastings, retaining the parameter,
+SMC history, and selected terminal index on rejection. -/
+noncomputable def pmmhKernel (target : Distribution State)
+    (initial : State → Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : ∀ x, 0 < normalizingConstant (initial x) steps)
+    (proposal : MarkovKernel State) :
+    MarkovKernel (State × (History (Particle := Particle) steps × Particle)) :=
+  PseudoMarginal.kernel target
+    (pmmhEstimator (Particle := Particle) initial steps hnormalizer) proposal
+
+/-- Exact extended-target stationarity of finite PMMH. -/
+theorem pmmhKernel_stationary (target : Distribution State)
+    (initial : State → Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : ∀ x, 0 < normalizingConstant (initial x) steps)
+    (proposal : MarkovKernel State) :
+    (pmmhKernel (Particle := Particle) target initial steps hnormalizer proposal).Stationary
+      (PseudoMarginal.extendedTarget target
+        (pmmhEstimator (Particle := Particle) initial steps hnormalizer)) :=
+  PseudoMarginal.stationary target
+    (pmmhEstimator (Particle := Particle) initial steps hnormalizer) proposal
+
+omit [DecidableEq Sample] [DecidableEq State] in
+/-- PMMH has exactly the requested stationary parameter marginal. -/
+theorem pmmhKernel_state_marginal (target : Distribution State)
+    (initial : State → Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : ∀ x, 0 < normalizingConstant (initial x) steps) (x : State) :
+    ∑ selected, (PseudoMarginal.extendedTarget target
+      (pmmhEstimator (Particle := Particle) initial steps hnormalizer)).mass
+        (x, selected) = target.mass x :=
+  PseudoMarginal.state_marginal target
+    (pmmhEstimator (Particle := Particle) initial steps hnormalizer) x
+
+omit [DecidableEq Sample] [DecidableEq State] in
+/-- A parameter slice of the PMMH extended target is the parameter mass times
+the corresponding history-weighted selected-particle target. -/
+theorem pmmh_extendedTarget_slice (target : Distribution State)
+    (initial : State → Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : ∀ x, 0 < normalizingConstant (initial x) steps)
+    (x : State) (selected : History (Particle := Particle) steps × Particle) :
+    (PseudoMarginal.extendedTarget target
+      (pmmhEstimator (Particle := Particle) initial steps hnormalizer)).mass
+        (x, selected) =
+      target.mass x *
+        (selectedParticleTarget (Particle := Particle) (initial x) steps
+          (hnormalizer x)).mass selected := by
+  unfold PseudoMarginal.extendedTarget pmmhEstimator
+    particleIndependentProposalLaw selectedParticleTarget
+  ring
+
+omit [DecidableEq Sample] [DecidableEq State] in
+/-- At PMMH stationarity, the joint parameter/selected-path expectation is the
+target-weighted normalized Feynman--Kac path expectation. -/
+theorem pmmh_stationary_selectedTrajectory_expectation
+    (target : Distribution State) (initial : State → Distribution Sample)
+    (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : ∀ x, 0 < normalizingConstant (initial x) steps)
+    (observable : State → List Sample → ℝ) :
+    ∑ extended, (PseudoMarginal.extendedTarget target
+        (pmmhEstimator (Particle := Particle) initial steps hnormalizer)).mass extended *
+      observable extended.1
+        (selectedTrajectory steps extended.2.1.1 extended.2.1.2 extended.2.2) =
+      ∑ x, target.mass x *
+        ((∑ y, (initial x).mass y *
+          pathFeynmanKacValue steps (observable x) y) /
+            normalizingConstant (initial x) steps) := by
+  rw [Fintype.sum_prod_type]
+  simp_rw [pmmh_extendedTarget_slice]
+  simp_rw [show ∀ (x : State)
+      (selected : History (Particle := Particle) steps × Particle),
+      target.mass x *
+          (selectedParticleTarget (Particle := Particle) (initial x) steps
+            (hnormalizer x)).mass selected *
+          observable x
+            (selectedTrajectory steps selected.1.1 selected.1.2 selected.2) =
+        target.mass x *
+          ((selectedParticleTarget (Particle := Particle) (initial x) steps
+            (hnormalizer x)).mass selected *
+          observable x
+            (selectedTrajectory steps selected.1.1 selected.1.2 selected.2)) by
+      intro x selected; ring,
+    ← Finset.mul_sum,
+    selectedParticleTarget_selectedTrajectory_expectation]
+
 section StateIndexedSchedule
 
 variable [Nonempty State]

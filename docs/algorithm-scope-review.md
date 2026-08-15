@@ -193,9 +193,7 @@ and population histories now realizes those nested expectations, and its
 normalized product weight instantiates pseudo-marginal MH with exact extended
 stationarity and state marginal. The initial law, potential, and transition at
 every step may now depend on the proposed state, provided all schedules share a
-finite horizon and have positive normalizers. A selected latent trajectory
-remains before naming a PIMH/PMMH client. The intermediate selected-terminal
-result is complete: weighting a history by its normalizing estimate and
+finite horizon and have positive normalizers. Weighting a history by its normalizing estimate and
 selecting a terminal particle uniformly gives exactly the normalized
 Feynman--Kac terminal marginal, for arbitrary observables and singleton events.
 The terminal index is now traced backward through every stored ancestor map;
@@ -214,8 +212,16 @@ has the exact normalized Feynman--Kac expectation for every path observable.
 Finite PIMH is now defined as independence MH proposing a fresh SMC history and
 terminal index. Its extended target is stationary and its stationary selected
 path is exact. This is not a convergence theorem: irreducibility, convergence
-rates, and particle efficiency remain unproved. PMMH, conditional SMC, and
-particle Gibbs remain separate clients.
+rates, and particle efficiency remain unproved. Conditional SMC and particle
+Gibbs remain separate clients.
+
+Finite PMMH is now complete for state-indexed initial particle laws and a shared
+finite potential/transition schedule. Its estimator retains both the SMC
+history and selected index. Lean proves extended-target stationarity, the exact
+requested parameter marginal, and a slice factorization yielding the correct
+joint parameter/selected-path expectation. State-dependent step schedules,
+conditional SMC, and particle Gibbs remain. Again, stationarity is not asserted
+to imply convergence from arbitrary initialization.
 Conditional SMC and particle Gibbs follow. Keep fixed-particle stationarity,
 chain convergence, and consistency as particle count grows as separate theorem
 families.
