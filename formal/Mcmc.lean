@@ -120,6 +120,7 @@ import Mcmc.PDMP.GeneralPoissonization
 import Mcmc.PDMP.GeneralUniformization
 import Mcmc.PDMP.Flow
 import Mcmc.PDMP.EventExecution
+import Mcmc.PDMP.EventSimulation
 import Mcmc.PDMP.ZigZag
 import Mcmc.PDMP.ZigZagProcess
 import Mcmc.PDMP.BouncyParticle

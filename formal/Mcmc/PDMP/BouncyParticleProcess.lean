@@ -1,5 +1,5 @@
 import Mcmc.PDMP.BouncyParticle
-import Mcmc.PDMP.EventExecution
+import Mcmc.PDMP.EventSimulation
 import Mathlib.Tactic
 
 /-!
@@ -52,6 +52,16 @@ noncomputable def bouncyParticleSemiflow :
       ring
     · rfl
 
+/-- Jointly measurable linear motion for random inter-event waits. -/
+noncomputable def bouncyParticleJointlyMeasurableSemiflow :
+    JointlyMeasurableSemiflow (BouncyParticleState ι) where
+  toMeasurableSemiflow := bouncyParticleSemiflow
+  jointly_measurable_flow := by
+    change Measurable (fun p : NNReal × BouncyParticleState ι =>
+      bouncyParticleFlow p.1 p.2)
+    unfold bouncyParticleFlow
+    fun_prop
+
 /-- Target-specific data needed to turn the algebraic bounce reflection into
 a general-state deterministic event kernel. -/
 structure BouncyParticleBounceData (ι : Type*) [Fintype ι] where
@@ -94,5 +104,31 @@ theorem BouncyParticleBounceData.stateRate_nonneg
     (data : BouncyParticleBounceData ι) (state : BouncyParticleState ι) :
     0 ≤ data.stateRate state :=
   bouncyRate_nonneg (data.normal state.1) state.2
+
+/-- Bouncy Particle jump mechanism, given the target-specific measurability of
+its canonical rate. -/
+noncomputable def BouncyParticleBounceData.jumpMechanism
+    (data : BouncyParticleBounceData ι)
+    (hmeasurableRate : Measurable (fun state : BouncyParticleState ι =>
+      ENNReal.ofReal (data.stateRate state))) :
+    JumpMechanism (BouncyParticleState ι) where
+  rate := fun state => ENNReal.ofReal (data.stateRate state)
+  measurable_rate := hmeasurableRate
+  jump := data.jumpKernel
+  isMarkov := by infer_instance
+
+/-- Exact homogeneous-clock thinning simulator for a globally bounded Bouncy
+Particle event intensity. -/
+noncomputable def BouncyParticleBounceData.thinnedSimulator
+    (data : BouncyParticleBounceData ι)
+    (hmeasurableRate : Measurable (fun state : BouncyParticleState ι =>
+      ENNReal.ofReal (data.stateRate state)))
+    (clock : HomogeneousClock)
+    (hbound : ∀ state, ENNReal.ofReal (data.stateRate state) ≤ clock.rate) :
+    ThinnedFlowSimulator (BouncyParticleState ι) where
+  semiflow := bouncyParticleJointlyMeasurableSemiflow
+  mechanism := data.jumpMechanism hmeasurableRate
+  clock := clock
+  rate_le_clock := hbound
 
 end Mcmc.PDMP

@@ -1,4 +1,4 @@
-import Mcmc.PDMP.EventExecution
+import Mcmc.PDMP.EventSimulation
 import Mcmc.PDMP.ZigZag
 import Mathlib.Tactic
 
@@ -40,6 +40,15 @@ noncomputable def zigZagSemiflow : MeasurableSemiflow ZigZagState where
       ring
     · rfl
 
+/-- Joint measurability needed to sample a random inter-event wait. -/
+noncomputable def zigZagJointlyMeasurableSemiflow :
+    JointlyMeasurableSemiflow ZigZagState where
+  toMeasurableSemiflow := zigZagSemiflow
+  jointly_measurable_flow := by
+    change Measurable (fun p : NNReal × ZigZagState => zigZagFlow p.1 p.2)
+    unfold zigZagFlow
+    fun_prop
+
 /-- A Zig-Zag event keeps position fixed and flips the velocity sign. -/
 def zigZagFlip (state : ZigZagState) : ZigZagState :=
   (state.1, !state.2)
@@ -79,5 +88,28 @@ theorem zigZagStateRate_nonneg (potentialGradient : ℝ → ℝ)
     (state : ZigZagState) :
     0 ≤ zigZagStateRate potentialGradient state :=
   zigZagRate_nonneg potentialGradient state.1 state.2
+
+/-- State-dependent Zig-Zag jump mechanism in the general thinning
+interface. -/
+noncomputable def zigZagJumpMechanism (potentialGradient : ℝ → ℝ)
+    (hmeasurable : Measurable potentialGradient) : JumpMechanism ZigZagState where
+  rate := fun state => ENNReal.ofReal (zigZagStateRate potentialGradient state)
+  measurable_rate := by
+    unfold zigZagStateRate zigZagRate
+    fun_prop
+  jump := zigZagJumpKernel
+  isMarkov := by infer_instance
+
+/-- Exact homogeneous-clock thinning simulator for a globally bounded
+one-dimensional Zig-Zag intensity. -/
+noncomputable def zigZagThinnedSimulator
+    (potentialGradient : ℝ → ℝ) (hmeasurable : Measurable potentialGradient)
+    (clock : HomogeneousClock)
+    (hbound : ∀ state, ENNReal.ofReal (zigZagStateRate potentialGradient state) ≤
+      clock.rate) : ThinnedFlowSimulator ZigZagState where
+  semiflow := zigZagJointlyMeasurableSemiflow
+  mechanism := zigZagJumpMechanism potentialGradient hmeasurable
+  clock := clock
+  rate_le_clock := hbound
 
 end Mcmc.PDMP

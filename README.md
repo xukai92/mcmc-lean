@@ -158,6 +158,11 @@ schedules can now be executed as general-state Markov kernels by alternating
 the semiflow with jumps; schedule concatenation and conditional invariance are
 proved. Concrete one-dimensional Zig-Zag and finite-dimensional BPS clients
 instantiate the linear flows, event kernels, rates, and scheduled execution.
+For globally bounded measurable rates, an exact one-candidate thinning kernel
+draws an exponential homogeneous-clock wait, flows for that random duration,
+and then accepts the real jump with probability `rate/clockRate` or takes a
+virtual event. Fixed candidate-count iterates are Markov and compose by
+addition; fixed-horizon stopping and unbounded-rate nonexplosion remain open.
 
 For positive-horizon particle Gibbs, the finite library now proves a concrete
 arbitrary-horizon result: with any finite particle index type containing at

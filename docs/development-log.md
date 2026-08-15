@@ -64,6 +64,17 @@ clients instantiate their linear semiflows, deterministic event kernels,
 canonical nonnegative rates, and fixed-schedule kernels. These clients do not
 yet sample state-dependent event times or claim process-level stationarity.
 
+Added the first stochastic event simulator on top of those clients. A jointly
+measurable semiflow supports random elapsed times; a positive homogeneous clock
+is mapped to a nonnegative exponential wait law; and `ThinnedFlowSimulator`
+flows to each candidate before applying the bounded-rate accepted/virtual jump
+kernel. Lean proves the wait law, random-flow kernel, candidate kernel, and all
+fixed candidate-count iterates are probabilistically valid, with the expected
+composition law. Zig-Zag and BPS expose constructors when their canonical
+rates are measurable and globally bounded by the supplied clock. This is exact
+bounded thinning per candidate, not yet the stopping construction at a fixed
+time horizon.
+
 ## 2026-08-15: categorical discontinuous-HMC vertical slice
 
 Added the Laplace-momentum crossing/reflection algebra from Nishimura, Dunson,

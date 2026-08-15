@@ -259,10 +259,16 @@ breadth branches are:
   state-dependent pure-jump mechanisms now have a thinned embedded kernel and
   real-time transition, with rate-biased balanced flux transported through
   accepted/rejected clock decomposition to real-time invariance. Deterministic
-  measurable semiflows and flow-then-jump segments are now defined. The
+  measurable semiflows, flow-then-jump segments, fixed-schedule execution, and
+  schedule composition are now defined. Joint measurability supports random
+  exponential waits, and globally bounded state-dependent intensities now have
+  an exact per-candidate thinning kernel and fixed candidate-count iterates.
+  Concrete one-dimensional Zig-Zag and finite-dimensional BPS clients provide
+  their linear flows, event kernels, and bounded-thinning constructors. The
   one-dimensional Zig-Zag generator cancellation and finite-dimensional BPS
-  reflection geometry are checked; joint state-dependent flow/event path
-  construction, unbounded-rate Lyapunov arguments, and convergence remain.
+  reflection geometry are checked; fixed-horizon stopping/path construction,
+  unbounded-rate Lyapunov arguments, process-level stationarity, and
+  convergence remain.
 
 Sequence-parallel evaluation is an execution-refinement project downstream of
 exact seeded trace semantics. Full solver convergence may refine a sequential
