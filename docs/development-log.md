@@ -3,6 +3,22 @@
 Entries through the earlier 2026-08-13 work are preserved in the
 [development-log archive](development-log-archive.md).
 
+## 2026-08-15: pre-Xu general-state MH foundations
+
+Added a general Doeblin-minorization interface and constructed the normalized
+residual Markov kernel, with an exact proof that restoring the refresh
+component recovers the original transition. Specialized general-state
+independence MH to state-independent proposal densities and proved the
+classical bounded target-to-proposal density ratio yields the `1 / M` target
+minorization. The remaining step before calling this a convergence result is
+the finite-time geometric bound itself.
+
+Added finite-dimensional state-dependent Gaussian proposals, ULA, and MALA.
+Lean proves proposal normalization, the Markov property of ULA, and the Markov,
+reversibility, and target-invariance properties of MALA. No target exactness
+is claimed for fixed-step ULA, and no geometric-ergodicity claim is inferred
+for MALA.
+
 ## 2026-08-15: executable Xu et al. coupled mixture
 
 Advanced the sampler artifact to version 9 with generated descriptors for

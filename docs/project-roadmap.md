@@ -48,12 +48,17 @@ normalized extended target and an MH transition retaining the current
 estimator on rejection. The desired marginal is proved, including zero
 estimator values. MCWM remains explicitly separate.
 
-### A4. First general-state convergence and proposal clients
+### A4. First general-state convergence and proposal clients -- in progress
 
-Add bounded-weight independence-MH minorization as a compact quantitative
-convergence result. Then define the state-dependent Gaussian proposal and
-obtain MALA correctness from general MH, keeping fixed-step ULA separate and
-not target-exact.
+The bounded-weight independence-MH `1 / M` minorization and exact residual
+decomposition are machine checked. The finite-time geometric bound remains to
+be derived from that decomposition before this becomes a quantitative
+convergence theorem.
+
+The state-dependent Gaussian proposal is complete. ULA is a Markov kernel
+with no target-exactness claim; its MH completion, MALA, is proved Markov,
+reversible, and target-invariant. Roberts--Tweedie tail conditions and
+geometric-ergodicity results remain a later convergence layer.
 
 ## Track B: paper-target execution
 
@@ -90,6 +95,8 @@ obligations.
 
 ## Immediate plan
 
-A1--A3 and B1 are complete. The next reusable branch is A4; the next
-paper-execution branch is B2. Neither is needed to support the completed
-finite Gibbs, tempering, pseudo-marginal, or Xu et al. coupling claims.
+A1--A3 and B1 are complete. A4 now has its independence-MH minorization and
+MALA/ULA proposal clients; its next obligation is the explicit geometric
+independence-MH bound. The next paper-execution branch is B2. Neither is needed
+to support the completed finite Gibbs, tempering, pseudo-marginal, or Xu et al.
+coupling claims.

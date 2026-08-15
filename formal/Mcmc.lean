@@ -66,6 +66,9 @@ import Mcmc.Hamiltonian.MultinomialHMC
 import Mcmc.Hamiltonian.RandomizedTrajectory
 import Mcmc.Hamiltonian.VolumePreservation
 import Mcmc.Kernel.Coupling
+import Mcmc.Kernel.GeneralConvergence
+import Mcmc.Kernel.IndependenceMetropolis
+import Mcmc.Kernel.Langevin
 import Mcmc.Kernel.CoupledChain
 import Mcmc.Kernel.CoupledMetropolisHastings
 import Mcmc.Kernel.DensityCoupling

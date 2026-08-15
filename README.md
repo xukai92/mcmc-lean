@@ -24,9 +24,10 @@ statement is classified in its corresponding coverage audit.
 The [overall project roadmap](docs/project-roadmap.md) integrates these paper
 targets with executable work and the broader
 [algorithm scope review](docs/algorithm-scope-review.md). Finite Gibbs,
-two-temperature tempering, finite pseudo-marginal MH, and executable Xu et al.
-coupling are complete; the next major branches are general-state convergence
-clients and corrected Xu--Ge execution.
+two-temperature tempering, finite pseudo-marginal MH, executable Xu et al.
+coupling, and general-state MALA correctness are complete. A bounded-weight
+independence-MH minorization is also proved; its explicit finite-time geometric
+bound and corrected Xu--Ge execution are next.
 
 Betancourt's [*A Conceptual Introduction to Hamiltonian Monte
 Carlo*](https://arxiv.org/abs/1701.02434) is used as a foundational HMC
@@ -44,6 +45,10 @@ The repository now contains machine-checked implementations and proofs for:
 
 - general-state Metropolis--Hastings, Gaussian RWMH, and coupled Gaussian
   RWMH as mathlib Markov kernels;
+- general-state independence MH with the classical bounded-density-ratio
+  `1 / M` target minorization and exact Doeblin residual decomposition;
+- finite-dimensional state-dependent Gaussian proposals, with ULA proved
+  Markov but not target-exact and MALA proved reversible and target-invariant;
 - reusable finite identity, composition, mixture, and coordinate-lift
   combinators; finite one-site, random-scan, and systematic-scan Gibbs;
 - two-temperature parallel tempering with an MH-corrected swap, product-target
