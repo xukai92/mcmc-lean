@@ -1,5 +1,37 @@
 # Development log
 
+## 2026-08-15: backend-facing bounded decision certificates
+
+Added operation-level Lean certificates for RWMH and endpoint HMC. Proposal,
+callback, endpoint-energy, exponential, and uniform-draw bounds now compose
+into the existing machine-checked comparison-stability and returned-state
+bounds. No Julia, libm, callback, or RNG property is asserted axiomatically.
+
+The Julia `Certificates` module provides matching execution-specific checked
+witnesses. It validates supplied values and error budgets using `BigFloat`,
+computes the same RWMH/HMC uncertainty sums as Lean, and reports whether the
+accept/reject branch is outside the uncertainty band. These witnesses are
+conditional certificates, not a universal semantics theorem for arbitrary
+Julia callbacks or platform numerical libraries.
+
+## 2026-08-15: fully generated and invariant constant-metric HMC
+
+Completed Phase 1 of the constant-metric executable roadmap. Lean now proves
+negative-step inversion, momentum-flip time reversal, arbitrary finite
+trajectory permutation semantics, endpoint involution, phase-volume
+preservation, deterministic-Metropolis Boltzmann invariance, and
+refresh–evolve–project position invariance for constant metrics. Diagonal and
+dense inverse-mass velocity maps instantiate the common interface.
+
+The sampler artifact is now version 6. Type-indexed diagonal and dense metric
+commands are generated from Lean, and Julia Reference routes both public
+metric paths through `run_program`; Optimized remains independent. The
+Gaussian transport layer proves the standard-momentum pushforward law,
+pushforward of densities through measurable equivalences, the exact Jacobian
+normalization, the quadratic transformed kinetic density, and the final
+Cholesky-refreshed position-invariance theorem. Mathlib's invertible-matrix
+Lebesgue theorem supplies the concrete `|det L|⁻¹` scale.
+
 ## 2026-08-15: vector trace, bounded refinement, and constant metrics
 
 Closed the ideal vector-HMC replay theorem: a transition consumes exactly one

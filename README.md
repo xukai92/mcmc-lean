@@ -175,10 +175,11 @@ still inputs to this theorem rather than assumed facts.
 | Ideal trace | Proved for arbitrary scalar log densities and real scales |
 | Exact kernel | Proved for measurable log densities and positive scales |
 | Stationarity | Proved for the normalized `exp ∘ logdensity` target |
-| Julia Reference | Interprets the committed version-5 sampler IR |
+| Julia Reference | Interprets the committed version-6 sampler IR |
 | Julia Optimized | Independently implemented and differentially tested |
 | Bounded numeric refinement | Proved composition and decision-stability theorems, conditional on concrete operation-error certificates |
-| Julia Float64/RNG certificates | Required for the supported Julia/libm/RNG versions; no witness yet |
+| Julia execution certificates | Per-run checked RWMH/HMC decision witnesses with explicit callback, libm, and RNG bounds |
+| Universal Float64/RNG theorem | Not claimed; still requires a formal Julia/LLVM/libm/RNG semantics and callback specifications |
 
 See the [continuous executable contract](docs/continuous-executable-contract.md)
 for the exact theorem and runtime boundaries.
@@ -190,7 +191,7 @@ established `leapfrogN` map for every trajectory length, and proves exact
 phase-volume preservation and Boltzmann-target invariance of the corresponding
 phase kernel. The complete refresh–evolve–project position kernel is also
 defined and proved invariant for every compatible position target. The
-version-5 artifact is interpreted by Julia Reference and
+version-6 artifact is interpreted by Julia Reference and
 differentially tested against Optimized, including energy, reversibility,
 numerical-volume, Gaussian-moment, and non-Gaussian quartic-moment tests:
 
@@ -221,13 +222,21 @@ sampler = MetricHMC(q -> -dot(q, precision * q) / 2,
 chain = sample(MersenneTwister(9), sampler, zeros(2), 10_000)
 ```
 
-Lean defines the corresponding diagonal and dense inverse-mass velocity maps
-and proves every finite constant-metric leapfrog trajectory preserves phase
-volume. Positive-definiteness and Cholesky momentum generation are currently
-validated at the Julia boundary; their measure-level refinement is a later
-obligation.
+Lean defines the corresponding diagonal and dense inverse-mass velocity maps,
+proves exact time reversal, endpoint-proposal involution, phase-volume
+preservation, Boltzmann phase invariance, and refreshed position invariance.
+The version-6 artifact contains type-indexed diagonal and dense commands, so
+Julia Reference executes both through the generated IR. Lean also proves the
+linear/Cholesky Gaussian pushforward law and its determinant-normalized
+quadratic kinetic density using mathlib's matrix change-of-variables theorem.
 
-As for RWMH, the Float64/RNG refinement remains explicit and deferred.
+Backend-facing Lean certificates now compose proposal, callback, endpoint
+energy, `exp`, and RNG bounds into the RWMH/HMC decision-stability theorems.
+Julia exposes matching per-run checked witnesses through
+`VerifiedSamplers.Certificates`. These certify branch agreement only when the
+supplied ideal values and primitive bounds are valid and the comparison lies
+outside their uncertainty band; they are not a universal proof of arbitrary
+Julia callbacks or platform `libm` behavior.
 
 ## What “HMC” means here
 

@@ -7,7 +7,7 @@ using ..Runtime: AbstractRandomSource, draw_below!, standard_normal!, uniform_un
 export categorical_index!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!, scalar_hmc_step!, vector_hmc_step!, metric_hmc_step!,
     IR_FORMAT_VERSION
 
-const IR_FORMAT_VERSION = 5
+const IR_FORMAT_VERSION = 6
 
 struct SList
     items::Vector{Any}
@@ -210,6 +210,16 @@ function eval_expr(raw, env::Dict{String,Any})
         end
         return tag == "vector-leapfrog-position" ? position : momentum
     end
+    if tag == "metric-hmc"
+        kind = Symbol(atom(node[2]))
+        source = eval_expr(node[3], env)
+        step_size = Float64(eval_expr(node[4], env))
+        steps = Int(eval_expr(node[5], env))
+        current = eval_expr(node[6], env)
+        mass = eval_expr(node[7], env)
+        return _metric_hmc_step!(source, env["logdensity"], env["gradient"],
+            step_size, steps, current, mass, kind)
+    end
     if tag == "categorical"
         source = eval_expr(node[2], env)
         weights = eval_expr(node[3], env)
@@ -283,6 +293,7 @@ function run_program(name::String, arguments...)
             input_kind == "real" ? value isa Real : true
         valid = input_kind == "nat" ? value isa Integer && value >= 0 : valid
         valid = input_kind == "real-vector" ? value isa AbstractVector{<:Real} : valid
+        valid = input_kind == "real-matrix" ? value isa AbstractMatrix{<:Real} : valid
         valid || throw(ArgumentError("invalid $input_kind input: $input_name"))
         env[input_name] = value
     end
@@ -353,22 +364,25 @@ function vector_hmc_step!(source::AbstractRandomSource, logdensity, gradient,
 end
 
 """Reference endpoint HMC for a constant diagonal or dense mass matrix."""
-function metric_hmc_step!(source::AbstractRandomSource, logdensity, gradient,
-        step_size::Float64, steps::Integer, current::AbstractVector{<:Real}, mass)
+function _metric_hmc_step!(source::AbstractRandomSource, logdensity, gradient,
+        step_size::Float64, steps::Integer, current::AbstractVector{<:Real}, mass,
+        kind::Symbol)
     dimension = length(current)
     dimension > 0 || throw(ArgumentError("position cannot be empty"))
     z = [standard_normal!(source) for _ in 1:dimension]
-    if mass isa AbstractVector
+    if kind === :diagonal
         length(mass) == dimension || throw(DimensionMismatch("mass dimension"))
         all(x -> isfinite(x) && x > 0, mass) ||
             throw(ArgumentError("diagonal mass must be finite and positive"))
         momentum = sqrt.(mass) .* z
         velocity = p -> p ./ mass
-    else
+    elseif kind === :dense
         size(mass) == (dimension, dimension) || throw(DimensionMismatch("mass dimension"))
         factor = cholesky(Symmetric(Matrix{Float64}(mass))).L
         momentum = factor * z
         velocity = p -> factor' \ (factor \ p)
+    else
+        error("unsupported metric kind: $kind")
     end
     position = Float64.(current)
     initial_momentum = copy(momentum)
@@ -381,6 +395,13 @@ function metric_hmc_step!(source::AbstractRandomSource, logdensity, gradient,
     next_energy = -logdensity(position) + dot(momentum, velocity(momentum)) / 2
     log(uniform_unit!(source)) < min(0.0, current_energy - next_energy) ?
         position : Float64.(current)
+end
+
+function metric_hmc_step!(source::AbstractRandomSource, logdensity, gradient,
+        step_size::Float64, steps::Integer, current::AbstractVector{<:Real}, mass)
+    name = mass isa AbstractVector ? "diagonal_hmc_step!" : "dense_hmc_step!"
+    Float64.(run_program(name, source, logdensity, gradient, step_size, steps,
+        current, mass))
 end
 
 end

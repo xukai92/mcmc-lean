@@ -7,9 +7,11 @@ import Base: step
 include("Runtime/Runtime.jl")
 include("Reference/Reference.jl")
 include("Optimized/Optimized.jl")
+include("Certificates/Certificates.jl")
 
 export FiniteWeights, FiniteKernelWeights, FiniteMH, TwoStateMH, GaussianRWMH,
     ScalarHMC, VectorHMC, DiagonalMetric, DenseMetric, MetricHMC, sample
+export Certificates
 
 struct DiagonalMetric
     mass::Vector{Float64}

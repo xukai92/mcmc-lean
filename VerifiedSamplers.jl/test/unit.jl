@@ -16,11 +16,51 @@
     @test_throws ArgumentError sample(MersenneTwister(1), FiniteWeights([1]), -1)
 end
 
+@testset "bounded numeric decision certificates" begin
+    witness = Certificates.certify_bound(0.5, big"0.5", big"0.0")
+    @test witness.observed_error == 0
+
+    stable = Certificates.certify_decision(
+        0.25, big"0.25", big"0.0",
+        0.75, big"0.75", big"0.0")
+    @test Certificates.is_stable(stable)
+    @test Certificates.uncertainty_band(stable) == 0
+
+    boundary = Certificates.certify_decision(
+        0.5, big"0.5", big"0.01",
+        0.5, big"0.5", big"0.01")
+    @test !Certificates.is_stable(boundary)
+    @test_throws ArgumentError Certificates.certify_bound(0.5, big"0.6", big"0.01")
+    @test_throws ArgumentError Certificates.certify_bound(Inf, big"1.0", big"1.0")
+
+    rwmh = Certificates.certify_rwmh_decision(
+        computed_current_logdensity=-0.5, ideal_current_logdensity=big"-0.5",
+        current_logdensity_bound=0,
+        computed_proposal_logdensity=-0.5, ideal_proposal_logdensity=big"-0.5",
+        proposal_logdensity_bound=0,
+        computed_threshold=1.0, ideal_threshold=big"1.0",
+        exp_bound=0, computed_uniform=0.25, ideal_uniform=big"0.25",
+        uniform_bound=0)
+    @test rwmh.algorithm == :rwmh
+    @test Certificates.is_stable(rwmh)
+
+    hmc = Certificates.certify_hmc_decision(
+        computed_current_energy=1.0, ideal_current_energy=big"1.0",
+        current_energy_bound=0,
+        computed_proposal_energy=1.0, ideal_proposal_energy=big"1.0",
+        proposal_energy_bound=0,
+        computed_threshold=1.0, ideal_threshold=big"1.0", exp_bound=0,
+        computed_uniform=0.5, ideal_uniform=big"0.5", uniform_bound=0)
+    @test hmc.algorithm == :hmc
+    @test Certificates.is_stable(hmc)
+end
+
 @testset "versioned reference IR" begin
-    @test Reference.IR_FORMAT_VERSION == 5
+    @test Reference.IR_FORMAT_VERSION == 6
     @test sort!(collect(keys(Reference.PROGRAMS))) ==
-        ["categorical_index!", "finite_mh_step!", "gaussian_rwmh_step!",
-        "scalar_hmc_step!", "vector_hmc_step!"]
+        ["categorical_index!", "dense_hmc_step!", "diagonal_hmc_step!",
+        "finite_mh_step!", "gaussian_rwmh_step!", "scalar_hmc_step!",
+        "vector_hmc_step!"]
     @test_throws ErrorException Reference.parse_document("(unterminated")
     mktemp() do path, stream
         write(stream, "(verified-samplers-ir 2 bogus)\n")

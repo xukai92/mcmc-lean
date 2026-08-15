@@ -91,6 +91,281 @@ structure ConstantMetric (ι : Type*) [Fintype ι] where
   measurable_velocity : Measurable velocity
   velocity_odd : ∀ p, velocity (-p) = -velocity p
 
+theorem metricLeapfrog_neg_comp (metric : ConstantMetric ι)
+    (gradient : Position ι → Momentum ι) (ε : ℝ) (z : PhaseSpace ι) :
+    metricLeapfrog metric.velocity gradient (-ε)
+        (metricLeapfrog metric.velocity gradient ε z) = z := by
+  rcases z with ⟨q, p⟩
+  simp only [metricLeapfrog, metricDrift]
+  let pHalf := p - (ε / 2) • gradient q
+  let qNext := q + ε • metric.velocity pHalf
+  have hpHalf :
+      pHalf - (ε / 2) • gradient qNext - ((-ε) / 2) • gradient qNext =
+        pHalf := by module
+  rw [hpHalf]
+  have hq : qNext + (-ε) • metric.velocity pHalf = q := by
+    dsimp [qNext]
+    module
+  rw [hq]
+  dsimp [pHalf]
+  congr 1
+  module
+
+theorem momentumFlip_metricLeapfrog_momentumFlip
+    (metric : ConstantMetric ι) (gradient : Position ι → Momentum ι)
+    (ε : ℝ) (z : PhaseSpace ι) :
+    momentumFlip (metricLeapfrog metric.velocity gradient ε (momentumFlip z)) =
+      metricLeapfrog metric.velocity gradient (-ε) z := by
+  rcases z with ⟨q, p⟩
+  simp only [momentumFlip, metricLeapfrog, metricDrift]
+  let pReverse := p - ((-ε) / 2) • gradient q
+  have hhalf : -p - (ε / 2) • gradient q = -pReverse := by
+    dsimp [pReverse]
+    module
+  rw [hhalf, metric.velocity_odd]
+  have hposition : q + ε • -metric.velocity pReverse =
+      q + (-ε) • metric.velocity pReverse := by module
+  rw [hposition]
+  dsimp [pReverse]
+  congr 1
+  module
+
+/-- Constant-metric leapfrog as an exact permutation, with negative step as
+its inverse. -/
+noncomputable def metricLeapfrogPerm (metric : ConstantMetric ι)
+    (gradient : Position ι → Momentum ι) (ε : ℝ) : Equiv.Perm (PhaseSpace ι) where
+  toFun := metricLeapfrog metric.velocity gradient ε
+  invFun := metricLeapfrog metric.velocity gradient (-ε)
+  left_inv := metricLeapfrog_neg_comp metric gradient ε
+  right_inv := by
+    intro z
+    simpa only [neg_neg] using metricLeapfrog_neg_comp metric gradient (-ε) z
+
+theorem metricLeapfrogN_eq_pow (metric : ConstantMetric ι)
+    (gradient : Position ι → Momentum ι) (ε : ℝ) (steps : Nat) :
+    metricLeapfrogN metric.velocity gradient ε steps =
+      ⇑((metricLeapfrogPerm metric gradient ε) ^ steps) := by
+  funext z
+  induction steps with
+  | zero => rfl
+  | succ steps ih =>
+      rw [pow_succ']
+      simp only [metricLeapfrogN, Equiv.Perm.coe_mul, Function.comp_apply,
+        metricLeapfrogPerm]
+      rw [ih]
+      rfl
+
+theorem momentumFlip_metricLeapfrogN_momentumFlip
+    (metric : ConstantMetric ι) (gradient : Position ι → Momentum ι)
+    (ε : ℝ) (steps : Nat) (z : PhaseSpace ι) :
+    momentumFlip
+        (metricLeapfrogN metric.velocity gradient ε steps (momentumFlip z)) =
+      metricLeapfrogN metric.velocity gradient (-ε) steps z := by
+  induction steps generalizing z with
+  | zero => simp [metricLeapfrogN, momentumFlip]
+  | succ steps ih =>
+      simp only [metricLeapfrogN]
+      have h := momentumFlip_metricLeapfrog_momentumFlip metric gradient ε
+        (momentumFlip
+          (metricLeapfrogN metric.velocity gradient ε steps (momentumFlip z)))
+      simp only [momentumFlip_involutive] at h
+      rw [h, ih]
+
+/-- Momentum-flipped constant-metric trajectory proposal. -/
+noncomputable def endpointMetricLeapfrogNProposal
+    (metric : ConstantMetric ι) (gradient : Position ι → Momentum ι)
+    (ε : ℝ) (steps : Nat) (z : PhaseSpace ι) : PhaseSpace ι :=
+  momentumFlip (metricLeapfrogN metric.velocity gradient ε steps z)
+
+theorem endpointMetricLeapfrogNProposal_involutive
+    (metric : ConstantMetric ι) (gradient : Position ι → Momentum ι)
+    (ε : ℝ) (steps : Nat) :
+    Function.Involutive
+      (endpointMetricLeapfrogNProposal metric gradient ε steps) := by
+  intro z
+  simp only [endpointMetricLeapfrogNProposal]
+  rw [momentumFlip_metricLeapfrogN_momentumFlip]
+  rw [metricLeapfrogN_eq_pow, metricLeapfrogN_eq_pow]
+  change (((metricLeapfrogPerm metric gradient ε) ^ steps)⁻¹)
+      (((metricLeapfrogPerm metric gradient ε) ^ steps) z) = z
+  exact Equiv.apply_symm_apply _ _
+
+theorem measurable_metricLeapfrog
+    (metric : ConstantMetric ι) {gradient : Position ι → Momentum ι}
+    (hgradient : Measurable gradient) (ε : ℝ) :
+    Measurable (metricLeapfrog metric.velocity gradient ε) := by
+  change Measurable
+    (Mcmc.Hamiltonian.kickPhase gradient ε ∘ metricDriftPhase metric.velocity ε ∘
+      Mcmc.Hamiltonian.kickPhase gradient ε)
+  exact (measurable_kickPhase hgradient ε).comp
+    ((measurable_metricDriftPhase metric.measurable_velocity ε).comp
+      (measurable_kickPhase hgradient ε))
+
+theorem measurable_metricLeapfrogN
+    (metric : ConstantMetric ι) {gradient : Position ι → Momentum ι}
+    (hgradient : Measurable gradient) (ε : ℝ) (steps : Nat) :
+    Measurable (metricLeapfrogN metric.velocity gradient ε steps) := by
+  induction steps with
+  | zero => exact measurable_id
+  | succ steps ih =>
+      exact (measurable_metricLeapfrog metric hgradient ε).comp ih
+
+theorem measurable_endpointMetricLeapfrogNProposal
+    (metric : ConstantMetric ι) {gradient : Position ι → Momentum ι}
+    (hgradient : Measurable gradient) (ε : ℝ) (steps : Nat) :
+    Measurable (endpointMetricLeapfrogNProposal metric gradient ε steps) :=
+  measurable_momentumFlip.comp
+    (measurable_metricLeapfrogN metric hgradient ε steps)
+
+theorem measurePreserving_endpointMetricLeapfrogNProposal
+    (metric : ConstantMetric ι) {gradient : Position ι → Momentum ι}
+    (hgradient : Measurable gradient) (ε : ℝ) (steps : Nat) :
+    MeasurePreserving (endpointMetricLeapfrogNProposal metric gradient ε steps)
+      phaseVolume phaseVolume :=
+  measurePreserving_momentumFlip.comp
+    (measurePreserving_metricLeapfrogN metric.measurable_velocity hgradient ε steps)
+
+noncomputable def metricBoltzmannWeight
+    (potential : Position ι → ℝ) (kinetic : Momentum ι → ℝ)
+    (z : PhaseSpace ι) : ENNReal :=
+  ENNReal.ofReal (Real.exp (-(potential z.1 + kinetic z.2)))
+
+noncomputable def metricPositionBoltzmannWeight
+    (potential : Position ι → ℝ) (q : Position ι) : ENNReal :=
+  ENNReal.ofReal (Real.exp (-potential q))
+
+noncomputable def metricKineticBoltzmannWeight
+    (kinetic : Momentum ι → ℝ) (p : Momentum ι) : ENNReal :=
+  ENNReal.ofReal (Real.exp (-kinetic p))
+
+noncomputable def metricPositionBoltzmannTarget
+    (potential : Position ι → ℝ) : Measure (Position ι) :=
+  volume.withDensity (metricPositionBoltzmannWeight potential)
+
+noncomputable def metricKineticBoltzmannTarget
+    (kinetic : Momentum ι → ℝ) : Measure (Momentum ι) :=
+  volume.withDensity (metricKineticBoltzmannWeight kinetic)
+
+omit [Fintype ι] in theorem metricBoltzmannWeight_eq_mul
+    (potential : Position ι → ℝ) (kinetic : Momentum ι → ℝ)
+    (z : PhaseSpace ι) :
+    metricBoltzmannWeight potential kinetic z =
+      metricPositionBoltzmannWeight potential z.1 *
+        metricKineticBoltzmannWeight kinetic z.2 := by
+  rw [metricBoltzmannWeight, metricPositionBoltzmannWeight,
+    metricKineticBoltzmannWeight]
+  rw [show -(potential z.1 + kinetic z.2) =
+    -potential z.1 + -kinetic z.2 by ring, Real.exp_add,
+    ENNReal.ofReal_mul (Real.exp_nonneg _)]
+
+theorem metricPhaseBoltzmannTarget_eq_prod
+    {potential : Position ι → ℝ} {kinetic : Momentum ι → ℝ}
+    (hpotential : Measurable potential) (hkinetic : Measurable kinetic) :
+    phaseVolume.withDensity (metricBoltzmannWeight potential kinetic) =
+      (metricPositionBoltzmannTarget potential).prod
+        (metricKineticBoltzmannTarget kinetic) := by
+  rw [metricPositionBoltzmannTarget, metricKineticBoltzmannTarget,
+    prod_withDensity
+      (f := metricPositionBoltzmannWeight potential)
+      (g := metricKineticBoltzmannWeight kinetic)
+      (by exact ENNReal.measurable_ofReal.comp hpotential.neg.exp)
+      (by exact ENNReal.measurable_ofReal.comp hkinetic.neg.exp)]
+  unfold phaseVolume
+  congr 1
+  funext z
+  exact metricBoltzmannWeight_eq_mul potential kinetic z
+
+omit [Fintype ι] in theorem measurable_metricBoltzmannWeight
+    {potential : Position ι → ℝ} {kinetic : Momentum ι → ℝ}
+    (hpotential : Measurable potential) (hkinetic : Measurable kinetic) :
+    Measurable (metricBoltzmannWeight potential kinetic) := by
+  exact ENNReal.measurable_ofReal.comp
+    (((hpotential.comp measurable_fst).add
+      (hkinetic.comp measurable_snd)).neg.exp)
+
+noncomputable def endpointMetricHmcPhaseKernel
+    (metric : ConstantMetric ι) (potential : Position ι → ℝ)
+    (kinetic : Momentum ι → ℝ) (gradient : Position ι → Momentum ι)
+    (ε : ℝ) (steps : Nat) (hgradient : Measurable gradient) :
+    ProbabilityTheory.Kernel (PhaseSpace ι) (PhaseSpace ι) :=
+  Mcmc.Kernel.deterministicMetropolis (metricBoltzmannWeight potential kinetic)
+    (endpointMetricLeapfrogNProposal metric gradient ε steps)
+    (measurable_endpointMetricLeapfrogNProposal metric hgradient ε steps)
+
+theorem endpointMetricHmcPhaseKernel_isMarkov
+    (metric : ConstantMetric ι) (potential : Position ι → ℝ)
+    (kinetic : Momentum ι → ℝ) (gradient : Position ι → Momentum ι)
+    (ε : ℝ) (steps : Nat) (hpotential : Measurable potential)
+    (hkinetic : Measurable kinetic) (hgradient : Measurable gradient) :
+    ProbabilityTheory.IsMarkovKernel
+      (endpointMetricHmcPhaseKernel metric potential kinetic gradient ε steps
+        hgradient) := by
+  unfold endpointMetricHmcPhaseKernel
+  exact Mcmc.Kernel.deterministicMetropolis_isMarkov _ _
+    (measurable_metricBoltzmannWeight hpotential hkinetic)
+    (measurable_endpointMetricLeapfrogNProposal metric hgradient ε steps)
+
+theorem endpointMetricHmcPhaseKernel_invariant
+    (metric : ConstantMetric ι)
+    {potential : Position ι → ℝ} {kinetic : Momentum ι → ℝ}
+    {gradient : Position ι → Momentum ι}
+    (hpotential : Measurable potential) (hkinetic : Measurable kinetic)
+    (hgradient : Measurable gradient) (ε : ℝ) (steps : Nat) :
+    (endpointMetricHmcPhaseKernel metric potential kinetic gradient ε steps
+      hgradient).Invariant
+      (phaseVolume.withDensity (metricBoltzmannWeight potential kinetic)) := by
+  unfold endpointMetricHmcPhaseKernel
+  apply Mcmc.Kernel.deterministicMetropolis_invariant
+  · exact measurable_metricBoltzmannWeight hpotential hkinetic
+  · intro z
+    exact ENNReal.ofReal_ne_zero_iff.mpr (Real.exp_pos _)
+  · intro z
+    simp [metricBoltzmannWeight]
+  · exact endpointMetricLeapfrogNProposal_involutive metric gradient ε steps
+  · exact measurePreserving_endpointMetricLeapfrogNProposal metric hgradient ε steps
+
+noncomputable def endpointMetricHmcPositionKernel
+    (metric : ConstantMetric ι) (potential : Position ι → ℝ)
+    (kinetic : Momentum ι → ℝ) (gradient : Position ι → Momentum ι)
+    (momentumTarget : Measure (Momentum ι)) (ε : ℝ) (steps : Nat)
+    (_hpotential : Measurable potential) (_hkinetic : Measurable kinetic)
+    (hgradient : Measurable gradient) :
+    ProbabilityTheory.Kernel (Position ι) (Position ι) := by
+  letI := endpointMetricHmcPhaseKernel_isMarkov metric potential kinetic gradient
+    ε steps _hpotential _hkinetic hgradient
+  exact Mcmc.Kernel.liftEvolveProject
+    (positionMomentumLift momentumTarget)
+    (endpointMetricHmcPhaseKernel metric potential kinetic gradient ε steps hgradient)
+    (Prod.fst : PhaseSpace ι → Position ι) measurable_fst
+
+/-- Refresh–evolve–project invariance for any momentum law whose product with
+the position target is the metric Boltzmann phase measure. -/
+theorem endpointMetricHmcPositionKernel_invariant
+    (metric : ConstantMetric ι)
+    {potential : Position ι → ℝ} {kinetic : Momentum ι → ℝ}
+    {gradient : Position ι → Momentum ι}
+    (hpotential : Measurable potential) (hkinetic : Measurable kinetic)
+    (hgradient : Measurable gradient) (momentumTarget : Measure (Momentum ι))
+    [IsProbabilityMeasure momentumTarget]
+    (positionTarget : Measure (Position ι)) [SFinite positionTarget]
+    (ε : ℝ) (steps : Nat)
+    (hfactor : positionTarget.prod momentumTarget =
+      phaseVolume.withDensity (metricBoltzmannWeight potential kinetic)) :
+    (endpointMetricHmcPositionKernel metric potential kinetic gradient
+      momentumTarget ε steps hpotential hkinetic hgradient).Invariant
+      positionTarget := by
+  change (Mcmc.Kernel.liftEvolveProject
+    (positionMomentumLift momentumTarget)
+    (endpointMetricHmcPhaseKernel metric potential kinetic gradient ε steps hgradient)
+    (Prod.fst : PhaseSpace ι → Position ι) measurable_fst).Invariant positionTarget
+  have hphase := endpointMetricHmcPhaseKernel_invariant metric hpotential
+    hkinetic hgradient ε steps
+  rw [← hfactor] at hphase
+  unfold positionMomentumLift
+  apply Mcmc.Kernel.compProdEvolveFst_invariant
+  rw [Measure.compProd_const]
+  exact hphase
+
 /-- Diagonal inverse-mass velocity, covering the executable diagonal metric. -/
 def diagonalVelocity (inverseMass : ι → ℝ) (p : Momentum ι) : Position ι :=
   fun i => inverseMass i * p i

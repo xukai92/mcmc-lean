@@ -59,8 +59,8 @@ input or probabilistic assumption.
 
 ## Julia layer
 
-The version-5 artifact additionally contains scalar and vector-valued
-multi-step endpoint HMC.
+The version-6 artifact contains scalar and vector-valued multi-step endpoint
+HMC (introduced in version 5), together with constant-metric programs.
 Its explicit callbacks are the target log density and the gradient of the
 negative log density, together with positive step size and trajectory length.
 Lean proves the command trace formula, its integrator equals the established
@@ -84,10 +84,12 @@ The vector replay theorem now covers the complete normal-event prefix,
 uniform event, endpoint energies, decision, result, and remaining trace. The
 bounded HMC layer gives coordinatewise trajectory certificates and a stable
 acceptance theorem outside the explicit uniform/threshold error band.
-Constant diagonal and dense metrics have exact Lean velocity maps and
-phase-volume-preservation proofs. Julia checks positive-definiteness and uses
-Cholesky momentum generation; a theorem connecting that concrete operation to
-the corresponding Gaussian momentum measure is not yet claimed.
+Constant diagonal and dense metrics have exact Lean velocity maps,
+time-reversal and endpoint-invariance theorems. Their type-indexed commands are
+part of generated IR version 6 and are interpreted by Julia Reference. Lean
+proves that applying an invertible factor to standard momentum gives the
+pushforward Gaussian law, identifies its determinant-normalized quadratic
+kinetic density, and instantiates refreshed position-target invariance.
 
 The same artifact contains the continuous RWMH command program. Julia
 Reference interprets its expressions, callback calls, draws, branch, and
@@ -128,8 +130,7 @@ If the branches disagree, Lean proves that the ideal draw lies inside the
 same combined-error band around the threshold. This is the unavoidable
 boundary qualification for a discontinuous accept/reject decision.
 
-An eventual backend theorem or validated translation must account for each of
-the following separately:
+Backend certificates must account for each of the following separately:
 
 | Boundary | Required statement |
 |---|---|
@@ -139,13 +140,40 @@ the following separately:
 | Target expression to Julia callback | The callback implements the same log weight on the admitted domain, up to the stated numeric error. |
 | Ideal continuous IR to Julia | The maintained interpreter mirrors primitive order and control flow and is differentially tested; a machine-checked cross-language/numerical refinement remains future work. |
 
-The generic bounded-error composition is now discharged. What remains in the
-table is construction of concrete certificates for the supported Julia,
-`Float64`, libm, callback, and RNG implementations. Until those are supplied,
-the implementation is not an exact or quantitatively certified executable
-realization of mathlib's continuous measure.
+`BackendRwmhCertificate` and `BackendHmcCertificate` now compose these
+operation-level claims into the exact Lean decision-stability certificates.
+The matching Julia `Certificates` module checks execution-specific witnesses,
+adds callback or endpoint-energy error to the `exp` error, and reports whether
+the ideal decision margin exceeds the resulting threshold/RNG uncertainty
+band.
 
 `NumericalRefinement` retains the exact backend contract, while
-`BoundedRWMH` gives the practically attainable finite-error contract. No
-Julia/Float64 witness is defined. Supplying either remains explicit at every
-use site and adds no axiom to the trusted Lean environment.
+`BoundedRWMH`, `BoundedHMC`, and `BackendCertificates` give the practically
+attainable finite-error contract. A per-run Julia witness is conditional on
+the supplied ideal values and primitive bounds. No universal theorem about
+Julia callbacks, LLVM lowering, platform libm, or RNG distributions is
+defined; supplying those assumptions remains explicit and adds no axiom to
+the trusted Lean environment.
+
+For example, after obtaining analytic or trusted-oracle bounds for one RWMH
+execution:
+
+```julia
+using VerifiedSamplers
+
+certificate = Certificates.certify_rwmh_decision(
+    computed_current_logdensity=-0.5,
+    ideal_current_logdensity=big"-0.5",
+    current_logdensity_bound=big"0",
+    computed_proposal_logdensity=-0.5,
+    ideal_proposal_logdensity=big"-0.5",
+    proposal_logdensity_bound=big"0",
+    computed_threshold=1.0,
+    ideal_threshold=big"1",
+    exp_bound=big"0",
+    computed_uniform=0.25,
+    ideal_uniform=big"0.25",
+    uniform_bound=big"0")
+
+Certificates.is_stable(certificate) # branch agreement follows conditionally
+```
