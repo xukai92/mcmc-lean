@@ -114,6 +114,18 @@ Consequently the concrete Poisson-weighted sum of conditional schedule laws is
 proved a probability measure, and mapping to `count` is exactly the source
 Poisson measure.
 
+Completed the bounded fixed-horizon execution bridge. On the augmented state,
+each wait coordinate drives a jointly measurable deterministic flow and the
+bounded accepted/virtual jump while retaining the remaining schedule. A
+recursive kernel executes any fixed coordinate range; a count-indexed kernel
+adds exact residual flow. Countably many source-masked kernels then select the
+runtime count, with a row theorem proving exactly one summand is active and
+therefore that the selector is Markov. Finally `ThinnedFlowSimulator.horizonKernel`
+samples the concrete Poisson schedule and composes it with this executor. This
+is a complete process transition for globally bounded thinning on every
+positive horizon. Stationarity from generator cancellation, semigroup
+consistency across horizons, and convergence remain separate theorems.
+
 ## 2026-08-15: categorical discontinuous-HMC vertical slice
 
 Added the Laplace-momentum crossing/reflection algebra from Nishimura, Dunson,

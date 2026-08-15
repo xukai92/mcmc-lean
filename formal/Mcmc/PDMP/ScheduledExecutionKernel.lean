@@ -113,4 +113,180 @@ instance ThinnedFlowSimulator.oneConditionalCandidateKernel.instIsMarkovKernel
   unfold ThinnedFlowSimulator.oneConditionalCandidateKernel
   infer_instance
 
+/-- State augmented with a finite-count padded candidate schedule. -/
+abbrev ScheduledState (State : Type*) := State × CandidateScheduleSample
+
+/-- Flow by candidate wait coordinate `index`, retaining the whole schedule. -/
+noncomputable def ThinnedFlowSimulator.flowScheduledCoordinate
+    (simulator : ThinnedFlowSimulator State) (index : ℕ) :
+    Kernel (ScheduledState State) (ScheduledState State) :=
+  Kernel.deterministic
+    (fun p => (simulator.semiflow.flow (p.2.2 index) p.1, p.2))
+    (by
+      have htime : Measurable (fun p : ScheduledState State => p.2.2 index) :=
+        (measurable_pi_apply index).comp (measurable_snd.comp measurable_snd)
+      exact (simulator.semiflow.jointly_measurable_flow.comp
+        (htime.prodMk measurable_fst)).prodMk measurable_snd)
+
+instance ThinnedFlowSimulator.flowScheduledCoordinate.instIsMarkovKernel
+    (simulator : ThinnedFlowSimulator State) (index : ℕ) :
+    IsMarkovKernel (simulator.flowScheduledCoordinate index) := by
+  unfold ThinnedFlowSimulator.flowScheduledCoordinate
+  infer_instance
+
+/-- Apply thinning to the state while retaining the whole schedule. -/
+noncomputable def ThinnedFlowSimulator.jumpKeepSchedule
+    (simulator : ThinnedFlowSimulator State) :
+    Kernel (ScheduledState State) (ScheduledState State) :=
+  Kernel.prod
+    (Kernel.prodMkRight CandidateScheduleSample
+      (simulator.mechanism.uniformizedKernel simulator.clock.rate))
+    (Kernel.deterministic Prod.snd measurable_snd)
+
+instance ThinnedFlowSimulator.jumpKeepSchedule.instIsMarkovKernel
+    (simulator : ThinnedFlowSimulator State) :
+    IsMarkovKernel simulator.jumpKeepSchedule := by
+  letI : IsMarkovKernel
+      (simulator.mechanism.uniformizedKernel simulator.clock.rate) :=
+    simulator.mechanism.uniformizedKernel_isMarkov simulator.clock.rate
+      simulator.clock.positive simulator.rate_le_clock
+  unfold ThinnedFlowSimulator.jumpKeepSchedule
+  infer_instance
+
+/-- One scheduled candidate coordinate: flow, then accept or reject the
+candidate, retaining the remaining schedule. -/
+noncomputable def ThinnedFlowSimulator.scheduledCoordinateStep
+    (simulator : ThinnedFlowSimulator State) (index : ℕ) :
+    Kernel (ScheduledState State) (ScheduledState State) :=
+  simulator.jumpKeepSchedule ∘ₖ simulator.flowScheduledCoordinate index
+
+instance ThinnedFlowSimulator.scheduledCoordinateStep.instIsMarkovKernel
+    (simulator : ThinnedFlowSimulator State) (index : ℕ) :
+    IsMarkovKernel (simulator.scheduledCoordinateStep index) := by
+  unfold ThinnedFlowSimulator.scheduledCoordinateStep
+  infer_instance
+
+/-- Execute `count` schedule coordinates beginning at `start`. -/
+noncomputable def ThinnedFlowSimulator.executeScheduledRange
+    (simulator : ThinnedFlowSimulator State) :
+    ℕ → ℕ → Kernel (ScheduledState State) (ScheduledState State)
+  | _, 0 => Kernel.id
+  | start, count + 1 =>
+      simulator.executeScheduledRange (start + 1) count ∘ₖ
+        simulator.scheduledCoordinateStep start
+
+instance ThinnedFlowSimulator.executeScheduledRange.instIsMarkovKernel
+    (simulator : ThinnedFlowSimulator State) (start count : ℕ) :
+    IsMarkovKernel (simulator.executeScheduledRange start count) := by
+  induction count generalizing start with
+  | zero =>
+      simp only [ThinnedFlowSimulator.executeScheduledRange]
+      infer_instance
+  | succ count ih =>
+      simp only [ThinnedFlowSimulator.executeScheduledRange]
+      letI : IsMarkovKernel
+          (simulator.executeScheduledRange (start + 1) count) := ih (start + 1)
+      infer_instance
+
+/-- Total elapsed time represented by the first `count` wait coordinates. -/
+def scheduleElapsed (count : ℕ) (schedule : CandidateScheduleSample) : NNReal :=
+  ∑ index ∈ Finset.range count, schedule.2 index
+
+theorem measurable_scheduleElapsed (count : ℕ) :
+    Measurable (scheduleElapsed count) := by
+  unfold scheduleElapsed
+  fun_prop
+
+/-- After all scheduled candidates, flow through the residual horizon. -/
+noncomputable def ThinnedFlowSimulator.flowScheduledResidual
+    (simulator : ThinnedFlowSimulator State) (horizon : NNReal)
+    (count : ℕ) : Kernel (ScheduledState State) State :=
+  Kernel.deterministic
+    (fun p => simulator.semiflow.flow
+      (horizon - scheduleElapsed count p.2) p.1)
+    (simulator.semiflow.jointly_measurable_flow.comp
+      ((measurable_const.sub
+        ((measurable_scheduleElapsed count).comp measurable_snd)).prodMk
+          measurable_fst))
+
+instance ThinnedFlowSimulator.flowScheduledResidual.instIsMarkovKernel
+    (simulator : ThinnedFlowSimulator State) (horizon : NNReal)
+    (count : ℕ) :
+    IsMarkovKernel (simulator.flowScheduledResidual horizon count) := by
+  unfold ThinnedFlowSimulator.flowScheduledResidual
+  infer_instance
+
+/-- Execute exactly `count` scheduled candidates and then the residual flow. -/
+noncomputable def ThinnedFlowSimulator.executeScheduledCount
+    (simulator : ThinnedFlowSimulator State) (horizon : NNReal)
+    (count : ℕ) : Kernel (ScheduledState State) State :=
+  simulator.flowScheduledResidual horizon count ∘ₖ
+    simulator.executeScheduledRange 0 count
+
+instance ThinnedFlowSimulator.executeScheduledCount.instIsMarkovKernel
+    (simulator : ThinnedFlowSimulator State) (horizon : NNReal)
+    (count : ℕ) :
+    IsMarkovKernel (simulator.executeScheduledCount horizon count) := by
+  unfold ThinnedFlowSimulator.executeScheduledCount
+  infer_instance
+
+private theorem measurableSet_scheduleCount
+    (count : ℕ) :
+    MeasurableSet {p : ScheduledState State | p.2.1 = count} :=
+  (measurable_fst.comp measurable_snd) (MeasurableSet.singleton count)
+
+/-- Mask a fixed-count executor to augmented inputs carrying that count. -/
+noncomputable def ThinnedFlowSimulator.maskedScheduledCount
+    (simulator : ThinnedFlowSimulator State) (horizon : NNReal)
+    (count : ℕ) : Kernel (ScheduledState State) State :=
+  Kernel.piecewise (measurableSet_scheduleCount count)
+    (simulator.executeScheduledCount horizon count) 0
+
+/-- Execute the runtime count stored in a padded schedule. Exactly one summand
+is active at every input. -/
+noncomputable def ThinnedFlowSimulator.executeScheduled
+    (simulator : ThinnedFlowSimulator State) (horizon : NNReal) :
+    Kernel (ScheduledState State) State :=
+  Kernel.sum fun count : ℕ => simulator.maskedScheduledCount horizon count
+
+theorem ThinnedFlowSimulator.executeScheduled_apply
+    (simulator : ThinnedFlowSimulator State) (horizon : NNReal)
+    (input : ScheduledState State) :
+    simulator.executeScheduled horizon input =
+      simulator.executeScheduledCount horizon input.2.1 input := by
+  rw [ThinnedFlowSimulator.executeScheduled, Kernel.sum_apply]
+  ext s hs
+  rw [Measure.sum_apply _ hs, tsum_eq_single input.2.1]
+  · simp [ThinnedFlowSimulator.maskedScheduledCount,
+      Kernel.piecewise_apply']
+  · intro count hne
+    have hne' : input.2.1 ≠ count := Ne.symm hne
+    simp [ThinnedFlowSimulator.maskedScheduledCount,
+      Kernel.piecewise_apply', hne']
+
+instance ThinnedFlowSimulator.executeScheduled.instIsMarkovKernel
+    (simulator : ThinnedFlowSimulator State) (horizon : NNReal) :
+    IsMarkovKernel (simulator.executeScheduled horizon) := by
+  constructor
+  intro input
+  constructor
+  rw [simulator.executeScheduled_apply horizon input, measure_univ]
+
+/-- Full bounded-rate fixed-horizon PDMP transition. It samples the exact
+Poisson candidate count and conditional ordered times, executes every thinned
+candidate in chronological order, and fills the residual horizon by flow. -/
+noncomputable def ThinnedFlowSimulator.horizonKernel
+    (simulator : ThinnedFlowSimulator State) (horizon : PositiveHorizon) :
+    Kernel State State :=
+  simulator.executeScheduled horizon.duration ∘ₖ
+    Kernel.prod Kernel.id
+      (Kernel.const State (poissonCandidateSchedule
+        (simulator.clock.rate * horizon.duration) horizon))
+
+instance ThinnedFlowSimulator.horizonKernel.instIsMarkovKernel
+    (simulator : ThinnedFlowSimulator State) (horizon : PositiveHorizon) :
+    IsMarkovKernel (simulator.horizonKernel horizon) := by
+  unfold ThinnedFlowSimulator.horizonKernel
+  infer_instance
+
 end Mcmc.PDMP

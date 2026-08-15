@@ -182,6 +182,13 @@ flow, thin the event, and flow through the residual horizon.
 Lean now constructs the unconditional dependent joint law of the Poisson count
 and its padded ordered-wait sequence, proves it is a probability measure, and
 proves its count marginal is exactly the original Poisson law.
+That law is now connected to arbitrary-count execution. Lean builds measurable
+flow/jump steps retaining the padded schedule, iterates exactly the runtime
+count, flows through the residual horizon, and glues the count-indexed kernels
+into one Markov kernel. Consequently every globally bounded thinning simulator
+has a complete positive-horizon transition kernel driven by the exact
+homogeneous Poisson schedule. This proves construction and Markov validity,
+not stationary-target preservation or convergence for BPS/Zig-Zag.
 
 For positive-horizon particle Gibbs, the finite library now proves a concrete
 arbitrary-horizon result: with any finite particle index type containing at
