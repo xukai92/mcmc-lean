@@ -59,7 +59,7 @@ not target-exact.
 
 ## Track B: paper-target execution
 
-### B1. Executable Xu et al. (2021) coupling
+### B1. Executable Xu et al. (2021) coupling — complete
 
 Add generated shared-randomness commands for coupled multinomial HMC, sticky
 Gaussian RWMH, and their mixture. Prove both executable marginals equal the
@@ -93,7 +93,6 @@ obligations.
 
 ## Immediate plan
 
-A1--A3 are complete in the finite layer. The next milestone is **B1:
-executable Xu et al. (2021) coupling**: generated shared-randomness commands,
-proved single-chain marginals, and replay-level meeting events. A4 remains an
-independent general-state convergence/proposal branch.
+A1--A3 and B1 are complete. The next reusable branch is A4; the next
+paper-execution branch is B2. Neither is needed to support the completed
+finite Gibbs, tempering, pseudo-marginal, or Xu et al. coupling claims.

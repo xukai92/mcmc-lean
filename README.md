@@ -186,7 +186,7 @@ still inputs to this theorem rather than assumed facts.
 | Ideal trace | Proved for arbitrary scalar log densities and real scales |
 | Exact kernel | Proved for measurable log densities and positive scales |
 | Stationarity | Proved for the normalized `exp ∘ logdensity` target |
-| Julia Reference | Interprets the committed version-8 sampler IR |
+| Julia Reference | Interprets the committed version-9 sampler IR |
 | Julia Optimized | Independently implemented and differentially tested |
 | Bounded numeric refinement | Proved composition and decision-stability theorems, conditional on concrete operation-error certificates |
 | Julia execution certificates | Per-run checked RWMH/HMC decision witnesses with explicit callback, libm, and RNG bounds |
@@ -203,7 +203,7 @@ established `leapfrogN` map for every trajectory length, and proves exact
 phase-volume preservation and Boltzmann-target invariance of the corresponding
 phase kernel. The complete refresh–evolve–project position kernel is also
 defined and proved invariant for every compatible position target. The
-version-8 artifact is interpreted by Julia Reference and
+version-9 artifact is interpreted by Julia Reference and
 differentially tested against Optimized, including energy, reversibility,
 numerical-volume, Gaussian-moment, and non-Gaussian quartic-moment tests:
 
@@ -237,11 +237,28 @@ chain = sample(MersenneTwister(9), sampler, zeros(2), 10_000)
 Lean defines the corresponding diagonal and dense inverse-mass velocity maps,
 proves exact time reversal, endpoint-proposal involution, phase-volume
 preservation, Boltzmann phase invariance, and refreshed position invariance.
-The version-8 artifact retains the type-indexed diagonal and dense commands
+The version-9 artifact retains the type-indexed diagonal and dense commands
 introduced in version 6, so Julia Reference executes both through the
 generated IR. Lean also proves the
 linear/Cholesky Gaussian pushforward law and its determinant-normalized
 quadratic kinetic density using mathlib's matrix change-of-variables theorem.
+
+The Xu et al. coupled HMC/RWMH mixture is exposed through the version-9 IR:
+
+```julia
+sampler = Xu21CoupledSampler(q -> -sum(abs2, q) / 2, identity,
+    0.15, 4, 0.6, 0.9)
+coupled = sample(MersenneTwister(21), sampler,
+    ([0.0, 0.0], [2.0, -1.0]), 1_000)
+findfirst(coupled.met)
+```
+
+The interpreter uses shared momentum and trajectory origin, maximal coupling
+of multinomial indices, maximal Gaussian proposals, shared accept/reject
+uniforms, and a shared mixture decision. Lean proves that the ideal command
+has the verified single-chain mixture on both marginals; `met` records exact
+replay-level equality. As elsewhere, concrete Float64 execution is separated
+from the ideal-real theorem by the numerical-refinement boundary.
 
 Backend-facing Lean certificates now compose proposal, callback, endpoint
 energy, `exp`, and RNG bounds into the RWMH/HMC decision-stability theorems.
@@ -263,7 +280,7 @@ Lean proves that the ideal origin/index choice program has exactly the
 existing `randomizedMultinomialLeapfrogPMF` law, identifies its measure with
 the verified kernel row, and assigns the complete refresh–evolve–project
 command the proved invariant position kernel. Julia Reference interprets the
-generated version-8 command; Optimized independently builds the re-rooted
+generated version-9 command; Optimized independently builds the re-rooted
 trajectory. Float64 Boltzmann weights and categorical boundary decisions
 retain the explicit numerical-refinement qualification.
 

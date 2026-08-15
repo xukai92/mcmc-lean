@@ -3,6 +3,22 @@
 Entries through the earlier 2026-08-13 work are preserved in the
 [development-log archive](development-log-archive.md).
 
+## 2026-08-15: executable Xu et al. coupled mixture
+
+Advanced the sampler artifact to version 9 with generated descriptors for
+coupled multinomial HMC, coupled Gaussian RWMH, and their shared mixture.
+Julia Reference interprets shared momentum/origin trajectories with maximal
+categorical coupling, maximal Gaussian proposals, shared acceptance uniforms,
+and a shared mixture choice. The public `Xu21CoupledSampler` returns both
+chains and replay-level exact-meeting flags; tests cover execution, validation,
+and faithfulness after meeting.
+
+Lean identifies the ideal mixture command with the existing verified coupled
+kernel and proves that both marginals are the verified single-chain HMC/RWMH
+mixture. The equality between this ideal-real denotation and Float64 replay is
+not claimed; it remains governed by the explicit numerical-refinement
+boundary.
+
 ## 2026-08-15: finite Gibbs, tempering, and pseudo-marginal foundations
 
 Added reusable identity, composition, convex-mixture, and coordinate-lift

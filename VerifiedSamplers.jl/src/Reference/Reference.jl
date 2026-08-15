@@ -5,9 +5,10 @@ using LinearAlgebra
 using ..Runtime: AbstractRandomSource, draw_below!, standard_normal!, uniform_unit!
 
 export categorical_index!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!, scalar_hmc_step!, vector_hmc_step!, metric_hmc_step!, multinomial_hmc_step!, metric_multinomial_hmc_step!,
+    coupled_multinomial_hmc_step!, coupled_gaussian_rwmh_step!, xu21_coupled_step!,
     IR_FORMAT_VERSION
 
-const IR_FORMAT_VERSION = 8
+const IR_FORMAT_VERSION = 9
 
 struct SList
     items::Vector{Any}
@@ -265,6 +266,27 @@ function eval_expr(raw, env::Dict{String,Any})
         return _metric_multinomial_hmc_step!(source, env["logdensity"],
             env["gradient"], step_size, steps, current, mass, kind)
     end
+    if tag == "coupled-multinomial-hmc" || tag == "coupled-gaussian-rwmh" ||
+            tag == "xu21-coupled-mixture"
+        source = eval_expr(node[2], env)
+        step_size = Float64(eval_expr(node[3], env))
+        steps = Int(eval_expr(node[4], env))
+        scale = Float64(eval_expr(node[5], env))
+        hmc_weight = Float64(eval_expr(node[6], env))
+        left = Float64.(eval_expr(node[7], env))
+        right = Float64.(eval_expr(node[8], env))
+        if tag == "coupled-multinomial-hmc"
+            return _coupled_multinomial_hmc_step!(source, env["logdensity"],
+                env["gradient"], step_size, steps, left, right)
+        elseif tag == "coupled-gaussian-rwmh"
+            return _coupled_gaussian_rwmh_step!(source, env["logdensity"],
+                scale, left, right)
+        end
+        return uniform_unit!(source) < hmc_weight ?
+            _coupled_multinomial_hmc_step!(source, env["logdensity"], env["gradient"],
+                step_size, steps, left, right) :
+            _coupled_gaussian_rwmh_step!(source, env["logdensity"], scale, left, right)
+    end
     if tag == "categorical"
         source = eval_expr(node[2], env)
         weights = eval_expr(node[3], env)
@@ -277,6 +299,78 @@ function eval_expr(raw, env::Dict{String,Any})
         error("draw_below! violated its range contract")
     end
     error("unsupported IR expression: $tag")
+end
+
+function _categorical_uniform!(source, weights)
+    draw = uniform_unit!(source) * sum(weights)
+    cumulative = 0.0
+    for index in eachindex(weights)
+        cumulative += weights[index]
+        draw < cumulative && return index
+    end
+    lastindex(weights)
+end
+
+function _maximal_categorical_pair!(source, left, right)
+    p, q = left ./ sum(left), right ./ sum(right)
+    common = min.(p, q)
+    common_mass = sum(common)
+    if uniform_unit!(source) < common_mass
+        index = _categorical_uniform!(source, common)
+        return index, index
+    end
+    _categorical_uniform!(source, p .- common),
+        _categorical_uniform!(source, q .- common)
+end
+
+function _trajectory(logdensity, gradient, step_size, steps, q0, p0, origin)
+    result = Vector{Tuple{Vector{Float64},Vector{Float64}}}(undef, steps + 1)
+    for index in 0:steps
+        q, p = copy(q0), copy(p0)
+        signed_step = index >= origin ? step_size : -step_size
+        for _ in 1:abs(index - origin)
+            half = p .- (signed_step / 2) .* gradient(q)
+            q = q .+ signed_step .* half
+            p = half .- (signed_step / 2) .* gradient(q)
+        end
+        result[index + 1] = (q, p)
+    end
+    result
+end
+
+function _coupled_multinomial_hmc_step!(source, logdensity, gradient,
+        step_size, steps, left, right)
+    length(left) == length(right) || throw(DimensionMismatch("coupled states"))
+    momentum = [standard_normal!(source) for _ in eachindex(left)]
+    origin = Int(draw_below!(source, steps + 1))
+    left_path = _trajectory(logdensity, gradient, step_size, steps, left, momentum, origin)
+    right_path = _trajectory(logdensity, gradient, step_size, steps, right, momentum, origin)
+    weights(path) = begin
+        logs = [logdensity(q) - sum(abs2, p) / 2 for (q, p) in path]
+        exp.(logs .- maximum(logs))
+    end
+    i, j = _maximal_categorical_pair!(source, weights(left_path), weights(right_path))
+    [left_path[i][1], right_path[j][1]]
+end
+
+function _coupled_gaussian_rwmh_step!(source, logdensity, scale, left, right)
+    length(left) == length(right) || throw(DimensionMismatch("coupled states"))
+    noise = [standard_normal!(source) for _ in eachindex(left)]
+    proposed_left = left .+ scale .* noise
+    log_ratio = (sum(abs2, proposed_left .- right) -
+        sum(abs2, proposed_left .- left)) / (-2scale^2)
+    proposed_right = if log(uniform_unit!(source)) < min(0.0, log_ratio)
+        copy(proposed_left)
+    else
+        delta = right .- left
+        norm2 = sum(abs2, delta)
+        norm2 == 0 ? copy(proposed_left) :
+            right .+ scale .* (noise .- 2 .* (dot(noise, delta) / norm2) .* delta)
+    end
+    u = log(uniform_unit!(source))
+    next_left = u < min(0.0, logdensity(proposed_left) - logdensity(left)) ? proposed_left : left
+    next_right = u < min(0.0, logdensity(proposed_right) - logdensity(right)) ? proposed_right : right
+    [next_left, next_right]
 end
 
 struct Returned
@@ -567,5 +661,37 @@ function metric_multinomial_hmc_step!(source::AbstractRandomSource, logdensity,
     Float64.(run_program(name, source, checked_log, checked_grad, step_size, steps,
         current, mass))
 end
+
+function _run_coupled(name, source::AbstractRandomSource, logdensity, gradient,
+        step_size::Real, steps::Integer, scale::Real, hmc_weight::Real,
+        left::AbstractVector{<:Real}, right::AbstractVector{<:Real})
+    length(left) == length(right) || throw(DimensionMismatch("coupled states"))
+    isempty(left) && throw(ArgumentError("position cannot be empty"))
+    step_size > 0 && steps > 0 || throw(ArgumentError("invalid HMC trajectory"))
+    scale > 0 || throw(ArgumentError("RWMH scale must be positive"))
+    0 <= hmc_weight <= 1 || throw(ArgumentError("HMC weight must lie in [0,1]"))
+    checked_log = value -> checked_logdensity(logdensity, value)
+    checked_grad = value -> checked_gradient(gradient, value)
+    result = run_program(name, source, checked_log, checked_grad, Float64(step_size),
+        steps, Float64(scale), Float64(hmc_weight), left, right)
+    (Float64.(result[1]), Float64.(result[2]))
+end
+
+coupled_multinomial_hmc_step!(source::AbstractRandomSource, logdensity, gradient,
+    step_size::Real, steps::Integer, left::AbstractVector{<:Real},
+    right::AbstractVector{<:Real}) =
+    _run_coupled("coupled_multinomial_hmc_step!", source, logdensity, gradient,
+        step_size, steps, 1.0, 1.0, left, right)
+
+coupled_gaussian_rwmh_step!(source::AbstractRandomSource, logdensity, scale::Real,
+    left::AbstractVector{<:Real}, right::AbstractVector{<:Real}) =
+    _run_coupled("coupled_gaussian_rwmh_step!", source, logdensity, identity,
+        1.0, 1, scale, 0.0, left, right)
+
+xu21_coupled_step!(source::AbstractRandomSource, logdensity, gradient,
+    step_size::Real, steps::Integer, scale::Real, hmc_weight::Real,
+    left::AbstractVector{<:Real}, right::AbstractVector{<:Real}) =
+    _run_coupled("xu21_coupled_step!", source, logdensity, gradient, step_size,
+        steps, scale, hmc_weight, left, right)
 
 end

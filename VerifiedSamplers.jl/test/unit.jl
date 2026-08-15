@@ -88,12 +88,13 @@ end
 end
 
 @testset "versioned reference IR" begin
-    @test Reference.IR_FORMAT_VERSION == 8
+    @test Reference.IR_FORMAT_VERSION == 9
     @test sort!(collect(keys(Reference.PROGRAMS))) ==
-        ["categorical_index!", "dense_hmc_step!", "dense_multinomial_hmc_step!",
+        ["categorical_index!", "coupled_gaussian_rwmh_step!",
+        "coupled_multinomial_hmc_step!", "dense_hmc_step!", "dense_multinomial_hmc_step!",
         "diagonal_hmc_step!", "diagonal_multinomial_hmc_step!",
         "finite_mh_step!", "gaussian_rwmh_step!", "multinomial_hmc_step!", "scalar_hmc_step!",
-        "vector_hmc_step!"]
+        "vector_hmc_step!", "xu21_coupled_step!"]
     @test_throws ErrorException Reference.parse_document("(unterminated")
     mktemp() do path, stream
         write(stream, "(verified-samplers-ir 2 bogus)\n")

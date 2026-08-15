@@ -15,6 +15,7 @@ include("geweke.jl")
 include("unit.jl")
 include("generic_mh.jl")
 include("future_continuous.jl")
+include("xu21_coupling.jl")
 
 @testset "finite categorical core" begin
     for (weights, expected) in (([1, 0, 2], [0, 2, 2]), ([2, 1], [0, 0, 1]))

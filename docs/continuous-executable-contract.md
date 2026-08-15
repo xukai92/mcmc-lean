@@ -59,7 +59,7 @@ input or probabilistic assumption.
 
 ## Julia layer
 
-The version-8 artifact contains scalar and vector-valued multi-step endpoint
+The version-9 artifact contains scalar and vector-valued multi-step endpoint
 HMC (introduced in version 5), constant-metric programs (version 6), and the
 randomized-origin multinomial-HMC command.
 Its explicit callbacks are the target log density and the gradient of the
@@ -87,7 +87,7 @@ bounded HMC layer gives coordinatewise trajectory certificates and a stable
 acceptance theorem outside the explicit uniform/threshold error band.
 Constant diagonal and dense metrics have exact Lean velocity maps,
 time-reversal and endpoint-invariance theorems. Their type-indexed commands are
-part of generated IR version 8 and are interpreted by Julia Reference. Lean
+part of generated IR version 9 and are interpreted by Julia Reference. Lean
 proves that applying an invertible factor to standard momentum gives the
 pushforward Gaussian law, identifies its determinant-normalized quadratic
 kinetic density, and instantiates refreshed position-target invariance.

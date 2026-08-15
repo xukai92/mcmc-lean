@@ -11,8 +11,55 @@ include("Certificates/Certificates.jl")
 
 export FiniteWeights, FiniteKernelWeights, FiniteMH, TwoStateMH, GaussianRWMH,
     ScalarHMC, VectorHMC, MultinomialHMC, MetricMultinomialHMC,
-    DiagonalMetric, DenseMetric, MetricHMC, sample
+    DiagonalMetric, DenseMetric, MetricHMC, Xu21CoupledSampler, sample
 export Certificates
+
+struct Xu21CoupledSampler{F,G}
+    logdensity::F
+    gradient::G
+    step_size::Float64
+    steps::Int
+    rwmh_scale::Float64
+    hmc_weight::Float64
+    function Xu21CoupledSampler(logdensity::F, gradient::G, step_size::Real,
+            steps::Integer, rwmh_scale::Real, hmc_weight::Real=0.9) where {F,G}
+        ε, σ, p = Float64(step_size), Float64(rwmh_scale), Float64(hmc_weight)
+        isfinite(ε) && ε > 0 || throw(ArgumentError("step size must be positive"))
+        steps > 0 || throw(ArgumentError("trajectory length must be positive"))
+        isfinite(σ) && σ > 0 || throw(ArgumentError("RWMH scale must be positive"))
+        isfinite(p) && 0 <= p <= 1 || throw(ArgumentError("HMC weight must lie in [0,1]"))
+        new{F,G}(logdensity, gradient, ε, Int(steps), σ, p)
+    end
+end
+
+function step(rng::AbstractRNG, sampler::Xu21CoupledSampler,
+        current::Tuple{<:AbstractVector{<:Real},<:AbstractVector{<:Real}})
+    Reference.xu21_coupled_step!(Runtime.RNGSource(rng), sampler.logdensity,
+        sampler.gradient, sampler.step_size, sampler.steps, sampler.rwmh_scale,
+        sampler.hmc_weight, current[1], current[2])
+end
+
+step(sampler::Xu21CoupledSampler, current::Tuple) =
+    step(Random.default_rng(), sampler, current)
+
+function sample(rng::AbstractRNG, sampler::Xu21CoupledSampler,
+        initial::Tuple{<:AbstractVector{<:Real},<:AbstractVector{<:Real}},
+        count::Integer)
+    count >= 0 || throw(ArgumentError("sample count must be nonnegative"))
+    left, right = Float64.(initial[1]), Float64.(initial[2])
+    left_chain = Matrix{Float64}(undef, length(left), count)
+    right_chain = similar(left_chain)
+    met = falses(count)
+    for index in 1:count
+        left, right = step(rng, sampler, (left, right))
+        left_chain[:, index], right_chain[:, index] = left, right
+        met[index] = left == right
+    end
+    (left=left_chain, right=right_chain, met=met)
+end
+
+sample(sampler::Xu21CoupledSampler, initial::Tuple, count::Integer) =
+    sample(Random.default_rng(), sampler, initial, count)
 
 struct MultinomialHMC{F,G}
     logdensity::F
