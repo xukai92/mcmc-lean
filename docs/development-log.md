@@ -1,5 +1,21 @@
 # Development log
 
+## 2026-08-15: multi-step working scalar HMC sampler
+
+Generalized the executable scalar HMC transition from one leapfrog step to any
+positive runtime trajectory length. Version 4 of the typed artifact adds a
+natural input and explicit scalar leapfrog-iteration expressions. Lean proves
+the IR integrator equals the existing `leapfrogN` map for every finite length,
+and proves involutivity, phase-volume preservation, Markov validity, and
+Boltzmann-target invariance for the corresponding multi-step endpoint kernel.
+
+Julia Reference interprets the trajectory length from the artifact; Optimized
+uses an independent loop. The public `ScalarHMC(logdensity, gradient,
+step_size, steps)` validates both tuning parameters and retains positional-RNG
+dispatch. Differential trace tests now use multiple steps, and sampling tests
+cover both a standard Gaussian and the non-Gaussian density
+`exp(-x^4/4)` with its known second moment.
+
 ## 2026-08-15: bounded numerical refinement for scalar RWMH
 
 Added a theorem-backed finite-error layer between ideal-real RWMH and a

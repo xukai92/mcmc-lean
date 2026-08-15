@@ -12,7 +12,7 @@ namespace Mcmc.Executable.IRFormat
 
 open Finite.CompilerIR
 
-def version : Nat := 3
+def version : Nat := 4
 
 private def quote (value : String) : String :=
   let escapedBackslash := value.replace "\\" "\\\\"
@@ -89,11 +89,13 @@ private def continuousTyRender :
     Continuous.CompilerIR.Ty → String
   | .real => "real"
   | .bool => "bool"
+  | .nat => "nat"
 
 private def continuousExprRender : {type : Continuous.CompilerIR.Ty} →
     Continuous.CompilerIR.Expr type → String
   | type, .var value => list ["var", continuousTyRender type, quote value.name]
   | _, .real value => list ["real", toString value]
+  | _, .nat value => list ["nat", toString value]
   | _, .add left right =>
       list ["add", continuousExprRender left, continuousExprRender right]
   | _, .sub left right =>
@@ -109,6 +111,14 @@ private def continuousExprRender : {type : Continuous.CompilerIR.Ty} →
       list ["lt", continuousExprRender left, continuousExprRender right]
   | _, .logDensity value => list ["log-density", continuousExprRender value]
   | _, .gradient value => list ["gradient", continuousExprRender value]
+  | _, .leapfrogPosition stepSize steps position momentum =>
+      list ["leapfrog-position", continuousExprRender stepSize,
+        continuousExprRender steps, continuousExprRender position,
+        continuousExprRender momentum]
+  | _, .leapfrogMomentum stepSize steps position momentum =>
+      list ["leapfrog-momentum", continuousExprRender stepSize,
+        continuousExprRender steps, continuousExprRender position,
+        continuousExprRender momentum]
 
 private def continuousStmtRender : Continuous.CompilerIR.Stmt → String
   | .letE destination value =>
@@ -130,7 +140,8 @@ private def continuousProgramRender
       (match program.gradientInput with
       | none => []
       | some name => [list ["input", "gradient", quote name]]) ++
-      program.realInputs.map fun name => list ["input", "real", quote name]
+      program.realInputs.map (fun name => list ["input", "real", quote name]) ++
+      program.natInputs.map fun name => list ["input", "nat", quote name]
   list ["program", quote program.name, list ("inputs" :: inputs),
     list ("body" :: program.body.map continuousStmtRender)]
 

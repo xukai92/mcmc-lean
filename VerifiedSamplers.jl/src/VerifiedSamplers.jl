@@ -14,17 +14,28 @@ struct ScalarHMC{F,G}
     logdensity::F
     gradient::G
     step_size::Float64
-    function ScalarHMC(logdensity::F, gradient::G, step_size::Real) where {F,G}
-        converted = Float64(step_size)
-        isfinite(converted) && converted > 0.0 ||
+    steps::Int
+    function ScalarHMC{F,G}(logdensity::F, gradient::G,
+            step_size::Float64, steps::Int) where {F,G}
+        isfinite(step_size) && step_size > 0.0 ||
             throw(ArgumentError("step size must be finite and positive"))
-        new{F,G}(logdensity, gradient, converted)
+        steps > 0 || throw(ArgumentError("leapfrog steps must be positive"))
+        new{F,G}(logdensity, gradient, step_size, steps)
     end
+end
+
+function ScalarHMC(logdensity::F, gradient::G, step_size::Real,
+        steps::Integer=10) where {F,G}
+    converted = Float64(step_size)
+    isfinite(converted) && converted > 0.0 ||
+        throw(ArgumentError("step size must be finite and positive"))
+    steps > 0 || throw(ArgumentError("leapfrog steps must be positive"))
+    ScalarHMC{F,G}(logdensity, gradient, converted, Int(steps))
 end
 
 function step(rng::AbstractRNG, sampler::ScalarHMC, current::Real)
     Reference.scalar_hmc_step!(Runtime.RNGSource(rng), sampler.logdensity,
-        sampler.gradient, sampler.step_size, Float64(current))
+        sampler.gradient, sampler.step_size, sampler.steps, Float64(current))
 end
 
 step(sampler::ScalarHMC, current::Real) =

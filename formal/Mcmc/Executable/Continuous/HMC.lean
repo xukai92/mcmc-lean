@@ -51,6 +51,21 @@ theorem leapfrog_scalarPhase (gradient : ℝ → ℝ) (ε q p : ℝ) :
     rw [hposition]
     ring
 
+/-- The multi-step scalar IR integrator is exactly the existing iterated
+Hamiltonian leapfrog map. -/
+theorem leapfrogN_scalarPhase (gradient : ℝ → ℝ) (ε : ℝ)
+    (steps : Nat) (q p : ℝ) :
+    leapfrogN (scalarGradient gradient) ε steps (scalarPhase q p) =
+      scalarPhase
+        (CompilerIR.scalarLeapfrogN gradient ε steps q p).1
+        (CompilerIR.scalarLeapfrogN gradient ε steps q p).2 := by
+  induction steps with
+  | zero => simp [leapfrogN, CompilerIR.scalarLeapfrogN, scalarPhase]
+  | succ steps ih =>
+      rw [leapfrogN_succ, ih]
+      rw [leapfrog_scalarPhase]
+      simp only [CompilerIR.scalarLeapfrogN]
+
 /-- Consequently the ideal integrator used by the executable scalar HMC
 slice inherits the existing exact phase-volume-preservation theorem. -/
 theorem measurePreserving_scalarLeapfrog {gradient : ℝ → ℝ}
@@ -83,6 +98,143 @@ theorem measurePreserving_endpointLeapfrogProposal
     MeasurePreserving (endpointLeapfrogProposal gradient ε)
       phaseVolume phaseVolume :=
   measurePreserving_momentumFlip.comp (measurePreserving_leapfrog hgradient ε)
+
+/-- Momentum-flipped `steps`-fold leapfrog proposal used by practical HMC. -/
+noncomputable def endpointLeapfrogNProposal
+    (gradient : Position Unit → Position Unit) (ε : ℝ) (steps : Nat)
+    (z : PhaseSpace Unit) : PhaseSpace Unit :=
+  momentumFlip (leapfrogN gradient ε steps z)
+
+theorem momentumFlip_leapfrogN_momentumFlip
+    (gradient : Position Unit → Position Unit) (ε : ℝ) (steps : Nat)
+    (z : PhaseSpace Unit) :
+    momentumFlip (leapfrogN gradient ε steps (momentumFlip z)) =
+      leapfrogN gradient (-ε) steps z := by
+  induction steps generalizing z with
+  | zero => simp [leapfrogN]
+  | succ steps ih =>
+      rw [leapfrogN_succ]
+      have h := momentumFlip_leapfrog_momentumFlip gradient ε
+        (momentumFlip (leapfrogN gradient ε steps (momentumFlip z)))
+      simp only [momentumFlip_involutive] at h
+      rw [h, ih]
+      rw [leapfrogN_succ]
+
+theorem endpointLeapfrogNProposal_involutive
+    (gradient : Position Unit → Position Unit) (ε : ℝ) (steps : Nat) :
+    Function.Involutive (endpointLeapfrogNProposal gradient ε steps) := by
+  intro z
+  simp only [endpointLeapfrogNProposal]
+  rw [momentumFlip_leapfrogN_momentumFlip,
+    leapfrogN_neg_comp_leapfrogN]
+
+theorem measurable_endpointLeapfrogNProposal
+    {gradient : Position Unit → Position Unit} (hgradient : Measurable gradient)
+    (ε : ℝ) (steps : Nat) :
+    Measurable (endpointLeapfrogNProposal gradient ε steps) :=
+  measurable_momentumFlip.comp (measurable_leapfrogN hgradient ε steps)
+
+theorem measurePreserving_endpointLeapfrogNProposal
+    {gradient : Position Unit → Position Unit} (hgradient : Measurable gradient)
+    (ε : ℝ) (steps : Nat) :
+    MeasurePreserving (endpointLeapfrogNProposal gradient ε steps)
+      phaseVolume phaseVolume :=
+  measurePreserving_momentumFlip.comp
+    (measurePreserving_leapfrogN hgradient ε steps)
+
+/-- Exact phase-space kernel denoted by multi-step endpoint-corrected HMC. -/
+noncomputable def endpointHmcNPhaseKernel
+    (potential : Position Unit → ℝ) (gradient : Position Unit → Position Unit)
+    (ε : ℝ) (steps : Nat) (hgradient : Measurable gradient) :
+    ProbabilityTheory.Kernel (PhaseSpace Unit) (PhaseSpace Unit) :=
+  Mcmc.Kernel.deterministicMetropolis (boltzmannWeight potential)
+    (endpointLeapfrogNProposal gradient ε steps)
+    (measurable_endpointLeapfrogNProposal hgradient ε steps)
+
+theorem endpointHmcNPhaseKernel_isMarkov
+    (potential : Position Unit → ℝ) (gradient : Position Unit → Position Unit)
+    (ε : ℝ) (steps : Nat) (hpotential : Measurable potential)
+    (hgradient : Measurable gradient) :
+    ProbabilityTheory.IsMarkovKernel
+      (endpointHmcNPhaseKernel potential gradient ε steps hgradient) := by
+  unfold endpointHmcNPhaseKernel
+  exact Mcmc.Kernel.deterministicMetropolis_isMarkov _ _
+    (measurable_boltzmannWeight hpotential)
+    (measurable_endpointLeapfrogNProposal hgradient ε steps)
+
+/-- Every finite trajectory length gives an invariant exact endpoint-HMC
+phase kernel. -/
+theorem endpointHmcNPhaseKernel_invariant
+    {potential : Position Unit → ℝ} {gradient : Position Unit → Position Unit}
+    (hpotential : Measurable potential) (hgradient : Measurable gradient)
+    (ε : ℝ) (steps : Nat) :
+    (endpointHmcNPhaseKernel potential gradient ε steps hgradient).Invariant
+      (phaseBoltzmannTarget potential) := by
+  letI : ProbabilityTheory.IsMarkovKernel
+      (endpointHmcNPhaseKernel potential gradient ε steps hgradient) :=
+    endpointHmcNPhaseKernel_isMarkov potential gradient ε steps
+      hpotential hgradient
+  unfold endpointHmcNPhaseKernel phaseBoltzmannTarget
+  exact Mcmc.Kernel.deterministicMetropolis_invariant phaseVolume
+    (boltzmannWeight potential) (endpointLeapfrogNProposal gradient ε steps)
+    (measurable_endpointLeapfrogNProposal hgradient ε steps)
+    (measurable_boltzmannWeight hpotential)
+    (boltzmannWeight_ne_zero potential) (boltzmannWeight_ne_top potential)
+    (endpointLeapfrogNProposal_involutive gradient ε steps)
+    (measurePreserving_endpointLeapfrogNProposal hgradient ε steps)
+
+/-- Complete multi-step endpoint HMC position transition: refresh standard
+Gaussian momentum, evolve with the corrected phase kernel, then project. -/
+noncomputable def endpointHmcNPositionKernel
+    (potential : Position Unit → ℝ) (gradient : Position Unit → Position Unit)
+    (ε : ℝ) (steps : Nat) (_hpotential : Measurable potential)
+    (hgradient : Measurable gradient) :
+    ProbabilityTheory.Kernel (Position Unit) (Position Unit) := by
+  letI : ProbabilityTheory.IsMarkovKernel
+      (endpointHmcNPhaseKernel potential gradient ε steps hgradient) :=
+    endpointHmcNPhaseKernel_isMarkov potential gradient ε steps
+      _hpotential hgradient
+  exact Mcmc.Kernel.liftEvolveProject
+    (positionMomentumLift standardMomentumMeasure)
+    (endpointHmcNPhaseKernel potential gradient ε steps hgradient)
+    (Prod.fst : PhaseSpace Unit → Position Unit) measurable_fst
+
+instance endpointHmcNPositionKernel_isMarkov
+    (potential : Position Unit → ℝ) (gradient : Position Unit → Position Unit)
+    (ε : ℝ) (steps : Nat) (hpotential : Measurable potential)
+    (hgradient : Measurable gradient) :
+    ProbabilityTheory.IsMarkovKernel
+      (endpointHmcNPositionKernel potential gradient ε steps
+        hpotential hgradient) := by
+  letI : ProbabilityTheory.IsMarkovKernel
+      (endpointHmcNPhaseKernel potential gradient ε steps hgradient) :=
+    endpointHmcNPhaseKernel_isMarkov potential gradient ε steps
+      hpotential hgradient
+  unfold endpointHmcNPositionKernel
+  infer_instance
+
+/-- The full refreshed/projected position sampler preserves any position
+target whose product with standard momentum is the Boltzmann phase target. -/
+theorem endpointHmcNPositionKernel_invariant
+    {potential : Position Unit → ℝ} {gradient : Position Unit → Position Unit}
+    (hpotential : Measurable potential) (hgradient : Measurable gradient)
+    (ε : ℝ) (steps : Nat)
+    (positionTarget : MeasureTheory.Measure (Position Unit)) [SFinite positionTarget]
+    (hfactor : positionTarget.prod standardMomentumMeasure =
+      phaseBoltzmannTarget potential) :
+    (endpointHmcNPositionKernel potential gradient ε steps
+      hpotential hgradient).Invariant positionTarget := by
+  change (Mcmc.Kernel.liftEvolveProject
+    (positionMomentumLift standardMomentumMeasure)
+    (endpointHmcNPhaseKernel potential gradient ε steps hgradient)
+    (Prod.fst : PhaseSpace Unit → Position Unit) measurable_fst).Invariant
+      positionTarget
+  have hphase := endpointHmcNPhaseKernel_invariant hpotential hgradient ε steps
+  rw [← hfactor] at hphase
+  unfold positionMomentumLift
+  apply Mcmc.Kernel.compProdEvolveFst_invariant
+  rw [MeasureTheory.Measure.compProd_const]
+  exact hphase
 
 /-- Exact phase-space kernel denoted by one endpoint-corrected leapfrog step. -/
 noncomputable def endpointHmcPhaseKernel

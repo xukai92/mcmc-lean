@@ -33,10 +33,11 @@ RNG integration, indexing, batching, and public-API defects.
 
 ## Skeletoned future tests
 
-The scalar HMC slice now activates energy-conservation, exact-replay
+The multi-step scalar HMC slice activates energy-conservation, exact-replay
 reversibility, finite-difference volume, Reference/Optimized trace, and
-standard-normal moment tests. These numerical checks complement the Lean
-phase-volume and invariance theorems; they do not replace them.
+standard-normal and quartic-target moment tests. These numerical checks
+complement the Lean phase-volume and invariance theorems; they do not replace
+them.
 
 `test/future_continuous.jl` registers skipped testsets for:
 

@@ -15,11 +15,16 @@ end
 
 """Independent Float64 implementation of scalar one-step endpoint HMC."""
 function scalar_hmc_step!(source::AbstractRandomSource, logdensity, gradient,
-        step_size::Float64, current::Float64)
+        step_size::Float64, steps::Integer, current::Float64)
     isfinite(step_size) && step_size > 0.0 ||
         throw(ArgumentError("step size must be finite and positive"))
+    steps > 0 || throw(ArgumentError("leapfrog steps must be positive"))
     momentum = standard_normal!(source)
-    next_position, next_momentum = leapfrog(gradient, step_size, current, momentum)
+    next_position, next_momentum = current, momentum
+    for _ in 1:steps
+        next_position, next_momentum = leapfrog(
+            gradient, step_size, next_position, next_momentum)
+    end
     current_energy = -logdensity(current) + momentum^2 / 2
     next_energy = -logdensity(next_position) + next_momentum^2 / 2
     log(uniform_unit!(source)) < min(0.0, current_energy - next_energy) ?

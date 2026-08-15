@@ -110,19 +110,26 @@ end
             reference_source = Runtime.FloatTraceSource(events)
             optimized_source = Runtime.FloatTraceSource(events)
             reference = Reference.scalar_hmc_step!(reference_source,
-                logdensity, gradient, 0.4, current)
+                logdensity, gradient, 0.4, 3, current)
             optimized = Optimized.scalar_hmc_step!(optimized_source,
-                logdensity, gradient, 0.4, current)
+                logdensity, gradient, 0.4, 3, current)
             @test optimized == reference
             @test Runtime.remaining(reference_source) == 0
             @test Runtime.remaining(optimized_source) == 0
         end
 
-        sampler = ScalarHMC(logdensity, gradient, 0.4)
+        sampler = ScalarHMC(logdensity, gradient, 0.2, 5)
         chain = sample(MersenneTwister(0x4a3c), sampler, 0.0, 50_000)[5001:end]
         @test abs(mean(chain)) < 0.08
         @test abs(var(chain) - 1.0) < 0.12
         @test_throws ArgumentError ScalarHMC(logdensity, gradient, 0.0)
+        @test_throws ArgumentError ScalarHMC(logdensity, gradient, 0.2, 0)
+
+        quartic = ScalarHMC(x -> -x^4 / 4, x -> x^3, 0.15, 6)
+        quartic_chain = sample(MersenneTwister(0x71a4), quartic, 0.0, 40_000)[4001:end]
+        @test abs(mean(quartic_chain)) < 0.08
+        # For density proportional to exp(-x^4/4), E[X^2] ≈ 0.67597824.
+        @test abs(mean(abs2, quartic_chain) - 0.67597824) < 0.08
     end
     @testset "DHMC categorical target" begin
         @test_skip false

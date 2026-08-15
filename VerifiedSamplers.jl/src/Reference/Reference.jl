@@ -5,7 +5,7 @@ using ..Runtime: AbstractRandomSource, draw_below!, standard_normal!, uniform_un
 export categorical_index!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!, scalar_hmc_step!,
     IR_FORMAT_VERSION
 
-const IR_FORMAT_VERSION = 3
+const IR_FORMAT_VERSION = 4
 
 struct SList
     items::Vector{Any}
@@ -181,6 +181,18 @@ function eval_expr(raw, env::Dict{String,Any})
     tag == "to-exact-matrix" && return [BigInt.(row) for row in eval_expr(node[2], env)]
     tag == "log-density" && return env["logdensity"](eval_expr(node[2], env))
     tag == "gradient" && return env["gradient"](eval_expr(node[2], env))
+    if tag == "leapfrog-position" || tag == "leapfrog-momentum"
+        step_size = Float64(eval_expr(node[2], env))
+        steps = Int(eval_expr(node[3], env))
+        position = Float64(eval_expr(node[4], env))
+        momentum = Float64(eval_expr(node[5], env))
+        for _ in 1:steps
+            half_momentum = momentum - step_size * env["gradient"](position) / 2
+            position += step_size * half_momentum
+            momentum = half_momentum - step_size * env["gradient"](position) / 2
+        end
+        return tag == "leapfrog-position" ? position : momentum
+    end
     if tag == "categorical"
         source = eval_expr(node[2], env)
         weights = eval_expr(node[3], env)
@@ -248,6 +260,7 @@ function run_program(name::String, arguments...)
         valid = input_kind == "source" ? value isa AbstractRandomSource :
             input_kind == "log-density" || input_kind == "gradient" ? applicable(value, 0.0) :
             input_kind == "real" ? value isa Real : true
+        valid = input_kind == "nat" ? value isa Integer && value >= 0 : valid
         valid || throw(ArgumentError("invalid $input_kind input: $input_name"))
         env[input_name] = value
     end
@@ -296,11 +309,12 @@ end
 
 """Float64 interpretation of the serialized scalar one-step HMC program."""
 function scalar_hmc_step!(source::AbstractRandomSource, logdensity, gradient,
-        step_size::Float64, current::Float64)
+        step_size::Float64, steps::Integer, current::Float64)
     isfinite(step_size) && step_size > 0.0 ||
         throw(ArgumentError("step size must be finite and positive"))
+    steps > 0 || throw(ArgumentError("leapfrog steps must be positive"))
     Float64(run_program("scalar_hmc_step!", source, logdensity, gradient,
-        step_size, current))
+        step_size, current, steps))
 end
 
 end

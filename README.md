@@ -183,14 +183,23 @@ still inputs to this theorem rather than assumed facts.
 See the [continuous executable contract](docs/continuous-executable-contract.md)
 for the exact theorem and runtime boundaries.
 
-The first executable HMC slice is also present: scalar, unit-mass,
-endpoint-corrected HMC with one leapfrog step. Lean proves its ideal trace
-formula, identifies its deterministic update with the established leapfrog
-map, and proves exact phase-volume preservation and Boltzmann-target invariance
-of the corresponding endpoint kernel. The version-3 artifact is interpreted
-by Julia Reference and differentially tested against Optimized, including
-energy, reversibility, numerical-volume, and normal-moment tests. As for RWMH,
-the Float64/RNG refinement remains explicit and deferred.
+The executable HMC slice is also operational: scalar, unit-mass,
+endpoint-corrected HMC with any positive finite number of leapfrog steps. Lean
+proves its ideal trace formula, identifies its deterministic update with the
+established `leapfrogN` map for every trajectory length, and proves exact
+phase-volume preservation and Boltzmann-target invariance of the corresponding
+phase kernel. The complete refresh–evolve–project position kernel is also
+defined and proved invariant for every compatible position target. The
+version-4 artifact is interpreted by Julia Reference and
+differentially tested against Optimized, including energy, reversibility,
+numerical-volume, Gaussian-moment, and non-Gaussian quartic-moment tests:
+
+```julia
+sampler = ScalarHMC(x -> -x^4 / 4, x -> x^3, 0.15, 6)
+chain = sample(MersenneTwister(7), sampler, 0.0, 10_000)
+```
+
+As for RWMH, the Float64/RNG refinement remains explicit and deferred.
 
 ## What “HMC” means here
 

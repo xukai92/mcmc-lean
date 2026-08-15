@@ -59,11 +59,14 @@ input or probabilistic assumption.
 
 ## Julia layer
 
-The version-3 artifact additionally contains scalar one-step endpoint HMC.
+The version-4 artifact additionally contains scalar multi-step endpoint HMC.
 Its explicit callbacks are the target log density and the gradient of the
-negative log density. Lean proves the command trace formula, its leapfrog
-expressions equal the established Hamiltonian leapfrog map, and the associated
-ideal endpoint kernel preserves the Boltzmann phase target. The Julia
+negative log density, together with positive step size and trajectory length.
+Lean proves the command trace formula, its integrator equals the established
+Hamiltonian `leapfrogN` map for every finite length, and every associated ideal
+endpoint kernel preserves the Boltzmann phase target. The full standard-normal
+momentum refresh, phase evolution, and position projection is packaged as a
+Markov kernel and proved invariant for every compatible position target. The Julia
 Reference/Optimized agreement and integrator property tests remain Float64
 implementation evidence subject to the same numerical-refinement boundary.
 
