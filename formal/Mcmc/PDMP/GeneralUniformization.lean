@@ -1,6 +1,8 @@
 import Mcmc.PDMP.Generator
 import Mcmc.PDMP.GeneralPoissonization
 import Mathlib.Probability.Kernel.WithDensity
+import Mathlib.MeasureTheory.Measure.WithDensity
+import Mathlib.MeasureTheory.Measure.GiryMonad
 import Mathlib.Tactic
 
 /-!
@@ -91,6 +93,119 @@ theorem JumpMechanism.uniformizedKernel_isMarkov
   have hle := mechanism.clockAcceptance_le_one clockRate hbound x
   exact add_tsub_cancel_of_le hle
 
+/-- Target mass attached to genuine clock events. -/
+noncomputable def JumpMechanism.acceptedClockMeasure
+    (mechanism : JumpMechanism State) (clockRate : NNReal)
+    (target : Measure State) : Measure State :=
+  target.withDensity (mechanism.clockAcceptance clockRate)
+
+/-- Target mass attached to virtual self-events. -/
+noncomputable def JumpMechanism.rejectedClockMeasure
+    (mechanism : JumpMechanism State) (clockRate : NNReal)
+    (target : Measure State) : Measure State :=
+  target.withDensity fun x => 1 - mechanism.clockAcceptance clockRate x
+
+/-- The uniformized update factors into evolution of accepted event mass and
+unchanged rejected mass. -/
+theorem JumpMechanism.bind_uniformizedKernel
+    (mechanism : JumpMechanism State) (clockRate : NNReal)
+    (target : Measure State) :
+    target.bind (mechanism.uniformizedKernel clockRate) =
+      (mechanism.acceptedClockMeasure clockRate target).bind mechanism.jump +
+        mechanism.rejectedClockMeasure clockRate target := by
+  ext s hs
+  rw [Measure.bind_apply hs
+    (mechanism.uniformizedKernel clockRate).aemeasurable]
+  simp_rw [mechanism.uniformizedKernel_apply clockRate _ hs]
+  rw [MeasureTheory.lintegral_add_left]
+  · rw [Measure.add_apply]
+    congr 1
+    · rw [Measure.bind_apply hs mechanism.jump.aemeasurable]
+      unfold JumpMechanism.acceptedClockMeasure
+      rw [lintegral_withDensity_eq_lintegral_mul target
+        (mechanism.measurable_clockAcceptance clockRate)
+        (Kernel.measurable_coe mechanism.jump hs)]
+      simp only [Pi.mul_apply]
+    · unfold JumpMechanism.rejectedClockMeasure
+      rw [withDensity_apply _ hs]
+      simp_rw [Kernel.id_apply, Measure.dirac_apply' _ hs]
+      rw [← MeasureTheory.lintegral_indicator hs]
+      apply lintegral_congr
+      intro x
+      by_cases hxs : x ∈ s <;> simp [Set.indicator, hxs]
+  · exact (mechanism.measurable_clockAcceptance clockRate).mul
+      (Kernel.measurable_coe mechanism.jump hs)
+
+/-- Clock-weighted balanced flux: the genuine jump preserves the accepted
+event mass. -/
+def JumpMechanism.HasBalancedClockFlux
+    (mechanism : JumpMechanism State) (clockRate : NNReal)
+    (target : Measure State) : Prop :=
+  mechanism.jump.Invariant
+    (mechanism.acceptedClockMeasure clockRate target)
+
+/-- Under the rate bound, accepted and rejected clock-event masses partition
+the target exactly. -/
+theorem JumpMechanism.clockMeasure_decomposition
+    (mechanism : JumpMechanism State) (clockRate : NNReal)
+    (hbound : ∀ x, mechanism.rate x ≤ clockRate)
+    (target : Measure State) :
+    mechanism.acceptedClockMeasure clockRate target +
+      mechanism.rejectedClockMeasure clockRate target = target := by
+  unfold JumpMechanism.acceptedClockMeasure
+    JumpMechanism.rejectedClockMeasure
+  rw [← withDensity_add_left
+    (mechanism.measurable_clockAcceptance clockRate)]
+  have hone : mechanism.clockAcceptance clockRate +
+      (fun x => 1 - mechanism.clockAcceptance clockRate x) =
+      (1 : State → ENNReal) := by
+    funext x
+    simp only [Pi.add_apply, Pi.one_apply]
+    exact add_tsub_cancel_of_le
+      (mechanism.clockAcceptance_le_one clockRate hbound x)
+  rw [hone, withDensity_one]
+
+/-- Rate-biased balanced flux implies clock-weighted balanced flux. -/
+theorem JumpMechanism.hasBalancedClockFlux_of_hasBalancedFlux
+    (mechanism : JumpMechanism State) (clockRate : NNReal)
+    (target : Measure State)
+    (hflux : mechanism.HasBalancedFlux target) :
+    mechanism.HasBalancedClockFlux clockRate target := by
+  have haccepted : mechanism.acceptedClockMeasure clockRate target =
+      (clockRate : ENNReal)⁻¹ • mechanism.eventMeasure target := by
+    unfold JumpMechanism.acceptedClockMeasure JumpMechanism.eventMeasure
+    have hfun : mechanism.clockAcceptance clockRate =
+        (clockRate : ENNReal)⁻¹ • mechanism.rate := by
+      funext x
+      simp [JumpMechanism.clockAcceptance, div_eq_mul_inv, mul_comm,
+        Pi.smul_apply, smul_eq_mul]
+    rw [hfun, withDensity_smul _ mechanism.measurable_rate]
+  unfold JumpMechanism.HasBalancedClockFlux
+  rw [haccepted, Kernel.Invariant, Measure.bind_smul, hflux]
+
+/-- If accepted and rejected clock masses decompose the target and genuine
+event flux is balanced, the embedded uniformized kernel preserves the target. -/
+theorem JumpMechanism.uniformizedKernel_invariant
+    (mechanism : JumpMechanism State) (clockRate : NNReal)
+    (target : Measure State)
+    (hflux : mechanism.HasBalancedClockFlux clockRate target)
+    (hdecompose : mechanism.acceptedClockMeasure clockRate target +
+      mechanism.rejectedClockMeasure clockRate target = target) :
+    (mechanism.uniformizedKernel clockRate).Invariant target := by
+  rw [Kernel.Invariant, mechanism.bind_uniformizedKernel clockRate target,
+    hflux, hdecompose]
+
+/-- The original rate-biased balanced-flux certificate and a clock bound imply
+invariance of the embedded uniformized chain. -/
+theorem JumpMechanism.uniformizedKernel_invariant_of_balancedFlux
+    (mechanism : JumpMechanism State) (clockRate : NNReal)
+    (hbound : ∀ x, mechanism.rate x ≤ clockRate)
+    (target : Measure State) (hflux : mechanism.HasBalancedFlux target) :
+    (mechanism.uniformizedKernel clockRate).Invariant target :=
+  mechanism.uniformizedKernel_invariant clockRate target
+    (mechanism.hasBalancedClockFlux_of_hasBalancedFlux clockRate target hflux)
+    (mechanism.clockMeasure_decomposition clockRate hbound target)
+
 /-- Real-time bounded-clock transition kernel for a general jump mechanism. -/
 noncomputable def JumpMechanism.timeKernel
     (mechanism : JumpMechanism State) (clockRate : NNReal)
@@ -125,6 +240,19 @@ theorem JumpMechanism.timeKernel_invariant
   letI := mechanism.uniformizedKernel_isMarkov clockRate hclock hbound
   unfold JumpMechanism.timeKernel
   exact generalPoissonizedKernel_invariant _ target hinvariant _
+
+/-- A bounded jump mechanism with rate-biased balanced flux preserves its
+target at every real time. -/
+theorem JumpMechanism.timeKernel_invariant_of_balancedFlux
+    (mechanism : JumpMechanism State) (clockRate : NNReal)
+    (hclock : 0 < clockRate)
+    (hbound : ∀ x, mechanism.rate x ≤ clockRate)
+    (target : Measure State) [IsProbabilityMeasure target]
+    (hflux : mechanism.HasBalancedFlux target) (time : NNReal) :
+    (mechanism.timeKernel clockRate hclock hbound time).Invariant target :=
+  mechanism.timeKernel_invariant clockRate hclock hbound target
+    (mechanism.uniformizedKernel_invariant_of_balancedFlux clockRate hbound
+      target hflux) time
 
 /-- The event count used by every bounded-clock time kernel is almost surely
 finite on a finite horizon. -/

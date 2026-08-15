@@ -32,10 +32,11 @@ jump with an identity event using weights `rate(x)/clockRate` and its
 complement. A pointwise rate bound proves the result Markov; general
 Poissonization then gives a Markov real-time kernel, conditional invariant-
 target transport, and almost-sure finite event counts. The invariant theorem
-deliberately requires invariance of the embedded chain; connecting the earlier
-rate-biased balanced-flux certificate to that premise is the next algebraic
-step. Deterministic motion between events and unbounded-rate nonexplosion are
-not represented by this pure-jump construction.
+now discharges embedded invariance from the earlier rate-biased balanced-flux
+certificate: accepted and rejected clock masses partition the target, accepted
+event mass is preserved by the jump, and the resulting real-time kernel is
+target invariant. Deterministic motion between events and unbounded-rate
+nonexplosion are not represented by this pure-jump construction.
 
 ## 2026-08-15: categorical discontinuous-HMC vertical slice
 

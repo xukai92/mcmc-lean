@@ -257,8 +257,9 @@ breadth branches are:
   including Markov validity, invariant-target preservation, and finite-count
   nonexplosion for the bounded homogeneous clock. General bounded
   state-dependent pure-jump mechanisms now have a thinned embedded kernel and
-  real-time transition; balanced-flux-to-embedded-invariance, deterministic
-  flow, and unbounded-rate Lyapunov arguments remain.
+  real-time transition, with rate-biased balanced flux transported through
+  accepted/rejected clock decomposition to real-time invariance. Deterministic
+  flow and unbounded-rate Lyapunov arguments remain.
 
 Sequence-parallel evaluation is an execution-refinement project downstream of
 exact seeded trace semantics. Full solver convergence may refine a sequential

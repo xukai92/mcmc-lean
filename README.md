@@ -138,7 +138,8 @@ count on finite horizons. Bounded state-dependent pure-jump rates now also
 have a general uniformization kernel: each homogeneous clock event takes the
 real jump with probability `rate(x)/clockRate` and otherwise self-loops. Lean
 proves the embedded and real-time kernels Markov, transports any proved
-embedded invariant target through Poissonization, and records finite-count
+rate-biased balanced-flux certificate through the embedded chain and
+Poissonization to real-time target invariance, and records finite-count
 nonexplosion. A dependent joint measure over all event counts, deterministic
 flow between events, unbounded clocks, and BPS/Zig-Zag convergence remain open.
 
