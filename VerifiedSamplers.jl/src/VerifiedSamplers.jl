@@ -4,7 +4,7 @@ using Random
 import Base: step
 
 include("Runtime/Runtime.jl")
-include("Generated/Generated.jl")
+include("Reference/Reference.jl")
 include("Optimized/Optimized.jl")
 
 export FiniteWeights, FiniteKernelWeights, FiniteMH, TwoStateMH, GaussianRWMH, sample
@@ -55,7 +55,7 @@ end
 
 function sample(rng::AbstractRNG, target::FiniteWeights)
     source = Runtime.RNGSource(rng)
-    Generated.categorical_index!(source, target.weights) + 1
+    Reference.categorical_index!(source, target.weights) + 1
 end
 
 sample(target::FiniteWeights) = sample(Random.default_rng(), target)
@@ -103,7 +103,7 @@ function step(rng::AbstractRNG, sampler::FiniteMH, current::Integer)
     state_count = length(sampler.target.weights)
     1 <= current <= state_count || throw(ArgumentError("current state is out of range"))
     source = Runtime.RNGSource(rng)
-    Generated.finite_mh_step!(source, sampler.target.weights,
+    Reference.finite_mh_step!(source, sampler.target.weights,
         sampler.proposal.rows, current - 1) + 1
 end
 
@@ -128,7 +128,7 @@ struct TwoStateMH end
 
 function step(rng::AbstractRNG, ::TwoStateMH, current::Bool)
     source = Runtime.RNGSource(rng)
-    Bool(Generated.two_state_mh_step!(source, Int(current)))
+    Bool(Reference.two_state_mh_step!(source, Int(current)))
 end
 
 step(sampler::TwoStateMH, current::Bool) =

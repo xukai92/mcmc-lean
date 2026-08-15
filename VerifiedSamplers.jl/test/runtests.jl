@@ -4,7 +4,7 @@ using Statistics
 using VerifiedSamplers
 
 const Runtime = VerifiedSamplers.Runtime
-const Generated = VerifiedSamplers.Generated
+const Reference = VerifiedSamplers.Reference
 const Optimized = VerifiedSamplers.Optimized
 const REPO_ROOT = normpath(joinpath(@__DIR__, "..", ".."))
 const ORACLE = joinpath(REPO_ROOT, "formal", ".lake", "build", "bin", "mcmc_oracle")
@@ -19,7 +19,7 @@ include("future_continuous.jl")
     for (weights, expected) in (([1, 0, 2], [0, 2, 2]), ([2, 1], [0, 0, 1]))
         for draw in 0:(sum(weights) - 1)
             source = Runtime.TraceSource([draw])
-            actual = Generated.categorical_index!(source, weights)
+            actual = Reference.categorical_index!(source, weights)
             optimized_source = Runtime.TraceSource([draw])
             optimized = Optimized.categorical_index!(optimized_source, weights)
             @test actual == expected[draw + 1]
@@ -35,18 +35,18 @@ include("future_continuous.jl")
         end
     end
 
-    @test_throws ArgumentError Generated.categorical_index!(Runtime.TraceSource([0]), [0, 0])
-    @test_throws EOFError Generated.categorical_index!(Runtime.TraceSource(Int[]), [1])
-    @test_throws ArgumentError Generated.categorical_index!(Runtime.TraceSource([1]), [1])
+    @test_throws ArgumentError Reference.categorical_index!(Runtime.TraceSource([0]), [0, 0])
+    @test_throws EOFError Reference.categorical_index!(Runtime.TraceSource(Int[]), [1])
+    @test_throws ArgumentError Reference.categorical_index!(Runtime.TraceSource([1]), [1])
 
     large_weights = [typemax(Int), typemax(Int)]
     large_draw = BigInt(typemax(Int))
-    generated_source = Runtime.TraceSource([large_draw])
+    reference_source = Runtime.TraceSource([large_draw])
     optimized_source = Runtime.TraceSource([large_draw])
-    @test Generated.categorical_index!(generated_source, large_weights) == 1
+    @test Reference.categorical_index!(reference_source, large_weights) == 1
     @test Optimized.categorical_index!(optimized_source, large_weights) == 1
-    @test generated_source.requested_bounds == [2 * BigInt(typemax(Int))]
-    @test optimized_source.requested_bounds == generated_source.requested_bounds
+    @test reference_source.requested_bounds == [2 * BigInt(typemax(Int))]
+    @test optimized_source.requested_bounds == reference_source.requested_bounds
 end
 
 @testset "two-state MH exhaustive traces" begin
@@ -65,7 +65,7 @@ end
 
     for (current, draws, expected) in cases
         source = Runtime.TraceSource(draws)
-        actual = Generated.two_state_mh_step!(source, current)
+        actual = Reference.two_state_mh_step!(source, current)
         optimized_source = Runtime.TraceSource(draws)
         optimized = Optimized.two_state_mh_step!(optimized_source, current)
         @test actual == expected

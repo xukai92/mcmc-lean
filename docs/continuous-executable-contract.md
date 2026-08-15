@@ -80,7 +80,7 @@ the following separately:
 | Ideal unit uniform to runtime RNG | `rand` has the documented support/distribution and endpoint convention. |
 | Real arithmetic to `Float64` | Overflow, underflow, `NaN`, infinities, rounding, and transcendental error are either excluded by preconditions or bounded. |
 | Target expression to Julia callback | The callback implements the same log weight on the admitted domain, up to the stated numeric error. |
-| IR to emitted Julia | The emitter preserves primitive order, control flow, and result conversion. |
+| Ideal continuous IR to Julia | A future interpreter or lowering preserves primitive order, control flow, and result conversion. |
 
 Until these rows are discharged, the correct description is “an exact Lean
 kernel with a proposal-level IR refinement, plus a tested Float64 Julia

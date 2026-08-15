@@ -1,4 +1,5 @@
 import Mcmc.Executable.Finite.TwoState
+import Mcmc.Executable.Finite.CompilerIRInterpreter
 
 /-! A small compiled oracle for cross-language conformance tests. -/
 
@@ -20,24 +21,19 @@ private def parseWeights (text : String) : Except String (List Nat) := do
 private def parseRows (text : String) : Except String (List (List Nat)) :=
   (text.splitOn ";").mapM parseWeights
 
-private def printExecResult {n : Nat}
-    (result : Except ExecError (Fin n × List DrawEvent)) : IO Unit :=
+private def printIRResult
+    (result : Except CompilerIR.RuntimeError (Nat × List DrawEvent)) : IO Unit :=
   match result with
-  | .ok (state, remaining) => IO.println s!"ok {state.val} {remaining.length}"
+  | .ok (state, remaining) => IO.println s!"ok {state} {remaining.length}"
   | .error error => IO.println s!"error {repr error}"
 
 private def runCategorical (weightsText drawText : String) : IO Unit := do
   match parseWeights weightsText, parseNat drawText with
   | .ok weights, .ok draw =>
       let total := weights.sum
-      if total = 0 then
-        IO.println "error invalidBound"
-      else if draw < total then
-        match selectFromList weights draw with
-        | some index => IO.println s!"ok {index}"
-        | none => IO.println "error internalSelectionFailure"
-      else
-        IO.println s!"error outOfRange {total} {draw}"
+      match CompilerIR.runCategorical weights [⟨total, draw⟩] with
+      | .ok (index, _) => IO.println s!"ok {index}"
+      | .error error => IO.println s!"error {repr error}"
   | .error error, _ | _, .error error => IO.println s!"error {error}"
 
 private def runMH (stateText proposalText : String) (acceptText : Option String) : IO Unit := do
@@ -63,9 +59,8 @@ private def runMH (stateText proposalText : String) (acceptText : Option String)
           match traceResult with
           | .error error => IO.println s!"error {error}"
           | .ok trace =>
-              printExecResult (replayMHStep
-                Mcmc.Executable.Finite.TwoState.target
-                Mcmc.Executable.Finite.TwoState.proposal current trace)
+              printIRResult (CompilerIR.runMetropolisHastings
+                [1, 3] [[1, 1], [1, 1]] current.val trace)
         else
           IO.println s!"error outOfRange 2 {proposalDraw}"
       else
@@ -93,7 +88,8 @@ private def runGenericMH (targetText rowsText stateText proposalText : String)
           | none => IO.println "error internalSelectionFailure"
           | some proposed =>
               if proposed = state then
-                IO.println s!"ok {state} 0"
+                printIRResult (CompilerIR.runMetropolisHastings target rows state
+                  [⟨currentTotal, proposalDraw⟩])
               else
                 match acceptText with
                 | none => IO.println "error missing acceptance draw"
@@ -104,13 +100,8 @@ private def runGenericMH (targetText rowsText stateText proposalText : String)
                         let proposedRow := rowArrays[proposed]!
                         let upper := targetArray[state]! * currentRow[proposed]! *
                           proposedRow.toList.sum
-                        let threshold := min upper
-                          (targetArray[proposed]! * proposedRow[state]! * currentTotal)
-                        if acceptDraw < upper then
-                          let next := if acceptDraw < threshold then proposed else state
-                          IO.println s!"ok {next} 0"
-                        else
-                          IO.println s!"error outOfRange {upper} {acceptDraw}"
+                        printIRResult (CompilerIR.runMetropolisHastings target rows state
+                          [⟨currentTotal, proposalDraw⟩, ⟨upper, acceptDraw⟩])
         else
           IO.println s!"error outOfRange {currentTotal} {proposalDraw}"
       else

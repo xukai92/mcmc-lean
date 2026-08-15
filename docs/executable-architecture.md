@@ -9,8 +9,9 @@ the exact finite Metropolis--Hastings slice specified in the
 are chosen so continuous and coupled samplers can be added later without
 changing what existing correctness claims mean.
 
-The central rule is that mathematical semantics, deterministic replay, code
-emission, and Julia execution are separate layers with explicit interfaces.
+The central rule is that mathematical semantics, deterministic replay,
+artifact serialization, and Julia execution are separate layers with explicit
+interfaces.
 
 ## Scope and assurance levels
 
@@ -19,9 +20,10 @@ The executable project uses three assurance descriptions:
 1. **Verified mathematical kernel.** Lean proves kernel validity,
    reversibility, invariance, coupling marginals, or other explicitly stated
    properties.
-2. **Executable Lean oracle and generated Julia core.** The compiled Lean
-   evaluator is the behavioral reference for shared traces. Julia source is
-   emitted from Lean, conditional on the documented emitter, runtime, RNG, and
+2. **Canonical IR and interpreted Julia reference.** The compiled Lean
+   evaluator is the behavioral reference for shared traces. Lean emits a
+   versioned IR data artifact consumed by a maintained Julia interpreter,
+   conditional on the documented serializer, interpreter, runtime, RNG, and
    Julia-toolchain assumptions.
 3. **Tested optimized implementation.** Maintained Julia code is compared with
    the reference using trace replay, property tests, numerical comparisons,
@@ -45,7 +47,7 @@ VerifiedSamplers.jl/
   src/
     VerifiedSamplers.jl         stable Julia package facade
     Runtime/                    maintained trusted primitive implementations
-    Generated/                  compiler-emitted production core
+    Reference/                  maintained interpreter plus emitted IR data
     Optimized/                  maintained optimized implementations
   test/
 
@@ -53,10 +55,9 @@ docs/                           cross-layer specifications and assurance notes
 Makefile                        explicit build, generation, and validation entry points
 ```
 
-Only the Lean emitter writes generated core files under
-`VerifiedSamplers.jl/src/Generated/`. Runtime and
-optimized sources are maintained by hand. Emitted files carry a do-not-edit
-header and are committed so installing the Julia package does not require
+Only the Lean serializer writes `VerifiedSamplers.jl/src/Reference/Finite.ir`.
+The Julia interpreter, runtime, and optimized sources are maintained by hand.
+The IR artifact is committed so installing the Julia package does not require
 Lean.
 
 ## Layered dependency graph
@@ -72,47 +73,50 @@ flowchart TB
   subgraph Exec[Executable formal layer]
     Data[Exact executable data<br/>Fin n and natural weights]
     IR[Intrinsically typed first-order IR]
-    PMF[Exact PMF denotation]
+    PMF[Established executable sampler<br/>and exact PMF denotation]
     Trace[Deterministic trace evaluator]
     ExecMH[Executable finite MH program]
-    Refinement[Row-PMF refinement theorem]
+    TraceRefinement[Universal trace-refinement theorem]
+    PMFRefinement[Row-PMF refinement theorem]
   end
 
-  subgraph Emit[Emission layer]
-    JuliaAST[Restricted Julia AST]
-    Emitter[Lean Julia emitter]
-    Generator[Lake generator executable]
+  subgraph Emit[Artifact layer]
+    Format[Versioned S-expression format]
+    Generator[Lean IR serializer]
   end
 
   subgraph Julia[Julia package]
     Runtime[VerifiedSamplers.Runtime<br/>draw_below sources and validation]
-    Generated[VerifiedSamplers.Generated<br/>emitted algorithms]
+    Reference[VerifiedSamplers.Reference<br/>IR interpreter]
     Optimized[VerifiedSamplers.Optimized]
     Tests[Replay, differential, and exhaustive tests]
   end
 
   Data --> IR
-  IR --> PMF
   IR --> Trace
   Data --> ExecMH
   ExecMH --> IR
-  PMF --> Refinement
-  FiniteTheory --> Refinement
-  FiniteMH --> Refinement
+  ExecMH --> PMF
+  Trace --> TraceRefinement
+  ExecMH --> TraceRefinement
+  PMF --> PMFRefinement
+  FiniteTheory --> PMFRefinement
+  FiniteMH --> PMFRefinement
   FiniteMH --> MeasureBridge
 
-  IR --> JuliaAST --> Emitter --> Generator --> Generated
-  Runtime --> Generated
+  IR --> Format --> Generator --> Reference
+  Runtime --> Reference
   Runtime --> Optimized
-  Generated --> Tests
+  Reference --> Tests
   Optimized --> Tests
   Trace --> Tests
 ```
 
 Dependencies point downward toward artifacts. Mathematical theorems must not
-depend on the Julia AST, printer, runtime, or generated files. The trace and
-PMF interpreters are sibling interpretations of the same IR; neither is
-defined by executing the other.
+depend on the serializer, Julia interpreter, runtime, or emitted files. The
+command-IR interpreter is proved equal to the established replay semantics;
+the existing executable sampler layer separately carries the exact PMF
+refinement. The documentation does not invent a command-IR PMF interpreter.
 
 ## Formal components
 
@@ -132,65 +136,64 @@ count, weights, totals, and bounds—remain explicit.
 
 ### First-order typed IR
 
-The compiler consumes a small first-order syntax rather than arbitrary Lean
-functions. Its initial type universe needs only:
+The serializer consumes a small first-order command syntax rather than
+arbitrary Lean functions. The finite command IR has the types:
 
 ```text
-Nat | Bool | FiniteState n | Pair a b | Result error a
+Source | Nat | Bool | NatVector | NatMatrix
 ```
 
-The initial expression and command forms are:
+Its current programs use:
 
 ```text
-constants, variables, pairs, projections
-natural arithmetic and comparisons
-finite vector lookup
-let binding and conditionals
-statically bounded loops
-drawBelow(upper)
-explicit failure
+variables and natural literals
+natural multiplication, minimum, totals, comparisons, vector lookup, row lookup
+categorical(source, weights)
+let binding, conditionals, drawBelow(source, upper), and return
 ```
 
-The IR is intrinsically typed where practical. Dynamic obligations such as a
-positive draw bound and an in-range trace result are checked explicitly. It
-contains no Julia names, mutation model, hidden RNG, `Float64`, measure values,
-or proof witnesses.
+Expressions and variables are indexed by their IR types. Valid finite
+configurations are constructed with proofs on the Lean side; Julia wrappers
+check dimensions, positivity, and state bounds before entering the algorithm
+core. Every random primitive still checks its requested bound and trace value.
+The IR contains no Julia syntax, hidden RNG, `Float64`, measure values, or proof
+witnesses.
 
-Higher-order Lean combinators may make programs convenient to construct, but
-they must elaborate into this inspectable first-order IR before denotation or
-emission. A continuation-valued sampler that the emitter cannot inspect is not
-the compiler input.
+Higher-order Lean definitions may help construct programs, but the committed
+artifact contains only this inspectable first-order IR.
 
-### PMF denotation
+### Exact PMF semantics
 
-The denotational interpreter maps a closed program to an exact `PMF` of either
-failure or result. `drawBelow(k)` denotes the uniform PMF on values below `k`
-when `k > 0` and an explicit error otherwise. Sequencing uses PMF bind.
+The exact PMF semantics lives in the established executable sampler layer,
+not in a second interpreter for the command IR. A positive bounded-natural
+draw has a uniform `PMF`; cumulative categorical selection and the generic MH
+proposal/accept/reject construction are composed from those PMFs.
 
-For a transition program, the semantic endpoint is:
+For finite MH, the semantic endpoint is:
 
 ```lean
-State -> PMF (Result ExecError State)
+stepPMF target proposal : Fin n -> PMF (Fin n)
 ```
 
-Well-formed sampler configurations prove that failure has zero mass, yielding
-the simpler row PMF used by the refinement theorem.
+Lean proves this equals the row PMF of the existing verified finite MH kernel.
+The command-IR interpreter is connected to the same algorithm by universal
+trace refinement to `replayCategorical` and `replayMHStep`.
 
 ### Trace evaluator
 
-The trace interpreter is deterministic. A trace event records at least:
+The finite trace interpreter is deterministic. A trace event records:
 
 ```text
-primitive kind | requested upper bound | returned value | stream position
+requested upper bound | returned value
 ```
 
-Evaluation returns a result, the unconsumed trace, and diagnostics, or a typed
-error for exhaustion, kind mismatch, invalid bound, or out-of-range value.
+Evaluation returns a result and the unconsumed trace, or a typed error for
+exhaustion, bound mismatch, invalid bound, or an out-of-range value.
 
-A replay theorem relates successful evaluation to the pure control-flow
-semantics. A separate enumeration/weighting theorem connects valid primitive
-traces to PMF denotation. A concrete trace is not itself treated as a random
-sample or probability kernel.
+Universal theorems relate command-IR evaluation—including failures and the
+remaining trace—to the established replay specifications. The exact PMF
+theorems are proved separately for the corresponding weighted sampler
+construction. A concrete trace is not itself treated as a probability kernel.
 
 ### Executable finite MH
 
@@ -216,69 +219,61 @@ reverse = targetWeight[y] * proposalWeight[y,x] * Sx
 so row-dependent proposal normalizers are not accidentally cancelled. No
 floating-point division is used.
 
-The principal theorem is pointwise equality:
+The principal PMF theorem is pointwise equality:
 
 ```text
-denote (finiteMH config) x
+stepPMF target proposal x
   = (Mcmc.Finite.MetropolisHastings.kernel target proposal ...).rowPMF x
 ```
+
+The canonical command-IR theorem is pointwise equality of deterministic
+execution with `replayMHStep` for every valid configuration and input trace.
 
 The existing PMF-to-measure bridge then supplies equality with the established
 mathlib kernel. Detailed balance and invariance are inherited from existing
 theorems rather than duplicated for executable syntax.
 
-## Emission architecture
+## Artifact and interpretation architecture
 
-### Restricted Julia AST
-
-The emitter targets a Julia AST owned by the project, not raw string fragments.
-The AST admits only the declarations, expressions, statements, and calls on a
-small allowlist required by the finite IR. Identifier validation and escaping
-occur before printing.
-
-Unsupported IR operations or primitive calls produce a generation error. They
-must never be emitted as arbitrary trusted Julia calls.
-
-### Generator executable
-
-The finite layer uses a deterministic Lean emitter for the generic natural-
-weight categorical and MH algorithms:
+The finite layer serializes programs as data rather than generating Julia
+algorithm source:
 
 ```text
 typed finite entry descriptor
   -> backend-neutral typed command IR
-  -> restricted validated Julia AST
-  -> deterministic Julia printer
-  -> Generated core files
+  -> versioned S-expression artifact
+  -> maintained Julia Reference interpreter
 ```
 
-The command IR contains the categorical scan and generic MH control flow,
-including validation, proposal, zero-safe integer acceptance, and rejection.
-It has no Julia syntax. Julia's one-based indexing is introduced only by the
-backend lowering. The restricted AST has no raw-source escape constructor and
-rejects identifiers, types, and imports outside its finite allowlist.
+The command IR contains a verified categorical primitive and the generic MH
+algorithm core: proposal, zero-safe integer acceptance, and rejection. Lean
+constructs it from proof-carrying configurations. The Julia reference wrappers
+validate raw dimensions, positivity, indices, and integer inputs before
+invoking the same core. The maintained interpreters implement the categorical
+primitive with a linear cumulative scan.
+It has no Julia syntax. Julia's one-based indexing is confined to the
+maintained interpreter.
 
-Generation uses stable formatting so identical Lean input gives byte-identical
+Serialization uses stable formatting so identical Lean input gives byte-identical
 output.
 
-`make generate` invokes the generator. `make check-generated` emits into a
-temporary directory and compares it with committed generated sources without
+`make generate` invokes the serializer. `make check-generated` emits into a
+temporary file and compares it with the committed IR artifact without
 modifying the working tree.
 
-Compiler semantic preservation is a future theorem. Until then, generated
-Julia correctness is conditional on the emitter, printer, and runtime contract,
+Cross-language semantic preservation is a future theorem. Until then, Julia
+correctness is conditional on the serializer, parser/interpreter, and runtime contract,
 even though the source executable configuration has a proved PMF refinement.
 
-### Canonical-interpreter migration
+### Canonical interpreter
 
-The current finite layer predates the command IR, so the verified
-`replayCategorical` and `replayMHStep` functions and the newer IR temporarily
-describe the same control flow separately. This duplication is transitional.
-The planned migration is to define deterministic trace semantics for the
-command IR, prove those semantics equal to the existing replay functions, and
-then make the IR interpreter the canonical executable Lean implementation.
-The old independently maintained replay algorithms can then be deprecated;
-the compiled Lean oracle will remain, but will execute the IR interpreter.
+The finite command IR now has deterministic Lean trace semantics. Universal
+theorems prove its categorical primitive and generic MH program equal to the
+established `replayCategorical` and `replayMHStep` semantics for every valid
+configuration and trace, including identical remaining traces and primitive
+errors. The compiled Lean oracle and Julia reference path both execute the IR;
+the replay definitions remain semantic specifications rather than a second
+public execution path.
 
 This architecture also applies to general-state and continuous samplers at the
 semantic level, but not by reusing the finite command IR unchanged. A
@@ -303,21 +298,21 @@ interface. The finite milestone requires:
 - `draw_below!(source, upper)`.
 
 The production implementation must document its exact Julia and RNG support.
-The generated path uses arbitrary-precision integers or checked conversions;
+The reference path uses arbitrary-precision integers or checked conversions;
 overflow cannot silently change a probability.
 
-### Generated submodule
+### Reference submodule
 
-`VerifiedSamplers.Generated` contains emitted algorithms and thin module
-assembly only. Its functions accept a source explicitly and expose stable
-results and diagnostics. They never access Julia's global RNG.
+`VerifiedSamplers.Reference` contains the maintained generic interpreter and
+the emitted, versioned `Finite.ir` artifact. Its functions accept a source
+explicitly and never access Julia's global RNG.
 
 ### Optimized submodule
 
 `VerifiedSamplers.Optimized` contains the maintained finite differential
 implementation. Its categorical selector uses cumulative sums and binary
-search rather than the generated linear scan. It is exhaustively trace-tested
-against both the generated core and Lean oracle, but it does not have a
+search rather than the reference interpreter's linear scan. It is exhaustively trace-tested
+against both the reference interpreter and Lean oracle, but it does not have a
 separate machine-checked refinement theorem.
 
 ## Assurance and trust matrix
@@ -329,28 +324,29 @@ separate machine-checked refinement theorem.
 | Generic executable MH to existing row PMF | Proved in Lean |
 | Existing finite MH detailed balance/invariance | Already proved in Lean |
 | Trace evaluator behavior | Defined and proved in Lean |
-| Finite command IR to Julia AST/source | Deterministic, validated, and tested lowering; semantic preservation remains trusted |
+| Lean IR serialization | Deterministic, versioned, freshness-tested artifact |
+| Julia Reference parser/interpreter | Maintained and exhaustively trace-tested; semantic preservation remains trusted |
 | Julia parsing and execution | Julia toolchain assumption |
 | Production `draw_below!` distribution | Documented runtime/RNG assumption |
 | Julia trace replay against Lean fixtures | Exhaustive finite testing |
 | Optimized implementation equivalence | Exhaustive finite trace conformance |
 
 No claim should collapse these rows into “the Julia implementation is fully
-verified.” The strongest initial description is that Julia core code is
-emitted from a Lean program with a proved finite-kernel denotation, conditional
-on the documented emitter and runtime boundaries.
+verified.” The strongest initial description is that Julia Reference
+interprets an artifact emitted from a Lean program with a proved finite-kernel
+denotation, conditional on the documented interpreter and runtime boundaries.
 
 ## Language and external implementation policy
 
 Julia is the first backend because its numerical, automatic-differentiation,
 and MCMC ecosystem makes it useful both as a readable execution environment
 and as a path to practical implementations. The formal IR remains
-language-neutral: Julia names and runtime behavior enter only in the emitter
+language-neutral: Julia names and runtime behavior enter only in the interpreter
 and primitive contracts. A later Rust or other backend should consume the same
 validated IR rather than change its PMF semantics.
 
 AdvancedHMC.jl is an API reference, benchmark comparison, and independent
-differential-testing target. It is not imported by the generated runtime and
+differential-testing target. It is not imported by the reference runtime and
 is not the source of mathematical semantics. A match provides corroborating
 evidence; a mismatch must be classified as an algorithm, convention,
 floating-point, or implementation difference before being called a defect.
@@ -420,7 +416,7 @@ make formal
   compile definitions, interpreters, and refinement proofs
 
 make generate
-  emit committed Generated sources explicitly
+  emit the committed versioned IR artifact explicitly
 
 make check-generated
   check repository freshness by deterministic regeneration and diff

@@ -20,9 +20,9 @@ import Mcmc.Executable.Finite.TwoState
 import Mcmc.Executable.Finite.AsymmetricThreeState
 import Mcmc.Executable.Finite.Program
 import Mcmc.Executable.Finite.CompilerIR
-import Mcmc.Codegen.Julia.Ast
-import Mcmc.Codegen.Julia.Finite
-import Mcmc.Codegen.Julia.Tests
+import Mcmc.Executable.Finite.CompilerIRInterpreter
+import Mcmc.Executable.Finite.IRFormat
+import Mcmc.Executable.Finite.IRTests
 import Mcmc.Executable.Primitive
 import Mcmc.Executable.IR
 import Mcmc.Executable.GaussianRWMH

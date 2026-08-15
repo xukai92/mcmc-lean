@@ -100,8 +100,12 @@ strictly positive target weights and positive-total proposal rows on `Fin n`,
 Lean proves that the generic executable MH step has the same row PMF as the
 existing verified finite MH kernel, including asymmetric and zero proposal
 edges. A compiled Lean binary is the conformance oracle. Lean also emits the
-generic Julia core, which is exercised against the oracle and a maintained
-optimized implementation on exhaustive small finite traces.
+versioned sampler IR consumed by the maintained Julia reference interpreter,
+which is exercised against the oracle and an independent optimized
+implementation on exhaustive small finite traces. Universal trace-refinement
+theorems prove that the Lean IR interpreter agrees with the established
+categorical and MH replay semantics for every valid finite configuration and
+trace.
 
 The public Julia interface uses positional RNG dispatch:
 
@@ -122,7 +126,7 @@ generic_chain = sample(MersenneTwister(3), sampler, 1, 100)
 ```
 
 The no-RNG methods delegate to `Random.default_rng()`. Julia indices are
-one-based at the public categorical API; the generated core and Lean `Fin`
+one-based at the public categorical API; the reference interpreter and Lean `Fin`
 encoding are zero-based.
 
 ### Continuous executable boundary
@@ -274,7 +278,7 @@ lake env lean Mcmc/Hamiltonian/LocalContractivity.lean
 From the repository root, `make formal`, `make julia`, and `make test` provide
 the corresponding aggregate entry points. `make oracle` compiles the Lean
 conformance oracle, `make generate` explicitly regenerates the committed Julia
-core from a backend-neutral typed finite IR through a restricted Julia AST,
+reference IR artifact consumed by the maintained Julia interpreter,
 and `make check-generated` checks freshness without modifying the tree.
 The [testing strategy](docs/testing.md) records the exact, differential,
 statistical, and skeletoned future test layers.
@@ -283,7 +287,7 @@ statistical, and skeletoned future test layers.
 
 - [`formal/`](formal/): pinned Lean project containing the `Mcmc` library.
 - [`VerifiedSamplers.jl/`](VerifiedSamplers.jl/): Julia package, with
-  compiler-emitted generated code and maintained optimized code in separate
+  interpreted reference and maintained optimized implementations in separate
   internal submodules.
 - [`docs/`](docs/): architecture notes, coverage audits, roadmaps, and the
   development log.

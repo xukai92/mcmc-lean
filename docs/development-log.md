@@ -1,5 +1,24 @@
 # Development log
 
+## 2026-08-14: interpreted reference artifact replaces generated Julia code
+
+Made the finite command IR an executable cross-language artifact. Lean now has
+a deterministic command interpreter, emits a versioned S-expression
+`Reference/Finite.ir`, and builds the conformance oracle on the IR interpreter.
+Julia's maintained `VerifiedSamplers.Reference` module parses and interprets
+that data using the shared `draw_below!` runtime contract. The public finite
+API and exhaustive tests now compare this interpreted reference with the
+independent optimized implementation.
+
+Removed the generated Julia algorithm module, restricted Julia AST, printer,
+and source generator after the interpreted path passed the complete finite
+suite. Universal Lean theorems now connect the command interpreter to the
+older categorical and generic MH replay definitions for every valid finite
+configuration and trace. Serialization, Julia interpretation, and concrete
+RNG execution remain explicit cross-language trust boundaries. Continuous
+primitives retain exact mathlib `Measure` denotations while `Float64` and RNG
+behavior remain a separate refinement problem.
+
 ## 2026-08-14: finite generation moved to typed compiler IR
 
 Replaced the algorithm-sized Julia source template with typed finite entry

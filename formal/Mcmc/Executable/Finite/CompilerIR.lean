@@ -44,14 +44,13 @@ inductive Failure where
   | argument (message : String)
   | dimension (message : String)
   | internal (message : String)
+  deriving DecidableEq, Repr
 
 inductive Stmt where
   | letE (destination : Var type) (value : Expr type)
   | guard (condition : Expr .bool) (failure : Failure)
   | drawBelow (destination : Var .nat) (source : Expr .source) (upper : Expr .nat)
-  | forVector (index weight : Var .nat) (vector : Var .natVector) (body : List Stmt)
   | ifThen (condition : Expr .bool) (body : List Stmt)
-  | subtractAssign (destination : Var .nat) (value : Expr .nat)
   | return (value : Expr .nat)
   | fail (failure : Failure)
 
@@ -64,79 +63,48 @@ structure Program where
   inputs : List Input
   body : List Stmt
 
-private def source : Var .source := ⟨"source"⟩
-private def weights : Var .natVector := ⟨"weights"⟩
-private def target : Var .natVector := ⟨"target"⟩
-private def proposal : Var .natMatrix := ⟨"proposal"⟩
-private def current : Var .nat := ⟨"current"⟩
+def sourceVar : Var .source := ⟨"source"⟩
+def weightsVar : Var .natVector := ⟨"weights"⟩
+def targetVar : Var .natVector := ⟨"target"⟩
+def proposalVar : Var .natMatrix := ⟨"proposal"⟩
+def currentVar : Var .nat := ⟨"current"⟩
+def proposedVar : Var .nat := ⟨"proposed"⟩
+def drawVar : Var .nat := ⟨"draw"⟩
 
-/-- Cumulative categorical selection in backend-neutral control flow. -/
+def mhCurrentRow : Expr .natVector := .row (.var proposalVar) (.var currentVar)
+def mhProposedRow : Expr .natVector := .row (.var proposalVar) (.var proposedVar)
+def mhUpper : Expr .nat := .mul
+  (.mul (.index (.var targetVar) (.var currentVar))
+    (.index mhCurrentRow (.var proposedVar)))
+  (.total mhProposedRow)
+def mhThreshold : Expr .nat := .min mhUpper
+  (.mul (.mul (.index (.var targetVar) (.var proposedVar))
+    (.index mhProposedRow (.var currentVar))) (.total mhCurrentRow))
+
+/-- Categorical primitive entry point in backend-neutral control flow. -/
 def categoricalProgram : Program where
   name := "categorical_index!"
-  inputs := [⟨.source, source.name⟩, ⟨.natVector, weights.name⟩]
+  inputs := [⟨.source, sourceVar.name⟩, ⟨.natVector, weightsVar.name⟩]
   body :=
-    let exactWeights : Var .natVector := ⟨"exact_weights"⟩
-    let total : Var .nat := ⟨"total"⟩
-    let draw : Var .nat := ⟨"draw"⟩
-    let index : Var .nat := ⟨"index"⟩
-    let weight : Var .nat := ⟨"weight"⟩
-    [.letE exactWeights (.toExactVector (.var weights)),
-      .guard (.allNonnegative (.var exactWeights))
-        (.argument "weights must be nonnegative"),
-      .letE total (.total (.var exactWeights)),
-      .guard (.lt (.nat 0) (.var total))
-        (.argument "weights must have positive total"),
-      .drawBelow draw (.var source) (.var total),
-      .forVector index weight exactWeights [
-        .ifThen (.lt (.var draw) (.var weight)) [.return (.var index)],
-        .subtractAssign draw (.var weight)],
-      .fail (.internal "draw_below! violated its range contract")]
+    let selected : Var .nat := ⟨"selected"⟩
+    [.letE selected (.categorical (.var sourceVar) (.var weightsVar)),
+      .return (.var selected)]
+
+/-- Generic exact finite MH statement list. -/
+def metropolisHastingsBody : List Stmt :=
+    [.letE proposedVar (.categorical (.var sourceVar)
+        (.row (.var proposalVar) (.var currentVar))),
+      .ifThen (.eq (.var proposedVar) (.var currentVar)) [.return (.var currentVar)],
+      .drawBelow drawVar (.var sourceVar) mhUpper,
+      .ifThen (.lt (.var drawVar) mhThreshold) [.return (.var proposedVar)],
+      .return (.var currentVar)]
 
 /-- Generic exact finite MH control flow. -/
 def metropolisHastingsProgram : Program where
   name := "finite_mh_step!"
-  inputs := [⟨.source, source.name⟩, ⟨.natVector, target.name⟩,
-    ⟨.natMatrix, proposal.name⟩, ⟨.nat, current.name⟩]
-  body :=
-    let targetWeights : Var .natVector := ⟨"target_weights"⟩
-    let rows : Var .natMatrix := ⟨"rows"⟩
-    let stateCount : Var .nat := ⟨"state_count"⟩
-    let proposed : Var .nat := ⟨"proposed"⟩
-    let currentTotal : Var .nat := ⟨"current_total"⟩
-    let proposedTotal : Var .nat := ⟨"proposed_total"⟩
-    let forward : Var .nat := ⟨"forward"⟩
-    let reverse : Var .nat := ⟨"reverse"⟩
-    let upper : Var .nat := ⟨"upper"⟩
-    let threshold : Var .nat := ⟨"threshold"⟩
-    let draw : Var .nat := ⟨"draw"⟩
-    [.letE targetWeights (.toExactVector (.var target)),
-      .guard (.allPositive (.var targetWeights))
-        (.argument "target weights must be positive"),
-      .letE stateCount (.length (.var targetWeights)),
-      .guard (.eq (.rowCount (.var proposal)) (.var stateCount))
-        (.dimension "proposal row count"),
-      .guard (.and (.le (.nat 0) (.var current))
-        (.lt (.var current) (.var stateCount)))
-        (.argument "current state is out of range"),
-      .letE rows (.toExactMatrix (.var proposal)),
-      .guard (.allRowsLength (.var rows) (.var stateCount))
-        (.dimension "proposal column count"),
-      .guard (.allRowsNonnegativePositive (.var rows))
-        (.argument "proposal rows need nonnegative weights and positive totals"),
-      .letE proposed (.categorical (.var source) (.row (.var rows) (.var current))),
-      .ifThen (.eq (.var proposed) (.var current)) [.return (.var current)],
-      .letE currentTotal (.total (.row (.var rows) (.var current))),
-      .letE proposedTotal (.total (.row (.var rows) (.var proposed))),
-      .letE forward (.index (.row (.var rows) (.var current)) (.var proposed)),
-      .letE reverse (.index (.row (.var rows) (.var proposed)) (.var current)),
-      .letE upper (.mul (.mul (.index (.var targetWeights) (.var current))
-        (.var forward)) (.var proposedTotal)),
-      .letE threshold (.min (.var upper)
-        (.mul (.mul (.index (.var targetWeights) (.var proposed)) (.var reverse))
-          (.var currentTotal))),
-      .drawBelow draw (.var source) (.var upper),
-      .ifThen (.lt (.var draw) (.var threshold)) [.return (.var proposed)],
-      .return (.var current)]
+  inputs := [⟨.source, sourceVar.name⟩, ⟨.natVector, targetVar.name⟩,
+    ⟨.natMatrix, proposalVar.name⟩, ⟨.nat, currentVar.name⟩]
+  body := metropolisHastingsBody
 
 /-- Concrete literals used by the backend's thin two-state wrapper. -/
 def twoStateTarget : Expr .natVector := .vector [1, 3]

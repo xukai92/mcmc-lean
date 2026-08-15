@@ -6,11 +6,11 @@ empirical distribution diagnostics, and future numerical-sampler tests.
 ## Implemented finite tests
 
 - `test/runtests.jl` exhaustively replays all categorical and two-state MH
-  choices through the generated and optimized Julia implementations and
+  choices through the interpreted reference and optimized Julia implementations and
   compares them with the compiled Lean oracle.
 - `test/properties.jl` enumerates primitive draws to recover exact rational
   categorical and transition probabilities. It checks row normalization,
-  detailed balance, stationarity, and generated-versus-optimized equality.
+  detailed balance, stationarity, and reference-versus-optimized equality.
 - `test/geweke.jl` performs a seeded categorical chi-squared diagnostic,
   per-category frequency checks, and two-state stationary mean and variance
   checks using batch-means standard errors.
@@ -18,13 +18,13 @@ empirical distribution diagnostics, and future numerical-sampler tests.
   invalid weights, and public argument validation.
 - `test/generic_mh.jl` exhaustively enumerates an asymmetric three-state
   proposal with zero edges. It compares exact rational MH rows, the Lean
-  oracle, generated Julia, and optimized Julia, then checks normalization and
+  oracle, interpreted Julia reference, and optimized Julia, then checks normalization and
   stationarity.
 
 The optimized categorical implementation uses cumulative sums and binary
-search, whereas the generated implementation uses a linear cumulative scan.
+search, whereas the reference IR interpreter uses a linear cumulative scan.
 Both consume the same explicit `draw_below!` interface. The public sampler
-currently calls the generated implementation; the optimized module remains an
+currently calls the reference interpreter; the optimized module remains an
 internal differential-testing target.
 
 The exact tests and Lean proofs establish stronger facts than finite-sample

@@ -13,7 +13,8 @@ Lean executable finite MH program
   -> refinement to Mcmc.Finite.MetropolisHastings
   -> deterministic trace interpreter
   -> compiled Lean conformance oracle
-  -> emitted VerifiedSamplers.Generated Julia core
+  -> versioned IR artifact
+  -> VerifiedSamplers.Reference Julia interpreter
   -> exhaustive finite and trace-level tests
 ```
 
@@ -29,7 +30,7 @@ include continuous sampling, floating point, HMC, or adaptation.
 
 Executable inputs use nonnegative integer weights. Normalization gives exact
 rational probabilities mathematically, while execution needs only integer
-arithmetic and a `drawBelow(total)` primitive. The generated core must use
+arithmetic and a `drawBelow(total)` primitive. The reference interpreter must use
 arbitrary-precision integers or reject values outside a documented checked
 range; silent overflow is forbidden.
 
@@ -40,7 +41,7 @@ stationarity or detailed-balance theory.
 
 ### State space
 
-The first IR uses `Fin n` as its state representation. This gives the emitter a
+The first IR uses `Fin n` as its state representation. This gives interpreters a
 stable zero-based encoding and avoids making arbitrary Lean `Fintype`
 enumerations part of the Julia contract. A later encoded-finite-state interface
 may transport the result to enums and records.
@@ -64,22 +65,21 @@ The implementation must not conflate:
    `drawBelow` primitives;
 2. **trace semantics:** a deterministic evaluator consuming and recording
    concrete primitive results; and
-3. **Julia execution:** emitted code calling a documented runtime interface.
+3. **Julia execution:** a maintained interpreter consuming the versioned IR
+   artifact and calling a documented runtime interface.
 
 The first two are defined and related in Lean. Julia correctness remains
-conditional on the emitter and runtime primitive contracts until a compiler
-correctness theorem is added.
+conditional on the serializer, interpreter, and runtime primitive contracts
+until cross-language semantic preservation is proved.
 
-### Embedding and compiler
+### Artifact and interpreter
 
-The emitter consumes typed finite entry descriptors, elaborates them to a
-small backend-neutral command IR, and structurally lowers that IR to a
-restricted validated Julia AST. It does not translate arbitrary Lean
-expressions. The AST has no raw-source escape constructor, and Julia-specific
-one-based indexing appears only in the Julia lowering.
+Lean serializes the backend-neutral command IR into a small versioned
+S-expression data format. Julia-specific one-based indexing appears only in
+the maintained `VerifiedSamplers.Reference` interpreter.
 
-The emitter writes only under `VerifiedSamplers.jl/src/Generated/` and inserts
-a compiler-emitted, do-not-edit header. Generation is invoked explicitly with
+The serializer writes only `VerifiedSamplers.jl/src/Reference/Finite.ir`.
+Generation is invoked explicitly with
 `make generate`; ordinary Lean builds, Julia installation, and tests never
 rewrite source files.
 
@@ -104,6 +104,12 @@ formal/Mcmc/Executable/Finite/Program.lean
 formal/Mcmc/Executable/Finite/CompilerIR.lean
   backend-neutral typed categorical and generic MH control flow
 
+formal/Mcmc/Executable/Finite/CompilerIRInterpreter.lean
+  deterministic Lean trace interpreter for the command IR
+
+formal/Mcmc/Executable/Finite/IRFormat.lean
+  deterministic versioned S-expression serialization
+
 formal/Mcmc/Executable/Finite/TwoState.lean
   exact end-to-end instantiation of the existing example
 
@@ -113,27 +119,23 @@ formal/Mcmc/Executable/Finite/AsymmetricThreeState.lean
 formal/Mcmc/Oracle.lean
   compiled command-line conformance oracle
 
-formal/Mcmc/GenerateJulia.lean
-  deterministic finite-core generation entry point
-
-formal/Mcmc/Codegen/Julia/Ast.lean
-formal/Mcmc/Codegen/Julia/Finite.lean
-  restricted Julia AST/printer and structural finite-IR lowering
+formal/Mcmc/GenerateIR.lean
+  deterministic IR artifact generation entry point
 ```
 
 Public reusable modules are imported by `formal/Mcmc.lean`. The generator is a
 separate Lake executable so importing the mathematical library has no file
 system effects.
 
-The maintained Julia primitive interface should live outside the emitted
-submodule, for example:
+The maintained Julia primitive interface lives outside the reference
+submodule:
 
 ```text
 VerifiedSamplers.jl/src/Runtime/Runtime.jl
 ```
 
 Both the production RNG source and trace source implement `draw_below!`.
-`VerifiedSamplers.Generated` depends on that interface.
+`VerifiedSamplers.Reference` depends on that interface.
 
 ## Required theorem chain
 
@@ -146,14 +148,14 @@ statements with the following content.
    integer acceptance control flow has the stated exact PMF.
 4. For every input state, the complete executable MH step denotes
    `Mcmc.Finite.MetropolisHastings.kernel ... |>.rowPMF`.
-6. Consequently, its measure-kernel denotation is the existing embedded
+5. Consequently, its measure-kernel denotation is the existing embedded
    mathlib kernel and inherits the proved detailed balance and invariance
    theorem.
-7. A successful trace evaluation follows the same pure control flow used by
+6. A successful trace evaluation follows the same pure control flow used by
    the denotational program and consumes exactly its reported primitive events.
 
 The refinement endpoint is equality of PMFs for each input state. Equality of
-generated Julia behavior is not silently included in this theorem.
+Julia interpreter behavior is not silently included in this theorem.
 
 ## Implementation phases
 
@@ -174,11 +176,11 @@ generated Julia behavior is not silently included in this theorem.
 - Instantiate the two-state example, including acceptance, rejection, and
   self-proposal traces.
 
-### Phase C: Julia emission and runtime — complete generically
+### Phase C: Julia interpretation and runtime — complete generically
 
-- Use the typed finite command IR and restricted validated Julia AST/printer.
+- Serialize the typed command IR as versioned data and interpret it in Julia.
 - Add the production and trace `draw_below!` runtime implementations.
-- Emit generic categorical and finite-MH transitions into the `Generated`
+- Interpret generic categorical and finite-MH transitions in the `Reference`
   submodule, retaining the two-state convenience specialization.
 - Drive generation through the Lake generator and root Make target.
 - Make `make check-generated` regenerate in a temporary directory and fail on
@@ -202,28 +204,23 @@ The finite milestone is complete only when:
 - Lean proves exact row-PMF equality with the existing finite MH kernel;
 - the existing detailed-balance and invariance results are reached through
   that equality rather than reproved for a parallel algorithm;
-- generated Julia is committed under `VerifiedSamplers.Generated` and can be
-  reproduced by `make generate`;
+- the versioned IR artifact is committed under `VerifiedSamplers.Reference`
+  and can be reproduced by `make generate`;
 - Julia installation does not require Lean;
 - deterministic trace replay agrees across Lean fixtures and Julia;
 - exhaustive two-state and asymmetric small-kernel tests cover all represented
   finite random choices and specified failures; and
-- documentation lists the Julia emitter and `draw_below!` implementation as
+- documentation lists the serializer, Julia interpreter, and `draw_below!` implementation as
   trusted boundaries, distinct from the machine-checked PMF refinement.
 
-## Explicitly deferred
+## Outside this finite milestone
 
-- Give the finite command IR a deterministic Lean trace interpreter and prove
-  it equal to the existing `replayCategorical` and `replayMHStep` functions.
-  After that migration, make the IR interpreter the canonical executable Lean
-  implementation and deprecate the independently maintained replay
-  algorithms. The compiled Lean oracle remains useful, but should be built
-  from the canonical IR interpreter rather than from a second algorithm.
-- Prove semantic preservation from the finite command IR through the
-  restricted Julia AST lowering. Actual Julia execution and runtime primitives
-  remain an explicitly documented implementation boundary.
+- Prove or otherwise reduce the trusted conformance boundary between the
+  serialized command IR and the maintained Julia interpreter. Actual Julia
+  execution and runtime primitives remain explicitly documented boundaries.
 - arbitrary finite Lean state encodings;
-- continuous distributions and Gaussian primitive contracts;
+- continuous distributions and Gaussian primitive contracts (developed in
+  their separate executable layer);
 - `Float64` refinement and numerical error bounds;
 - RWMH, leapfrog, endpoint HMC, multinomial HMC, and couplings;
 - adaptation, NUTS, GPU execution, and optimized implementations; and

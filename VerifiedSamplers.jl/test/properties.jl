@@ -28,17 +28,17 @@ function exact_two_state_row(implementation, current)
 end
 
 @testset "exact finite properties" begin
-    generated_categorical = weights -> exact_categorical_probabilities(
-        Generated.categorical_index!, weights)
+    reference_categorical = weights -> exact_categorical_probabilities(
+        Reference.categorical_index!, weights)
     optimized_categorical = weights -> exact_categorical_probabilities(
         Optimized.categorical_index!, weights)
-    @test generated_categorical([1, 0, 2]) == [1 // 3, 0 // 1, 2 // 3]
-    @test generated_categorical([2, 1]) == [2 // 3, 1 // 3]
-    @test optimized_categorical([1, 0, 2]) == generated_categorical([1, 0, 2])
-    @test optimized_categorical([2, 1]) == generated_categorical([2, 1])
+    @test reference_categorical([1, 0, 2]) == [1 // 3, 0 // 1, 2 // 3]
+    @test reference_categorical([2, 1]) == [2 // 3, 1 // 3]
+    @test optimized_categorical([1, 0, 2]) == reference_categorical([1, 0, 2])
+    @test optimized_categorical([2, 1]) == reference_categorical([2, 1])
 
-    transition = [exact_two_state_row(Generated.two_state_mh_step!, 0)';
-        exact_two_state_row(Generated.two_state_mh_step!, 1)']
+    transition = [exact_two_state_row(Reference.two_state_mh_step!, 0)';
+        exact_two_state_row(Reference.two_state_mh_step!, 1)']
     optimized_transition = [exact_two_state_row(Optimized.two_state_mh_step!, 0)';
         exact_two_state_row(Optimized.two_state_mh_step!, 1)']
     target = [1 // 4, 3 // 4]

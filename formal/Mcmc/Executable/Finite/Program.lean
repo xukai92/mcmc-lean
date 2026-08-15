@@ -1,21 +1,21 @@
 import Mcmc.Executable.Finite.MetropolisHastings
 
 /-!
-# Typed finite sampler entry programs
+# Typed finite sampler semantic entries
 
-These tags are the compiler inputs for the finite reference backend. Their
-Lean denotations are the already verified executable functions; code
-generation no longer starts from an unrelated Julia source string.
+These tags name the established replay specifications and exact PMF theorems
+to which the canonical command-IR interpreter is connected. They are semantic
+anchors, not a second emitted artifact or public execution path.
 -/
 
 namespace Mcmc.Executable.Finite
 
-/-- Typed signatures supported by the initial finite compiler. -/
+/-- Typed signatures supported by the finite executable semantic entries. -/
 inductive Signature where
   | categorical
   | metropolisHastings
 
-/-- Lean type denoted by a compiler entry-point signature. -/
+/-- Lean type denoted by a finite semantic-entry signature. -/
 def Signature.denote : Signature → Type
   | .categorical =>
       ∀ {n : ℕ}, NatWeights n → List DrawEvent →
@@ -24,7 +24,7 @@ def Signature.denote : Signature → Type
       ∀ {n : ℕ}, PositiveNatWeights n → NatKernelWeights n → Fin n →
         List DrawEvent → Except ExecError (Fin n × List DrawEvent)
 
-/-- Inspectable, intrinsically signature-indexed finite sampler programs. -/
+/-- Signature-indexed names for the established finite replay specifications. -/
 inductive Program : Signature → Type where
   | categorical : Program .categorical
   | metropolisHastings : Program .metropolisHastings
@@ -48,13 +48,13 @@ theorem metropolisHastings_denote {n : ℕ} (target : PositiveNatWeights n)
       replayMHStep target proposal current trace :=
   rfl
 
-/-- The compiled categorical entry point is anchored to the selector whose
+/-- The categorical semantic entry is anchored to the selector whose
 PMF denotation was proved exact. -/
 theorem categorical_compiler_semantics {n : ℕ} (weights : NatWeights n) :
     weights.selectPMF = weights.toPMF :=
   weights.selectPMF_eq_toPMF
 
-/-- The compiled generic MH entry point is anchored to the existing exact PMF
+/-- The generic MH semantic entry is anchored to the existing exact PMF
 refinement theorem. -/
 theorem metropolisHastings_compiler_semantics {n : ℕ}
     (target : PositiveNatWeights n) (proposal : NatKernelWeights n)

@@ -11,7 +11,19 @@
     @test_throws EOFError Runtime.draw_below!(trace_source, 1)
 
     @test_throws ArgumentError Runtime.draw_below!(Runtime.TraceSource([3]), 3)
-    @test_throws ArgumentError Generated.categorical_index!(Runtime.TraceSource([0]), [1, -1])
+    @test_throws ArgumentError Reference.categorical_index!(Runtime.TraceSource([0]), [1, -1])
     @test_throws ArgumentError Optimized.categorical_index!(Runtime.TraceSource([0]), [1, -1])
     @test_throws ArgumentError sample(MersenneTwister(1), FiniteWeights([1]), -1)
+end
+
+@testset "versioned reference IR" begin
+    @test Reference.IR_FORMAT_VERSION == 1
+    @test sort!(collect(keys(Reference.PROGRAMS))) ==
+        ["categorical_index!", "finite_mh_step!"]
+    @test_throws ErrorException Reference.parse_document("(unterminated")
+    mktemp() do path, stream
+        write(stream, "(verified-samplers-ir 2 bogus)\n")
+        close(stream)
+        @test_throws ErrorException Reference.load_programs(path)
+    end
 end

@@ -25,7 +25,7 @@ function enumerate_mh_transition(implementation, target, proposal; check_oracle=
         proposal_total = sum(proposal[current + 1])
         for proposal_draw in 0:(proposal_total - 1)
             selector = Runtime.TraceSource([proposal_draw])
-            proposed = Generated.categorical_index!(selector, proposal[current + 1])
+            proposed = Reference.categorical_index!(selector, proposal[current + 1])
             if proposed == current
                 draws = [proposal_draw]
                 source = Runtime.TraceSource(draws)
@@ -60,19 +60,19 @@ end
     target = [1, 2, 3]
     proposal = [[1, 2, 1], [1, 1, 1], [0, 2, 1]]
     expected = expected_mh_transition(target, proposal)
-    generated = enumerate_mh_transition(Generated.finite_mh_step!, target, proposal;
+    reference = enumerate_mh_transition(Reference.finite_mh_step!, target, proposal;
         check_oracle=isfile(ORACLE))
     optimized = enumerate_mh_transition(Optimized.finite_mh_step!, target, proposal)
 
-    @test generated == expected
-    @test optimized == generated
-    @test all(sum(generated; dims=2) .== 1)
+    @test reference == expected
+    @test optimized == reference
+    @test all(sum(reference; dims=2) .== 1)
     target_probability = (target .// sum(target))'
-    @test target_probability * generated == target_probability
+    @test target_probability * reference == target_probability
 
     # The 1 → 3 proposal has zero reverse mass and is therefore always rejected.
-    @test generated[1, 3] == 0
-    @test generated[3, 1] == 0
+    @test reference[1, 3] == 0
+    @test reference[3, 1] == 0
 end
 
 @testset "generic finite MH public API" begin

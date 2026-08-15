@@ -10,8 +10,8 @@ name = "mcmc_oracle"
 root = "Mcmc.Oracle"
 
 [[lean_exe]]
-name = "generate_julia"
-root = "Mcmc.GenerateJulia"
+name = "generate_ir"
+root = "Mcmc.GenerateIR"
 
 [[require]]
 name = "mathlib"
