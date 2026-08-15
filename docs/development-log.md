@@ -22,9 +22,13 @@ measure and that its skeleton and wait marginals are exactly the original
 factors. General-state Poissonization is also constructed directly over
 mathlib kernels. The countable weighted sum of kernel powers is proved Markov,
 its exact row series is exposed, and any invariant probability target remains
-invariant. The Poisson count is almost surely finite, closing bounded
-homogeneous-clock nonexplosion. State-dependent or unbounded rates still need
-their own event simulator and Lyapunov/nonexplosion argument.
+invariant. It now satisfies the full Chapman--Kolmogorov law: the proof uses
+general-state kernel composition and the convolution law for independent
+Poisson counts, without a finite-state enumeration. Together with the proved
+zero-time identity this is a general-state Markov semigroup. The Poisson count
+is almost surely finite, closing bounded homogeneous-clock nonexplosion.
+State-dependent or unbounded rates still need their own event simulator and
+Lyapunov/nonexplosion argument.
 
 Added general-state bounded-rate uniformization for pure-jump mechanisms. At a
 homogeneous clock event the checked embedded kernel mixes the supplied Markov

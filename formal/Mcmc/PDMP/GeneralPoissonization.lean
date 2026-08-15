@@ -4,6 +4,7 @@ import Mathlib.Probability.Kernel.Basic
 import Mathlib.Probability.Kernel.Invariance
 import Mathlib.Probability.Kernel.WithDensity
 import Mathlib.MeasureTheory.Measure.GiryMonad
+import Mathlib.MeasureTheory.Group.IntegralConvolution
 import Mathlib.Tactic
 
 /-!
@@ -73,6 +74,71 @@ theorem generalPoissonizedKernel_apply
   intro n
   rw [scaleKernel_apply]
   simp [Measure.smul_apply, smul_eq_mul]
+
+/-- The Poisson series can equivalently be read as a Lebesgue integral over
+the event count. -/
+theorem generalPoissonizedKernel_apply_eq_lintegral
+    (transition : Kernel State State) [IsMarkovKernel transition]
+    (r : NNReal) (x : State) {s : Set State} (hs : MeasurableSet s) :
+    generalPoissonizedKernel transition r x s =
+      ∫⁻ n, (transition ^ n) x s ∂poissonMeasure r := by
+  rw [generalPoissonizedKernel_apply transition r x hs,
+    MeasureTheory.lintegral_countable']
+  apply tsum_congr
+  intro n
+  exact mul_comm _ _
+
+private theorem lintegral_generalPoissonizedKernel
+    (transition : Kernel State State) [IsMarkovKernel transition]
+    (r : NNReal) (x : State) (f : State → ENNReal) :
+    ∫⁻ y, f y ∂generalPoissonizedKernel transition r x =
+      ∫⁻ n, ∫⁻ y, f y ∂(transition ^ n) x ∂poissonMeasure r := by
+  rw [generalPoissonizedKernel, Kernel.sum_apply,
+    MeasureTheory.lintegral_sum_measure]
+  simp_rw [scaleKernel_apply, MeasureTheory.lintegral_smul_measure]
+  rw [MeasureTheory.lintegral_countable']
+  apply tsum_congr
+  intro n
+  simp only [smul_eq_mul]
+  rw [mul_comm]
+
+/-- Chapman--Kolmogorov law for the general-state Poisson mixture. Independent
+Poisson event counts add, while kernel powers compose by addition of their
+indices. -/
+theorem generalPoissonizedKernel_add
+    (transition : Kernel State State) [IsMarkovKernel transition]
+    (r s : NNReal) :
+    generalPoissonizedKernel transition (r + s) =
+      generalPoissonizedKernel transition s ∘ₖ
+        generalPoissonizedKernel transition r := by
+  ext x a ha
+  rw [Kernel.comp_apply' _ _ _ ha,
+    generalPoissonizedKernel_apply_eq_lintegral transition (r + s) x ha]
+  rw [lintegral_generalPoissonizedKernel transition r x
+    (fun y ↦ generalPoissonizedKernel transition s y a)]
+  simp_rw [generalPoissonizedKernel_apply_eq_lintegral transition s _ ha]
+  have hinner (m : ℕ) :
+      ∫⁻ y, ∫⁻ n, (transition ^ n) y a ∂poissonMeasure s
+          ∂(transition ^ m) x =
+        ∫⁻ n, (transition ^ (m + n)) x a ∂poissonMeasure s := by
+    have hcount (y : State) :
+        ∫⁻ n, (transition ^ n) y a ∂poissonMeasure s =
+          ∑' n, (transition ^ n) y a * poissonMeasure s {n} :=
+      MeasureTheory.lintegral_countable' _
+    simp_rw [hcount]
+    rw [MeasureTheory.lintegral_tsum]
+    · rw [MeasureTheory.lintegral_countable']
+      apply tsum_congr
+      intro n
+      rw [MeasureTheory.lintegral_mul_const _
+        (Kernel.measurable_coe (transition ^ n) ha),
+        ← Kernel.pow_add_apply_eq_lintegral transition m n x ha]
+    · intro n
+      exact ((Kernel.measurable_coe (transition ^ n) ha).mul_const _).aemeasurable
+  simp_rw [hinner]
+  rw [← Measure.lintegral_conv
+      (f := fun n : ℕ ↦ (transition ^ n) x a) (by fun_prop),
+    poissonMeasure_conv_poissonMeasure]
 
 /-- At zero clock intensity no embedded transition occurs. -/
 @[simp] theorem generalPoissonizedKernel_zero
