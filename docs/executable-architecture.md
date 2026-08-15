@@ -371,7 +371,7 @@ convergence assumptions as appropriate.
 
 ## Expansion sequence after the finite slice
 
-The intended order after the finite milestone is:
+The original intended order after the finite milestone was:
 
 1. continuous Gaussian RWMH with an explicit standard-normal primitive and a
    separate `Float64` boundary;
@@ -381,8 +381,10 @@ The intended order after the finite milestone is:
 4. optimized implementations, adaptation, and additional backends only after
    their theorem and runtime boundaries are fixed.
 
-This sequence is guidance, not a claim that later numerical or convergence
-obligations are already discharged.
+Items 1 and 2 are complete, and single-chain randomized-origin multinomial HMC
+from item 3 is now executable. Coupled shared-randomness commands remain. The
+current priorities and assurance boundaries are maintained in the
+[executable roadmap](executable-roadmap.md).
 
 ### Continuous Gaussian RWMH status
 
@@ -408,8 +410,9 @@ scalar real log density and proposal scale:
 - the `exp ∘ logDensity` target is invariant, and is a stationary probability
   measure when explicitly normalized.
 
-The version-2 artifact contains this named-variable program with explicit
-source, log-density, scale, and current inputs. Julia Reference interprets it
+The version-7 artifact contains this named-variable program with explicit
+source, log-density, scale, and current inputs, alongside endpoint,
+constant-metric, and multinomial HMC commands. Julia Reference interprets it
 and the public `GaussianRWMH` path uses Reference. Optimized remains an
 independent Float64 differential target. Both use typed trace events in tests
 and `randn`/`rand` for production draws; this is implementation evidence, not

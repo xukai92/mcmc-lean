@@ -215,21 +215,10 @@ The finite milestone is complete only when:
 
 ## Outside this finite milestone
 
-The first continuous follow-on is complete at the ideal semantic and
-interpreted-reference layers. It covers arbitrary measurable scalar log
-densities and positive scales, with explicit normalization for stationary
-probability targets. Julia Reference interprets the version-2 artifact and is
-differentially tested against Optimized. See the
-[continuous executable contract](continuous-executable-contract.md) for the
-precise theorem surface and the deferred Float64/RNG refinement.
-
-- Prove or otherwise reduce the trusted conformance boundary between the
-  serialized command IR and the maintained Julia interpreter. Actual Julia
-  execution and runtime primitives remain explicitly documented boundaries.
-- arbitrary finite Lean state encodings;
-- further continuous distributions and primitive contracts;
-- `Float64` refinement and numerical error bounds;
-- leapfrog, endpoint HMC, multinomial HMC, and couplings;
-- adaptation, NUTS, GPU execution, and optimized implementations; and
-- a proof connecting the modeled restricted Julia semantics to the actual
-  Julia implementation.
+The continuous follow-ons now include Gaussian RWMH, endpoint and
+constant-metric HMC, and randomized-origin multinomial HMC in the committed
+version-7 artifact. Their exact Lean semantics, Float64 qualifications, and
+remaining coupled/Riemannian work are tracked in the
+[continuous executable contract](continuous-executable-contract.md) and the
+[current executable roadmap](executable-roadmap.md). This finite roadmap is
+retained as the completed exact-arithmetic architectural milestone.

@@ -1,7 +1,8 @@
 # Testing strategy
 
 The Julia suite separates formal conformance, exact finite properties,
-empirical distribution diagnostics, and future numerical-sampler tests.
+empirical distribution diagnostics, active numerical-sampler tests, and
+explicitly deferred robustness or performance tests.
 
 ## Implemented finite tests
 
@@ -31,23 +32,30 @@ The exact tests and Lean proofs establish stronger facts than finite-sample
 statistical tests. The empirical diagnostics remain valuable for detecting
 RNG integration, indexing, batching, and public-API defects.
 
-## Skeletoned future tests
+## Implemented continuous tests
 
-The multi-step scalar HMC slice activates energy-conservation, exact-replay
-reversibility, finite-difference volume, Reference/Optimized trace, and
-standard-normal and quartic-target moment tests. These numerical checks
-complement the Lean phase-volume and invariance theorems; they do not replace
-them.
+The suite covers scalar and vector endpoint HMC, diagonal and dense
+constant-metric HMC, and randomized-origin multinomial HMC. Active tests
+include energy conservation, replay reversibility, finite-difference volume,
+Reference/Optimized fixed-trace comparison, standard-normal and quartic-target
+moments, correlated and ill-conditioned Gaussian metrics, multinomial event
+ordering, and public sampling APIs. RWMH and HMC also have per-run bounded
+decision-certificate unit tests.
+
+These numerical checks complement the Lean phase-volume, PMF, kernel-row, and
+invariance theorems; they do not replace them.
+
+## Skeletoned future tests
 
 `test/future_continuous.jl` registers skipped testsets for:
 
-- Geweke forward/backward tests and continuous moment matching;
+- a full Geweke forward/backward joint-distribution test;
 - DHMC categorical targets and kinetic/momentum units;
 - nonsmooth boundaries, high dimension, ill-conditioning, and multimodality;
 - adaptation; and
 - ESS and gradient-count benchmarks.
 
-These become active only when the corresponding executable APIs exist. In
+These become active only when the corresponding executable APIs and contracts exist. In
 particular, a finite-difference Jacobian check will be classified as an
 empirical regression test, not as a replacement for a Lean
 measure-preservation theorem.

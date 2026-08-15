@@ -1,5 +1,19 @@
 # Development log
 
+## 2026-08-15: executable progress review and next roadmap
+
+Audited the version-7 executable surface after completing multinomial HMC.
+The documentation now distinguishes five completed vertical slices: exact
+finite MH, Gaussian RWMH, endpoint HMC, constant-metric HMC, and
+randomized-origin multinomial HMC. Stale version-2 and future-HMC descriptions
+were removed from the architecture and testing notes.
+
+Added a current executable roadmap. The next priorities are multinomial
+selection error certificates, constant-metric multinomial HMC, executable
+coupled samplers for Xu et al. (2021), and certificate-bearing
+relativistic/Riemannian execution for Xu and Ge (2024). Callback hardening,
+adaptation, and performance work remain later, separately specified layers.
+
 ## 2026-08-15: generated executable multinomial HMC
 
 Added a typed randomized-origin multinomial-HMC artifact and advanced the

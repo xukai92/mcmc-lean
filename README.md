@@ -182,7 +182,8 @@ still inputs to this theorem rather than assumed facts.
 | Universal Float64/RNG theorem | Not claimed; still requires a formal Julia/LLVM/libm/RNG semantics and callback specifications |
 
 See the [continuous executable contract](docs/continuous-executable-contract.md)
-for the exact theorem and runtime boundaries.
+for the exact theorem and runtime boundaries, and the
+[executable roadmap](docs/executable-roadmap.md) for prioritized next steps.
 
 The executable HMC slice is also operational: scalar and vector-valued, unit-mass,
 endpoint-corrected HMC with any positive finite number of leapfrog steps. Lean

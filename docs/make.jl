@@ -10,6 +10,7 @@ pages = [
     ],
     "Testing and roadmap" => [
         "Testing strategy" => "testing.md",
+        "Executable roadmap" => "executable-roadmap.md",
         "Finite executable roadmap" => "finite-executable-roadmap.md",
         "Development log" => "development-log.md",
     ],
@@ -31,7 +32,8 @@ pages = [
 published_files = [
     "index.md", "architecture.md", "generated/architecture-graphs.md",
     "executable-architecture.md", "continuous-executable-contract.md",
-    "testing.md", "finite-executable-roadmap.md", "development-log.md",
+    "testing.md", "executable-roadmap.md", "finite-executable-roadmap.md",
+    "development-log.md",
     "xu21-coverage.md", "xu21-roadmap.md", "xu24-coverage.md",
     "xu24-roadmap.md", "related-work.md", "betancourt17-coverage.md",
     "neal12-coverage.md",
