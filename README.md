@@ -134,8 +134,13 @@ the state skeleton and exponential waits now have a joint probability measure
 with both marginals proved exact. The same Poisson mixture is also constructed
 directly for arbitrary mathlib Markov kernels: it is proved Markov, preserves
 every invariant probability target, and has an almost-surely finite event
-count on finite horizons. A dependent joint measure over all event counts,
-state-dependent unbounded clocks, and BPS/Zig-Zag convergence remain open.
+count on finite horizons. Bounded state-dependent pure-jump rates now also
+have a general uniformization kernel: each homogeneous clock event takes the
+real jump with probability `rate(x)/clockRate` and otherwise self-loops. Lean
+proves the embedded and real-time kernels Markov, transports any proved
+embedded invariant target through Poissonization, and records finite-count
+nonexplosion. A dependent joint measure over all event counts, deterministic
+flow between events, unbounded clocks, and BPS/Zig-Zag convergence remain open.
 
 For positive-horizon particle Gibbs, the finite library now proves a concrete
 arbitrary-horizon result: with any finite particle index type containing at

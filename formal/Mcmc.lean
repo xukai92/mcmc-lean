@@ -117,6 +117,7 @@ import Mcmc.PDMP.Poissonization
 import Mcmc.PDMP.Path
 import Mcmc.PDMP.TimedPath
 import Mcmc.PDMP.GeneralPoissonization
+import Mcmc.PDMP.GeneralUniformization
 import Mcmc.Kernel.CoupledChain
 import Mcmc.Kernel.CoupledMetropolisHastings
 import Mcmc.Kernel.DensityCoupling

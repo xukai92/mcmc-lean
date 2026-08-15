@@ -26,6 +26,17 @@ invariant. The Poisson count is almost surely finite, closing bounded
 homogeneous-clock nonexplosion. State-dependent or unbounded rates still need
 their own event simulator and Lyapunov/nonexplosion argument.
 
+Added general-state bounded-rate uniformization for pure-jump mechanisms. At a
+homogeneous clock event the checked embedded kernel mixes the supplied Markov
+jump with an identity event using weights `rate(x)/clockRate` and its
+complement. A pointwise rate bound proves the result Markov; general
+Poissonization then gives a Markov real-time kernel, conditional invariant-
+target transport, and almost-sure finite event counts. The invariant theorem
+deliberately requires invariance of the embedded chain; connecting the earlier
+rate-biased balanced-flux certificate to that premise is the next algebraic
+step. Deterministic motion between events and unbounded-rate nonexplosion are
+not represented by this pure-jump construction.
+
 ## 2026-08-15: categorical discontinuous-HMC vertical slice
 
 Added the Laplace-momentum crossing/reflection algebra from Nishimura, Dunson,
