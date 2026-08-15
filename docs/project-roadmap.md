@@ -95,6 +95,10 @@ The pre-Xu dependency order is:
    heterogeneous propagation, and their one-step Feynman--Kac expectation
    identity are also complete. The multi-time normalizing-constant theorem and
    ancestry history come next, followed by PIMH and particle marginal MH.
+7. adaptive-MCMC boundary -- finite state-dependent kernel selection and a
+   counterexample where two frozen target-invariant kernels combine into a
+   non-invariant selected kernel are complete. Nonhomogeneous path semantics,
+   diminishing adaptation, mixing times, and containment remain separate.
 
 Items 4--6 are intentionally ordered: the remaining slice work needs a
 measurable horizontal conditional with finite positive level-set mass;
@@ -111,8 +115,9 @@ remaining branches based on research value and shared infrastructure:
 - concrete slice kernels on the completed two-block conditional foundation;
 - nontrivial reversible-jump transports on the completed tagged-space layer;
 - particle MCMC after finite SMC and pseudo-marginal foundations;
-- adaptive MCMC only with explicit nonhomogeneous-chain semantics,
-  diminishing adaptation, and containment; and
+- adaptive MCMC beyond the completed boundary counterexample only with
+  explicit nonhomogeneous-chain semantics, diminishing adaptation, and
+  containment; and
 - BPS/Zig-Zag only in a separate continuous-time PDMP architecture.
 
 Sequence-parallel evaluation is an execution-refinement project downstream of
@@ -122,8 +127,10 @@ obligations.
 
 ## Immediate plan
 
-A1--A4 and B1 are complete. The next reusable branch is an auxiliary-variable
-slice-sampling layer, followed by tagged-space reversible-jump MH. The next
-paper-execution branch is B2. None of these later branches is needed to support
-the completed finite Gibbs, tempering, pseudo-marginal, independence-MH,
-MALA, or Xu et al. coupling claims.
+A1--A4 and B1 are complete. The next reusable branch is the multi-time finite
+SMC estimator law, followed by a pseudo-marginal client. Horizontal slice
+disintegration and a nontrivial reversible-jump Jacobian client remain
+independent open branches. The next paper-execution branch is B2. None of
+these is needed to support the completed finite Gibbs, tempering,
+pseudo-marginal, independence-MH, MALA, adaptive-boundary, or Xu et al.
+coupling claims.

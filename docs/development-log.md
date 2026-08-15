@@ -3,6 +3,19 @@
 Entries through the earlier 2026-08-13 work are preserved in the
 [development-log archive](development-log-archive.md).
 
+## 2026-08-15: finite adaptive-kernel boundary
+
+Added state-dependent selection from a family of finite Markov kernels and a
+machine-checked two-state counterexample. The identity and flip kernels each
+preserve the uniform target, but choosing the identity at `false` and the flip
+at `true` sends both states to `false`, so the selected kernel does not preserve
+that target.
+
+This is a deliberately negative boundary result: validity of every frozen
+kernel is not sufficient for state-dependent adaptation. It is not an adaptive
+convergence theorem. History-dependent/nonhomogeneous chain semantics,
+diminishing adaptation, mixing times, and containment remain future layers.
+
 ## 2026-08-15: finite multinomial-resampling and propagation identities
 
 Generalized the iid particle theorem from unit-mean scores to arbitrary

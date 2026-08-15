@@ -147,8 +147,12 @@ even when every frozen kernel is invariant and ergodic, state-dependent
 adaptation can destroy convergence. Their main assumptions do not imply a
 strong LLN or CLT.
 
-**Repository fit.** Start with finite adaptation and a small counterexample.
-Later define history-dependent kernel selection, kernel total variation,
+**Repository fit.** Finite state-dependent selection and a small counterexample
+are now machine checked: identity and flip kernels each preserve the uniform
+two-state target, but selecting between them from the current state destroys
+stationarity. Thus even common frozen-kernel invariance is insufficient before
+one reaches the stronger question of adaptive convergence. Later define
+history-dependent kernel selection, kernel total variation,
 diminishing adaptation, mixing times, and containment, then formalize the
 finite-window coupling argument. Production warmup should be described as an
 inhomogeneous phase followed by a frozen proved kernel.

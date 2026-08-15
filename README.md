@@ -27,8 +27,10 @@ targets with executable work and the broader
 two-temperature tempering, finite pseudo-marginal MH, executable Xu et al.
 coupling, and general-state MALA correctness are complete. A bounded-weight
 independence-MH minorization, exact regenerative representation, and explicit
-`(1 - 1 / M)^n` eventwise convergence bound are also proved. Auxiliary-variable
-slice sampling and corrected Xu--Ge execution are next.
+`(1 - 1 / M)^n` eventwise convergence bound are also proved. The pre-Xu
+foundation also has a finite adaptive-MCMC counterexample: state-dependent
+selection can destroy stationarity even when every frozen kernel preserves
+the target. Multi-time SMC and corrected Xu--Ge execution remain next.
 
 Betancourt's [*A Conceptual Introduction to Hamiltonian Monte
 Carlo*](https://arxiv.org/abs/1701.02434) is used as a foundational HMC
@@ -68,6 +70,9 @@ The repository now contains machine-checked implementations and proofs for:
   remains separate;
 - reusable finite identity, composition, mixture, and coordinate-lift
   combinators; finite one-site, random-scan, and systematic-scan Gibbs;
+- finite state-dependent kernel selection and a checked counterexample showing
+  that common invariance of all frozen kernels does not imply invariance after
+  state-dependent selection;
 - two-temperature parallel tempering with an MH-corrected swap, product-target
   stationarity, and an exact cold-marginal theorem;
 - finite pseudo-marginal MH with a nonnegative unbiased estimator, including
