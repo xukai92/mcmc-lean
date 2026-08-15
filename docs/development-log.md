@@ -3,6 +3,21 @@
 Entries through the earlier 2026-08-13 work are preserved in the
 [development-log archive](development-log-archive.md).
 
+## 2026-08-15: finite multinomial-resampling and propagation identities
+
+Generalized the iid particle theorem from unit-mean scores to arbitrary
+observables. Defined multinomial ancestor resampling and proved that it
+preserves every normalized weighted empirical average in conditional
+expectation. Added heterogeneous independent particle populations for
+conditional propagation through distinct kernel rows.
+
+Lean now proves the one-step bootstrap resample--propagate identity: the
+expected next empirical average is the current normalized weighted average of
+the transition expectation. This is the local Feynman--Kac induction step.
+The multi-time product-of-average-weights normalizing-constant theorem,
+explicit ancestry history, and PIMH/PMMH clients remain next; no convergence
+or particle-efficiency statement follows from the one-step identity.
+
 ## 2026-08-15: finite iid particle-estimator prerequisite
 
 Added finite iid particle populations for every positive finite particle

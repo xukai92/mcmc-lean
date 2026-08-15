@@ -91,16 +91,18 @@ The pre-Xu dependency order is:
    for reversible-jump MH -- complete at the abstract level, with a finite
    two-model example; a nontrivial Euclidean Jacobian client remains; and
 6. finite particle methods -- iid particle-average unbiasedness and its
-   pseudo-marginal MH client are complete; finite Feynman--Kac propagation,
-   unbiased resampling, and the SMC normalizing-constant theorem come next,
-   followed by PIMH and particle marginal MH.
+   pseudo-marginal MH client are complete; multinomial resampling,
+   heterogeneous propagation, and their one-step Feynman--Kac expectation
+   identity are also complete. The multi-time normalizing-constant theorem and
+   ancestry history come next, followed by PIMH and particle marginal MH.
 
 Items 4--6 are intentionally ordered: the remaining slice work needs a
 measurable horizontal conditional with finite positive level-set mass;
 reversible jump's next client needs a concrete dimension-changing
 transport/Jacobian theorem; full particle MCMC still needs an SMC estimator
 law before the existing pseudo-marginal theorem can be instantiated with a
-sequential particle filter rather than the completed iid importance cloud.
+full sequential particle filter rather than the completed iid importance
+cloud and one-step resample--propagate primitives.
 
 After those foundations and the paper execution milestones, select the
 remaining branches based on research value and shared infrastructure:

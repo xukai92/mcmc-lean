@@ -62,7 +62,10 @@ The repository now contains machine-checked implementations and proofs for:
   Markov/reversibility/invariance theorems;
 - finite iid particle clouds whose average nonnegative importance weight is
   proved unbiased, together with the resulting pseudo-marginal MH extended
-  stationarity and exact target marginal; sequential SMC remains separate;
+  stationarity and exact target marginal;
+- unbiased multinomial ancestor resampling, heterogeneous propagation, and a
+  one-step bootstrap resample--propagate expectation identity; multi-time SMC
+  remains separate;
 - reusable finite identity, composition, mixture, and coordinate-lift
   combinators; finite one-site, random-scan, and systematic-scan Gibbs;
 - two-temperature parallel tempering with an MH-corrected swap, product-target

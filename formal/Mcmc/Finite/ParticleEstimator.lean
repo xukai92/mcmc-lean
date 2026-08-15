@@ -82,12 +82,13 @@ theorem iidPopulation_coordinate_expectation
       simp [law.sum_mass]
 
 omit [DecidableEq Sample] in
-/-- The average of iid nonnegative unit-mean scores is again unit mean. -/
-theorem iidPopulation_particleAverage_unbiased
-    (law : Distribution Sample) (score : Sample → ℝ)
-    (hunbiased : ∑ s, law.mass s * score s = 1) :
+/-- The expected empirical average of an iid population equals the
+single-particle expectation. -/
+theorem iidPopulation_particleAverage_expectation
+    (law : Distribution Sample) (score : Sample → ℝ) :
     ∑ samples : Particle → Sample, (iidPopulation law).mass samples *
-        particleAverage score samples = 1 := by
+        particleAverage score samples =
+      ∑ s, law.mass s * score s := by
   classical
   have hcard : (Fintype.card Particle : ℝ) ≠ 0 := by
     exact_mod_cast Fintype.card_ne_zero
@@ -102,13 +103,149 @@ theorem iidPopulation_particleAverage_unbiased
       rw [← Finset.sum_mul]
       congr 1
       rw [Finset.sum_comm]
-    _ = (∑ _i : Particle, 1) / Fintype.card Particle := by
+    _ = (∑ _i : Particle, ∑ s, law.mass s * score s) /
+        Fintype.card Particle := by
       congr 1
       apply Finset.sum_congr rfl
       intro i _
-      rw [iidPopulation_coordinate_expectation law score i, hunbiased]
-    _ = 1 := by
+      rw [iidPopulation_coordinate_expectation law score i]
+    _ = ∑ s, law.mass s * score s := by
       simp [hcard]
+
+omit [DecidableEq Sample] in
+/-- The average of iid nonnegative unit-mean scores is again unit mean. -/
+theorem iidPopulation_particleAverage_unbiased
+    (law : Distribution Sample) (score : Sample → ℝ)
+    (hunbiased : ∑ s, law.mass s * score s = 1) :
+    ∑ samples : Particle → Sample, (iidPopulation law).mass samples *
+        particleAverage score samples = 1 := by
+  rw [iidPopulation_particleAverage_expectation law score, hunbiased]
+
+/-- Multinomial resampling draws each new ancestor independently from the
+normalized weights. -/
+def multinomialResampling (weights : Distribution Particle) :
+    Distribution (Particle → Particle) :=
+  iidPopulation weights
+
+omit [Fintype Sample] [DecidableEq Sample] in
+/-- Conditional unbiasedness of multinomial resampling: the expected average
+of any observable over the resampled population equals its current weighted
+empirical average. -/
+theorem multinomialResampling_unbiased
+    (weights : Distribution Particle) (particles : Particle → Sample)
+    (observable : Sample → ℝ) :
+    ∑ ancestors, (multinomialResampling weights).mass ancestors *
+        particleAverage (fun i => observable (particles i)) ancestors =
+      ∑ i, weights.mass i * observable (particles i) := by
+  exact iidPopulation_particleAverage_expectation weights
+    (fun i => observable (particles i))
+
+/-- Independent, not necessarily identically distributed, finite population.
+This is the conditional propagation law after ancestor indices are fixed. -/
+def independentPopulation (law : Particle → Distribution Sample) :
+    Distribution (Particle → Sample) where
+  mass samples := ∏ i, (law i).mass (samples i)
+  nonneg samples := Finset.prod_nonneg fun i _ => (law i).nonneg (samples i)
+  sum_mass := by
+    rw [← Fintype.prod_sum]
+    simp [Distribution.sum_mass]
+
+omit [DecidableEq Sample] [Nonempty Particle] in
+/-- Each coordinate of an independently propagated population has its
+specified transition law. -/
+theorem independentPopulation_coordinate_expectation
+    (law : Particle → Distribution Sample) (score : Sample → ℝ)
+    (i : Particle) :
+    ∑ samples, (independentPopulation law).mass samples * score (samples i) =
+      ∑ s, (law i).mass s * score s := by
+  classical
+  calc
+    ∑ samples, (independentPopulation law).mass samples * score (samples i) =
+        ∑ samples : Particle → Sample,
+          ∏ j, if j = i then (law j).mass (samples j) * score (samples j)
+          else (law j).mass (samples j) := by
+      apply Finset.sum_congr rfl
+      intro samples _
+      rw [independentPopulation]
+      calc
+        (∏ j, (law j).mass (samples j)) * score (samples i) =
+            ∏ j, (law j).mass (samples j) *
+              (if j = i then score (samples i) else 1) := by
+          rw [Finset.prod_mul_distrib]
+          simp
+        _ = ∏ j, if j = i then (law j).mass (samples j) * score (samples j)
+              else (law j).mass (samples j) := by
+          apply Finset.prod_congr rfl
+          intro j _
+          by_cases hji : j = i <;> simp [hji]
+    _ = ∏ j : Particle, ∑ s, if j = i then (law j).mass s * score s
+          else (law j).mass s := by
+      exact (Fintype.prod_sum
+        (f := fun j : Particle => fun s : Sample =>
+          if j = i then (law j).mass s * score s else (law j).mass s)).symm
+    _ = ∑ s, (law i).mass s * score s := by
+      simp [Distribution.sum_mass]
+
+omit [DecidableEq Sample] [Nonempty Particle] in
+/-- Expected empirical average after independent heterogeneous propagation. -/
+theorem independentPopulation_particleAverage_expectation
+    (law : Particle → Distribution Sample) (score : Sample → ℝ) :
+    ∑ samples, (independentPopulation law).mass samples *
+        particleAverage score samples =
+      (∑ i, ∑ s, (law i).mass s * score s) / Fintype.card Particle := by
+  classical
+  unfold particleAverage
+  calc
+    ∑ samples : Particle → Sample, (independentPopulation law).mass samples *
+          ((∑ i, score (samples i)) / Fintype.card Particle) =
+        (∑ i, ∑ samples : Particle → Sample,
+          (independentPopulation law).mass samples * score (samples i)) /
+            Fintype.card Particle := by
+      simp_rw [div_eq_mul_inv, ← mul_assoc, Finset.mul_sum]
+      rw [← Finset.sum_mul]
+      congr 1
+      rw [Finset.sum_comm]
+    _ = (∑ i, ∑ s, (law i).mass s * score s) /
+          Fintype.card Particle := by
+      congr 1
+      apply Finset.sum_congr rfl
+      intro i _
+      rw [independentPopulation_coordinate_expectation law score i]
+
+/-- A row of a finite Markov kernel as a finite distribution. -/
+def rowDistribution (transition : MarkovKernel Sample) (x : Sample) :
+    Distribution Sample where
+  mass y := transition.prob x y
+  nonneg y := transition.nonneg x y
+  sum_mass := transition.sum_prob x
+
+/-- Conditional propagation law after a vector of ancestor indices has been
+drawn. -/
+def propagatedPopulation (transition : MarkovKernel Sample)
+    (particles : Particle → Sample) (ancestors : Particle → Particle) :
+    Distribution (Particle → Sample) :=
+  independentPopulation fun j => rowDistribution transition (particles (ancestors j))
+
+omit [DecidableEq Sample] in
+/-- One-step bootstrap resample--propagate identity.  Conditional expectation
+of the next empirical average is the current normalized weighted average of
+the transition expectation. -/
+theorem resamplePropagate_particleAverage_expectation
+    (weights : Distribution Particle) (particles : Particle → Sample)
+    (transition : MarkovKernel Sample) (observable : Sample → ℝ) :
+    ∑ ancestors, (multinomialResampling weights).mass ancestors *
+        (∑ next, (propagatedPopulation transition particles ancestors).mass next *
+          particleAverage observable next) =
+      ∑ i, weights.mass i *
+        (∑ y, transition.prob (particles i) y * observable y) := by
+  simp_rw [propagatedPopulation,
+    independentPopulation_particleAverage_expectation]
+  change ∑ ancestors, (multinomialResampling weights).mass ancestors *
+      particleAverage
+        (fun i => ∑ y, transition.prob (particles i) y * observable y)
+        ancestors = _
+  exact multinomialResampling_unbiased weights particles
+    (fun x => ∑ y, transition.prob x y * observable y)
 
 /-- Lift a state-indexed one-particle unbiased score into a finite iid particle
 estimator usable by pseudo-marginal MH. -/
