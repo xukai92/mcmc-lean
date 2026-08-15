@@ -19,6 +19,19 @@
     @test_throws ArgumentError sample(MersenneTwister(1), FiniteWeights([1]), -1)
 end
 
+
+@testset "implicit solver certificates" begin
+    approximate = Certificates.certify_implicit_solve(1e-8, 1e-8, 2e-8, 2e-8;
+        unique=true, reversible=true, volume_preserving=true)
+    @test !Certificates.certifies_exact_solver(approximate)
+    exact = Certificates.certify_implicit_solve(0.0, 0.0, 0.0, 0.0;
+        unique=true, reversible=true, volume_preserving=true)
+    @test Certificates.certifies_exact_solver(exact)
+    missing_global = Certificates.certify_implicit_solve(0.0, 0.0, 0.0, 0.0)
+    @test !Certificates.certifies_exact_solver(missing_global)
+    @test_throws ArgumentError Certificates.certify_implicit_solve(1e-3, 1e-4, 0, 0)
+end
+
 @testset "bounded numeric decision certificates" begin
     witness = Certificates.certify_bound(0.5, big"0.5", big"0.0")
     @test witness.observed_error == 0
@@ -88,12 +101,14 @@ end
 end
 
 @testset "versioned reference IR" begin
-    @test Reference.IR_FORMAT_VERSION == 9
+    @test Reference.IR_FORMAT_VERSION == 10
     @test sort!(collect(keys(Reference.PROGRAMS))) ==
-        ["categorical_index!", "coupled_gaussian_rwmh_step!",
+        ["categorical_index!", "certified_relativistic_multinomial_hmc_step!",
+        "coupled_gaussian_rwmh_step!",
         "coupled_multinomial_hmc_step!", "dense_hmc_step!", "dense_multinomial_hmc_step!",
         "diagonal_hmc_step!", "diagonal_multinomial_hmc_step!",
-        "finite_mh_step!", "gaussian_rwmh_step!", "multinomial_hmc_step!", "scalar_hmc_step!",
+        "finite_mh_step!", "gaussian_rwmh_step!", "multinomial_hmc_step!",
+        "relativistic_multinomial_hmc_step!", "scalar_hmc_step!",
         "vector_hmc_step!", "xu21_coupled_step!"]
     @test_throws ErrorException Reference.parse_document("(unterminated")
     mktemp() do path, stream

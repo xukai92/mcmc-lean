@@ -125,6 +125,37 @@ transition kernels at its two parameter values. These are stationarity and
 exact-marginal results, not chain-convergence or particle-efficiency results.
 Conditional SMC and particle Gibbs remain separate.
 
+## 2026-08-15: conditional-SMC specification and particle-Gibbs kernel
+
+Added a reusable finite conditional-fiber refresh kernel with a total identity
+fallback on zero-mass fibers and proved that it preserves its source
+distribution. Instantiated it on the selected-trajectory statistic of the SMC
+extended target, obtaining a normalized conditional-history law, retained-path
+compatibility, and the exact marginal-times-conditional factorization.
+
+Composing that conditional refresh with uniform terminal-index reselection
+gives a finite particle-Gibbs kernel with machine-checked extended-target
+stationarity and exact normalized Feynman--Kac path marginal. A separate
+forced-coordinate population law and recursive forced-lineage generator are
+now defined and normalized compositionally. The remaining M1 obligation is the
+pointwise equivalence between that concrete generator and the exact conditional
+specification. No chain-convergence or particle-efficiency claim is made.
+
+## 2026-08-15: corrected executable relativistic constant-metric client
+
+Added generated IR version 10 and Julia Reference/Optimized implementations of
+a diagonal constant-metric relativistic multinomial HMC client. Momentum uses
+the dimension-correct `r^(d-1)` radial law via a Gamma rejection proposal,
+Gaussian-normalized uniform spherical direction, and the corrected inverse
+factor transport. Differential replay and public sampling tests pass.
+
+This is a working constant-metric specialization, not yet the full
+position-dependent Xu--Ge implementation. The latter still requires a valid
+implicit generalized-leapfrog solver. Backend residual certificates explicitly
+accept a solver as exact only at zero certified residual budget together with
+separate uniqueness, reversibility, and volume-preservation witnesses; a small
+positive tolerance remains an approximation claim.
+
 ## 2026-08-15: finite PMMH stationary exactness
 
 Packaged a complete SMC history and selected terminal index as the auxiliary

@@ -3,6 +3,7 @@ import Mcmc.Finite.MeasureKernel
 import Mcmc.Finite.MatrixKernel
 import Mcmc.Finite.Dynamics
 import Mcmc.Finite.Combinators
+import Mcmc.Finite.Conditional
 import Mcmc.Finite.Adaptive
 import Mcmc.Finite.AdaptiveConvergence
 import Mcmc.Finite.Gibbs
@@ -10,6 +11,7 @@ import Mcmc.Finite.ParallelTempering
 import Mcmc.Finite.PseudoMarginal
 import Mcmc.Finite.ParticleEstimator
 import Mcmc.Finite.SequentialMonteCarlo
+import Mcmc.Finite.ParticleMCMC
 import Mcmc.Finite.Coupling
 import Mcmc.Finite.MarginalRepair
 import Mcmc.Finite.Transport
@@ -22,6 +24,7 @@ import Mcmc.Examples.TwoState
 import Mcmc.Examples.TwoModelReversibleJump
 import Mcmc.Examples.EuclideanBirthDeathReversibleJump
 import Mcmc.Examples.StateIndexedPMMH
+import Mcmc.Examples.ParticleGibbs
 import Mcmc.Executable.Finite.Weights
 import Mcmc.Executable.Finite.Trace
 import Mcmc.Executable.Finite.Categorical
@@ -52,6 +55,8 @@ import Mcmc.Executable.Continuous.GaussianTransport
 import Mcmc.Executable.Continuous.MultinomialHMC
 import Mcmc.Executable.Continuous.MultinomialCompilerIR
 import Mcmc.Executable.Continuous.CoupledXu21
+import Mcmc.Executable.Continuous.RelativisticCompilerIR
+import Mcmc.Executable.Continuous.RelativisticCertificates
 import Mcmc.Docs.Graph
 import Mcmc.Hamiltonian.Leapfrog
 import Mcmc.Hamiltonian.Assumptions

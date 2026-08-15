@@ -5,13 +5,15 @@ using LinearAlgebra
 import Base: step
 
 include("Runtime/Runtime.jl")
+include("Certificates/Certificates.jl")
 include("Reference/Reference.jl")
 include("Optimized/Optimized.jl")
-include("Certificates/Certificates.jl")
 
 export FiniteWeights, FiniteKernelWeights, FiniteMH, TwoStateMH, GaussianRWMH,
     ScalarHMC, VectorHMC, MultinomialHMC, MetricMultinomialHMC,
-    DiagonalMetric, DenseMetric, MetricHMC, Xu21CoupledSampler, sample
+    DiagonalMetric, DenseMetric, MetricHMC, RelativisticMultinomialHMC,
+    CertifiedRelativisticMultinomialHMC,
+    Xu21CoupledSampler, sample
 export Certificates
 
 struct Xu21CoupledSampler{F,G}
@@ -158,6 +160,97 @@ struct MetricMultinomialHMC{F,G,M}
         new{F,G,M}(logdensity, gradient, metric, converted, Int(steps))
     end
 end
+
+struct RelativisticMultinomialHMC{F,G}
+    logdensity::F
+    gradient::G
+    metric::DiagonalMetric
+    relativistic_mass::Float64
+    step_size::Float64
+    steps::Int
+    function RelativisticMultinomialHMC(logdensity::F, gradient::G,
+            metric::DiagonalMetric, relativistic_mass::Real,
+            step_size::Real, steps::Integer=10) where {F,G}
+        converted_mass, converted_step = Float64(relativistic_mass), Float64(step_size)
+        isfinite(converted_mass) && converted_mass > 0 ||
+            throw(ArgumentError("relativistic mass must be finite and positive"))
+        isfinite(converted_step) && converted_step > 0 ||
+            throw(ArgumentError("step size must be finite and positive"))
+        steps > 0 || throw(ArgumentError("trajectory length must be positive"))
+        new{F,G}(logdensity, gradient, metric, converted_mass,
+            converted_step, Int(steps))
+    end
+end
+
+function step(rng::AbstractRNG, sampler::RelativisticMultinomialHMC,
+        current::AbstractVector{<:Real})
+    Reference.relativistic_multinomial_hmc_step!(Runtime.RNGSource(rng),
+        sampler.logdensity, sampler.gradient, sampler.step_size, sampler.steps,
+        current, sampler.metric.mass, sampler.relativistic_mass)
+end
+
+step(sampler::RelativisticMultinomialHMC, current::AbstractVector{<:Real}) =
+    step(Random.default_rng(), sampler, current)
+
+function sample(rng::AbstractRNG, sampler::RelativisticMultinomialHMC,
+        initial::AbstractVector{<:Real}, count::Integer)
+    count >= 0 || throw(ArgumentError("sample count must be nonnegative"))
+    current = Float64.(initial)
+    samples = Matrix{Float64}(undef, length(current), count)
+    for index in axes(samples, 2)
+        current = step(rng, sampler, current)
+        samples[:, index] = current
+    end
+    samples
+end
+
+sample(sampler::RelativisticMultinomialHMC,
+        initial::AbstractVector{<:Real}, count::Integer) =
+    sample(Random.default_rng(), sampler, initial, count)
+
+struct CertifiedRelativisticMultinomialHMC{H,F,I}
+    hamiltonian::H
+    metric_factor::F
+    integrator::I
+    relativistic_mass::Float64
+    step_size::Float64
+    steps::Int
+    function CertifiedRelativisticMultinomialHMC(hamiltonian::H, metric_factor::F,
+            integrator::I, relativistic_mass::Real, step_size::Real,
+            steps::Integer=10) where {H,F,I}
+        m, ε = Float64(relativistic_mass), Float64(step_size)
+        isfinite(m) && m > 0 || throw(ArgumentError("relativistic mass must be positive"))
+        isfinite(ε) && ε > 0 || throw(ArgumentError("step size must be positive"))
+        steps > 0 || throw(ArgumentError("trajectory length must be positive"))
+        new{H,F,I}(hamiltonian, metric_factor, integrator, m, ε, Int(steps))
+    end
+end
+
+function step(rng::AbstractRNG, sampler::CertifiedRelativisticMultinomialHMC,
+        current::AbstractVector{<:Real})
+    Reference.certified_relativistic_multinomial_hmc_step!(Runtime.RNGSource(rng),
+        sampler.hamiltonian, sampler.metric_factor, sampler.integrator,
+        sampler.step_size, sampler.steps, current, sampler.relativistic_mass)
+end
+
+step(sampler::CertifiedRelativisticMultinomialHMC,
+        current::AbstractVector{<:Real}) = step(Random.default_rng(), sampler, current)
+
+function sample(rng::AbstractRNG, sampler::CertifiedRelativisticMultinomialHMC,
+        initial::AbstractVector{<:Real}, count::Integer)
+    count >= 0 || throw(ArgumentError("sample count must be nonnegative"))
+    current = Float64.(initial)
+    samples = Matrix{Float64}(undef, length(current), count)
+    for index in axes(samples, 2)
+        current = step(rng, sampler, current)
+        samples[:, index] = current
+    end
+    samples
+end
+
+sample(sampler::CertifiedRelativisticMultinomialHMC,
+        initial::AbstractVector{<:Real}, count::Integer) =
+    sample(Random.default_rng(), sampler, initial, count)
 
 function step(rng::AbstractRNG, sampler::MetricMultinomialHMC,
         current::AbstractVector{<:Real})

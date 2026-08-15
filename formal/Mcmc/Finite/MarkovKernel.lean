@@ -1,5 +1,6 @@
 import Mathlib.Algebra.BigOperators.Group.Finset.Basic
 import Mathlib.Algebra.BigOperators.Ring.Finset
+import Mathlib.Algebra.Order.BigOperators.Group.Finset
 import Mathlib.Data.Fintype.BigOperators
 import Mathlib.Data.Real.Basic
 
@@ -41,6 +42,52 @@ theorem ext {π ρ : Distribution State} (h : π.mass = ρ.mass) : π = ρ := by
   cases ρ
   cases h
   rfl
+
+/-- Finite monadic composition of distributions. -/
+def bind {α β : Type*} [Fintype α] [Fintype β]
+    (law : Distribution α) (next : α → Distribution β) : Distribution β where
+  mass y := ∑ x, law.mass x * (next x).mass y
+  nonneg y := Finset.sum_nonneg fun x _ =>
+    mul_nonneg (law.nonneg x) ((next x).nonneg y)
+  sum_mass := by
+    rw [Finset.sum_comm]
+    simp_rw [← Finset.mul_sum, Distribution.sum_mass, mul_one]
+    exact law.sum_mass
+
+/-- Push a finite distribution forward through a deterministic function. -/
+def map {α β : Type*} [Fintype α] [Fintype β] [DecidableEq β]
+    (law : Distribution α) (f : α → β) : Distribution β :=
+  bind law fun x =>
+    { mass := fun y => if y = f x then 1 else 0
+      nonneg := fun y => by split <;> norm_num
+      sum_mass := by simp }
+
+@[simp] theorem bind_mass {α β : Type*} [Fintype α] [Fintype β]
+    (law : Distribution α) (next : α → Distribution β) (y : β) :
+    (bind law next).mass y = ∑ x, law.mass x * (next x).mass y := rfl
+
+/-- Law of total expectation for finite distribution bind. -/
+theorem bind_expectation {α β : Type*} [Fintype α] [Fintype β]
+    (law : Distribution α) (next : α → Distribution β) (f : β → ℝ) :
+    ∑ y, (bind law next).mass y * f y =
+      ∑ x, law.mass x * ∑ y, (next x).mass y * f y := by
+  simp only [bind_mass, Finset.sum_mul]
+  rw [Finset.sum_comm]
+  apply Finset.sum_congr rfl
+  intro x _
+  rw [Finset.mul_sum]
+  apply Finset.sum_congr rfl
+  intro y _
+  exact mul_assoc _ _ _
+
+/-- Expectation under deterministic pushforward. -/
+theorem map_expectation {α β : Type*} [Fintype α] [Fintype β] [DecidableEq β]
+    (law : Distribution α) (g : α → β) (f : β → ℝ) :
+    ∑ y, (map law g).mass y * f y = ∑ x, law.mass x * f (g x) := by
+  rw [map, bind_expectation]
+  apply Finset.sum_congr rfl
+  intro x _
+  simp
 
 end Distribution
 

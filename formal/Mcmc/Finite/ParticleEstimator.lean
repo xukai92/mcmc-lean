@@ -150,6 +150,46 @@ def independentPopulation (law : Particle → Distribution Sample) :
     rw [← Fintype.prod_sum]
     simp [Distribution.sum_mass]
 
+/-- Point mass as an elementary finite distribution. -/
+def pointDistribution (value : Sample) : Distribution Sample where
+  mass sample := if sample = value then 1 else 0
+  nonneg sample := by split <;> norm_num
+  sum_mass := by simp
+
+/-- Independent population with one distinguished coordinate forced to a
+specified value. All other coordinates retain their supplied laws. This is
+the elementary initialization/propagation law used by conditional SMC. -/
+def forcedIndependentPopulation (law : Particle → Distribution Sample)
+    (retained : Particle) (value : Sample) : Distribution (Particle → Sample) :=
+  independentPopulation fun i =>
+    if i = retained then pointDistribution value else law i
+
+omit [Nonempty Particle] in
+theorem forcedIndependentPopulation_incompatible_zero
+    (law : Particle → Distribution Sample) (retained : Particle) (value : Sample)
+    (samples : Particle → Sample) (h : samples retained ≠ value) :
+    (forcedIndependentPopulation law retained value).mass samples = 0 := by
+  unfold forcedIndependentPopulation independentPopulation
+  apply Finset.prod_eq_zero (Finset.mem_univ retained)
+  simp [pointDistribution, h]
+
+omit [Nonempty Particle] in
+/-- The forced coordinate equals the retained value almost surely. -/
+theorem forcedIndependentPopulation_coordinate_probability
+    (law : Particle → Distribution Sample) (retained : Particle) (value : Sample) :
+    ∑ samples, (forcedIndependentPopulation law retained value).mass samples *
+      (if samples retained = value then 1 else 0) = 1 := by
+  rw [show (∑ samples, (forcedIndependentPopulation law retained value).mass samples *
+      (if samples retained = value then 1 else 0)) =
+      ∑ samples, (forcedIndependentPopulation law retained value).mass samples by
+    apply Finset.sum_congr rfl
+    intro samples _
+    by_cases h : samples retained = value
+    · simp [h]
+    · rw [forcedIndependentPopulation_incompatible_zero law retained value samples h]
+      simp]
+  exact (forcedIndependentPopulation law retained value).sum_mass
+
 omit [DecidableEq Sample] [Nonempty Particle] in
 /-- Each coordinate of an independently propagated population has its
 specified transition law. -/

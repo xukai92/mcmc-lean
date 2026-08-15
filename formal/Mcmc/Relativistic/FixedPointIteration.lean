@@ -221,6 +221,25 @@ def FiniteFixedPointIsExact
     result.2.1 = positionFixedPointUpdate momentumDerivative
       ε z.1 result.1 result.2.1
 
+/-- Zero metric residuals are sufficient to discharge the exact finite-solver
+obligation. This is the bridge used by backend residual certificates. -/
+theorem finiteFixedPointIsExact_of_dist_eq_zero
+    (positionDerivative momentumDerivative : PhaseSpace ι → Position ι)
+    (iterations : ℕ)
+    (hhalf : ∀ ε z,
+      let result := finiteFixedPointGeneralizedLeapfrog positionDerivative
+        momentumDerivative iterations ε z
+      dist result.1
+        (halfMomentumFixedPointUpdate positionDerivative ε z result.1) = 0)
+    (hposition : ∀ ε z,
+      let result := finiteFixedPointGeneralizedLeapfrog positionDerivative
+        momentumDerivative iterations ε z
+      dist result.2.1
+        (positionFixedPointUpdate momentumDerivative ε z.1 result.1 result.2.1) = 0) :
+    FiniteFixedPointIsExact positionDerivative momentumDerivative iterations := by
+  intro ε z
+  exact ⟨dist_eq_zero.mp (hhalf ε z), dist_eq_zero.mp (hposition ε z)⟩
+
 /-- Under an exact-residual proof, the finite implementation becomes a
 `GeneralizedLeapfrogSelection`.  Measurability, uniqueness, reversal, and
 volume preservation remain the separate fields of `selection.IsValid`. -/

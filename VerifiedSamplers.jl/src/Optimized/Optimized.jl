@@ -3,10 +3,13 @@ module Optimized
 using LinearAlgebra
 
 using ...Runtime: AbstractRandomSource, draw_below!, standard_normal!, uniform_unit!
+using ...Certificates: ImplicitSolveCertificate, certifies_exact_solver
 
 export categorical_index!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!,
     scalar_hmc_step!, vector_hmc_step!, metric_hmc_step!, multinomial_hmc_step!,
     metric_multinomial_hmc_step!,
+    relativistic_multinomial_hmc_step!,
+    certified_relativistic_multinomial_hmc_step!,
     leapfrog, vector_leapfrog
 
 """One scalar velocity-Verlet/leapfrog step with unit mass."""
@@ -149,6 +152,112 @@ function metric_multinomial_hmc_step!(source::AbstractRandomSource, logdensity,
     for (index, weight) in pairs(weights)
         cumulative += weight
         target < cumulative && return trajectory[index][1]
+    end
+    trajectory[end][1]
+end
+
+function _relativistic_radius!(source::AbstractRandomSource, dimension::Int,
+        relativistic_mass::Float64)
+    while true
+        radius = sum((-log1p(-uniform_unit!(source)) for _ in 1:dimension); init=0.0)
+        log(uniform_unit!(source)) < radius - sqrt(radius^2 + relativistic_mass^2) &&
+            return radius
+    end
+end
+
+function relativistic_multinomial_hmc_step!(source::AbstractRandomSource,
+        logdensity, gradient, step_size::Real, steps::Integer,
+        current::AbstractVector{<:Real}, mass::AbstractVector{<:Real},
+        relativistic_mass::Real)
+    ε, m = Float64(step_size), Float64(relativistic_mass)
+    steps > 0 || throw(ArgumentError("trajectory length must be positive"))
+    isfinite(ε) && ε > 0 || throw(ArgumentError("step size must be finite and positive"))
+    q0 = Float64.(current)
+    isempty(q0) && throw(ArgumentError("position cannot be empty"))
+    converted_mass = Float64.(mass)
+    length(converted_mass) == length(q0) || throw(DimensionMismatch("mass dimension"))
+    all(x -> isfinite(x) && x > 0, converted_mass) ||
+        throw(ArgumentError("diagonal metric must be finite and positive"))
+    isfinite(m) && m > 0 ||
+        throw(ArgumentError("relativistic mass must be finite and positive"))
+    radius = _relativistic_radius!(source, length(q0), m)
+    direction = [standard_normal!(source) for _ in eachindex(q0)]
+    direction_norm = norm(direction)
+    isfinite(direction_norm) && direction_norm > 0 ||
+        throw(DomainError(direction, "spherical direction draw must be nonzero"))
+    p0 = sqrt.(converted_mass) .* ((radius / direction_norm) .* direction)
+    velocity = function (p)
+        inverse_metric_p = p ./ converted_mass
+        inverse_metric_p ./ sqrt(dot(p, inverse_metric_p) + m^2)
+    end
+    advance = function (q, p, signed_step)
+        half = p .- (signed_step / 2) .* gradient(q)
+        next_q = q .+ signed_step .* velocity(half)
+        next_p = half .- (signed_step / 2) .* gradient(next_q)
+        next_q, next_p
+    end
+    origin = Int(draw_below!(source, steps + 1))
+    trajectory = Vector{Tuple{Vector{Float64},Vector{Float64}}}(undef, steps + 1)
+    for index in 0:steps
+        q, p = copy(q0), copy(p0)
+        signed_step = index >= origin ? ε : -ε
+        for _ in 1:abs(index - origin)
+            q, p = advance(q, p, signed_step)
+        end
+        trajectory[index + 1] = (q, p)
+    end
+    logweights = [logdensity(q) - sqrt(dot(p, p ./ converted_mass) + m^2)
+        for (q, p) in trajectory]
+    weights = exp.(logweights .- maximum(logweights))
+    draw = uniform_unit!(source) * sum(weights)
+    cumulative = 0.0
+    for (index, weight) in pairs(weights)
+        cumulative += weight
+        draw < cumulative && return trajectory[index][1]
+    end
+    trajectory[end][1]
+end
+
+function certified_relativistic_multinomial_hmc_step!(source::AbstractRandomSource,
+        hamiltonian, metric_factor, integrator, step_size::Real, steps::Integer,
+        current::AbstractVector{<:Real}, relativistic_mass::Real)
+    ε, m = Float64(step_size), Float64(relativistic_mass)
+    steps > 0 || throw(ArgumentError("trajectory length must be positive"))
+    q0 = Float64.(current)
+    factor = Matrix{Float64}(metric_factor(q0))
+    size(factor) == (length(q0), length(q0)) ||
+        throw(DimensionMismatch("metric factor dimension"))
+    radius = _relativistic_radius!(source, length(q0), m)
+    direction = [standard_normal!(source) for _ in eachindex(q0)]
+    direction_norm = norm(direction)
+    direction_norm > 0 || throw(DomainError(direction, "zero spherical direction"))
+    p0 = factor \ ((radius / direction_norm) .* direction)
+    advance = function (q, p, signed_step)
+        result = integrator(q, p, signed_step)
+        result isa Tuple && length(result) == 3 ||
+            throw(ArgumentError("integrator result"))
+        next_q, next_p, certificate = result
+        certificate isa ImplicitSolveCertificate && certifies_exact_solver(certificate) ||
+            throw(ArgumentError("implicit solve is not exactly certified"))
+        Float64.(next_q), Float64.(next_p)
+    end
+    origin = Int(draw_below!(source, steps + 1))
+    trajectory = Vector{Tuple{Vector{Float64},Vector{Float64}}}(undef, steps + 1)
+    for index in 0:steps
+        q, p = copy(q0), copy(p0)
+        signed_step = index >= origin ? ε : -ε
+        for _ in 1:abs(index - origin)
+            q, p = advance(q, p, signed_step)
+        end
+        trajectory[index + 1] = (q, p)
+    end
+    logweights = [-Float64(hamiltonian(q, p)) for (q, p) in trajectory]
+    weights = exp.(logweights .- maximum(logweights))
+    draw = uniform_unit!(source) * sum(weights)
+    cumulative = 0.0
+    for (index, weight) in pairs(weights)
+        cumulative += weight
+        draw < cumulative && return trajectory[index][1]
     end
     trajectory[end][1]
 end

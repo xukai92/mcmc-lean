@@ -1,4 +1,6 @@
 import Mcmc.Finite.ParticleEstimator
+import Mcmc.Finite.Conditional
+import Mcmc.Finite.Gibbs
 import Mathlib.Tactic
 
 /-!
@@ -947,6 +949,228 @@ theorem selectedParticleTarget_selectedTrajectory_expectation
   simp_rw [← terminalLabels_singleton_eq_selectedTrajectory]
   exact selectedParticleTarget_path_expectation initial steps hnormalizer observable
 
+section ConditionalSMC
+
+/-- Uniform law on the nonempty finite particle-index type. -/
+noncomputable def uniformParticleDistribution : Distribution Particle where
+  mass _ := 1 / Fintype.card Particle
+  nonneg _ := by positivity
+  sum_mass := by
+    have hcard : (Fintype.card Particle : ℝ) ≠ 0 := by
+      exact_mod_cast Fintype.card_ne_zero
+    simp [hcard]
+
+/-- Conditional-SMC continuation with a distinguished current lineage index.
+At every step a new retained index is drawn uniformly, its ancestor is forced
+to the previous retained index, and its propagated value is forced to the next
+reference-path state. Other coordinates follow ordinary multinomial
+resampling and propagation. -/
+noncomputable def forcedLineageSuffixLaw :
+    (steps : List (FeynmanKacStep Sample)) →
+    (current : Sample) → (future : List Sample) →
+    future.length = steps.length →
+    (particles : Particle → Sample) → (retained : Particle) →
+    Distribution (Continuation Particle Sample steps × Particle)
+  | [], _, [], _, _, retained =>
+      pointDistribution (ULift.up (), retained)
+  | [], _, _ :: _, hlength, _, _ => by simp at hlength
+  | _ :: _, _, [], hlength, _, _ => by simp at hlength
+  | step :: steps, _, nextState :: future, hlength, particles, retained =>
+      let tailLength : future.length = steps.length := by simpa using hlength
+      Distribution.bind (uniformParticleDistribution (Particle := Particle))
+        fun nextRetained =>
+          Distribution.bind
+            (forcedIndependentPopulation
+              (fun _ => normalizedPotentialWeights step.potential
+                step.potential_pos particles)
+              nextRetained retained)
+            fun ancestors =>
+              Distribution.bind
+                (forcedIndependentPopulation
+                  (fun i => rowDistribution step.transition
+                    (particles (ancestors i)))
+                  nextRetained nextState)
+                fun nextParticles =>
+                  Distribution.map
+                    (forcedLineageSuffixLaw steps nextState future tailLength
+                      nextParticles nextRetained)
+                    fun suffix =>
+                      ((ancestors, nextParticles, suffix.1), suffix.2)
+
+/-- Concrete forced-lineage conditional-SMC proposal for a reference path of
+the required horizon. The initial retained coordinate and every subsequent
+lineage index are chosen uniformly. -/
+noncomputable def forcedLineageLaw (initial : Distribution Sample)
+    (steps : List (FeynmanKacStep Sample)) (path : List Sample)
+    (hlength : path.length = steps.length + 1) :
+    Distribution (History (Particle := Particle) steps × Particle) := by
+  cases path with
+  | nil => simp at hlength
+  | cons first future =>
+      have hfuture : future.length = steps.length := by simpa using hlength
+      exact Distribution.bind
+        (uniformParticleDistribution (Particle := Particle)) fun retained =>
+          Distribution.bind
+            (forcedIndependentPopulation (fun _ => initial) retained first)
+            fun particles =>
+              Distribution.map
+                (forcedLineageSuffixLaw steps first future hfuture particles retained)
+                fun suffix => ((particles, suffix.1), suffix.2)
+
+/-- Marginal mass of one trajectory under the selected-particle extended
+target. This is the finite normalizer for exact conditional SMC. -/
+noncomputable def selectedTrajectoryMass (initial : Distribution Sample)
+    (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : 0 < normalizingConstant initial steps)
+    (path : List Sample) : ℝ :=
+  ∑ selected, if selectedTrajectory steps selected.1.1 selected.1.2 selected.2 = path
+    then (selectedParticleTarget (Particle := Particle) initial steps
+      hnormalizer).mass selected else 0
+
+theorem selectedTrajectoryMass_nonneg (initial : Distribution Sample)
+    (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : 0 < normalizingConstant initial steps)
+    (path : List Sample) :
+    0 ≤ selectedTrajectoryMass (Particle := Particle) initial steps hnormalizer path := by
+  unfold selectedTrajectoryMass
+  apply Finset.sum_nonneg
+  intro selected _
+  by_cases htrajectory :
+      selectedTrajectory steps selected.1.1 selected.1.2 selected.2 = path
+  · simp only [htrajectory, if_true]
+    exact (selectedParticleTarget (Particle := Particle) initial steps
+      hnormalizer).nonneg selected
+  · simp [htrajectory]
+
+/-- Exact conditional law of an SMC history and retained terminal index given
+its selected ancestral trajectory. This is the specification that a concrete
+forced-lineage conditional-SMC implementation must refine. -/
+noncomputable def conditionalSelectedParticleLaw (initial : Distribution Sample)
+    (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : 0 < normalizingConstant initial steps)
+    (path : List Sample)
+    (hpath : 0 < selectedTrajectoryMass (Particle := Particle) initial steps
+      hnormalizer path) :
+    Distribution (History (Particle := Particle) steps × Particle) where
+  mass selected :=
+    if selectedTrajectory steps selected.1.1 selected.1.2 selected.2 = path then
+      (selectedParticleTarget (Particle := Particle) initial steps
+        hnormalizer).mass selected /
+        selectedTrajectoryMass (Particle := Particle) initial steps hnormalizer path
+    else 0
+  nonneg selected := by
+    split
+    · exact div_nonneg
+        ((selectedParticleTarget (Particle := Particle) initial steps
+          hnormalizer).nonneg selected) (le_of_lt hpath)
+    · exact le_rfl
+  sum_mass := by
+    rw [show (∑ selected,
+        if selectedTrajectory steps selected.1.1 selected.1.2 selected.2 = path then
+          (selectedParticleTarget (Particle := Particle) initial steps
+            hnormalizer).mass selected /
+            selectedTrajectoryMass (Particle := Particle) initial steps hnormalizer path
+        else 0) =
+      selectedTrajectoryMass (Particle := Particle) initial steps hnormalizer path /
+        selectedTrajectoryMass (Particle := Particle) initial steps hnormalizer path by
+      calc
+        _ = ∑ selected,
+            (if selectedTrajectory steps selected.1.1 selected.1.2 selected.2 = path then
+              (selectedParticleTarget (Particle := Particle) initial steps
+                hnormalizer).mass selected else 0) /
+              selectedTrajectoryMass (Particle := Particle) initial steps
+                hnormalizer path := by
+            apply Finset.sum_congr rfl
+            intro selected _
+            split <;> simp_all
+        _ = _ := by rw [← Finset.sum_div]; rfl]
+    exact div_self (ne_of_gt hpath)
+
+/-- Conditional SMC is supported entirely on histories whose retained
+genealogy is the supplied reference trajectory. -/
+theorem conditionalSelectedParticleLaw_compatible (initial : Distribution Sample)
+    (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : 0 < normalizingConstant initial steps)
+    (path : List Sample)
+    (hpath : 0 < selectedTrajectoryMass (Particle := Particle) initial steps
+      hnormalizer path)
+    (selected : History (Particle := Particle) steps × Particle)
+    (hincompatible :
+      selectedTrajectory steps selected.1.1 selected.1.2 selected.2 ≠ path) :
+    (conditionalSelectedParticleLaw (Particle := Particle) initial steps
+      hnormalizer path hpath).mass selected = 0 := by
+  simp [conditionalSelectedParticleLaw, hincompatible]
+
+/-- Finite conditional factorization of the selected-particle extended target
+into its trajectory marginal and exact conditional-SMC law. -/
+theorem selectedParticleTarget_conditional_factorization
+    (initial : Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : 0 < normalizingConstant initial steps)
+    (path : List Sample)
+    (hpath : 0 < selectedTrajectoryMass (Particle := Particle) initial steps
+      hnormalizer path)
+    (selected : History (Particle := Particle) steps × Particle)
+    (hselected :
+      selectedTrajectory steps selected.1.1 selected.1.2 selected.2 = path) :
+    selectedTrajectoryMass (Particle := Particle) initial steps hnormalizer path *
+        (conditionalSelectedParticleLaw (Particle := Particle) initial steps
+          hnormalizer path hpath).mass selected =
+      (selectedParticleTarget (Particle := Particle) initial steps
+        hnormalizer).mass selected := by
+  simp only [conditionalSelectedParticleLaw, hselected, if_true]
+  field_simp
+
+/-- Exact conditional-SMC specification kernel. It refreshes the complete
+history and retained index conditionally on the currently selected trajectory;
+zero-mass fibers use the generic identity fallback. -/
+noncomputable def conditionalSMCKernel (initial : Distribution Sample)
+    (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : 0 < normalizingConstant initial steps) :
+    MarkovKernel (History (Particle := Particle) steps × Particle) :=
+  Conditional.kernel
+    (selectedParticleTarget (Particle := Particle) initial steps hnormalizer)
+    (fun selected =>
+      selectedTrajectory steps selected.1.1 selected.1.2 selected.2)
+
+/-- The exact conditional-SMC refresh preserves the selected-particle
+extended target. -/
+theorem conditionalSMCKernel_stationary (initial : Distribution Sample)
+    (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : 0 < normalizingConstant initial steps) :
+    (conditionalSMCKernel (Particle := Particle) initial steps hnormalizer).Stationary
+      (selectedParticleTarget (Particle := Particle) initial steps hnormalizer) :=
+  Conditional.kernel_stationary _ _
+
+/-- On a positive trajectory fiber, the conditional-SMC kernel row is exactly
+the normalized compatible-history law. -/
+theorem conditionalSMCKernel_prob_eq_law (initial : Distribution Sample)
+    (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : 0 < normalizingConstant initial steps)
+    (current proposed : History (Particle := Particle) steps × Particle)
+    (hpath : 0 < selectedTrajectoryMass (Particle := Particle) initial steps
+      hnormalizer
+      (selectedTrajectory steps current.1.1 current.1.2 current.2)) :
+    (conditionalSMCKernel (Particle := Particle) initial steps hnormalizer).prob
+        current proposed =
+      (conditionalSelectedParticleLaw (Particle := Particle) initial steps
+        hnormalizer
+        (selectedTrajectory steps current.1.1 current.1.2 current.2)
+        hpath).mass proposed := by
+  change (if h : 0 < selectedTrajectoryMass (Particle := Particle) initial steps
+      hnormalizer (selectedTrajectory steps current.1.1 current.1.2 current.2) then
+      if selectedTrajectory steps proposed.1.1 proposed.1.2 proposed.2 =
+          selectedTrajectory steps current.1.1 current.1.2 current.2 then
+        (selectedParticleTarget (Particle := Particle) initial steps
+          hnormalizer).mass proposed /
+          selectedTrajectoryMass (Particle := Particle) initial steps hnormalizer
+            (selectedTrajectory steps current.1.1 current.1.2 current.2)
+      else 0
+    else if proposed = current then 1 else 0) = _
+  rw [dif_pos hpath]
+  rfl
+
+end ConditionalSMC
+
 /-- Proposal law for PIMH: draw a fresh SMC history and then select one
 terminal particle uniformly. -/
 noncomputable def particleIndependentProposalLaw (initial : Distribution Sample)
@@ -1006,6 +1230,78 @@ theorem pimh_stationary_selectedTrajectory_expectation
         normalizingConstant initial steps :=
   selectedParticleTarget_selectedTrajectory_expectation initial steps
     hnormalizer observable
+
+section ParticleGibbs
+
+/-- State-independent uniform refresh of a finite nonempty selected index. -/
+noncomputable def uniformIndexKernel : MarkovKernel Particle where
+  prob _ _ := 1 / Fintype.card Particle
+  nonneg _ _ := by positivity
+  sum_prob _ := by
+    have hcard : (Fintype.card Particle : ℝ) ≠ 0 := by
+      exact_mod_cast Fintype.card_ne_zero
+    simp [hcard]
+
+/-- Hold an SMC history fixed and choose a fresh terminal particle uniformly. -/
+noncomputable def selectedIndexRefreshKernel
+    (steps : List (FeynmanKacStep Sample)) :
+    MarkovKernel (History (Particle := Particle) steps × Particle) :=
+  liftSnd (fun _ => uniformIndexKernel (Particle := Particle))
+
+/-- Uniform terminal-index refresh preserves the selected-particle extended
+target because its mass is uniform in the selected index conditional on a
+complete history. -/
+theorem selectedIndexRefreshKernel_stationary (initial : Distribution Sample)
+    (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : 0 < normalizingConstant initial steps) :
+    (selectedIndexRefreshKernel (Particle := Particle) steps).Stationary
+      (selectedParticleTarget (Particle := Particle) initial steps hnormalizer) := by
+  unfold selectedIndexRefreshKernel
+  apply Gibbs.liftSnd_stationary
+  intro history proposedIndex
+  unfold selectedParticleTarget uniformIndexKernel
+  have hcard : (Fintype.card Particle : ℝ) ≠ 0 := by
+    exact_mod_cast Fintype.card_ne_zero
+  simp only [Finset.sum_const, Finset.card_univ, nsmul_eq_mul]
+  field_simp
+
+/-- Finite particle Gibbs: conditionally refresh the complete particle system
+while retaining the current trajectory, then uniformly select a new terminal
+particle from that system. -/
+noncomputable def particleGibbsKernel (initial : Distribution Sample)
+    (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : 0 < normalizingConstant initial steps) :
+    MarkovKernel (History (Particle := Particle) steps × Particle) :=
+  comp (selectedIndexRefreshKernel (Particle := Particle) steps)
+    (conditionalSMCKernel (Particle := Particle) initial steps hnormalizer)
+
+/-- Exact extended-target stationarity of finite particle Gibbs. -/
+theorem particleGibbsKernel_stationary (initial : Distribution Sample)
+    (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : 0 < normalizingConstant initial steps) :
+    (particleGibbsKernel (Particle := Particle) initial steps hnormalizer).Stationary
+      (selectedParticleTarget (Particle := Particle) initial steps hnormalizer) :=
+  comp_stationary _ _ _
+    (conditionalSMCKernel_stationary (Particle := Particle) initial steps hnormalizer)
+    (selectedIndexRefreshKernel_stationary (Particle := Particle) initial steps
+      hnormalizer)
+
+omit [DecidableEq Sample] in
+/-- Particle Gibbs has the exact normalized Feynman--Kac trajectory marginal
+at stationarity. -/
+theorem particleGibbs_stationary_selectedTrajectory_expectation
+    (initial : Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : 0 < normalizingConstant initial steps)
+    (observable : List Sample → ℝ) :
+    ∑ selected, (selectedParticleTarget (Particle := Particle) initial steps
+        hnormalizer).mass selected *
+      observable (selectedTrajectory steps selected.1.1 selected.1.2 selected.2) =
+      (∑ x, initial.mass x * pathFeynmanKacValue steps observable x) /
+        normalizingConstant initial steps :=
+  selectedParticleTarget_selectedTrajectory_expectation initial steps
+    hnormalizer observable
+
+end ParticleGibbs
 
 /-- Eventwise form of the selected-terminal marginal identity. -/
 theorem selectedParticleTarget_terminal_event (initial : Distribution Sample)

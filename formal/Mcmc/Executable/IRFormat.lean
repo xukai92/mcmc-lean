@@ -3,6 +3,7 @@ import Mcmc.Executable.Continuous.CompilerIR
 import Mcmc.Executable.Continuous.MetricCompilerIR
 import Mcmc.Executable.Continuous.MultinomialCompilerIR
 import Mcmc.Executable.Continuous.CoupledXu21
+import Mcmc.Executable.Continuous.RelativisticCompilerIR
 
 /-!
 # Versioned textual format for sampler IR
@@ -15,7 +16,7 @@ namespace Mcmc.Executable.IRFormat
 
 open Finite.CompilerIR
 
-def version : Nat := 9
+def version : Nat := 10
 
 private def quote (value : String) : String :=
   let escapedBackslash := value.replace "\\" "\\\\"
@@ -180,7 +181,9 @@ def render : String :=
     Continuous.MetricCompilerIR.denseHmcProgram.render,
     Continuous.MetricCompilerIR.diagonalMultinomialHmcProgram.render,
     Continuous.MetricCompilerIR.denseMultinomialHmcProgram.render,
-    Continuous.MultinomialCompilerIR.program.render] ++
+    Continuous.MultinomialCompilerIR.program.render,
+    Continuous.RelativisticCompilerIR.program.render,
+    Continuous.RelativisticCompilerIR.certifiedPositionDependentProgram.render] ++
     Continuous.CoupledXu21.renderedPrograms) ++ "\n"
 
 end Mcmc.Executable.IRFormat

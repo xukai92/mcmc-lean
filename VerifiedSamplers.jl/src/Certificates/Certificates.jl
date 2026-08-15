@@ -3,6 +3,7 @@ module Certificates
 export BoundWitness, DecisionCertificate, certify_bound, certify_decision,
     SamplerDecisionCertificate, certify_rwmh_decision, certify_hmc_decision,
     MultinomialSelectionCertificate, certify_multinomial_selection,
+    ImplicitSolveCertificate, certify_implicit_solve, certifies_exact_solver,
     is_stable, uncertainty_band
 
 """A checked, execution-specific absolute-error claim.
@@ -18,6 +19,41 @@ struct BoundWitness
     bound::BigFloat
     observed_error::BigFloat
 end
+
+"""Checked residual information for one implicit generalized-leapfrog solve.
+
+This certificate deliberately separates a numerical residual bound from the
+global reversibility and volume-preservation obligations. Only a zero bound,
+zero observed residual, and explicit global witnesses qualify as an exact
+solver certificate; a small positive tolerance is merely approximation data.
+"""
+struct ImplicitSolveCertificate
+    half_momentum_residual::BoundWitness
+    position_residual::BoundWitness
+    unique::Bool
+    reversible::Bool
+    volume_preserving::Bool
+end
+
+function certify_implicit_solve(half_momentum_residual::Real,
+        half_momentum_bound::Real, position_residual::Real,
+        position_bound::Real; unique::Bool=false, reversible::Bool=false,
+        volume_preserving::Bool=false, precision::Integer=256)
+    half = certify_bound(half_momentum_residual, 0, half_momentum_bound;
+        precision=precision)
+    position = certify_bound(position_residual, 0, position_bound;
+        precision=precision)
+    ImplicitSolveCertificate(half, position, unique, reversible,
+        volume_preserving)
+end
+
+
+certifies_exact_solver(certificate::ImplicitSolveCertificate) =
+    iszero(certificate.half_momentum_residual.bound) &&
+    iszero(certificate.position_residual.bound) &&
+    iszero(certificate.half_momentum_residual.observed_error) &&
+    iszero(certificate.position_residual.observed_error) &&
+    certificate.unique && certificate.reversible && certificate.volume_preserving
 
 """Execution-specific cumulative-boundary certificate for multinomial selection."""
 struct MultinomialSelectionCertificate

@@ -3,12 +3,15 @@ module Reference
 using LinearAlgebra
 
 using ..Runtime: AbstractRandomSource, draw_below!, standard_normal!, uniform_unit!
+using ..Certificates: ImplicitSolveCertificate, certifies_exact_solver
 
 export categorical_index!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!, scalar_hmc_step!, vector_hmc_step!, metric_hmc_step!, multinomial_hmc_step!, metric_multinomial_hmc_step!,
+    relativistic_multinomial_hmc_step!,
+    certified_relativistic_multinomial_hmc_step!,
     coupled_multinomial_hmc_step!, coupled_gaussian_rwmh_step!, xu21_coupled_step!,
     IR_FORMAT_VERSION
 
-const IR_FORMAT_VERSION = 9
+const IR_FORMAT_VERSION = 10
 
 struct SList
     items::Vector{Any}
@@ -265,6 +268,26 @@ function eval_expr(raw, env::Dict{String,Any})
         mass = eval_expr(node[7], env)
         return _metric_multinomial_hmc_step!(source, env["logdensity"],
             env["gradient"], step_size, steps, current, mass, kind)
+    end
+    if tag == "relativistic-multinomial-hmc"
+        source = eval_expr(node[2], env)
+        step_size = Float64(eval_expr(node[3], env))
+        steps = Int(eval_expr(node[4], env))
+        current = eval_expr(node[5], env)
+        mass = eval_expr(node[6], env)
+        relativistic_mass = Float64(eval_expr(node[7], env))
+        return _relativistic_multinomial_hmc_step!(source, env["logdensity"],
+            env["gradient"], step_size, steps, current, mass, relativistic_mass)
+    end
+    if tag == "certified-relativistic-multinomial-hmc"
+        source = eval_expr(node[2], env)
+        step_size = Float64(eval_expr(node[3], env))
+        steps = Int(eval_expr(node[4], env))
+        current = eval_expr(node[5], env)
+        relativistic_mass = Float64(eval_expr(node[6], env))
+        return _certified_relativistic_multinomial_hmc_step!(source,
+            env["hamiltonian"], env["metric_factor"], env["integrator"],
+            step_size, steps, current, relativistic_mass)
     end
     if tag == "coupled-multinomial-hmc" || tag == "coupled-gaussian-rwmh" ||
             tag == "xu21-coupled-mixture"
@@ -660,6 +683,155 @@ function metric_multinomial_hmc_step!(source::AbstractRandomSource, logdensity,
     checked_grad = value -> checked_gradient(gradient, value)
     Float64.(run_program(name, source, checked_log, checked_grad, step_size, steps,
         current, mass))
+end
+
+function _relativistic_radius!(source::AbstractRandomSource, dimension::Int,
+        relativistic_mass::Float64)
+    while true
+        # Gamma(d, 1) proposal: sum of d independent exponential variables.
+        radius = sum((-log1p(-uniform_unit!(source)) for _ in 1:dimension); init=0.0)
+        log_acceptance = radius - sqrt(radius^2 + relativistic_mass^2)
+        log(uniform_unit!(source)) < log_acceptance && return radius
+    end
+end
+
+function _relativistic_momentum!(source::AbstractRandomSource,
+        mass::AbstractVector{<:Real}, relativistic_mass::Float64)
+    dimension = length(mass)
+    radius = _relativistic_radius!(source, dimension, relativistic_mass)
+    direction = [standard_normal!(source) for _ in 1:dimension]
+    direction_norm = norm(direction)
+    isfinite(direction_norm) && direction_norm > 0 ||
+        throw(DomainError(direction, "spherical direction draw must be nonzero"))
+    isotropic = (radius / direction_norm) .* direction
+    # If A'A = G⁻¹, the corrected transport is p = A⁻¹z.
+    sqrt.(mass) .* isotropic
+end
+
+function _relativistic_multinomial_hmc_step!(source::AbstractRandomSource,
+        logdensity, gradient, step_size::Float64, steps::Integer,
+        current::AbstractVector{<:Real}, mass::AbstractVector{<:Real},
+        relativistic_mass::Float64)
+    steps > 0 || throw(ArgumentError("trajectory length must be positive"))
+    isfinite(step_size) && step_size > 0 ||
+        throw(ArgumentError("step size must be finite and positive"))
+    q0 = Float64.(current)
+    isempty(q0) && throw(ArgumentError("position cannot be empty"))
+    length(mass) == length(q0) || throw(DimensionMismatch("mass dimension"))
+    all(x -> isfinite(x) && x > 0, mass) ||
+        throw(ArgumentError("diagonal metric must be finite and positive"))
+    isfinite(relativistic_mass) && relativistic_mass > 0 ||
+        throw(ArgumentError("relativistic mass must be finite and positive"))
+    converted_mass = Float64.(mass)
+    p0 = _relativistic_momentum!(source, converted_mass, relativistic_mass)
+    velocity = function (p)
+        inverse_metric_p = p ./ converted_mass
+        inverse_metric_p ./ sqrt(dot(p, inverse_metric_p) + relativistic_mass^2)
+    end
+    advance = function (q, p, signed_step)
+        half = p .- (signed_step / 2) .* gradient(q)
+        next_q = q .+ signed_step .* velocity(half)
+        next_p = half .- (signed_step / 2) .* gradient(next_q)
+        next_q, next_p
+    end
+    origin = Int(draw_below!(source, steps + 1))
+    trajectory = Vector{Tuple{Vector{Float64},Vector{Float64}}}(undef, steps + 1)
+    for index in 0:steps
+        q, p = copy(q0), copy(p0)
+        signed_step = index >= origin ? step_size : -step_size
+        for _ in 1:abs(index - origin)
+            q, p = advance(q, p, signed_step)
+        end
+        trajectory[index + 1] = (q, p)
+    end
+    logweights = [logdensity(q) -
+        sqrt(dot(p, p ./ converted_mass) + relativistic_mass^2)
+        for (q, p) in trajectory]
+    weights = exp.(logweights .- maximum(logweights))
+    draw = uniform_unit!(source) * sum(weights)
+    cumulative = 0.0
+    for (index, weight) in pairs(weights)
+        cumulative += weight
+        draw < cumulative && return trajectory[index][1]
+    end
+    trajectory[end][1]
+end
+
+function relativistic_multinomial_hmc_step!(source::AbstractRandomSource,
+        logdensity, gradient, step_size::Real, steps::Integer,
+        current::AbstractVector{<:Real}, mass::AbstractVector{<:Real},
+        relativistic_mass::Real)
+    all(isfinite, current) || throw(ArgumentError("position must be finite"))
+    checked_log = value -> checked_logdensity(logdensity, value)
+    checked_grad = value -> checked_gradient(gradient, value)
+    Float64.(run_program("relativistic_multinomial_hmc_step!", source,
+        checked_log, checked_grad, Float64(step_size), steps, current, mass,
+        Float64(relativistic_mass)))
+end
+
+function _corrected_isotropic_relativistic_momentum!(source::AbstractRandomSource,
+        dimension::Int, relativistic_mass::Float64)
+    radius = _relativistic_radius!(source, dimension, relativistic_mass)
+    direction = [standard_normal!(source) for _ in 1:dimension]
+    direction_norm = norm(direction)
+    isfinite(direction_norm) && direction_norm > 0 ||
+        throw(DomainError(direction, "spherical direction draw must be nonzero"))
+    (radius / direction_norm) .* direction
+end
+
+function _checked_certified_step(integrator, q, p, step_size)
+    result = integrator(q, p, step_size)
+    result isa Tuple && length(result) == 3 ||
+        throw(ArgumentError("integrator must return (position, momentum, certificate)"))
+    next_q, next_p, certificate = result
+    certificate isa ImplicitSolveCertificate ||
+        throw(ArgumentError("integrator must return an ImplicitSolveCertificate"))
+    certifies_exact_solver(certificate) ||
+        throw(ArgumentError("implicit solve is approximate or lacks global validity witnesses"))
+    Float64.(next_q), Float64.(next_p)
+end
+
+function _certified_relativistic_multinomial_hmc_step!(source::AbstractRandomSource,
+        hamiltonian, metric_factor, integrator, step_size::Float64, steps::Integer,
+        current::AbstractVector{<:Real}, relativistic_mass::Float64)
+    steps > 0 || throw(ArgumentError("trajectory length must be positive"))
+    q0 = Float64.(current)
+    isempty(q0) && throw(ArgumentError("position cannot be empty"))
+    factor = Matrix{Float64}(metric_factor(q0))
+    size(factor) == (length(q0), length(q0)) ||
+        throw(DimensionMismatch("metric factor dimension"))
+    abs(det(factor)) > 0 || throw(ArgumentError("metric factor must be invertible"))
+    z = _corrected_isotropic_relativistic_momentum!(source, length(q0),
+        relativistic_mass)
+    p0 = factor \ z # corrected p = A⁻¹z transport
+    origin = Int(draw_below!(source, steps + 1))
+    trajectory = Vector{Tuple{Vector{Float64},Vector{Float64}}}(undef, steps + 1)
+    for index in 0:steps
+        q, p = copy(q0), copy(p0)
+        signed_step = index >= origin ? step_size : -step_size
+        for _ in 1:abs(index - origin)
+            q, p = _checked_certified_step(integrator, q, p, signed_step)
+        end
+        trajectory[index + 1] = (q, p)
+    end
+    logweights = [-Float64(hamiltonian(q, p)) for (q, p) in trajectory]
+    all(isfinite, logweights) || throw(DomainError(logweights, "Hamiltonian must be finite"))
+    weights = exp.(logweights .- maximum(logweights))
+    draw = uniform_unit!(source) * sum(weights)
+    cumulative = 0.0
+    for (index, weight) in pairs(weights)
+        cumulative += weight
+        draw < cumulative && return trajectory[index][1]
+    end
+    trajectory[end][1]
+end
+
+function certified_relativistic_multinomial_hmc_step!(source::AbstractRandomSource,
+        hamiltonian, metric_factor, integrator, step_size::Real, steps::Integer,
+        current::AbstractVector{<:Real}, relativistic_mass::Real)
+    Float64.(run_program("certified_relativistic_multinomial_hmc_step!", source,
+        hamiltonian, metric_factor, integrator, Float64(step_size), steps,
+        current, Float64(relativistic_mass)))
 end
 
 function _run_coupled(name, source::AbstractRandomSource, logdensity, gradient,

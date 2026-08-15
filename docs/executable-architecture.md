@@ -410,7 +410,7 @@ scalar real log density and proposal scale:
 - the `exp ∘ logDensity` target is invariant, and is a stationary probability
   measure when explicitly normalized.
 
-The version-9 artifact retains this named-variable program with explicit
+The version-10 artifact retains this named-variable program with explicit
 source, log-density, scale, and current inputs, alongside endpoint,
 constant-metric, and multinomial HMC commands. Julia Reference interprets it
 and the public `GaussianRWMH` path uses Reference. Optimized remains an

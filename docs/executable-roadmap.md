@@ -7,7 +7,7 @@ assumptions.
 
 ## Completed vertical slices
 
-The current version-9 artifact and Julia package provide:
+The current version-10 artifact and Julia package provide:
 
 | Slice | Exact Lean result | Julia evidence |
 |---|---|---|

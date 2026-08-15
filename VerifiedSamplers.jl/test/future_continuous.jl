@@ -35,6 +35,63 @@
     end
 end
 
+@testset "corrected relativistic multinomial HMC" begin
+    logdensity(x) = -sum(abs2, x) / 2
+    gradient(x) = x
+    events = Runtime.FloatTraceEvent[
+        Runtime.UniformEvent(0.2), Runtime.UniformEvent(0.3),
+        Runtime.UniformEvent(0.1),
+        Runtime.NormalEvent(0.4), Runtime.NormalEvent(-0.7),
+        Runtime.IndexEvent(1), Runtime.UniformEvent(0.35)]
+    reference_source = Runtime.FloatTraceSource(copy(events))
+    optimized_source = Runtime.FloatTraceSource(copy(events))
+    reference = Reference.relativistic_multinomial_hmc_step!(reference_source,
+        logdensity, gradient, 0.1, 2, [0.25, -0.5], [1.0, 4.0], 1.0)
+    optimized = Optimized.relativistic_multinomial_hmc_step!(optimized_source,
+        logdensity, gradient, 0.1, 2, [0.25, -0.5], [1.0, 4.0], 1.0)
+    @test reference ≈ optimized atol=1e-14 rtol=0
+    @test Runtime.remaining(reference_source) == 0
+    @test Runtime.remaining(optimized_source) == 0
+
+    sampler = RelativisticMultinomialHMC(logdensity, gradient,
+        DiagonalMetric([1.0, 4.0]), 1.0, 0.1, 2)
+    samples = sample(MersenneTwister(9), sampler, [0.0, 0.0], 4)
+    @test size(samples) == (2, 4)
+    @test all(isfinite, samples)
+end
+
+@testset "certified position-dependent relativistic interface" begin
+    exact_certificate = Certificates.certify_implicit_solve(0, 0, 0, 0;
+        unique=true, reversible=true, volume_preserving=true)
+    factor(q) = Matrix{Float64}(I, length(q), length(q))
+    hamiltonian(q, p) = sum(abs2, q) / 2 + sqrt(sum(abs2, p) + 1)
+    integrator(q, p, ε) = begin
+        half = p .- (ε / 2) .* q
+        next_q = q .+ ε .* half ./ sqrt(sum(abs2, half) + 1)
+        next_p = half .- (ε / 2) .* next_q
+        (next_q, next_p, exact_certificate)
+    end
+    events = Runtime.FloatTraceEvent[
+        Runtime.UniformEvent(0.2), Runtime.UniformEvent(0.3),
+        Runtime.UniformEvent(0.1),
+        Runtime.NormalEvent(0.4), Runtime.NormalEvent(-0.7),
+        Runtime.IndexEvent(1), Runtime.UniformEvent(0.35)]
+    reference = Reference.certified_relativistic_multinomial_hmc_step!(
+        Runtime.FloatTraceSource(copy(events)), hamiltonian, factor, integrator,
+        0.1, 2, [0.25, -0.5], 1.0)
+    optimized = Optimized.certified_relativistic_multinomial_hmc_step!(
+        Runtime.FloatTraceSource(copy(events)), hamiltonian, factor, integrator,
+        0.1, 2, [0.25, -0.5], 1.0)
+    @test reference ≈ optimized atol=1e-14 rtol=0
+
+    approximate = Certificates.certify_implicit_solve(1e-8, 1e-8, 0, 0;
+        unique=true, reversible=true, volume_preserving=true)
+    bad_integrator(q, p, ε) = (q, p, approximate)
+    @test_throws ArgumentError Reference.certified_relativistic_multinomial_hmc_step!(
+        Runtime.FloatTraceSource(copy(events)), hamiltonian, factor, bad_integrator,
+        0.1, 2, [0.25, -0.5], 1.0)
+end
+
 @testset "executable multinomial HMC" begin
     logdensity = q -> -sum(abs2, q) / 2
     gradient = identity

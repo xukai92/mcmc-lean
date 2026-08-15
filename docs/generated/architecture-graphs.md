@@ -11,6 +11,8 @@ flowchart TB
   measure["mathlib Measure and integration"]
   kernel["ProbabilityTheory.Kernel"]
   finite["Finite probability and transport"]
+  smc["Finite Feynman--Kac and explicit SMC histories"]
+  pmcmc["PIMH, PMMH, conditional SMC, and particle Gibbs"]
   mh["General-state Metropolis--Hastings"]
   rwmh["Gaussian RWMH and coupling"]
   dynamics["Hamiltonian dynamics and leapfrog"]
@@ -22,6 +24,8 @@ flowchart TB
   measure --> kernel
   kernel --> mh
   finite -->|trajectory-index laws| hmc
+  finite --> smc
+  smc -->|selected-path extended target| pmcmc
   mh --> rwmh
   dynamics --> hmc
   kernel --> hmc

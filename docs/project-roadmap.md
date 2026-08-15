@@ -76,6 +76,11 @@ inverse-factor transport, and nonseparable multinomial transition. Approximate
 implicit solves must return residual or integrator certificates consumed by
 the existing conditional theorem; a fixed iteration count is insufficient.
 
+IR version 10 now contains a working corrected diagonal constant-metric
+relativistic multinomial specialization, with Reference/Optimized Julia replay
+tests. The position-dependent implicit client and its complete solver-validity
+certificate remain before B2 is complete.
+
 ## Track C: later breadth branches
 
 The pre-Xu dependency order is:
@@ -112,7 +117,9 @@ The pre-Xu dependency order is:
    complete for parameter-indexed initial laws and fixed-horizon schedules
    whose potentials and transitions may depend on the parameter, including its
    exact parameter marginal and joint parameter/path expectation. Conditional
-   SMC and particle Gibbs remain.
+   The exact conditional-history specification and particle-Gibbs stationarity
+   are complete. The concrete recursive forced-lineage generator is defined;
+   its equivalence to the conditional specification remains.
 7. adaptive-MCMC boundary -- finite state-dependent kernel selection and a
    counterexample where two frozen target-invariant kernels combine into a
    non-invariant selected kernel are complete. Predetermined nonhomogeneous law
