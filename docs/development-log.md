@@ -1403,6 +1403,16 @@ Chapman--Kolmogorov law. This is a stationary finite-state real-time semigroup,
 not yet a path-space process; càdlàg paths and general-state nonexplosion
 remain explicit obligations.
 
+Added exact finite event-skeleton paths beneath the Poissonized semigroup.
+`eventPathLaw` recursively samples a full `events + 1` state vector from a
+fixed initial state. Lean proves terminal expectations and the complete
+terminal marginal equal the corresponding `kernelIterate` row. Integrating
+these dependent fixed-event path marginals against the Poisson clock recovers
+`poissonizedKernel`, and the theorem is specialized to bounded finite-rate
+generators. This establishes normalized finite event histories and their
+real-time terminal law; it does not yet add continuous event timestamps or a
+càdlàg path-space measure.
+
 The exact Chapman--Kolmogorov algebra includes: finite kernel composition is
 now proved associative, and `kernelIterate_add` identifies the `(m+n)`-step
 kernel with sequential composition of the `m`- and `n`-step kernels. The

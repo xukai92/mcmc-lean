@@ -112,6 +112,7 @@ import Mcmc.Kernel.Slice
 import Mcmc.PDMP.Generator
 import Mcmc.PDMP.Uniformization
 import Mcmc.PDMP.Poissonization
+import Mcmc.PDMP.Path
 import Mcmc.Kernel.CoupledChain
 import Mcmc.Kernel.CoupledMetropolisHastings
 import Mcmc.Kernel.DensityCoupling

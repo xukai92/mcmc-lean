@@ -122,8 +122,12 @@ real-time transition kernel as a Poisson mixture of embedded-chain iterates,
 proves its series formula, normalization, zero-time identity, and stationarity,
 and instantiates it for velocity switching. Poisson convolution and additive
 kernel iteration now prove the Chapman--Kolmogorov law, so these kernels form
-an exact stationary finite-state semigroup. A càdlàg path measure,
-general-state nonexplosion, and BPS/Zig-Zag convergence remain open.
+an exact stationary finite-state semigroup. The finite event-skeleton layer
+also constructs the complete state-vector law after every fixed event count,
+proves its terminal marginal is the corresponding kernel iterate, and shows
+that Poisson mixing recovers the real-time transition kernel. Continuous event
+times, a càdlàg path measure, general-state nonexplosion, and BPS/Zig-Zag
+convergence remain open.
 
 For positive-horizon particle Gibbs, the finite library now proves a concrete
 arbitrary-horizon result: with any finite particle index type containing at
