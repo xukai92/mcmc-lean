@@ -1,6 +1,7 @@
 using Test
 using Random
 using Statistics
+using LinearAlgebra
 using VerifiedSamplers
 
 const Runtime = VerifiedSamplers.Runtime

@@ -35,10 +35,12 @@ inductive Expr : Ty → Type where
   | add (left right : Expr .real) : Expr .real
   | sub (left right : Expr .real) : Expr .real
   | mul (left right : Expr .real) : Expr .real
+  | div (left right : Expr .real) : Expr .real
   | exp (value : Expr .real) : Expr .real
   | min (left right : Expr .real) : Expr .real
   | lt (left right : Expr .real) : Expr .bool
   | logDensity (value : Expr .real) : Expr .real
+  | gradient (value : Expr .real) : Expr .real
 
 /-- First-order continuous commands. -/
 inductive Stmt where
@@ -53,6 +55,7 @@ structure Program where
   name : String
   sourceInput : String
   logDensityInput : String
+  gradientInput : Option String := none
   realInputs : List String
   body : List Stmt
 
@@ -89,6 +92,7 @@ def gaussianRwmhProgram : Program where
 structure Env where
   trace : List IR.Event
   logDensity : ℝ → ℝ
+  gradient : ℝ → ℝ := fun _ => 0
   reals : List (String × ℝ) := []
   bools : List (String × Bool) := []
 
@@ -147,6 +151,10 @@ noncomputable def evalExpr : {type : Ty} → Expr type → Env →
       let (left, env) ← evalExpr left env
       let (right, env) ← evalExpr right env
       return (left * right, env)
+  | _, .div left right, env => do
+      let (left, env) ← evalExpr left env
+      let (right, env) ← evalExpr right env
+      return (left / right, env)
   | _, .exp value, env => do
       let (value, env) ← evalExpr value env
       return (Real.exp value, env)
@@ -161,6 +169,9 @@ noncomputable def evalExpr : {type : Ty} → Expr type → Env →
   | _, .logDensity value, env => do
       let (value, env) ← evalExpr value env
       return (env.logDensity value, env)
+  | _, .gradient value, env => do
+      let (value, env) ← evalExpr value env
+      return (env.gradient value, env)
 
 inductive Control where
   | next (env : Env)
@@ -274,5 +285,95 @@ theorem runGaussianRwmh_standard_refines (current noise uniform : ℝ)
       (min 0 ((current * current - (current + noise) * (current + noise)) * (2 : ℝ)⁻¹))
   · simp [haccept, except_ok_bind]
   · simp [haccept, except_ok_bind]
+
+/-- Variables used by the scalar one-step endpoint HMC program. -/
+def momentumVar : Var .real := ⟨"momentum"⟩
+def halfMomentumVar : Var .real := ⟨"half_momentum"⟩
+def nextPositionVar : Var .real := ⟨"next_position"⟩
+def nextMomentumVar : Var .real := ⟨"next_momentum"⟩
+def currentEnergyVar : Var .real := ⟨"current_energy"⟩
+def nextEnergyVar : Var .real := ⟨"next_energy"⟩
+def stepSizeVar : Var .real := ⟨"step_size"⟩
+
+private def two : Expr .real := .real 2
+
+/-- Scalar, unit-mass endpoint HMC with one leapfrog step. The target supplies
+both its log density and the gradient of its negative log density. -/
+def scalarHmcProgram : Program where
+  name := "scalar_hmc_step!"
+  sourceInput := "source"
+  logDensityInput := "logdensity"
+  gradientInput := some "gradient"
+  realInputs := [stepSizeVar.name, currentVar.name]
+  body :=
+    [.sampleStandardNormal momentumVar,
+      .letE halfMomentumVar
+        (.sub (.var momentumVar)
+          (.div (.mul (.var stepSizeVar) (.gradient (.var currentVar))) two)),
+      .letE nextPositionVar
+        (.add (.var currentVar)
+          (.mul (.var stepSizeVar) (.var halfMomentumVar))),
+      .letE nextMomentumVar
+        (.sub (.var halfMomentumVar)
+          (.div (.mul (.var stepSizeVar) (.gradient (.var nextPositionVar))) two)),
+      .letE currentEnergyVar
+        (.add (.sub (.real 0) (.logDensity (.var currentVar)))
+          (.div (.mul (.var momentumVar) (.var momentumVar)) two)),
+      .letE nextEnergyVar
+        (.add (.sub (.real 0) (.logDensity (.var nextPositionVar)))
+          (.div (.mul (.var nextMomentumVar) (.var nextMomentumVar)) two)),
+      .letE thresholdVar
+        (.exp (.min (.real 0)
+          (.sub (.var currentEnergyVar) (.var nextEnergyVar)))),
+      .sampleUniformUnit uniformVar,
+      .ifThen (.lt (.var uniformVar) (.var thresholdVar))
+        [.return (.var nextPositionVar)],
+      .return (.var currentVar)]
+
+/-- Execute scalar one-step HMC against ideal-real callbacks and events. -/
+noncomputable def runScalarHmc (logDensity gradient : ℝ → ℝ)
+    (stepSize current : ℝ) (trace : List IR.Event) :
+    Except RuntimeError (IR.Replay ℝ) := do
+  let env : Env :=
+    { trace, logDensity, gradient,
+      reals := [(stepSizeVar.name, stepSize), (currentVar.name, current)] }
+  match ← runStatements scalarHmcProgram.body env with
+  | .next _ => .error .programDidNotReturn
+  | .returned value env => .ok ⟨value, env.trace⟩
+
+/-- The portable HMC program performs exactly one velocity-Verlet/leapfrog
+step followed by the endpoint Hamiltonian correction. -/
+theorem runScalarHmc_refines (logDensity gradient : ℝ → ℝ)
+    (stepSize current momentum uniform : ℝ)
+    (hunit : 0 ≤ uniform ∧ uniform < 1) (rest : List IR.Event) :
+    let halfMomentum := momentum - stepSize * gradient current / 2
+    let nextPosition := current + stepSize * halfMomentum
+    let nextMomentum := halfMomentum - stepSize * gradient nextPosition / 2
+    let currentEnergy := -logDensity current + momentum * momentum / 2
+    let nextEnergy := -logDensity nextPosition + nextMomentum * nextMomentum / 2
+    runScalarHmc logDensity gradient stepSize current
+        (.standardNormal momentum :: .uniformUnit uniform :: rest) =
+      .ok ⟨if uniform < Real.exp (min 0 (currentEnergy - nextEnergy))
+        then nextPosition else current, rest⟩ := by
+  simp [runScalarHmc, scalarHmcProgram, runStatements, statementsCost,
+    Stmt.cost, runStatementsFuel, evalExpr, Env.get, Env.set, lookup, store,
+    require, momentumVar, halfMomentumVar, nextPositionVar, nextMomentumVar,
+    currentEnergyVar, nextEnergyVar, stepSizeVar, currentVar, thresholdVar,
+    uniformVar, two, IR.Prim.replay, hunit, except_ok_bind]
+  by_cases h : uniform < Real.exp
+      (min 0
+        (-logDensity current + momentum * momentum / 2 -
+          (-logDensity (current + stepSize *
+              (momentum - stepSize * gradient current / 2)) +
+            (momentum - stepSize * gradient current / 2 -
+              stepSize * gradient
+                (current + stepSize *
+                  (momentum - stepSize * gradient current / 2)) / 2) *
+              (momentum - stepSize * gradient current / 2 -
+                stepSize * gradient
+                  (current + stepSize *
+                    (momentum - stepSize * gradient current / 2)) / 2) / 2)))
+  · simp [h, except_ok_bind]
+  · simp [h, except_ok_bind]
 
 end Mcmc.Executable.Continuous.CompilerIR

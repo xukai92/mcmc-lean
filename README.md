@@ -174,6 +174,15 @@ without silently assuming that it has already been proved.
 See the [continuous executable contract](docs/continuous-executable-contract.md)
 for the exact theorem and runtime boundaries.
 
+The first executable HMC slice is also present: scalar, unit-mass,
+endpoint-corrected HMC with one leapfrog step. Lean proves its ideal trace
+formula, identifies its deterministic update with the established leapfrog
+map, and proves exact phase-volume preservation and Boltzmann-target invariance
+of the corresponding endpoint kernel. The version-3 artifact is interpreted
+by Julia Reference and differentially tested against Optimized, including
+energy, reversibility, numerical-volume, and normal-moment tests. As for RWMH,
+the Float64/RNG refinement remains explicit and deferred.
+
 ## What “HMC” means here
 
 The paper's main results concern multinomial HMC. Accordingly, the formalized

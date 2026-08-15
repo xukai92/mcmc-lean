@@ -59,6 +59,14 @@ input or probabilistic assumption.
 
 ## Julia layer
 
+The version-3 artifact additionally contains scalar one-step endpoint HMC.
+Its explicit callbacks are the target log density and the gradient of the
+negative log density. Lean proves the command trace formula, its leapfrog
+expressions equal the established Hamiltonian leapfrog map, and the associated
+ideal endpoint kernel preserves the Boltzmann phase target. The Julia
+Reference/Optimized agreement and integrator property tests remain Float64
+implementation evidence subject to the same numerical-refinement boundary.
+
 The version-2 artifact contains the continuous RWMH command program. Julia
 Reference interprets its expressions, callback calls, draws, branch, and
 return; public `GaussianRWMH` uses this path. Optimized remains an independent

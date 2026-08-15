@@ -1,5 +1,21 @@
 # Development log
 
+## 2026-08-15: executable scalar HMC vertical slice
+
+Extended the sampler artifact to version 3 with scalar, unit-mass,
+endpoint-corrected HMC using one leapfrog step. The Lean command interpreter
+has a complete ideal trace theorem. Its position/momentum formulas are proved
+equal to the existing leapfrog map; the corresponding flipped endpoint
+proposal is involutive and phase-volume preserving, and its exact Metropolis
+kernel preserves the Boltzmann phase target.
+
+Julia Reference interprets the new program while Optimized independently
+implements it. Activated energy, reversibility, finite-difference volume,
+deterministic differential, and standard-normal moment tests. The artifact
+loader now enforces canonical S-expression round trips and runtime input-kind
+checks. Cross-language Float64/RNG refinement and vector/multistep HMC remain
+future extensions.
+
 ## 2026-08-15: Documenter site and Lean-owned architecture graphs
 
 Added a Documenter.jl site that publishes the existing canonical Markdown

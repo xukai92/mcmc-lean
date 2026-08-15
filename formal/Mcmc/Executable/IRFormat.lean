@@ -12,7 +12,7 @@ namespace Mcmc.Executable.IRFormat
 
 open Finite.CompilerIR
 
-def version : Nat := 2
+def version : Nat := 3
 
 private def quote (value : String) : String :=
   let escapedBackslash := value.replace "\\" "\\\\"
@@ -100,12 +100,15 @@ private def continuousExprRender : {type : Continuous.CompilerIR.Ty} →
       list ["sub-real", continuousExprRender left, continuousExprRender right]
   | _, .mul left right =>
       list ["mul", continuousExprRender left, continuousExprRender right]
+  | _, .div left right =>
+      list ["div-real", continuousExprRender left, continuousExprRender right]
   | _, .exp value => list ["exp", continuousExprRender value]
   | _, .min left right =>
       list ["min", continuousExprRender left, continuousExprRender right]
   | _, .lt left right =>
       list ["lt", continuousExprRender left, continuousExprRender right]
   | _, .logDensity value => list ["log-density", continuousExprRender value]
+  | _, .gradient value => list ["gradient", continuousExprRender value]
 
 private def continuousStmtRender : Continuous.CompilerIR.Stmt → String
   | .letE destination value =>
@@ -124,6 +127,9 @@ private def continuousProgramRender
   let inputs :=
     [list ["input", "source", quote program.sourceInput],
       list ["input", "log-density", quote program.logDensityInput]] ++
+      (match program.gradientInput with
+      | none => []
+      | some name => [list ["input", "gradient", quote name]]) ++
       program.realInputs.map fun name => list ["input", "real", quote name]
   list ["program", quote program.name, list ("inputs" :: inputs),
     list ("body" :: program.body.map continuousStmtRender)]
@@ -132,6 +138,7 @@ private def continuousProgramRender
 def render : String :=
   list ["verified-samplers-ir", toString version,
     programRender categoricalProgram, programRender metropolisHastingsProgram,
-    continuousProgramRender Continuous.CompilerIR.gaussianRwmhProgram] ++ "\n"
+    continuousProgramRender Continuous.CompilerIR.gaussianRwmhProgram,
+    continuousProgramRender Continuous.CompilerIR.scalarHmcProgram] ++ "\n"
 
 end Mcmc.Executable.IRFormat

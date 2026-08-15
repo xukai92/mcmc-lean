@@ -7,7 +7,42 @@ include("Runtime/Runtime.jl")
 include("Reference/Reference.jl")
 include("Optimized/Optimized.jl")
 
-export FiniteWeights, FiniteKernelWeights, FiniteMH, TwoStateMH, GaussianRWMH, sample
+export FiniteWeights, FiniteKernelWeights, FiniteMH, TwoStateMH, GaussianRWMH,
+    ScalarHMC, sample
+
+struct ScalarHMC{F,G}
+    logdensity::F
+    gradient::G
+    step_size::Float64
+    function ScalarHMC(logdensity::F, gradient::G, step_size::Real) where {F,G}
+        converted = Float64(step_size)
+        isfinite(converted) && converted > 0.0 ||
+            throw(ArgumentError("step size must be finite and positive"))
+        new{F,G}(logdensity, gradient, converted)
+    end
+end
+
+function step(rng::AbstractRNG, sampler::ScalarHMC, current::Real)
+    Reference.scalar_hmc_step!(Runtime.RNGSource(rng), sampler.logdensity,
+        sampler.gradient, sampler.step_size, Float64(current))
+end
+
+step(sampler::ScalarHMC, current::Real) =
+    step(Random.default_rng(), sampler, current)
+
+function sample(rng::AbstractRNG, sampler::ScalarHMC, initial::Real, count::Integer)
+    count >= 0 || throw(ArgumentError("sample count must be nonnegative"))
+    samples = Vector{Float64}(undef, count)
+    current = Float64(initial)
+    for index in eachindex(samples)
+        current = step(rng, sampler, current)
+        samples[index] = current
+    end
+    samples
+end
+
+sample(sampler::ScalarHMC, initial::Real, count::Integer) =
+    sample(Random.default_rng(), sampler, initial, count)
 
 struct GaussianRWMH{F}
     logdensity::F

@@ -28,6 +28,7 @@ import Mcmc.Executable.IR
 import Mcmc.Executable.GaussianRWMH
 import Mcmc.Executable.Continuous.CompilerIR
 import Mcmc.Executable.Continuous.RWMH
+import Mcmc.Executable.Continuous.HMC
 import Mcmc.Executable.Continuous.NumericalRefinement
 import Mcmc.Docs.Graph
 import Mcmc.Hamiltonian.Leapfrog

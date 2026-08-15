@@ -2,13 +2,17 @@ module Reference
 
 using ..Runtime: AbstractRandomSource, draw_below!, standard_normal!, uniform_unit!
 
-export categorical_index!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!,
+export categorical_index!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!, scalar_hmc_step!,
     IR_FORMAT_VERSION
 
-const IR_FORMAT_VERSION = 2
+const IR_FORMAT_VERSION = 3
 
 struct SList
     items::Vector{Any}
+end
+
+struct Atom
+    value::String
 end
 
 mutable struct Parser
@@ -69,11 +73,11 @@ function parse_node!(parser::Parser)
             parser.index += 1
         end
         start < parser.index || error("empty IR atom")
-        return String(parser.chars[start:(parser.index - 1)])
+        return Atom(String(parser.chars[start:(parser.index - 1)]))
     end
 end
 
-function parse_document(source::String)
+function parse_document(source::AbstractString)
     parser = Parser(collect(source), 1)
     document = parse_node!(parser)
     skip_space!(parser)
@@ -81,8 +85,18 @@ function parse_document(source::String)
     document
 end
 
+function render_string(value::String)
+    escaped = replace(value, "\\" => "\\\\", "\"" => "\\\"", "\n" => "\\n")
+    "\"" * escaped * "\""
+end
+
+render_node(value::String) = render_string(value)
+render_node(value::Atom) = value.value
+render_node(value::SList) = "(" * join(render_node.(value.items), " ") * ")"
+
 items(node::SList) = node.items
 atom(value::String) = value
+atom(value::Atom) = value.value
 aslist(value) = value isa SList ? value : error("expected IR list")
 
 struct Program
@@ -108,7 +122,10 @@ function decode_program(node::SList)
 end
 
 function load_programs(path::String)
-    root = items(aslist(parse_document(read(path, String))))
+    source = strip(read(path, String))
+    document = parse_document(source)
+    render_node(document) == source || error("sampler IR is not canonically encoded")
+    root = items(aslist(document))
     length(root) >= 3 && atom(root[1]) == "verified-samplers-ir" ||
         error("invalid sampler IR header")
     parse(Int, atom(root[2])) == IR_FORMAT_VERSION || error("unsupported sampler IR version")
@@ -138,6 +155,7 @@ function eval_expr(raw, env::Dict{String,Any})
     tag == "sub" && return max(BigInt(0), eval_expr(node[2], env) - eval_expr(node[3], env))
     tag == "sub-real" && return eval_expr(node[2], env) - eval_expr(node[3], env)
     tag == "mul" && return eval_expr(node[2], env) * eval_expr(node[3], env)
+    tag == "div-real" && return eval_expr(node[2], env) / eval_expr(node[3], env)
     tag == "exp" && return exp(eval_expr(node[2], env))
     tag == "min" && return min(eval_expr(node[2], env), eval_expr(node[3], env))
     tag == "length" && return BigInt(length(eval_expr(node[2], env)))
@@ -162,6 +180,7 @@ function eval_expr(raw, env::Dict{String,Any})
     tag == "to-exact-vector" && return BigInt.(eval_expr(node[2], env))
     tag == "to-exact-matrix" && return [BigInt.(row) for row in eval_expr(node[2], env)]
     tag == "log-density" && return env["logdensity"](eval_expr(node[2], env))
+    tag == "gradient" && return env["gradient"](eval_expr(node[2], env))
     if tag == "categorical"
         source = eval_expr(node[2], env)
         weights = eval_expr(node[3], env)
@@ -225,7 +244,11 @@ function run_program(name::String, arguments...)
     program === nothing && error("unknown IR program: $name")
     length(arguments) == length(program.inputs) || throw(ArgumentError("IR argument count"))
     env = Dict{String,Any}()
-    for ((_, input_name), value) in zip(program.inputs, arguments)
+    for ((input_kind, input_name), value) in zip(program.inputs, arguments)
+        valid = input_kind == "source" ? value isa AbstractRandomSource :
+            input_kind == "log-density" || input_kind == "gradient" ? applicable(value, 0.0) :
+            input_kind == "real" ? value isa Real : true
+        valid || throw(ArgumentError("invalid $input_kind input: $input_name"))
         env[input_name] = value
     end
     result = execute_block(program.body, env)
@@ -269,6 +292,15 @@ function gaussian_rwmh_step!(source::AbstractRandomSource, logdensity,
     isfinite(scale) && scale > 0.0 ||
         throw(ArgumentError("scale must be finite and positive"))
     Float64(run_program("gaussian_rwmh_step!", source, logdensity, scale, current))
+end
+
+"""Float64 interpretation of the serialized scalar one-step HMC program."""
+function scalar_hmc_step!(source::AbstractRandomSource, logdensity, gradient,
+        step_size::Float64, current::Float64)
+    isfinite(step_size) && step_size > 0.0 ||
+        throw(ArgumentError("step size must be finite and positive"))
+    Float64(run_program("scalar_hmc_step!", source, logdensity, gradient,
+        step_size, current))
 end
 
 end

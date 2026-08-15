@@ -33,10 +33,13 @@ RNG integration, indexing, batching, and public-API defects.
 
 ## Skeletoned future tests
 
+The scalar HMC slice now activates energy-conservation, exact-replay
+reversibility, finite-difference volume, Reference/Optimized trace, and
+standard-normal moment tests. These numerical checks complement the Lean
+phase-volume and invariance theorems; they do not replace them.
+
 `test/future_continuous.jl` registers skipped testsets for:
 
-- integrator energy conservation, reversibility, and volume or measure
-  preservation;
 - Geweke forward/backward tests and continuous moment matching;
 - DHMC categorical targets and kinetic/momentum units;
 - nonsmooth boundaries, high dimension, ill-conditioning, and multimodality;

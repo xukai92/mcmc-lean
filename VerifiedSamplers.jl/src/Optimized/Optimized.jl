@@ -2,7 +2,29 @@ module Optimized
 
 using ...Runtime: AbstractRandomSource, draw_below!, standard_normal!, uniform_unit!
 
-export categorical_index!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!
+export categorical_index!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!,
+    scalar_hmc_step!, leapfrog
+
+"""One scalar velocity-Verlet/leapfrog step with unit mass."""
+function leapfrog(gradient, step_size::Float64, position::Float64, momentum::Float64)
+    half_momentum = momentum - step_size * gradient(position) / 2
+    next_position = position + step_size * half_momentum
+    next_momentum = half_momentum - step_size * gradient(next_position) / 2
+    next_position, next_momentum
+end
+
+"""Independent Float64 implementation of scalar one-step endpoint HMC."""
+function scalar_hmc_step!(source::AbstractRandomSource, logdensity, gradient,
+        step_size::Float64, current::Float64)
+    isfinite(step_size) && step_size > 0.0 ||
+        throw(ArgumentError("step size must be finite and positive"))
+    momentum = standard_normal!(source)
+    next_position, next_momentum = leapfrog(gradient, step_size, current, momentum)
+    current_energy = -logdensity(current) + momentum^2 / 2
+    next_energy = -logdensity(next_position) + next_momentum^2 / 2
+    log(uniform_unit!(source)) < min(0.0, current_energy - next_energy) ?
+        next_position : current
+end
 
 """Tested Float64 Gaussian RWMH step; not an exact realization of Lean `ℝ`."""
 function gaussian_rwmh_step!(source::AbstractRandomSource, logdensity,
