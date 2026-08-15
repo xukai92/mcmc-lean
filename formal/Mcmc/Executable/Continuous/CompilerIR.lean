@@ -226,6 +226,28 @@ specialization. -/
 noncomputable def standardGaussianLogDensity (value : ℝ) : ℝ :=
   -(value * value) / 2
 
+/-- Complete proposal/accept-or-retain behavior for an arbitrary target log
+density and proposal scale. -/
+theorem runGaussianRwmh_refines (logDensity : ℝ → ℝ) (scale current noise uniform : ℝ)
+    (hunit : 0 ≤ uniform ∧ uniform < 1) (rest : List IR.Event) :
+    runGaussianRwmh logDensity scale current
+        (.standardNormal noise :: .uniformUnit uniform :: rest) =
+      .ok ⟨if uniform < Real.exp
+          (min 0 (logDensity (current + scale * noise) - logDensity current))
+        then current + scale * noise else current, rest⟩ := by
+  simp [runGaussianRwmh, runStatements, statementsCost, Stmt.cost,
+    gaussianRwmhProgram, runStatementsFuel, evalExpr, Env.get, Env.set, lookup,
+    store, require, noiseVar, proposedVar, currentLogDensityVar,
+    proposedLogDensityVar, thresholdVar, uniformVar, scaleVar, currentVar,
+    IR.Prim.replay]
+  simp only [except_ok_bind]
+  simp [lookup, hunit]
+  simp only [except_ok_bind]
+  by_cases haccept : uniform < Real.exp
+      (min 0 (logDensity (current + scale * noise) - logDensity current))
+  · simp [haccept, except_ok_bind]
+  · simp [haccept, except_ok_bind]
+
 /-- The portable program exposes the complete proposal/accept-or-retain result
 on every valid ideal trace. -/
 theorem runGaussianRwmh_standard_refines (current noise uniform : ℝ)

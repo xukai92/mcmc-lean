@@ -1,5 +1,20 @@
 # Development log
 
+## 2026-08-15: generic scalar Gaussian RWMH refinement
+
+Generalized the canonical continuous command trace theorem to arbitrary real
+log densities and proposal scales. For measurable log densities and positive
+scales, Lean now connects the scaled standard-normal proposal and exponential
+log-ratio threshold to the existing verified Gaussian RWMH kernel, proves exact
+kernel equality, and inherits invariance of the `exp ∘ logDensity` target.
+Explicit normalization packages the target as a stationary probability
+measure.
+
+Added `NumericalRefinement`, an explicit backend contract for values,
+callbacks, sources, and step results. The repository deliberately supplies no
+Julia/Float64 witness; this records rather than discharges the future numerical
+refinement obligation.
+
 ## 2026-08-15: sampler-wide IR artifact naming
 
 Renamed the mixed finite/continuous artifact from `Reference/Finite.ir` to

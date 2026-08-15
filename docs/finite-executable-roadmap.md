@@ -219,7 +219,9 @@ The first continuous follow-on is complete at the ideal semantic and
 interpreted-reference layers: version 2 of the artifact includes scalar
 Gaussian RWMH, Lean proves its standard-Gaussian trace and exact kernel-row
 refinements, and Julia Reference interprets it with differential tests against
-Optimized. A machine-checked numerical refinement from ideal reals and ideal
+Optimized. The refinement now covers arbitrary measurable scalar log densities
+and positive scales, with explicit target normalization for stationary
+probability measures. A machine-checked numerical refinement from ideal reals and ideal
 primitives to Julia Float64/RNG behavior remains a later milestone.
 
 - Prove or otherwise reduce the trusted conformance boundary between the

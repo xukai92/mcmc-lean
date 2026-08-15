@@ -40,13 +40,15 @@ current state, `standardGaussianProposalProgram`:
 - equals the proposal row built from
   `randomWalkProposalDensity (gaussianPDF 0 1)` in the existing RWMH theory.
 
-The complete standard-Gaussian-target IR step now draws both proposal noise
-and a unit uniform, and its trace theorem exposes the exact accept-or-retain
-result. Lean proves that its real threshold is pointwise equal (after
-`ENNReal.ofReal`) to the existing zero-safe `densityAcceptance`, and proves the
-exact unit-uniform accept/reject integral. Their composition identifies the
-complete program measure with the standard-Gaussian specialization of the
-existing `randomWalkMetropolisHastings` construction.
+The generic IR step draws both proposal noise and a unit uniform. Its trace
+theorem exposes the exact accept-or-retain result for every real log-density
+function and scale. For a measurable log density and positive scale, Lean
+identifies the scaled-normal proposal law, proves that the real threshold is
+pointwise equal (after `ENNReal.ofReal`) to the existing zero-safe
+`densityAcceptance`, and identifies the exact program kernel with the existing
+verified Gaussian `randomWalkMetropolisHastings` construction. That kernel
+preserves the measure with density `exp ∘ logDensity`; if this density
+integrates to one, Lean also packages it as a stationary probability measure.
 
 The separately serializable named-variable command IR has a deterministic
 fuel-indexed Lean interpreter whose public fuel bound is computed from the
@@ -94,3 +96,9 @@ Until these rows are discharged, the correct description is “an exact Lean
 RWMH kernel/program refinement, plus a serialized program interpreted and
 differentially tested under Julia Float64/RNG semantics.” It is not an exact
 executable realization of mathlib's continuous measure.
+
+`Mcmc.Executable.Continuous.NumericalRefinement` records the deferred backend
+theorem as a structure relating backend values, callbacks, and sources to ideal
+reals and traces. No Julia/Float64 witness is defined. Assuming a value of this
+structure is therefore explicit at every use site and does not add an axiom to
+the trusted Lean environment.

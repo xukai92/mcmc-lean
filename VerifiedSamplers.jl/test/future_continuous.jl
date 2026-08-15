@@ -46,6 +46,27 @@ end
             @test Runtime.remaining(reference_source) == 0
             @test Runtime.remaining(optimized_source) == 0
         end
+        generic_cases = [
+            (x -> -abs(x), 0.25, 1.0,
+                [Runtime.NormalEvent(-2.0), Runtime.UniformEvent(0.9)]),
+            (x -> -x^4, 0.75, 0.25,
+                [Runtime.NormalEvent(2.0), Runtime.UniformEvent(0.5)]),
+            (x -> -((x - 3.0) / 2.0)^2 / 2.0, 1.5, -1.0,
+                [Runtime.NormalEvent(0.25), Runtime.UniformEvent(0.2)]),
+        ]
+        for (logdensity, scale, current, events) in generic_cases
+            reference_source = Runtime.FloatTraceSource(events)
+            optimized_source = Runtime.FloatTraceSource(events)
+            reference = Reference.gaussian_rwmh_step!(reference_source,
+                logdensity, scale, current)
+            optimized = Optimized.gaussian_rwmh_step!(optimized_source,
+                logdensity, scale, current)
+            @test optimized == reference
+            @test Runtime.remaining(reference_source) == 0
+            @test Runtime.remaining(optimized_source) == 0
+        end
+        @test_throws ArgumentError Reference.gaussian_rwmh_step!(
+            Runtime.FloatTraceSource(Runtime.FloatTraceEvent[]), identity, 0.0, 0.0)
         @test Runtime.remaining(accept_trace) == 0
         @test hasmethod(sample, Tuple{AbstractRNG, typeof(sampler), Real, Integer})
         @test hasmethod(Base.step, Tuple{AbstractRNG, typeof(sampler), Real})

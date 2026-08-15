@@ -404,9 +404,12 @@ consume explicitly typed trace events in tests and use `randn`/`rand` for
 production draws. These tests are implementation evidence only. The complete standard-Gaussian-target
 IR program, its accept-or-retain replay theorem, the exact unit-uniform
 threshold integral, and pointwise equality with `densityAcceptance` are now
-proved, including their final composition into kernel equality with the
-standard-Gaussian specialization of
-`Mcmc.Kernel.randomWalkMetropolisHastings`. The exact assumptions at the Julia
+proved. The canonical command interpreter additionally has a generic trace
+theorem for arbitrary log densities and scales. For measurable log densities
+and positive scales, its exact kernel semantics equals the corresponding
+verified Gaussian `Mcmc.Kernel.randomWalkMetropolisHastings` kernel and inherits
+target invariance; normalization yields a stationary probability measure. The
+exact assumptions at the Julia
 boundary are listed in the [continuous executable contract](continuous-executable-contract.md).
 
 ## Validation flow

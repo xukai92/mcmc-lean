@@ -144,13 +144,21 @@ chain = sample(MersenneTwister(4), sampler, 0.0, 10_000)
 ```
 
 The typed first-order Lean IR now has exact kernel and trace interpretations,
-and the complete scalar standard-Gaussian program is proved to have the full
-proposal/accept-or-retain trace behavior and exactly the row measure of the
-existing verified RWMH construction. Public Julia sampling routes through the
+and the canonical scalar program is proved to have the full
+proposal/accept-or-retain trace behavior for arbitrary real log densities and
+scales. For measurable log densities and positive scales, its exact kernel
+semantics equals the existing verified Gaussian RWMH construction and preserves
+the density `exp ∘ logdensity`; explicit normalization makes that target a
+stationary probability measure. Public Julia sampling routes through the
 serialized IR interpreter. No theorem equates its finite-precision law with
 the exact Lean kernel; the explicit boundary is deliberate:
 mathlib `ℝ`, `gaussianReal`, and `Measure` are semantic objects, whereas Julia
 uses `Float64` and the selected `AbstractRNG` implementation.
+
+Lean records the missing backend theorem as
+`NumericalRefinement`: an explicit hypothesis-bearing contract with no Julia
+or Float64 witness. Thus downstream work can name the deferred obligation
+without silently assuming that it has already been proved.
 
 See the [continuous executable contract](docs/continuous-executable-contract.md)
 for the exact theorem and runtime boundaries.
