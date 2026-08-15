@@ -227,6 +227,16 @@ theorem JumpMechanism.timeKernel_isMarkov
   unfold JumpMechanism.timeKernel
   infer_instance
 
+/-- At zero elapsed time the bounded-clock transition is the identity. -/
+@[simp] theorem JumpMechanism.timeKernel_zero
+    (mechanism : JumpMechanism State) (clockRate : NNReal)
+    (hclock : 0 < clockRate)
+    (hbound : ∀ x, mechanism.rate x ≤ clockRate) :
+    mechanism.timeKernel clockRate hclock hbound 0 = Kernel.id := by
+  letI := mechanism.uniformizedKernel_isMarkov clockRate hclock hbound
+  unfold JumpMechanism.timeKernel
+  simp
+
 /-- Any invariant target of the embedded uniformized chain is invariant at
 every real time. Balanced-flux clients discharge the embedded premise. -/
 theorem JumpMechanism.timeKernel_invariant

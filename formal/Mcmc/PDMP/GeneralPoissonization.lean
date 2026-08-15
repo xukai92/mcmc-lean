@@ -74,6 +74,19 @@ theorem generalPoissonizedKernel_apply
   rw [scaleKernel_apply]
   simp [Measure.smul_apply, smul_eq_mul]
 
+/-- At zero clock intensity no embedded transition occurs. -/
+@[simp] theorem generalPoissonizedKernel_zero
+    (transition : Kernel State State) [IsMarkovKernel transition] :
+    generalPoissonizedKernel transition 0 = Kernel.id := by
+  ext x s hs
+  rw [generalPoissonizedKernel_apply transition 0 x hs,
+    tsum_eq_single 0]
+  · have hone : (1 : Kernel State State) = Kernel.id := rfl
+    simpa [poissonMeasure_singleton] using
+      congrArg (fun kernel : Kernel State State => kernel x s) hone
+  · intro n hn
+    simp [poissonMeasure_singleton, zero_pow hn]
+
 private theorem invariant_pow (transition : Kernel State State)
     (target : Measure State) (hinvariant : transition.Invariant target) :
     ∀ n : ℕ, (transition ^ n).Invariant target
