@@ -26,7 +26,8 @@ jobs:
           lake-package-directory: formal
       - uses: julia-actions/setup-julia@v2
         with:
-          version: '1.10'
+          # Keep CI aligned with the Julia version recorded in docs/Manifest.toml.
+          version: '1.12'
       - uses: julia-actions/cache@v2
       - name: Build Lean-generated documentation
         run: make generate-docs
