@@ -51,6 +51,9 @@ The repository now contains machine-checked implementations and proofs for:
   two-sided eventwise convergence rate `(1 - 1 / M)^n` for `M > 1`;
 - finite-dimensional state-dependent Gaussian proposals, with ULA proved
   Markov but not target-exact and MALA proved reversible and target-invariant;
+- general-state two-block auxiliary Gibbs/data augmentation, including a
+  slice-sampling interface whose correctness is reduced to an explicit
+  vertical/horizontal joint-factorization equation;
 - reusable finite identity, composition, mixture, and coordinate-lift
   combinators; finite one-site, random-scan, and systematic-scan Gibbs;
 - two-temperature parallel tempering with an MH-corrected swap, product-target

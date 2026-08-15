@@ -269,11 +269,14 @@ on trace-reversal details; doubling needs an acceptability test that tempting
 simplifications can break. Invariance is proved for specified transitions,
 while ergodicity remains separate.
 
-**Repository fit.** Prove a generic lift--slice-update--project invariance
-theorem for a measurable subgraph, then an exact bounded one-dimensional slice
+**Repository fit.** The generic two-block lift--conditional-update--project
+theorem is now machine checked: a vertical kernel and horizontal kernel
+preserve the target whenever they give the two factorizations of the same
+joint measure. The next obligation is to construct the measurable
+uniform-under-the-graph joint and an exact bounded one-dimensional level-set
 kernel. Stepping-out/shrinkage and doubling are subsequent trace-reversal
-targets. Crumb, reflective, and multivariate variants can wait. Continuous
-uniform distributions on slices require the general-state measure layer.
+targets. Crumb, reflective, and multivariate variants can wait. This completed
+invariance interface does not by itself imply slice-chain convergence.
 
 ### Geyer (1991): Metropolis-coupled MCMC / parallel tempering -- P1
 

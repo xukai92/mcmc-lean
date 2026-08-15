@@ -3,6 +3,19 @@
 Entries through the earlier 2026-08-13 work are preserved in the
 [development-log archive](development-log-archive.md).
 
+## 2026-08-15: general-state auxiliary Gibbs and slice interface
+
+Added a measure-theoretic two-block conditional sampler on mathlib kernels.
+The forward kernel constructs an auxiliary-first joint law; an explicit
+reverse-factorization equation supplies the opposite conditional. Lean proves
+that refreshing from the reverse conditional preserves the joint law and that
+lifting, refreshing, and projecting preserves the original target.
+
+Slice sampling is exposed as a named client with the exact vertical/horizontal
+joint-factorization obligation. This is an invariance foundation, not yet a
+concrete uniform-under-the-graph kernel, stepping-out implementation, or
+convergence theorem.
+
 ## 2026-08-15: pre-Xu general-state MH foundations
 
 Added a general Doeblin-minorization interface and constructed the normalized

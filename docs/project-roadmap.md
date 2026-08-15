@@ -78,11 +78,29 @@ the existing conditional theorem; a fixed iteration count is insufficient.
 
 ## Track C: later breadth branches
 
-After A1--A4 and the paper execution milestones, select branches based on
-research value and shared infrastructure:
+The pre-Xu dependency order is:
+
+1. general-state MH and invariant-kernel combinators -- complete;
+2. quantitative independence MH and state-dependent Gaussian MALA -- complete;
+3. exact two-block auxiliary Gibbs and the abstract slice factorization --
+   complete;
+4. measurable uniform-under-the-graph and level-set kernels for a concrete
+   exact slice sampler;
+5. tagged disjoint-union reference measures and change-of-variables lemmas for
+   reversible-jump MH; and
+6. finite SMC on top of pseudo-marginal MH, then particle independent MH and
+   particle marginal MH.
+
+Items 4--6 are intentionally ordered: slice sampling needs conditional
+normalization and measurable level sets; reversible jump additionally needs
+dimension-changing transport/Jacobian infrastructure; particle MCMC needs an
+SMC estimator law before the existing pseudo-marginal theorem applies.
+
+After those foundations and the paper execution milestones, select the
+remaining branches based on research value and shared infrastructure:
 
 - NUTS finite candidate trees before adaptation or modern multinomial NUTS;
-- slice sampling via lift--update--project;
+- concrete slice kernels on the completed two-block conditional foundation;
 - reversible-jump MCMC after tagged-space change of variables;
 - particle MCMC after finite SMC and pseudo-marginal foundations;
 - adaptive MCMC only with explicit nonhomogeneous-chain semantics,
