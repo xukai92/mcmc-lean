@@ -180,5 +180,77 @@ theorem stationary (π : Distribution State) (Q : MarkovKernel State)
     (hπ : ∀ x, 0 < π.mass x) : (kernel π Q hπ).Stationary π :=
   (detailed_balance π Q hπ).stationary
 
+/-! The following constructor removes the historical strict-positivity
+restriction.  Lean's zero division is harmless because symmetric accepted
+flow is zero whenever the current target mass is zero. -/
+
+theorem move_nonneg_allowZeros (π : Distribution State) (Q : MarkovKernel State)
+    (x y : State) : 0 ≤ move π Q x y := by
+  simp only [move]
+  split_ifs
+  · exact le_rfl
+  · exact div_nonneg (flow_nonneg π Q x y) (π.nonneg x)
+
+theorem move_le_proposal_allowZeros (π : Distribution State) (Q : MarkovKernel State)
+    (x y : State) : move π Q x y ≤ Q.prob x y := by
+  by_cases hx : π.mass x = 0
+  · have hflow : flow π Q x y = 0 := by
+      rw [flow, hx, zero_mul, min_eq_left]
+      exact mul_nonneg (π.nonneg y) (Q.nonneg y x)
+    simp [move, hflow, Q.nonneg]
+  · have hxpos : 0 < π.mass x := lt_of_le_of_ne (π.nonneg x) (Ne.symm hx)
+    by_cases hxy : x = y
+    · simp [move, hxy, Q.nonneg]
+    · rw [move, if_neg hxy]
+      apply (div_le_iff₀ hxpos).2
+      exact (min_le_left _ _).trans_eq (mul_comm _ _)
+
+theorem stay_nonneg_allowZeros (π : Distribution State) (Q : MarkovKernel State)
+    (x : State) : 0 ≤ stay π Q x := by
+  apply sub_nonneg.mpr
+  calc
+    ∑ y, move π Q x y ≤ ∑ y, Q.prob x y :=
+      Finset.sum_le_sum fun y _ => move_le_proposal_allowZeros π Q x y
+    _ = 1 := Q.sum_prob x
+
+/-- Finite MH kernel valid for targets with zero-mass states. -/
+noncomputable def kernelAllowZeros (π : Distribution State) (Q : MarkovKernel State) :
+    MarkovKernel State where
+  prob := probability π Q
+  nonneg x y := by
+    apply add_nonneg (move_nonneg_allowZeros π Q x y)
+    by_cases hxy : x = y
+    · simpa [hxy] using stay_nonneg_allowZeros π Q x
+    · simp [hxy]
+  sum_prob := sum_probability π Q
+
+theorem detailed_balance_allowZeros (π : Distribution State) (Q : MarkovKernel State) :
+    (kernelAllowZeros π Q).Reversible π := by
+  intro x y
+  by_cases hxy : x = y
+  · subst y
+    rfl
+  · have hyx : y ≠ x := Ne.symm hxy
+    simp only [kernelAllowZeros, probability, move, hxy, hyx, if_false, add_zero]
+    by_cases hx : π.mass x = 0
+    · have hflowxy : flow π Q x y = 0 := by
+        rw [flow, hx, zero_mul, min_eq_left]
+        exact mul_nonneg (π.nonneg y) (Q.nonneg y x)
+      have hflowyx : flow π Q y x = 0 := by rw [flow_symm, hflowxy]
+      simp [hx, hflowxy, hflowyx]
+    · by_cases hy : π.mass y = 0
+      · have hflowyx : flow π Q y x = 0 := by
+          rw [flow, hy, zero_mul, min_eq_left]
+          exact mul_nonneg (π.nonneg x) (Q.nonneg x y)
+        have hflowxy : flow π Q x y = 0 := by rw [flow_symm, hflowyx]
+        simp [hy, hflowxy, hflowyx]
+      · rw [mul_div_cancel₀ _ hx, mul_div_cancel₀ _ hy]
+        exact flow_symm π Q x y
+
+/-- MH stationarity without a full-support assumption. -/
+theorem stationary_allowZeros (π : Distribution State) (Q : MarkovKernel State) :
+    (kernelAllowZeros π Q).Stationary π :=
+  (detailed_balance_allowZeros π Q).stationary
+
 end MetropolisHastings
 end Mcmc.Finite

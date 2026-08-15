@@ -23,9 +23,7 @@ therefore consolidation plus missing APIs, not a parallel replacement.
 
 ## Track A: reusable sampler foundations
 
-### A1. Consolidate kernel combinators and add finite Gibbs
-
-This is the next recommended milestone.
+### A1. Consolidate kernel combinators and add finite Gibbs — complete
 
 - inventory and publicly re-export existing composition, mixture, product,
   mapping, and stationary-marginal theorems;
@@ -38,14 +36,14 @@ This is the next recommended milestone.
 This supplies shared language for tempering, adaptation, particle methods,
 and coupled multi-kernel algorithms.
 
-### A2. Parallel tempering
+### A2. Parallel tempering — complete for two finite temperatures
 
 Use coordinate-lifted invariant kernels and ordinary MH transposition moves to
 prove invariance of the product-temperature target and identify the cold
 stationary marginal. Do not claim swaps improve mixing without an additional
 quantitative theorem.
 
-### A3. Finite pseudo-marginal MH
+### A3. Finite pseudo-marginal MH — complete
 
 Formalize a nonnegative unbiased estimator on a finite auxiliary space, the
 extended target, its desired marginal, and an MH transition that retains the
@@ -95,14 +93,7 @@ obligations.
 
 ## Immediate plan
 
-The selected next milestone is **A1: combinator consolidation and finite
-Gibbs**. Its completion criteria are:
-
-1. one documented public module surface for reusable kernel combinators;
-2. no duplicate theorem when mathlib or an existing `Mcmc` module suffices;
-3. finite one-site/block, random-scan, and systematic-scan Gibbs kernels;
-4. exact invariance proofs and at least one concrete product target; and
-5. documentation that does not infer convergence from invariance.
-
-Then proceed to A2 and A3, followed by B1. A4 can develop alongside B1 when it
-does not destabilize the executable artifact.
+A1--A3 are complete in the finite layer. The next milestone is **B1:
+executable Xu et al. (2021) coupling**: generated shared-randomness commands,
+proved single-chain marginals, and replay-level meeting events. A4 remains an
+independent general-state convergence/proposal branch.

@@ -41,6 +41,13 @@ The repository now contains machine-checked implementations and proofs for:
 
 - general-state Metropolis--Hastings, Gaussian RWMH, and coupled Gaussian
   RWMH as mathlib Markov kernels;
+- reusable finite identity, composition, mixture, and coordinate-lift
+  combinators; finite one-site, random-scan, and systematic-scan Gibbs;
+- two-temperature parallel tempering with an MH-corrected swap, product-target
+  stationarity, and an exact cold-marginal theorem;
+- finite pseudo-marginal MH with a nonnegative unbiased estimator, including
+  zero estimator values, exact extended-target stationarity, and the desired
+  target marginal;
 - a general lift--evolve--project invariance theorem for auxiliary-variable
   MCMC, including a deterministic measure-preserving-flow specialization;
 - a phase-space lifting theorem for arbitrary invariant momentum transitions,

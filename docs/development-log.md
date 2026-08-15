@@ -3,6 +3,21 @@
 Entries through the earlier 2026-08-13 work are preserved in the
 [development-log archive](development-log-archive.md).
 
+## 2026-08-15: finite Gibbs, tempering, and pseudo-marginal foundations
+
+Added reusable identity, composition, convex-mixture, and coordinate-lift
+combinators for finite kernels, with stationarity closure. Built one-site,
+random-scan, and systematic-scan Gibbs kernels from explicit target-slice
+invariance equations. Added a two-temperature sampler whose within-replica
+updates and MH-corrected swap preserve the product-temperature target, and
+proved that its cold marginal is the requested target.
+
+Generalized finite MH to targets containing zero-mass states and used it to
+formalize pseudo-marginal MH with a nonnegative unbiased finite estimator.
+Lean proves normalization of the extended target, its exact desired marginal,
+detailed balance, and stationarity, including zero estimator values. These are
+invariance results; no convergence or mixing claim is inferred.
+
 ## 2026-08-15: integrated project roadmap
 
 Folded the broader primary-source algorithm review into a canonical project
