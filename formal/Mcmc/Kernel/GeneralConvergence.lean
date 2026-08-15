@@ -139,6 +139,44 @@ theorem mixture_minorizationResidual_eq
     add_tsub_cancel_of_le
       (hminor x s hs)]
 
+/-- If the original transition preserves the minorized probability measure,
+then its normalized residual transition preserves it as well. -/
+theorem minorizationResidual_invariant
+    (transition : Kernel α α) [IsMarkovKernel transition]
+    (target : Measure α) [IsProbabilityMeasure target]
+    (ε : Set.Icc (0 : NNReal) 1) (hε : ε.1 < 1)
+    (hminor : UniformlyMinorizes transition ε.1 target)
+    (hinvariant : transition.Invariant target) :
+    (minorizationResidual transition target ε hε hminor).Invariant target := by
+  let residual := minorizationResidual transition target ε hε hminor
+  have hmixture : (Mcmc.Kernel.mixture ε (Kernel.const α target) residual).Invariant
+      target := by
+    rw [mixture_minorizationResidual_eq transition target ε hε hminor]
+    exact hinvariant
+  rw [ProbabilityTheory.Kernel.Invariant] at hmixture ⊢
+  rw [mixture_comp_measure, Measure.const_comp, measure_univ, one_smul] at hmixture
+  ext s hs
+  change (residual ∘ₘ target) s = target s
+  have heq := congrArg (fun μ : Measure α => μ s) hmixture
+  simp only [Measure.add_apply, Measure.smul_apply, ENNReal.smul_def,
+    smul_eq_mul] at heq
+  have htargetTop : target s ≠ ∞ := measure_ne_top target s
+  have hleftTop : (ε.1 : ENNReal) * target s ≠ ∞ :=
+    ENNReal.mul_ne_top ENNReal.coe_ne_top htargetTop
+  have hbase : (ε.1 : ENNReal) * target s +
+      ((1 - ε.1 : NNReal) : ENNReal) * target s = target s := by
+    rw [← add_mul, ← ENNReal.coe_add, add_tsub_cancel_of_le ε.property.2]
+    simp
+  have hscaled : ((1 - ε.1 : NNReal) : ENNReal) *
+      (residual ∘ₘ target) s =
+      ((1 - ε.1 : NNReal) : ENNReal) * target s := by
+    apply (ENNReal.add_left_inj hleftTop).mp
+    simpa [add_comm] using heq.trans hbase.symm
+  have hrpos : 0 < (1 - ε.1 : NNReal) := tsub_pos_iff_lt.mpr hε
+  apply (ENNReal.mul_left_inj (ENNReal.coe_ne_zero.mpr hrpos.ne')
+    ENNReal.coe_ne_top).mp
+  simpa [mul_comm] using hscaled
+
 /-- A coupling certificate giving a uniform geometric off-diagonal bound for
 all finite iterates. -/
 structure HasGeometricCoupling
