@@ -14,7 +14,7 @@ export categorical_index!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_st
     coupled_multinomial_hmc_step!, coupled_gaussian_rwmh_step!, xu21_coupled_step!,
     IR_FORMAT_VERSION
 
-const IR_FORMAT_VERSION = 10
+const IR_FORMAT_VERSION = 11
 
 struct SList
     items::Vector{Any}
@@ -130,7 +130,7 @@ function decode_program(node::SList)
     Program(atom(values[2]), inputs, Any[body_node[2:end]...])
 end
 
-function load_programs(path::String)
+function load_artifact(path::String)
     source = strip(read(path, String))
     document = parse_document(source)
     render_node(document) == source || error("sampler IR is not canonically encoded")
@@ -139,15 +139,32 @@ function load_programs(path::String)
         error("invalid sampler IR header")
     parse(Int, atom(root[2])) == IR_FORMAT_VERSION || error("unsupported sampler IR version")
     programs = Dict{String,Program}()
+    targets = Dict{String,Any}()
     for node in root[3:end]
-        program = decode_program(aslist(node))
-        haskey(programs, program.name) && error("duplicate IR program: $(program.name)")
-        programs[program.name] = program
+        values = items(aslist(node))
+        tag = atom(values[1])
+        if tag == "program"
+            program = decode_program(aslist(node))
+            haskey(programs, program.name) &&
+                error("duplicate IR program: $(program.name)")
+            programs[program.name] = program
+        elseif tag == "target"
+            length(values) == 3 || error("invalid restricted target declaration")
+            name = atom(values[2])
+            haskey(targets, name) && error("duplicate restricted target: $name")
+            targets[name] = values[3]
+        else
+            error("unknown top-level IR declaration: $tag")
+        end
     end
-    programs
+    programs, targets
 end
 
-const PROGRAMS = load_programs(joinpath(@__DIR__, "Samplers.ir"))
+# Retain the program-only loader for downstream callers while the artifact now
+# also carries restricted target declarations.
+load_programs(path::String) = first(load_artifact(path))
+
+const PROGRAMS, TARGETS = load_artifact(joinpath(@__DIR__, "Samplers.ir"))
 
 function checked_logdensity(callback, state)
     value = callback(state)

@@ -1336,3 +1336,10 @@ one input approximation. Julia mirrors the expression tree, evaluates value and
 gradient together, rejects non-finite intermediates, and passes Gaussian,
 exponential, and overflow tests. Generated-artifact serialization and recursive
 primitive rounding/libm certificates remain explicit next obligations.
+
+Closed the first restricted-expression generation gap. A dependency-light
+portable AST with rational literals is emitted in version-11 `Samplers.ir`.
+Lean proves the canonical Gaussian artifact compiles to the verified `x²/2`
+expression, while Julia's public Gaussian expression is decoded from that
+artifact rather than copied by hand. The loader distinguishes program and
+target declarations and retains its program-only compatibility entry point.

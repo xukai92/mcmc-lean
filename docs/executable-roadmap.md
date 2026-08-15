@@ -98,8 +98,11 @@ and rejects non-finite intermediate results. A backend-facing certificate keeps
 Float64 value/gradient error explicit; the Gaussian expression has a derived
 end-to-end bound from an input bound.
 
-Remaining work is serialization of target syntax in the generated artifact,
-recursive operation-level Float64 bounds (especially `exp`), active
+The portable rational-literal subset is now serialized in generated IR version
+11. The public Julia Gaussian expression is decoded from that artifact, and
+Lean proves that the emitted portable tree compiles to the verified Gaussian
+expression. Remaining work is recursive operation-level Float64 bounds
+(especially `exp`), active
 high-dimensional tests, and benchmarking against established Julia samplers.
 Step-size or metric adaptation must remain an explicit stateful algorithm with
 a separate specification.

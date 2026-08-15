@@ -4,6 +4,7 @@ import Mcmc.Executable.Continuous.MetricCompilerIR
 import Mcmc.Executable.Continuous.MultinomialCompilerIR
 import Mcmc.Executable.Continuous.CoupledXu21
 import Mcmc.Executable.Continuous.RelativisticCompilerIR
+import Mcmc.Executable.Continuous.RestrictedArtifact
 
 /-!
 # Versioned textual format for sampler IR
@@ -16,7 +17,7 @@ namespace Mcmc.Executable.IRFormat
 
 open Finite.CompilerIR
 
-def version : Nat := 10
+def version : Nat := 11
 
 private def quote (value : String) : String :=
   let escapedBackslash := value.replace "\\" "\\\\"
@@ -170,6 +171,22 @@ private def continuousProgramRender
   list ["program", quote program.name, list ("inputs" :: inputs),
     list ("body" :: program.body.map continuousStmtRender)]
 
+private def restrictedExprRender :
+    Mcmc.Executable.Continuous.RestrictedArtifactExpr → String
+  | .input => list ["input"]
+  | .rational numerator denominator =>
+      list ["rational", toString numerator, toString denominator]
+  | .add left right =>
+      list ["add", restrictedExprRender left, restrictedExprRender right]
+  | .mul left right =>
+      list ["mul", restrictedExprRender left, restrictedExprRender right]
+  | .neg value => list ["neg", restrictedExprRender value]
+  | .exp value => list ["exp", restrictedExprRender value]
+
+private def restrictedTargetRender (name : String)
+    (expression : Mcmc.Executable.Continuous.RestrictedArtifactExpr) : String :=
+  list ["target", quote name, restrictedExprRender expression]
+
 /-- Serialize all reference entry programs with a format version. -/
 def render : String :=
   list (["verified-samplers-ir", toString version,
@@ -183,7 +200,9 @@ def render : String :=
     Continuous.MetricCompilerIR.denseMultinomialHmcProgram.render,
     Continuous.MultinomialCompilerIR.program.render,
     Continuous.RelativisticCompilerIR.program.render,
-    Continuous.RelativisticCompilerIR.certifiedPositionDependentProgram.render] ++
+    Continuous.RelativisticCompilerIR.certifiedPositionDependentProgram.render,
+    restrictedTargetRender "restricted-gaussian-potential"
+      Mcmc.Executable.Continuous.restrictedGaussianArtifact] ++
     Continuous.CoupledXu21.renderedPrograms) ++ "\n"
 
 end Mcmc.Executable.IRFormat

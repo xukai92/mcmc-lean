@@ -88,8 +88,29 @@ function restricted_value_gradient(expression::RestrictedExp, x::Real)
     _checked_restricted(value, value * derivative)
 end
 
-const restricted_gaussian_potential = RestrictedMul(
-    RestrictedConst(0.5), RestrictedMul(RestrictedInput(), RestrictedInput()))
+function _restricted_from_ir(raw)
+    node = Reference.items(Reference.aslist(raw))
+    tag = Reference.atom(node[1])
+    tag == "input" && length(node) == 1 && return RestrictedInput()
+    if tag == "rational" && length(node) == 3
+        numerator = parse(Int, Reference.atom(node[2]))
+        denominator = parse(Int, Reference.atom(node[3]))
+        denominator > 0 || error("restricted rational denominator must be positive")
+        return RestrictedConst(numerator / denominator)
+    elseif tag == "add" && length(node) == 3
+        return RestrictedAdd(_restricted_from_ir(node[2]), _restricted_from_ir(node[3]))
+    elseif tag == "mul" && length(node) == 3
+        return RestrictedMul(_restricted_from_ir(node[2]), _restricted_from_ir(node[3]))
+    elseif tag == "neg" && length(node) == 2
+        return RestrictedNeg(_restricted_from_ir(node[2]))
+    elseif tag == "exp" && length(node) == 2
+        return RestrictedExp(_restricted_from_ir(node[2]))
+    end
+    error("invalid restricted target expression")
+end
+
+const restricted_gaussian_potential = _restricted_from_ir(
+    Reference.TARGETS["restricted-gaussian-potential"])
 
 """A full-state transition annotated with the variables it may update.
 

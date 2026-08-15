@@ -127,8 +127,10 @@ derived certificate whose value-error formula follows from the input bound and
 whose derivative error is exactly the input error. This does not identify
 Float64 arithmetic with real arithmetic: operation-level rounding and libm
 evidence must supply the certificate, and non-finite Julia intermediates are
-rejected. Serialization of these expressions into the generated artifact is
-the next cross-language step.
+rejected. Generated IR version 11 carries a canonical rational-literal target
+tree. Lean proves the generated Gaussian tree compiles to `x²/2`; Julia decodes
+that declaration to construct the public `restricted_gaussian_potential`, so
+this example no longer relies on a second handwritten Julia tree.
 
 ## Multinomial HMC
 

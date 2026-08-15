@@ -1,4 +1,5 @@
 import Mcmc.Executable.Continuous.BackendCertificates
+import Mcmc.Executable.Continuous.RestrictedArtifact
 
 /-!
 # Restricted differentiable target expressions
@@ -21,6 +22,17 @@ inductive RestrictedExpr where
   | mul (left right : RestrictedExpr)
   | neg (value : RestrictedExpr)
   | exp (value : RestrictedExpr)
+
+/-- Compile portable rational syntax into the verified ideal-real language. -/
+noncomputable def RestrictedArtifactExpr.compile :
+    RestrictedArtifactExpr → RestrictedExpr
+  | .input => .input
+  | .rational numerator denominator =>
+      .const ((numerator : ℝ) / (denominator : ℝ))
+  | .add left right => .add left.compile right.compile
+  | .mul left right => .mul left.compile right.compile
+  | .neg value => .neg value.compile
+  | .exp value => .exp value.compile
 
 /-- Ideal-real interpretation. -/
 noncomputable def RestrictedExpr.eval : RestrictedExpr → ℝ → ℝ
@@ -120,6 +132,11 @@ structure RestrictedTargetCertificate (expression : RestrictedExpr) where
 /-- Centered Gaussian potential `x²/2` in the restricted language. -/
 noncomputable def restrictedGaussianPotential : RestrictedExpr :=
   .mul (.const (1 / 2)) (.mul .input .input)
+
+theorem restrictedGaussianArtifact_compile :
+    restrictedGaussianArtifact.compile = restrictedGaussianPotential := by
+  norm_num [restrictedGaussianArtifact, RestrictedArtifactExpr.compile,
+    restrictedGaussianPotential]
 
 @[simp] theorem restrictedGaussianPotential_eval (x : ℝ) :
     restrictedGaussianPotential.eval x = x ^ 2 / 2 := by
