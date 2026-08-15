@@ -2,9 +2,16 @@
 
 This note records related work for the formalization of Markov chain Monte
 Carlo algorithms in Lean. It is a literature map, not a claim of novelty. The
-search was last updated on 2026-08-11 and covered mathlib documentation,
+search was last updated on 2026-08-15 and covered mathlib documentation,
 Isabelle's Archive of Formal Proofs, Rocq/MathComp sources, conference papers,
 arXiv, and public GitHub code.
+
+For a broader, paper-by-paper map of foundational and high-impact MCMC/HMC
+algorithms, theorem-strength boundaries, repository fit, and formalization
+priority, see the [algorithm scope review](algorithm-scope-review.md). It
+includes Gibbs, MALA, adaptive and reversible-jump MCMC, pseudo-marginal and
+particle MCMC, NUTS, slice sampling, tempering, nonreversible PDMP samplers,
+coupled unbiased estimators, and sequence-parallel MCMC evaluation.
 
 ## Summary
 
@@ -21,6 +28,134 @@ however, closely related work in three categories:
 This negative search result should be stated cautiously: it is evidence of a
 gap in the public literature surveyed here, not proof that no formalization
 exists.
+
+## Formalization dependency graph
+
+The graph below is a dependency map for repository coverage, not a citation
+network or chronology. An arrow `A --> B` means that a useful formalization of
+`B` depends on definitions or theorems from `A`. Dotted arrows are execution or
+numerical-refinement dependencies rather than mathematical kernel-correctness
+dependencies. Green nodes are substantially covered now, blue nodes are the
+recommended reusable next layer, and unfilled nodes are later branches.
+
+```mermaid
+flowchart TB
+  finite["Finite distributions and kernels"]
+  measure["Measure, integration, and general-state kernels"]
+  paths["Path laws and stochastic-process semantics"]
+
+  mh["MH accepted flow, detailed balance, stationarity<br/>Metropolis 1953; Hastings 1970"]
+  comb["Kernel composition, mixtures, products,<br/>coordinate lifts, and marginals"]
+  erg["Irreducibility, aperiodicity, Harris recurrence,<br/>minorization, drift, and convergence"]
+  aux["Extended-state kernels and marginalization"]
+
+  gibbs["Gibbs and annealing<br/>Geman and Geman 1984"]
+  temper["Parallel tempering<br/>Geyer 1991"]
+  tierney["General-state convergence spine<br/>Tierney 1994"]
+  mala["MALA; biased ULA kept separate<br/>Roberts and Tweedie 1996"]
+  adapt["Adaptive MCMC<br/>Roberts and Rosenthal 2007"]
+  rj["Reversible-jump MCMC<br/>Green 1995"]
+  pm["Pseudo-marginal MH<br/>Andrieu and Roberts 2009"]
+  smc["Feynman--Kac and SMC semantics"]
+  pmcmc["Particle MCMC<br/>Andrieu, Doucet, and Holenstein 2010"]
+  slice["Slice sampling<br/>Neal 2003"]
+
+  det["Reversible measure-preserving<br/>deterministic proposals"]
+  dyn["Hamiltonian dynamics, leapfrog,<br/>energy, and momentum refresh"]
+  hmc["Corrected and multinomial HMC<br/>Duane et al. 1987; Neal 2011"]
+  nuts["NUTS candidate trees<br/>Hoffman and Gelman 2014"]
+  rhmc["Manifold and relativistic HMC<br/>Girolami and Calderhead 2011; Xu and Ge 2024"]
+  energy["Energy-error identities and scaling<br/>Beskos et al. 2013; Bou-Rabee and Sanz-Serna 2018"]
+
+  coupling["Coupled kernels with proved marginals"]
+  meeting["Faithful meeting, tail bounds,<br/>and telescoping estimators"]
+  unbiased["Unbiased coupled MCMC<br/>Jacob, O'Leary, and Atchade 2020"]
+  xu21["Coupled multinomial HMC<br/>Xu et al. 2021"]
+
+  ct["Continuous-time PDMP construction,<br/>generators, events, and nonexplosion"]
+  thinning["Poisson thinning and certified rate bounds"]
+  bps["Bouncy particle sampler<br/>Bouchard-Cote, Vollmer, and Doucet 2018"]
+  zigzag["Zig-Zag and exact subsampling<br/>Bierkens, Fearnhead, and Roberts 2019"]
+
+  traces["Seeded deterministic transition<br/>and trace semantics"]
+  scans["Causal recurrences and associative scans"]
+  parallel["Sequence-parallel MCMC evaluation<br/>Zoltowski et al. 2025"]
+  numeric["Floating-point and stopping certificates"]
+
+  finite --> mh
+  measure --> mh
+  finite --> comb
+  measure --> comb
+  paths --> erg
+  measure --> erg
+  mh --> comb
+  mh --> tierney
+  erg --> tierney
+
+  comb --> gibbs
+  erg --> gibbs
+  comb --> temper
+  mh --> temper
+  mh --> mala
+  erg --> mala
+  comb --> adapt
+  erg --> adapt
+  mh --> rj
+
+  mh --> aux
+  comb --> aux
+  aux --> pm
+  smc --> pmcmc
+  pm --> pmcmc
+  aux --> slice
+
+  measure --> det
+  det --> hmc
+  dyn --> hmc
+  comb --> hmc
+  hmc --> nuts
+  hmc --> rhmc
+  dyn --> rhmc
+  hmc --> energy
+  dyn --> energy
+
+  comb --> coupling
+  coupling --> meeting
+  paths --> meeting
+  erg --> meeting
+  meeting --> unbiased
+  hmc --> xu21
+  meeting --> xu21
+
+  measure --> ct
+  paths --> ct
+  ct --> thinning
+  ct --> bps
+  erg --> bps
+  ct --> zigzag
+  thinning --> zigzag
+  erg --> zigzag
+
+  gibbs -.-> traces
+  mala -.-> traces
+  hmc -.-> traces
+  traces -.-> scans
+  scans -.-> parallel
+  numeric -.-> parallel
+
+  classDef covered fill:#d9f2df,stroke:#26733a,color:#111;
+  classDef next fill:#dcecff,stroke:#2867a8,color:#111;
+  class finite,measure,mh,det,dyn,hmc,coupling,meeting,unbiased,xu21,rhmc covered;
+  class comb,erg,aux,gibbs,temper,pm,mala,traces next;
+```
+
+The central reusable route is deliberately short:
+`kernel combinators -> Gibbs/tempering`, `extended-state MH ->
+pseudo-marginal -> particle MCMC`, and `corrected HMC -> NUTS/manifold HMC`.
+Adaptive MCMC and PDMP samplers require genuinely different nonhomogeneous or
+continuous-time semantics. Sequence-parallel evaluation sits downstream of a
+proved sequential transition: it refines how a seeded path is evaluated and
+does not replace the sampler's invariance or convergence proof.
 
 ## Direct mathematical precedents
 

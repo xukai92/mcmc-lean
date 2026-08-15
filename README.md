@@ -21,6 +21,10 @@ The algorithms are defined as mathlib kernels rather than assumed through
 opaque interfaces. Any corrected, conditional, obstructed, or empirical paper
 statement is classified in its corresponding coverage audit.
 
+The [overall project roadmap](docs/project-roadmap.md) integrates these paper
+targets with executable work and the broader
+[algorithm scope review](docs/algorithm-scope-review.md).
+
 Betancourt's [*A Conceptual Introduction to Hamiltonian Monte
 Carlo*](https://arxiv.org/abs/1701.02434) is used as a foundational HMC
 reference. Its lift--evolve--project correctness spine and the boundary between

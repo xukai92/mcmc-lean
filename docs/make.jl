@@ -10,9 +10,13 @@ pages = [
     ],
     "Testing and roadmap" => [
         "Testing strategy" => "testing.md",
+        "Overall project roadmap" => "project-roadmap.md",
         "Executable roadmap" => "executable-roadmap.md",
         "Finite executable roadmap" => "finite-executable-roadmap.md",
-        "Development log" => "development-log.md",
+        "Development log" => [
+            "Current" => "development-log.md",
+            "Archive" => "development-log-archive.md",
+        ],
     ],
     "Paper coverage" => [
         "Xu et al. 2021 audit" => "xu21-coverage.md",
@@ -22,6 +26,7 @@ pages = [
     ],
     "Foundations and related work" => [
         "Related work" => "related-work.md",
+        "Algorithm scope review" => "algorithm-scope-review.md",
         "Betancourt 2017" => "betancourt17-coverage.md",
         "Neal 2012" => "neal12-coverage.md",
     ],
@@ -32,10 +37,12 @@ pages = [
 published_files = [
     "index.md", "architecture.md", "generated/architecture-graphs.md",
     "executable-architecture.md", "continuous-executable-contract.md",
-    "testing.md", "executable-roadmap.md", "finite-executable-roadmap.md",
-    "development-log.md",
+    "testing.md", "project-roadmap.md", "executable-roadmap.md",
+    "finite-executable-roadmap.md",
+    "development-log.md", "development-log-archive.md",
     "xu21-coverage.md", "xu21-roadmap.md", "xu24-coverage.md",
-    "xu24-roadmap.md", "related-work.md", "betancourt17-coverage.md",
+    "xu24-roadmap.md", "related-work.md", "algorithm-scope-review.md",
+    "betancourt17-coverage.md",
     "neal12-coverage.md",
 ]
 staged_source = joinpath(@__DIR__, ".documenter-src")

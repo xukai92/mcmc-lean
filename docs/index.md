@@ -22,8 +22,11 @@ arguments, and explicit audits of the targeted papers.
   slices and the prioritized path to coupled and Riemannian samplers.
 - [Testing strategy](testing.md) separates proved properties from executable,
   differential, and statistical tests.
-- [Development log](development-log.md) records completed work and remaining
-  obligations.
+- [Development log](development-log.md) records current completed work and
+  remaining obligations; its [archive](development-log-archive.md) preserves
+  older milestone detail.
+- [Overall project roadmap](project-roadmap.md) integrates paper targets,
+  executable work, and the broader algorithm scope review.
 
 ## Scope boundary
 
