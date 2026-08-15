@@ -20,6 +20,7 @@ pages = [
         ],
     ],
     "Paper coverage" => [
+        "Ge et al. 2018 audit" => "ge18-coverage.md",
         "Xu et al. 2021 audit" => "xu21-coverage.md",
         "Xu et al. 2021 roadmap" => "xu21-roadmap.md",
         "Xu and Ge 2024 audit" => "xu24-coverage.md",
@@ -41,7 +42,7 @@ published_files = [
     "testing.md", "core-release-audit.md", "project-roadmap.md", "executable-roadmap.md",
     "finite-executable-roadmap.md",
     "development-log.md", "development-log-archive.md",
-    "xu21-coverage.md", "xu21-roadmap.md", "xu24-coverage.md",
+    "ge18-coverage.md", "xu21-coverage.md", "xu21-roadmap.md", "xu24-coverage.md",
     "xu24-roadmap.md", "related-work.md", "algorithm-scope-review.md",
     "betancourt17-coverage.md",
     "neal12-coverage.md",

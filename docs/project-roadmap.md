@@ -78,8 +78,12 @@ the existing conditional theorem; a fixed iteration count is insufficient.
 
 IR version 10 now contains a working corrected diagonal constant-metric
 relativistic multinomial specialization, with Reference/Optimized Julia replay
-tests. The position-dependent implicit client and its complete solver-validity
-certificate remain before B2 is complete.
+tests. A position-dependent fixed-point solver now exists in Reference and
+Optimized Julia with residual reporting, while Lean constructs its exact
+Banach-fixed-point counterpart and proves uniqueness and convergence of the
+finite loops. Proving measurability, reversal, and volume preservation for a
+concrete nonconstant metric—and refining Float64 residuals to that exact
+selection—remain before B2 is complete.
 
 ## Track C: later breadth branches
 

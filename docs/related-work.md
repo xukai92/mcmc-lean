@@ -234,6 +234,23 @@ plus an obstruction to treating six fixed-point iterations as an exact
 integrator. The canonical statements, corrected formulas, implications, and
 Lean artifacts are recorded in the [2024 coverage audit](xu24-coverage.md).
 
+### Turing: composable probabilistic inference
+
+Ge, Xu, and Ghahramani present Turing's probabilistic-programming interface
+and emphasize composition of MCMC operators on manually chosen, potentially
+overlapping variable subsets, especially particle Gibbs for latent variables
+with HMC or NUTS for differentiable variables.
+
+- Hong Ge, Kai Xu, and Zoubin Ghahramani,
+  [Turing: A Language for Flexible Probabilistic Inference](https://proceedings.mlr.press/v84/ge18b.html),
+  AISTATS 2018.
+
+This is primarily a systems and empirical paper. The reusable mathematical
+claim is common-target stationarity under composition of full-state component
+kernels; implementation and performance claims require separate executable
+evidence. The exact classification and repository mapping are in the
+[2018 coverage audit](ge18-coverage.md).
+
 ### A categorical account of Metropolis--Hastings
 
 Cornish and Wang give an abstract account of MH in Markov categories. They

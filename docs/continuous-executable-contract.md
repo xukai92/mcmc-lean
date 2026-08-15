@@ -138,6 +138,27 @@ Version 9 also contains diagonal and dense constant-metric multinomial
 commands. Their ideal semantics has exact phase and refreshed-position
 invariance, including the Cholesky momentum specialization.
 
+## Position-dependent implicit solver
+
+The public `fixed_point_generalized_leapfrog` function now performs both
+implicit generalized-leapfrog loops for user-supplied position and momentum
+derivatives. Reference and Optimized implementations are differentially tested
+on a genuinely position-dependent kinetic derivative. The returned
+`ImplicitSolveCertificate` records the measured half-momentum and position
+residuals.
+
+The formal counterpart is `ContractiveGeneralizedLeapfrogSolver`. Banach
+contraction certificates construct exact fixed points for both equations,
+prove uniqueness of the assembled generalized-leapfrog solution, and prove
+that the finite loops converge to it. Measurability, momentum reversal, and
+phase-volume preservation remain explicit fields before this exact selection
+can feed a verified GR-HMC kernel.
+
+A small positive residual is not reclassified as equality. Consequently the
+practical Float64 solver is useful for diagnostics and convergence testing but
+the exact `CertifiedRelativisticMultinomialHMC` interface rejects it unless the
+residuals are exactly zero and all global validity witnesses are supplied.
+
 ## Xu et al. coupled mixture
 
 Version 9 contains separate commands for coupled multinomial HMC, coupled

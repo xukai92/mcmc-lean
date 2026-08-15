@@ -356,6 +356,63 @@ theorem selectedTrajectory_head? (steps : List (FeynmanKacStep Sample))
       some (particles (initialAncestor steps history terminal)) := by
   cases steps <;> rfl
 
+omit [DecidableEq Sample] in
+/-- With exactly one particle, the selected genealogy determines the complete
+SMC history and selected index.  This is the structural reason one-particle
+particle Gibbs cannot move. -/
+theorem selectedTrajectory_injective_unit
+    (steps : List (FeynmanKacStep Sample)) :
+    Function.Injective fun selected :
+        History (Particle := Unit) steps × Unit =>
+      selectedTrajectory steps selected.1.1 selected.1.2 selected.2 := by
+  induction steps with
+  | nil =>
+      rintro ⟨⟨particles, continuation⟩, terminal⟩
+        ⟨⟨particles', continuation'⟩, terminal'⟩ h
+      have hparticles : particles = particles' := by
+        funext i
+        cases i
+        simpa [selectedTrajectory] using congrArg List.head? h
+      subst particles'
+      have hcontinuation : continuation = continuation' := by
+        rcases continuation with ⟨u⟩
+        rcases continuation' with ⟨u'⟩
+        cases u
+        cases u'
+        rfl
+      have hterminal : terminal = terminal' := Subsingleton.elim _ _
+      subst continuation'
+      subst terminal'
+      rfl
+  | cons step steps ih =>
+      rintro ⟨⟨particles, ancestors, nextParticles, tail⟩, terminal⟩
+        ⟨⟨particles', ancestors', nextParticles', tail'⟩, terminal'⟩ h
+      have hterminal : terminal = terminal' := Subsingleton.elim _ _
+      subst terminal'
+      have hancestors : ancestors = ancestors' := by
+        funext i
+        exact Subsingleton.elim _ _
+      subst ancestors'
+      have hparticles : particles = particles' := by
+        funext i
+        cases i
+        have hhead := congrArg List.head? h
+        simpa [selectedTrajectory, initialAncestor] using hhead
+      subst particles'
+      have htailTrajectory :
+          selectedTrajectory steps nextParticles tail terminal =
+            selectedTrajectory steps nextParticles' tail' terminal := by
+        simpa [selectedTrajectory, initialAncestor] using congrArg List.tail h
+      have hrest : ((nextParticles, tail), terminal) =
+          ((nextParticles', tail'), terminal) := by
+        apply ih
+        exact htailTrajectory
+      injection hrest with hhistory
+      injection hhistory with hnext htail
+      subst nextParticles'
+      subst tail'
+      rfl
+
 omit [DecidableEq Sample] [Nonempty Particle] in
 /-- Conditional propagation expectation for an observable of each selected
 ancestor and its propagated child. -/
@@ -1791,6 +1848,19 @@ theorem selectedIndexRefreshKernel_stationary (initial : Distribution Sample)
   simp only [Finset.sum_const, Finset.card_univ, nsmul_eq_mul]
   field_simp
 
+/-- With one particle there is no terminal-index choice, so index refresh is
+the identity transition. -/
+theorem selectedIndexRefreshKernel_unit_eq_identity
+    (steps : List (FeynmanKacStep Sample)) :
+    selectedIndexRefreshKernel (Particle := Unit) steps = identity := by
+  apply MarkovKernel.ext
+  funext current proposed
+  rcases current with ⟨history, terminal⟩
+  rcases proposed with ⟨history', terminal'⟩
+  cases terminal
+  cases terminal'
+  simp [selectedIndexRefreshKernel, liftSnd, uniformIndexKernel, identity]
+
 /-- Finite particle Gibbs: conditionally refresh the complete particle system
 while retaining the current trajectory, then uniformly select a new terminal
 particle from that system. -/
@@ -1811,6 +1881,24 @@ theorem particleGibbsKernel_stationary (initial : Distribution Sample)
     (conditionalSMCKernel_stationary (Particle := Particle) initial steps hnormalizer)
     (selectedIndexRefreshKernel_stationary (Particle := Particle) initial steps
       hnormalizer)
+
+/-- One-particle particle Gibbs is exactly the identity kernel.  Thus target
+stationarity alone cannot imply convergence or useful mixing uniformly over
+particle count; at least two particles and further support hypotheses are
+genuinely necessary. -/
+theorem particleGibbsKernel_unit_eq_identity (initial : Distribution Sample)
+    (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : 0 < normalizingConstant initial steps) :
+    particleGibbsKernel (Particle := Unit) initial steps hnormalizer = identity := by
+  have hconditional :
+      conditionalSMCKernel (Particle := Unit) initial steps hnormalizer =
+        identity := by
+    unfold conditionalSMCKernel
+    exact Conditional.kernel_eq_identity_of_injective _ _
+      (selectedTrajectory_injective_unit steps)
+  rw [particleGibbsKernel, hconditional,
+    selectedIndexRefreshKernel_unit_eq_identity]
+  simp
 
 omit [DecidableEq Sample] in
 /-- Particle Gibbs has the exact normalized Feynman--Kac trajectory marginal

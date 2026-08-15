@@ -13,8 +13,135 @@ export FiniteWeights, FiniteKernelWeights, FiniteMH, TwoStateMH, GaussianRWMH,
     ScalarHMC, VectorHMC, MultinomialHMC, MetricMultinomialHMC,
     DiagonalMetric, DenseMetric, MetricHMC, RelativisticMultinomialHMC,
     CertifiedRelativisticMultinomialHMC,
-    Xu21CoupledSampler, sample
+    Xu21CoupledSampler, ScopedInferenceOperator, ComposableSampler, covers,
+    FiniteHMMParticleGibbs,
+    fixed_point_generalized_leapfrog, sample
 export Certificates
+
+fixed_point_generalized_leapfrog(args...; kwargs...) =
+    Reference.fixed_point_generalized_leapfrog(args...; kwargs...)
+
+"""A full-state transition annotated with the variables it may update.
+
+The transition must have signature `(rng, state) -> state`. Scope metadata does
+not establish target preservation; that mathematical premise is represented by
+the corresponding Lean `ScopedOperator` certificate.
+"""
+struct ScopedInferenceOperator{F}
+    scope::Vector{Symbol}
+    transition::F
+    function ScopedInferenceOperator(scope, transition::F) where {F}
+        converted = unique(Symbol.(collect(scope)))
+        isempty(converted) && throw(ArgumentError("operator scope cannot be empty"))
+        new{F}(converted, transition)
+    end
+end
+
+"""A left-to-right schedule of potentially overlapping inference operators."""
+struct ComposableSampler{O<:Tuple}
+    variables::Vector{Symbol}
+    operators::O
+    function ComposableSampler(variables, operators::ScopedInferenceOperator...)
+        converted = unique(Symbol.(collect(variables)))
+        isempty(converted) && throw(ArgumentError("model variables cannot be empty"))
+        sampler = new{typeof(operators)}(converted, operators)
+        covers(sampler) || throw(ArgumentError(
+            "operator scopes must cover every declared model variable"))
+        sampler
+    end
+end
+
+covers(sampler::ComposableSampler) = all(variable -> any(
+    operator -> variable in operator.scope, sampler.operators), sampler.variables)
+
+function step(rng::AbstractRNG, sampler::ComposableSampler, current)
+    state = current
+    for operator in sampler.operators
+        state = operator.transition(rng, state)
+    end
+    state
+end
+
+step(sampler::ComposableSampler, current) =
+    step(Random.default_rng(), sampler, current)
+
+function sample(rng::AbstractRNG, sampler::ComposableSampler, initial,
+        count::Integer)
+    count >= 0 || throw(ArgumentError("sample count must be nonnegative"))
+    states = Vector{typeof(initial)}(undef, count)
+    current = initial
+    for index in eachindex(states)
+        current = step(rng, sampler, current)
+        states[index] = current
+    end
+    states
+end
+
+sample(sampler::ComposableSampler, initial, count::Integer) =
+    sample(Random.default_rng(), sampler, initial, count)
+
+"""Exact-integer bootstrap particle Gibbs for a finite hidden Markov model.
+
+The path target is proportional to the initial weight followed by each
+potential/transition factor. Potentials weight the state before each
+transition, matching the formal finite Feynman--Kac convention.
+"""
+struct FiniteHMMParticleGibbs
+    initial_weights::Vector{Int}
+    transition_weights::Matrix{Int}
+    potentials::Matrix{Int}
+    particles::Int
+    function FiniteHMMParticleGibbs(initial_weights::AbstractVector{<:Integer},
+            transition_weights::AbstractMatrix{<:Integer},
+            potentials::AbstractMatrix{<:Integer}, particles::Integer)
+        converted_initial = Int.(initial_weights)
+        converted_transition = Int.(transition_weights)
+        converted_potentials = Int.(potentials)
+        particles > 0 || throw(ArgumentError("particle count must be positive"))
+        states = length(converted_initial)
+        states > 0 || throw(ArgumentError("state space cannot be empty"))
+        size(converted_transition) == (states, states) ||
+            throw(DimensionMismatch("transition matrix"))
+        size(converted_potentials, 2) == states ||
+            throw(DimensionMismatch("potentials"))
+        all(>=(0), converted_initial) && sum(converted_initial) > 0 ||
+            throw(ArgumentError("invalid initial weights"))
+        all(>=(0), converted_transition) &&
+            all(row -> sum(row) > 0, eachrow(converted_transition)) ||
+            throw(ArgumentError("invalid transition weights"))
+        all(>(0), converted_potentials) ||
+            throw(ArgumentError("potentials must be strictly positive"))
+        new(converted_initial, converted_transition, converted_potentials,
+            Int(particles))
+    end
+end
+
+function step(rng::AbstractRNG, sampler::FiniteHMMParticleGibbs,
+        current_path::AbstractVector{<:Integer})
+    Reference.finite_hmm_particle_gibbs_step!(Runtime.RNGSource(rng),
+        sampler.initial_weights, sampler.transition_weights, sampler.potentials,
+        sampler.particles, current_path)
+end
+
+step(sampler::FiniteHMMParticleGibbs,
+    current_path::AbstractVector{<:Integer}) =
+  step(Random.default_rng(), sampler, current_path)
+
+function sample(rng::AbstractRNG, sampler::FiniteHMMParticleGibbs,
+        initial_path::AbstractVector{<:Integer}, count::Integer)
+    count >= 0 || throw(ArgumentError("sample count must be nonnegative"))
+    current = Int.(initial_path)
+    paths = Matrix{Int}(undef, length(current), count)
+    for index in axes(paths, 2)
+        current = step(rng, sampler, current)
+        paths[:, index] = current
+    end
+    paths
+end
+
+sample(sampler::FiniteHMMParticleGibbs,
+    initial_path::AbstractVector{<:Integer}, count::Integer) =
+  sample(Random.default_rng(), sampler, initial_path, count)
 
 struct Xu21CoupledSampler{F,G}
     logdensity::F

@@ -30,6 +30,8 @@ arguments, and explicit audits of the targeted papers.
   older milestone detail.
 - [Overall project roadmap](project-roadmap.md) integrates paper targets,
   executable work, and the broader algorithm scope review.
+- [Ge et al. 2018 coverage](ge18-coverage.md) separates the checked
+  composable-kernel core of Turing from its implementation and empirical claims.
 
 ## Scope boundary
 

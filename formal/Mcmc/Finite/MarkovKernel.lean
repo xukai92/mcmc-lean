@@ -27,6 +27,15 @@ namespace MarkovKernel
 
 variable {State : Type*} [Fintype State]
 
+/-- Finite Markov kernels are equal when their transition functions are
+equal. -/
+@[ext]
+theorem ext {P Q : MarkovKernel State} (h : P.prob = Q.prob) : P = Q := by
+  cases P
+  cases Q
+  cases h
+  rfl
+
 /-- A nonnegative, normalized probability mass function on a finite type. -/
 structure Distribution (State : Type*) [Fintype State] where
   mass : State → ℝ

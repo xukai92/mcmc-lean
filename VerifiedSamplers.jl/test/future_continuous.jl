@@ -92,6 +92,30 @@ end
         0.1, 2, [0.25, -0.5], 1.0)
 end
 
+@testset "position-dependent fixed-point generalized leapfrog" begin
+    coefficient = 0.2
+    position_derivative(q, p) = (coefficient / 2) .* p.^2
+    momentum_derivative(q, p) = (1 .+ coefficient .* q) .* p
+    q, p, ε = [0.2, -0.1], [0.4, -0.3], 0.1
+    reference = Reference.fixed_point_generalized_leapfrog(
+        position_derivative, momentum_derivative, q, p, ε;
+        max_iterations=200, atol=1e-13, rtol=1e-13)
+    optimized = Optimized.fixed_point_generalized_leapfrog(
+        position_derivative, momentum_derivative, q, p, ε;
+        max_iterations=200, atol=1e-13, rtol=1e-13)
+    @test reference[1] ≈ optimized[1] atol=1e-14 rtol=0
+    @test reference[2] ≈ optimized[2] atol=1e-14 rtol=0
+    @test reference[3].half_momentum_residual.computed < 1e-12
+    @test reference[3].position_residual.computed < 1e-12
+    @test !Certificates.certifies_exact_solver(reference[3])
+
+    public_result = fixed_point_generalized_leapfrog(
+        position_derivative, momentum_derivative, q, p, ε)
+    @test public_result[1] ≈ reference[1] atol=1e-8
+    @test_throws DimensionMismatch fixed_point_generalized_leapfrog(
+        position_derivative, momentum_derivative, q, [0.4], ε)
+end
+
 @testset "executable multinomial HMC" begin
     logdensity = q -> -sum(abs2, q) / 2
     gradient = identity

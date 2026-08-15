@@ -13,6 +13,8 @@ flowchart TB
   finite["Finite probability and transport"]
   smc["Finite Feynman--Kac and explicit SMC histories"]
   pmcmc["PIMH, PMMH, conditional SMC, and particle Gibbs"]
+  composable["Scoped composable inference operators"]
+  ge18["Ge et al. 2018 Turing core"]
   mh["General-state Metropolis--Hastings"]
   rwmh["Gaussian RWMH and coupling"]
   dynamics["Hamiltonian dynamics and leapfrog"]
@@ -26,9 +28,12 @@ flowchart TB
   finite -->|trajectory-index laws| hmc
   finite --> smc
   smc -->|selected-path extended target| pmcmc
+  pmcmc -->|PG component| composable
   mh --> rwmh
   dynamics --> hmc
   kernel --> hmc
+  hmc -->|HMC component| composable
+  composable -->|scheduled stationarity| ge18
   rwmh --> meeting
   hmc --> meeting
   meeting --> xu21

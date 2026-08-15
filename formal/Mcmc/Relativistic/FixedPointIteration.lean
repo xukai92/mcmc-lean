@@ -107,6 +107,131 @@ theorem dist_finiteNextPosition_fixedPoint_le
   simpa only [finiteNextPosition] using
     hcontract.apriori_dist_iterate_fixedPoint_le q iterations
 
+/-- Contraction certificates for both implicit equations at every incoming
+state and step size.  This is sufficient to construct an exact generalized
+leapfrog solution; measurability and volume preservation of the resulting
+state-dependent fixed-point map remain separate analytic obligations. -/
+structure ContractiveGeneralizedLeapfrogSolver
+    (positionDerivative momentumDerivative : PhaseSpace ι → Position ι) where
+  halfRate : ℝ → PhaseSpace ι → NNReal
+  halfContracting : ∀ ε z, ContractingWith (halfRate ε z)
+    (halfMomentumFixedPointUpdate positionDerivative ε z)
+  positionRate : ℝ → Position ι → Momentum ι → NNReal
+  positionContracting : ∀ ε q pHalf,
+    ContractingWith (positionRate ε q pHalf)
+      (positionFixedPointUpdate momentumDerivative ε q pHalf)
+
+/-- Exact first half-momentum obtained from the Banach fixed point selected by
+the supplied contraction certificate. -/
+noncomputable def ContractiveGeneralizedLeapfrogSolver.halfMomentum
+    {positionDerivative momentumDerivative : PhaseSpace ι → Position ι}
+    (solver : ContractiveGeneralizedLeapfrogSolver positionDerivative
+      momentumDerivative) (ε : ℝ) (z : PhaseSpace ι) : Momentum ι :=
+  (solver.halfContracting ε z).fixedPoint
+    (halfMomentumFixedPointUpdate positionDerivative ε z)
+
+/-- Exact implicit position obtained after the exact half-momentum solve. -/
+noncomputable def ContractiveGeneralizedLeapfrogSolver.nextPosition
+    {positionDerivative momentumDerivative : PhaseSpace ι → Position ι}
+    (solver : ContractiveGeneralizedLeapfrogSolver positionDerivative
+      momentumDerivative) (ε : ℝ) (z : PhaseSpace ι) : Position ι :=
+  (solver.positionContracting ε z.1 (solver.halfMomentum ε z)).fixedPoint
+    (positionFixedPointUpdate momentumDerivative ε z.1
+      (solver.halfMomentum ε z))
+
+/-- Exact generalized-leapfrog selection constructed from the two contraction
+mapping fixed points and the explicit final momentum update. -/
+noncomputable def ContractiveGeneralizedLeapfrogSolver.selection
+    {positionDerivative momentumDerivative : PhaseSpace ι → Position ι}
+    (solver : ContractiveGeneralizedLeapfrogSolver positionDerivative
+      momentumDerivative) :
+    GeneralizedLeapfrogSelection positionDerivative momentumDerivative where
+  halfMomentum := solver.halfMomentum
+  step ε z :=
+    let pHalf := solver.halfMomentum ε z
+    let qNext := solver.nextPosition ε z
+    (qNext, pHalf - (ε / 2) • positionDerivative (qNext, pHalf))
+  satisfies ε z := by
+    let pHalf := solver.halfMomentum ε z
+    let qNext := solver.nextPosition ε z
+    have hpFixed :
+        halfMomentumFixedPointUpdate positionDerivative ε z pHalf = pHalf :=
+      (solver.halfContracting ε z).fixedPoint_isFixedPt
+    have hqFixed :
+        positionFixedPointUpdate momentumDerivative ε z.1 pHalf qNext = qNext :=
+      (solver.positionContracting ε z.1 pHalf).fixedPoint_isFixedPt
+    exact ⟨hpFixed.symm, hqFixed.symm, rfl⟩
+
+/-- The contraction-built generalized-leapfrog solution is the unique solution
+of both implicit equations. -/
+theorem ContractiveGeneralizedLeapfrogSolver.selection_isUnique
+    {positionDerivative momentumDerivative : PhaseSpace ι → Position ι}
+    (solver : ContractiveGeneralizedLeapfrogSolver positionDerivative
+      momentumDerivative) : solver.selection.IsUnique := by
+  intro ε z pHalf zNext hequations
+  rcases hequations with ⟨hp, hq, hpNext⟩
+  have hpEq : pHalf = solver.halfMomentum ε z := by
+    exact (solver.halfContracting ε z).fixedPoint_unique hp.symm
+  subst pHalf
+  have hqEq : zNext.1 = solver.nextPosition ε z := by
+    exact (solver.positionContracting ε z.1
+      (solver.halfMomentum ε z)).fixedPoint_unique hq.symm
+  apply And.intro rfl
+  apply Prod.ext
+  · exact hqEq
+  · change zNext.2 = solver.halfMomentum ε z - (ε / 2) •
+        positionDerivative (solver.nextPosition ε z,
+          solver.halfMomentum ε z)
+    rw [hpNext, hqEq]
+
+/-- Remaining analytic obligations for the contraction-built exact solver.
+Existence and uniqueness are already consequences of contraction and therefore
+are not repeated as assumptions here. -/
+structure ContractiveGeneralizedLeapfrogSolver.IsValid
+    {positionDerivative momentumDerivative : PhaseSpace ι → Position ι}
+    (solver : ContractiveGeneralizedLeapfrogSolver positionDerivative
+      momentumDerivative) : Prop where
+  measurable : solver.selection.IsMeasurable
+  reversible : solver.selection.IsReversible
+  volumePreserving : solver.selection.IsVolumePreserving
+
+/-- A contraction solver plus the three remaining analytic fields supplies the
+complete validity certificate consumed by endpoint and multinomial GR-HMC. -/
+theorem ContractiveGeneralizedLeapfrogSolver.IsValid.selectionValid
+    {positionDerivative momentumDerivative : PhaseSpace ι → Position ι}
+    {solver : ContractiveGeneralizedLeapfrogSolver positionDerivative
+      momentumDerivative} (h : solver.IsValid) : solver.selection.IsValid where
+  measurable := h.measurable
+  unique := solver.selection_isUnique
+  reversible := h.reversible
+  volumePreserving := h.volumePreserving
+
+/-- Practical half-momentum iteration converges to the exact contraction-built
+solver, rather than becoming exact after an arbitrary fixed iteration count. -/
+theorem ContractiveGeneralizedLeapfrogSolver.tendsto_finiteHalfMomentum
+    {positionDerivative momentumDerivative : PhaseSpace ι → Position ι}
+    (solver : ContractiveGeneralizedLeapfrogSolver positionDerivative
+      momentumDerivative) (ε : ℝ) (z : PhaseSpace ι) :
+    Tendsto (fun n => finiteHalfMomentum positionDerivative n ε z) atTop
+      (𝓝 (solver.halfMomentum ε z)) := by
+  simpa only [ContractiveGeneralizedLeapfrogSolver.halfMomentum] using
+    finiteHalfMomentum_tendsto_fixedPoint positionDerivative
+      (solver.halfRate ε z) ε z (solver.halfContracting ε z)
+
+/-- With the exact half momentum fixed, practical position iteration converges
+to the exact contraction-built position solve. -/
+theorem ContractiveGeneralizedLeapfrogSolver.tendsto_finiteNextPosition
+    {positionDerivative momentumDerivative : PhaseSpace ι → Position ι}
+    (solver : ContractiveGeneralizedLeapfrogSolver positionDerivative
+      momentumDerivative) (ε : ℝ) (z : PhaseSpace ι) :
+    Tendsto (fun n => finiteNextPosition momentumDerivative n ε z.1
+      (solver.halfMomentum ε z)) atTop (𝓝 (solver.nextPosition ε z)) := by
+  simpa only [ContractiveGeneralizedLeapfrogSolver.nextPosition] using
+    finiteNextPosition_tendsto_fixedPoint momentumDerivative
+      (solver.positionRate ε z.1 (solver.halfMomentum ε z)) ε z.1
+      (solver.halfMomentum ε z)
+      (solver.positionContracting ε z.1 (solver.halfMomentum ε z))
+
 /-- The practical finite-iteration approximation: perform the two finite
 fixed-point loops and then the explicit final momentum half-step. -/
 noncomputable def finiteFixedPointGeneralizedLeapfrog

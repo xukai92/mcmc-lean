@@ -17,6 +17,12 @@ The two paper targets are:
   (ICML 2024): [coverage audit](docs/xu24-coverage.md) and
   [roadmap](docs/xu24-roadmap.md).
 
+The expanded composable-inference target is Ge, Xu, and Ghahramani,
+[*Turing: A Language for Flexible Probabilistic Inference*](https://proceedings.mlr.press/v84/ge18b.html):
+see its [coverage audit](docs/ge18-coverage.md). Its formal core is composition
+of target-preserving full-state operators; systems and empirical claims remain
+separately classified.
+
 The algorithms are defined as mathlib kernels rather than assumed through
 opaque interfaces. Any corrected, conditional, obstructed, or empirical paper
 statement is classified in its corresponding coverage audit.
@@ -44,7 +50,9 @@ transition kernel depend on the parameter at a common finite horizon. Finite
 conditional SMC is implemented by a recursive forced-lineage sampler and
 proved equal to the exact conditional selected-particle law on positive
 supported paths; composing it with terminal-index refresh gives stationary
-finite particle Gibbs. Corrected Xu--Ge execution is available directly for
+finite particle Gibbs. Julia exposes the matching exact-integer finite-HMM
+particle-Gibbs runner with Reference/Optimized trace-replay tests. Corrected
+Xu--Ge execution is available directly for
 constant diagonal metrics and through an explicit certificate-gated
 position-dependent interface. The [Phase I release audit](docs/core-release-audit.md)
 records the evidence and remaining numerical boundary.

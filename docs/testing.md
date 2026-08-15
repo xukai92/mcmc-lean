@@ -21,6 +21,11 @@ explicitly deferred robustness or performance tests.
   proposal with zero edges. It compares exact rational MH rows, the Lean
   oracle, interpreted Julia reference, and optimized Julia, then checks normalization and
   stationarity.
+- `test/particle_gibbs.jl` exercises exact-integer bootstrap particle Gibbs
+  for a finite hidden Markov model. It checks fixed-trace
+  Reference/Optimized agreement, the formally proved one-particle identity,
+  public validation, and empirical path frequencies on a symmetric two-state
+  model. The frequency check is a runtime regression, not a mixing theorem.
 
 The optimized categorical implementation uses cumulative sums and binary
 search, whereas the reference IR interpreter uses a linear cumulative scan.
@@ -41,6 +46,15 @@ Reference/Optimized fixed-trace comparison, standard-normal and quartic-target
 moments, correlated and ill-conditioned Gaussian metrics, multinomial event
 ordering, and public sampling APIs. RWMH and HMC also have per-run bounded
 decision-certificate unit tests.
+
+Position-dependent generalized leapfrog now has Reference-versus-Optimized
+fixed-point tests using nonseparable derivatives, direct checks of both
+implicit residuals, public-API validation, and a check that approximate
+residual data is not accepted as an exact solver certificate.
+
+`test/composable.jl` checks declared-variable coverage, overlapping scopes,
+left-to-right PG/HMC-style execution order, repeated sampling, and invalid
+scope configurations for the executable composable-inference API.
 
 `test/xu21_coupling.jl` exercises the public coupled HMC/RWMH mixture, checks
 output shape and finiteness, validates dimension failures, and verifies

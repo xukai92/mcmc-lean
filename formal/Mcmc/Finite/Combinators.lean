@@ -77,6 +77,20 @@ theorem comp_stationary (first second : MarkovKernel α) (π : Distribution α)
     rw [hfirst y]]
   exact hsecond z
 
+@[simp]
+theorem comp_identity [DecidableEq α] (P : MarkovKernel α) :
+    comp identity P = P := by
+  apply MarkovKernel.ext
+  funext x z
+  simp [comp, identity]
+
+@[simp]
+theorem identity_comp [DecidableEq α] (P : MarkovKernel α) :
+    comp P identity = P := by
+  apply MarkovKernel.ext
+  funext x z
+  simp [comp, identity]
+
 theorem mixture_stationary (p : ℝ) (hp0 : 0 ≤ p) (hp1 : p ≤ 1)
     (first second : MarkovKernel α) (π : Distribution α)
     (hfirst : first.Stationary π) (hsecond : second.Stationary π) :

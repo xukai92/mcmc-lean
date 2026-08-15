@@ -7,6 +7,7 @@ import Mcmc.Finite.Conditional
 import Mcmc.Finite.Adaptive
 import Mcmc.Finite.AdaptiveConvergence
 import Mcmc.Finite.Gibbs
+import Mcmc.Finite.ComposableInference
 import Mcmc.Finite.ParallelTempering
 import Mcmc.Finite.PseudoMarginal
 import Mcmc.Finite.ParticleEstimator
@@ -25,6 +26,7 @@ import Mcmc.Examples.TwoModelReversibleJump
 import Mcmc.Examples.EuclideanBirthDeathReversibleJump
 import Mcmc.Examples.StateIndexedPMMH
 import Mcmc.Examples.ParticleGibbs
+import Mcmc.Examples.ComposableInference
 import Mcmc.Executable.Finite.Weights
 import Mcmc.Executable.Finite.Trace
 import Mcmc.Executable.Finite.Categorical

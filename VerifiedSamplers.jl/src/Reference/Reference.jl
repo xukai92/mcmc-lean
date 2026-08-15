@@ -3,10 +3,13 @@ module Reference
 using LinearAlgebra
 
 using ..Runtime: AbstractRandomSource, draw_below!, standard_normal!, uniform_unit!
-using ..Certificates: ImplicitSolveCertificate, certifies_exact_solver
+using ..Certificates: ImplicitSolveCertificate, certify_implicit_solve,
+    certifies_exact_solver
 
 export categorical_index!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!, scalar_hmc_step!, vector_hmc_step!, metric_hmc_step!, multinomial_hmc_step!, metric_multinomial_hmc_step!,
+    finite_hmm_particle_gibbs_step!,
     relativistic_multinomial_hmc_step!,
+    fixed_point_generalized_leapfrog,
     certified_relativistic_multinomial_hmc_step!,
     coupled_multinomial_hmc_step!, coupled_gaussian_rwmh_step!, xu21_coupled_step!,
     IR_FORMAT_VERSION
@@ -471,6 +474,75 @@ function categorical_index!(source::AbstractRandomSource, weights::AbstractVecto
     run_program("categorical_index!", source, exact)
 end
 
+"""One exact-integer conditional-SMC/particle-Gibbs update for a finite HMM.
+
+`potentials[t, x]` weights state `x` before transition `t`; therefore a path
+contains `size(potentials, 1) + 1` states. State values are one-based Julia
+indices, while retained particle indices remain zero-based trace draws.
+"""
+function finite_hmm_particle_gibbs_step!(source::AbstractRandomSource,
+        initial_weights::AbstractVector{<:Integer},
+        transition_weights::AbstractMatrix{<:Integer},
+        potentials::AbstractMatrix{<:Integer}, particles::Integer,
+        current_path::AbstractVector{<:Integer})
+    particles > 0 || throw(ArgumentError("particle count must be positive"))
+    states = length(initial_weights)
+    states > 0 || throw(ArgumentError("state space cannot be empty"))
+    size(transition_weights) == (states, states) ||
+        throw(DimensionMismatch("transition matrix"))
+    size(potentials, 2) == states || throw(DimensionMismatch("potentials"))
+    length(current_path) == size(potentials, 1) + 1 ||
+        throw(DimensionMismatch("reference path horizon"))
+    all(x -> 1 <= x <= states, current_path) ||
+        throw(ArgumentError("reference path state out of range"))
+    all(>=(0), initial_weights) && sum(initial_weights) > 0 ||
+        throw(ArgumentError("invalid initial weights"))
+    all(>=(0), transition_weights) || throw(ArgumentError("negative transition weight"))
+    all(row -> sum(row) > 0, eachrow(transition_weights)) ||
+        throw(ArgumentError("transition rows must have positive total"))
+    all(>(0), potentials) || throw(ArgumentError("potentials must be positive"))
+
+    count = Int(particles)
+    retained = Int(draw_below!(source, count)) + 1
+    population = Vector{Int}(undef, count)
+    for i in eachindex(population)
+        population[i] = i == retained ? Int(current_path[1]) :
+            categorical_index!(source, initial_weights) + 1
+    end
+    populations = Vector{Vector{Int}}(undef, size(potentials, 1) + 1)
+    populations[1] = copy(population)
+    ancestor_history = Vector{Vector{Int}}(undef, size(potentials, 1))
+
+    for t in axes(potentials, 1)
+        next_retained = Int(draw_below!(source, count)) + 1
+        resampling_weights = [potentials[t, population[i]] for i in eachindex(population)]
+        ancestors = Vector{Int}(undef, count)
+        next_population = Vector{Int}(undef, count)
+        for i in 1:count
+            ancestors[i] = i == next_retained ? retained :
+                categorical_index!(source, resampling_weights) + 1
+        end
+        for i in 1:count
+            next_population[i] = i == next_retained ? Int(current_path[t + 1]) :
+                categorical_index!(source,
+                    @view transition_weights[population[ancestors[i]], :]) + 1
+        end
+        ancestor_history[t] = ancestors
+        populations[t + 1] = next_population
+        population = next_population
+        retained = next_retained
+    end
+
+    terminal = Int(draw_below!(source, count)) + 1
+    path = Vector{Int}(undef, length(current_path))
+    path[end] = populations[end][terminal]
+    for t in reverse(eachindex(ancestor_history))
+        terminal = ancestor_history[t][terminal]
+        path[t] = populations[t][terminal]
+    end
+    path
+end
+
 function finite_mh_step!(source::AbstractRandomSource, target::AbstractVector{<:Integer},
         proposal::AbstractVector, current::Integer)
     target_weights = BigInt.(target)
@@ -789,6 +861,70 @@ function _checked_certified_step(integrator, q, p, step_size)
     certifies_exact_solver(certificate) ||
         throw(ArgumentError("implicit solve is approximate or lacks global validity witnesses"))
     Float64.(next_q), Float64.(next_p)
+end
+
+"""Solve the two generalized-leapfrog implicit equations by fixed-point iteration.
+
+The returned certificate reports the observed residuals. A positive tolerance
+is approximation data and is intentionally rejected by the exact certified
+sampler. Set the global witness flags only when they have been established for
+the complete solver family, not merely for this run.
+"""
+function fixed_point_generalized_leapfrog(position_derivative,
+        momentum_derivative, position::AbstractVector{<:Real},
+        momentum::AbstractVector{<:Real}, step_size::Real;
+        max_iterations::Integer=100, atol::Real=1e-10, rtol::Real=1e-8,
+        unique::Bool=false, reversible::Bool=false,
+        volume_preserving::Bool=false)
+    max_iterations > 0 || throw(ArgumentError("max_iterations must be positive"))
+    ε, absolute, relative = Float64(step_size), Float64(atol), Float64(rtol)
+    isfinite(ε) || throw(ArgumentError("step size must be finite"))
+    isfinite(absolute) && absolute >= 0 ||
+        throw(ArgumentError("atol must be finite and nonnegative"))
+    isfinite(relative) && relative >= 0 ||
+        throw(ArgumentError("rtol must be finite and nonnegative"))
+    q, p = Float64.(position), Float64.(momentum)
+    length(q) == length(p) || throw(DimensionMismatch("position and momentum"))
+    isempty(q) && throw(ArgumentError("state cannot be empty"))
+    all(isfinite, q) && all(isfinite, p) ||
+        throw(ArgumentError("state must be finite"))
+
+    p_half = copy(p)
+    for _ in 1:max_iterations
+        candidate = p .- (ε / 2) .* Float64.(position_derivative(q, p_half))
+        length(candidate) == length(p) ||
+            throw(DimensionMismatch("position derivative"))
+        all(isfinite, candidate) || throw(DomainError(candidate, "half momentum"))
+        residual = norm(candidate .- p_half)
+        p_half = candidate
+        residual <= absolute + relative * max(norm(p_half), 1.0) && break
+    end
+
+    q_next = copy(q)
+    initial_velocity = Float64.(momentum_derivative(q, p_half))
+    length(initial_velocity) == length(q) ||
+        throw(DimensionMismatch("momentum derivative"))
+    for _ in 1:max_iterations
+        terminal_velocity = Float64.(momentum_derivative(q_next, p_half))
+        length(terminal_velocity) == length(q) ||
+            throw(DimensionMismatch("momentum derivative"))
+        candidate = q .+ (ε / 2) .* (initial_velocity .+ terminal_velocity)
+        all(isfinite, candidate) || throw(DomainError(candidate, "next position"))
+        residual = norm(candidate .- q_next)
+        q_next = candidate
+        residual <= absolute + relative * max(norm(q_next), 1.0) && break
+    end
+
+    half_update = p .- (ε / 2) .* Float64.(position_derivative(q, p_half))
+    position_update = q .+ (ε / 2) .* (initial_velocity .+
+        Float64.(momentum_derivative(q_next, p_half)))
+    half_residual = norm(p_half .- half_update)
+    position_residual = norm(q_next .- position_update)
+    p_next = p_half .- (ε / 2) .* Float64.(position_derivative(q_next, p_half))
+    certificate = certify_implicit_solve(half_residual, half_residual,
+        position_residual, position_residual; unique=unique,
+        reversible=reversible, volume_preserving=volume_preserving)
+    q_next, p_next, certificate
 end
 
 function _certified_relativistic_multinomial_hmc_step!(source::AbstractRandomSource,

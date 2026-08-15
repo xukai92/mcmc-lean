@@ -3,6 +3,31 @@
 Entries through the earlier 2026-08-13 work are preserved in the
 [development-log archive](development-log-archive.md).
 
+## 2026-08-15: next-phase solver, particle-count boundary, and composable inference
+
+Added the exact Banach-fixed-point construction missing from the generalized
+leapfrog layer. `ContractiveGeneralizedLeapfrogSolver` consumes contraction
+certificates for both implicit equations, constructs an exact selected solve,
+proves uniqueness, and connects the practical finite loops to that solve by
+convergence theorems. The Julia Reference and Optimized layers now provide a
+position-dependent fixed-point implementation with measured residual
+certificates and differential tests. Positive residuals remain approximation
+data and are still rejected by the exact GR-HMC client.
+
+Strengthened the particle-Gibbs boundary in both directions. Recursive
+forced-lineage PG remains exact for supported positive paths, while Lean now
+proves that one-particle PG is exactly the identity kernel. Therefore no
+particle-count-uniform convergence claim follows from stationarity. Added
+Reference, Optimized, and public Julia execution for exact-integer bootstrap
+particle Gibbs on finite hidden Markov models, including deterministic replay,
+one-particle, validation, and symmetric-model frequency tests.
+
+Audited Ge, Xu, and Ghahramani (2018) and added scoped composable inference
+operators. Arbitrary finite schedules of common-target-stationary full-state
+kernels preserve the target even when declared variable scopes overlap. A
+two-block PG--HMC theorem formalizes the paper's central composition pattern;
+coverage of all declared variables remains a separate configuration property.
+
 ## 2026-08-15: adaptive convergence, exact slice disintegration, and Euclidean RJ
 
 Completed the finite Roberts--Rosenthal argument. An anchored augmented process

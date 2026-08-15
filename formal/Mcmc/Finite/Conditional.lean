@@ -1,4 +1,4 @@
-import Mcmc.Finite.MarkovKernel
+import Mcmc.Finite.Combinators
 import Mathlib.Tactic
 
 /-!
@@ -89,6 +89,51 @@ theorem fiberMass_pos_of_mass_pos (π : Distribution α) (statistic : α → β)
     exact le_add_of_nonneg_left (Finset.sum_nonneg fun y _ => by
       by_cases h : statistic y = statistic x <;> simp [h, π.nonneg y])
   exact lt_of_lt_of_le hx hle
+
+omit [DecidableEq α] in
+/-- An injective statistic has singleton fibers, so its fiber mass is the
+mass of the unique state in that fiber. -/
+theorem fiberMass_eq_mass_of_injective (π : Distribution α)
+    (statistic : α → β) (hinjective : Function.Injective statistic) (x : α) :
+    fiberMass π statistic (statistic x) = π.mass x := by
+  unfold fiberMass
+  rw [Finset.sum_eq_single x]
+  · simp
+  · intro y _ hy
+    have hstat : statistic y ≠ statistic x := fun h => hy (hinjective h)
+    simp [hstat]
+  · simp
+
+/-- Conditioning on an injective statistic cannot refresh any state: every
+fiber contains only the current state, including zero-mass fibers. -/
+theorem kernel_eq_identity_of_injective (π : Distribution α)
+    (statistic : α → β) (hinjective : Function.Injective statistic) :
+    kernel π statistic = identity := by
+  apply MarkovKernel.ext
+  funext current proposed
+  change (if h : 0 < fiberMass π statistic (statistic current) then
+      if statistic proposed = statistic current then
+        π.mass proposed / fiberMass π statistic (statistic current) else 0
+    else if proposed = current then 1 else 0) =
+      if current = proposed then 1 else 0
+  rw [show fiberMass π statistic (statistic current) = π.mass current from
+    fiberMass_eq_mass_of_injective π statistic hinjective current]
+  by_cases hmass : 0 < π.mass current
+  · rw [dif_pos hmass]
+    by_cases heq : proposed = current
+    · subst proposed
+      simp [hmass.ne']
+    · have hstat : statistic proposed ≠ statistic current :=
+        fun h => heq (hinjective h)
+      have hreverse : current ≠ proposed := Ne.symm heq
+      simp [hstat, hreverse]
+  · have hnot : ¬0 < π.mass current := hmass
+    rw [dif_neg hnot]
+    by_cases heq : proposed = current
+    · subst proposed
+      simp
+    · have hreverse : current ≠ proposed := Ne.symm heq
+      simp [heq, hreverse]
 
 /-- Exact conditional refresh preserves the original finite distribution. -/
 theorem kernel_stationary (π : Distribution α) (statistic : α → β) :
