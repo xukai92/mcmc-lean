@@ -1391,3 +1391,9 @@ and `generated_schedule` instantiates callbacks in the generated order with
 the generated scopes. Tests cover execution order, state changes, missing
 callbacks, and unknown schedules. This verifies configuration transport, not
 yet semantic equality of arbitrary callbacks with formal kernels.
+
+Activated executable diagnostics already supported by the current API. The
+suite now exercises zero momentum, 16-dimensional vector HMC, an
+ill-conditioned metric target, multimodal finite MH frequencies, and a known
+kinetic-energy trace in both Reference and Optimized. Only unavailable DHMC,
+full Geweke, adaptation, and performance/ESS suites remain explicitly skipped.

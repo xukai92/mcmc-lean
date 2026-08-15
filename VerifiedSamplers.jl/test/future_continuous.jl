@@ -445,19 +445,42 @@ end
         @test_skip false
     end
     @testset "momentum and kinetic-energy units" begin
-        @test_skip false
+        events = [Runtime.NormalEvent(0.5), Runtime.UniformEvent(0.9)]
+        reference = Reference.scalar_hmc_step!(
+            Runtime.FloatTraceSource(copy(events)), _ -> 0.0, _ -> 0.0,
+            0.2, 2, 0.0)
+        optimized = Optimized.scalar_hmc_step!(
+            Runtime.FloatTraceSource(copy(events)), _ -> 0.0, _ -> 0.0,
+            0.2, 2, 0.0)
+        @test reference == 0.2
+        @test optimized == reference
     end
 end
 
 @testset "future: robustness and performance" begin
     @testset "zero momentum and nonsmooth boundaries" begin
-        @test_skip false
+        q, p = Optimized.leapfrog(identity, 0.1, 0.0, 0.0)
+        @test q == 0.0
+        @test p == 0.0
+        @test all(isfinite, (q, p))
     end
     @testset "high-dimensional and ill-conditioned targets" begin
-        @test_skip false
+        dimension = 16
+        sampler = VectorHMC(q -> -sum(abs2, q) / 2, identity, 0.08, 4)
+        chain = sample(MersenneTwister(0x16d1), sampler,
+            zeros(dimension), 100)
+        @test size(chain) == (dimension, 100)
+        @test all(isfinite, chain)
     end
     @testset "multimodal discrete targets" begin
-        @test_skip false
+        sampler = FiniteMH(FiniteWeights([9, 1, 9]),
+            FiniteKernelWeights(fill(1, 3, 3)))
+        chain = sample(MersenneTwister(0x3d15), sampler, 1, 30_000)
+        frequencies = [count(==(state), chain) / length(chain) for state in 1:3]
+        expected = [9, 1, 9] ./ 19
+        @test maximum(abs.(frequencies .- expected)) < 0.025
+        @test frequencies[2] < frequencies[1]
+        @test frequencies[2] < frequencies[3]
     end
     @testset "adaptation correctness" begin
         @test_skip false

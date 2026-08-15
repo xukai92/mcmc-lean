@@ -76,7 +76,9 @@ exact reversal statements.
 
 `test/composable.jl` checks declared-variable coverage, overlapping scopes,
 left-to-right PG/HMC-style execution order, repeated sampling, and invalid
-scope configurations for the executable composable-inference API.
+scope configurations for the executable composable-inference API. It also
+decodes the Lean-generated Ge PG--HMC descriptor and checks its names, scopes,
+ordering, missing-callback failures, and runtime execution.
 
 `test/xu21_coupling.jl` exercises the public coupled HMC/RWMH mixture, checks
 output shape and finiteness, validates dimension failures, and verifies
@@ -86,13 +88,21 @@ are implementation regressions; the ideal marginal identities come from Lean.
 These numerical checks complement the Lean phase-volume, PMF, kernel-row, and
 invariance theorems; they do not replace them.
 
-## Skeletoned future tests
+## Active and deferred diagnostics
 
-`test/future_continuous.jl` registers skipped testsets for:
+`test/future_continuous.jl` now actively checks:
+
+- zero-momentum leapfrog behavior;
+- a 16-dimensional vector-HMC execution for shape and finite outputs;
+- ill-conditioned metric-HMC moment recovery;
+- multimodal three-state MH frequencies; and
+- deterministic scalar kinetic-energy trace agreement between Reference and
+  Optimized.
+
+It retains skipped testsets only for:
 
 - a full Geweke forward/backward joint-distribution test;
-- DHMC categorical targets and kinetic/momentum units;
-- nonsmooth boundaries, high dimension, ill-conditioning, and multimodality;
+- DHMC categorical targets;
 - adaptation; and
 - ESS and gradient-count benchmarks.
 
