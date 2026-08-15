@@ -53,6 +53,32 @@ def RestrictedExpr.derivative : RestrictedExpr → RestrictedExpr
   | .neg value => .neg value.derivative
   | .exp value => .mul (.exp value) value.derivative
 
+theorem RestrictedArtifactExpr.compile_derivative
+    (expression : RestrictedArtifactExpr) :
+    expression.derivative.compile = expression.compile.derivative := by
+  induction expression with
+  | input => norm_num [RestrictedArtifactExpr.derivative,
+      RestrictedArtifactExpr.compile, RestrictedExpr.derivative]
+  | rational numerator denominator =>
+      norm_num [RestrictedArtifactExpr.derivative,
+        RestrictedArtifactExpr.compile, RestrictedExpr.derivative]
+  | add left right hleft hright =>
+      simp only [RestrictedArtifactExpr.derivative,
+        RestrictedArtifactExpr.compile, RestrictedExpr.derivative]
+      rw [hleft, hright]
+  | mul left right hleft hright =>
+      simp only [RestrictedArtifactExpr.derivative,
+        RestrictedArtifactExpr.compile, RestrictedExpr.derivative]
+      rw [hleft, hright]
+  | neg value hvalue =>
+      simp only [RestrictedArtifactExpr.derivative,
+        RestrictedArtifactExpr.compile, RestrictedExpr.derivative]
+      rw [hvalue]
+  | exp value hvalue =>
+      simp only [RestrictedArtifactExpr.derivative,
+        RestrictedArtifactExpr.compile, RestrictedExpr.derivative]
+      rw [hvalue]
+
 theorem RestrictedExpr.hasDerivAt_eval (expression : RestrictedExpr) (x : ℝ) :
     HasDerivAt expression.eval (expression.derivative.eval x) x := by
   induction expression with

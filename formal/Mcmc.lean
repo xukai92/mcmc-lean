@@ -56,6 +56,7 @@ import Mcmc.Executable.Continuous.BoundedRWMH
 import Mcmc.Executable.Continuous.BoundedHMC
 import Mcmc.Executable.Continuous.BackendCertificates
 import Mcmc.Executable.Continuous.RestrictedTarget
+import Mcmc.Executable.Continuous.RestrictedRefinement
 import Mcmc.Executable.Continuous.BoundedMultinomial
 import Mcmc.Executable.Continuous.MetricHMC
 import Mcmc.Executable.Continuous.SeparableGeneralizedLeapfrog

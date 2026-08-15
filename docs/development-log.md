@@ -1343,3 +1343,10 @@ Lean proves the canonical Gaussian artifact compiles to the verified `x²/2`
 expression, while Julia's public Gaussian expression is decoded from that
 artifact rather than copied by hand. The loader distinguishes program and
 target declarations and retains its program-only compatibility entry point.
+
+Added recursive restricted-backend refinement. Portable target trees now have
+a portable symbolic derivative, proved to compile to the derivative of their
+ideal-real expression. A backend supplies certified rational, arithmetic,
+negation, and exponential operations; Lean composes their local errors through
+both trees and constructs the value/gradient certificate consumed downstream.
+The `exp` transport premise remains domain- and backend-specific by design.

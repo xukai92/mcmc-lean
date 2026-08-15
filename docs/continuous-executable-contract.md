@@ -132,6 +132,14 @@ tree. Lean proves the generated Gaussian tree compiles to `x²/2`; Julia decodes
 that declaration to construct the public `restricted_gaussian_potential`, so
 this example no longer relies on a second handwritten Julia tree.
 
+`RestrictedBackend` specifies numeric implementations of every portable
+primitive together with local absolute-error evidence. Lean recursively
+accumulates these errors through both the generated target and its generated
+symbolic derivative, producing a `RestrictedTargetCertificate`. The
+exponential field deliberately includes its admitted-domain transport bound;
+there is no false global Lipschitz claim for `exp` and no implicit assertion
+about a platform's libm.
+
 ## Multinomial HMC
 
 The generated multinomial command consumes one standard-normal event per

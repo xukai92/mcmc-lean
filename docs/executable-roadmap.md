@@ -101,8 +101,11 @@ end-to-end bound from an input bound.
 The portable rational-literal subset is now serialized in generated IR version
 11. The public Julia Gaussian expression is decoded from that artifact, and
 Lean proves that the emitted portable tree compiles to the verified Gaussian
-expression. Remaining work is recursive operation-level Float64 bounds
-(especially `exp`), active
+expression. A backend-generic recursive theorem now composes rational,
+addition, multiplication, negation, and bounded-domain exponential certificates
+into end-to-end value and symbolic-gradient bounds for every portable tree.
+Remaining work is instantiating those operation premises for supported Float64
+platforms (especially `exp`), active
 high-dimensional tests, and benchmarking against established Julia samplers.
 Step-size or metric adaptation must remain an explicit stateful algorithm with
 a separate specification.

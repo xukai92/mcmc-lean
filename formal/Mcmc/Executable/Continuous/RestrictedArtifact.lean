@@ -21,4 +21,15 @@ deriving DecidableEq, Repr
 def restrictedGaussianArtifact : RestrictedArtifactExpr :=
   .mul (.rational 1 2) (.mul .input .input)
 
+/-- Symbolic derivative that remains in portable rational syntax. -/
+def RestrictedArtifactExpr.derivative :
+    RestrictedArtifactExpr → RestrictedArtifactExpr
+  | .input => .rational 1 1
+  | .rational _ _ => .rational 0 1
+  | .add left right => .add left.derivative right.derivative
+  | .mul left right =>
+      .add (.mul left.derivative right) (.mul left right.derivative)
+  | .neg value => .neg value.derivative
+  | .exp value => .mul (.exp value) value.derivative
+
 end Mcmc.Executable.Continuous
