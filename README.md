@@ -133,15 +133,17 @@ positive-rate exponential waiting-time products. At every fixed event count,
 the state skeleton and exponential waits now have a joint probability measure
 with both marginals proved exact. The same Poisson mixture is also constructed
 directly for arbitrary mathlib Markov kernels: it is proved Markov, preserves
-every invariant probability target, and has an almost-surely finite event
-count on finite horizons. Bounded state-dependent pure-jump rates now also
+every invariant probability target, satisfies the zero-time and full
+Chapman--Kolmogorov laws, and has an almost-surely finite event count on finite
+horizons. Bounded state-dependent pure-jump rates now also
 have a general uniformization kernel: each homogeneous clock event takes the
 real jump with probability `rate(x)/clockRate` and otherwise self-loops. Lean
 proves the embedded and real-time kernels Markov, transports any proved
 rate-biased balanced-flux certificate through the embedded chain and
 Poissonization to real-time target invariance, and records finite-count
 nonexplosion. A dependent joint measure over all event counts, deterministic
-flow between events, unbounded clocks, and BPS/Zig-Zag convergence remain open.
+state-dependent event-time simulation, unbounded clocks, and BPS/Zig-Zag
+convergence remain open.
 
 The deterministic PDMP branch now has a measurable-semiflow interface. Every
 elapsed time yields a deterministic Markov kernel, the exact semigroup law is
@@ -151,7 +153,11 @@ mean-zero generator expectation from explicit integrability and weighted
 integration-by-parts premises. For BPS, the finite-dimensional reflection is
 proved involutive, kinetic-norm preserving, and reversing the normal velocity
 component. These are generator/geometric foundations, not yet path-existence,
-unbounded-rate nonexplosion, or convergence theorems.
+unbounded-rate nonexplosion, or convergence theorems. Fixed finite event
+schedules can now be executed as general-state Markov kernels by alternating
+the semiflow with jumps; schedule concatenation and conditional invariance are
+proved. Concrete one-dimensional Zig-Zag and finite-dimensional BPS clients
+instantiate the linear flows, event kernels, rates, and scheduled execution.
 
 For positive-horizon particle Gibbs, the finite library now proves a concrete
 arbitrary-horizon result: with any finite particle index type containing at

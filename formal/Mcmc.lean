@@ -119,8 +119,11 @@ import Mcmc.PDMP.TimedPath
 import Mcmc.PDMP.GeneralPoissonization
 import Mcmc.PDMP.GeneralUniformization
 import Mcmc.PDMP.Flow
+import Mcmc.PDMP.EventExecution
 import Mcmc.PDMP.ZigZag
+import Mcmc.PDMP.ZigZagProcess
 import Mcmc.PDMP.BouncyParticle
+import Mcmc.PDMP.BouncyParticleProcess
 import Mcmc.Kernel.CoupledChain
 import Mcmc.Kernel.CoupledMetropolisHastings
 import Mcmc.Kernel.DensityCoupling

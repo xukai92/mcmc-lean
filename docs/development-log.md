@@ -54,6 +54,16 @@ and transforms the canonical positive-part event rate as expected. Neither
 module silently upgrades generator balance to process existence or
 convergence.
 
+Finite general-state event execution now alternates each prescribed wait's
+deterministic flow with the supplied Markov jump. Lean proves that every such
+schedule is Markov, that concatenating schedules composes their kernels in
+execution order, and that separately invariant flow and jump segments preserve
+the target across the whole schedule. The positive real vectors from the timed
+path layer feed this executor directly. Concrete Zig-Zag and Bouncy Particle
+clients instantiate their linear semiflows, deterministic event kernels,
+canonical nonnegative rates, and fixed-schedule kernels. These clients do not
+yet sample state-dependent event times or claim process-level stationarity.
+
 ## 2026-08-15: categorical discontinuous-HMC vertical slice
 
 Added the Laplace-momentum crossing/reflection algebra from Nishimura, Dunson,
