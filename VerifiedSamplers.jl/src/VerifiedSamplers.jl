@@ -14,6 +14,9 @@ export FiniteWeights, FiniteKernelWeights, FiniteMH, TwoStateMH, GaussianRWMH,
     DiagonalMetric, DenseMetric, MetricHMC, RelativisticMultinomialHMC,
     GaussianSoftAbsGRHMC,
     CertifiedRelativisticMultinomialHMC,
+    RestrictedExpr, RestrictedInput, RestrictedConst, RestrictedAdd,
+    RestrictedMul, RestrictedNeg, RestrictedExp, restricted_value_gradient,
+    restricted_gaussian_potential,
     Xu21CoupledSampler, ScopedInferenceOperator, ComposableSampler, covers,
     FiniteHMMParticleGibbs,
     fixed_point_generalized_leapfrog, sample
@@ -21,6 +24,72 @@ export Certificates
 
 fixed_point_generalized_leapfrog(args...; kwargs...) =
     Reference.fixed_point_generalized_leapfrog(args...; kwargs...)
+
+"""Restricted scalar target syntax shared with Lean's verified evaluator."""
+abstract type RestrictedExpr end
+
+struct RestrictedInput <: RestrictedExpr end
+struct RestrictedConst <: RestrictedExpr
+    value::Float64
+end
+struct RestrictedAdd <: RestrictedExpr
+    left::RestrictedExpr
+    right::RestrictedExpr
+end
+struct RestrictedMul <: RestrictedExpr
+    left::RestrictedExpr
+    right::RestrictedExpr
+end
+struct RestrictedNeg <: RestrictedExpr
+    value::RestrictedExpr
+end
+struct RestrictedExp <: RestrictedExpr
+    value::RestrictedExpr
+end
+
+function _checked_restricted(value::Float64, derivative::Float64)
+    isfinite(value) || throw(DomainError(value,
+        "restricted target evaluation produced a non-finite value"))
+    isfinite(derivative) || throw(DomainError(derivative,
+        "restricted target derivative produced a non-finite value"))
+    value, derivative
+end
+
+"""Evaluate a restricted expression and its symbolic derivative together.
+
+Lean proves the symbolic derivative correct over ideal reals. Bounded Float64
+refinement remains an explicit, separate certificate obligation.
+"""
+restricted_value_gradient(::RestrictedInput, x::Real) =
+    _checked_restricted(Float64(x), 1.0)
+restricted_value_gradient(expression::RestrictedConst, ::Real) =
+    _checked_restricted(expression.value, 0.0)
+
+function restricted_value_gradient(expression::RestrictedAdd, x::Real)
+    left, dleft = restricted_value_gradient(expression.left, x)
+    right, dright = restricted_value_gradient(expression.right, x)
+    _checked_restricted(left + right, dleft + dright)
+end
+
+function restricted_value_gradient(expression::RestrictedMul, x::Real)
+    left, dleft = restricted_value_gradient(expression.left, x)
+    right, dright = restricted_value_gradient(expression.right, x)
+    _checked_restricted(left * right, dleft * right + left * dright)
+end
+
+function restricted_value_gradient(expression::RestrictedNeg, x::Real)
+    value, derivative = restricted_value_gradient(expression.value, x)
+    _checked_restricted(-value, -derivative)
+end
+
+function restricted_value_gradient(expression::RestrictedExp, x::Real)
+    inner, derivative = restricted_value_gradient(expression.value, x)
+    value = exp(inner)
+    _checked_restricted(value, value * derivative)
+end
+
+const restricted_gaussian_potential = RestrictedMul(
+    RestrictedConst(0.5), RestrictedMul(RestrictedInput(), RestrictedInput()))
 
 """A full-state transition annotated with the variables it may update.
 

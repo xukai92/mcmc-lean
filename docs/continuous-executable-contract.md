@@ -113,6 +113,23 @@ across multiple callbacks and positive scales, and the public path has a
 normal-target moment test. These tests can expose implementation defects but do
 not prove equality of probability laws.
 
+## Restricted target expressions
+
+`Mcmc.Executable.Continuous.RestrictedExpr` is the first callback-free scalar
+target surface. Lean interprets the syntax over ideal reals and proves its
+symbolic derivative correct for every admitted expression. The corresponding
+Julia algebraic data types are evaluated structurally; arbitrary Julia
+functions are therefore not mistaken for expressions covered by that theorem.
+
+`RestrictedTargetCertificate` records input, value, and derivative errors
+against the Lean semantics. The centered Gaussian expression `x²/2` has a
+derived certificate whose value-error formula follows from the input bound and
+whose derivative error is exactly the input error. This does not identify
+Float64 arithmetic with real arithmetic: operation-level rounding and libm
+evidence must supply the certificate, and non-finite Julia intermediates are
+rejected. Serialization of these expressions into the generated artifact is
+the next cross-language step.
+
 ## Multinomial HMC
 
 The generated multinomial command consumes one standard-normal event per

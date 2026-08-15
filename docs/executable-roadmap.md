@@ -89,10 +89,20 @@ iteration count alone remains insufficient as a correctness witness.
 
 ### 2. Restricted callbacks, adaptation, and performance
 
-Develop a restricted target/gradient expression surface or externally checked
-callback certificates, add active edge-case and high-dimensional tests, and
-benchmark against established Julia samplers. Step-size or metric adaptation
-must remain an explicit stateful algorithm with a separate specification.
+The first restricted scalar target surface is implemented. Its syntax admits
+input, real constants, addition, multiplication, negation, and exponential.
+Lean defines ideal-real evaluation and symbolic differentiation and proves the
+derivative correct, differentiability, and measurability for every expression.
+Julia mirrors the structural evaluator, computes value and derivative together,
+and rejects non-finite intermediate results. A backend-facing certificate keeps
+Float64 value/gradient error explicit; the Gaussian expression has a derived
+end-to-end bound from an input bound.
+
+Remaining work is serialization of target syntax in the generated artifact,
+recursive operation-level Float64 bounds (especially `exp`), active
+high-dimensional tests, and benchmarking against established Julia samplers.
+Step-size or metric adaptation must remain an explicit stateful algorithm with
+a separate specification.
 
 ## Assurance boundary
 

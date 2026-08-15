@@ -74,6 +74,22 @@ end
     @test_throws ArgumentError GaussianSoftAbsGRHMC(2, 0.1; smoothing=0.0)
 end
 
+@testset "restricted target expressions" begin
+    for x in (-3.0, -0.25, 0.0, 1.5)
+        value, derivative = restricted_value_gradient(
+            restricted_gaussian_potential, x)
+        @test value == x^2 / 2
+        @test derivative == x
+    end
+
+    exponential = RestrictedExp(RestrictedNeg(RestrictedInput()))
+    value, derivative = restricted_value_gradient(exponential, 0.7)
+    @test value == exp(-0.7)
+    @test derivative == -exp(-0.7)
+    @test_throws DomainError restricted_value_gradient(
+        RestrictedExp(RestrictedConst(1000.0)), 0.0)
+end
+
 @testset "certified position-dependent relativistic interface" begin
     exact_certificate = Certificates.certify_implicit_solve(0, 0, 0, 0;
         unique=true, reversible=true, volume_preserving=true)

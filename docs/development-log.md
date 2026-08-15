@@ -1325,3 +1325,14 @@ dimension and parameter validation, and finite outputs.
 4. Extend the Ge, Xu, GR-HMC convergence, dynamic-NUTS, slice, reversible-
    jump, adaptation, particle-asymptotic, and PDMP branches tracked in the
    overall roadmap.
+
+Started the restricted cross-language target milestone. Lean now has a small
+scalar expression language with a total ideal-real evaluator, a symbolic
+derivative, and machine-checked derivative correctness, differentiability, and
+measurability for every expression. `RestrictedTargetCertificate` exposes
+input/value/gradient numerical errors rather than hiding callback correctness;
+the Gaussian `x²/2` target derives its complete value and derivative bounds from
+one input approximation. Julia mirrors the expression tree, evaluates value and
+gradient together, rejects non-finite intermediates, and passes Gaussian,
+exponential, and overflow tests. Generated-artifact serialization and recursive
+primitive rounding/libm certificates remain explicit next obligations.
