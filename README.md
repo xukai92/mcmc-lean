@@ -143,6 +143,16 @@ Poissonization to real-time target invariance, and records finite-count
 nonexplosion. A dependent joint measure over all event counts, deterministic
 flow between events, unbounded clocks, and BPS/Zig-Zag convergence remain open.
 
+The deterministic PDMP branch now has a measurable-semiflow interface. Every
+elapsed time yields a deterministic Markov kernel, the exact semigroup law is
+proved, and measure-preserving flows give invariant kernels. For Zig-Zag, Lean
+checks the one-dimensional two-velocity generator cancellation and derives
+mean-zero generator expectation from explicit integrability and weighted
+integration-by-parts premises. For BPS, the finite-dimensional reflection is
+proved involutive, kinetic-norm preserving, and reversing the normal velocity
+component. These are generator/geometric foundations, not yet path-existence,
+unbounded-rate nonexplosion, or convergence theorems.
+
 For positive-horizon particle Gibbs, the finite library now proves a concrete
 arbitrary-horizon result: with any finite particle index type containing at
 least two particles, positive initial mass, and

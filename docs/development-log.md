@@ -38,6 +38,18 @@ event mass is preserved by the jump, and the resulting real-time kernel is
 target invariant. Deterministic motion between events and unbounded-rate
 nonexplosion are not represented by this pure-jump construction.
 
+Added the deterministic-motion and first concrete nonreversible foundations.
+`MeasurableSemiflow` produces deterministic Markov kernels with an exact
+Chapman--Kolmogorov law, supports flow-then-jump event segments, and transports
+measure-preservation certificates to invariance. The one-dimensional Zig-Zag
+module proves the two-velocity switching algebra and a mean-zero generator
+theorem under explicit integrability and integration-by-parts assumptions.
+The Bouncy Particle module proves that its Euclidean velocity reflection
+reverses the normal component, preserves squared kinetic norm, is involutive,
+and transforms the canonical positive-part event rate as expected. Neither
+module silently upgrades generator balance to process existence or
+convergence.
+
 ## 2026-08-15: categorical discontinuous-HMC vertical slice
 
 Added the Laplace-momentum crossing/reflection algebra from Nishimura, Dunson,
