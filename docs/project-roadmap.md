@@ -278,9 +278,8 @@ breadth branches are:
   Concrete one-dimensional Zig-Zag and finite-dimensional BPS clients provide
   their linear flows, event kernels, and bounded-thinning constructors. The
   one-dimensional Zig-Zag generator cancellation and finite-dimensional BPS
-  reflection geometry are checked; measurably sorting the conditional times
-  and coupling them to the Poisson count in a joint fixed-horizon path law,
-  unbounded-rate Lyapunov arguments,
+  reflection geometry are checked; an all-count certified sorting-network
+  family, measurable multi-event execution, unbounded-rate Lyapunov arguments,
   process-level stationarity, and convergence remain.
 
 Sequence-parallel evaluation is an execution-refinement project downstream of

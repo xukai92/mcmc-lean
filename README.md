@@ -165,11 +165,12 @@ virtual event. Fixed candidate-count iterates are Markov and compose by
 addition. For supplied candidate waits, a fixed-horizon executor consumes only
 candidates within the remaining time and fills the residual interval by exact
 flow; the associated bounded-clock Poisson count is almost surely finite.
-The joint random ordered-time law and unbounded-rate nonexplosion remain open.
+An unconditional executable path kernel for arbitrary candidate counts and
+unbounded-rate nonexplosion remain open.
 The conditional continuous-time ingredient is now present: for every positive
 horizon and fixed candidate count, Lean constructs the iid uniform timestamp
-product measure and proves it is a probability law. Sorting those timestamps
-and mixing the conditional laws over the Poisson count remain the next bridge.
+product measure and proves it is a probability law. The remaining ordering
+obligation is exposed through the certificate described next.
 Measurable sorting is represented by an explicit certificate that also proves
 monotonicity and preservation up to permutation; the two-candidate `min/max`
 network is certified, and every certified ordering induces probability laws

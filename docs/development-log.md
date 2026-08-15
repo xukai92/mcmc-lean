@@ -81,14 +81,14 @@ applies flow then accepted/virtual jump, ignores an over-horizon candidate,
 and fills all residual time with deterministic flow. Every branch is a Markov
 kernel. The homogeneous clock's candidate count on a finite horizon is given
 its exact Poisson law and proved almost surely finite. What remains is the
-joint law coupling that count to ordered candidate times and the executor.
+all-count measurable ordering family and its integration with the executor.
 
 For that bridge, positive horizons now carry the normalized continuous uniform
 measure on `(0,T]`, with its probability normalization proved directly from
 Lebesgue interval volume. Every fixed candidate count has the corresponding iid
 timestamp product probability measure. This is the standard conditional-time
-ingredient for a homogeneous Poisson process; measurable sorting and the
-dependent mixture over counts are not yet claimed.
+ingredient for a homogeneous Poisson process; ordering is handled by the
+explicit certificate below.
 
 Added a sound measurable-ordering boundary rather than assuming a library sort
 is measurable. `TimestampOrdering` requires a measurable map, monotone output,
