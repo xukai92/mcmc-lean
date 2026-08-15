@@ -1397,3 +1397,11 @@ suite now exercises zero momentum, 16-dimensional vector HMC, an
 ill-conditioned metric target, multimodal finite MH frequencies, and a known
 kinetic-energy trace in both Reference and Optimized. Only unavailable DHMC,
 full Geweke, adaptation, and performance/ESS suites remain explicitly skipped.
+
+Extended general-state coupling convergence to stationary targets. A uniform
+`HasGeometricCoupling` certificate now couples the time-`n` law from any Dirac
+start with the invariant target itself and bounds the off-diagonal mass by
+`rate^n`. Both eventwise discrepancies are bounded explicitly. This closes the
+generic marginal-convergence route while documenting why the target-specific
+Xu lagged-meeting theorems do not automatically satisfy its stronger uniform
+premise.

@@ -45,6 +45,31 @@ theorem fst_apply_le_snd_apply_add_compl_diagonal
     _ = ν s + ρ (Set.diagonal α)ᶜ := by
       rw [← h.snd, Measure.snd_apply hs]
 
+/-- Symmetric eventwise coupling inequality. -/
+theorem snd_apply_le_fst_apply_add_compl_diagonal
+    {ρ : Measure (α × α)} {μ ν : Measure α}
+    (h : IsMeasureCoupling ρ μ ν) {s : Set α} (hs : MeasurableSet s) :
+    ν s ≤ μ s + ρ (Set.diagonal α)ᶜ := by
+  let A : Set (α × α) := Prod.snd ⁻¹' s
+  let B : Set (α × α) := Prod.fst ⁻¹' s
+  have hsubset : A ⊆ B ∪ (Set.diagonal α)ᶜ := by
+    intro z hz
+    by_cases heq : z.1 = z.2
+    · left
+      change z.2 ∈ s at hz
+      change z.1 ∈ s
+      rw [heq]
+      exact hz
+    · right
+      simpa [Set.mem_diagonal_iff] using heq
+  calc
+    ν s = ρ A := by
+      rw [← h.snd, Measure.snd_apply hs]
+    _ ≤ ρ (B ∪ (Set.diagonal α)ᶜ) := measure_mono hsubset
+    _ ≤ ρ B + ρ (Set.diagonal α)ᶜ := measure_union_le _ _
+    _ = μ s + ρ (Set.diagonal α)ᶜ := by
+      rw [← h.fst, Measure.fst_apply hs]
+
 end IsMeasureCoupling
 
 namespace Kernel
@@ -364,6 +389,71 @@ theorem HasGeometricCoupling.pow_apply_le_add_symm
     (n : ℕ) (x y : α) {s : Set α} (hs : MeasurableSet s) :
     (transition ^ n) y s ≤ (transition ^ n) x s + rate ^ n :=
   h.pow_apply_le_add n y x hs
+
+section StationaryTarget
+
+variable [MeasurableEq α]
+
+/-- A uniform geometric coupling also couples a point-started chain to a
+stationary target-started chain. Its off-diagonal mass keeps the same bound. -/
+theorem HasGeometricCoupling.exists_stationaryCoupling
+    {transition : Kernel α α} [IsMarkovKernel transition]
+    {rate : ENNReal} (h : HasGeometricCoupling transition rate)
+    (target : Measure α) [IsProbabilityMeasure target]
+    (hinvariant : transition.Invariant target) (x : α) (n : ℕ) :
+    ∃ ρ : Measure (α × α),
+      IsMeasureCoupling ρ (lawAtTime (Measure.dirac x) transition n) target ∧
+        ρ (Set.diagonal α)ᶜ ≤ rate ^ n := by
+  let initial : Measure (α × α) := (Measure.dirac x).prod target
+  let ρ := lawAtTime initial h.coupled n
+  have hinitial : IsMeasureCoupling initial (Measure.dirac x) target :=
+    isMeasureCoupling_prod _ _
+  have hmarginals := lawAtTime_isMeasureCoupling initial
+    (Measure.dirac x) target h.coupled transition transition hinitial
+    h.isCoupling n
+  have htarget : lawAtTime target transition n = target :=
+    lawAtTime_eq_of_invariant target transition hinvariant n
+  refine ⟨ρ, ?_, ?_⟩
+  · simpa [ρ, htarget] using hmarginals
+  · change lawAtTime initial h.coupled n (Set.diagonal α)ᶜ ≤ rate ^ n
+    rw [lawAtTime, Measure.bind_apply measurableSet_diagonal.compl
+      (h.coupled ^ n).aemeasurable]
+    calc
+      (∫⁻ z, (h.coupled ^ n) z (Set.diagonal α)ᶜ ∂initial) ≤
+          ∫⁻ _z, rate ^ n ∂initial := by
+        apply lintegral_mono
+        intro z
+        exact h.offDiagonal_le n z
+      _ = rate ^ n := by simp [initial]
+
+/-- Quantitative eventwise marginal convergence from any Dirac start to an
+invariant probability target. This is a convergence statement, not merely
+stationarity. -/
+theorem HasGeometricCoupling.lawAtTime_dirac_apply_le_target_add
+    {transition : Kernel α α} [IsMarkovKernel transition]
+    {rate : ENNReal} (h : HasGeometricCoupling transition rate)
+    (target : Measure α) [IsProbabilityMeasure target]
+    (hinvariant : transition.Invariant target) (x : α) (n : ℕ)
+    {s : Set α} (hs : MeasurableSet s) :
+    lawAtTime (Measure.dirac x) transition n s ≤ target s + rate ^ n := by
+  obtain ⟨ρ, hρ, hoff⟩ :=
+    h.exists_stationaryCoupling target hinvariant x n
+  exact (hρ.fst_apply_le_snd_apply_add_compl_diagonal hs).trans
+    (add_le_add_right hoff _)
+
+theorem HasGeometricCoupling.target_apply_le_lawAtTime_dirac_add
+    {transition : Kernel α α} [IsMarkovKernel transition]
+    {rate : ENNReal} (h : HasGeometricCoupling transition rate)
+    (target : Measure α) [IsProbabilityMeasure target]
+    (hinvariant : transition.Invariant target) (x : α) (n : ℕ)
+    {s : Set α} (hs : MeasurableSet s) :
+    target s ≤ lawAtTime (Measure.dirac x) transition n s + rate ^ n := by
+  obtain ⟨ρ, hρ, hoff⟩ :=
+    h.exists_stationaryCoupling target hinvariant x n
+  exact (hρ.snd_apply_le_fst_apply_add_compl_diagonal hs).trans
+    (add_le_add_right hoff _)
+
+end StationaryTarget
 
 end Kernel
 end Mcmc

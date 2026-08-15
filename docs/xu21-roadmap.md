@@ -142,6 +142,14 @@ architectural choices here:
   or state an appropriately justified ergodicity premise in their estimator
   wrappers. Stationary higher moments now require only `MemLp h p target`.
 
+  The reusable uniform-coupling route is now closed: `HasGeometricCoupling`
+  is lifted from pairs of deterministic starts to a coupling of a Dirac-started
+  chain with a stationary target-started chain, yielding both eventwise
+  inequalities with error `rate^n`. The existing target-specific Xu meeting
+  tails are not uniform `HasGeometricCoupling` certificates, so their concrete
+  marginal-convergence obligation remains separate rather than being inferred
+  from lagged meeting alone.
+
 - Add concise public wrappers for the most important general and instantiated
   results.
 - Reduce legacy conditional interfaces where a stronger proved theorem now
