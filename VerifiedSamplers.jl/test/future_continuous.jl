@@ -517,7 +517,7 @@ end
     end
 end
 
-@testset "future: robustness and performance" begin
+@testset "robustness and performance diagnostics" begin
     @testset "zero momentum and nonsmooth boundaries" begin
         q, p = Optimized.leapfrog(identity, 0.1, 0.0, 0.0)
         @test q == 0.0
@@ -546,6 +546,51 @@ end
         @test_skip false
     end
     @testset "ESS and gradient-count benchmarks" begin
-        @test_skip false
+        function autocorrelation_ess(values; max_lag=min(1_000, length(values) ÷ 4))
+            centered = values .- mean(values)
+            variance = sum(abs2, centered) / length(centered)
+            variance > 0 || return 0.0
+            correlation_sum = 0.0
+            for lag in 1:max_lag
+                correlation = dot(@view(centered[1:(end - lag)]),
+                    @view(centered[(lag + 1):end])) /
+                    ((length(centered) - lag) * variance)
+                correlation <= 0 && break
+                correlation_sum += correlation
+            end
+            min(length(values), length(values) / (1 + 2correlation_sum))
+        end
+
+        hmc = ScalarHMC(x -> -x^2 / 2, identity, 0.20, 10)
+        rwmh = GaussianRWMH(x -> -x^2 / 2, 1.0)
+        hmc_chain = sample(MersenneTwister(0xe551), hmc, 0.0, 12_000)[2001:end]
+        rwmh_chain = sample(MersenneTwister(0xe552), rwmh, 0.0, 12_000)[2001:end]
+        hmc_ess = autocorrelation_ess(hmc_chain)
+        rwmh_ess = autocorrelation_ess(rwmh_chain)
+        @test hmc_ess > 1_000
+        @test rwmh_ess > 300
+        @test hmc_ess > 1.5rwmh_ess
+
+        reference_gradient_calls = Ref(0)
+        reference_logdensity_calls = Ref(0)
+        counted_gradient(x) = (reference_gradient_calls[] += 1; x)
+        counted_logdensity(x) = (reference_logdensity_calls[] += 1; -x^2 / 2)
+        counted_sampler = ScalarHMC(counted_logdensity, counted_gradient, 0.2, 5)
+        sample(MersenneTwister(0xc057), counted_sampler, 0.0, 20)
+        @test reference_gradient_calls[] == 20 * 5 * 4
+        @test reference_logdensity_calls[] == 20 * 2
+
+        optimized_gradient_calls = Ref(0)
+        optimized_logdensity_calls = Ref(0)
+        optimized_gradient(x) = (optimized_gradient_calls[] += 1; x)
+        optimized_logdensity(x) = (optimized_logdensity_calls[] += 1; -x^2 / 2)
+        source = Runtime.RNGSource(MersenneTwister(0xc057))
+        state = 0.0
+        for _ in 1:20
+            state = Optimized.scalar_hmc_step!(source, optimized_logdensity,
+                optimized_gradient, 0.2, 5, state)
+        end
+        @test optimized_gradient_calls[] == 20 * 5 * 2
+        @test optimized_logdensity_calls[] == 20 * 2
     end
 end

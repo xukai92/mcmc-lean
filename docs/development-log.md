@@ -1419,6 +1419,16 @@ implementation diagnostic, not a substitute for the Lean HMC invariance
 theorem. Only DHMC, runtime adaptation, and ESS/gradient benchmarks remain
 skipped.
 
+Activated the ESS and gradient-count performance regressions. Fixed-seed
+standard-normal ScalarHMC and GaussianRWMH chains now pass a documented
+positive-sequence autocorrelation ESS estimator, with conservative absolute
+and relative thresholds. Instrumented callbacks also pin the current cost
+contract: the interpreted Reference scalar HMC evaluates the gradient four
+times per leapfrog step, while Optimized evaluates it twice; both evaluate the
+endpoint log density twice per transition. These are reproducible regression
+budgets, not complexity theorems or universal efficiency comparisons. Only
+the unavailable DHMC categorical and runtime-adaptation suites remain skipped.
+
 The Gaussian diagonal-SoftAbs client is now end-to-end. Lean connects the
 actual Gaussian Hessian to a strictly non-identity SoftAbs metric, packages the
 explicit separable update as a valid generalized-leapfrog selection, and
@@ -1526,7 +1536,8 @@ Activated executable diagnostics already supported by the current API. The
 suite now exercises zero momentum, 16-dimensional vector HMC, an
 ill-conditioned metric target, multimodal finite MH frequencies, and a known
 kinetic-energy trace in both Reference and Optimized. Only unavailable DHMC,
-full Geweke, adaptation, and performance/ESS suites remain explicitly skipped.
+adaptation, and the then-unimplemented Geweke/performance suites remained
+explicitly skipped at that milestone; the latter two are activated below.
 
 Extended general-state coupling convergence to stationary targets. A uniform
 `HasGeometricCoupling` certificate now couples the time-`n` law from any Dirac

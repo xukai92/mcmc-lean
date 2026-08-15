@@ -105,15 +105,17 @@ invariance theorems; they do not replace them.
 - zero-momentum leapfrog behavior;
 - a 16-dimensional vector-HMC execution for shape and finite outputs;
 - ill-conditioned metric-HMC moment recovery;
-- multimodal three-state MH frequencies; and
+- multimodal three-state MH frequencies;
 - deterministic scalar kinetic-energy trace agreement between Reference and
-  Optimized.
+  Optimized; and
+- seeded scalar-HMC and Gaussian-RWMH effective-sample-size regressions, plus
+  exact callback-count checks for the interpreted Reference and independent
+  Optimized scalar-HMC implementations.
 
 It retains skipped testsets only for:
 
 - DHMC categorical targets;
-- adaptation; and
-- ESS and gradient-count benchmarks.
+- adaptation.
 
 These become active only when the corresponding executable APIs and contracts exist. In
 particular, a finite-difference Jacobian check will be classified as an
