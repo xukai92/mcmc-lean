@@ -160,6 +160,14 @@ The pre-Xu dependency order is:
    pointwise density theorem and is proved equal to the exact conditional law
    on every positive supported path. The abstract total kernel retains its
    identity fallback on zero-mass fibers.
+   Positive-horizon trajectory PG is additionally indexed by the concrete
+   count `N` through particle labels `Fin N`. Under an explicit bounded-model
+   pointwise minorization, Lean constructs the refresh residual and proves a
+   uniform geometric TV rate with coefficient
+   `((N-1)/(N-1+B))^(T+1)`, including monotonic improvement of that coefficient
+   with particle count. Deriving the displayed minorization from primitive
+   potential and transition bounds for the recursive forced-lineage generator
+   remains the next model-level obligation.
 7. adaptive-MCMC boundary -- finite state-dependent kernel selection and a
    counterexample where two frozen target-invariant kernels combine into a
    non-invariant selected kernel are complete. Predetermined nonhomogeneous law

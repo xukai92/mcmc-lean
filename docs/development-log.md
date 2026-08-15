@@ -1350,3 +1350,12 @@ ideal-real expression. A backend supplies certified rational, arithmetic,
 negation, and exponential operations; Lean composes their local errors through
 both trees and constructs the value/gradient certificate consumed downstream.
 The `exp` transport premise remains domain- and backend-specific by design.
+
+Made positive-horizon particle count explicit. The trajectory kernel is now
+instantiated with labels `Fin N`; a bounded-potential minorization certificate
+uses `N-1` non-retained particles and exposes the coefficient
+`((N-1)/(N-1+B))^(T+1)`. Lean proves positivity, strict subunitness, monotonicity
+in `N`, construction of the stationary residual kernel, the corresponding
+uniform geometric TV bound, and convergence from every initial trajectory law.
+The pointwise minorization remains a model-specific conditional-SMC obligation;
+it is not inferred from stationarity or from the name “bounded potential.”

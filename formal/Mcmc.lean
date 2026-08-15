@@ -19,6 +19,7 @@ import Mcmc.Finite.ParticleMCMC
 import Mcmc.Finite.ParticleGibbsConvergence
 import Mcmc.Finite.ParticleGibbsTrajectory
 import Mcmc.Finite.Doeblin
+import Mcmc.Finite.ParticleGibbsCount
 import Mcmc.Finite.Coupling
 import Mcmc.Finite.MarginalRepair
 import Mcmc.Finite.Transport
