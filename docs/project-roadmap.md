@@ -91,9 +91,10 @@ proves that the certificate implies preservation of product phase volume.
 The bilinear stress model now closes this argument unconditionally in every
 finite dimension through its exact reciprocal-scaling formula. Proving the
 certificate for the smooth momentum-even model, instantiating a solver with
-the derivatives of the already-defined globally positive nonconstant metric
-Hamiltonians, and refining Float64 residuals to that exact selection remain
-before B2 is complete.
+the derivatives of the canonical globally positive nonconstant
+`1 + ‖q‖²` metric Hamiltonian (whose factor-volume and measurability
+obligations are now discharged), and refining Float64 residuals to that exact
+selection remain before B2 is complete.
 
 ## Track C: later breadth branches
 

@@ -64,6 +64,15 @@ nonzero-step implicit-solver theorem, but the bilinear Hamiltonian is not
 momentum-even and is not presented as a GR target; the smooth momentum-even
 relativistic-shaped model retains its explicit Jacobian-certificate boundary.
 
+Made the nonconstant metric endpoint fully concrete. The canonical scalar
+factor `quadraticScalarScale(q) = 1 + ‖q‖²` is machine-checked globally
+positive and demonstrably nonconstant in one dimension. Its associated
+factored Riemannian metric satisfies the exact inverse-factor Haar/Jacobian
+identity, and every measurable potential produces a measurable complete GR
+Hamiltonian. The remaining solver task is now the derivative and contraction
+analysis for this concrete Hamiltonian, rather than construction of a valid
+positive metric field.
+
 ## 2026-08-15: adaptive convergence, exact slice disintegration, and Euclidean RJ
 
 Completed the finite Roberts--Rosenthal argument. An anchored augmented process

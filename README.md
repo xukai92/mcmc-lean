@@ -75,9 +75,11 @@ a globally positive nonconstant Riemannian-metric Hamiltonian, remain open.
 The bilinear implicit stress model additionally has a closed-form exact step,
 and Lean proves directly in every finite dimension that its reciprocal
 position/momentum scalings preserve product phase volume. The repository
-already contains positive nonconstant scalar and diagonal SoftAbs metric
-families; what remains is to instantiate an exact solver with the derivatives
-of one of those complete GR Hamiltonians.
+contains positive nonconstant scalar and diagonal SoftAbs metric families and
+now a canonical smooth factor `1 + ‖q‖²`, with exact factor-volume
+compatibility and complete-Hamiltonian measurability. What remains is to
+instantiate an exact solver with the derivatives of one of those complete GR
+Hamiltonians.
 
 Betancourt's [*A Conceptual Introduction to Hamiltonian Monte
 Carlo*](https://arxiv.org/abs/1701.02434) is used as a foundational HMC

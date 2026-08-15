@@ -16,6 +16,29 @@ open Mcmc.Hamiltonian
 
 variable {ι : Type*} [Fintype ι]
 
+/-- A canonical smooth, globally positive, genuinely position-dependent
+scalar factor. It supplies a concrete metric field rather than leaving the
+positive scale as an abstract client parameter. -/
+noncomputable def quadraticScalarScale (q : Position ι) : ℝ :=
+  1 + squaredEuclideanNorm q
+
+theorem quadraticScalarScale_pos (q : Position ι) :
+    0 < quadraticScalarScale q := by
+  unfold quadraticScalarScale
+  exact add_pos_of_pos_of_nonneg zero_lt_one (squaredEuclideanNorm_nonneg q)
+
+theorem measurable_quadraticScalarScale :
+    Measurable (quadraticScalarScale : Position ι → ℝ) := by
+  unfold quadraticScalarScale squaredEuclideanNorm euclideanInner
+  fun_prop
+
+/-- The canonical positive factor is not constant, already in one
+dimension. -/
+theorem quadraticScalarScale_nonconstant :
+    quadraticScalarScale (fun _ : Unit => 0) ≠
+      quadraticScalarScale (fun _ : Unit => 1) := by
+  norm_num [quadraticScalarScale, squaredEuclideanNorm, euclideanInner]
+
 /-- Lebesgue scaling contributed by the inverse of multiplication by
 `scale(q)`. -/
 noncomputable def scalarFactorJacobian
@@ -40,6 +63,13 @@ noncomputable def scalarFactoredRiemannianMetric
     (Units.mk0 (scale q) (hscale q).ne')
   inverseMetric q := (scale q) ^ 2 • LinearMap.id
   logDet q := -2 * Real.log (scalarFactorJacobian scale q)
+
+/-- Concrete globally positive nonconstant factored metric used as the target
+for the remaining exact generalized-leapfrog derivative instantiation. -/
+noncomputable def quadraticScalarRiemannianMetric :
+    FactoredRiemannianMetric ι :=
+  scalarFactoredRiemannianMetric quadraticScalarScale
+    quadraticScalarScale_pos
 
 @[simp]
 theorem scalarFactoredRiemannianMetric_factor_apply
@@ -82,6 +112,13 @@ theorem scalarFactoredRiemannianMetric_hasCompatibleFactorVolume
   change Measure.map (fun p : Momentum ι => r • p) volume = _
   simpa [r, scalarFactorJacobian] using hmap
 
+/-- The concrete quadratic scalar metric has the exact factor/Jacobian
+compatibility required by the GR momentum law. -/
+theorem quadraticScalarRiemannianMetric_hasCompatibleFactorVolume :
+    (quadraticScalarRiemannianMetric (ι := ι)).HasCompatibleFactorVolume :=
+  scalarFactoredRiemannianMetric_hasCompatibleFactorVolume
+    quadraticScalarScale quadraticScalarScale_pos
+
 /-- A measurable positive scalar field and measurable potential give a
 measurable complete GR Hamiltonian for the scalar-factor metric. -/
 theorem measurable_scalar_generalRelativisticHamiltonian
@@ -111,6 +148,16 @@ theorem measurable_scalar_generalRelativisticHamiltonian
       scalarFactoredRiemannianMetric]]
   exact (hpotential.comp measurable_fst).add
     (hkin.add (measurable_const.mul (hlogdet.comp measurable_fst)))
+
+/-- Every measurable potential gives a measurable complete GR Hamiltonian for
+the concrete globally positive nonconstant quadratic scalar metric. -/
+theorem measurable_quadraticScalar_generalRelativisticHamiltonian
+    {potential : Position ι → ℝ} (hpotential : Measurable potential)
+    (m c : ℝ) :
+    Measurable (generalRelativisticHamiltonian potential
+      quadraticScalarRiemannianMetric m c) :=
+  measurable_scalar_generalRelativisticHamiltonian hpotential
+    measurable_quadraticScalarScale quadraticScalarScale_pos m c
 
 section PositionKernels
 
