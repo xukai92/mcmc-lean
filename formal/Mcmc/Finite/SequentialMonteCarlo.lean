@@ -1,0 +1,316 @@
+import Mcmc.Finite.ParticleEstimator
+import Mathlib.Tactic
+
+/-!
+# Explicit finite sequential Monte Carlo histories
+
+This module realizes the nested Feynman--Kac expectations from
+`ParticleEstimator` as a finite distribution over every multinomial ancestor
+choice and propagated population.  The construction is deliberately finite
+and uses strictly positive potentials, matching the normalization assumptions
+of the existing transform theorem.
+-/
+
+open scoped BigOperators
+
+namespace Mcmc.Finite.SequentialMonteCarlo
+
+open MarkovKernel ParticleEstimator
+
+variable {Sample Particle : Type*}
+  [Fintype Sample] [Fintype Particle]
+  [DecidableEq Sample] [DecidableEq Particle] [Nonempty Particle]
+
+abbrev Population := Particle → Sample
+abbrev Ancestors := Particle → Particle
+
+universe u v
+
+instance uliftUnitDecidableEq.{w} : DecidableEq (ULift.{w} Unit) := fun x y => by
+  cases x with
+  | up x =>
+      cases x
+      cases y with
+      | up y => cases y; exact isTrue rfl
+
+instance uliftUnitFintype.{w} : Fintype (ULift.{w} Unit) where
+  elems := {ULift.up ()}
+  complete x := by rcases x with ⟨x⟩; cases x; simp
+
+/-- The future ancestry and populations associated with a list of SMC steps.
+The current population is supplied separately. -/
+def Continuation (Particle : Type u) (Sample : Type v) [Fintype Sample] :
+    List (FeynmanKacStep Sample) → Type (max u v)
+  | [] => ULift Unit
+  | _ :: steps => (Particle → Particle) × (Particle → Sample) ×
+      Continuation Particle Sample steps
+
+instance continuationFintype (steps : List (FeynmanKacStep Sample)) :
+    Fintype (Continuation Particle Sample steps) := by
+  induction steps with
+  | nil => exact uliftUnitFintype
+  | cons step steps ih =>
+      simp only [Continuation]
+      infer_instance
+
+instance continuationDecidableEq (steps : List (FeynmanKacStep Sample)) :
+    DecidableEq (Continuation Particle Sample steps) := by
+  induction steps with
+  | nil => exact uliftUnitDecidableEq
+  | cons step steps ih =>
+      simp only [Continuation]
+      infer_instance
+
+/-- Conditional law of all future ancestry choices and populations, given the
+current population. -/
+noncomputable def continuationLaw :
+    (steps : List (FeynmanKacStep Sample)) → (Particle → Sample) →
+      Distribution (Continuation Particle Sample steps)
+  | [], _ =>
+      { mass := fun _ => 1
+        nonneg := fun _ => by norm_num
+        sum_mass := by simp [Continuation] }
+  | step :: steps, particles =>
+      { mass := fun history =>
+          (multinomialResampling
+            (normalizedPotentialWeights step.potential step.potential_pos particles)).mass
+              history.1 *
+          (propagatedPopulation step.transition particles history.1).mass history.2.1 *
+          (continuationLaw steps history.2.1).mass history.2.2
+        nonneg := fun history => mul_nonneg
+          (mul_nonneg
+            ((multinomialResampling
+              (normalizedPotentialWeights step.potential step.potential_pos particles)).nonneg
+                history.1)
+            ((propagatedPopulation step.transition particles history.1).nonneg history.2.1))
+          ((continuationLaw steps history.2.1).nonneg history.2.2)
+        sum_mass := by
+          change ∑ history : (Particle → Particle) × (Particle → Sample) ×
+              Continuation Particle Sample steps,
+            (multinomialResampling
+              (normalizedPotentialWeights step.potential step.potential_pos particles)).mass
+                history.1 *
+            (propagatedPopulation step.transition particles history.1).mass history.2.1 *
+            (continuationLaw steps history.2.1).mass history.2.2 = 1
+          rw [Fintype.sum_prod_type]
+          simp_rw [Fintype.sum_prod_type]
+          simp_rw [← Finset.mul_sum,
+            (continuationLaw steps _).sum_mass, mul_one]
+          simp_rw [← Finset.mul_sum,
+            (propagatedPopulation step.transition particles _).sum_mass, mul_one]
+          exact (multinomialResampling
+            (normalizedPotentialWeights step.potential step.potential_pos particles)).sum_mass }
+
+/-- Product of average potentials along a concrete SMC history, followed by
+the empirical terminal observable. -/
+noncomputable def historyValue :
+    (steps : List (FeynmanKacStep Sample)) → (Sample → ℝ) → (Particle → Sample) →
+      Continuation Particle Sample steps → ℝ
+  | [], observable, particles, _ => particleAverage observable particles
+  | step :: steps, observable, particles, history =>
+      particleAverage step.potential particles *
+        historyValue steps observable history.2.1 history.2.2
+
+omit [DecidableEq Sample] in
+/-- The explicit ancestry-history law realizes the nested conditional particle
+Feynman--Kac transform exactly. -/
+theorem continuationLaw_historyValue_expectation
+    (steps : List (FeynmanKacStep Sample)) (observable : Sample → ℝ)
+    (particles : Particle → Sample) :
+    ∑ history, (continuationLaw (Particle := Particle) steps particles).mass history *
+        historyValue steps observable particles history =
+      particleFeynmanKacSequence (Particle := Particle) steps
+        (particleAverage observable) particles := by
+  induction steps generalizing particles with
+  | nil => simp [continuationLaw, historyValue, particleFeynmanKacSequence,
+      Continuation]
+  | cons step steps ih =>
+      rw [particleFeynmanKacSequence]
+      unfold particleFeynmanKacTransform
+      change
+        (∑ history : (Particle → Particle) × (Particle → Sample) ×
+            Continuation Particle Sample steps,
+          ((multinomialResampling
+            (normalizedPotentialWeights step.potential step.potential_pos particles)).mass
+              history.1 *
+            (propagatedPopulation step.transition particles history.1).mass history.2.1 *
+            (continuationLaw steps history.2.1).mass history.2.2) *
+          (particleAverage step.potential particles *
+            historyValue steps observable history.2.1 history.2.2)) = _
+      rw [Fintype.sum_prod_type]
+      simp_rw [Fintype.sum_prod_type]
+      simp_rw [show ∀ (a : Particle → Particle) (next : Particle → Sample)
+          (tail : Continuation Particle Sample steps),
+          ((multinomialResampling
+              (normalizedPotentialWeights step.potential step.potential_pos particles)).mass a *
+            (propagatedPopulation step.transition particles a).mass next *
+            (continuationLaw steps next).mass tail) *
+            (particleAverage step.potential particles *
+              historyValue steps observable next tail) =
+          particleAverage step.potential particles *
+            (multinomialResampling
+              (normalizedPotentialWeights step.potential step.potential_pos particles)).mass a *
+            ((propagatedPopulation step.transition particles a).mass next *
+              ((continuationLaw steps next).mass tail *
+                historyValue steps observable next tail)) by
+            intro a next tail; ring]
+      simp_rw [← Finset.mul_sum, ih]
+      rw [Finset.mul_sum]
+      apply Finset.sum_congr rfl
+      intro ancestors _
+      ring
+
+/-- Complete finite SMC history: the iid initial population followed by all
+ancestor choices and propagated populations. -/
+abbrev History (steps : List (FeynmanKacStep Sample)) :=
+  (Particle → Sample) × Continuation Particle Sample steps
+
+/-- Probability law of a complete explicit SMC history. -/
+noncomputable def historyLaw (initial : Distribution Sample)
+    (steps : List (FeynmanKacStep Sample)) : Distribution (History (Particle := Particle) steps) where
+  mass history := (iidPopulation (Particle := Particle) initial).mass history.1 *
+    (continuationLaw steps history.1).mass history.2
+  nonneg history := mul_nonneg
+    ((iidPopulation (Particle := Particle) initial).nonneg history.1)
+    ((continuationLaw steps history.1).nonneg history.2)
+  sum_mass := by
+    rw [Fintype.sum_prod_type]
+    simp_rw [← Finset.mul_sum, (continuationLaw steps _).sum_mass, mul_one]
+    exact (iidPopulation (Particle := Particle) initial).sum_mass
+
+/-- Concrete product-of-average-potentials estimator with a terminal empirical
+observable. -/
+noncomputable def fullHistoryValue (steps : List (FeynmanKacStep Sample))
+    (observable : Sample → ℝ) (history : History (Particle := Particle) steps) : ℝ :=
+  historyValue steps observable history.1 history.2
+
+omit [DecidableEq Sample] in
+/-- Expectation under the explicit finite history law equals the exact
+one-particle Feynman--Kac expectation. -/
+theorem historyLaw_value_expectation (initial : Distribution Sample)
+    (steps : List (FeynmanKacStep Sample)) (observable : Sample → ℝ) :
+    ∑ history, (historyLaw (Particle := Particle) initial steps).mass history *
+        fullHistoryValue steps observable history =
+      ∑ x, initial.mass x * feynmanKacSequence steps observable x := by
+  rw [Fintype.sum_prod_type]
+  change ∑ particles, ∑ continuation,
+      ((iidPopulation (Particle := Particle) initial).mass particles *
+        (continuationLaw steps particles).mass continuation) *
+        historyValue steps observable particles continuation = _
+  simp_rw [show ∀ (particles : Particle → Sample)
+      (continuation : Continuation Particle Sample steps),
+      ((iidPopulation (Particle := Particle) initial).mass particles *
+        (continuationLaw steps particles).mass continuation) *
+          historyValue steps observable particles continuation =
+        (iidPopulation (Particle := Particle) initial).mass particles *
+          ((continuationLaw steps particles).mass continuation *
+            historyValue steps observable particles continuation) by
+      intro particles continuation; ring,
+    ← Finset.mul_sum, continuationLaw_historyValue_expectation]
+  exact iid_particleFeynmanKacSequence_expectation initial steps observable
+
+/-- Exact normalizing constant represented by the finite Feynman--Kac model. -/
+noncomputable def normalizingConstant (initial : Distribution Sample)
+    (steps : List (FeynmanKacStep Sample)) : ℝ :=
+  ∑ x, initial.mass x * feynmanKacSequence steps (fun _ => 1) x
+
+/-- Concrete SMC normalizing-weight estimator on an explicit history. -/
+noncomputable def normalizingWeight (steps : List (FeynmanKacStep Sample))
+    (history : History (Particle := Particle) steps) : ℝ :=
+  fullHistoryValue steps (fun _ => 1) history
+
+omit [DecidableEq Sample] [DecidableEq Particle] in
+theorem historyValue_nonneg
+    (steps : List (FeynmanKacStep Sample)) (observable : Sample → ℝ)
+    (hobservable : ∀ x, 0 ≤ observable x) (particles : Particle → Sample)
+    (history : Continuation Particle Sample steps) :
+    0 ≤ historyValue steps observable particles history := by
+  induction steps generalizing particles with
+  | nil => exact particleAverage_nonneg hobservable particles
+  | cons step steps ih =>
+      exact mul_nonneg (particleAverage_nonneg
+        (fun x => le_of_lt (step.potential_pos x)) particles)
+        (ih history.2.1 history.2.2)
+
+omit [DecidableEq Sample] [DecidableEq Particle] in
+theorem normalizingWeight_nonneg (steps : List (FeynmanKacStep Sample))
+    (history : History (Particle := Particle) steps) :
+    0 ≤ normalizingWeight steps history :=
+  historyValue_nonneg steps (fun _ => 1) (fun _ => by norm_num)
+    history.1 history.2
+
+omit [DecidableEq Sample] in
+/-- The explicit SMC normalizing weight is unbiased for its exact finite
+Feynman--Kac normalizing constant. -/
+theorem normalizingWeight_expectation (initial : Distribution Sample)
+    (steps : List (FeynmanKacStep Sample)) :
+    ∑ history, (historyLaw (Particle := Particle) initial steps).mass history *
+        normalizingWeight steps history = normalizingConstant initial steps := by
+  exact historyLaw_value_expectation initial steps (fun _ => 1)
+
+section PseudoMarginalClient
+
+variable {State : Type*} [Fintype State] [DecidableEq State]
+
+/-- A state-indexed explicit SMC estimator. The transition/potential schedule
+is shared, while the initial law may depend on the proposed state. Dividing by
+the exact positive normalizer produces the unit-mean estimator interface used
+by the finite pseudo-marginal theorem. -/
+noncomputable def estimator (initial : State → Distribution Sample)
+    (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : ∀ x, 0 < normalizingConstant (initial x) steps) :
+    PseudoMarginal.Estimator State (History (Particle := Particle) steps) where
+  law x := historyLaw (Particle := Particle) (initial x) steps
+  value x history := normalizingWeight steps history /
+    normalizingConstant (initial x) steps
+  nonneg x history := div_nonneg (normalizingWeight_nonneg steps history)
+    (le_of_lt (hnormalizer x))
+  unbiased x := by
+    rw [show (∑ history,
+        (historyLaw (Particle := Particle) (initial x) steps).mass history *
+          (normalizingWeight steps history / normalizingConstant (initial x) steps)) =
+        (∑ history,
+          (historyLaw (Particle := Particle) (initial x) steps).mass history *
+            normalizingWeight steps history) /
+          normalizingConstant (initial x) steps by
+      simp_rw [div_eq_mul_inv, ← mul_assoc]
+      rw [Finset.sum_mul]]
+    rw [normalizingWeight_expectation]
+    exact div_self (ne_of_gt (hnormalizer x))
+
+/-- Pseudo-marginal MH driven by a complete finite SMC history, retaining that
+history on rejection. -/
+noncomputable def kernel (target : Distribution State)
+    (initial : State → Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : ∀ x, 0 < normalizingConstant (initial x) steps)
+    (proposal : MarkovKernel State) :
+    MarkovKernel (State × History (Particle := Particle) steps) :=
+  PseudoMarginal.kernel target
+    (estimator (Particle := Particle) initial steps hnormalizer) proposal
+
+/-- Exact stationarity of the explicit-history SMC pseudo-marginal kernel. -/
+theorem kernel_stationary (target : Distribution State)
+    (initial : State → Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : ∀ x, 0 < normalizingConstant (initial x) steps)
+    (proposal : MarkovKernel State) :
+    (kernel (Particle := Particle) target initial steps hnormalizer proposal).Stationary
+      (PseudoMarginal.extendedTarget target
+        (estimator (Particle := Particle) initial steps hnormalizer)) :=
+  PseudoMarginal.stationary target
+    (estimator (Particle := Particle) initial steps hnormalizer) proposal
+
+omit [DecidableEq Sample] [DecidableEq State] in
+/-- The stationary state marginal of explicit-history SMC pseudo-marginal MH
+is exactly the requested target. -/
+theorem kernel_state_marginal (target : Distribution State)
+    (initial : State → Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : ∀ x, 0 < normalizingConstant (initial x) steps) (x : State) :
+    ∑ history, (PseudoMarginal.extendedTarget target
+      (estimator (Particle := Particle) initial steps hnormalizer)).mass
+        (x, history) = target.mass x :=
+  PseudoMarginal.state_marginal target
+    (estimator (Particle := Particle) initial steps hnormalizer) x
+
+end PseudoMarginalClient
+
+end Mcmc.Finite.SequentialMonteCarlo

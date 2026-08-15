@@ -96,9 +96,11 @@ The pre-Xu dependency order is:
    identity are also complete. Iterated operators now prove the arbitrary
    finite-horizon homogeneous Feynman--Kac expectation identity under strictly
    positive potentials, and the same nested-expectation identity is complete
-   for finite time-inhomogeneous sequences. Explicit ancestry history and a
-   packaged estimator client come next, followed by PIMH and particle marginal
-   MH.
+   for finite time-inhomogeneous sequences. A normalized law over explicit
+   population/ancestry histories, its product-weight expectation theorem, and
+   an exact pseudo-marginal client are complete for a shared step schedule with
+   state-indexed initial laws. State-indexed schedules, selected trajectories,
+   PIMH, and particle marginal MH remain.
 7. adaptive-MCMC boundary -- finite state-dependent kernel selection and a
    counterexample where two frozen target-invariant kernels combine into a
    non-invariant selected kernel are complete. Nonhomogeneous path semantics,
@@ -131,9 +133,9 @@ obligations.
 
 ## Immediate plan
 
-A1--A4 and B1 are complete. The next reusable branch realizes the completed
-time-inhomogeneous finite-horizon SMC expectation law with explicit ancestry
-and packages its normalizing weight as a pseudo-marginal estimator. Horizontal slice
+A1--A4 and B1 are complete. The next particle branch extends the completed
+explicit-history pseudo-marginal client to state-indexed SMC schedules and a
+selected latent trajectory, preparing PIMH/PMMH. Horizontal slice
 disintegration and a nontrivial reversible-jump Jacobian client remain
 independent open branches. The next paper-execution branch is B2. None of
 these is needed to support the completed finite Gibbs, tempering,

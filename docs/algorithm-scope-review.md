@@ -188,8 +188,12 @@ heterogeneous propagation, and the one-step bootstrap expectation identity
 are now machine checked as well. Iterated Feynman--Kac operators now prove the
 product normalizing-constant expectation identity at every finite horizon for
 strictly positive potentials, both for homogeneous iteration and finite
-time-inhomogeneous sequences. Explicit ancestry and a packaged estimator
-remain before naming a PIMH/PMMH client.
+time-inhomogeneous sequences. A normalized finite law over explicit ancestry
+and population histories now realizes those nested expectations, and its
+normalized product weight instantiates pseudo-marginal MH with exact extended
+stationarity and state marginal. This client currently has a shared SMC step
+schedule and state-indexed initial law; state-indexed schedules and a selected
+latent trajectory remain before naming a PIMH/PMMH client.
 Conditional SMC and particle Gibbs follow. Keep fixed-particle stationarity,
 chain convergence, and consistency as particle count grows as separate theorem
 families.

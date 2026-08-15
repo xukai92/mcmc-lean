@@ -31,8 +31,10 @@ independence-MH minorization, exact regenerative representation, and explicit
 foundation also has a finite adaptive-MCMC counterexample: state-dependent
 selection can destroy stationarity even when every frozen kernel preserves
 the target. A finite-horizon homogeneous Feynman--Kac/SMC expectation theorem
-and its time-inhomogeneous finite-sequence extension are also complete;
-explicit ancestry and corrected Xu--Ge execution remain next.
+and its time-inhomogeneous finite-sequence extension are also complete. The
+finite law is now realized over explicit ancestry and population histories and
+feeds an exact pseudo-marginal client; selected-trajectory particle MCMC and
+corrected Xu--Ge execution remain next.
 
 Betancourt's [*A Conceptual Introduction to Hamiltonian Monte
 Carlo*](https://arxiv.org/abs/1701.02434) is used as a foundational HMC
@@ -71,6 +73,9 @@ The repository now contains machine-checked implementations and proofs for:
   one-step bootstrap resample--propagate expectation identity, lifted to an
   arbitrary finite-horizon homogeneous Feynman--Kac expectation theorem for
   strictly positive potentials and to time-varying finite sequences;
+- a normalized finite distribution over complete SMC population/ancestry
+  histories, an exact product-weight expectation theorem, and the resulting
+  explicit-history pseudo-marginal kernel with exact stationary state marginal;
 - reusable finite identity, composition, mixture, and coordinate-lift
   combinators; finite one-site, random-scan, and systematic-scan Gibbs;
 - finite state-dependent kernel selection and a checked counterexample showing

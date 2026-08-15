@@ -3,6 +3,23 @@
 Entries through the earlier 2026-08-13 work are preserved in the
 [development-log archive](development-log-archive.md).
 
+## 2026-08-15: explicit finite SMC histories and pseudo-marginal client
+
+Added a recursively typed finite history containing every multinomial ancestor
+map and propagated population. Its conditional continuation law and complete
+iid-initialized history law are normalized distributions. Lean proves that the
+expectation of the concrete product of empirical average potentials and a
+terminal empirical observable equals the previously established exact
+one-particle Feynman--Kac expectation.
+
+For a shared finite step schedule and state-indexed initial laws with positive
+normalizing constants, the normalized history weight is now packaged as a
+nonnegative unit-mean pseudo-marginal estimator. The resulting MH kernel has
+machine-checked extended-target stationarity and exact requested state
+marginal. This is an explicit-history SMC pseudo-marginal client, not yet full
+PIMH or PMMH: state-indexed schedules, selected latent trajectories, and their
+extended targets remain separate.
+
 ## 2026-08-15: finite-horizon homogeneous SMC identity
 
 Defined normalized empirical potential weights for strictly positive finite
