@@ -560,6 +560,93 @@ noncomputable def mixingFailureProbability [DecidableEq State]
       (iterateLaw (pointMass current.1) (process.kernel current.2) steps) target
       then 1 else 0)
 
+/-- The state law obtained by freezing the kernel selected at the beginning of
+an adaptive window and running that kernel for `steps` transitions.  This is
+the comparison law used in the finite Roberts--Rosenthal argument; it is not
+the actual adaptive law unless the selected kernel stays fixed. -/
+def frozenWindowLaw [DecidableEq State] (process : Process State Parameter)
+    (law : Distribution (State × Parameter)) (steps : ℕ) : Distribution State where
+  mass y := ∑ current, law.mass current *
+    (iterateLaw (pointMass current.1) (process.kernel current.2) steps).mass y
+  nonneg y := Finset.sum_nonneg fun current _ => mul_nonneg
+    (law.nonneg current)
+    ((iterateLaw (pointMass current.1)
+      (process.kernel current.2) steps).nonneg y)
+  sum_mass := by
+    rw [Finset.sum_comm]
+    calc
+      ∑ current, ∑ y, law.mass current *
+          (iterateLaw (pointMass current.1)
+            (process.kernel current.2) steps).mass y =
+          ∑ current, law.mass current *
+            ∑ y, (iterateLaw (pointMass current.1)
+              (process.kernel current.2) steps).mass y := by
+            apply Finset.sum_congr rfl
+            intro current _
+            rw [Finset.mul_sum]
+      _ = ∑ current, law.mass current := by
+        simp_rw [(iterateLaw _ _ _).sum_mass, mul_one]
+      _ = 1 := law.sum_mass
+
+/-- A mixture of frozen windows is no farther from the target than the
+law-weighted average of the component distances. -/
+theorem frozenWindowLaw_distance_le [DecidableEq State]
+    (process : Process State Parameter) (target : Distribution State)
+    (law : Distribution (State × Parameter)) (steps : ℕ) :
+    distributionTotalVariation (frozenWindowLaw process law steps) target ≤
+      ∑ current, law.mass current *
+        distributionTotalVariation
+          (iterateLaw (pointMass current.1)
+            (process.kernel current.2) steps) target := by
+  unfold distributionTotalVariation frozenWindowLaw
+  rw [show (∑ current, law.mass current *
+      ((∑ y, |(iterateLaw (pointMass current.1)
+        (process.kernel current.2) steps).mass y - target.mass y|) / 2)) =
+      (∑ current, law.mass current *
+        ∑ y, |(iterateLaw (pointMass current.1)
+          (process.kernel current.2) steps).mass y - target.mass y|) / 2 by
+    rw [Finset.sum_div]
+    apply Finset.sum_congr rfl
+    intro current _
+    ring]
+  apply div_le_div_of_nonneg_right _ (by norm_num)
+  calc
+    ∑ y, |∑ current, law.mass current *
+        (iterateLaw (pointMass current.1)
+          (process.kernel current.2) steps).mass y - target.mass y| =
+        ∑ y, |∑ current, law.mass current *
+          ((iterateLaw (pointMass current.1)
+            (process.kernel current.2) steps).mass y - target.mass y)| := by
+          apply Finset.sum_congr rfl
+          intro y _
+          apply congrArg abs
+          simp_rw [mul_sub]
+          rw [Finset.sum_sub_distrib, ← Finset.sum_mul, law.sum_mass, one_mul]
+    _ ≤ ∑ y, ∑ current, law.mass current *
+        |(iterateLaw (pointMass current.1)
+          (process.kernel current.2) steps).mass y - target.mass y| := by
+      apply Finset.sum_le_sum
+      intro y _
+      calc
+        |∑ current, law.mass current *
+            ((iterateLaw (pointMass current.1)
+              (process.kernel current.2) steps).mass y - target.mass y)| ≤
+            ∑ current, |law.mass current *
+              ((iterateLaw (pointMass current.1)
+                (process.kernel current.2) steps).mass y - target.mass y)| :=
+              Finset.abs_sum_le_sum_abs _ _
+        _ = _ := by
+          apply Finset.sum_congr rfl
+          intro current _
+          rw [abs_mul, abs_of_nonneg (law.nonneg current)]
+    _ = ∑ current, law.mass current *
+        ∑ y, |(iterateLaw (pointMass current.1)
+          (process.kernel current.2) steps).mass y - target.mass y| := by
+      rw [Finset.sum_comm]
+      apply Finset.sum_congr rfl
+      intro current _
+      rw [Finset.mul_sum]
+
 theorem mixingFailureProbability_nonneg [DecidableEq State]
     (process : Process State Parameter) (target : Distribution State)
     (law : Distribution (State × Parameter)) (steps : ℕ) (ε : ℝ) :
@@ -586,6 +673,39 @@ theorem mixingFailureProbability_le_one [DecidableEq State]
       split_ifs <;> norm_num
     _ = 1 := by simpa using law.sum_mass
 
+/-- Containment's failure probability controls the frozen-window comparison
+law: its distance from the target is at most the requested accuracy plus the
+probability of selecting a kernel that misses that accuracy. -/
+theorem frozenWindowLaw_distance_le_add_failure [DecidableEq State]
+    (process : Process State Parameter) (target : Distribution State)
+    (law : Distribution (State × Parameter)) (steps : ℕ) (ε : ℝ)
+    (hε : 0 ≤ ε) :
+    distributionTotalVariation (frozenWindowLaw process law steps) target ≤
+      ε + mixingFailureProbability process target law steps ε := by
+  calc
+    distributionTotalVariation (frozenWindowLaw process law steps) target ≤
+        ∑ current, law.mass current *
+          distributionTotalVariation
+            (iterateLaw (pointMass current.1)
+              (process.kernel current.2) steps) target :=
+      frozenWindowLaw_distance_le process target law steps
+    _ ≤ ∑ current, law.mass current *
+        (ε + if ε < distributionTotalVariation
+          (iterateLaw (pointMass current.1)
+            (process.kernel current.2) steps) target then 1 else 0) := by
+      apply Finset.sum_le_sum
+      intro current _
+      apply mul_le_mul_of_nonneg_left _ (law.nonneg current)
+      split_ifs with hbad
+      · linarith [distributionTotalVariation_le_one
+          (iterateLaw (pointMass current.1)
+            (process.kernel current.2) steps) target]
+      · simpa using not_lt.mp hbad
+    _ = ε + mixingFailureProbability process target law steps ε := by
+      unfold mixingFailureProbability
+      simp_rw [mul_add]
+      rw [Finset.sum_add_distrib, ← Finset.sum_mul, law.sum_mass, one_mul]
+
 /-- Finite Containment: along the adaptive process, the horizon needed for the
 currently selected kernel to reach any fixed TV tolerance is bounded in
 probability. -/
@@ -595,6 +715,26 @@ def Containment [DecidableEq State] (process : Process State Parameter)
     mixingFailureProbability process target
       (Nonhomogeneous.lawAt initial (fun _ => process.augmentedKernel) n)
       steps ε ≤ δ
+
+/-- Direct frozen-window consequence of Containment.  For every positive
+accuracy and failure allowance there is one horizon which works uniformly at
+every adaptive time, with total error at most `ε + δ`. -/
+theorem containment_frozenWindowLaw [DecidableEq State]
+    (process : Process State Parameter) (target : Distribution State)
+    (initial : Distribution (State × Parameter))
+    (hcontainment : Containment process target initial)
+    (ε : ℝ) (hε : 0 < ε) (δ : ℝ) (hδ : 0 < δ) :
+    ∃ steps : ℕ, ∀ n,
+      distributionTotalVariation
+        (frozenWindowLaw process
+          (Nonhomogeneous.lawAt initial
+            (fun _ => process.augmentedKernel) n) steps) target ≤ ε + δ := by
+  obtain ⟨steps, hsteps⟩ := hcontainment ε hε δ hδ
+  refine ⟨steps, fun n => ?_⟩
+  exact le_trans
+    (frozenWindowLaw_distance_le_add_failure process target _ steps ε
+      (le_of_lt hε))
+    (by linarith [hsteps n])
 
 /-- Simultaneous uniform mixing of every parameter kernel implies Containment
 for every initial augmented law. -/

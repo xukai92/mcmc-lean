@@ -19,6 +19,7 @@ import Mcmc.Finite.GreedyTransportCompleteness
 import Mcmc.Finite.MetropolisHastings
 import Mcmc.Examples.TwoState
 import Mcmc.Examples.TwoModelReversibleJump
+import Mcmc.Examples.EuclideanBirthDeathReversibleJump
 import Mcmc.Executable.Finite.Weights
 import Mcmc.Executable.Finite.Trace
 import Mcmc.Executable.Finite.Categorical

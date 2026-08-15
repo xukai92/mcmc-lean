@@ -2,6 +2,7 @@ import Mcmc.Kernel.AuxiliaryGibbs
 import Mcmc.Kernel.MetropolisHastings
 import Mathlib.MeasureTheory.Measure.Lebesgue.Basic
 import Mathlib.Probability.Kernel.CompProdEqIff
+import Mathlib.Probability.Kernel.Disintegration.StandardBorel
 
 /-!
 # General-state slice-height kernels
@@ -148,6 +149,49 @@ theorem auxiliaryFirstJoint_sliceHeightKernel
   rw [auxiliaryFirstJoint,
     compProd_sliceHeightKernel_eq_sliceUnderGraph base weight hweight hpositive]
 
+/-- The measurable horizontal level-set update obtained by disintegrating the
+finite under-the-graph measure in height--state order.  On heights with
+positive marginal mass this is the normalized restriction of `base` to the
+corresponding level set, up to the usual almost-everywhere uniqueness of
+conditional probabilities. -/
+noncomputable def sliceHorizontalKernel
+    (base : Measure State) (weight : State → ℝ)
+    [IsFiniteMeasure (sliceUnderGraph base weight)] [StandardBorelSpace State]
+    [Nonempty State] :
+    Kernel ℝ State :=
+  ((sliceUnderGraph base weight).map Prod.swap).condKernel
+
+instance sliceHorizontalKernel.instIsMarkovKernel
+    (base : Measure State) (weight : State → ℝ)
+    [IsFiniteMeasure (sliceUnderGraph base weight)] [StandardBorelSpace State]
+    [Nonempty State] :
+    IsMarkovKernel (sliceHorizontalKernel base weight) := by
+  unfold sliceHorizontalKernel
+  infer_instance
+
+/-- The disintegrated horizontal kernel exactly reconstructs the swapped
+under-the-graph joint measure from its height marginal. -/
+theorem compProd_sliceHorizontalKernel
+    (base : Measure State) [SFinite base]
+    (weight : State → ℝ) (hweight : Measurable weight)
+    (hpositive : ∀ x, 0 < weight x)
+    [IsFiniteMeasure (sliceUnderGraph base weight)] [StandardBorelSpace State]
+    [Nonempty State] :
+    (sliceHeightKernel weight hweight hpositive ∘ₘ
+        base.withDensity (fun x => ENNReal.ofReal (weight x))) ⊗ₘ
+        sliceHorizontalKernel base weight =
+      (sliceUnderGraph base weight).map Prod.swap := by
+  let joint := (sliceUnderGraph base weight).map Prod.swap
+  have hmarginal : joint.fst =
+      sliceHeightKernel weight hweight hpositive ∘ₘ
+        base.withDensity (fun x => ENNReal.ofReal (weight x)) := by
+    rw [show joint = (sliceUnderGraph base weight).map Prod.swap by rfl,
+      Measure.fst_map_swap,
+      ← compProd_sliceHeightKernel_eq_sliceUnderGraph base weight hweight hpositive,
+      Measure.snd_compProd]
+  rw [← hmarginal]
+  exact MeasureTheory.Measure.disintegrate joint joint.condKernel
+
 /-- Slice sampling obtained by pairing the concrete vertical height kernel
 with a supplied horizontal level-set conditional. -/
 noncomputable def exactSliceSampler
@@ -189,5 +233,31 @@ theorem exactSliceSampler_invariant_underGraph
       weight hweight hpositive horizontal
   rw [auxiliaryFirstJoint_sliceHeightKernel base weight hweight hpositive]
   exact hhorizontal
+
+/-- A fully constructed exact general-state slice sampler on a standard Borel
+state space, using the conditional kernel of the finite under-the-graph
+measure for its horizontal update. -/
+noncomputable def disintegratedSliceSampler
+    (base : Measure State) (weight : State → ℝ)
+    (hweight : Measurable weight) (hpositive : ∀ x, 0 < weight x)
+    [IsFiniteMeasure (sliceUnderGraph base weight)] [StandardBorelSpace State]
+    [Nonempty State] : Kernel State State :=
+  exactSliceSampler weight hweight hpositive
+    (sliceHorizontalKernel base weight)
+
+/-- The disintegrated exact slice sampler preserves the weighted target.
+This is an invariance theorem; no irreducibility, convergence, or rate claim
+is implied. -/
+theorem disintegratedSliceSampler_invariant
+    (base : Measure State) [SFinite base]
+    (weight : State → ℝ) (hweight : Measurable weight)
+    (hpositive : ∀ x, 0 < weight x)
+    [IsFiniteMeasure (sliceUnderGraph base weight)] [StandardBorelSpace State]
+    [Nonempty State] :
+    (disintegratedSliceSampler base weight hweight hpositive).Invariant
+      (base.withDensity (fun x => ENNReal.ofReal (weight x))) := by
+  apply exactSliceSampler_invariant_underGraph base weight hweight hpositive
+    (sliceHorizontalKernel base weight)
+  exact (compProd_sliceHorizontalKernel base weight hweight hpositive).symm
 
 end Mcmc.Kernel
