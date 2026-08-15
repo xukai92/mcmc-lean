@@ -3,6 +3,19 @@
 Entries through the earlier 2026-08-13 work are preserved in the
 [development-log archive](development-log-archive.md).
 
+## 2026-08-15: finite continuous-time event schedules
+
+Extended the Poissonized fixed-event skeleton with ordered real timestamps.
+For every finite schedule Lean defines the occurred-event count and active
+state, proves count monotonicity, initial and terminal evaluation, and exact
+compatibility with translating the time origin. The resulting path is locally
+constant immediately to the right and has a locally constant left limit at
+every time, giving the finite-state càdlàg property without assuming a
+Skorokhod-space library. Strictly positive waits construct an ordered schedule,
+and independent positive-rate exponential waits are packaged as a proved
+probability product measure. A single joint measure mixing Poisson counts,
+state skeletons, and event times remains the next finite path-space step.
+
 ## 2026-08-15: categorical discontinuous-HMC vertical slice
 
 Added the Laplace-momentum crossing/reflection algebra from Nishimura, Dunson,

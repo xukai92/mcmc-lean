@@ -251,8 +251,8 @@ breadth branches are:
 - BPS/Zig-Zag path construction, general-state event simulation,
   nonexplosion, and convergence on top of the
   separate PDMP generator, jump-flux, finite bounded-rate uniformization, and
-  completed Poissonized real-time semigroup and fixed-event path-skeleton
-  foundations.
+  completed Poissonized real-time semigroup, fixed-event path-skeleton, and
+  finite continuous-time schedule/càdlàg foundations.
 
 Sequence-parallel evaluation is an execution-refinement project downstream of
 exact seeded trace semantics. Full solver convergence may refine a sequential

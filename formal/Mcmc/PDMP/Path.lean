@@ -8,8 +8,8 @@ import Mathlib.Tactic
 For a finite uniformized jump kernel, this file constructs the exact law of
 the state sequence after a fixed number of clock events. The terminal marginal
 is proved equal to the corresponding kernel iterate. This is the finite path
-skeleton beneath Poissonization; continuous event times and a càdlàg path-space
-measure are deliberately separate.
+skeleton beneath Poissonization; `Mcmc.PDMP.TimedPath` adds continuous event
+schedules and the finite-state càdlàg property.
 -/
 
 open scoped BigOperators

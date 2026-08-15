@@ -125,8 +125,12 @@ kernel iteration now prove the Chapman--Kolmogorov law, so these kernels form
 an exact stationary finite-state semigroup. The finite event-skeleton layer
 also constructs the complete state-vector law after every fixed event count,
 proves its terminal marginal is the corresponding kernel iterate, and shows
-that Poisson mixing recovers the real-time transition kernel. Continuous event
-times, a càdlàg path measure, general-state nonexplosion, and BPS/Zig-Zag
+that Poisson mixing recovers the real-time transition kernel. Finite skeletons
+now also carry ordered real event schedules: Lean proves monotone event counts,
+right-local constancy, locally constant left limits, endpoint evaluation,
+translation compatibility, and the probability status of independent
+positive-rate exponential waiting-time products. Combining these components
+into a single path-space measure, general-state nonexplosion, and BPS/Zig-Zag
 convergence remain open.
 
 For positive-horizon particle Gibbs, the finite library now proves a concrete
