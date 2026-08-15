@@ -115,6 +115,13 @@ implicit-function step upgrading the two continuous, globally unique inverse
 selections to differentiable maps, after which the existing Haar
 change-of-variables theorem closes phase volume.
 
+The generic inverse-function wrapper needed for that upgrade is now proved:
+an everywhere-nonsingular differentiable finite-dimensional map with a
+continuous global left inverse has a differentiable inverse selection. The
+bounded client also exposes scalar-coordinate callback maps on `ℝ × ℝ`; the
+remaining concrete calculation is their derivative nonsingularity and the
+transport back across the `Unit → ℝ` phase-space equivalence.
+
 ## Track C: later breadth branches
 
 The pre-Xu dependency order is:

@@ -70,6 +70,30 @@ theorem continuous_fixedPoint_of_continuous_uniform_contracting
   have hdist : 0 ≤ dist (fixed y) (fixed x) := dist_nonneg
   nlinarith
 
+/-- A continuous global inverse of an everywhere nonsingular differentiable
+finite-dimensional map is differentiable. This packages the easy direction
+of the inverse-function theorem in the form needed by implicit integrators,
+where contraction supplies the inverse and its continuity separately. -/
+theorem differentiable_of_continuous_leftInverse_of_det_fderiv_ne_zero
+    {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
+    [FiniteDimensional ℝ E]
+    (f g : E → E) (hf : Differentiable ℝ f) (hg : Continuous g)
+    (hleft : Function.LeftInverse f g)
+    (hdet : ∀ x, (fderiv ℝ f x).det ≠ 0) : Differentiable ℝ g := by
+  intro x
+  let linearEquiv : E ≃ₗ[ℝ] E :=
+    (fderiv ℝ f (g x)).toLinearMap.equivOfDetNeZero (hdet (g x))
+  let continuousEquiv : E ≃L[ℝ] E :=
+    linearEquiv.toContinuousLinearEquiv
+  have heq : (continuousEquiv : E →L[ℝ] E) = fderiv ℝ f (g x) := by
+    ext v
+    rfl
+  have hfAt : HasFDerivAt f (continuousEquiv : E →L[ℝ] E) (g x) := by
+    rw [heq]
+    exact (hf (g x)).hasFDerivAt
+  exact (hfAt.of_local_left_inverse hg.continuousAt
+    (Filter.Eventually.of_forall hleft)).differentiableAt
+
 /-- Fixed-point update for the implicit first momentum half-step. -/
 noncomputable def halfMomentumFixedPointUpdate
     (positionDerivative : PhaseSpace ι → Position ι)

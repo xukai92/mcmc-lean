@@ -215,6 +215,12 @@ theorem continuous_scalarPositionProfile : Continuous scalarPositionProfile := b
   exact ((differentiable_id.pow 2).div differentiable_scalarRelativisticProfile
     (fun x => (scalarRelativisticProfile_pos x).ne')).continuous
 
+theorem differentiable_scalarPositionProfile :
+    Differentiable ℝ scalarPositionProfile := by
+  unfold scalarPositionProfile
+  exact (differentiable_id.pow 2).div differentiable_scalarRelativisticProfile
+    (fun x => (scalarRelativisticProfile_pos x).ne')
+
 /-- Momentum derivative as a function of the positive scalar factor, with
 momentum held fixed. -/
 noncomputable def scaledVelocityProfile (p s : ℝ) : ℝ :=
@@ -226,6 +232,13 @@ theorem continuous_scaledVelocityProfile_uncurry :
   exact continuous_snd.mul
     (differentiable_scalarVelocityProfile.continuous.comp
       (continuous_snd.mul continuous_fst))
+
+theorem differentiable_scaledVelocityProfile_uncurry :
+    Differentiable ℝ fun z : ℝ × ℝ => scaledVelocityProfile z.1 z.2 := by
+  unfold scaledVelocityProfile
+  exact differentiable_snd.mul
+    (differentiable_scalarVelocityProfile.comp
+      (differentiable_snd.mul differentiable_fst))
 
 theorem deriv_scaledVelocityProfile (p s : ℝ) :
     deriv (scaledVelocityProfile p) s =
@@ -333,6 +346,17 @@ theorem continuous_boundedScalarMomentumDerivative :
     differentiable_boundedScalarScale.continuous.comp continuous_fst
   unfold boundedScalarMomentumDerivative
   exact continuous_scaledVelocityProfile_uncurry.comp (hp.prodMk hs)
+
+/-- Scalar-coordinate form of the position callback. Keeping this map on
+`ℝ × ℝ` avoids elaboration blowups from differentiating through the
+definitionally equivalent `Unit → ℝ` representation. -/
+noncomputable def boundedScalarPositionDerivativeReal (z : ℝ × ℝ) : ℝ :=
+  Real.cos z.1 / (2 + Real.sin z.1) *
+    scalarPositionProfile ((2 + Real.sin z.1) * z.2)
+
+/-- Scalar-coordinate form of the momentum callback. -/
+noncomputable def boundedScalarMomentumDerivativeReal (z : ℝ × ℝ) : ℝ :=
+  scaledVelocityProfile z.2 (2 + Real.sin z.1)
 
 theorem hasDerivAt_boundedScalarHamiltonian_position (q p : ℝ) :
     HasDerivAt (fun x => scalarRelativisticProfile ((2 + Real.sin x) * p))

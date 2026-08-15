@@ -1249,6 +1249,15 @@ checks that the abstract PG--HMC schedule API is instantiable while explicitly
 avoiding the false claim that a finite refresh transition is itself numerical
 HMC; the genuine continuous conditional instantiation remains a later bridge.
 
+Packaged the inverse-function step into a reusable theorem:
+`differentiable_of_continuous_leftInverse_of_det_fderiv_ne_zero` constructs
+the continuous-linear equivalence from the nonzero determinant and proves a
+continuous global inverse differentiable. The bounded solver now also exposes
+its two callbacks directly on scalar coordinates `ℝ × ℝ`, alongside reusable
+differentiability results for the scalar position and scaled-velocity
+profiles. This avoids relying on expensive unfolding through `Unit → ℝ` and
+sets up the remaining two-by-two determinant calculation.
+
 ## Next steps
 
 1. Extend the complete finite-dimensional standard-Gaussian Theorem 4.1
