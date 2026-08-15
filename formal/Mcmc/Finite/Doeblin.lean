@@ -113,6 +113,93 @@ theorem transition_stationary
     certificate.coefficient_lt_one.le _ _ target
     (refresh_stationary target) certificate.residual_stationary
 
+section StrictlyPositive
+
+variable [DecidableEq State]
+
+/-- Product of all entries of a finite transition matrix. It supplies a
+deliberately conservative but explicit common lower bound when every entry is
+positive. -/
+noncomputable def globalEntryProduct (transition : MarkovKernel State) : ℝ :=
+  ∏ z : State × State, transition.prob z.1 z.2
+
+omit [DecidableEq State] in
+theorem prob_le_one (transition : MarkovKernel State) (x y : State) :
+    transition.prob x y ≤ 1 := by
+  rw [← transition.sum_prob x]
+  exact Finset.single_le_sum (fun z _ => transition.nonneg x z)
+    (Finset.mem_univ y)
+
+omit [DecidableEq State] in
+theorem globalEntryProduct_pos (transition : MarkovKernel State)
+    (hpositive : ∀ x y, 0 < transition.prob x y) :
+    0 < globalEntryProduct transition := by
+  unfold globalEntryProduct
+  exact Finset.prod_pos fun z _ => hpositive z.1 z.2
+
+theorem globalEntryProduct_le_prob (transition : MarkovKernel State)
+    (x y : State) :
+    globalEntryProduct transition ≤ transition.prob x y := by
+  let z : State × State := (x, y)
+  have hprod :
+      (∏ w ∈ (Finset.univ : Finset (State × State)).erase z,
+        transition.prob w.1 w.2) ≤ 1 := by
+    apply Finset.prod_le_one
+    · intro w _
+      exact transition.nonneg w.1 w.2
+    · intro w _
+      exact prob_le_one transition w.1 w.2
+  have hnonneg : 0 ≤ transition.prob x y := transition.nonneg x y
+  rw [globalEntryProduct, ← Finset.prod_erase_mul _ _ (Finset.mem_univ z)]
+  exact mul_le_of_le_one_left hnonneg hprod
+
+/-- Every strictly positive finite target-invariant transition has an
+explicit positive Doeblin refresh decomposition. The product coefficient is
+conservative, but requires no minimizer bookkeeping. -/
+noncomputable def ofStrictlyPositive
+    [Nonempty State]
+    (hpositive : ∀ x y, 0 < transition.prob x y)
+    (hinvariant : transition.Stationary target) :
+    RefreshDecomposition transition target := by
+  let product := globalEntryProduct transition
+  let coefficient := product / 2
+  have hproduct0 : 0 < product := globalEntryProduct_pos transition hpositive
+  have hproduct1 : product ≤ 1 := by
+    let x := Classical.choice ‹Nonempty State›
+    exact (globalEntryProduct_le_prob transition x x).trans
+      (prob_le_one transition x x)
+  have hcoeff0 : 0 ≤ coefficient := by
+    dsimp [coefficient]
+    positivity
+  have hcoeff1 : coefficient < 1 := by
+    dsimp [coefficient]
+    linarith
+  apply ofMinorization coefficient hcoeff0 hcoeff1
+  · intro x y
+    have htarget : target.mass y ≤ 1 := by
+      rw [← target.sum_mass]
+      exact Finset.single_le_sum (fun z _ => target.nonneg z)
+        (Finset.mem_univ y)
+    calc
+      coefficient * target.mass y ≤ coefficient * 1 :=
+        mul_le_mul_of_nonneg_left htarget hcoeff0
+      _ = coefficient := mul_one _
+      _ ≤ product := by
+        dsimp [coefficient]
+        linarith
+      _ ≤ transition.prob x y := globalEntryProduct_le_prob transition x y
+  · exact hinvariant
+
+theorem ofStrictlyPositive_coefficient_pos
+    [Nonempty State]
+    (hpositive : ∀ x y, 0 < transition.prob x y)
+    (hinvariant : transition.Stationary target) :
+    0 < (ofStrictlyPositive hpositive hinvariant).coefficient := by
+  change 0 < globalEntryProduct transition / 2
+  exact div_pos (globalEntryProduct_pos transition hpositive) (by norm_num)
+
+end StrictlyPositive
+
 theorem evolve_mass (certificate : RefreshDecomposition transition target)
     (law : Distribution State) (y : State) :
     (law.evolve transition).mass y =
@@ -290,6 +377,36 @@ theorem particleGibbs_totalVariation_tendsto_zero
         (trajectoryTarget (Particle := Particle) initial steps hnormalizer))
       Filter.atTop (nhds 0) :=
   certificate.iterateLaw_totalVariation_tendsto_zero hpositive initialLaw
+
+/-- A direct positive-horizon convergence theorem: strict positivity of the
+trajectory transition matrix is a sufficient, checkable support condition.
+The generic finite construction supplies an explicit (conservative) positive
+refresh coefficient automatically. -/
+theorem particleGibbs_totalVariation_tendsto_zero_of_strictlyPositive
+    [Nonempty Sample]
+    (initial : Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : 0 < normalizingConstant initial steps)
+    (hpositive : ∀ current proposed,
+      0 < (trajectoryParticleGibbsKernel (Particle := Particle)
+        initial steps hnormalizer).prob current proposed)
+    (initialLaw : Distribution (Trajectory steps)) :
+    Filter.Tendsto (fun n =>
+      Nonhomogeneous.distributionTotalVariation
+        (Nonhomogeneous.iterateLaw initialLaw
+          (trajectoryParticleGibbsKernel (Particle := Particle)
+            initial steps hnormalizer) n)
+        (trajectoryTarget (Particle := Particle) initial steps hnormalizer))
+      Filter.atTop (nhds 0) := by
+  letI : Nonempty (Trajectory steps) :=
+    ⟨⟨List.replicate (steps.length + 1)
+        (Classical.choice ‹Nonempty Sample›), by simp⟩⟩
+  let certificate := RefreshDecomposition.ofStrictlyPositive hpositive
+    (trajectoryParticleGibbsKernel_stationary (Particle := Particle)
+      initial steps hnormalizer)
+  exact certificate.iterateLaw_totalVariation_tendsto_zero
+    (RefreshDecomposition.ofStrictlyPositive_coefficient_pos hpositive
+      (trajectoryParticleGibbsKernel_stationary (Particle := Particle)
+        initial steps hnormalizer)) initialLaw
 
 end ParticleGibbs
 

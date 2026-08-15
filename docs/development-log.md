@@ -1304,6 +1304,10 @@ future construction.
   automatically constructs the residual kernel and certificate. Concrete
   bounded-potential models must still prove that positive lower bound; the
   theorem does not infer it from stationarity.
+  Strict positivity of every finite trajectory-kernel entry is now also a
+  directly usable sufficient condition: Lean constructs a conservative
+  positive coefficient from the product of all matrix entries and proves TV
+  convergence from every initial trajectory law.
 
 1. Instantiate the general-state PG--HMC theorem with a substantive mixed
    discrete/continuous model.

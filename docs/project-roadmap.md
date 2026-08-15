@@ -203,6 +203,9 @@ certificate automatically. Deriving a positive coefficient from bounded
 Feynman--Kac potentials, and its dependence on particle count and horizon,
 remains model-specific work. The unconditional zero-horizon `N⁻ᵏ` result and
 the one-particle identity obstruction remain the exact particle-count anchors.
+For finite clients, strict positivity of the complete trajectory transition
+matrix already discharges convergence: the library constructs an explicit
+positive product lower bound and proves TV convergence from every initial law.
 
 After those foundations and the paper execution milestones, select the
 remaining branches based on research value and shared infrastructure:
