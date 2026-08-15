@@ -1367,3 +1367,11 @@ supports arbitrary pause boundaries. Lean proves the prefix closed form,
 equality with completed `traceWeight`, and equivalence of paused/resumed versus
 uninterrupted execution. This is the mathematical state-machine refinement;
 Julia task copying and source-language lowering remain separate.
+
+Added the finite dynamic-candidate balance core needed before a verified NUTS
+tree can be claimed. Candidate membership may depend on the current state, but
+must be symmetric and have a target-mass normalizer unchanged by rerooting at
+any admitted candidate. Target-weighted selection is then proved reversible
+and stationary. Decidable equivalence-class candidates instantiate the API and
+can vary genuinely between components. A concrete doubling/U-turn builder must
+still establish this certificate; naïve first-U-turn stopping is not covered.

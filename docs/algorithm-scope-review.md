@@ -321,6 +321,13 @@ and projection. Freeze step size after warmup. Multinomial modern NUTS,
 divergence thresholds, maximum depth, and floating-point behavior need
 separate specifications.
 
+The first dynamic balance layer is now complete: a finite target-weighted
+candidate kernel is reversible whenever candidate membership is symmetric and
+its normalizer is invariant under rerooting at any admitted point. Decidable
+equivalence classes provide a nonconstant concrete client. This theorem states
+the obligation a doubling/U-turn builder must discharge; it does not certify
+first-U-turn stopping, subtree construction, or adaptation by itself.
+
 ### Beskos et al. (2013): optimal scaling of HMC -- P2
 
 [Beskos, Pillai, Roberts, Sanz-Serna, and Stuart](https://doi.org/10.3150/12-BEJ414)

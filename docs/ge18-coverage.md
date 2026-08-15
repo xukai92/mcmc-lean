@@ -18,7 +18,7 @@ implementation features and experiments.
 | Particle Gibbs can update latent/discrete variables and HMC can update differentiable continuous variables | `pgHmcKernel` and `pgHmcKernel_stationary` formalize the two-block pattern in Equations (7)--(8) through explicit slice-preservation hypotheses; `Mcmc.Examples.ComposableInference` gives a nonidentity two-block finite instance | Machine checked at the finite product-state level; the example deliberately does not call a finite refresh transition numerical HMC |
 | PG, PMMH, and SMC are available component engines | Finite SMC, concrete conditional SMC, PIMH, state-indexed PMMH, and particle Gibbs are proved in the particle-MCMC layer; Julia exposes an exact-integer finite-HMM PG runner | Machine checked for fixed finite state, horizon, and particle count; PG execution is differentially tested |
 | HMC/NUTS is not directly applicable to discrete variables | The current HMC interfaces act on Euclidean coordinates; no claim is made that ordinary gradient HMC updates discrete coordinates | Scope restriction, not a universal impossibility theorem |
-| Candidate-based trajectory selection preserves a target | `candidateMixture_stationary` proves this for state-independent selection among common-target stationary kernels | Machine checked sufficient condition; intentionally not a theorem about dynamically stopped NUTS trees |
+| Candidate-based trajectory selection preserves a target | `candidateMixture_stationary` handles state-independent mixtures; `dynamicCandidateKernel_stationary` handles target-weighted state-dependent sets under symmetric membership and reroot-invariant normalization | Machine checked static and dynamic structural cores; a concrete doubling/U-turn tree must still prove the dynamic certificate |
 
 The important correction is that a declared variable scope does not itself
 justify an update. Each component must induce a Markov kernel on the complete
@@ -72,8 +72,11 @@ efficiency dominance.
    model client remains.
 2. Connect the executable blocked-engine callbacks to generated descriptions
    of the corresponding formal full-state kernels.
-3. Extend the proved static candidate-mixture condition to dynamically grown,
-   symmetrically stopped NUTS trees before using NUTS as a verified component.
+3. Instantiate the new reroot-invariant dynamic-candidate theorem with a
+   concrete doubling/U-turn NUTS tree. Lean now proves detailed balance and
+   stationarity from symmetric membership and reroot-invariant normalization,
+   including nonconstant equivalence-class candidate sets; tree construction,
+   subtree exclusion, and the certificate remain.
 4. Connect the proved finite suspend/resume semantics to Julia task copying and
    generated trace-state descriptions; the mathematical arbitrary-pause
    refinement to completed traces is now machine checked.
