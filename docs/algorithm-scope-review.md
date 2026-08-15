@@ -135,8 +135,9 @@ flow are now machine checked. A transport-density certificate states that the
 auxiliary transport pushes forward to the claimed proposal density and proves
 its normalization; this is the exact slot for a Jacobian theorem. The compiled
 two-singleton-model example exercises cross-model movement but is periodic.
-Next add a nontrivial Euclidean birth/death transport and prove its
-change-of-variables density rather than assuming a Jacobian factor.
+A second client now moves between `Unit` and `ℝ`: `u` uniform on `(-1,1]` is
+transported by `y = 2u`, and Lean proves the resulting `1/4` density on
+`(-2,2]`, including the inverse-Jacobian factor, before deriving RJ invariance.
 
 ### Roberts and Rosenthal (2007): adaptive MCMC -- P2
 
@@ -175,16 +176,19 @@ horizon in probability, and simultaneous uniform mixing of every parameter
 kernel is proved sufficient for Containment.
 
 This finite Markovian model can encode fixed finite adaptation memory but not
-an unbounded history without enlarging the state type. Diminishing Adaptation
-plus Containment is still not yet a repository convergence theorem: the
-Roberts--Rosenthal random finite-window coupling argument remains.
+an unbounded history without enlarging the state type. The anchored random
+finite-window comparison is now machine checked, and Diminishing Adaptation
+plus Containment implies total-variation convergence of the deterministic
+state-marginal laws. This is not an almost-sure path theorem, LLN, CLT, or
+uniform convergence-rate result.
 
 Its deterministic analytic core is now machine checked. Finite distribution TV
 is symmetric and satisfies the triangle inequality; common-kernel evolution is
 contractive; replacing a kernel costs at most its law-weighted row TV and hence
 any uniform row bound; and two predetermined schedules differ by at most the
-sum of their per-step row-TV bounds. The missing step is probabilistic control
-of the random adaptive window using Diminishing Adaptation and Containment.
+sum of their per-step row-TV bounds. The completed anchored argument turns the
+change-probability tail bound into expected kernel variation, compares the
+actual and frozen windows, and combines that comparison with Containment.
 The random process now also exposes its exact state and parameter marginals.
 Summing the parameter update out of an augmented transition is proved to give
 the current-law mixture of selected state-kernel rows. Its next-state distance
@@ -357,10 +361,11 @@ while ergodicity remains separate.
 theorem is now machine checked: a vertical kernel and horizontal kernel
 preserve the target whenever they give the two factorizations of the same
 joint measure. The measurable uniform vertical-height kernel and its exact
-Lebesgue-under-the-graph joint identity are also machine checked. The next
-obligation is a measurable horizontal level-set conditional, first under
-finite positive slice-mass assumptions. Stepping-out/shrinkage and doubling
-are subsequent trace-reversal
+Lebesgue-under-the-graph joint identity are also machine checked. For a finite
+under-graph measure on a nonempty standard Borel state space, mathlib
+disintegration now supplies a measurable horizontal conditional and Lean
+proves invariance of the resulting exact slice sampler. Stepping-out/shrinkage
+and doubling are subsequent trace-reversal
 targets. Crumb, reflective, and multivariate variants can wait. This completed
 invariance interface does not by itself imply slice-chain convergence.
 

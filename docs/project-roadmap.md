@@ -85,11 +85,12 @@ The pre-Xu dependency order is:
 3. exact two-block auxiliary Gibbs and the abstract slice factorization --
    complete;
 4. measurable uniform-under-the-graph and level-set kernels for a concrete
-   exact slice sampler -- the vertical kernel and under-graph identity are
-   complete; the horizontal disintegration remains;
+   exact slice sampler -- complete for finite under-graph measures on nonempty
+   standard Borel state spaces via the disintegrated horizontal conditional;
 5. tagged disjoint-union reference measures and transport-density certificates
-   for reversible-jump MH -- complete at the abstract level, with a finite
-   two-model example; a nontrivial Euclidean Jacobian client remains; and
+   for reversible-jump MH -- complete at the abstract level and instantiated
+   by a zero-to-one-dimensional Euclidean birth/death move with a checked
+   scaling Jacobian; and
 6. finite particle methods -- iid particle-average unbiasedness and its
    pseudo-marginal MH client are complete; multinomial resampling,
    heterogeneous propagation, and their one-step Feynman--Kac expectation
@@ -126,30 +127,30 @@ The pre-Xu dependency order is:
    Distribution-TV triangle and Markov contraction, one-step kernel
    perturbation, and a telescoping predetermined-schedule comparison are also
    complete. State/parameter marginals, the exact adaptive next-state mixture,
-   and its weighted row-to-target TV bound are complete. Unbounded-history
-   adaptation and the random adaptive finite-window convergence theorem remain.
+   and its weighted row-to-target TV bound are complete. The anchored-window
+   comparison and finite Roberts--Rosenthal theorem are now machine checked:
+   Diminishing Adaptation plus Containment implies TV convergence of state
+   marginals. Unbounded-history adaptation still requires enlarging the finite
+   parameter state.
 
-Items 4--6 are intentionally ordered: the remaining slice work needs a
-measurable horizontal conditional with finite positive level-set mass;
-reversible jump's next client needs a concrete dimension-changing
-transport/Jacobian theorem; full particle MCMC still needs an SMC estimator
-law before the existing pseudo-marginal theorem can be instantiated with a
-full sequential particle filter rather than the completed iid importance
-cloud and one-step resample--propagate primitives.
+The slice and first Euclidean reversible-jump clients are complete. Full
+particle MCMC still needs the remaining conditional-SMC constructions before
+particle Gibbs can be instantiated.
 
 After those foundations and the paper execution milestones, select the
 remaining branches based on research value and shared infrastructure:
 
 - NUTS finite candidate trees before adaptation or modern multinomial NUTS;
-- concrete slice kernels on the completed two-block conditional foundation;
-- nontrivial reversible-jump transports on the completed tagged-space layer;
+- practical stepping-out/shrinkage slice kernels beyond the exact
+  disintegration client;
+- richer reversible-jump transports beyond the checked scalar birth/death
+  scaling client;
 - particle MCMC after finite SMC and pseudo-marginal foundations;
 - adaptive MCMC beyond the completed boundary counterexample only with
   the completed predetermined nonhomogeneous semantics and deterministic
   diminishing vocabulary, augmented random-adaptation semantics, and
-  convergence-in-probability definition extended with mixing times,
-  the completed finite Containment layer, and the remaining finite-window
-  convergence argument; and
+  convergence-in-probability definition and completed finite
+  Roberts--Rosenthal convergence theorem; and
 - BPS/Zig-Zag only in a separate continuous-time PDMP architecture.
 
 Sequence-parallel evaluation is an execution-refinement project downstream of
@@ -161,9 +162,9 @@ obligations.
 
 A1--A4 and B1 are complete. The next particle branch transports the completed
 PMMH history-plus-index client across state-indexed schedules; conditional SMC
-and particle Gibbs follow separately. Horizontal slice
-disintegration and a nontrivial reversible-jump Jacobian client remain
-independent open branches. The next paper-execution branch is B2. None of
+and particle Gibbs follow separately. Practical slice transitions and richer
+reversible-jump clients are optional breadth branches. The next
+paper-execution branch is B2. None of
 these is needed to support the completed finite Gibbs, tempering,
 pseudo-marginal, independence-MH, MALA, adaptive-boundary, or Xu et al.
 coupling claims.

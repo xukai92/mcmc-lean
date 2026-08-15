@@ -3,6 +3,28 @@
 Entries through the earlier 2026-08-13 work are preserved in the
 [development-log archive](development-log-archive.md).
 
+## 2026-08-15: adaptive convergence, exact slice disintegration, and Euclidean RJ
+
+Completed the finite Roberts--Rosenthal argument. An anchored augmented process
+compares the actual adaptive window with the kernel frozen at its beginning.
+Lean proves the exact row-TV comparison, bounds accumulated anchor variation
+from the Diminishing Adaptation change probability, and combines the resulting
+finite-window estimate with Containment. The public theorem concludes
+total-variation convergence of deterministic state-marginal laws; it does not
+claim almost-sure path convergence, an LLN, a CLT, or a uniform rate.
+
+For general-state slice sampling, the finite under-the-graph measure is now
+disintegrated in height--state order on a nonempty standard Borel state space.
+The resulting measurable horizontal Markov kernel reconstructs the joint law,
+so the fully constructed exact slice sampler preserves the weighted target.
+No irreducibility or convergence theorem is inferred from invariance.
+
+Added a nontrivial reversible-jump client between a zero-dimensional `Unit`
+model and a scalar real model. The birth move transports a uniform auxiliary
+variable by `y = 2u`; Lean proves its pushforward has density `1/4` on
+`(-2,2]`, thereby checking the inverse-Jacobian factor, and proves invariance
+of the resulting birth/death RJ-MH kernel.
+
 ## 2026-08-15: random adaptive state-marginal dynamics
 
 Defined state and parameter marginals of finite augmented laws and the exact

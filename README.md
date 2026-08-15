@@ -68,10 +68,14 @@ The repository now contains machine-checked implementations and proofs for:
   vertical/horizontal joint-factorization equation;
 - a concrete measurable vertical slice-height Markov kernel and proof that
   its lifted weighted target is exactly Lebesgue measure under the target
-  graph; horizontal level-set disintegration remains explicit;
+  graph, plus a measurable horizontal conditional obtained by standard-Borel
+  disintegration and an exact target-invariance theorem for the resulting
+  general-state slice sampler;
 - tagged two-model reversible-jump MH with a common reference measure,
   transport-density certificate, cross-model accepted-flow symmetry, and
-  Markov/reversibility/invariance theorems;
+  Markov/reversibility/invariance theorems, including a zero-to-one-dimensional
+  Euclidean birth/death client whose `y = 2u` transport has a checked
+  inverse-Jacobian density;
 - finite iid particle clouds whose average nonnegative importance weight is
   proved unbiased, together with the resulting pseudo-marginal MH extended
   stationarity and exact target marginal;
@@ -112,6 +116,9 @@ The repository now contains machine-checked implementations and proofs for:
   perturbation, and a telescoping finite-window schedule comparison bound;
 - state and parameter marginals of random adaptive laws, the exact mixed
   next-state law, and a law-weighted row-to-target TV bound;
+- the finite Roberts--Rosenthal adaptive-MCMC theorem: Diminishing Adaptation
+  plus Containment implies total-variation convergence of the deterministic
+  state-marginal laws, without an almost-sure or rate claim;
 - two-temperature parallel tempering with an MH-corrected swap, product-target
   stationarity, and an exact cold-marginal theorem;
 - finite pseudo-marginal MH with a nonnegative unbiased estimator, including

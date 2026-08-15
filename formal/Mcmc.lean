@@ -4,6 +4,7 @@ import Mcmc.Finite.MatrixKernel
 import Mcmc.Finite.Dynamics
 import Mcmc.Finite.Combinators
 import Mcmc.Finite.Adaptive
+import Mcmc.Finite.AdaptiveConvergence
 import Mcmc.Finite.Gibbs
 import Mcmc.Finite.ParallelTempering
 import Mcmc.Finite.PseudoMarginal
