@@ -18,6 +18,7 @@ export FiniteWeights, FiniteKernelWeights, FiniteMH, TwoStateMH, GaussianRWMH,
     RestrictedMul, RestrictedNeg, RestrictedExp, restricted_value_gradient,
     restricted_gaussian_potential,
     Xu21CoupledSampler, ScopedInferenceOperator, ComposableSampler, covers,
+    generated_schedule,
     FiniteHMMParticleGibbs,
     fixed_point_generalized_leapfrog, sample
 export Certificates
@@ -144,6 +145,27 @@ end
 
 covers(sampler::ComposableSampler) = all(variable -> any(
     operator -> variable in operator.scope, sampler.operators), sampler.variables)
+
+"""Instantiate Lean-generated schedule metadata with named runtime transitions.
+
+This checks names, scopes, ordering, and coverage. Mathematical preservation
+still requires each callback to refine the correspondingly proved kernel.
+"""
+function generated_schedule(name::AbstractString, transitions::AbstractDict)
+    descriptor = get(Reference.SCHEDULES, String(name), nothing)
+    descriptor === nothing && throw(ArgumentError("unknown generated schedule: $name"))
+    operators = map(descriptor.operators) do operator
+        transition = if haskey(transitions, operator.name)
+            transitions[operator.name]
+        elseif haskey(transitions, Symbol(operator.name))
+            transitions[Symbol(operator.name)]
+        else
+            throw(ArgumentError("missing transition for generated operator $(operator.name)"))
+        end
+        ScopedInferenceOperator(Symbol.(operator.scope), transition)
+    end
+    ComposableSampler(Symbol.(descriptor.variables), operators...)
+end
 
 function step(rng::AbstractRNG, sampler::ComposableSampler, current)
     state = current

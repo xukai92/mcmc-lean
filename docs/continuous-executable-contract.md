@@ -132,6 +132,12 @@ tree. Lean proves the generated Gaussian tree compiles to `x²/2`; Julia decodes
 that declaration to construct the public `restricted_gaussian_potential`, so
 this example no longer relies on a second handwritten Julia tree.
 
+IR version 12 additionally carries checked composable-inference schedule
+metadata. The canonical Ge PG--HMC descriptor is coverage-checked in Lean and
+decoded by Julia with its operator names, scopes, and order intact. Runtime
+callbacks are supplied by name; their semantic refinement to the formal PG and
+HMC kernels remains separate evidence.
+
 `RestrictedBackend` specifies numeric implementations of every portable
 primitive together with local absolute-error evidence. Lean recursively
 accumulates these errors through both the generated target and its generated

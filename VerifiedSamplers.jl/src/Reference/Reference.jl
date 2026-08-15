@@ -14,7 +14,7 @@ export categorical_index!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_st
     coupled_multinomial_hmc_step!, coupled_gaussian_rwmh_step!, xu21_coupled_step!,
     IR_FORMAT_VERSION
 
-const IR_FORMAT_VERSION = 11
+const IR_FORMAT_VERSION = 12
 
 struct SList
     items::Vector{Any}
@@ -114,6 +114,18 @@ struct Program
     body::Vector{Any}
 end
 
+struct OperatorDescriptor
+    name::String
+    engine::String
+    scope::Vector{String}
+end
+
+struct ScheduleDescriptor
+    name::String
+    variables::Vector{String}
+    operators::Vector{OperatorDescriptor}
+end
+
 function decode_program(node::SList)
     values = items(node)
     length(values) == 4 && atom(values[1]) == "program" || error("invalid IR program")
@@ -130,6 +142,28 @@ function decode_program(node::SList)
     Program(atom(values[2]), inputs, Any[body_node[2:end]...])
 end
 
+function decode_schedule(node::SList)
+    values = items(node)
+    length(values) == 4 && atom(values[1]) == "schedule" ||
+        error("invalid schedule descriptor")
+    variable_node = items(aslist(values[3]))
+    atom(variable_node[1]) == "variables" || error("invalid schedule variables")
+    variables = String[atom(value) for value in variable_node[2:end]]
+    operator_node = items(aslist(values[4]))
+    atom(operator_node[1]) == "operators" || error("invalid schedule operators")
+    operators = OperatorDescriptor[]
+    for raw in operator_node[2:end]
+        fields = items(aslist(raw))
+        length(fields) == 4 && atom(fields[1]) == "operator" ||
+            error("invalid operator descriptor")
+        scope_node = items(aslist(fields[4]))
+        atom(scope_node[1]) == "scope" || error("invalid operator scope")
+        push!(operators, OperatorDescriptor(atom(fields[2]), atom(fields[3]),
+            String[atom(value) for value in scope_node[2:end]]))
+    end
+    ScheduleDescriptor(atom(values[2]), variables, operators)
+end
+
 function load_artifact(path::String)
     source = strip(read(path, String))
     document = parse_document(source)
@@ -140,6 +174,7 @@ function load_artifact(path::String)
     parse(Int, atom(root[2])) == IR_FORMAT_VERSION || error("unsupported sampler IR version")
     programs = Dict{String,Program}()
     targets = Dict{String,Any}()
+    schedules = Dict{String,ScheduleDescriptor}()
     for node in root[3:end]
         values = items(aslist(node))
         tag = atom(values[1])
@@ -153,18 +188,24 @@ function load_artifact(path::String)
             name = atom(values[2])
             haskey(targets, name) && error("duplicate restricted target: $name")
             targets[name] = values[3]
+        elseif tag == "schedule"
+            schedule = decode_schedule(aslist(node))
+            haskey(schedules, schedule.name) &&
+                error("duplicate schedule descriptor: $(schedule.name)")
+            schedules[schedule.name] = schedule
         else
             error("unknown top-level IR declaration: $tag")
         end
     end
-    programs, targets
+    programs, targets, schedules
 end
 
 # Retain the program-only loader for downstream callers while the artifact now
 # also carries restricted target declarations.
 load_programs(path::String) = first(load_artifact(path))
 
-const PROGRAMS, TARGETS = load_artifact(joinpath(@__DIR__, "Samplers.ir"))
+const PROGRAMS, TARGETS, SCHEDULES =
+    load_artifact(joinpath(@__DIR__, "Samplers.ir"))
 
 function checked_logdensity(callback, state)
     value = callback(state)

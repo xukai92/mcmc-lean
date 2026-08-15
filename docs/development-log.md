@@ -1383,3 +1383,11 @@ original constrained measure. The positive-real log/exp equivalence is a
 concrete client. This locates Jacobian correction at the pushed-density
 identification and prevents an unconstrained implementation from silently
 claiming the original density unchanged.
+
+Added generated composable-inference metadata. Lean defines portable engine,
+operator, and schedule descriptors, proves coverage of the canonical Ge et al.
+PG--HMC schedule, and emits it in IR version 12. Julia decodes the descriptor
+and `generated_schedule` instantiates callbacks in the generated order with
+the generated scopes. Tests cover execution order, state changes, missing
+callbacks, and unknown schedules. This verifies configuration transport, not
+yet semantic equality of arbitrary callbacks with formal kernels.

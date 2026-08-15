@@ -101,7 +101,7 @@ end
 end
 
 @testset "versioned reference IR" begin
-    @test Reference.IR_FORMAT_VERSION == 11
+    @test Reference.IR_FORMAT_VERSION == 12
     @test sort!(collect(keys(Reference.PROGRAMS))) ==
         ["categorical_index!", "certified_relativistic_multinomial_hmc_step!",
         "coupled_gaussian_rwmh_step!",

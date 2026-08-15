@@ -5,6 +5,7 @@ import Mcmc.Executable.Continuous.MultinomialCompilerIR
 import Mcmc.Executable.Continuous.CoupledXu21
 import Mcmc.Executable.Continuous.RelativisticCompilerIR
 import Mcmc.Executable.Continuous.RestrictedArtifact
+import Mcmc.Executable.ComposableIR
 
 /-!
 # Versioned textual format for sampler IR
@@ -17,7 +18,7 @@ namespace Mcmc.Executable.IRFormat
 
 open Finite.CompilerIR
 
-def version : Nat := 11
+def version : Nat := 12
 
 private def quote (value : String) : String :=
   let escapedBackslash := value.replace "\\" "\\\\"
@@ -187,6 +188,22 @@ private def restrictedTargetRender (name : String)
     (expression : Mcmc.Executable.Continuous.RestrictedArtifactExpr) : String :=
   list ["target", quote name, restrictedExprRender expression]
 
+private def engineRender : ComposableIR.Engine → String
+  | .particleGibbs => "particle-gibbs"
+  | .hmc => "hmc"
+  | .nuts => "nuts"
+
+private def operatorDescriptorRender
+    (operator : ComposableIR.OperatorDescriptor) : String :=
+  list ["operator", quote operator.name, engineRender operator.engine,
+    list ("scope" :: operator.scope.map quote)]
+
+private def scheduleDescriptorRender
+    (schedule : ComposableIR.ScheduleDescriptor) : String :=
+  list ["schedule", quote schedule.name,
+    list ("variables" :: schedule.variables.map quote),
+    list ("operators" :: schedule.operators.map operatorDescriptorRender)]
+
 /-- Serialize all reference entry programs with a format version. -/
 def render : String :=
   list (["verified-samplers-ir", toString version,
@@ -202,7 +219,8 @@ def render : String :=
     Continuous.RelativisticCompilerIR.program.render,
     Continuous.RelativisticCompilerIR.certifiedPositionDependentProgram.render,
     restrictedTargetRender "restricted-gaussian-potential"
-      Mcmc.Executable.Continuous.restrictedGaussianArtifact] ++
+      Mcmc.Executable.Continuous.restrictedGaussianArtifact,
+    scheduleDescriptorRender ComposableIR.gePgHmcSchedule] ++
     Continuous.CoupledXu21.renderedPrograms) ++ "\n"
 
 end Mcmc.Executable.IRFormat
