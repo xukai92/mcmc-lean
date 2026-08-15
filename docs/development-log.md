@@ -3,6 +3,20 @@
 Entries through the earlier 2026-08-13 work are preserved in the
 [development-log archive](development-log-archive.md).
 
+## 2026-08-15: state-indexed finite SMC schedules
+
+Generalized the explicit-history pseudo-marginal client so the initial law and
+every potential and transition kernel may depend on the proposed state at a
+shared finite horizon. Histories for equal-length schedules are connected by a
+canonical equivalence; the state-dependent history law and weight are relabeled
+through that equivalence into one common finite estimator-state type.
+
+The transported normalizing weight remains nonnegative and unit mean. Lean
+therefore proves exact extended-target stationarity and the requested state
+marginal for the resulting state-indexed SMC pseudo-marginal kernel. A retained
+latent trajectory and the specific PIMH/PMMH extended targets remain future
+work; no chain-convergence or particle-efficiency claim is made.
+
 ## 2026-08-15: explicit finite SMC histories and pseudo-marginal client
 
 Added a recursively typed finite history containing every multinomial ancestor

@@ -191,9 +191,10 @@ strictly positive potentials, both for homogeneous iteration and finite
 time-inhomogeneous sequences. A normalized finite law over explicit ancestry
 and population histories now realizes those nested expectations, and its
 normalized product weight instantiates pseudo-marginal MH with exact extended
-stationarity and state marginal. This client currently has a shared SMC step
-schedule and state-indexed initial law; state-indexed schedules and a selected
-latent trajectory remain before naming a PIMH/PMMH client.
+stationarity and state marginal. The initial law, potential, and transition at
+every step may now depend on the proposed state, provided all schedules share a
+finite horizon and have positive normalizers. A selected latent trajectory
+remains before naming a PIMH/PMMH client.
 Conditional SMC and particle Gibbs follow. Keep fixed-particle stationarity,
 chain convergence, and consistency as particle count grows as separate theorem
 families.

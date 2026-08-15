@@ -33,8 +33,9 @@ selection can destroy stationarity even when every frozen kernel preserves
 the target. A finite-horizon homogeneous Feynman--Kac/SMC expectation theorem
 and its time-inhomogeneous finite-sequence extension are also complete. The
 finite law is now realized over explicit ancestry and population histories and
-feeds an exact pseudo-marginal client; selected-trajectory particle MCMC and
-corrected Xu--Ge execution remain next.
+feeds an exact pseudo-marginal client whose complete fixed-horizon schedule may
+depend on the proposed state; selected-trajectory particle MCMC and corrected
+Xu--Ge execution remain next.
 
 Betancourt's [*A Conceptual Introduction to Hamiltonian Monte
 Carlo*](https://arxiv.org/abs/1701.02434) is used as a foundational HMC
@@ -75,7 +76,8 @@ The repository now contains machine-checked implementations and proofs for:
   strictly positive potentials and to time-varying finite sequences;
 - a normalized finite distribution over complete SMC population/ancestry
   histories, an exact product-weight expectation theorem, and the resulting
-  explicit-history pseudo-marginal kernel with exact stationary state marginal;
+  explicit-history pseudo-marginal kernel with exact stationary state marginal,
+  including state-indexed potentials and transitions at a common horizon;
 - reusable finite identity, composition, mixture, and coordinate-lift
   combinators; finite one-site, random-scan, and systematic-scan Gibbs;
 - finite state-dependent kernel selection and a checked counterexample showing

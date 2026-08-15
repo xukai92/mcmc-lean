@@ -165,6 +165,42 @@ ancestor choices and propagated populations. -/
 abbrev History (steps : List (FeynmanKacStep Sample)) :=
   (Particle → Sample) × Continuation Particle Sample steps
 
+/-- Continuation histories depend only on the number of steps, not on the
+potential or transition values stored in those steps. -/
+noncomputable def continuationEquivOfLength
+    (left right : List (FeynmanKacStep Sample)) (hlen : left.length = right.length) :
+    Continuation Particle Sample left ≃ Continuation Particle Sample right := by
+  induction left generalizing right with
+  | nil =>
+      cases right with
+      | nil => exact Equiv.refl _
+      | cons step right => simp at hlen
+  | cons step left ih =>
+      cases right with
+      | nil => simp at hlen
+      | cons other right =>
+          simp only [Continuation]
+          exact Equiv.prodCongr (Equiv.refl _)
+            (Equiv.prodCongr (Equiv.refl _) (ih right (by simpa using hlen)))
+
+/-- Complete histories for schedules of equal length are canonically
+equivalent. -/
+noncomputable def historyEquivOfLength
+    (left right : List (FeynmanKacStep Sample)) (hlen : left.length = right.length) :
+    History (Particle := Particle) left ≃ History (Particle := Particle) right :=
+  Equiv.prodCongr (Equiv.refl _)
+    (continuationEquivOfLength (Particle := Particle) left right hlen)
+
+/-- Relabel a finite distribution along an equivalence. -/
+def relabelDistribution {α β : Type*} [Fintype α] [Fintype β]
+    (law : Distribution α) (equiv : α ≃ β) : Distribution β where
+  mass y := law.mass (equiv.symm y)
+  nonneg y := law.nonneg (equiv.symm y)
+  sum_mass := by
+    rw [← law.sum_mass]
+    exact (Fintype.sum_equiv equiv law.mass (fun y => law.mass (equiv.symm y))
+      (fun x => by simp)).symm
+
 /-- Probability law of a complete explicit SMC history. -/
 noncomputable def historyLaw (initial : Distribution Sample)
     (steps : List (FeynmanKacStep Sample)) : Distribution (History (Particle := Particle) steps) where
@@ -310,6 +346,124 @@ theorem kernel_state_marginal (target : Distribution State)
         (x, history) = target.mass x :=
   PseudoMarginal.state_marginal target
     (estimator (Particle := Particle) initial steps hnormalizer) x
+
+section StateIndexedSchedule
+
+variable [Nonempty State]
+
+/-- A fixed-horizon schedule whose potential and transition may depend on the
+pseudo-marginal state. The list shape is shared, so all states use the same
+finite history type. -/
+abbrev StateIndexedSchedule := List (State → FeynmanKacStep Sample)
+
+/-- Instantiate a state-indexed schedule at one proposed state. -/
+def stepsAt (schedule : StateIndexedSchedule (State := State) (Sample := Sample))
+    (x : State) : List (FeynmanKacStep Sample) :=
+  schedule.map fun step => step x
+
+/-- Common explicit-history type for a state-indexed fixed-horizon schedule.
+The anchor affects step values but not the recursively defined history shape. -/
+abbrev StateIndexedHistory
+    (schedule : StateIndexedSchedule (State := State) (Sample := Sample)) :=
+  History (Particle := Particle) (stepsAt schedule (Classical.choice inferInstance))
+
+/-- Explicit SMC estimator with state-indexed initial law, potentials, and
+transition kernels at a common finite horizon. -/
+noncomputable def stateIndexedEstimator
+    (initial : State → Distribution Sample)
+    (schedule : StateIndexedSchedule (State := State) (Sample := Sample))
+    (hnormalizer : ∀ x,
+      0 < normalizingConstant (initial x) (stepsAt schedule x)) :
+    PseudoMarginal.Estimator State
+      (StateIndexedHistory (Particle := Particle) schedule) where
+  law x := relabelDistribution
+    (historyLaw (Particle := Particle) (initial x) (stepsAt schedule x))
+    (historyEquivOfLength (Particle := Particle) (stepsAt schedule x)
+      (stepsAt schedule (Classical.choice inferInstance)) (by
+        simp [stepsAt]))
+  value x history := normalizingWeight (stepsAt schedule x)
+      ((historyEquivOfLength (Particle := Particle) (stepsAt schedule x)
+        (stepsAt schedule (Classical.choice inferInstance)) (by
+          simp [stepsAt])).symm history) /
+    normalizingConstant (initial x) (stepsAt schedule x)
+  nonneg x history := div_nonneg
+    (normalizingWeight_nonneg (stepsAt schedule x)
+      ((historyEquivOfLength (Particle := Particle) (stepsAt schedule x)
+        (stepsAt schedule (Classical.choice inferInstance)) (by
+          simp [stepsAt])).symm history))
+    (le_of_lt (hnormalizer x))
+  unbiased x := by
+    let e := historyEquivOfLength (Particle := Particle) (stepsAt schedule x)
+      (stepsAt schedule (Classical.choice inferInstance)) (by simp [stepsAt])
+    change ∑ history,
+        (historyLaw (Particle := Particle) (initial x) (stepsAt schedule x)).mass
+            (e.symm history) *
+          (normalizingWeight (stepsAt schedule x) (e.symm history) /
+            normalizingConstant (initial x) (stepsAt schedule x)) = 1
+    rw [← Fintype.sum_equiv e
+      (fun history =>
+        (historyLaw (Particle := Particle) (initial x) (stepsAt schedule x)).mass history *
+          (normalizingWeight (stepsAt schedule x) history /
+            normalizingConstant (initial x) (stepsAt schedule x)))
+      (fun history =>
+        (historyLaw (Particle := Particle) (initial x) (stepsAt schedule x)).mass
+            (e.symm history) *
+          (normalizingWeight (stepsAt schedule x) (e.symm history) /
+            normalizingConstant (initial x) (stepsAt schedule x))) (fun history => by simp)]
+    rw [show (∑ history,
+        (historyLaw (Particle := Particle) (initial x) (stepsAt schedule x)).mass history *
+          (normalizingWeight (stepsAt schedule x) history /
+            normalizingConstant (initial x) (stepsAt schedule x))) =
+        (∑ history,
+          (historyLaw (Particle := Particle) (initial x) (stepsAt schedule x)).mass history *
+            normalizingWeight (stepsAt schedule x) history) /
+          normalizingConstant (initial x) (stepsAt schedule x) by
+      simp_rw [div_eq_mul_inv, ← mul_assoc]
+      rw [Finset.sum_mul]]
+    rw [normalizingWeight_expectation]
+    exact div_self (ne_of_gt (hnormalizer x))
+
+/-- Pseudo-marginal MH driven by state-indexed finite SMC schedules. -/
+noncomputable def stateIndexedKernel (target : Distribution State)
+    (initial : State → Distribution Sample)
+    (schedule : StateIndexedSchedule (State := State) (Sample := Sample))
+    (hnormalizer : ∀ x,
+      0 < normalizingConstant (initial x) (stepsAt schedule x))
+    (proposal : MarkovKernel State) :
+    MarkovKernel (State × StateIndexedHistory (Particle := Particle) schedule) :=
+  PseudoMarginal.kernel target
+    (stateIndexedEstimator (Particle := Particle) initial schedule hnormalizer) proposal
+
+/-- Exact extended-target stationarity with state-indexed potentials and
+transition kernels. -/
+theorem stateIndexedKernel_stationary (target : Distribution State)
+    (initial : State → Distribution Sample)
+    (schedule : StateIndexedSchedule (State := State) (Sample := Sample))
+    (hnormalizer : ∀ x,
+      0 < normalizingConstant (initial x) (stepsAt schedule x))
+    (proposal : MarkovKernel State) :
+    (stateIndexedKernel (Particle := Particle) target initial schedule
+      hnormalizer proposal).Stationary
+      (PseudoMarginal.extendedTarget target
+        (stateIndexedEstimator (Particle := Particle) initial schedule hnormalizer)) :=
+  PseudoMarginal.stationary target
+    (stateIndexedEstimator (Particle := Particle) initial schedule hnormalizer) proposal
+
+omit [DecidableEq Sample] [DecidableEq State] in
+/-- The stationary state marginal remains exactly the requested target when
+the entire fixed-horizon SMC schedule depends on state. -/
+theorem stateIndexedKernel_state_marginal (target : Distribution State)
+    (initial : State → Distribution Sample)
+    (schedule : StateIndexedSchedule (State := State) (Sample := Sample))
+    (hnormalizer : ∀ x,
+      0 < normalizingConstant (initial x) (stepsAt schedule x)) (x : State) :
+    ∑ history, (PseudoMarginal.extendedTarget target
+      (stateIndexedEstimator (Particle := Particle) initial schedule hnormalizer)).mass
+        (x, history) = target.mass x :=
+  PseudoMarginal.state_marginal target
+    (stateIndexedEstimator (Particle := Particle) initial schedule hnormalizer) x
+
+end StateIndexedSchedule
 
 end PseudoMarginalClient
 
