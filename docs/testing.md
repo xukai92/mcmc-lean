@@ -106,25 +106,28 @@ invariance theorems; they do not replace them.
 - a 16-dimensional vector-HMC execution for shape and finite outputs;
 - ill-conditioned metric-HMC moment recovery;
 - multimodal three-state MH frequencies;
+- categorical discontinuous HMC: deterministic Reference/Optimized traces for
+  uphill crossing, reflection, and zero-energy downhill crossing, plus a
+  seeded stationary-frequency diagnostic for repeated Laplace-momentum
+  coordinate updates;
 - deterministic scalar kinetic-energy trace agreement between Reference and
   Optimized; and
 - seeded scalar-HMC and Gaussian-RWMH effective-sample-size regressions, plus
   exact callback-count checks for the interpreted Reference and independent
   Optimized scalar-HMC implementations.
 
-It retains skipped testsets only for:
-
-- DHMC categorical targets.
+No registered diagnostic testset is currently skipped.
 
 Warmup-only Gaussian-RWMH adaptation is active. Tests verify deterministic
 replay, scale bounds, the `1/√n` update envelope, exact freezing into the
 ordinary `GaussianRWMH` API, validation failures, and normal-target moments.
 The warmup trajectory itself is not treated as stationary output.
 
-These become active only when the corresponding executable APIs and contracts exist. In
-particular, a finite-difference Jacobian check will be classified as an
-empirical regression test, not as a replacement for a Lean
-measure-preservation theorem.
+The categorical DHMC frequency check is an implementation regression, not a
+replacement for the paper's almost-everywhere volume-preservation and
+random-order reversibility arguments. Lean currently proves the exact
+crossing/reflection energy identity; the full phase-kernel invariance theorem
+remains a separate obligation.
 
 Run the complete cross-language suite with:
 

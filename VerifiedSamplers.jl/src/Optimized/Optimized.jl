@@ -13,7 +13,38 @@ export categorical_index!, integer_slice_step!, finite_mh_step!, two_state_mh_st
     relativistic_multinomial_hmc_step!,
     fixed_point_generalized_leapfrog,
     certified_relativistic_multinomial_hmc_step!,
-    leapfrog, vector_leapfrog
+    categorical_dhmc_step!, leapfrog, vector_leapfrog
+
+"""Allocation-free categorical DHMC update, independent of the reference path."""
+function categorical_dhmc_step!(source::AbstractRandomSource,
+        probabilities::AbstractVector{<:Real}, steps::Integer,
+        current::Integer)
+    category_count = length(probabilities)
+    category_count >= 2 || throw(ArgumentError("DHMC needs at least two categories"))
+    for probability in probabilities
+        isfinite(probability) && probability > 0 ||
+            throw(ArgumentError("category probabilities must be finite and positive"))
+    end
+    steps > 0 || throw(ArgumentError("trajectory length must be positive"))
+    1 <= current <= category_count ||
+        throw(ArgumentError("current category is out of range"))
+
+    direction = uniform_unit!(source) < 0.5 ? 1 : -1
+    kinetic = -log1p(-uniform_unit!(source))
+    state = Int(current)
+    for _ in 1:steps
+        candidate = mod1(state + direction, category_count)
+        jump = log(Float64(probabilities[state]) /
+            Float64(probabilities[candidate]))
+        if jump < kinetic
+            state = candidate
+            kinetic -= jump
+        else
+            direction = -direction
+        end
+    end
+    state
+end
 
 """Allocation-free exact integer slice update on zero-based state indices."""
 function integer_slice_step!(source::AbstractRandomSource,

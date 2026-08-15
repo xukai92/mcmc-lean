@@ -6,7 +6,7 @@ using ..Runtime: AbstractRandomSource, draw_below!, standard_normal!, uniform_un
 using ..Certificates: ImplicitSolveCertificate, certify_implicit_solve,
     certifies_exact_solver
 
-export categorical_index!, integer_slice_step!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!, scalar_hmc_step!, vector_hmc_step!, metric_hmc_step!, multinomial_hmc_step!, metric_multinomial_hmc_step!,
+export categorical_index!, integer_slice_step!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!, scalar_hmc_step!, vector_hmc_step!, metric_hmc_step!, multinomial_hmc_step!, metric_multinomial_hmc_step!, categorical_dhmc_step!,
     finite_hmm_particle_gibbs_step!,
     relativistic_multinomial_hmc_step!,
     fixed_point_generalized_leapfrog,
@@ -15,6 +15,43 @@ export categorical_index!, integer_slice_step!, finite_mh_step!, two_state_mh_st
     IR_FORMAT_VERSION
 
 const IR_FORMAT_VERSION = 12
+
+"""Reference coordinate-wise DHMC update for a categorical law on a cycle.
+
+This is the all-discontinuous, one-coordinate specialization of Algorithm 1
+of Nishimura, Dunson, and Lu.  Taking `epsilon = mass` moves exactly one
+category per coordinate update.  The refreshed Laplace kinetic energy is
+Exponential(1); crossing spends the exact potential jump and rejection
+reflects the momentum direction.
+"""
+function categorical_dhmc_step!(source::AbstractRandomSource,
+        probabilities::AbstractVector{<:Real}, steps::Integer,
+        current::Integer)
+    length(probabilities) >= 2 ||
+        throw(ArgumentError("DHMC needs at least two categories"))
+    all(x -> isfinite(x) && x > 0, probabilities) ||
+        throw(ArgumentError("category probabilities must be finite and positive"))
+    steps > 0 || throw(ArgumentError("trajectory length must be positive"))
+    1 <= current <= length(probabilities) ||
+        throw(ArgumentError("current category is out of range"))
+
+    forward = uniform_unit!(source) < 0.5
+    kinetic = -log1p(-uniform_unit!(source))
+    state = Int(current)
+    for _ in 1:steps
+        candidate = forward ? mod1(state + 1, length(probabilities)) :
+            mod1(state - 1, length(probabilities))
+        jump = log(Float64(probabilities[state])) -
+            log(Float64(probabilities[candidate]))
+        if jump < kinetic
+            state = candidate
+            kinetic -= jump
+        else
+            forward = !forward
+        end
+    end
+    state
+end
 
 """Exact integer under-the-graph slice update on zero-based state indices."""
 function integer_slice_step!(source::AbstractRandomSource,

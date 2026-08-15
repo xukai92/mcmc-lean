@@ -147,6 +147,15 @@ the existing Lean adaptive-MCMC results describe the mathematical conditions,
 while cross-language refinement of this particular floating-point tuner
 remains separate.
 
+The executable breadth layer now also includes categorical discontinuous HMC.
+`CategoricalDHMC` uses Laplace momentum and the paper's exact
+crossing-or-reflection update on a cyclic categorical embedding; Reference and
+Optimized implementations pass deterministic trace and stationary-frequency
+tests. Lean proves the corresponding scalar Hamiltonian is preserved exactly.
+This does not yet claim the full discontinuous-HMC correctness theorem:
+almost-everywhere volume preservation, distributional reversibility of random
+coordinate orders, and phase-kernel invariance remain to be formalized.
+
 Betancourt's [*A Conceptual Introduction to Hamiltonian Monte
 Carlo*](https://arxiv.org/abs/1701.02434) is used as a foundational HMC
 reference. Its lift--evolve--project correctness spine and the boundary between

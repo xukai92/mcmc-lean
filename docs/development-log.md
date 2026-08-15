@@ -3,6 +3,23 @@
 Entries through the earlier 2026-08-13 work are preserved in the
 [development-log archive](development-log-archive.md).
 
+## 2026-08-15: categorical discontinuous-HMC vertical slice
+
+Added the Laplace-momentum crossing/reflection algebra from Nishimura, Dunson,
+and Lu's coordinate-wise discontinuous-HMC integrator. Lean proves that a
+successful crossing retains nonnegative kinetic energy and that both crossing
+and reflection preserve the scalar Hamiltonian exactly; momentum reflection
+is an involution. Julia now exposes `CategoricalDHMC`, arranging positive
+categories on a cycle and applying repeated coordinate moves under one
+refreshed Laplace momentum. Independent Reference and Optimized paths agree on
+scripted crossing, reflection, and downhill edge cases, and the public sampler
+passes a seeded categorical-frequency diagnostic.
+
+This closes the executable diagnostic skeleton, but not the entire paper
+proof. Almost-everywhere phase-volume preservation, random-order
+reversibility, the mixed smooth/discontinuous integrator, randomized-step
+ergodicity, and a Lean invariant-kernel client remain explicit obligations.
+
 ## 2026-08-15: finite slice, planar reversible jump, and PDMP generators
 
 Added an exact executable finite slice sampler for positive integer weights.

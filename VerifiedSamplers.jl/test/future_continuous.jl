@@ -502,7 +502,41 @@ end
         @test_throws ArgumentError DenseMetric([1.0 2.0; 2.0 1.0])
     end
     @testset "DHMC categorical target" begin
-        @test_skip false
+        probabilities = [0.6, 0.3, 0.1]
+        event_trace(kinetic) = [Runtime.UniformEvent(0.25),
+            Runtime.UniformEvent(1 - exp(-kinetic))]
+
+        # Enough Laplace kinetic energy crosses an uphill potential jump.
+        crossing_events = event_trace(1.0)
+        reference_crossing = Reference.categorical_dhmc_step!(
+            Runtime.FloatTraceSource(copy(crossing_events)), probabilities, 1, 1)
+        optimized_crossing = Optimized.categorical_dhmc_step!(
+            Runtime.FloatTraceSource(copy(crossing_events)), probabilities, 1, 1)
+        @test reference_crossing == optimized_crossing == 2
+
+        # Insufficient energy leaves the category fixed and reflects momentum.
+        reflection_events = event_trace(0.2)
+        @test Reference.categorical_dhmc_step!(
+            Runtime.FloatTraceSource(copy(reflection_events)), probabilities, 1, 1) == 1
+        @test Optimized.categorical_dhmc_step!(
+            Runtime.FloatTraceSource(copy(reflection_events)), probabilities, 1, 1) == 1
+
+        # Downhill moves increase kinetic energy and always cross, even from zero.
+        downhill_events = event_trace(0.0)
+        @test Reference.categorical_dhmc_step!(
+            Runtime.FloatTraceSource(copy(downhill_events)), probabilities, 1, 3) == 1
+        @test Optimized.categorical_dhmc_step!(
+            Runtime.FloatTraceSource(copy(downhill_events)), probabilities, 1, 3) == 1
+
+        sampler = CategoricalDHMC(probabilities, 4)
+        chain = sample(MersenneTwister(0xd4ac), sampler, 1, 60_000)[5001:end]
+        frequencies = [count(==(state), chain) / length(chain) for state in 1:3]
+        @test maximum(abs.(frequencies .- probabilities)) < 0.02
+
+        @test_throws ArgumentError CategoricalDHMC([1.0])
+        @test_throws ArgumentError CategoricalDHMC([1.0, 0.0])
+        @test_throws ArgumentError CategoricalDHMC([1.0, 1.0], 0)
+        @test_throws ArgumentError step(MersenneTwister(1), sampler, 0)
     end
     @testset "momentum and kinetic-energy units" begin
         events = [Runtime.NormalEvent(0.5), Runtime.UniformEvent(0.9)]

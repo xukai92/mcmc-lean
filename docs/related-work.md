@@ -373,6 +373,26 @@ correctness and extraction, but it is not an MCMC algorithm.
 
 ## Implications for this repository
 
+Nishimura, Dunson, and Lu embed discrete parameters into piecewise-constant
+continuous targets and use independent Laplace momentum. Their coordinate
+integrator moves at constant signed velocity, pays an encountered potential
+jump from kinetic energy when possible, and otherwise reflects momentum. The
+paper proves almost-everywhere volume preservation and reversibility, with
+multiple-coordinate reversibility obtained from an order distribution equal
+in law to its reversal. It also warns that a fixed step size leaves the
+continuous embedding on a grid, motivating randomized step size for
+ergodicity.
+
+- Akihiko Nishimura, David B. Dunson, and Jianfeng Lu,
+  [Discontinuous Hamiltonian Monte Carlo for discrete parameters and
+  discontinuous likelihoods](https://doi.org/10.1093/biomet/asz083),
+  *Biometrika* 107(2), 2020.
+
+The local `Mcmc.Hamiltonian.Discontinuous` module therefore starts with the
+exact-energy deterministic algebra only. It must not be advertised as a full
+invariance or convergence result until the almost-everywhere measure argument,
+random-order kernel, and relevant ergodicity assumptions are formalized.
+
 The current theorem establishes that the finite-state MH transition is a
 Markov kernel, satisfies detailed balance, and has the requested target as a
 stationary distribution. Detailed balance and stationarity alone do **not**

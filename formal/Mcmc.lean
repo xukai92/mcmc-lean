@@ -83,6 +83,7 @@ import Mcmc.Executable.Continuous.RelativisticCompilerIR
 import Mcmc.Executable.Continuous.RelativisticCertificates
 import Mcmc.Docs.Graph
 import Mcmc.Hamiltonian.Leapfrog
+import Mcmc.Hamiltonian.Discontinuous
 import Mcmc.Hamiltonian.Assumptions
 import Mcmc.Hamiltonian.ExactFlow
 import Mcmc.Hamiltonian.LeapfrogContraction
