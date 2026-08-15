@@ -197,8 +197,11 @@ General-state composable inference is also complete at the common-target
 stationarity layer. `Mcmc.Kernel.ComposableInference` supplies scoped
 operators, arbitrary finite schedules, a named PG--HMC composition, and an
 instantiation whose PG side is discharged by the exact auxiliary-variable
-factorization theorem. Positive-horizon PG convergence remains a distinct
-finite quantitative obligation.
+factorization theorem. `Examples.GeneralStatePgHmc` now closes a concrete
+mixed Boolean/Gaussian client using the actual Gaussian SoftAbs multinomial
+GR-HMC transition. Portable schedule descriptors can also be bound to their
+exact scoped kernels and invariance proofs; foreign callback equality remains
+a language-semantics obligation.
 
 That quantitative obligation now has a checked target interface. A finite
 refresh decomposition yields an exact regenerative law and a uniform
@@ -215,10 +218,11 @@ For finite clients, strict positivity of the complete trajectory transition
 matrix already discharges convergence: the library constructs an explicit
 positive product lower bound and proves TV convergence from every initial law.
 
-After those foundations and the paper execution milestones, select the
-remaining branches based on research value and shared infrastructure:
+After those foundations and the paper execution milestones, the optional
+breadth branches are:
 
-- NUTS finite candidate trees before adaptation or modern multinomial NUTS;
+- numerical NUTS tree-building refinement beyond the completed finite
+  certified-tree and stopped-doubling selection theorems;
 - practical stepping-out/shrinkage slice kernels beyond the exact
   disintegration client;
 - richer reversible-jump transports beyond the checked scalar birth/death

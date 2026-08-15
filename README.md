@@ -61,17 +61,21 @@ For the zero-horizon particle-Gibbs specialization, Lean proves the exact
 kernel `N⁻¹ I + (1-N⁻¹) Π` and the exact `N⁻ᵏ` total-variation contraction
 factor. The Ge et al. layer also includes finite `assume`/`observe` posterior
 semantics and a carefully scoped stationary theorem for static candidate
-mixtures; dynamically stopped NUTS trees are not yet covered by that theorem.
+mixtures. Dynamic selection now has a separate certified-tree theorem:
+root inclusion plus equality of the completed candidate `Finset` after every
+admissible reroot imply reversible and stationary target-weighted selection.
+Variable-depth stopped doubling trees instantiate it; a particular numerical
+U-turn/subtree-exclusion builder must still prove that certificate.
 
 The implicit-solver foundation now includes a fixed-step, smooth,
 momentum-even nonseparable example `H(q,p) = a q √(1+p²)`. Lean proves the
 step-size contraction condition, exact uniqueness, iteration convergence,
 measurability, and momentum-flip reversal. Lean now derives bijectivity from
 the opposite-step exact solver and proves that a differentiable unit-Jacobian
-certificate implies preservation of product phase volume. Proving that
-Jacobian certificate for this smooth test step remains open; the bounded
-Riemannian-metric solver instantiated below has the analogous explicit
-Jacobian endpoint.
+certificate implies preservation of product phase volume. The generic smooth
+test step retains that explicit certificate premise; the bounded
+Riemannian-metric solver instantiated below discharges the full Jacobian and
+phase-volume endpoint.
 
 The bilinear implicit stress model additionally has a closed-form exact step,
 and Lean proves directly in every finite dimension that its reciprocal
