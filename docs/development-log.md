@@ -16,6 +16,16 @@ and independent positive-rate exponential waits are packaged as a proved
 probability product measure. A single joint measure mixing Poisson counts,
 state skeletons, and event times remains the next finite path-space step.
 
+At a fixed count, that product is now combined with the exact Markov skeleton
+law into `fixedTimedPathMeasure`; Lean proves the joint law is a probability
+measure and that its skeleton and wait marginals are exactly the original
+factors. General-state Poissonization is also constructed directly over
+mathlib kernels. The countable weighted sum of kernel powers is proved Markov,
+its exact row series is exposed, and any invariant probability target remains
+invariant. The Poisson count is almost surely finite, closing bounded
+homogeneous-clock nonexplosion. State-dependent or unbounded rates still need
+their own event simulator and Lyapunov/nonexplosion argument.
+
 ## 2026-08-15: categorical discontinuous-HMC vertical slice
 
 Added the Laplace-momentum crossing/reflection algebra from Nishimura, Dunson,

@@ -249,10 +249,13 @@ breadth branches are:
   convergence-in-probability definition and completed finite
   Roberts--Rosenthal convergence theorem; and
 - BPS/Zig-Zag path construction, general-state event simulation,
-  nonexplosion, and convergence on top of the
+  state-dependent-rate nonexplosion, and convergence on top of the
   separate PDMP generator, jump-flux, finite bounded-rate uniformization, and
   completed Poissonized real-time semigroup, fixed-event path-skeleton, and
-  finite continuous-time schedule/càdlàg foundations.
+  finite continuous-time schedule/càdlàg foundations. General-state
+  Poissonization of an arbitrary embedded mathlib Markov kernel is complete,
+  including Markov validity, invariant-target preservation, and finite-count
+  nonexplosion for the bounded homogeneous clock.
 
 Sequence-parallel evaluation is an execution-refinement project downstream of
 exact seeded trace semantics. Full solver convergence may refine a sequential

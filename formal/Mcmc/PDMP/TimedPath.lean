@@ -1,5 +1,7 @@
 import Mcmc.PDMP.Path
+import Mcmc.Finite.MeasureKernel
 import Mathlib.MeasureTheory.Constructions.Pi
+import Mathlib.MeasureTheory.Measure.Prod
 import Mathlib.Probability.Distributions.Exponential
 import Mathlib.Tactic
 
@@ -84,6 +86,65 @@ theorem exponentialWaitingMeasure_isProbability (rate : ℝ) (n : ℕ)
     isProbabilityMeasure_expMeasure hrate
   unfold exponentialWaitingMeasure
   infer_instance
+
+/-- State skeleton and real waiting-time vector at one fixed event count. -/
+abbrev FixedTimedPathSample (State : Type*) (n : ℕ) :=
+  List.Vector State (n + 1) × (Fin n → ℝ)
+
+/-- Joint law of a finite Markov skeleton and independent exponential waits,
+conditional on a fixed number of clock events. -/
+noncomputable def fixedTimedPathMeasure
+    {State : Type*} {n : ℕ} [Fintype State] [DecidableEq State]
+    [MeasurableSpace (List.Vector State (n + 1))]
+    (transition : Mcmc.Finite.MarkovKernel State) (initial : State)
+    (rate : ℝ) : Measure (FixedTimedPathSample State n) :=
+  (Mcmc.Finite.MarkovKernel.Distribution.toMeasure
+    (eventPathLaw transition initial n)).prod
+      (exponentialWaitingMeasure rate n)
+
+/-- The fixed-count timed path law is a probability measure. -/
+theorem fixedTimedPathMeasure_isProbability
+    {State : Type*} {n : ℕ} [Fintype State] [DecidableEq State]
+    [MeasurableSpace (List.Vector State (n + 1))]
+    (transition : Mcmc.Finite.MarkovKernel State) (initial : State)
+    (rate : ℝ) (hrate : 0 < rate) :
+    IsProbabilityMeasure
+      (fixedTimedPathMeasure (n := n) transition initial rate) := by
+  letI : IsProbabilityMeasure (exponentialWaitingMeasure rate n) :=
+    exponentialWaitingMeasure_isProbability rate n hrate
+  unfold fixedTimedPathMeasure
+  infer_instance
+
+/-- Adding independent event times leaves the finite state-skeleton law
+unchanged. -/
+theorem fixedTimedPathMeasure_map_fst
+    {State : Type*} {n : ℕ} [Fintype State] [DecidableEq State]
+    [MeasurableSpace (List.Vector State (n + 1))]
+    (transition : Mcmc.Finite.MarkovKernel State) (initial : State)
+    (rate : ℝ) (hrate : 0 < rate) :
+    Measure.map Prod.fst
+        (fixedTimedPathMeasure (n := n) transition initial rate) =
+      Mcmc.Finite.MarkovKernel.Distribution.toMeasure
+        (eventPathLaw transition initial n) := by
+  letI : IsProbabilityMeasure (exponentialWaitingMeasure rate n) :=
+    exponentialWaitingMeasure_isProbability rate n hrate
+  unfold fixedTimedPathMeasure
+  simp
+
+/-- The waiting-time marginal of the fixed-count joint law is the independent
+exponential product law. -/
+theorem fixedTimedPathMeasure_map_snd
+    {State : Type*} {n : ℕ} [Fintype State] [DecidableEq State]
+    [MeasurableSpace (List.Vector State (n + 1))]
+    (transition : Mcmc.Finite.MarkovKernel State) (initial : State)
+    (rate : ℝ) (hrate : 0 < rate) :
+    Measure.map Prod.snd
+        (fixedTimedPathMeasure (n := n) transition initial rate) =
+      exponentialWaitingMeasure rate n := by
+  letI : IsProbabilityMeasure (exponentialWaitingMeasure rate n) :=
+    exponentialWaitingMeasure_isProbability rate n hrate
+  unfold fixedTimedPathMeasure
+  simp
 
 /-- Number of scheduled events that have occurred by time `t`. -/
 noncomputable def EventSchedule.eventCount (schedule : EventSchedule n) (t : ℝ) : ℕ :=

@@ -129,9 +129,13 @@ that Poisson mixing recovers the real-time transition kernel. Finite skeletons
 now also carry ordered real event schedules: Lean proves monotone event counts,
 right-local constancy, locally constant left limits, endpoint evaluation,
 translation compatibility, and the probability status of independent
-positive-rate exponential waiting-time products. Combining these components
-into a single path-space measure, general-state nonexplosion, and BPS/Zig-Zag
-convergence remain open.
+positive-rate exponential waiting-time products. At every fixed event count,
+the state skeleton and exponential waits now have a joint probability measure
+with both marginals proved exact. The same Poisson mixture is also constructed
+directly for arbitrary mathlib Markov kernels: it is proved Markov, preserves
+every invariant probability target, and has an almost-surely finite event
+count on finite horizons. A dependent joint measure over all event counts,
+state-dependent unbounded clocks, and BPS/Zig-Zag convergence remain open.
 
 For positive-horizon particle Gibbs, the finite library now proves a concrete
 arbitrary-horizon result: with any finite particle index type containing at
