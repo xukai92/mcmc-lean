@@ -361,6 +361,46 @@ def ParticleGibbsFiberConnectivity
       0 < (selectedIndexRefreshKernel (Particle := Particle) steps).prob
         liftCurrent liftProposed
 
+/-- Purely combinatorial condition: every pair of trajectories can occur as
+two terminal genealogies in one particle history. For bootstrap particle
+Gibbs this is the support property supplied by having at least two lineages. -/
+def ParticleGibbsPairRealizable
+    (steps : List (FeynmanKacStep Sample)) : Prop :=
+  ∀ current proposed : Trajectory steps,
+    ∃ history : History (Particle := Particle) steps, ∃ i j : Particle,
+      selectedTrajectoryVector steps (history, i) = current ∧
+      selectedTrajectoryVector steps (history, j) = proposed
+
+omit [DecidableEq Sample] in
+/-- Two Boolean-indexed particles realize every pair of finite trajectories
+by following the two identity-ancestry lineages constructed above. -/
+theorem particleGibbsPairRealizable_bool
+    (steps : List (FeynmanKacStep Sample)) :
+    ParticleGibbsPairRealizable (Particle := Bool) steps := by
+  intro current proposed
+  exact ⟨pairedBoolHistory steps current proposed, false, true,
+    selectedTrajectoryVector_pairedBoolHistory_false steps current proposed,
+    selectedTrajectoryVector_pairedBoolHistory_true steps current proposed⟩
+
+/-- Full-support model ingredients reduce the analytic particle-Gibbs support
+obligation to simultaneous realizability of two genealogies. -/
+theorem particleGibbsFiberConnectivity_of_pairRealizable
+    (initial : Distribution Sample) (hinitial : ∀ x, 0 < initial.mass x)
+    (steps : List (FeynmanKacStep Sample))
+    (hsupport : FeynmanKacFullSupport steps)
+    (hnormalizer : 0 < normalizingConstant initial steps)
+    (hrealizable : ParticleGibbsPairRealizable (Particle := Particle) steps) :
+    ParticleGibbsFiberConnectivity (Particle := Particle)
+      initial steps hnormalizer := by
+  intro current proposed
+  obtain ⟨history, i, j, hcurrent, hproposed⟩ :=
+    hrealizable current proposed
+  refine ⟨(history, i), (history, j), hcurrent, hproposed,
+    selectedParticleTarget_mass_pos initial hinitial steps hsupport
+      hnormalizer (history, i), ?_⟩
+  simp [selectedIndexRefreshKernel, liftSnd, uniformIndexKernel]
+  exact Fintype.card_pos
+
 /-- Fiber connectivity makes every entry of the collapsed trajectory kernel
 strictly positive. -/
 theorem trajectoryParticleGibbsKernel_prob_pos_of_fiberConnectivity
@@ -463,6 +503,29 @@ theorem particleGibbs_totalVariation_tendsto_zero_of_fiberConnectivity
     initial steps hnormalizer
     (trajectoryParticleGibbsKernel_prob_pos_of_fiberConnectivity
       initial steps hnormalizer hconnect) initialLaw
+
+/-- A fully model-checkable positive-horizon result for two-particle bootstrap
+particle Gibbs: positive initial mass and full-support propagation imply TV
+convergence from every initial trajectory law. Potentials require no extra
+assumption because `FeynmanKacStep` stores strict positivity. -/
+theorem particleGibbs_bool_totalVariation_tendsto_zero_of_fullSupport
+    [Nonempty Sample]
+    (initial : Distribution Sample) (hinitial : ∀ x, 0 < initial.mass x)
+    (steps : List (FeynmanKacStep Sample))
+    (hsupport : FeynmanKacFullSupport steps)
+    (hnormalizer : 0 < normalizingConstant initial steps)
+    (initialLaw : Distribution (Trajectory steps)) :
+    Filter.Tendsto (fun n =>
+      Nonhomogeneous.distributionTotalVariation
+        (Nonhomogeneous.iterateLaw initialLaw
+          (trajectoryParticleGibbsKernel (Particle := Bool)
+            initial steps hnormalizer) n)
+        (trajectoryTarget (Particle := Bool) initial steps hnormalizer))
+      Filter.atTop (nhds 0) := by
+  apply particleGibbs_totalVariation_tendsto_zero_of_fiberConnectivity
+  exact particleGibbsFiberConnectivity_of_pairRealizable
+    initial hinitial steps hsupport hnormalizer
+      (particleGibbsPairRealizable_bool steps)
 
 end ParticleGibbs
 

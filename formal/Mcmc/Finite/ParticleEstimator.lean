@@ -33,6 +33,13 @@ def iidPopulation (law : Distribution Sample) : Distribution (Particle → Sampl
     rw [← Fintype.prod_sum]
     simp [law.sum_mass]
 
+omit [DecidableEq Sample] [Nonempty Particle] in
+/-- An iid population has full support when its one-particle law does. -/
+theorem iidPopulation_mass_pos (law : Distribution Sample)
+    (hpos : ∀ x, 0 < law.mass x) (samples : Particle → Sample) :
+    0 < (iidPopulation law).mass samples := by
+  exact Finset.prod_pos fun i _ => hpos (samples i)
+
 /-- Arithmetic mean of particle weights. -/
 noncomputable def particleAverage (score : Sample → ℝ)
     (samples : Particle → Sample) : ℝ :=
@@ -45,6 +52,17 @@ theorem particleAverage_nonneg
     0 ≤ particleAverage score samples := by
   unfold particleAverage
   exact div_nonneg (Finset.sum_nonneg fun i _ => hscore (samples i)) (by positivity)
+
+omit [Fintype Sample] [DecidableEq Sample] [DecidableEq Particle] in
+/-- The empirical average of a pointwise positive score is positive for a
+nonempty particle type. -/
+theorem particleAverage_pos {score : Sample → ℝ} (hscore : ∀ s, 0 < score s)
+    (samples : Particle → Sample) :
+    0 < particleAverage score samples := by
+  unfold particleAverage
+  exact div_pos
+    (Finset.sum_pos (fun i _ => hscore (samples i)) Finset.univ_nonempty)
+    (by positivity)
 
 omit [DecidableEq Sample] [Nonempty Particle] in
 /-- One coordinate of an iid population has the original weighted
@@ -127,6 +145,14 @@ def multinomialResampling (weights : Distribution Particle) :
     Distribution (Particle → Particle) :=
   iidPopulation weights
 
+omit [Fintype Sample] [DecidableEq Sample] [Nonempty Particle] in
+/-- Multinomial resampling has full support when every categorical weight is
+positive. -/
+theorem multinomialResampling_mass_pos (weights : Distribution Particle)
+    (hpos : ∀ i, 0 < weights.mass i) (ancestors : Particle → Particle) :
+    0 < (multinomialResampling weights).mass ancestors :=
+  iidPopulation_mass_pos weights hpos ancestors
+
 omit [Fintype Sample] [DecidableEq Sample] in
 /-- Conditional unbiasedness of multinomial resampling: the expected average
 of any observable over the resampled population equals its current weighted
@@ -149,6 +175,14 @@ def independentPopulation (law : Particle → Distribution Sample) :
   sum_mass := by
     rw [← Fintype.prod_sum]
     simp [Distribution.sum_mass]
+
+omit [DecidableEq Sample] [Nonempty Particle] in
+/-- A coordinate-wise independent population has full support when every
+coordinate law does. -/
+theorem independentPopulation_mass_pos (law : Particle → Distribution Sample)
+    (hpos : ∀ i x, 0 < (law i).mass x) (samples : Particle → Sample) :
+    0 < (independentPopulation law).mass samples := by
+  exact Finset.prod_pos fun i _ => hpos i (samples i)
 
 /-- Point mass as an elementary finite distribution. -/
 def pointDistribution (value : Sample) : Distribution Sample where
@@ -311,6 +345,17 @@ def propagatedPopulation (transition : MarkovKernel Sample)
     Distribution (Particle → Sample) :=
   independentPopulation fun j => rowDistribution transition (particles (ancestors j))
 
+omit [DecidableEq Sample] [Nonempty Particle] in
+/-- A propagated population has full support when the transition matrix does. -/
+theorem propagatedPopulation_mass_pos (transition : MarkovKernel Sample)
+    (hpos : ∀ x y, 0 < transition.prob x y)
+    (particles : Particle → Sample) (ancestors : Particle → Particle)
+    (next : Particle → Sample) :
+    0 < (propagatedPopulation transition particles ancestors).mass next := by
+  apply independentPopulation_mass_pos
+  intro i x
+  exact hpos _ x
+
 omit [DecidableEq Sample] in
 /-- One-step bootstrap resample--propagate identity.  Conditional expectation
 of the next empirical average is the current normalized weighted average of
@@ -344,6 +389,17 @@ noncomputable def normalizedPotentialWeights
     rw [← Finset.sum_div]
     exact div_self (ne_of_gt (Finset.sum_pos
       (fun j _ => hpotential (particles j)) Finset.univ_nonempty))
+
+omit [Fintype Sample] [DecidableEq Sample] [DecidableEq Particle] in
+/-- Strictly positive potentials give every ancestor index positive
+resampling weight. -/
+theorem normalizedPotentialWeights_mass_pos
+    (potential : Sample → ℝ) (hpotential : ∀ x, 0 < potential x)
+    (particles : Particle → Sample) (i : Particle) :
+    0 < (normalizedPotentialWeights potential hpotential particles).mass i := by
+  unfold normalizedPotentialWeights
+  exact div_pos (hpotential _) (Finset.sum_pos
+    (fun j _ => hpotential (particles j)) Finset.univ_nonempty)
 
 omit [DecidableEq Sample] in
 /-- Multiplying the normalized resample--propagate expectation by the current

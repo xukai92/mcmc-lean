@@ -222,6 +222,12 @@ positive terminal-index edge between the corresponding fibers, and this
 criterion implies total-variation convergence. The unconditional zero-horizon
 `N⁻ᵏ` result and
 the one-particle identity obstruction remain the exact particle-count anchors.
+For the first positive-horizon model class, Boolean-indexed two-particle PG now
+constructs a shared identity-ancestry history containing any two requested
+trajectories. Positive initial mass and full-support propagation therefore
+discharge fiber connectivity at every finite horizon and give TV convergence
+from every initial law. Sharper coefficients under bounded potentials and
+their explicit dependence on a general particle count remain open.
 For finite clients, strict positivity of the complete trajectory transition
 matrix already discharges convergence: the library constructs an explicit
 positive product lower bound and proves TV convergence from every initial law.

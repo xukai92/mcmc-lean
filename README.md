@@ -117,6 +117,15 @@ generator balance are formalized, with a symmetric two-velocity switching
 client. This is not yet a BPS/Zig-Zag process-existence, nonexplosion, or
 convergence theorem.
 
+For positive-horizon particle Gibbs, the finite library now proves a concrete
+arbitrary-horizon result: with two particles, positive initial mass, and
+full-support propagation at every Feynman--Kac step, the trajectory kernel
+converges in total variation from every initial trajectory law. The proof
+constructs two simultaneous genealogies for every pair of trajectories and
+then applies the checked Doeblin layer. Its coefficient is deliberately
+conservative; sharp dependence on particle count, horizon, and bounded
+potentials remains separate quantitative work.
+
 Betancourt's [*A Conceptual Introduction to Hamiltonian Monte
 Carlo*](https://arxiv.org/abs/1701.02434) is used as a foundational HMC
 reference. Its lift--evolve--project correctness spine and the boundary between

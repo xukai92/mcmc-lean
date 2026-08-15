@@ -30,6 +30,84 @@ def selectedTrajectoryVector (steps : List (FeynmanKacStep Sample))
   ⟨selectedTrajectory steps selected.1.1 selected.1.2 selected.2,
     selectedTrajectory_length steps selected.1.1 selected.1.2 selected.2⟩
 
+/-- One explicit two-lineage history containing two prescribed trajectories.
+The `false` lineage follows `current`, the `true` lineage follows `proposed`,
+and every ancestry map is the identity. -/
+def pairedBoolHistory :
+    (steps : List (FeynmanKacStep Sample)) →
+      Trajectory steps → Trajectory steps →
+      History (Particle := Bool) steps
+  | [], current, proposed =>
+      (fun b => if b then proposed.head else current.head, ULift.up ())
+  | _ :: steps, current, proposed =>
+      let tail := pairedBoolHistory steps current.tail proposed.tail
+      (fun b => if b then proposed.head else current.head,
+        (fun b => b, tail.1, tail.2))
+
+omit [DecidableEq Sample] in
+theorem initialAncestor_pairedBoolHistory
+    (steps : List (FeynmanKacStep Sample))
+    (current proposed : Trajectory steps) (terminal : Bool) :
+    initialAncestor steps (pairedBoolHistory steps current proposed).2 terminal =
+      terminal := by
+  induction steps generalizing terminal with
+  | nil => rfl
+  | cons step steps ih =>
+      simp [pairedBoolHistory, initialAncestor,
+        ih current.tail proposed.tail terminal]
+
+omit [DecidableEq Sample] in
+/-- The first lineage of `pairedBoolHistory` is the requested current path. -/
+theorem selectedTrajectoryVector_pairedBoolHistory_false
+    (steps : List (FeynmanKacStep Sample))
+    (current proposed : Trajectory steps) :
+    selectedTrajectoryVector steps
+      (pairedBoolHistory steps current proposed, false) = current := by
+  induction steps with
+  | nil =>
+      rcases current with ⟨list, hlength⟩
+      cases list with
+      | nil => simp at hlength
+      | cons first rest =>
+          cases rest with
+          | nil => rfl
+          | cons second rest => simp at hlength
+  | cons step steps ih =>
+      apply List.Vector.toList_injective
+      have htail := congrArg List.Vector.toList
+        (ih current.tail proposed.tail)
+      have hcons := congrArg List.Vector.toList
+        (List.Vector.cons_head_tail current)
+      simpa [pairedBoolHistory, selectedTrajectoryVector, selectedTrajectory,
+        initialAncestor_pairedBoolHistory, List.Vector.toList] using
+        (congrArg (List.cons current.head) htail).trans hcons
+
+omit [DecidableEq Sample] in
+/-- The second lineage of `pairedBoolHistory` is the requested proposed path. -/
+theorem selectedTrajectoryVector_pairedBoolHistory_true
+    (steps : List (FeynmanKacStep Sample))
+    (current proposed : Trajectory steps) :
+    selectedTrajectoryVector steps
+      (pairedBoolHistory steps current proposed, true) = proposed := by
+  induction steps with
+  | nil =>
+      rcases proposed with ⟨list, hlength⟩
+      cases list with
+      | nil => simp at hlength
+      | cons first rest =>
+          cases rest with
+          | nil => rfl
+          | cons second rest => simp at hlength
+  | cons step steps ih =>
+      apply List.Vector.toList_injective
+      have htail := congrArg List.Vector.toList
+        (ih current.tail proposed.tail)
+      have hcons := congrArg List.Vector.toList
+        (List.Vector.cons_head_tail proposed)
+      simpa [pairedBoolHistory, selectedTrajectoryVector, selectedTrajectory,
+        initialAncestor_pairedBoolHistory, List.Vector.toList] using
+        (congrArg (List.cons proposed.head) htail).trans hcons
+
 /-- Exact normalized Feynman--Kac trajectory target, represented as the
 selected-trajectory marginal of the extended particle target. -/
 noncomputable def trajectoryTarget (initial : Distribution Sample)

@@ -1370,6 +1370,17 @@ trajectory-space TV convergence. This does not yet derive a sharp coefficient
 from upper and lower potential bounds; it exposes exactly the model-specific
 history witnesses needed for that derivation.
 
+Discharged those witnesses for the first nonzero-horizon model class. New
+positivity lemmas show that full-support initialization and propagation give
+positive mass to every iid population, resampling choice, propagated cloud,
+SMC continuation, complete history, normalizing weight, and selected-particle
+state. `pairedBoolHistory` constructs two identity-ancestry genealogies for
+arbitrary finite trajectories. Consequently
+`particleGibbs_bool_totalVariation_tendsto_zero_of_fullSupport` proves
+arbitrary-horizon TV convergence of two-particle bootstrap PG, and the Boolean
+one-transition example instantiates it. This proves convergence, but not a
+sharp particle-count rate from bounded-potential constants.
+
 The Gaussian diagonal-SoftAbs client is now end-to-end. Lean connects the
 actual Gaussian Hessian to a strictly non-identity SoftAbs metric, packages the
 explicit separable update as a valid generalized-leapfrog selection, and

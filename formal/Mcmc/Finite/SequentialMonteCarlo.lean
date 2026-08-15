@@ -103,6 +103,36 @@ noncomputable def continuationLaw :
           exact (multinomialResampling
             (normalizedPotentialWeights step.potential step.potential_pos particles)).sum_mass }
 
+/-- Every propagation matrix in a finite Feynman--Kac schedule has full
+support. Potentials are already strictly positive by construction. -/
+def FeynmanKacFullSupport : List (FeynmanKacStep Sample) → Prop
+  | [] => True
+  | step :: steps =>
+      (∀ x y, 0 < step.transition.prob x y) ∧ FeynmanKacFullSupport steps
+
+omit [DecidableEq Sample] in
+/-- Under full-support transitions, every explicit SMC continuation history
+has positive probability. -/
+theorem continuationLaw_mass_pos
+    (steps : List (FeynmanKacStep Sample))
+    (hsupport : FeynmanKacFullSupport steps)
+    (particles : Particle → Sample)
+    (history : Continuation Particle Sample steps) :
+    0 < (continuationLaw steps particles).mass history := by
+  induction steps generalizing particles with
+  | nil => simp [continuationLaw]
+  | cons step steps ih =>
+      simp only [FeynmanKacFullSupport] at hsupport
+      unfold continuationLaw
+      exact mul_pos
+        (mul_pos
+          (multinomialResampling_mass_pos _
+            (normalizedPotentialWeights_mass_pos step.potential
+              step.potential_pos particles) history.1)
+          (propagatedPopulation_mass_pos step.transition hsupport.1
+            particles history.1 history.2.1))
+        (ih hsupport.2 history.2.1 history.2.2)
+
 /-- Product of average potentials along a concrete SMC history, followed by
 the empirical terminal observable. -/
 noncomputable def historyValue :
@@ -216,6 +246,18 @@ noncomputable def historyLaw (initial : Distribution Sample)
     simp_rw [← Finset.mul_sum, (continuationLaw steps _).sum_mass, mul_one]
     exact (iidPopulation (Particle := Particle) initial).sum_mass
 
+omit [DecidableEq Sample] in
+/-- A full-support initial law and full-support propagation schedule give
+positive probability to every explicit SMC history. -/
+theorem historyLaw_mass_pos (initial : Distribution Sample)
+    (hinitial : ∀ x, 0 < initial.mass x)
+    (steps : List (FeynmanKacStep Sample))
+    (hsupport : FeynmanKacFullSupport steps)
+    (history : History (Particle := Particle) steps) :
+    0 < (historyLaw (Particle := Particle) initial steps).mass history := by
+  exact mul_pos (iidPopulation_mass_pos initial hinitial history.1)
+    (continuationLaw_mass_pos steps hsupport history.1 history.2)
+
 /-- Concrete product-of-average-potentials estimator with a terminal empirical
 observable. -/
 noncomputable def fullHistoryValue (steps : List (FeynmanKacStep Sample))
@@ -276,6 +318,21 @@ theorem normalizingWeight_nonneg (steps : List (FeynmanKacStep Sample))
     0 ≤ normalizingWeight steps history :=
   historyValue_nonneg steps (fun _ => 1) (fun _ => by norm_num)
     history.1 history.2
+
+omit [DecidableEq Sample] [DecidableEq Particle] in
+/-- Strictly positive potentials make every concrete SMC normalizing weight
+positive. -/
+theorem normalizingWeight_pos (steps : List (FeynmanKacStep Sample))
+    (history : History (Particle := Particle) steps) :
+    0 < normalizingWeight steps history := by
+  unfold normalizingWeight fullHistoryValue
+  induction steps with
+  | nil =>
+      exact particleAverage_pos (fun _ => by norm_num) history.1
+  | cons step steps ih =>
+      unfold historyValue
+      exact mul_pos (particleAverage_pos step.potential_pos history.1)
+        (ih (history.2.2.1, history.2.2.2))
 
 omit [DecidableEq Sample] in
 /-- The explicit SMC normalizing weight is unbiased for its exact finite
@@ -875,6 +932,25 @@ noncomputable def selectedParticleTarget (initial : Distribution Sample)
       rw [Finset.sum_div]]
     rw [normalizingWeight_expectation]
     exact div_self (ne_of_gt hnormalizer)
+
+omit [DecidableEq Sample] in
+/-- With full-support initialization and propagation, every selected SMC
+history/index pair has positive extended-target mass. -/
+theorem selectedParticleTarget_mass_pos
+    (initial : Distribution Sample) (hinitial : ∀ x, 0 < initial.mass x)
+    (steps : List (FeynmanKacStep Sample))
+    (hsupport : FeynmanKacFullSupport steps)
+    (hnormalizer : 0 < normalizingConstant initial steps)
+    (selected : History (Particle := Particle) steps × Particle) :
+    0 < (selectedParticleTarget (Particle := Particle) initial steps
+      hnormalizer).mass selected := by
+  unfold selectedParticleTarget
+  exact div_pos
+    (div_pos
+      (mul_pos (historyLaw_mass_pos initial hinitial steps hsupport selected.1)
+        (normalizingWeight_pos steps selected.1))
+      hnormalizer)
+    (by positivity)
 
 omit [DecidableEq Sample] in
 /-- Exact selected-terminal expectation under the history-weighted SMC target. -/

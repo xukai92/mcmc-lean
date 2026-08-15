@@ -1,4 +1,4 @@
-import Mcmc.Finite.SequentialMonteCarlo
+import Mcmc.Finite.Doeblin
 
 /-!
 # A finite particle-Gibbs example
@@ -26,6 +26,29 @@ theorem normalizer_positive :
 
 theorem initial_positive (x : Bool) : 0 < initial.mass x := by
   cases x <;> norm_num [initial]
+
+/-- A fully supported Boolean propagation used for a genuine positive-horizon
+particle-Gibbs client. -/
+noncomputable def uniformTransition : MarkovKernel Bool where
+  prob _ _ := 1 / 2
+  nonneg _ _ := by norm_num
+  sum_prob _ := by norm_num [Fintype.sum_bool]
+
+noncomputable def positiveStep : FeynmanKacStep Bool where
+  potential _ := 1
+  potential_pos _ := by norm_num
+  transition := uniformTransition
+
+noncomputable def positiveSchedule : List (FeynmanKacStep Bool) := [positiveStep]
+
+theorem positiveSchedule_fullSupport : FeynmanKacFullSupport positiveSchedule := by
+  simp [positiveSchedule, positiveStep, uniformTransition, FeynmanKacFullSupport]
+
+theorem positiveSchedule_normalizer :
+    0 < normalizingConstant initial positiveSchedule := by
+  norm_num [normalizingConstant, positiveSchedule, positiveStep,
+    uniformTransition, feynmanKacSequence, feynmanKacTransform,
+    initial, Fintype.sum_bool]
 
 /-- The executable forced-lineage construction is the exact conditional law,
 already in the zero-transition model used by this small client. -/
@@ -57,5 +80,20 @@ example (observable : List Bool → ℝ) :
     (Particle := Bool) initial [] normalizer_positive observable]
   norm_num [normalizingConstant, pathFeynmanKacValue, labeledFeynmanKacValue,
     feynmanKacSequence, initial, Fintype.sum_bool]
+
+/-- The concrete two-particle, one-transition bootstrap PG chain converges in
+total variation from every initial trajectory law. -/
+example (initialLaw : Distribution (Trajectory positiveSchedule)) :
+    Filter.Tendsto (fun n =>
+      Nonhomogeneous.distributionTotalVariation
+        (Nonhomogeneous.iterateLaw initialLaw
+          (trajectoryParticleGibbsKernel (Particle := Bool)
+            initial positiveSchedule positiveSchedule_normalizer) n)
+        (trajectoryTarget (Particle := Bool)
+          initial positiveSchedule positiveSchedule_normalizer))
+      Filter.atTop (nhds 0) :=
+  particleGibbs_bool_totalVariation_tendsto_zero_of_fullSupport
+    initial initial_positive positiveSchedule positiveSchedule_fullSupport
+      positiveSchedule_normalizer initialLaw
 
 end Mcmc.Examples.ParticleGibbs
