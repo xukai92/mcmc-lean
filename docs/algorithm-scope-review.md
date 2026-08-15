@@ -256,14 +256,15 @@ path is exact. This is not a convergence theorem: irreducibility, convergence
 rates, and particle efficiency remain unproved. Conditional SMC and particle
 Gibbs remain separate clients.
 
-Finite PMMH is now complete for state-indexed initial particle laws and a shared
-finite potential/transition schedule. Its estimator retains both the SMC
-history and selected index. Lean proves extended-target stationarity, the exact
-requested parameter marginal, and a slice factorization yielding the correct
-joint parameter/selected-path expectation. State-dependent step schedules,
-conditional SMC, and particle Gibbs remain. Again, stationarity is not asserted
-to imply convergence from arbitrary initialization.
-Conditional SMC and particle Gibbs follow. Keep fixed-particle stationarity,
+Finite PMMH is now complete for parameter-indexed initial particle laws and
+fixed-horizon schedules whose potentials and transition kernels may also depend
+on the parameter. Equal-length histories are transported into one common
+auxiliary type; the estimator retains both the complete SMC history and selected
+index. Lean proves extended-target stationarity, the exact requested parameter
+marginal, and the correct joint parameter/selected-path expectation for the
+corresponding parameter-specific Feynman--Kac model. Conditional SMC and
+particle Gibbs remain. Stationarity is not asserted to imply convergence from
+arbitrary initialization. Keep fixed-particle stationarity,
 chain convergence, and consistency as particle count grows as separate theorem
 families.
 

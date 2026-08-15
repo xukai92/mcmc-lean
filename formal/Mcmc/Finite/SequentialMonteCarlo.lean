@@ -1335,6 +1335,192 @@ theorem stateIndexedKernel_state_marginal (target : Distribution State)
   PseudoMarginal.state_marginal target
     (stateIndexedEstimator (Particle := Particle) initial schedule hnormalizer) x
 
+/-- Relabel a state-specific SMC history and selected terminal index into the
+common fixed-horizon PMMH auxiliary-state type. -/
+noncomputable def stateIndexedSelectedEquiv
+    (schedule : StateIndexedSchedule (State := State) (Sample := Sample))
+    (x : State) :
+    (History (Particle := Particle) (stepsAt schedule x) × Particle) ≃
+      (StateIndexedHistory (Particle := Particle) schedule × Particle) :=
+  Equiv.prodCongr
+    (historyEquivOfLength (Particle := Particle) (stepsAt schedule x)
+      (stepsAt schedule (Classical.choice inferInstance)) (by simp [stepsAt]))
+    (Equiv.refl Particle)
+
+/-- PMMH estimator with state-indexed initial law, potentials, and transition
+kernels. The complete history and selected terminal index are transported to
+one common auxiliary-state type using the shared schedule length. -/
+noncomputable def stateIndexedPmmhEstimator
+    (initial : State → Distribution Sample)
+    (schedule : StateIndexedSchedule (State := State) (Sample := Sample))
+    (hnormalizer : ∀ x,
+      0 < normalizingConstant (initial x) (stepsAt schedule x)) :
+    PseudoMarginal.Estimator State
+      (StateIndexedHistory (Particle := Particle) schedule × Particle) where
+  law x := relabelDistribution
+    (particleIndependentProposalLaw (Particle := Particle) (initial x)
+      (stepsAt schedule x))
+    (stateIndexedSelectedEquiv (Particle := Particle) schedule x)
+  value x selected :=
+    normalizingWeight (stepsAt schedule x)
+        ((stateIndexedSelectedEquiv (Particle := Particle) schedule x).symm selected).1 /
+      normalizingConstant (initial x) (stepsAt schedule x)
+  nonneg x selected := div_nonneg
+    (normalizingWeight_nonneg (stepsAt schedule x)
+      ((stateIndexedSelectedEquiv (Particle := Particle) schedule x).symm selected).1)
+    (le_of_lt (hnormalizer x))
+  unbiased x := by
+    let e := stateIndexedSelectedEquiv (Particle := Particle) schedule x
+    change ∑ selected,
+        (particleIndependentProposalLaw (Particle := Particle) (initial x)
+          (stepsAt schedule x)).mass (e.symm selected) *
+        (normalizingWeight (stepsAt schedule x) (e.symm selected).1 /
+          normalizingConstant (initial x) (stepsAt schedule x)) = 1
+    rw [← Fintype.sum_equiv e
+      (fun selected =>
+        (particleIndependentProposalLaw (Particle := Particle) (initial x)
+          (stepsAt schedule x)).mass selected *
+        (normalizingWeight (stepsAt schedule x) selected.1 /
+          normalizingConstant (initial x) (stepsAt schedule x)))
+      (fun selected =>
+        (particleIndependentProposalLaw (Particle := Particle) (initial x)
+          (stepsAt schedule x)).mass (e.symm selected) *
+        (normalizingWeight (stepsAt schedule x) (e.symm selected).1 /
+          normalizingConstant (initial x) (stepsAt schedule x))) (fun selected => by simp)]
+    exact (pmmhEstimator (Particle := Particle) (fun _ : State => initial x)
+      (stepsAt schedule x) (fun _ => hnormalizer x)).unbiased x
+
+/-- Finite PMMH with a complete parameter-indexed SMC schedule, retaining the
+parameter, relabeled history, and selected terminal index on rejection. -/
+noncomputable def stateIndexedPmmhKernel (target : Distribution State)
+    (initial : State → Distribution Sample)
+    (schedule : StateIndexedSchedule (State := State) (Sample := Sample))
+    (hnormalizer : ∀ x,
+      0 < normalizingConstant (initial x) (stepsAt schedule x))
+    (proposal : MarkovKernel State) :
+    MarkovKernel
+      (State × (StateIndexedHistory (Particle := Particle) schedule × Particle)) :=
+  PseudoMarginal.kernel target
+    (stateIndexedPmmhEstimator (Particle := Particle) initial schedule hnormalizer)
+    proposal
+
+/-- Exact extended-target stationarity of finite PMMH with fully
+state-indexed schedules. -/
+theorem stateIndexedPmmhKernel_stationary (target : Distribution State)
+    (initial : State → Distribution Sample)
+    (schedule : StateIndexedSchedule (State := State) (Sample := Sample))
+    (hnormalizer : ∀ x,
+      0 < normalizingConstant (initial x) (stepsAt schedule x))
+    (proposal : MarkovKernel State) :
+    (stateIndexedPmmhKernel (Particle := Particle) target initial schedule
+      hnormalizer proposal).Stationary
+      (PseudoMarginal.extendedTarget target
+        (stateIndexedPmmhEstimator (Particle := Particle) initial schedule
+          hnormalizer)) :=
+  PseudoMarginal.stationary target
+    (stateIndexedPmmhEstimator (Particle := Particle) initial schedule hnormalizer)
+    proposal
+
+omit [DecidableEq Sample] [DecidableEq State] in
+/-- Fully state-indexed PMMH has exactly the requested stationary parameter
+marginal. -/
+theorem stateIndexedPmmhKernel_state_marginal (target : Distribution State)
+    (initial : State → Distribution Sample)
+    (schedule : StateIndexedSchedule (State := State) (Sample := Sample))
+    (hnormalizer : ∀ x,
+      0 < normalizingConstant (initial x) (stepsAt schedule x)) (x : State) :
+    ∑ selected, (PseudoMarginal.extendedTarget target
+      (stateIndexedPmmhEstimator (Particle := Particle) initial schedule
+        hnormalizer)).mass (x, selected) = target.mass x :=
+  PseudoMarginal.state_marginal target
+    (stateIndexedPmmhEstimator (Particle := Particle) initial schedule hnormalizer) x
+
+/-- Extract the selected ancestral trajectory using the schedule belonging to
+the retained parameter. -/
+noncomputable def stateIndexedSelectedTrajectory
+    (schedule : StateIndexedSchedule (State := State) (Sample := Sample))
+    (x : State)
+    (selected : StateIndexedHistory (Particle := Particle) schedule × Particle) :
+    List Sample :=
+  let source :=
+    (stateIndexedSelectedEquiv (Particle := Particle) schedule x).symm selected
+  selectedTrajectory (stepsAt schedule x) source.1.1 source.1.2 source.2
+
+omit [DecidableEq Sample] [DecidableEq State] in
+/-- At stationarity, fully state-indexed PMMH has the target-weighted exact
+Feynman--Kac path expectation for each parameter-specific schedule. -/
+theorem stateIndexedPmmh_stationary_selectedTrajectory_expectation
+    (target : Distribution State) (initial : State → Distribution Sample)
+    (schedule : StateIndexedSchedule (State := State) (Sample := Sample))
+    (hnormalizer : ∀ x,
+      0 < normalizingConstant (initial x) (stepsAt schedule x))
+    (observable : State → List Sample → ℝ) :
+    ∑ extended, (PseudoMarginal.extendedTarget target
+        (stateIndexedPmmhEstimator (Particle := Particle) initial schedule
+          hnormalizer)).mass extended *
+      observable extended.1
+        (stateIndexedSelectedTrajectory (Particle := Particle) schedule
+          extended.1 extended.2) =
+      ∑ x, target.mass x *
+        ((∑ y, (initial x).mass y *
+          pathFeynmanKacValue (stepsAt schedule x) (observable x) y) /
+            normalizingConstant (initial x) (stepsAt schedule x)) := by
+  rw [Fintype.sum_prod_type]
+  apply Finset.sum_congr rfl
+  intro x _
+  let e := stateIndexedSelectedEquiv (Particle := Particle) schedule x
+  simp only [PseudoMarginal.extendedTarget, stateIndexedPmmhEstimator,
+    relabelDistribution, stateIndexedSelectedTrajectory]
+  change ∑ selected,
+      target.mass x *
+          (particleIndependentProposalLaw (Particle := Particle) (initial x)
+            (stepsAt schedule x)).mass (e.symm selected) *
+          (normalizingWeight (stepsAt schedule x) (e.symm selected).1 /
+            normalizingConstant (initial x) (stepsAt schedule x)) *
+        observable x
+          (selectedTrajectory (stepsAt schedule x) (e.symm selected).1.1
+            (e.symm selected).1.2 (e.symm selected).2) = _
+  rw [← Fintype.sum_equiv e
+    (fun selected =>
+      target.mass x *
+          (particleIndependentProposalLaw (Particle := Particle) (initial x)
+            (stepsAt schedule x)).mass selected *
+          (normalizingWeight (stepsAt schedule x) selected.1 /
+            normalizingConstant (initial x) (stepsAt schedule x)) *
+        observable x
+          (selectedTrajectory (stepsAt schedule x) selected.1.1 selected.1.2
+            selected.2))
+    (fun selected =>
+      target.mass x *
+          (particleIndependentProposalLaw (Particle := Particle) (initial x)
+            (stepsAt schedule x)).mass (e.symm selected) *
+          (normalizingWeight (stepsAt schedule x) (e.symm selected).1 /
+            normalizingConstant (initial x) (stepsAt schedule x)) *
+        observable x
+          (selectedTrajectory (stepsAt schedule x) (e.symm selected).1.1
+            (e.symm selected).1.2 (e.symm selected).2)) (fun selected => by simp)]
+  rw [show (∑ selected,
+      target.mass x *
+          (particleIndependentProposalLaw (Particle := Particle) (initial x)
+            (stepsAt schedule x)).mass selected *
+          (normalizingWeight (stepsAt schedule x) selected.1 /
+            normalizingConstant (initial x) (stepsAt schedule x)) *
+        observable x
+          (selectedTrajectory (stepsAt schedule x) selected.1.1 selected.1.2
+            selected.2)) =
+      target.mass x * ∑ selected,
+        (selectedParticleTarget (Particle := Particle) (initial x)
+          (stepsAt schedule x) (hnormalizer x)).mass selected *
+        observable x
+          (selectedTrajectory (stepsAt schedule x) selected.1.1 selected.1.2
+            selected.2) by
+    unfold particleIndependentProposalLaw selectedParticleTarget
+    rw [Finset.mul_sum]
+    apply Finset.sum_congr rfl
+    intro selected _
+    ring]
+  rw [selectedParticleTarget_selectedTrajectory_expectation]
+
 end StateIndexedSchedule
 
 end PseudoMarginalClient

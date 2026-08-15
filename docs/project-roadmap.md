@@ -109,10 +109,10 @@ The pre-Xu dependency order is:
    many-to-one identity and its equivalence to backward genealogy tracing are
    now complete, as is a finite PIMH kernel with exact extended-target
    stationarity and selected-path expectation. A finite PMMH client is also
-   complete for state-indexed initial laws and a
-   shared step schedule, including its exact parameter marginal and joint
-   parameter/path expectation. Fully state-indexed schedules and particle
-   Gibbs remain.
+   complete for parameter-indexed initial laws and fixed-horizon schedules
+   whose potentials and transitions may depend on the parameter, including its
+   exact parameter marginal and joint parameter/path expectation. Conditional
+   SMC and particle Gibbs remain.
 7. adaptive-MCMC boundary -- finite state-dependent kernel selection and a
    counterexample where two frozen target-invariant kernels combine into a
    non-invariant selected kernel are complete. Predetermined nonhomogeneous law
@@ -160,9 +160,9 @@ obligations.
 
 ## Immediate plan
 
-A1--A4 and B1 are complete. The next particle branch transports the completed
-PMMH history-plus-index client across state-indexed schedules; conditional SMC
-and particle Gibbs follow separately. Practical slice transitions and richer
+A1--A4 and B1 are complete. Fully state-indexed finite PMMH is complete. The
+next particle branch is conditional SMC, followed by particle Gibbs. Practical
+slice transitions and richer
 reversible-jump clients are optional breadth branches. The next
 paper-execution branch is B2. None of
 these is needed to support the completed finite Gibbs, tempering,

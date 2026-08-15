@@ -108,6 +108,23 @@ history-dependent process, mixing times, containment, and convergence remain
 future theorems; none follows from common invariance or deterministic
 diminishing alone.
 
+## 2026-08-15: fully state-indexed finite PMMH
+
+Transported each parameter-specific SMC history and selected terminal index
+across the canonical equal-horizon history equivalence into one common PMMH
+auxiliary-state type. The initial law, every potential, and every transition
+kernel may now depend on the proposed parameter; only the finite schedule
+length is shared.
+
+Lean proves that the transported estimator is nonnegative and unit mean, that
+the resulting PMMH extended target is stationary, and that its parameter
+marginal is exactly the requested target. It also proves the target-weighted
+joint parameter/selected-trajectory expectation against each parameter's own
+Feynman--Kac model. A concrete Boolean example uses different potential and
+transition kernels at its two parameter values. These are stationarity and
+exact-marginal results, not chain-convergence or particle-efficiency results.
+Conditional SMC and particle Gibbs remain separate.
+
 ## 2026-08-15: finite PMMH stationary exactness
 
 Packaged a complete SMC history and selected terminal index as the auxiliary
@@ -119,8 +136,9 @@ Lean proves extended-target stationarity and the exact requested parameter
 marginal. It also proves that each parameter slice of the extended target is
 the parameter mass times its history-weighted selected-particle target. Hence
 every joint parameter/selected-path observable has the target-weighted exact
-normalized Feynman--Kac expectation. State-indexed step schedules, conditional
-SMC, and particle Gibbs remain; no convergence or efficiency result is claimed.
+normalized Feynman--Kac expectation. This entry records the initial
+shared-schedule result; it was subsequently generalized above. No convergence
+or efficiency result is claimed.
 
 ## 2026-08-15: full path many-to-one theorem and finite PIMH
 
