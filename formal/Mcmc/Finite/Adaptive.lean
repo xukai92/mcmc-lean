@@ -80,6 +80,25 @@ theorem rowTotalVariation_symm (first second : MarkovKernel State) (x : State) :
   intro y _
   rw [abs_sub_comm]
 
+theorem rowTotalVariation_triangle (first second third : MarkovKernel State)
+    (x : State) :
+    rowTotalVariation first third x ≤
+      rowTotalVariation first second x + rowTotalVariation second third x := by
+  unfold rowTotalVariation
+  rw [← add_div]
+  apply div_le_div_of_nonneg_right _ (by norm_num)
+  rw [← Finset.sum_add_distrib]
+  apply Finset.sum_le_sum
+  intro y _
+  calc
+    |first.prob x y - third.prob x y| =
+        |(first.prob x y - second.prob x y) +
+          (second.prob x y - third.prob x y)| := by
+      congr 1
+      ring
+    _ ≤ |first.prob x y - second.prob x y| +
+        |second.prob x y - third.prob x y| := abs_add_le _ _
+
 theorem rowTotalVariation_le_one (first second : MarkovKernel State) (x : State) :
     rowTotalVariation first second x ≤ 1 := by
   unfold rowTotalVariation
@@ -104,6 +123,37 @@ theorem rowTotalVariation_le_one (first second : MarkovKernel State) (x : State)
 /-- Uniform finite-state row-TV bound between two kernels. -/
 def KernelDistanceLE (first second : MarkovKernel State) (ε : ℝ) : Prop :=
   ∀ x, rowTotalVariation first second x ≤ ε
+
+/-- Sum of row-TV distances.  On a finite state space this aggregate controls
+every individual row and is convenient for tracking accumulated adaptation. -/
+noncomputable def kernelVariation (first second : MarkovKernel State) : ℝ :=
+  ∑ x, rowTotalVariation first second x
+
+theorem rowTotalVariation_le_kernelVariation
+    (first second : MarkovKernel State) (x : State) :
+    rowTotalVariation first second x ≤ kernelVariation first second := by
+  unfold kernelVariation
+  exact Finset.single_le_sum (fun y _ => rowTotalVariation_nonneg first second y)
+    (Finset.mem_univ x)
+
+theorem kernelVariation_nonneg (first second : MarkovKernel State) :
+    0 ≤ kernelVariation first second :=
+  Finset.sum_nonneg fun x _ => rowTotalVariation_nonneg first second x
+
+theorem kernelVariation_le_card (first second : MarkovKernel State) :
+    kernelVariation first second ≤ Fintype.card State := by
+  unfold kernelVariation
+  calc
+    ∑ x, rowTotalVariation first second x ≤ ∑ _x : State, (1 : ℝ) :=
+      Finset.sum_le_sum fun x _ => rowTotalVariation_le_one first second x
+    _ = Fintype.card State := by simp
+
+theorem kernelVariation_triangle (first second third : MarkovKernel State) :
+    kernelVariation first third ≤
+      kernelVariation first second + kernelVariation second third := by
+  unfold kernelVariation
+  rw [← Finset.sum_add_distrib]
+  exact Finset.sum_le_sum fun x _ => rowTotalVariation_triangle first second third x
 
 theorem kernelDistanceLE_symm {first second : MarkovKernel State} {ε : ℝ}
     (h : KernelDistanceLE first second ε) : KernelDistanceLE second first ε := by
@@ -503,6 +553,14 @@ noncomputable def changeProbability [DecidableEq State]
       (if ∃ x, ε < rowTotalVariation
         (process.kernel next.2) (process.kernel current.2) x then 1 else 0)
 
+/-- Expected aggregate row variation between two successive selected kernels
+under one transition of the actual adaptive process. -/
+noncomputable def expectedKernelVariation
+    (process : Process State Parameter) (law : Distribution (State × Parameter)) : ℝ :=
+  ∑ current, law.mass current *
+    ∑ next, process.augmentedKernel.prob current next *
+      kernelVariation (process.kernel next.2) (process.kernel current.2)
+
 theorem changeProbability_nonneg [DecidableEq State]
     (process : Process State Parameter) (law : Distribution (State × Parameter))
     (ε : ℝ) : 0 ≤ changeProbability process law ε := by
@@ -540,6 +598,91 @@ theorem changeProbability_le_one [DecidableEq State]
               split_ifs <;> norm_num
           _ = 1 := by simp [process.augmentedKernel.sum_prob current]
     _ = 1 := by simpa using law.sum_mass
+
+/-- A Diminishing-Adaptation tail probability controls the expected aggregate
+successive-kernel variation.  The finite-state cardinality appears because
+`kernelVariation` sums all row-TV distances. -/
+theorem expectedKernelVariation_le [DecidableEq State]
+    (process : Process State Parameter) (law : Distribution (State × Parameter))
+    (ε : ℝ) (hε : 0 ≤ ε) :
+    expectedKernelVariation process law ≤
+      Fintype.card State *
+        (ε + changeProbability process law ε) := by
+  let bad : (State × Parameter) → (State × Parameter) → ℝ := fun current next =>
+    if ∃ x, ε < rowTotalVariation
+      (process.kernel next.2) (process.kernel current.2) x then 1 else 0
+  have hvariation (current next : State × Parameter) :
+      kernelVariation (process.kernel next.2) (process.kernel current.2) ≤
+        Fintype.card State * (ε + bad current next) := by
+    by_cases hbad : ∃ x, ε < rowTotalVariation
+        (process.kernel next.2) (process.kernel current.2) x
+    · rw [show bad current next = 1 by simp [bad, hbad]]
+      calc
+        kernelVariation (process.kernel next.2) (process.kernel current.2) ≤
+            Fintype.card State := kernelVariation_le_card _ _
+        _ ≤ Fintype.card State * (ε + 1) := by
+          have hcard : (0 : ℝ) ≤ Fintype.card State := by positivity
+          nlinarith
+    · rw [show bad current next = 0 by simp [bad, hbad], add_zero]
+      unfold kernelVariation
+      calc
+        ∑ x, rowTotalVariation (process.kernel next.2)
+            (process.kernel current.2) x ≤ ∑ _x : State, ε := by
+          apply Finset.sum_le_sum
+          intro x _
+          exact not_lt.mp (not_exists.mp hbad x)
+        _ = Fintype.card State * ε := by simp
+  unfold expectedKernelVariation changeProbability
+  change (∑ current, law.mass current *
+      ∑ next, process.augmentedKernel.prob current next *
+        kernelVariation (process.kernel next.2) (process.kernel current.2)) ≤
+    Fintype.card State *
+      (ε + ∑ current, law.mass current *
+        ∑ next, process.augmentedKernel.prob current next * bad current next)
+  calc
+    _ ≤ ∑ current, law.mass current *
+        ∑ next, process.augmentedKernel.prob current next *
+          (Fintype.card State * (ε + bad current next)) := by
+      apply Finset.sum_le_sum
+      intro current _
+      apply mul_le_mul_of_nonneg_left _ (law.nonneg current)
+      apply Finset.sum_le_sum
+      intro next _
+      exact mul_le_mul_of_nonneg_left (hvariation current next)
+        (process.augmentedKernel.nonneg current next)
+    _ = Fintype.card State *
+        (ε + ∑ current, law.mass current *
+          ∑ next, process.augmentedKernel.prob current next * bad current next) := by
+      have hinner (current : State × Parameter) :
+          (∑ next, process.augmentedKernel.prob current next *
+            (Fintype.card State * (ε + bad current next))) =
+          Fintype.card State * ε + Fintype.card State *
+            ∑ next, process.augmentedKernel.prob current next * bad current next := by
+        calc
+          _ = ∑ next, (process.augmentedKernel.prob current next *
+                (Fintype.card State * ε) +
+              Fintype.card State *
+                (process.augmentedKernel.prob current next * bad current next)) := by
+            apply Finset.sum_congr rfl
+            intro next _
+            ring
+          _ = _ := by
+            rw [Finset.sum_add_distrib]
+            simp_rw [← Finset.sum_mul]
+            rw [process.augmentedKernel.sum_prob]
+            simp only [one_mul]
+            apply congrArg (fun z => Fintype.card State * ε + z)
+            rw [Finset.mul_sum]
+      simp_rw [hinner, mul_add]
+      rw [Finset.sum_add_distrib]
+      simp_rw [← Finset.sum_mul]
+      rw [law.sum_mass]
+      simp only [one_mul]
+      apply congrArg (fun z => Fintype.card State * ε + z)
+      rw [Finset.mul_sum]
+      apply Finset.sum_congr rfl
+      intro current _
+      ring
 
 /-- Finite Markovian form of Roberts--Rosenthal Diminishing Adaptation:
 successive selected kernels become close in probability under the actual
