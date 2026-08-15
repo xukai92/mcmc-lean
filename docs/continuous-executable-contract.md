@@ -134,9 +134,23 @@ draw is farther from every ideal cumulative boundary than the combined draw
 and boundary errors, computed and ideal scans return the same index. The Julia
 certificate API checks supplied witnesses in parallel with sampler execution.
 
-Version 8 also contains diagonal and dense constant-metric multinomial
+Version 9 also contains diagonal and dense constant-metric multinomial
 commands. Their ideal semantics has exact phase and refreshed-position
 invariance, including the Cholesky momentum specialization.
+
+## Xu et al. coupled mixture
+
+Version 9 contains separate commands for coupled multinomial HMC, coupled
+Gaussian RWMH, and their mixture. Lean assigns them the existing ideal
+shared-momentum/maximal-index HMC coupling and maximal-Gaussian sticky RWMH
+coupling. Each command has the verified single-chain transition on both
+marginals; the mixture therefore has the verified HMC/RWMH mixture on both
+marginals.
+
+Julia interprets the commands with shared random events and exposes exact
+equality after each step as `met`. Tests verify faithfulness from an already
+equal pair. These facts do not discharge floating-point trajectory, Gaussian
+proposal, categorical-boundary, callback, or RNG refinement.
 
 ## Required refinement assumptions
 

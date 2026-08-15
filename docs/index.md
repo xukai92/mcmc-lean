@@ -19,7 +19,8 @@ arguments, and explicit audits of the targeted papers.
 - [Executable architecture](executable-architecture.md) explains the Lean IR,
   Julia reference interpreter, and optimized implementation.
 - [Executable roadmap](executable-roadmap.md) records completed vertical
-  slices and the prioritized path to coupled and Riemannian samplers.
+  slices, including the Xu et al. coupling, and the prioritized path to
+  Riemannian execution.
 - [Testing strategy](testing.md) separates proved properties from executable,
   differential, and statistical tests.
 - [Development log](development-log.md) records current completed work and

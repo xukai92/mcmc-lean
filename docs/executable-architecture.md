@@ -419,6 +419,18 @@ and `randn`/`rand` for production draws; this is implementation evidence, not
 a numerical-refinement theorem. The exact Julia boundary is listed in the
 [continuous executable contract](continuous-executable-contract.md).
 
+### Xu et al. coupled command status
+
+IR version 9 adds named commands for shared-momentum multinomial HMC, sticky
+Gaussian RWMH, and their mixture. Their ideal Lean denotations reuse the
+verified coupled kernels rather than defining parallel mathematics. Lean
+proves the HMC, RWMH, and mixture marginal identities.
+
+Julia Reference implements the associated shared randomness and reports exact
+state equality as a replay-level meeting flag. This adds executable access and
+implementation tests, not a proof that Float64 replay denotes the ideal-real
+coupled kernel. That edge remains part of the numerical-refinement boundary.
+
 ## Validation flow
 
 The root workflow is:

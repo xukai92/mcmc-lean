@@ -42,6 +42,11 @@ moments, correlated and ill-conditioned Gaussian metrics, multinomial event
 ordering, and public sampling APIs. RWMH and HMC also have per-run bounded
 decision-certificate unit tests.
 
+`test/xu21_coupling.jl` exercises the public coupled HMC/RWMH mixture, checks
+output shape and finiteness, validates dimension failures, and verifies
+faithfulness under repeated replay after the chains are exactly equal. These
+are implementation regressions; the ideal marginal identities come from Lean.
+
 These numerical checks complement the Lean phase-volume, PMF, kernel-row, and
 invariance theorems; they do not replace them.
 

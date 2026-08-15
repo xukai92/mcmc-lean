@@ -12,25 +12,24 @@ The repository is already deep in three areas:
 1. general-state MH, HMC, coupling, meeting-time, and unbiased-estimator
    mathematics;
 2. corrected theorem coverage for Xu et al. (2021) and Xu and Ge (2024); and
-3. generated executable finite MH, RWMH, endpoint HMC, and unit/constant-metric
-   multinomial HMC, with explicit numerical-refinement boundaries.
+3. generated executable finite MH, RWMH, endpoint HMC, unit/constant-metric
+   multinomial HMC, and the Xu et al. coupled mixture, with explicit
+   numerical-refinement boundaries.
 
-Several combinators requested by the literature review already exist in
-specialized or general form: kernel composition through mathlib, invariant
-mixtures in `Mcmc.Kernel.Coupling`, product/lift/project machinery, coupling
-marginals, and finite/infinite path semantics. The next foundation step is
-therefore consolidation plus missing APIs, not a parallel replacement.
+The reusable surface combines mathlib composition with local invariant
+mixtures, product/lift/project machinery, coupling marginals, finite/infinite
+path semantics, and the completed elementary finite combinators.
 
 ## Track A: reusable sampler foundations
 
 ### A1. Consolidate kernel combinators and add finite Gibbs — complete
 
-- inventory and publicly re-export existing composition, mixture, product,
+- inventoried and publicly re-exported composition, mixture, product,
   mapping, and stationary-marginal theorems;
-- add only missing coordinate-lift and deterministic/random scan lemmas;
-- define finite product-state conditional laws, one-site/block Gibbs kernels,
+- added the missing coordinate-lift and deterministic/random scan lemmas;
+- defined finite product-state conditional laws, one-site/block Gibbs kernels,
   random scans, and systematic scans; and
-- prove target invariance, while keeping irreducibility and convergence as
+- proved target invariance, while keeping irreducibility and convergence as
   separate optional theorems.
 
 This supplies shared language for tempering, adaptation, particle methods,
@@ -38,17 +37,16 @@ and coupled multi-kernel algorithms.
 
 ### A2. Parallel tempering — complete for two finite temperatures
 
-Use coordinate-lifted invariant kernels and ordinary MH transposition moves to
-prove invariance of the product-temperature target and identify the cold
-stationary marginal. Do not claim swaps improve mixing without an additional
-quantitative theorem.
+Coordinate-lifted invariant kernels and an ordinary MH transposition preserve
+the two-temperature product target; its cold marginal is identified exactly.
+No improved-mixing claim is made.
 
 ### A3. Finite pseudo-marginal MH — complete
 
-Formalize a nonnegative unbiased estimator on a finite auxiliary space, the
-extended target, its desired marginal, and an MH transition that retains the
-current estimator. Include zero estimator values. Keep MCWM, which refreshes
-both estimates and is generally biased, explicitly separate.
+A nonnegative unbiased estimator on a finite auxiliary space defines the
+normalized extended target and an MH transition retaining the current
+estimator on rejection. The desired marginal is proved, including zero
+estimator values. MCWM remains explicitly separate.
 
 ### A4. First general-state convergence and proposal clients
 
@@ -61,10 +59,9 @@ not target-exact.
 
 ### B1. Executable Xu et al. (2021) coupling — complete
 
-Add generated shared-randomness commands for coupled multinomial HMC, sticky
-Gaussian RWMH, and their mixture. Prove both executable marginals equal the
-verified single-chain kernels and expose replay-level meeting events. This can
-follow A1 so it uses the consolidated composition API.
+Version-9 shared-randomness commands cover coupled multinomial HMC, sticky
+Gaussian RWMH, and their mixture. Lean proves both ideal marginals equal the
+verified single-chain kernels, and Julia exposes replay-level meeting events.
 
 ### B2. Executable Xu and Ge (2024) sampler
 

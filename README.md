@@ -23,7 +23,10 @@ statement is classified in its corresponding coverage audit.
 
 The [overall project roadmap](docs/project-roadmap.md) integrates these paper
 targets with executable work and the broader
-[algorithm scope review](docs/algorithm-scope-review.md).
+[algorithm scope review](docs/algorithm-scope-review.md). Finite Gibbs,
+two-temperature tempering, finite pseudo-marginal MH, and executable Xu et al.
+coupling are complete; the next major branches are general-state convergence
+clients and corrected Xu--Ge execution.
 
 Betancourt's [*A Conceptual Introduction to Hamiltonian Monte
 Carlo*](https://arxiv.org/abs/1701.02434) is used as a foundational HMC

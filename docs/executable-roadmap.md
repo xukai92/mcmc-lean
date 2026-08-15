@@ -17,6 +17,7 @@ The current version-9 artifact and Julia package provide:
 | Diagonal and dense constant-metric HMC | Time reversal, volume and Boltzmann invariance, and Gaussian-factor transport | Generated Reference programs, Optimized comparison, and correlated-Gaussian tests |
 | Randomized-origin multinomial HMC | Exact choice PMF, verified kernel row, and position invariance | Generated Reference program, independent Optimized trajectory, and moment tests |
 | Constant-metric multinomial HMC | Orbit-kernel phase and refreshed-position invariance, including Cholesky refresh | Typed diagonal/dense programs, differential tests, and correlated-Gaussian moments |
+| Xu et al. coupled HMC/RWMH | Each ideal coupled command has the verified single-chain kernel on both marginals | Version-9 Reference interpreter, shared-randomness replay, meeting flags, and faithfulness tests |
 
 The finite implementation is exact. Continuous Julia execution uses
 `Float64`, platform numerical libraries, callbacks, and concrete RNGs. Lean
@@ -57,20 +58,20 @@ remain future work.
 
 ## Prioritized next steps
 
-### 1. Executable coupled samplers for Xu et al. (2021)
+### Completed: executable coupled samplers for Xu et al. (2021)
 
-Add explicit shared-randomness IR commands for the already formalized coupled
-multinomial-HMC and Gaussian-RWMH mixture. The Lean requirements are:
+The explicit shared-randomness IR commands now cover the formalized coupled
+multinomial-HMC and Gaussian-RWMH mixture:
 
-- both executable marginals equal the verified single-chain kernels;
-- maximal or transport index selection matches the existing coupling PMFs;
-- sticky RWMH exposes its shared proposal and acceptance events; and
-- deterministic replay records the exact meeting event.
+- both ideal marginals equal the verified single-chain kernels;
+- maximal index selection implements the existing coupling construction;
+- sticky RWMH exposes shared proposal and acceptance randomness; and
+- deterministic replay records exact equality as the meeting event.
 
-This is the most direct route from the single-chain runtime to an executable
-version of the 2021 paper's verified estimator pipeline.
+The Float64 interpreter remains qualified by the numerical-refinement
+boundary; the ideal marginal theorems are not silently transferred to Julia.
 
-### 2. Executable relativistic/Riemannian HMC for Xu and Ge (2024)
+### 1. Executable relativistic/Riemannian HMC for Xu and Ge (2024)
 
 Only after its runtime contract is fixed, add the corrected radial and
 spherical momentum draws, inverse-factor transport, nonseparable integrator,
@@ -78,7 +79,7 @@ and multinomial selection. Approximate fixed-point solves must return a
 residual or integrator certificate consumed by the existing conditional
 kernel theorem; a fixed iteration count alone is not a correctness witness.
 
-### 3. Restricted callbacks, adaptation, and performance
+### 2. Restricted callbacks, adaptation, and performance
 
 Develop a restricted target/gradient expression surface or externally checked
 callback certificates, add active edge-case and high-dimensional tests, and
@@ -87,8 +88,8 @@ must remain an explicit stateful algorithm with a separate specification.
 
 ## Assurance boundary
 
-The immediate recommended goal is executable coupling, followed by corrected
-Riemannian execution. Cross-language semantic
+The immediate recommended execution goal is corrected Riemannian execution.
+Cross-language semantic
 preservation, arbitrary callback correctness, universal floating-point
 refinement, convergence rates, and adaptation are distinct obligations and
 must not be inferred from target invariance or statistical tests.
