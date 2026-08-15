@@ -77,6 +77,19 @@ theorem comp_stationary (first second : MarkovKernel α) (π : Distribution α)
     rw [hfirst y]]
   exact hsecond z
 
+/-- Sequential kernel composition is associative. -/
+theorem comp_assoc (first second third : MarkovKernel α) :
+    comp third (comp second first) = comp (comp third second) first := by
+  apply MarkovKernel.ext
+  funext x z
+  simp only [comp, Finset.mul_sum, Finset.sum_mul]
+  rw [Finset.sum_comm]
+  apply Finset.sum_congr rfl
+  intro y _
+  apply Finset.sum_congr rfl
+  intro w _
+  ring
+
 @[simp]
 theorem comp_identity [DecidableEq α] (P : MarkovKernel α) :
     comp identity P = P := by

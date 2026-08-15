@@ -1401,6 +1401,12 @@ is a family of exact real-time transition kernels, not yet a proved semigroup
 or a path-space process; Chapman--Kolmogorov, càdlàg paths, and general-state
 nonexplosion remain explicit obligations.
 
+Prepared the exact Chapman--Kolmogorov algebra: finite kernel composition is
+now proved associative, and `kernelIterate_add` identifies the `(m+n)`-step
+kernel with sequential composition of the `m`- and `n`-step kernels. The
+remaining semigroup proof is therefore purely the Poisson convolution/Fubini
+step, rather than an untracked matrix-algebra obligation.
+
 The Gaussian diagonal-SoftAbs client is now end-to-end. Lean connects the
 actual Gaussian Hessian to a strictly non-identity SoftAbs metric, packages the
 explicit separable update as a valid generalized-leapfrog selection, and

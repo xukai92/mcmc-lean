@@ -36,6 +36,17 @@ def kernelIterate (transition : MarkovKernel State) : ℕ → MarkovKernel State
     kernelIterate transition (n + 1) =
       comp transition (kernelIterate transition n) := rfl
 
+/-- Additive iteration law, in the composition convention where `first` is
+applied before `second`. -/
+theorem kernelIterate_add (transition : MarkovKernel State) (m n : ℕ) :
+    kernelIterate transition (m + n) =
+      comp (kernelIterate transition n) (kernelIterate transition m) := by
+  induction n with
+  | zero => simp
+  | succ n ih =>
+      rw [Nat.add_succ, kernelIterate_succ, ih, comp_assoc,
+        kernelIterate_succ]
+
 /-- Every iterate preserves every stationary distribution of the one-step
 kernel. -/
 theorem kernelIterate_stationary (transition : MarkovKernel State)
