@@ -15,7 +15,7 @@ implementation features and experiments.
 | Selected subsets may overlap and their union should cover the model variables | `Covers` records union coverage; `schedule_stationary` deliberately needs neither coverage nor disjointness | Corrected separation: coverage is an inference-configuration condition, while stationarity follows from preservation by every full-state operator |
 | Operators can be composed into a Gibbs-style schedule | `schedule` and `schedule_stationary` prove that every finite schedule of common-target-stationary operators preserves the target | Machine checked |
 | A runtime engine executes scoped operators in user-specified order | Julia `ScopedInferenceOperator` and `ComposableSampler`, with coverage and ordering tests | Executable; its target correctness is conditional on matching each callback to a proved full-state kernel |
-| Particle Gibbs can update latent/discrete variables and HMC can update differentiable continuous variables | `pgHmcKernel` and `pgHmcKernel_stationary` formalize the two-block pattern in Equations (7)--(8) through explicit slice-preservation hypotheses | Machine checked at the finite product-state level |
+| Particle Gibbs can update latent/discrete variables and HMC can update differentiable continuous variables | `pgHmcKernel` and `pgHmcKernel_stationary` formalize the two-block pattern in Equations (7)--(8) through explicit slice-preservation hypotheses; `Mcmc.Examples.ComposableInference` gives a nonidentity two-block finite instance | Machine checked at the finite product-state level; the example deliberately does not call a finite refresh transition numerical HMC |
 | PG, PMMH, and SMC are available component engines | Finite SMC, concrete conditional SMC, PIMH, state-indexed PMMH, and particle Gibbs are proved in the particle-MCMC layer; Julia exposes an exact-integer finite-HMM PG runner | Machine checked for fixed finite state, horizon, and particle count; PG execution is differentially tested |
 | HMC/NUTS is not directly applicable to discrete variables | The current HMC interfaces act on Euclidean coordinates; no claim is made that ordinary gradient HMC updates discrete coordinates | Scope restriction, not a universal impossibility theorem |
 | Candidate-based trajectory selection preserves a target | `candidateMixture_stationary` proves this for state-independent selection among common-target stationary kernels | Machine checked sufficient condition; intentionally not a theorem about dynamically stopped NUTS trees |
@@ -63,8 +63,8 @@ efficiency dominance.
 
 ## Remaining milestones
 
-1. Instantiate the checked two-block theorem with a concrete finite latent
-   model and an HMC-like continuous conditional kernel.
+1. Lift the now-instantiated finite two-block theorem to a genuinely
+   continuous conditional target and the verified general-state HMC kernel.
 2. Connect the executable blocked-engine callbacks to generated descriptions
    of the corresponding formal full-state kernels.
 3. Extend the proved static candidate-mixture condition to dynamically grown,

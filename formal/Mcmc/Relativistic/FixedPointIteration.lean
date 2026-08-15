@@ -22,6 +22,54 @@ open Topology
 
 variable {ι : Type*} [Fintype ι]
 
+/-- A uniformly contractive family with jointly continuous update has a
+continuous Banach-selected fixed point. This is the parameter-dependence lemma
+needed before applying the inverse/implicit-function theorem to exact
+generalized-leapfrog solves. -/
+theorem continuous_fixedPoint_of_continuous_uniform_contracting
+    {X Y : Type*} [PseudoMetricSpace X] [MetricSpace Y] [CompleteSpace Y]
+    [Nonempty Y]
+    (K : NNReal) (hK : (K : ℝ) < 1) (update : X → Y → Y)
+    (hupdate : Continuous fun z : X × Y => update z.1 z.2)
+    (hlipschitz : ∀ x, LipschitzWith K (update x)) :
+    Continuous fun x =>
+      (show ContractingWith K (update x) from ⟨hK, hlipschitz x⟩).fixedPoint
+        (update x) := by
+  let fixed : X → Y := fun x =>
+    (show ContractingWith K (update x) from ⟨hK, hlipschitz x⟩).fixedPoint
+      (update x)
+  have hfixed (x : X) : update x (fixed x) = fixed x :=
+    (show ContractingWith K (update x) from
+      ⟨hK, hlipschitz x⟩).fixedPoint_isFixedPt
+  change Continuous fixed
+  rw [continuous_iff_continuousAt]
+  intro x
+  rw [Metric.continuousAt_iff]
+  intro ε hε
+  let c : ℝ := 1 - K
+  have hc : 0 < c := by dsimp [c]; linarith
+  have hparam : ContinuousAt (fun y => update y (fixed x)) x :=
+    hupdate.continuousAt.comp
+      (continuousAt_id.prodMk continuousAt_const)
+  rw [Metric.continuousAt_iff] at hparam
+  obtain ⟨δ, hδ, hcontrol⟩ := hparam (ε * c) (mul_pos hε hc)
+  refine ⟨δ, hδ, ?_⟩
+  intro y hy
+  have htriangle := dist_triangle (fixed y) (update y (fixed x)) (fixed x)
+  have hcontract := (hlipschitz y).dist_le_mul (fixed y) (fixed x)
+  have hsmall := hcontrol hy
+  have hfirst : dist (fixed y) (update y (fixed x)) =
+      dist (update y (fixed y)) (update y (fixed x)) := by
+    rw [hfixed y]
+  rw [hfirst] at htriangle
+  rw [hfixed x] at hsmall
+  have hbound : dist (fixed y) (fixed x) ≤
+      (K : ℝ) * dist (fixed y) (fixed x) + ε * c := by
+    exact htriangle.trans (add_le_add hcontract hsmall.le)
+  dsimp [c] at hc hbound
+  have hdist : 0 ≤ dist (fixed y) (fixed x) := dist_nonneg
+  nlinarith
+
 /-- Fixed-point update for the implicit first momentum half-step. -/
 noncomputable def halfMomentumFixedPointUpdate
     (positionDerivative : PhaseSpace ι → Position ι)

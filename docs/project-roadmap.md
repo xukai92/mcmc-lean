@@ -104,6 +104,17 @@ and proves finite-loop convergence, measurability, and reversal. The remaining
 formal endpoint is its unit-Jacobian/phase-volume certificate. Float64 loops
 retain measured residuals and are not identified with the exact fixed point.
 
+The mixed-partial and scalar determinant-cancellation portions of that
+certificate are now machine checked. A reusable theorem proves continuity of
+the fixed point of a jointly continuous uniformly contractive family, and the
+bounded scalar client instantiates it for both implicit solves and the full
+step. Four explicit triangular maps and three checked identities now expose
+the solver as the incoming inverse, right/left position transfer, and outgoing
+map used by the paper's Jacobian calculation. What remains is the
+implicit-function step upgrading the two continuous, globally unique inverse
+selections to differentiable maps, after which the existing Haar
+change-of-variables theorem closes phase volume.
+
 ## Track C: later breadth branches
 
 The pre-Xu dependency order is:

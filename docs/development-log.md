@@ -94,6 +94,14 @@ agree on these callbacks and pass residual and reversal tests. Its remaining
 formal endpoint is the isolated differentiability/unit-Jacobian certificate;
 opposite-step uniqueness already supplies bijectivity.
 
+Advanced that endpoint by proving the exact mixed-partial identity for the
+bounded callbacks. Lean differentiates the position force with respect to
+momentum and the velocity with respect to position, proves the resulting
+expressions equal, and records the scalar generalized-leapfrog determinant
+cancellation. Thus the unit-Jacobian proof is reduced to differentiability of
+the globally selected implicit inverse maps; the algebraic symplectic
+cancellation itself is no longer assumed.
+
 ## 2026-08-15: adaptive convergence, exact slice disintegration, and Euclidean RJ
 
 Completed the finite Roberts--Rosenthal argument. An anchored augmented process
@@ -1221,6 +1229,25 @@ proves that even the first, zero-residual premise fails in general.
 
 This file records completed milestones, current limitations, and likely next
 steps. It is descriptive rather than a promise about release dates.
+
+The bounded position-dependent solver now has continuous exact selections.
+A reusable parameter-dependent Banach theorem proves that the unique fixed
+point of a jointly continuous uniformly contractive family varies
+continuously with its parameters. The bounded `2 + sin(q)` client instantiates
+this theorem for its implicit half-momentum and next-position solves and for
+the assembled generalized-leapfrog step. Together with the already proved
+mixed-partial identity and scalar determinant cancellation, four explicit
+triangular maps and their checked solver identities isolate the remaining
+phase-volume obligation to the differentiability upgrade supplied by the
+inverse-function theorem.
+
+Added a concrete nonidentity client for Ge et al.'s two-block composition.
+The new symmetric `preservesSndSlices_product` lemma complements the existing
+first-coordinate result, and the compiled example composes independent
+conditional refreshes of the latent and continuous-role finite blocks. This
+checks that the abstract PG--HMC schedule API is instantiable while explicitly
+avoiding the false claim that a finite refresh transition is itself numerical
+HMC; the genuine continuous conditional instantiation remains a later bridge.
 
 ## Next steps
 

@@ -1,5 +1,6 @@
 import Mcmc.Relativistic.ScalarMetric
 import Mcmc.Relativistic.PositionDependentSolver
+import Mcmc.Relativistic.FixedPointIteration
 import Mathlib.Analysis.SpecialFunctions.Trigonometric.Bounds
 
 /-!
@@ -209,10 +210,22 @@ theorem differentiable_scalarVelocityProfile :
   differentiable_id.div differentiable_scalarRelativisticProfile
     (fun x => (scalarRelativisticProfile_pos x).ne')
 
+theorem continuous_scalarPositionProfile : Continuous scalarPositionProfile := by
+  unfold scalarPositionProfile
+  exact ((differentiable_id.pow 2).div differentiable_scalarRelativisticProfile
+    (fun x => (scalarRelativisticProfile_pos x).ne')).continuous
+
 /-- Momentum derivative as a function of the positive scalar factor, with
 momentum held fixed. -/
 noncomputable def scaledVelocityProfile (p s : ℝ) : ℝ :=
   s * scalarVelocityProfile (s * p)
+
+theorem continuous_scaledVelocityProfile_uncurry :
+    Continuous fun z : ℝ × ℝ => scaledVelocityProfile z.1 z.2 := by
+  unfold scaledVelocityProfile
+  exact continuous_snd.mul
+    (differentiable_scalarVelocityProfile.continuous.comp
+      (continuous_snd.mul continuous_fst))
 
 theorem deriv_scaledVelocityProfile (p s : ℝ) :
     deriv (scaledVelocityProfile p) s =
@@ -294,6 +307,32 @@ noncomputable def boundedScalarPositionDerivative :
 noncomputable def boundedScalarMomentumDerivative :
     PhaseSpace Unit → Momentum Unit := fun z _ =>
   scaledVelocityProfile (z.2 Unit.unit) (boundedScalarScale z.1)
+
+theorem continuous_boundedScalarPositionDerivative :
+    Continuous boundedScalarPositionDerivative := by
+  apply continuous_pi
+  intro i
+  have hq : Continuous fun z : PhaseSpace Unit => z.1 Unit.unit :=
+    (continuous_apply Unit.unit).comp continuous_fst
+  have hp : Continuous fun z : PhaseSpace Unit => z.2 Unit.unit :=
+    (continuous_apply Unit.unit).comp continuous_snd
+  have hs : Continuous fun z : PhaseSpace Unit => boundedScalarScale z.1 :=
+    differentiable_boundedScalarScale.continuous.comp continuous_fst
+  unfold boundedScalarPositionDerivative
+  exact ((Real.continuous_cos.comp hq).div hs
+      (fun z => (boundedScalarScale_pos z.1).ne')).mul
+    (continuous_scalarPositionProfile.comp (hs.mul hp))
+
+theorem continuous_boundedScalarMomentumDerivative :
+    Continuous boundedScalarMomentumDerivative := by
+  apply continuous_pi
+  intro i
+  have hp : Continuous fun z : PhaseSpace Unit => z.2 Unit.unit :=
+    (continuous_apply Unit.unit).comp continuous_snd
+  have hs : Continuous fun z : PhaseSpace Unit => boundedScalarScale z.1 :=
+    differentiable_boundedScalarScale.continuous.comp continuous_fst
+  unfold boundedScalarMomentumDerivative
+  exact continuous_scaledVelocityProfile_uncurry.comp (hp.prodMk hs)
 
 theorem hasDerivAt_boundedScalarHamiltonian_position (q p : ℝ) :
     HasDerivAt (fun x => scalarRelativisticProfile ((2 + Real.sin x) * p))
@@ -589,6 +628,136 @@ theorem measurable_boundedScalarMomentumDerivative :
     scalarVelocityProfile scalarRelativisticProfile boundedScalarScale
   fun_prop
 
+theorem continuous_boundedScalarContractiveSolverAt_halfMomentum (ε : ℝ)
+    (hstep : |ε / 2| * 3 < 1) :
+    Continuous (boundedScalarContractiveSolverAt ε hstep).halfMomentum := by
+  let K := boundedScalarHalfRate ε
+  let update := halfMomentumFixedPointUpdate boundedScalarPositionDerivative ε
+  have hin : Continuous fun z : PhaseSpace Unit × Momentum Unit =>
+      (z.1.1, z.2) := continuous_fst.fst.prodMk continuous_snd
+  have he : Continuous fun _ : PhaseSpace Unit × Momentum Unit => ε / 2 :=
+    continuous_const
+  have hjoint : Continuous fun z : PhaseSpace Unit × Momentum Unit =>
+      update z.1 z.2 := by
+    unfold update halfMomentumFixedPointUpdate
+    exact continuous_fst.snd.sub
+      (he.smul (continuous_boundedScalarPositionDerivative.comp hin))
+  have hlip : ∀ z, LipschitzWith K (update z) := fun z =>
+    (boundedScalar_halfMomentum_contracting ε hstep z).2
+  exact continuous_fixedPoint_of_continuous_uniform_contracting
+    K hstep update hjoint hlip
+
+theorem continuous_boundedScalarContractiveSolverAt_nextPosition (ε : ℝ)
+    (hstep : |ε / 2| * 3 < 1) :
+    Continuous (boundedScalarContractiveSolverAt ε hstep).nextPosition := by
+  let K := boundedScalarPositionRate ε
+  let update : (Position Unit × Momentum Unit) → Position Unit → Position Unit :=
+    fun z => positionFixedPointUpdate boundedScalarMomentumDerivative ε z.1 z.2
+  have hK : (K : ℝ) < 1 := by
+    change |ε / 2| * 2 < 1
+    nlinarith [abs_nonneg (ε / 2)]
+  have hleft : Continuous fun z :
+      (Position Unit × Momentum Unit) × Position Unit => (z.1.1, z.1.2) :=
+    continuous_fst.fst.prodMk continuous_fst.snd
+  have hright : Continuous fun z :
+      (Position Unit × Momentum Unit) × Position Unit => (z.2, z.1.2) :=
+    continuous_snd.prodMk continuous_fst.snd
+  have he : Continuous fun _ :
+      (Position Unit × Momentum Unit) × Position Unit => ε / 2 := continuous_const
+  have hjoint : Continuous fun z :
+      (Position Unit × Momentum Unit) × Position Unit => update z.1 z.2 := by
+    unfold update positionFixedPointUpdate
+    exact continuous_fst.fst.add (he.smul
+      ((continuous_boundedScalarMomentumDerivative.comp hleft).add
+        (continuous_boundedScalarMomentumDerivative.comp hright)))
+  have hlip : ∀ z, LipschitzWith K (update z) := fun z =>
+    (boundedScalar_nextPosition_contracting ε hstep z.1 z.2).2
+  have hbase := continuous_fixedPoint_of_continuous_uniform_contracting
+    K hK update hjoint hlip
+  let solver := boundedScalarContractiveSolverAt ε hstep
+  exact hbase.comp (continuous_fst.prodMk
+    (continuous_boundedScalarContractiveSolverAt_halfMomentum ε hstep))
+
+theorem continuous_boundedScalarContractiveSolverAt_step (ε : ℝ)
+    (hstep : |ε / 2| * 3 < 1) :
+    Continuous (boundedScalarContractiveSolverAt ε hstep).step := by
+  let solver := boundedScalarContractiveSolverAt ε hstep
+  have hhalf := continuous_boundedScalarContractiveSolverAt_halfMomentum ε hstep
+  have hnext := continuous_boundedScalarContractiveSolverAt_nextPosition ε hstep
+  have he : Continuous fun _ : PhaseSpace Unit => ε / 2 := continuous_const
+  change Continuous fun z =>
+    (solver.nextPosition z, solver.halfMomentum z - (ε / 2) •
+      boundedScalarPositionDerivative
+        (solver.nextPosition z, solver.halfMomentum z))
+  exact hnext.prodMk (hhalf.sub (he.smul
+    (continuous_boundedScalarPositionDerivative.comp (hnext.prodMk hhalf))))
+
+/-! The four explicit triangular maps below expose the exact inverse-map
+decomposition needed by the differentiability proof. -/
+
+noncomputable def boundedScalarIncomingMap (ε : ℝ) :
+    PhaseSpace Unit → PhaseSpace Unit := fun z =>
+  (z.1, z.2 + (ε / 2) • boundedScalarPositionDerivative z)
+
+noncomputable def boundedScalarRightMap (ε : ℝ) :
+    PhaseSpace Unit → PhaseSpace Unit := fun z =>
+  (z.1 + (ε / 2) • boundedScalarMomentumDerivative z, z.2)
+
+noncomputable def boundedScalarLeftMap (ε : ℝ) :
+    PhaseSpace Unit → PhaseSpace Unit := fun z =>
+  (z.1 - (ε / 2) • boundedScalarMomentumDerivative z, z.2)
+
+noncomputable def boundedScalarOutgoingMap (ε : ℝ) :
+    PhaseSpace Unit → PhaseSpace Unit := fun z =>
+  (z.1, z.2 - (ε / 2) • boundedScalarPositionDerivative z)
+
+/-- The first implicit solve is a global right inverse of the incoming
+triangular map. -/
+theorem boundedScalarIncomingMap_halfMomentum
+    (ε : ℝ) (hstep : |ε / 2| * 3 < 1) (z : PhaseSpace Unit) :
+    boundedScalarIncomingMap ε
+      (z.1, (boundedScalarContractiveSolverAt ε hstep).halfMomentum z) = z := by
+  let solver := boundedScalarContractiveSolverAt ε hstep
+  have hp := (solver.satisfies z).1
+  ext i
+  · rfl
+  · have hi := congrFun hp i
+    simp [boundedScalarIncomingMap] at hi ⊢
+    linarith
+
+/-- The implicit position equation says that the right explicit triangular
+map followed by the selected solve lands in the left map's image. -/
+theorem boundedScalarRightMap_eq_leftMap_nextPosition
+    (ε : ℝ) (hstep : |ε / 2| * 3 < 1) (z : PhaseSpace Unit) :
+    let solver := boundedScalarContractiveSolverAt ε hstep
+    boundedScalarRightMap ε (z.1, solver.halfMomentum z) =
+      boundedScalarLeftMap ε
+        (solver.nextPosition z, solver.halfMomentum z) := by
+  dsimp only
+  let solver := boundedScalarContractiveSolverAt ε hstep
+  have hq : solver.nextPosition z = z.1 + (ε / 2) •
+      (boundedScalarMomentumDerivative (z.1, solver.halfMomentum z) +
+        boundedScalarMomentumDerivative
+          (solver.nextPosition z, solver.halfMomentum z)) := by
+    simpa [ContractiveGeneralizedLeapfrogSolverAt.step] using
+      (solver.satisfies z).2.1
+  ext i
+  · have hi := congrFun hq i
+    simp [boundedScalarRightMap, boundedScalarLeftMap] at hi ⊢
+    linarith
+  · rfl
+
+/-- The final explicit triangular map is definitionally the selected full
+generalized-leapfrog step after the two implicit solves. -/
+theorem boundedScalarOutgoingMap_nextPosition
+    (ε : ℝ) (hstep : |ε / 2| * 3 < 1) (z : PhaseSpace Unit) :
+    let solver := boundedScalarContractiveSolverAt ε hstep
+    boundedScalarOutgoingMap ε
+      (solver.nextPosition z, solver.halfMomentum z) = solver.step z := by
+  dsimp only
+  let solver := boundedScalarContractiveSolverAt ε hstep
+  rfl
+
 /-- The exact Banach-selected bounded-metric phase map is measurable. -/
 theorem measurable_boundedScalarContractiveSolverAt_step (ε : ℝ)
     (hstep : |ε / 2| * 3 < 1) :
@@ -689,5 +858,103 @@ theorem BoundedScalarJacobianCertificate.volumePreserving
     (phaseVolume : Measure (PhaseSpace Unit)) forward.step
     certificate.differentiable (forward.step_bijective backward)
     certificate.absDetOne
+
+/-- Momentum derivative of the position-force callback at fixed position. -/
+theorem deriv_boundedScalarPositionDerivative_momentum (q p : ℝ) :
+    deriv (fun r => Real.cos q / (2 + Real.sin q) *
+      scalarPositionProfile ((2 + Real.sin q) * r)) p =
+      Real.cos q *
+        (2 * scalarVelocityProfile ((2 + Real.sin q) * p) -
+          scalarVelocityProfile ((2 + Real.sin q) * p) ^ 3) := by
+  let s := 2 + Real.sin q
+  let x := s * p
+  have hs : s ≠ 0 := by
+    dsimp [s]
+    have := Real.neg_one_le_sin q
+    linarith
+  have hwDiff : DifferentiableAt ℝ scalarPositionProfile x :=
+    ((differentiable_id.pow 2).div differentiable_scalarRelativisticProfile
+      (fun y => (scalarRelativisticProfile_pos y).ne')) x
+  have hw : HasDerivAt scalarPositionProfile
+      (2 * scalarVelocityProfile x - scalarVelocityProfile x ^ 3) x := by
+    rw [← deriv_scalarPositionProfile x]
+    exact hwDiff.hasDerivAt
+  have hinner : HasDerivAt (fun r : ℝ => s * r) s p := by
+    simpa using (hasDerivAt_id p).const_mul s
+  have hcomp := hw.comp p hinner
+  have hout := hcomp.const_mul (Real.cos q / s)
+  have hout' : HasDerivAt (fun r => Real.cos q / s *
+      (scalarPositionProfile ∘ fun y : ℝ => s * y) r)
+      (Real.cos q / s *
+        ((2 * scalarVelocityProfile x - scalarVelocityProfile x ^ 3) * s)) p := by
+    exact hout.congr_of_eventuallyEq
+      (Filter.Eventually.of_forall fun r => by rfl)
+  rw [show (fun r => Real.cos q / (2 + Real.sin q) *
+      scalarPositionProfile ((2 + Real.sin q) * r)) =
+      fun r => Real.cos q / s *
+        (scalarPositionProfile ∘ fun y : ℝ => s * y) r by rfl,
+    hout'.deriv]
+  dsimp [x, s]
+  have hs' : 2 + Real.sin q ≠ 0 := by simpa [s] using hs
+  field_simp [hs']
+
+/-- Position derivative of the velocity callback at fixed momentum. -/
+theorem deriv_boundedScalarMomentumDerivative_position (q p : ℝ) :
+    deriv (fun r => scaledVelocityProfile p (2 + Real.sin r)) q =
+      Real.cos q *
+        (scalarVelocityProfile ((2 + Real.sin q) * p) +
+          ((2 + Real.sin q) * p) /
+            scalarRelativisticProfile ((2 + Real.sin q) * p) ^ 3) := by
+  let s := 2 + Real.sin q
+  have houter : HasDerivAt (scaledVelocityProfile p)
+      (scalarVelocityProfile (s * p) +
+        (s * p) / scalarRelativisticProfile (s * p) ^ 3) s := by
+    rw [← deriv_scaledVelocityProfile p s]
+    exact ((differentiableAt_id.mul
+      (differentiable_scalarVelocityProfile.differentiableAt.comp s
+        (by fun_prop))).hasDerivAt)
+  have hscale : HasDerivAt (fun r : ℝ => 2 + Real.sin r)
+      (Real.cos q) q := by
+    simpa using (Real.hasDerivAt_sin q).const_add 2
+  have hcomp := houter.comp q hscale
+  rw [show (fun r => scaledVelocityProfile p (2 + Real.sin r)) =
+      scaledVelocityProfile p ∘ (fun r : ℝ => 2 + Real.sin r) by rfl,
+    hcomp.deriv]
+  dsimp [s]
+  ring
+
+/-- Equality of the two mixed partials used in the generalized-leapfrog
+Jacobian cancellation. -/
+theorem scalarProfile_mixed_identity (x : ℝ) :
+    2 * scalarVelocityProfile x - scalarVelocityProfile x ^ 3 =
+      scalarVelocityProfile x +
+        x / scalarRelativisticProfile x ^ 3 := by
+  have hp : scalarRelativisticProfile x ≠ 0 :=
+    (scalarRelativisticProfile_pos x).ne'
+  unfold scalarVelocityProfile
+  rw [show scalarRelativisticProfile x ^ 3 =
+      scalarRelativisticProfile x * scalarRelativisticProfile x ^ 2 by ring]
+  field_simp [hp]
+  rw [scalarRelativisticProfile_sq]
+  ring
+
+theorem boundedScalar_mixed_derivatives_eq (q p : ℝ) :
+    deriv (fun r => Real.cos q / (2 + Real.sin q) *
+      scalarPositionProfile ((2 + Real.sin q) * r)) p =
+    deriv (fun r => scaledVelocityProfile p (2 + Real.sin r)) q := by
+  rw [deriv_boundedScalarPositionDerivative_momentum,
+    deriv_boundedScalarMomentumDerivative_position]
+  rw [scalarProfile_mixed_identity]
+
+/-- Algebraic determinant cancellation behind generalized leapfrog: the
+incoming and outgoing implicit-coordinate factors cancel separately once the
+mixed partials agree. -/
+theorem generalizedLeapfrog_scalar_jacobian_cancellation
+    (h incomingMixed outgoingMixed : ℝ)
+    (hin : 1 + h * incomingMixed ≠ 0)
+    (hout : 1 - h * outgoingMixed ≠ 0) :
+    (1 - h * outgoingMixed) * (1 - h * outgoingMixed)⁻¹ *
+      (1 + h * incomingMixed) * (1 + h * incomingMixed)⁻¹ = 1 := by
+  field_simp [hin, hout]
 
 end Mcmc.Relativistic

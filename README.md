@@ -89,8 +89,14 @@ compensating potential `log(2 + sin(q))`; its complete GR Hamiltonian reduces
 to `√(1 + ((2 + sin q)p)²)`. Lean proves the callbacks are its derivatives,
 both implicit maps globally contract when `3|ε|/2 < 1`, and the selected solve
 is unique, measurable, approached by the finite loops, and momentum-flip
-reversible. Phase-volume preservation is reduced to the remaining explicit
-unit-Jacobian certificate.
+reversible. Its Banach-selected half-momentum, next-position, and full-step
+maps are also continuous as functions of the incoming state. Phase-volume
+preservation is reduced to the remaining explicit
+unit-Jacobian certificate. Its mixed-partial equality and determinant
+cancellation are already proved. The step is factored into two explicit
+triangular maps, their two globally selected implicit inverses, and the exact
+relations connecting those four stages; differentiability of the selected
+inverse maps is the remaining analytic step.
 
 Betancourt's [*A Conceptual Introduction to Hamiltonian Monte
 Carlo*](https://arxiv.org/abs/1701.02434) is used as a foundational HMC

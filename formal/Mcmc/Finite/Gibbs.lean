@@ -102,4 +102,20 @@ theorem preservesFstSlices_product (left : Distribution α)
     ring,
     hkernel a']
 
+omit [DecidableEq α] [DecidableEq β] in
+/-- Symmetric second-factor version of `preservesFstSlices_product`. -/
+theorem preservesSndSlices_product (left : Distribution α)
+    (right : Distribution β) (kernel : MarkovKernel β)
+    (hkernel : kernel.Stationary right) :
+    PreservesSndSlices (productDistribution left right) (fun _ => kernel) := by
+  intro a b'
+  simp only [productDistribution]
+  rw [show (∑ b, left.mass a * right.mass b * kernel.prob b b') =
+      left.mass a * (∑ b, right.mass b * kernel.prob b b') by
+    rw [Finset.mul_sum]
+    apply Finset.sum_congr rfl
+    intro b _
+    ring,
+    hkernel b']
+
 end Mcmc.Finite.Gibbs

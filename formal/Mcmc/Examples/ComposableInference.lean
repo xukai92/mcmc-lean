@@ -1,4 +1,5 @@
 import Mcmc.Finite.ComposableInference
+import Mcmc.Finite.ParticleGibbsConvergence
 
 /-!
 # Overlapping composable-inference example
@@ -50,5 +51,26 @@ example : Covers operators := by
 
 example : (schedule target operators).Stationary target :=
   schedule_stationary target operators
+
+noncomputable def boolUniform : Distribution Bool where
+  mass _ := 1 / 2
+  nonneg _ := by norm_num
+  sum_mass := by norm_num [Fintype.sum_bool]
+
+/-- A nontrivial finite instance of Ge et al.'s two-block PG--HMC pattern:
+each named engine refreshes its own block from the corresponding conditional
+(here independent and uniform), and their composition preserves the joint
+target. The names describe the roles; this finite example does not identify
+the first-coordinate refresh with a numerical Hamiltonian trajectory. -/
+example :
+    (pgHmcKernel
+      (fun _ : Bool => refresh boolUniform)
+      (fun _ : Bool => refresh boolUniform)).Stationary
+        (Gibbs.productDistribution boolUniform boolUniform) := by
+  apply pgHmcKernel_stationary
+  · exact Gibbs.preservesSndSlices_product boolUniform boolUniform
+      (refresh boolUniform) (refresh_stationary boolUniform)
+  · exact Gibbs.preservesFstSlices_product boolUniform boolUniform
+      (refresh boolUniform) (refresh_stationary boolUniform)
 
 end Mcmc.Examples.ComposableInference
