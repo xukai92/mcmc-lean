@@ -85,14 +85,16 @@ The pre-Xu dependency order is:
 3. exact two-block auxiliary Gibbs and the abstract slice factorization --
    complete;
 4. measurable uniform-under-the-graph and level-set kernels for a concrete
-   exact slice sampler;
+   exact slice sampler -- the vertical kernel and under-graph identity are
+   complete; the horizontal disintegration remains;
 5. tagged disjoint-union reference measures and change-of-variables lemmas for
    reversible-jump MH; and
 6. finite SMC on top of pseudo-marginal MH, then particle independent MH and
    particle marginal MH.
 
-Items 4--6 are intentionally ordered: slice sampling needs conditional
-normalization and measurable level sets; reversible jump additionally needs
+Items 4--6 are intentionally ordered: the remaining slice work needs a
+measurable horizontal conditional with finite positive level-set mass;
+reversible jump additionally needs
 dimension-changing transport/Jacobian infrastructure; particle MCMC needs an
 SMC estimator law before the existing pseudo-marginal theorem applies.
 

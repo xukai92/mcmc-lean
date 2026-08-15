@@ -70,6 +70,7 @@ import Mcmc.Kernel.AuxiliaryGibbs
 import Mcmc.Kernel.GeneralConvergence
 import Mcmc.Kernel.IndependenceMetropolis
 import Mcmc.Kernel.Langevin
+import Mcmc.Kernel.Slice
 import Mcmc.Kernel.CoupledChain
 import Mcmc.Kernel.CoupledMetropolisHastings
 import Mcmc.Kernel.DensityCoupling

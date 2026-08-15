@@ -54,6 +54,9 @@ The repository now contains machine-checked implementations and proofs for:
 - general-state two-block auxiliary Gibbs/data augmentation, including a
   slice-sampling interface whose correctness is reduced to an explicit
   vertical/horizontal joint-factorization equation;
+- a concrete measurable vertical slice-height Markov kernel and proof that
+  its lifted weighted target is exactly Lebesgue measure under the target
+  graph; horizontal level-set disintegration remains explicit;
 - reusable finite identity, composition, mixture, and coordinate-lift
   combinators; finite one-site, random-scan, and systematic-scan Gibbs;
 - two-temperature parallel tempering with an MH-corrected swap, product-target

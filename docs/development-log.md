@@ -16,6 +16,20 @@ joint-factorization obligation. This is an invariance foundation, not yet a
 concrete uniform-under-the-graph kernel, stepping-out implementation, or
 convergence theorem.
 
+## 2026-08-15: concrete vertical slice kernel and under-graph law
+
+Added the general-state vertical slice update for a strictly positive
+measurable real weight. Lean proves joint measurability, exact normalization
+of the uniform height density on `(0, w(x)]`, and the Markov property. It also
+proves that composing the weighted target with this height kernel cancels the
+weight exactly and yields Lebesgue measure under the graph of `w`.
+
+The slice invariance theorem is now stated using that concrete under-graph
+measure. Its remaining obligation is the reverse factorization supplied by a
+horizontal level-set conditional. Constructing that kernel generally requires
+measurable disintegration and finite positive level-set mass; neither its
+existence nor convergence is being assumed implicitly.
+
 ## 2026-08-15: pre-Xu general-state MH foundations
 
 Added a general Doeblin-minorization interface and constructed the normalized
