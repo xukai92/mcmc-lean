@@ -3,6 +3,26 @@
 Entries through the earlier 2026-08-13 work are preserved in the
 [development-log archive](development-log-archive.md).
 
+## 2026-08-15: finite random Diminishing Adaptation semantics
+
+Defined a finite random adaptive process whose current tuning parameter selects
+a state kernel and whose conditional update samples the next parameter after
+the next state is observed. The resulting transition on `(state, parameter)` is
+proved to be a Markov kernel, giving an explicit evolving augmented law rather
+than treating adaptation as an opaque kernel sequence.
+
+Defined the probability that successive selected kernels differ by more than a
+given finite row-TV threshold and proved it lies in `[0,1]`. Diminishing
+Adaptation is formalized as convergence of this change probability to zero
+under the actual process law. If all parameters select the same frozen state
+kernel, arbitrary random parameter updates are proved diminishing.
+
+This is a finite Markovian convergence-in-probability definition, not an
+adaptive convergence theorem. Mixing times, Containment, and the
+Roberts--Rosenthal finite-window argument remain future layers; finite tuning
+parameters encode only fixed finite memory unless the augmented state is
+enlarged.
+
 ## 2026-08-15: predetermined nonhomogeneous adaptive foundation
 
 Defined evolution through finite and time-indexed predetermined kernel

@@ -102,6 +102,9 @@ The repository now contains machine-checked implementations and proofs for:
 - predetermined nonhomogeneous finite-chain evolution, preservation under a
   common stationary target, finite row total variation, and deterministic
   diminishing-schedule vocabulary;
+- finite random parameter adaptation as an augmented Markov kernel, with the
+  probability of successive kernel changes and a convergence-in-probability
+  Diminishing Adaptation definition;
 - two-temperature parallel tempering with an MH-corrected swap, product-target
   stationarity, and an exact cold-marginal theorem;
 - finite pseudo-marginal MH with a nonnegative unbiased estimator, including

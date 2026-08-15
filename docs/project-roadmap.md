@@ -117,8 +117,11 @@ The pre-Xu dependency order is:
    non-invariant selected kernel are complete. Predetermined nonhomogeneous law
    evolution, common-stationarity preservation, row total variation, and a
    deterministic diminishing-schedule definition are also complete.
-   History-dependent random adaptation, convergence in probability, mixing
-   times, and containment remain separate.
+   Finite random parameter adaptation is now an augmented Markov kernel; its
+   successive-kernel change probability and convergence-in-probability
+   Diminishing Adaptation condition are defined, with frozen state kernels
+   proved diminishing under arbitrary parameter updates. Unbounded-history
+   adaptation, mixing times, containment, and convergence remain separate.
 
 Items 4--6 are intentionally ordered: the remaining slice work needs a
 measurable horizontal conditional with finite positive level-set mass;
@@ -137,8 +140,9 @@ remaining branches based on research value and shared infrastructure:
 - particle MCMC after finite SMC and pseudo-marginal foundations;
 - adaptive MCMC beyond the completed boundary counterexample only with
   the completed predetermined nonhomogeneous semantics and deterministic
-  diminishing vocabulary extended to random history-dependent adaptation,
-  convergence in probability, and containment; and
+  diminishing vocabulary, augmented random-adaptation semantics, and
+  convergence-in-probability definition extended with mixing times,
+  containment, and the finite-window convergence argument; and
 - BPS/Zig-Zag only in a separate continuous-time PDMP architecture.
 
 Sequence-parallel evaluation is an execution-refinement project downstream of

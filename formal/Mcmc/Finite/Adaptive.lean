@@ -129,6 +129,122 @@ theorem diminishingSchedule_const (kernel : MarkovKernel State) :
 
 end Nonhomogeneous
 
+namespace RandomAdaptation
+
+open MarkovKernel Nonhomogeneous
+
+variable {State Parameter : Type*} [Fintype State] [Fintype Parameter]
+
+/-- Finite random adaptive process. The current parameter selects a state
+kernel; after the next state is sampled, a conditional law selects the next
+parameter. The parameter may encode any fixed finite adaptation memory. -/
+structure Process (State Parameter : Type*) [Fintype State] [Fintype Parameter] where
+  kernel : Parameter → MarkovKernel State
+  update : State → Parameter → State → Distribution Parameter
+
+/-- Homogeneous augmented-state kernel associated with a random adaptive
+process. -/
+def Process.augmentedKernel (process : Process State Parameter) :
+    MarkovKernel (State × Parameter) where
+  prob current next := (process.kernel current.2).prob current.1 next.1 *
+    (process.update current.1 current.2 next.1).mass next.2
+  nonneg current next := mul_nonneg
+    ((process.kernel current.2).nonneg current.1 next.1)
+    ((process.update current.1 current.2 next.1).nonneg next.2)
+  sum_prob current := by
+    rw [Fintype.sum_prod_type]
+    simp_rw [← Finset.mul_sum,
+      (process.update current.1 current.2 _).sum_mass, mul_one]
+    exact (process.kernel current.2).sum_prob current.1
+
+/-- Probability, under the current augmented law and one adaptive transition,
+that the next selected state kernel differs from the current one by more than
+`ε` in at least one row. -/
+noncomputable def changeProbability [DecidableEq State]
+    (process : Process State Parameter) (law : Distribution (State × Parameter))
+    (ε : ℝ) : ℝ :=
+  ∑ current, law.mass current *
+    ∑ next, process.augmentedKernel.prob current next *
+      (if ∃ x, ε < rowTotalVariation
+        (process.kernel next.2) (process.kernel current.2) x then 1 else 0)
+
+theorem changeProbability_nonneg [DecidableEq State]
+    (process : Process State Parameter) (law : Distribution (State × Parameter))
+    (ε : ℝ) : 0 ≤ changeProbability process law ε := by
+  unfold changeProbability
+  apply Finset.sum_nonneg
+  intro current _
+  apply mul_nonneg (law.nonneg current)
+  apply Finset.sum_nonneg
+  intro next _
+  apply mul_nonneg (process.augmentedKernel.nonneg current next)
+  split_ifs <;> norm_num
+
+theorem changeProbability_le_one [DecidableEq State]
+    (process : Process State Parameter) (law : Distribution (State × Parameter))
+    (ε : ℝ) : changeProbability process law ε ≤ 1 := by
+  unfold changeProbability
+  calc
+    ∑ current, law.mass current *
+        ∑ next, process.augmentedKernel.prob current next *
+          (if ∃ x, ε < rowTotalVariation
+            (process.kernel next.2) (process.kernel current.2) x then 1 else 0) ≤
+      ∑ current, law.mass current * 1 := by
+        apply Finset.sum_le_sum
+        intro current _
+        apply mul_le_mul_of_nonneg_left _ (law.nonneg current)
+        calc
+          ∑ next, process.augmentedKernel.prob current next *
+              (if ∃ x, ε < rowTotalVariation
+                (process.kernel next.2) (process.kernel current.2) x then 1 else 0) ≤
+            ∑ next, process.augmentedKernel.prob current next * 1 := by
+              apply Finset.sum_le_sum
+              intro next _
+              apply mul_le_mul_of_nonneg_left _
+                (process.augmentedKernel.nonneg current next)
+              split_ifs <;> norm_num
+          _ = 1 := by simp [process.augmentedKernel.sum_prob current]
+    _ = 1 := by simpa using law.sum_mass
+
+/-- Finite Markovian form of Roberts--Rosenthal Diminishing Adaptation:
+successive selected kernels become close in probability under the actual
+augmented process law. -/
+def DiminishingAdaptation [DecidableEq State]
+    (process : Process State Parameter) (initial : Distribution (State × Parameter)) : Prop :=
+  ∀ ε : ℝ, 0 < ε → ∀ δ : ℝ, 0 < δ → ∃ N : ℕ, ∀ n, N ≤ n →
+    changeProbability process
+      (Nonhomogeneous.lawAt initial (fun _ => process.augmentedKernel) n) ε ≤ δ
+
+/-- If every parameter selects the same frozen state kernel, arbitrary random
+parameter updates satisfy Diminishing Adaptation. This still gives no
+containment or convergence theorem. -/
+theorem diminishingAdaptation_of_kernel_const [DecidableEq State]
+    (process : Process State Parameter) (kernel : MarkovKernel State)
+    (hkernel : ∀ parameter, process.kernel parameter = kernel)
+    (initial : Distribution (State × Parameter)) :
+    DiminishingAdaptation process initial := by
+  intro ε hε δ hδ
+  refine ⟨0, fun n _ => ?_⟩
+  have hzero : changeProbability process
+      (Nonhomogeneous.lawAt initial (fun _ => process.augmentedKernel) n) ε = 0 := by
+    unfold changeProbability
+    apply Finset.sum_eq_zero
+    intro current _
+    apply mul_eq_zero_of_right
+    apply Finset.sum_eq_zero
+    intro next _
+    apply mul_eq_zero_of_right
+    have hnot : ¬ ∃ x, ε < rowTotalVariation
+        (process.kernel next.2) (process.kernel current.2) x := by
+      rintro ⟨x, hx⟩
+      rw [hkernel next.2, hkernel current.2, rowTotalVariation_self] at hx
+      linarith
+    simp [hnot]
+  rw [hzero]
+  exact le_of_lt hδ
+
+end RandomAdaptation
+
 namespace AdaptiveCounterexample
 
 /-- The uniform distribution on two states. -/

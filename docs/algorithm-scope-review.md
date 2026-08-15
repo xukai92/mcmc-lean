@@ -158,11 +158,20 @@ Lean defines the law at every time and proves that if every scheduled kernel
 preserves a common target, starting at that target preserves it at every finite
 time. Finite row total variation lies in `[0,1]`, and deterministic uniform
 diminishing schedules are defined; a frozen schedule is proved diminishing.
-This is not yet Roberts--Rosenthal Diminishing Adaptation, which is convergence
-in probability for a random history-dependent process. Next define that random
-selection semantics, mixing times, and containment, then formalize the
-finite-window coupling argument. Production warmup should be described as an
-inhomogeneous phase followed by a frozen proved kernel.
+A finite random adaptive process is now formalized as a Markov kernel on state
+and tuning parameter: the parameter selects the state kernel, then a
+state-dependent conditional law updates the parameter. Lean defines the
+probability, under the actual time-`n` augmented law, that successive selected
+kernels differ by more than a row-TV threshold. Diminishing Adaptation is then
+stated as convergence of this probability to zero. If every parameter selects
+the same frozen state kernel, arbitrary random parameter updates are proved
+diminishing.
+
+This finite Markovian model can encode fixed finite adaptation memory but not
+an unbounded history without enlarging the state type. Diminishing Adaptation
+alone is still not convergence. Next define mixing times and Containment, then
+formalize the finite-window coupling argument. Production warmup should be
+described as an inhomogeneous phase followed by a frozen proved kernel.
 
 ### Andrieu and Roberts (2009): pseudo-marginal MH -- P1
 
