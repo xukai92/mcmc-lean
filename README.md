@@ -172,11 +172,13 @@ exact genuine-event kernel: it draws a unit exponential hazard, applies the
 closed-form inverse integrated clock, flows, and flips velocity. The draw law
 is normalized, zero hazard has measure zero, and the integrated-hazard equation
 holds almost surely; every fixed genuine-event iterate is Markov. This bypasses
-a nonexistent global bound on the Gaussian rate, but does not yet prove
-finite-horizon nonexplosion or stationary path laws. The exact post-event
+a nonexistent global bound on the Gaussian rate. The exact post-event
 signed-position recurrence is also proved, yielding a fresh `sqrt(2E)` lower
-bound on every wait after the first. Thus the remaining nonexplosion step is
-the divergence of the corresponding i.i.d. positive-hazard series.
+bound on every wait after the first. Lean constructs the infinite i.i.d.
+hazard product law, uses second Borel--Cantelli to prove infinitely many hazards
+exceed one, and concludes that cumulative event time tends to infinity almost
+surely. This proves nonexplosion of the exact event sequence; a stationary
+finite-horizon transition kernel and convergence remain open.
 An additional constant-rate telegraph client gives a nontrivial flow-driven
 stationarity instance. Lean proves that every linear flow and rate-matched
 velocity flip preserves equal velocity mass times Lebesgue position, lifts

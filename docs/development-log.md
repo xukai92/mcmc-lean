@@ -8,11 +8,18 @@
   holds almost surely under the actual draw law, the event kernel is Markov,
   and every fixed-event iterate is Markov and composes by addition. This avoids
   incorrectly imposing a global thinning bound on the Gaussian rate;
-  finite-horizon nonexplosion, stationarity, and convergence remain separate.
+  finite-horizon stopping, stationarity, and convergence remain separate.
   The exact post-event signed-position recurrence is proved as well: after a
   genuine event it is strictly negative, and the following wait dominates
   `sqrt(2E)` for its fresh hazard. This isolates nonexplosion to an infinite
   i.i.d.-series theorem rather than further Zig-Zag trajectory algebra.
+  That final probabilistic step is now discharged. Lean constructs the
+  infinite product probability law, proves the coordinate hazards independent,
+  computes a strictly positive probability of exceeding one, applies the
+  second Borel--Cantelli lemma, and derives almost-sure divergence of both the
+  square-root lower-bound series and cumulative exact event time. Thus the
+  Gaussian event sequence is nonexplosive; finite-horizon stopping,
+  stationarity, and convergence remain separate.
 
 - Proved a fixed-padded-schedule correspondence for the bounded PDMP executor:
   augmented execution retains the supplied schedule and its state marginal is

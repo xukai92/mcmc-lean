@@ -374,11 +374,13 @@ breadth branches are:
   event kernel based on the closed-form inverse integrated hazard. Its unit
   exponential draw is positive almost surely, the inversion equation is
   machine checked almost surely, and fixed-event iterates are Markov. Turning
-  those event iterates into a finite-horizon process still requires a
-  nonexplosion theorem. The pathwise part is reduced further: the signed
+  those event iterates into a stationary finite-horizon process still requires
+  a stopping-kernel construction and stationarity proof. Nonexplosion itself
+  is now complete: the signed
   position after an event is an explicit negative square root of the fresh
-  hazard, so every subsequent wait is at least `sqrt(2E)`. It remains to connect
-  an infinite i.i.d. hazard law to divergence of those lower bounds.
+  hazard, so every subsequent wait is at least `sqrt(2E)`; under the constructed
+  infinite i.i.d. hazard product law, second Borel--Cantelli proves that this
+  lower-bound series and hence cumulative event time diverge almost surely.
 
 Sequence-parallel evaluation is an execution-refinement project downstream of
 exact seeded trace semantics. Full solver convergence may refine a sequential

@@ -1,5 +1,7 @@
 import Mcmc.PDMP.EventSimulation
 import Mcmc.PDMP.ZigZag
+import Mathlib.Probability.BorelCantelli
+import Mathlib.Probability.Independence.InfinitePi
 import Mathlib.Tactic
 
 /-!
@@ -12,7 +14,7 @@ kernel.  Sampling the state-dependent event times remains a separate layer.
 -/
 
 open MeasureTheory ProbabilityTheory
-open scoped NNReal ProbabilityTheory
+open scoped ENNReal NNReal ProbabilityTheory BigOperators
 
 namespace Mcmc.PDMP
 
@@ -312,6 +314,270 @@ theorem gaussianZigZagHazardMeasure_positive_ae :
     exact gaussianZigZagHazardMeasure_singleton_zero
   filter_upwards [hne] with hazard hhazard
   exact bot_lt_iff_ne_bot.mpr hhazard
+
+theorem gaussianZigZagHazardMeasure_Iic_one_toReal :
+    (gaussianZigZagHazardMeasure (Set.Iic 1)).toReal =
+      1 - Real.exp (-1) := by
+  unfold gaussianZigZagHazardMeasure HomogeneousClock.waitMeasure
+  rw [Measure.map_apply measurable_real_toNNReal measurableSet_Iic]
+  have hpre : Real.toNNReal ⁻¹' (Set.Iic 1 : Set NNReal) = Set.Iic 1 := by
+    ext x
+    simp [Real.toNNReal_le_one]
+  rw [hpre]
+  letI : IsProbabilityMeasure (expMeasure (1 : ℝ)) :=
+    isProbabilityMeasure_expMeasure zero_lt_one
+  have hcdf := cdf_expMeasure_eq (r := (1 : ℝ)) zero_lt_one 1
+  rw [cdf_eq_real] at hcdf
+  norm_num at hcdf ⊢
+  exact hcdf
+
+theorem gaussianZigZagHazardMeasure_Ioi_one_pos :
+    0 < gaussianZigZagHazardMeasure (Set.Ioi 1) := by
+  rw [pos_iff_ne_zero]
+  intro hzero
+  have hunion : gaussianZigZagHazardMeasure
+      (Set.Iic (1 : NNReal) ∪ Set.Ioi 1) =
+      gaussianZigZagHazardMeasure (Set.Iic 1) +
+        gaussianZigZagHazardMeasure (Set.Ioi 1) :=
+    measure_union (Set.disjoint_left.2 fun x hx hy =>
+      (not_lt_of_ge (show x ≤ 1 from hx)) (show 1 < x from hy))
+      measurableSet_Ioi
+  have hfull : gaussianZigZagHazardMeasure (Set.Iic 1) = 1 := by
+    rw [Set.Iic_union_Ioi, measure_univ, hzero, add_zero] at hunion
+    exact hunion.symm
+  have hlt : (gaussianZigZagHazardMeasure (Set.Iic 1)).toReal < 1 := by
+    rw [gaussianZigZagHazardMeasure_Iic_one_toReal]
+    linarith [Real.exp_pos (-1)]
+  rw [hfull] at hlt
+  norm_num at hlt
+
+/-- Infinite independent hazard stream used to construct the exact event
+sequence. -/
+noncomputable def gaussianZigZagHazardSequenceMeasure :
+    Measure (ℕ → NNReal) :=
+  Measure.infinitePi (fun _ : ℕ => gaussianZigZagHazardMeasure)
+
+instance gaussianZigZagHazardSequenceMeasure.instIsProbabilityMeasure :
+    IsProbabilityMeasure gaussianZigZagHazardSequenceMeasure := by
+  unfold gaussianZigZagHazardSequenceMeasure
+  infer_instance
+
+def gaussianZigZagLargeHazardEvent (index : ℕ) : Set (ℕ → NNReal) :=
+  (fun hazards => hazards index) ⁻¹' Set.Ioi (1 : NNReal)
+
+theorem measurableSet_gaussianZigZagLargeHazardEvent (index : ℕ) :
+    MeasurableSet (gaussianZigZagLargeHazardEvent index) := by
+  unfold gaussianZigZagLargeHazardEvent
+  exact (measurableSet_Ioi : MeasurableSet (Set.Ioi (1 : NNReal))).preimage
+    (measurable_pi_apply index)
+
+theorem gaussianZigZagHazardSequenceMeasure_largeHazardEvent
+    (index : ℕ) :
+    gaussianZigZagHazardSequenceMeasure
+      (gaussianZigZagLargeHazardEvent index) =
+        gaussianZigZagHazardMeasure (Set.Ioi 1) := by
+  unfold gaussianZigZagHazardSequenceMeasure
+    gaussianZigZagLargeHazardEvent
+  have hmap := Measure.infinitePi_map_eval
+    (μ := fun _ : ℕ => gaussianZigZagHazardMeasure) index
+  calc
+    _ = (Measure.map (fun hazards : ℕ → NNReal => hazards index)
+        (Measure.infinitePi fun _ : ℕ => gaussianZigZagHazardMeasure))
+        (Set.Ioi 1) := by
+      rw [Measure.map_apply (by fun_prop) measurableSet_Ioi]
+    _ = _ := congrArg (fun measure : Measure NNReal => measure (Set.Ioi 1)) hmap
+
+theorem gaussianZigZagLargeHazardEvent_iIndepSet :
+    iIndepSet gaussianZigZagLargeHazardEvent
+      gaussianZigZagHazardSequenceMeasure := by
+  apply (iIndepSet_iff_meas_biInter
+    measurableSet_gaussianZigZagLargeHazardEvent).2
+  intro indices
+  have hset : (⋂ index ∈ indices, gaussianZigZagLargeHazardEvent index) =
+      Set.pi (indices : Set ℕ) (fun _ => Set.Ioi (1 : NNReal)) := by
+    ext hazards
+    simp [gaussianZigZagLargeHazardEvent]
+  rw [hset]
+  change (Measure.infinitePi fun _ : ℕ => gaussianZigZagHazardMeasure)
+      (Set.pi (indices : Set ℕ) (fun _ => Set.Ioi (1 : NNReal))) = _
+  rw [Measure.infinitePi_pi
+    (μ := fun _ : ℕ => gaussianZigZagHazardMeasure)
+    (s := indices) (t := fun _ => Set.Ioi (1 : NNReal))
+    (fun _ _ => measurableSet_Ioi)]
+  simp_rw [gaussianZigZagHazardSequenceMeasure_largeHazardEvent]
+
+/-- A unit-exponential hazard stream exceeds one infinitely often with
+probability one. -/
+theorem gaussianZigZagLargeHazardEvent_limsup_measure_eq_one :
+    gaussianZigZagHazardSequenceMeasure
+      (Filter.limsup gaussianZigZagLargeHazardEvent Filter.atTop) = 1 := by
+  apply measure_limsup_eq_one
+    measurableSet_gaussianZigZagLargeHazardEvent
+    gaussianZigZagLargeHazardEvent_iIndepSet
+  simp_rw [gaussianZigZagHazardSequenceMeasure_largeHazardEvent]
+  exact ENNReal.tsum_const_eq_top_of_ne_zero
+    gaussianZigZagHazardMeasure_Ioi_one_pos.ne'
+
+noncomputable def gaussianZigZagSqrtHazardTerm
+    (hazards : ℕ → NNReal) (index : ℕ) : ENNReal :=
+  ENNReal.ofReal (Real.sqrt (2 * (hazards index : ℝ)))
+
+theorem one_le_gaussianZigZagSqrtHazardTerm_of_large
+    {hazards : ℕ → NNReal} {index : ℕ}
+    (hlarge : hazards ∈ gaussianZigZagLargeHazardEvent index) :
+    1 ≤ gaussianZigZagSqrtHazardTerm hazards index := by
+  rw [gaussianZigZagSqrtHazardTerm, ENNReal.one_le_ofReal,
+    Real.one_le_sqrt]
+  change 1 < hazards index at hlarge
+  exact_mod_cast (show (1 : ℝ) ≤ 2 * (hazards index : ℝ) by
+    have : (1 : ℝ) < (hazards index : ℝ) := by exact_mod_cast hlarge
+    linarith)
+
+theorem gaussianZigZagSqrtHazard_tsum_eq_top_of_mem_limsup
+    (hazards : ℕ → NNReal)
+    (hlimsup : hazards ∈
+      Filter.limsup gaussianZigZagLargeHazardEvent Filter.atTop) :
+    (∑' index, gaussianZigZagSqrtHazardTerm hazards index) = ∞ := by
+  have hfrequent : ∃ᶠ index in Filter.atTop,
+      hazards ∈ gaussianZigZagLargeHazardEvent index :=
+    (Filter.mem_limsup_iff_frequently_mem.mp hlimsup)
+  have hinfiniteLarge : Set.Infinite
+      {index | hazards ∈ gaussianZigZagLargeHazardEvent index} :=
+    Nat.frequently_atTop_iff_infinite.mp hfrequent
+  have hinfiniteTerm : Set.Infinite
+      {index | 1 ≤ gaussianZigZagSqrtHazardTerm hazards index} :=
+    hinfiniteLarge.mono fun index hindex =>
+      one_le_gaussianZigZagSqrtHazardTerm_of_large hindex
+  by_contra hfiniteSum
+  exact hinfiniteTerm (ENNReal.finite_const_le_of_tsum_ne_top
+    hfiniteSum one_ne_zero)
+
+theorem gaussianZigZagLargeHazardEvent_mem_limsup_ae :
+    ∀ᵐ hazards ∂gaussianZigZagHazardSequenceMeasure,
+      hazards ∈ Filter.limsup gaussianZigZagLargeHazardEvent Filter.atTop := by
+  rw [ae_iff]
+  have hmeasurable : MeasurableSet
+      (Filter.limsup gaussianZigZagLargeHazardEvent Filter.atTop) :=
+    MeasurableSet.measurableSet_limsup
+      measurableSet_gaussianZigZagLargeHazardEvent
+  have hset : {hazards | ¬hazards ∈
+      Filter.limsup gaussianZigZagLargeHazardEvent Filter.atTop} =
+      (Filter.limsup gaussianZigZagLargeHazardEvent Filter.atTop)ᶜ := by
+    rfl
+  rw [hset, measure_compl hmeasurable (measure_ne_top _ _),
+    gaussianZigZagLargeHazardEvent_limsup_measure_eq_one,
+    measure_univ, tsub_self]
+
+/-- The pathwise lower-bound series for exact Gaussian Zig-Zag waits diverges
+almost surely under the infinite i.i.d. hazard law. -/
+theorem gaussianZigZagSqrtHazard_tsum_eq_top_ae :
+    ∀ᵐ hazards ∂gaussianZigZagHazardSequenceMeasure,
+      (∑' index, gaussianZigZagSqrtHazardTerm hazards index) = ∞ := by
+  filter_upwards [gaussianZigZagLargeHazardEvent_mem_limsup_ae]
+    with hazards hlimsup
+  exact gaussianZigZagSqrtHazard_tsum_eq_top_of_mem_limsup hazards hlimsup
+
+theorem gaussianZigZagHazardSequence_positive_ae :
+    ∀ᵐ hazards ∂gaussianZigZagHazardSequenceMeasure,
+      ∀ index, 0 < hazards index := by
+  rw [ae_all_iff]
+  intro index
+  have heval := measurePreserving_eval_infinitePi
+    (μ := fun _ : ℕ => gaussianZigZagHazardMeasure) index
+  simpa only [gaussianZigZagHazardSequenceMeasure] using
+    heval.quasiMeasurePreserving.ae
+      gaussianZigZagHazardMeasure_positive_ae
+
+/-- State immediately before the event indexed by `eventCount`. -/
+noncomputable def gaussianZigZagEventState
+    (initial : ZigZagState) (hazards : ℕ → NNReal) : ℕ → ZigZagState
+  | 0 => initial
+  | eventCount + 1 => gaussianZigZagEventUpdate
+      (gaussianZigZagEventState initial hazards eventCount)
+      (hazards eventCount)
+
+/-- Inter-event wait generated from the current state and fresh hazard. -/
+noncomputable def gaussianZigZagEventWait
+    (initial : ZigZagState) (hazards : ℕ → NNReal)
+    (eventCount : ℕ) : NNReal :=
+  gaussianZigZagWaitingNNReal
+    (gaussianZigZagEventState initial hazards eventCount)
+    (hazards eventCount)
+
+noncomputable def gaussianZigZagEventWaitTerm
+    (initial : ZigZagState) (hazards : ℕ → NNReal)
+    (eventCount : ℕ) : ENNReal :=
+  ENNReal.ofReal (gaussianZigZagEventWait initial hazards eventCount : ℝ)
+
+theorem gaussianZigZagSqrtHazardTerm_le_eventWaitTerm_succ
+    (initial : ZigZagState) (hazards : ℕ → NNReal)
+    (eventCount : ℕ) (hpositive : 0 < hazards eventCount) :
+    gaussianZigZagSqrtHazardTerm hazards (eventCount + 1) ≤
+      gaussianZigZagEventWaitTerm initial hazards (eventCount + 1) := by
+  unfold gaussianZigZagEventWaitTerm gaussianZigZagEventWait
+  apply ENNReal.ofReal_le_ofReal
+  exact sqrt_hazard_le_gaussianZigZagWaitingNNReal_after_event
+    (gaussianZigZagEventState initial hazards eventCount) hpositive
+    (hazards (eventCount + 1))
+
+/-- For every positive hazard stream whose `sqrt(2E)` series diverges, the
+sum of exact Gaussian Zig-Zag inter-event waits is infinite. -/
+theorem gaussianZigZagEventWait_tsum_eq_top
+    (initial : ZigZagState) (hazards : ℕ → NNReal)
+    (hpositive : ∀ index, 0 < hazards index)
+    (hdiverges : (∑' index,
+      gaussianZigZagSqrtHazardTerm hazards index) = ∞) :
+    (∑' index, gaussianZigZagEventWaitTerm initial hazards index) = ∞ := by
+  have hsqrtTail : (∑' index,
+      gaussianZigZagSqrtHazardTerm hazards (index + 1)) = ∞ :=
+    ENNReal.tsum_add_one_eq_top hdiverges (by
+      exact ENNReal.ofReal_ne_top)
+  have htail : (∑' index,
+      gaussianZigZagEventWaitTerm initial hazards (index + 1)) = ∞ := by
+    apply top_unique
+    rw [← hsqrtTail]
+    exact ENNReal.tsum_le_tsum fun index =>
+      gaussianZigZagSqrtHazardTerm_le_eventWaitTerm_succ
+        initial hazards index (hpositive index)
+  rw [tsum_eq_zero_add' ENNReal.summable, htail]
+  simp
+
+/-- Exact standard-Gaussian Zig-Zag event times are nonexplosive: under the
+infinite i.i.d. exponential-hazard law, their total elapsed time is infinite
+almost surely. -/
+theorem gaussianZigZagEventWait_tsum_eq_top_ae
+    (initial : ZigZagState) :
+    ∀ᵐ hazards ∂gaussianZigZagHazardSequenceMeasure,
+      (∑' index,
+        gaussianZigZagEventWaitTerm initial hazards index) = ∞ := by
+  filter_upwards [gaussianZigZagHazardSequence_positive_ae,
+    gaussianZigZagSqrtHazard_tsum_eq_top_ae] with hazards hpositive hdiverges
+  exact gaussianZigZagEventWait_tsum_eq_top initial hazards
+    hpositive hdiverges
+
+noncomputable def gaussianZigZagEventElapsed
+    (initial : ZigZagState) (hazards : ℕ → NNReal)
+    (eventCount : ℕ) : ENNReal :=
+  ∑ index ∈ Finset.range eventCount,
+    gaussianZigZagEventWaitTerm initial hazards index
+
+/-- Equivalent finite-horizon form of nonexplosion: almost surely, cumulative
+event time tends to infinity as the event count grows. -/
+theorem gaussianZigZagEventElapsed_tendsto_atTop_ae
+    (initial : ZigZagState) :
+    ∀ᵐ hazards ∂gaussianZigZagHazardSequenceMeasure,
+      Filter.Tendsto (gaussianZigZagEventElapsed initial hazards)
+        Filter.atTop (nhds (∞ : ENNReal)) := by
+  filter_upwards [gaussianZigZagEventWait_tsum_eq_top_ae initial]
+    with hazards hsum
+  have htendsto := ENNReal.tendsto_nat_tsum
+    (gaussianZigZagEventWaitTerm initial hazards)
+  rw [hsum] at htendsto
+  change Filter.Tendsto (fun eventCount =>
+    ∑ index ∈ Finset.range eventCount,
+      gaussianZigZagEventWaitTerm initial hazards index)
+    Filter.atTop (nhds (∞ : ENNReal))
+  exact htendsto
 
 /-- Under the event kernel's actual exponential-hazard law, inverse-clock
 execution satisfies the integrated-hazard equation almost surely. -/
