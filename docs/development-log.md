@@ -58,6 +58,17 @@ explicit inverse-count full-horizon bound and fixed-horizon convergence to
 zero. What remains is the schedule-level instantiation that recursively
 supplies those constants for the actual prefix population laws.
 
+That schedule-level instantiation is now complete for finite bootstrap SMC.
+The library defines the recursively bound population law and the exact
+normalized one-particle Feynman--Kac target law. A universal
+observable-indexed coefficient is transformed by each schedule step using the
+weighted transition score and potential; finite minima and maxima construct
+all lower-normalizer, observable, and fresh-variance constants. Induction
+proves an explicit `C/N` MSE bound for every finite schedule, and count-indexed
+corollaries prove fixed-horizon mean-square and in-probability convergence.
+These results concern SMC approximation as `N → ∞`; they do not assert a
+particle-count-uniform convergence rate for the particle-Gibbs chain.
+
 ## 2026-08-15: finite continuous-time event schedules
 
 Extended the Poissonized fixed-event skeleton with ordered real timestamps.

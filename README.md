@@ -284,7 +284,11 @@ The repository now contains machine-checked implementations and proofs for:
 - unbiased multinomial ancestor resampling, heterogeneous propagation, and a
   one-step bootstrap resample--propagate expectation identity, lifted to an
   arbitrary finite-horizon homogeneous Feynman--Kac expectation theorem for
-  strictly positive potentials and to time-varying finite sequences;
+  strictly positive potentials and to time-varying finite sequences; the
+  recursively generated bootstrap population law now also has an explicit
+  finite-horizon `C/N` MSE bound around the exact normalized Feynman--Kac law
+  and converges in mean square and probability for every fixed horizon as the
+  particle count tends to infinity;
 - a normalized finite distribution over complete SMC population/ancestry
   histories, an exact product-weight expectation theorem, and the resulting
   explicit-history pseudo-marginal kernel with exact stationary state marginal,

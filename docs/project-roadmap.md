@@ -232,25 +232,16 @@ the heterogeneous conditional identity `sum coordinate variances / N²` for
 independently propagated populations. Uniformly variance-bounded triangular
 arrays additionally have `V/N` MSE and converge in probability around their
 count-specific means. This supplies the local variance term for sequential
-SMC. A complete bootstrap resample--propagate step now has the exact sum of
-propagation-variance and ancestry-mean-variance terms divided by `N`, including
-a uniform-bound corollary. The remaining full-horizon recurrence must control
-the nonlinear normalized-weight map and propagate previous-stage empirical
-error. The first part is now closed abstractly: separate numerator and
-normalizer MSE bounds, together with a positive lower bound on the approximate
-normalizer, yield an explicit squared self-normalized-ratio bound with the
-standard factor two. The remaining induction must instantiate those two MSE
-bounds at every resample--propagate stage and feed them into the existing
-affine sequential-error recurrence. The one-stage connector is now complete:
-the explicit joint ancestor/propagation law has an exact arbitrary-reference
-bias--variance decomposition, its conditional mean is proved equal to the
-self-normalized empirical Feynman--Kac ratio, and `bootstrapStage_mse_le`
-combines fresh `1/N` variance with incoming numerator/normalizer MSE. A
-time-inhomogeneous affine budget then propagates stage constants and proves
-fixed-horizon convergence to zero as `N → ∞`. The remaining model theorem is
-to define the count-indexed population law at every schedule prefix and
-instantiate these stage hypotheses recursively for its backward test
-functions.
+SMC. The full fixed-horizon particle-count theorem is now complete. The exact
+one-stage propagation/ancestry variance identity is combined with the
+self-normalized-ratio bound; recursively generated bootstrap population laws
+are compared with recursively generated exact normalized Feynman--Kac target
+laws. Finite potential minima, observable sup norms, and stage-variance bounds
+construct an observable-indexed coefficient `C`, and Lean proves
+`MSE ≤ C/N` for every finite strictly-positive-potential schedule on a finite
+nonempty state space. Count-indexed laws then converge in mean square and in
+probability at every fixed horizon. Uniform-in-time consistency and a PG-chain
+mixing theorem uniform in particle count remain distinct stability problems.
 
 General-state composable inference is also complete at the common-target
 stationarity layer. `Mcmc.Kernel.ComposableInference` supplies scoped

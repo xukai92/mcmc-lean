@@ -41,12 +41,15 @@ proves that its displayed refresh coefficient improves monotonically with
 `N`. Deriving that minorization from primitive potential and transition bounds
 for each concrete conditional-SMC generator remains model-specific.
 
-For particle-count consistency, the exact one-step resample--propagate MSE is
-now complemented by a checked self-normalized-ratio perturbation bound and a
-finite-horizon affine error recursion.  Consequently a concrete sequential
-client can obtain fixed-horizon `O(1/N)` control by supplying normalizer lower
-bounds and stagewise stability constants.  Uniform-in-time consistency still
-needs a strict stability argument.
+For particle-count consistency, the exact one-step resample--propagate MSE,
+self-normalized-ratio bound, and recursively generated population/target laws
+are now connected end to end. For every finite nonempty state space and finite
+strictly-positive-potential schedule, Lean constructs finite potential floors,
+observable bounds, and stage-variance bounds, proves an explicit `C/N` MSE
+estimate, and derives fixed-horizon convergence in mean square and probability.
+This is an SMC approximation theorem, not particle-count-uniform mixing of the
+particle-Gibbs Markov chain. Uniform-in-time SMC consistency still needs a
+separate stability argument.
 
 The executable `FiniteHMMParticleGibbs` mirrors this finite bootstrap case
 with integer weights and explicit RNG consumption. Reference and Optimized

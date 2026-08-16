@@ -1,4 +1,5 @@
 import Mcmc.Finite.ParticleEstimator
+import Mcmc.Finite.Dynamics
 import Mathlib.Tactic
 
 /-!
@@ -26,10 +27,200 @@ noncomputable def finiteExpectation (law : Distribution Sample)
     (score : Sample → ℝ) : ℝ :=
   ∑ x, law.mass x * score x
 
+/-- Finite expectation under a bind is the iterated finite expectation. -/
+theorem finiteExpectation_bind
+    {Outer Inner : Type*} [Fintype Outer] [Fintype Inner]
+    (law : Distribution Outer) (next : Outer → Distribution Inner)
+    (score : Inner → ℝ) :
+    finiteExpectation (Distribution.bind law next) score =
+      ∑ x, law.mass x * finiteExpectation (next x) score := by
+  unfold finiteExpectation
+  simp only [Distribution.bind_mass]
+  simp_rw [Finset.sum_mul]
+  rw [Finset.sum_comm]
+  simp_rw [Finset.mul_sum]
+  simp only [mul_assoc]
+
+/-- Every finite probability distribution gives positive mass to some state. -/
+theorem distribution_exists_mass_pos
+    {State : Type*} [Fintype State] (law : Distribution State) :
+    ∃ x, 0 < law.mass x := by
+  by_contra h
+  push Not at h
+  have hzero : ∀ x, law.mass x = 0 := fun x =>
+    le_antisymm (h x) (law.nonneg x)
+  have : ∑ x, law.mass x = 0 := by simp [hzero]
+  linarith [law.sum_mass]
+
+/-- A strictly positive score has strictly positive finite expectation under
+every finite probability law. -/
+theorem finiteExpectation_pos
+    {State : Type*} [Fintype State]
+    (law : Distribution State) (score : State → ℝ)
+    (hscore : ∀ x, 0 < score x) :
+    0 < finiteExpectation law score := by
+  obtain ⟨x, hx⟩ := distribution_exists_mass_pos law
+  unfold finiteExpectation
+  exact (mul_pos hx (hscore x)).trans_le
+    (Finset.single_le_sum
+      (fun y _ => mul_nonneg (law.nonneg y) (hscore y).le)
+      (Finset.mem_univ x))
+
+/-- Minimum of a real function on a nonempty finite type. -/
+noncomputable def finiteFunctionMinimum
+    {State : Type*} [Fintype State] [Nonempty State] (score : State → ℝ) : ℝ :=
+  (Finset.univ.image score).min' (Finset.univ_nonempty.image score)
+
+theorem finiteFunctionMinimum_le
+    {State : Type*} [Fintype State] [Nonempty State]
+    (score : State → ℝ) (x : State) :
+    finiteFunctionMinimum score ≤ score x := by
+  unfold finiteFunctionMinimum
+  exact Finset.min'_le _ _ (Finset.mem_image.mpr ⟨x, Finset.mem_univ x, rfl⟩)
+
+theorem finiteFunctionMinimum_pos
+    {State : Type*} [Fintype State] [Nonempty State]
+    (score : State → ℝ) (hscore : ∀ x, 0 < score x) :
+    0 < finiteFunctionMinimum score := by
+  unfold finiteFunctionMinimum
+  obtain ⟨x, _, hx⟩ := Finset.mem_image.mp
+    ((Finset.univ.image score).min'_mem (Finset.univ_nonempty.image score))
+  rw [← hx]
+  exact hscore x
+
+omit [DecidableEq Sample] [DecidableEq Particle] in
+/-- Every empirical average is at least the finite minimum of its score. -/
+theorem finiteFunctionMinimum_le_particleAverage
+    [Nonempty Sample] (score : Sample → ℝ) (particles : Particle → Sample) :
+    finiteFunctionMinimum score ≤ particleAverage score particles := by
+  unfold particleAverage
+  have hcard : (0 : ℝ) < Fintype.card Particle := by positivity
+  rw [le_div_iff₀ hcard]
+  calc
+    finiteFunctionMinimum score * Fintype.card Particle =
+        ∑ _i : Particle, finiteFunctionMinimum score := by
+          simp [mul_comm]
+    _ ≤ ∑ i, score (particles i) :=
+      Finset.sum_le_sum fun i _ => finiteFunctionMinimum_le score (particles i)
+
+/-- Maximum absolute value of a real function on a nonempty finite type. -/
+noncomputable def finiteFunctionAbsMaximum
+    {State : Type*} [Fintype State] [Nonempty State] (score : State → ℝ) : ℝ :=
+  (Finset.univ.image fun x => |score x|).max'
+    (Finset.univ_nonempty.image fun x => |score x|)
+
+theorem abs_le_finiteFunctionAbsMaximum
+    {State : Type*} [Fintype State] [Nonempty State]
+    (score : State → ℝ) (x : State) :
+    |score x| ≤ finiteFunctionAbsMaximum score := by
+  unfold finiteFunctionAbsMaximum
+  have hmem : |score x| ∈
+      (Finset.univ.image fun y : State => |score y|) :=
+    Finset.mem_image.mpr ⟨x, Finset.mem_univ x, rfl⟩
+  exact Finset.le_max' _ _ hmem
+
+theorem finiteFunctionAbsMaximum_nonneg
+    {State : Type*} [Fintype State] [Nonempty State]
+    (score : State → ℝ) : 0 ≤ finiteFunctionAbsMaximum score :=
+  (abs_nonneg (score (Classical.choice ‹Nonempty State›))).trans
+    (abs_le_finiteFunctionAbsMaximum score _)
+
+/-- Expectation of a finite observable is bounded by its finite sup norm. -/
+theorem abs_finiteExpectation_le
+    {State : Type*} [Fintype State] [Nonempty State]
+    (law : Distribution State) (score : State → ℝ) :
+    |finiteExpectation law score| ≤ finiteFunctionAbsMaximum score := by
+  unfold finiteExpectation
+  calc
+    |∑ x, law.mass x * score x| ≤ ∑ x, |law.mass x * score x| :=
+      Finset.abs_sum_le_sum_abs _ _
+    _ = ∑ x, law.mass x * |score x| := by
+      apply Finset.sum_congr rfl
+      intro x _
+      rw [abs_mul, abs_of_nonneg (law.nonneg x)]
+    _ ≤ ∑ x, law.mass x * finiteFunctionAbsMaximum score := by
+      exact Finset.sum_le_sum fun x _ =>
+        mul_le_mul_of_nonneg_left (abs_le_finiteFunctionAbsMaximum score x)
+          (law.nonneg x)
+    _ = finiteFunctionAbsMaximum score := by
+      rw [← Finset.sum_mul, law.sum_mass, one_mul]
+
 /-- Centered second moment of one particle. -/
 noncomputable def finiteVariance (law : Distribution Sample)
     (score : Sample → ℝ) : ℝ :=
   ∑ x, law.mass x * (score x - finiteExpectation law score) ^ 2
+
+omit [DecidableEq Sample] [Nonempty Particle] in
+/-- Uniform finite-state variance bound in terms of the observable sup norm. -/
+theorem finiteVariance_le_four_mul_absMaximum_sq
+    [Nonempty Sample] (law : Distribution Sample) (score : Sample → ℝ) :
+    finiteVariance law score ≤ 4 * finiteFunctionAbsMaximum score ^ 2 := by
+  let bound := finiteFunctionAbsMaximum score
+  have hbound0 : 0 ≤ bound := finiteFunctionAbsMaximum_nonneg score
+  have hmean : |finiteExpectation law score| ≤ bound :=
+    abs_finiteExpectation_le law score
+  have hpoint (x : Sample) :
+      (score x - finiteExpectation law score) ^ 2 ≤ 4 * bound ^ 2 := by
+    have hdev : |score x - finiteExpectation law score| ≤ 2 * bound := by
+      calc
+        |score x - finiteExpectation law score| ≤
+            |score x| + |finiteExpectation law score| := abs_sub _ _
+        _ ≤ bound + bound := add_le_add
+          (abs_le_finiteFunctionAbsMaximum score x) hmean
+        _ = 2 * bound := by ring
+    have habs0 : 0 ≤ |score x - finiteExpectation law score| := abs_nonneg _
+    rw [← sq_abs]
+    nlinarith
+  unfold finiteVariance
+  calc
+    _ ≤ ∑ x, law.mass x * (4 * bound ^ 2) := by
+      exact Finset.sum_le_sum fun x _ =>
+        mul_le_mul_of_nonneg_left (hpoint x) (law.nonneg x)
+    _ = 4 * bound ^ 2 := by
+      rw [← Finset.sum_mul, law.sum_mass, one_mul]
+
+omit [DecidableEq Sample] [Nonempty Particle] in
+theorem abs_finiteExpectation_le_of_abs_le
+    (law : Distribution Sample) (score : Sample → ℝ) {bound : ℝ}
+    (hbound : ∀ x, |score x| ≤ bound) :
+    |finiteExpectation law score| ≤ bound := by
+  unfold finiteExpectation
+  calc
+    |∑ x, law.mass x * score x| ≤ ∑ x, |law.mass x * score x| :=
+      Finset.abs_sum_le_sum_abs _ _
+    _ = ∑ x, law.mass x * |score x| := by
+      apply Finset.sum_congr rfl
+      intro x _
+      rw [abs_mul, abs_of_nonneg (law.nonneg x)]
+    _ ≤ ∑ x, law.mass x * bound :=
+      Finset.sum_le_sum fun x _ =>
+        mul_le_mul_of_nonneg_left (hbound x) (law.nonneg x)
+    _ = bound := by rw [← Finset.sum_mul, law.sum_mass, one_mul]
+
+omit [DecidableEq Sample] [Nonempty Particle] in
+theorem finiteVariance_le_of_abs_le
+    (law : Distribution Sample) (score : Sample → ℝ) {bound : ℝ}
+    (hbound0 : 0 ≤ bound) (hbound : ∀ x, |score x| ≤ bound) :
+    finiteVariance law score ≤ 4 * bound ^ 2 := by
+  have hmean := abs_finiteExpectation_le_of_abs_le law score hbound
+  have hpoint (x : Sample) :
+      (score x - finiteExpectation law score) ^ 2 ≤ 4 * bound ^ 2 := by
+    have hdev : |score x - finiteExpectation law score| ≤ 2 * bound := by
+      calc
+        |score x - finiteExpectation law score| ≤
+            |score x| + |finiteExpectation law score| := abs_sub _ _
+        _ ≤ bound + bound := add_le_add (hbound x) hmean
+        _ = 2 * bound := by ring
+    have habs0 : 0 ≤ |score x - finiteExpectation law score| := abs_nonneg _
+    rw [← sq_abs]
+    nlinarith
+  unfold finiteVariance
+  calc
+    _ ≤ ∑ x, law.mass x * (4 * bound ^ 2) :=
+      Finset.sum_le_sum fun x _ =>
+        mul_le_mul_of_nonneg_left (hpoint x) (law.nonneg x)
+    _ = 4 * bound ^ 2 := by
+      rw [← Finset.sum_mul, law.sum_mass, one_mul]
 
 omit [DecidableEq Sample] [Nonempty Particle] in
 /-- Bias--variance decomposition for an arbitrary finite distribution. -/
@@ -466,6 +657,239 @@ noncomputable def resamplePropagateLaw
       (propagatedPopulation transition particles _).sum_mass, mul_one]
     exact (multinomialResampling weights).sum_mass
 
+/-- Marginal law of the next population after one bootstrap SMC stage. -/
+noncomputable def bootstrapPopulationUpdate
+    (step : FeynmanKacStep Sample) (particles : Particle → Sample) :
+    Distribution (Particle → Sample) :=
+  Distribution.bind
+    (multinomialResampling
+      (normalizedPotentialWeights step.potential step.potential_pos particles))
+    (propagatedPopulation step.transition particles)
+
+/-- Run a finite time-inhomogeneous bootstrap schedule from an arbitrary
+incoming population law. -/
+noncomputable def bootstrapPopulationLawFrom
+    (current : Distribution (Particle → Sample)) :
+    List (FeynmanKacStep Sample) → Distribution (Particle → Sample)
+  | [] => current
+  | step :: steps =>
+      bootstrapPopulationLawFrom
+        (Distribution.bind current (bootstrapPopulationUpdate step)) steps
+
+/-- Population law of the actual bootstrap particle filter initialized iid. -/
+noncomputable def bootstrapPopulationLaw
+    (initial : Distribution Sample) (steps : List (FeynmanKacStep Sample)) :
+    Distribution (Particle → Sample) :=
+  bootstrapPopulationLawFrom (iidPopulation (Particle := Particle) initial) steps
+
+/-- Normalize a strictly positive potential against a finite probability law. -/
+noncomputable def potentialReweight
+    (law : Distribution Sample) (potential : Sample → ℝ)
+    (hpotential : ∀ x, 0 < potential x) : Distribution Sample where
+  mass x := law.mass x * potential x / finiteExpectation law potential
+  nonneg x := div_nonneg (mul_nonneg (law.nonneg x) (hpotential x).le)
+    (finiteExpectation_pos law potential hpotential).le
+  sum_mass := by
+    rw [← Finset.sum_div]
+    exact div_self (ne_of_gt (finiteExpectation_pos law potential hpotential))
+
+/-- Exact normalized one-particle Feynman--Kac update corresponding to one
+bootstrap particle stage. -/
+noncomputable def bootstrapTargetUpdate
+    (law : Distribution Sample) (step : FeynmanKacStep Sample) :
+    Distribution Sample :=
+  (potentialReweight law step.potential step.potential_pos).evolve step.transition
+
+/-- Exact normalized filtering law after a finite time-inhomogeneous schedule. -/
+noncomputable def bootstrapTargetLawFrom
+    (current : Distribution Sample) :
+    List (FeynmanKacStep Sample) → Distribution Sample
+  | [] => current
+  | step :: steps =>
+      bootstrapTargetLawFrom (bootstrapTargetUpdate current step) steps
+
+noncomputable def bootstrapTargetLaw
+    (initial : Distribution Sample) (steps : List (FeynmanKacStep Sample)) :
+    Distribution Sample :=
+  bootstrapTargetLawFrom initial steps
+
+omit [DecidableEq Sample] in
+/-- Reweighted expectation is the exact potential-weighted ratio. -/
+theorem potentialReweight_expectation
+    (law : Distribution Sample) (potential : Sample → ℝ)
+    (hpotential : ∀ x, 0 < potential x) (score : Sample → ℝ) :
+    finiteExpectation (potentialReweight law potential hpotential) score =
+      finiteExpectation law (fun x => potential x * score x) /
+        finiteExpectation law potential := by
+  change (∑ x, (law.mass x * potential x /
+      finiteExpectation law potential) * score x) =
+    finiteExpectation law (fun x => potential x * score x) /
+      finiteExpectation law potential
+  calc
+    _ = ∑ x, (law.mass x * (potential x * score x)) /
+        finiteExpectation law potential := by
+          apply Finset.sum_congr rfl
+          intro x _
+          ring
+    _ = _ := by
+      rw [← Finset.sum_div]
+      rfl
+
+omit [DecidableEq Sample] in
+/-- Exact target expectation after one normalized Feynman--Kac update. -/
+theorem bootstrapTargetUpdate_expectation
+    (law : Distribution Sample) (step : FeynmanKacStep Sample)
+    (score : Sample → ℝ) :
+    finiteExpectation (bootstrapTargetUpdate law step) score =
+      finiteExpectation law (fun x => step.potential x *
+          finiteExpectation (rowDistribution step.transition x) score) /
+        finiteExpectation law step.potential := by
+  unfold bootstrapTargetUpdate
+  unfold finiteExpectation
+  simp only [MarkovKernel.Distribution.evolve_mass]
+  simp_rw [Finset.sum_mul]
+  rw [Finset.sum_comm]
+  simp_rw [mul_assoc, ← Finset.mul_sum]
+  change (∑ x,
+      (potentialReweight law step.potential step.potential_pos).mass x *
+        finiteExpectation (rowDistribution step.transition x) score) = _
+  simpa [finiteExpectation] using
+    potentialReweight_expectation law step.potential step.potential_pos
+      (fun x => finiteExpectation (rowDistribution step.transition x) score)
+
+omit [DecidableEq Sample] in
+theorem bootstrapTargetLawFrom_append
+    (current : Distribution Sample) (left right : List (FeynmanKacStep Sample)) :
+    bootstrapTargetLawFrom current (left ++ right) =
+      bootstrapTargetLawFrom (bootstrapTargetLawFrom current left) right := by
+  induction left generalizing current with
+  | nil => rfl
+  | cons step left ih =>
+      simp only [List.cons_append, bootstrapTargetLawFrom]
+      exact ih (bootstrapTargetUpdate current step)
+
+omit [DecidableEq Sample] in
+theorem bootstrapTargetLaw_append_singleton
+    (initial : Distribution Sample) (priorSteps : List (FeynmanKacStep Sample))
+    (step : FeynmanKacStep Sample) :
+    bootstrapTargetLaw initial (priorSteps ++ [step]) =
+      bootstrapTargetUpdate (bootstrapTargetLaw initial priorSteps) step := by
+  unfold bootstrapTargetLaw
+  rw [bootstrapTargetLawFrom_append]
+  rfl
+
+omit [DecidableEq Sample] in
+/-- The exact target expectation after appending one schedule stage is the
+ratio used as the reference in the population MSE induction. -/
+theorem bootstrapTargetLaw_append_singleton_expectation
+    (initial : Distribution Sample) (priorSteps : List (FeynmanKacStep Sample))
+    (step : FeynmanKacStep Sample) (score : Sample → ℝ) :
+    finiteExpectation (bootstrapTargetLaw initial (priorSteps ++ [step])) score =
+      finiteExpectation (bootstrapTargetLaw initial priorSteps)
+          (fun x => step.potential x *
+            finiteExpectation (rowDistribution step.transition x) score) /
+        finiteExpectation (bootstrapTargetLaw initial priorSteps)
+          step.potential := by
+  rw [bootstrapTargetLaw_append_singleton]
+  exact bootstrapTargetUpdate_expectation _ _ _
+
+omit [DecidableEq Sample] in
+@[simp] theorem bootstrapPopulationLawFrom_nil
+    (current : Distribution (Particle → Sample)) :
+    bootstrapPopulationLawFrom current [] = current := rfl
+
+omit [DecidableEq Sample] in
+@[simp] theorem bootstrapPopulationLawFrom_cons
+    (current : Distribution (Particle → Sample))
+    (step : FeynmanKacStep Sample) (steps : List (FeynmanKacStep Sample)) :
+    bootstrapPopulationLawFrom current (step :: steps) =
+      bootstrapPopulationLawFrom
+        (Distribution.bind current (bootstrapPopulationUpdate step)) steps := rfl
+
+omit [DecidableEq Sample] in
+/-- Bootstrap schedule execution composes exactly across list concatenation. -/
+theorem bootstrapPopulationLawFrom_append
+    (current : Distribution (Particle → Sample))
+    (left right : List (FeynmanKacStep Sample)) :
+    bootstrapPopulationLawFrom current (left ++ right) =
+      bootstrapPopulationLawFrom (bootstrapPopulationLawFrom current left) right := by
+  induction left generalizing current with
+  | nil => rfl
+  | cons step left ih =>
+      simp only [List.cons_append, bootstrapPopulationLawFrom_cons]
+      exact ih (Distribution.bind current (bootstrapPopulationUpdate step))
+
+omit [DecidableEq Sample] in
+/-- Appending one stage evolves the preceding prefix population law by that
+stage's bootstrap update. -/
+theorem bootstrapPopulationLaw_append_singleton
+    (initial : Distribution Sample) (priorSteps : List (FeynmanKacStep Sample))
+    (step : FeynmanKacStep Sample) :
+    bootstrapPopulationLaw (Particle := Particle) initial (priorSteps ++ [step]) =
+      Distribution.bind (bootstrapPopulationLaw initial priorSteps)
+        (bootstrapPopulationUpdate step) := by
+  unfold bootstrapPopulationLaw
+  rw [bootstrapPopulationLawFrom_append]
+  rfl
+
+omit [DecidableEq Sample] in
+/-- The expectation of a next-population score unfolds to the exact nested
+resample--propagate expectation used by the stage MSE theorem. -/
+theorem bootstrapPopulationUpdate_expectation
+    (step : FeynmanKacStep Sample) (particles : Particle → Sample)
+    (score : (Particle → Sample) → ℝ) :
+    finiteExpectation (bootstrapPopulationUpdate step particles) score =
+      ∑ ancestors,
+        (multinomialResampling
+          (normalizedPotentialWeights step.potential step.potential_pos
+            particles)).mass ancestors *
+          finiteExpectation
+            (propagatedPopulation step.transition particles ancestors) score := by
+  unfold bootstrapPopulationUpdate
+  exact finiteExpectation_bind _ _ score
+
+omit [DecidableEq Sample] in
+/-- The next-population marginal and the explicit joint ancestor/population
+law give the same expectation for every population score. -/
+theorem bootstrapPopulationUpdate_expectation_eq_joint
+    (step : FeynmanKacStep Sample) (particles : Particle → Sample)
+    (score : (Particle → Sample) → ℝ) :
+    finiteExpectation (bootstrapPopulationUpdate step particles) score =
+      finiteExpectation
+        (resamplePropagateLaw
+          (normalizedPotentialWeights step.potential step.potential_pos particles)
+          particles step.transition)
+        (fun outcome => score outcome.2) := by
+  rw [bootstrapPopulationUpdate_expectation]
+  unfold finiteExpectation resamplePropagateLaw
+  rw [Fintype.sum_prod_type]
+  simp_rw [Finset.mul_sum]
+  simp only [mul_assoc]
+
+omit [DecidableEq Sample] in
+/-- Appending one concrete bootstrap stage unfolds the MSE of its population
+law to the integrated explicit stage law. -/
+theorem bootstrapPopulationLaw_append_singleton_sq_error
+    (initial : Distribution Sample) (priorSteps : List (FeynmanKacStep Sample))
+    (step : FeynmanKacStep Sample) (score : Sample → ℝ) (reference : ℝ) :
+    finiteExpectation
+        (bootstrapPopulationLaw (Particle := Particle) initial
+          (priorSteps ++ [step]))
+        (fun particles => (particleAverage score particles - reference) ^ 2) =
+      ∑ particles : Particle → Sample,
+        (bootstrapPopulationLaw (Particle := Particle) initial priorSteps).mass particles *
+        (∑ outcome : (Particle → Particle) × (Particle → Sample),
+          (resamplePropagateLaw
+            (normalizedPotentialWeights step.potential step.potential_pos particles)
+            particles step.transition).mass outcome *
+            (particleAverage score outcome.2 - reference) ^ 2) := by
+  rw [bootstrapPopulationLaw_append_singleton]
+  rw [finiteExpectation_bind]
+  apply Finset.sum_congr rfl
+  intro particles _
+  rw [bootstrapPopulationUpdate_expectation_eq_joint]
+  rfl
+
 omit [DecidableEq Sample] in
 /-- The one-step joint law has the normalized weighted transition mean. -/
 theorem resamplePropagateLaw_particleAverage_expectation
@@ -678,6 +1102,57 @@ theorem bootstrapStage_particleAverage_sq_error
       particles (fun x => finiteExpectation (rowDistribution transition x) score)
   rw [resamplePropagateLaw_particleAverage_sq_error]
   rw [hmean]
+
+omit [DecidableEq Sample] [DecidableEq Particle] in
+/-- A universal finite-state bound for the fresh one-stage variance term. -/
+theorem bootstrapStage_freshVariance_le
+    [Nonempty Sample]
+    (potential : Sample → ℝ) (hpotential : ∀ x, 0 < potential x)
+    (particles : Particle → Sample) (transition : MarkovKernel Sample)
+    (score : Sample → ℝ) :
+    finiteExpectation
+        (normalizedPotentialWeights potential hpotential particles)
+        (fun i => finiteVariance
+          (rowDistribution transition (particles i)) score) +
+      finiteVariance
+        (normalizedPotentialWeights potential hpotential particles)
+        (fun i => finiteExpectation
+          (rowDistribution transition (particles i)) score) ≤
+      8 * finiteFunctionAbsMaximum score ^ 2 := by
+  let bound := finiteFunctionAbsMaximum score
+  have hbound0 : 0 ≤ bound := finiteFunctionAbsMaximum_nonneg score
+  have hrow (x : Sample) :
+      finiteVariance (rowDistribution transition x) score ≤ 4 * bound ^ 2 :=
+    finiteVariance_le_four_mul_absMaximum_sq _ _
+  have hfirst :
+      finiteExpectation
+          (normalizedPotentialWeights potential hpotential particles)
+          (fun i => finiteVariance
+            (rowDistribution transition (particles i)) score) ≤
+        4 * bound ^ 2 := by
+    unfold finiteExpectation
+    calc
+      _ ≤ ∑ i,
+          (normalizedPotentialWeights potential hpotential particles).mass i *
+            (4 * bound ^ 2) := Finset.sum_le_sum fun i _ =>
+              mul_le_mul_of_nonneg_left (hrow (particles i))
+                ((normalizedPotentialWeights potential hpotential particles).nonneg i)
+      _ = 4 * bound ^ 2 := by
+        rw [← Finset.sum_mul,
+          (normalizedPotentialWeights potential hpotential particles).sum_mass,
+          one_mul]
+  have htransitionMean (i : Particle) :
+      |finiteExpectation (rowDistribution transition (particles i)) score| ≤
+        bound := abs_finiteExpectation_le _ _
+  have hsecond :
+      finiteVariance
+          (normalizedPotentialWeights potential hpotential particles)
+          (fun i => finiteExpectation
+            (rowDistribution transition (particles i)) score) ≤
+        4 * bound ^ 2 :=
+    finiteVariance_le_of_abs_le _ _ hbound0 htransitionMean
+  dsimp [bound] at hfirst hsecond ⊢
+  linarith
 
 omit [DecidableEq Sample] in
 /-- A directly checkable one-step `O(1/N)` bound for bootstrap
@@ -1386,6 +1861,478 @@ theorem bootstrapStage_mse_le
         2 * (numeratorMSE + observableBound ^ 2 * denominatorMSE) /
           lower ^ 2 := add_le_add
             (div_le_div_of_nonneg_right hfreshMean (by positivity)) hratio
+
+omit [DecidableEq Sample] in
+/-- Concrete prefix-law corollary of `bootstrapStage_mse_le`. This is the
+induction step for the actual recursively generated bootstrap SMC process. -/
+theorem bootstrapPopulationLaw_append_singleton_mse_le
+    (initial : Distribution Sample) (priorSteps : List (FeynmanKacStep Sample))
+    (step : FeynmanKacStep Sample) (score : Sample → ℝ)
+    {numerator denominator observableBound lower
+      freshVariance numeratorMSE denominatorMSE : ℝ}
+    (hdenominator : denominator ≠ 0)
+    (hlower : 0 < lower)
+    (hparticleLower : ∀ particles : Particle → Sample,
+      lower ≤ particleAverage step.potential particles)
+    (hobservable : |numerator / denominator| ≤ observableBound)
+    (hobservableNonneg : 0 ≤ observableBound)
+    (hfresh : ∀ particles : Particle → Sample,
+      finiteExpectation
+          (normalizedPotentialWeights step.potential step.potential_pos particles)
+          (fun i => finiteVariance
+            (rowDistribution step.transition (particles i)) score) +
+        finiteVariance
+          (normalizedPotentialWeights step.potential step.potential_pos particles)
+          (fun i => finiteExpectation
+            (rowDistribution step.transition (particles i)) score) ≤ freshVariance)
+    (hnumeratorMSE :
+      ∑ particles,
+        (bootstrapPopulationLaw (Particle := Particle) initial priorSteps).mass
+            particles *
+          (particleAverage (fun x => step.potential x *
+              finiteExpectation (rowDistribution step.transition x) score)
+              particles - numerator) ^ 2 ≤ numeratorMSE)
+    (hdenominatorMSE :
+      ∑ particles,
+        (bootstrapPopulationLaw (Particle := Particle) initial priorSteps).mass
+            particles *
+          (particleAverage step.potential particles - denominator) ^ 2 ≤
+        denominatorMSE) :
+    finiteExpectation
+        (bootstrapPopulationLaw (Particle := Particle) initial
+          (priorSteps ++ [step]))
+        (fun particles =>
+          (particleAverage score particles - numerator / denominator) ^ 2) ≤
+      freshVariance / Fintype.card Particle +
+        2 * (numeratorMSE + observableBound ^ 2 * denominatorMSE) /
+          lower ^ 2 := by
+  rw [bootstrapPopulationLaw_append_singleton_sq_error]
+  exact bootstrapStage_mse_le
+    (bootstrapPopulationLaw (Particle := Particle) initial priorSteps)
+    step.potential step.potential_pos step.transition score hdenominator hlower
+    hparticleLower hobservable hobservableNonneg hfresh hnumeratorMSE
+    hdenominatorMSE
+
+omit [DecidableEq Sample] in
+/-- Induction step centered at the actual normalized Feynman--Kac target law.
+The two incoming MSE premises are precisely the induction hypotheses for the
+weighted transition score and for the potential. -/
+theorem bootstrapPopulationLaw_append_singleton_target_mse_le
+    (initial : Distribution Sample) (priorSteps : List (FeynmanKacStep Sample))
+    (step : FeynmanKacStep Sample) (score : Sample → ℝ)
+    {observableBound lower freshVariance numeratorMSE denominatorMSE : ℝ}
+    (hlower : 0 < lower)
+    (hparticleLower : ∀ particles : Particle → Sample,
+      lower ≤ particleAverage step.potential particles)
+    (hobservable :
+      |finiteExpectation (bootstrapTargetLaw initial (priorSteps ++ [step]))
+          score| ≤ observableBound)
+    (hobservableNonneg : 0 ≤ observableBound)
+    (hfresh : ∀ particles : Particle → Sample,
+      finiteExpectation
+          (normalizedPotentialWeights step.potential step.potential_pos particles)
+          (fun i => finiteVariance
+            (rowDistribution step.transition (particles i)) score) +
+        finiteVariance
+          (normalizedPotentialWeights step.potential step.potential_pos particles)
+          (fun i => finiteExpectation
+            (rowDistribution step.transition (particles i)) score) ≤ freshVariance)
+    (hnumeratorMSE :
+      ∑ particles,
+        (bootstrapPopulationLaw (Particle := Particle) initial priorSteps).mass
+            particles *
+          (particleAverage (fun x => step.potential x *
+              finiteExpectation (rowDistribution step.transition x) score)
+              particles -
+            finiteExpectation (bootstrapTargetLaw initial priorSteps)
+              (fun x => step.potential x *
+                finiteExpectation (rowDistribution step.transition x) score)) ^ 2 ≤
+        numeratorMSE)
+    (hdenominatorMSE :
+      ∑ particles,
+        (bootstrapPopulationLaw (Particle := Particle) initial priorSteps).mass
+            particles *
+          (particleAverage step.potential particles -
+            finiteExpectation (bootstrapTargetLaw initial priorSteps)
+              step.potential) ^ 2 ≤ denominatorMSE) :
+    finiteExpectation
+        (bootstrapPopulationLaw (Particle := Particle) initial
+          (priorSteps ++ [step]))
+        (fun particles =>
+          (particleAverage score particles -
+            finiteExpectation
+              (bootstrapTargetLaw initial (priorSteps ++ [step])) score) ^ 2) ≤
+      freshVariance / Fintype.card Particle +
+        2 * (numeratorMSE + observableBound ^ 2 * denominatorMSE) /
+          lower ^ 2 := by
+  let priorTarget := bootstrapTargetLaw initial priorSteps
+  let numerator := finiteExpectation priorTarget (fun x => step.potential x *
+    finiteExpectation (rowDistribution step.transition x) score)
+  let denominator := finiteExpectation priorTarget step.potential
+  have hdenominator : denominator ≠ 0 := ne_of_gt
+    (finiteExpectation_pos priorTarget step.potential step.potential_pos)
+  have htarget :
+      finiteExpectation (bootstrapTargetLaw initial (priorSteps ++ [step])) score =
+        numerator / denominator := by
+    exact bootstrapTargetLaw_append_singleton_expectation initial priorSteps
+      step score
+  rw [htarget] at hobservable ⊢
+  exact bootstrapPopulationLaw_append_singleton_mse_le initial priorSteps step
+    score hdenominator hlower hparticleLower hobservable hobservableNonneg
+    hfresh hnumeratorMSE hdenominatorMSE
+
+omit [DecidableEq Sample] in
+/-- Fully finite-state version of the actual bootstrap induction step. The
+positive potential floor, target-observable bound, and fresh stage variance
+are constructed automatically from finite extrema. -/
+theorem bootstrapPopulationLaw_append_singleton_target_mse_le_finiteBounds
+    [Nonempty Sample]
+    (initial : Distribution Sample) (priorSteps : List (FeynmanKacStep Sample))
+    (step : FeynmanKacStep Sample) (score : Sample → ℝ)
+    {numeratorMSE denominatorMSE : ℝ}
+    (hnumeratorMSE :
+      ∑ particles,
+        (bootstrapPopulationLaw (Particle := Particle) initial priorSteps).mass
+            particles *
+          (particleAverage (fun x => step.potential x *
+              finiteExpectation (rowDistribution step.transition x) score)
+              particles -
+            finiteExpectation (bootstrapTargetLaw initial priorSteps)
+              (fun x => step.potential x *
+                finiteExpectation (rowDistribution step.transition x) score)) ^ 2 ≤
+        numeratorMSE)
+    (hdenominatorMSE :
+      ∑ particles,
+        (bootstrapPopulationLaw (Particle := Particle) initial priorSteps).mass
+            particles *
+          (particleAverage step.potential particles -
+            finiteExpectation (bootstrapTargetLaw initial priorSteps)
+              step.potential) ^ 2 ≤ denominatorMSE) :
+    finiteExpectation
+        (bootstrapPopulationLaw (Particle := Particle) initial
+          (priorSteps ++ [step]))
+        (fun particles =>
+          (particleAverage score particles -
+            finiteExpectation
+              (bootstrapTargetLaw initial (priorSteps ++ [step])) score) ^ 2) ≤
+      (8 * finiteFunctionAbsMaximum score ^ 2) /
+          Fintype.card Particle +
+        2 * (numeratorMSE + finiteFunctionAbsMaximum score ^ 2 * denominatorMSE) /
+          finiteFunctionMinimum step.potential ^ 2 := by
+  apply bootstrapPopulationLaw_append_singleton_target_mse_le
+    initial priorSteps step score
+  · exact finiteFunctionMinimum_pos step.potential step.potential_pos
+  · exact fun particles =>
+      finiteFunctionMinimum_le_particleAverage step.potential particles
+  · exact abs_finiteExpectation_le _ _
+  · exact finiteFunctionAbsMaximum_nonneg score
+  · exact fun particles => bootstrapStage_freshVariance_le
+      step.potential step.potential_pos particles step.transition score
+  · exact hnumeratorMSE
+  · exact hdenominatorMSE
+
+/-- Count-independent coefficient transformer for one finite bootstrap stage.
+If the incoming MSE for every observable is `budget observable / N`, this is
+the coefficient delivered for the outgoing observable. -/
+noncomputable def bootstrapMSEBudgetStep [Nonempty Sample]
+    (budget : (Sample → ℝ) → ℝ) (step : FeynmanKacStep Sample)
+    (score : Sample → ℝ) : ℝ :=
+  8 * finiteFunctionAbsMaximum score ^ 2 +
+    2 * (budget (fun x => step.potential x *
+        finiteExpectation (rowDistribution step.transition x) score) +
+      finiteFunctionAbsMaximum score ^ 2 * budget step.potential) /
+        finiteFunctionMinimum step.potential ^ 2
+
+/-- Fold the observable-indexed MSE coefficient through a concrete schedule. -/
+noncomputable def bootstrapMSEBudgetFrom [Nonempty Sample]
+    (budget : (Sample → ℝ) → ℝ) :
+    List (FeynmanKacStep Sample) → (Sample → ℝ) → ℝ
+  | [], score => budget score
+  | step :: steps, score =>
+      bootstrapMSEBudgetFrom (bootstrapMSEBudgetStep budget step) steps score
+
+omit [DecidableEq Sample] in
+/-- One arbitrary incoming population/target pair advances the universal
+inverse-count MSE budget by `bootstrapMSEBudgetStep`. -/
+theorem bootstrapPopulationUpdate_target_mse_le_budget
+    [Nonempty Sample]
+    (currentPopulation : Distribution (Particle → Sample))
+    (currentTarget : Distribution Sample)
+    (budget : (Sample → ℝ) → ℝ)
+    (hincoming : ∀ score : Sample → ℝ,
+      finiteExpectation currentPopulation (fun particles =>
+        (particleAverage score particles -
+          finiteExpectation currentTarget score) ^ 2) ≤
+        budget score / Fintype.card Particle)
+    (step : FeynmanKacStep Sample) (score : Sample → ℝ) :
+    finiteExpectation
+        (Distribution.bind currentPopulation (bootstrapPopulationUpdate step))
+        (fun particles =>
+          (particleAverage score particles -
+            finiteExpectation (bootstrapTargetUpdate currentTarget step) score) ^ 2) ≤
+      bootstrapMSEBudgetStep budget step score / Fintype.card Particle := by
+  let numeratorScore : Sample → ℝ := fun x => step.potential x *
+    finiteExpectation (rowDistribution step.transition x) score
+  let numerator := finiteExpectation currentTarget numeratorScore
+  let denominator := finiteExpectation currentTarget step.potential
+  let bound := finiteFunctionAbsMaximum score
+  let lower := finiteFunctionMinimum step.potential
+  have hdenominator : denominator ≠ 0 := ne_of_gt
+    (finiteExpectation_pos currentTarget step.potential step.potential_pos)
+  have hlower : 0 < lower :=
+    finiteFunctionMinimum_pos step.potential step.potential_pos
+  have htarget :
+      finiteExpectation (bootstrapTargetUpdate currentTarget step) score =
+        numerator / denominator := by
+    exact bootstrapTargetUpdate_expectation currentTarget step score
+  have hstage := bootstrapStage_mse_le currentPopulation step.potential
+    step.potential_pos step.transition score hdenominator hlower
+    (fun particles => finiteFunctionMinimum_le_particleAverage
+      step.potential particles)
+    (by simpa [bound, htarget] using
+      abs_finiteExpectation_le (bootstrapTargetUpdate currentTarget step) score)
+    (finiteFunctionAbsMaximum_nonneg score)
+    (fun particles => bootstrapStage_freshVariance_le step.potential
+      step.potential_pos particles step.transition score)
+    (hincoming numeratorScore) (hincoming step.potential)
+  have hlaw :
+      finiteExpectation
+          (Distribution.bind currentPopulation (bootstrapPopulationUpdate step))
+          (fun particles =>
+            (particleAverage score particles - numerator / denominator) ^ 2) =
+        ∑ particles, currentPopulation.mass particles *
+          (∑ outcome,
+            (resamplePropagateLaw
+              (normalizedPotentialWeights step.potential step.potential_pos
+                particles) particles step.transition).mass outcome *
+              (particleAverage score outcome.2 - numerator / denominator) ^ 2) := by
+    rw [finiteExpectation_bind]
+    apply Finset.sum_congr rfl
+    intro particles _
+    rw [bootstrapPopulationUpdate_expectation_eq_joint]
+    rfl
+  rw [htarget]
+  rw [hlaw]
+  refine hstage.trans_eq ?_
+  unfold bootstrapMSEBudgetStep
+  dsimp [bound, lower, numeratorScore]
+  have hcard : (Fintype.card Particle : ℝ) ≠ 0 := by
+    exact_mod_cast Fintype.card_ne_zero
+  field_simp
+
+omit [DecidableEq Sample] in
+/-- Universal inverse-count MSE induction over an arbitrary finite bootstrap
+schedule, starting from any population/target pair with an observable-indexed
+incoming budget. -/
+theorem bootstrapPopulationLawFrom_target_mse_le_budget
+    [Nonempty Sample]
+    (currentPopulation : Distribution (Particle → Sample))
+    (currentTarget : Distribution Sample)
+    (budget : (Sample → ℝ) → ℝ)
+    (hincoming : ∀ score : Sample → ℝ,
+      finiteExpectation currentPopulation (fun particles =>
+        (particleAverage score particles -
+          finiteExpectation currentTarget score) ^ 2) ≤
+        budget score / Fintype.card Particle)
+    (steps : List (FeynmanKacStep Sample)) (score : Sample → ℝ) :
+    finiteExpectation (bootstrapPopulationLawFrom currentPopulation steps)
+        (fun particles =>
+          (particleAverage score particles -
+            finiteExpectation (bootstrapTargetLawFrom currentTarget steps) score) ^ 2) ≤
+      bootstrapMSEBudgetFrom budget steps score / Fintype.card Particle := by
+  induction steps generalizing currentPopulation currentTarget budget with
+  | nil => exact hincoming score
+  | cons step steps ih =>
+      apply ih
+      exact fun nextScore =>
+        bootstrapPopulationUpdate_target_mse_le_budget currentPopulation
+          currentTarget budget hincoming step nextScore
+
+omit [DecidableEq Sample] in
+/-- Iid initialization supplies the exact universal base budget. -/
+theorem iidPopulation_target_mse_eq_variance_div_count
+    (initial : Distribution Sample) (score : Sample → ℝ) :
+    finiteExpectation (iidPopulation (Particle := Particle) initial)
+        (fun particles =>
+          (particleAverage score particles -
+            finiteExpectation initial score) ^ 2) =
+      finiteVariance initial score / Fintype.card Particle := by
+  unfold finiteExpectation
+  exact iidPopulation_particleAverage_mse initial score
+
+omit [DecidableEq Sample] in
+/-- Full fixed-horizon `O(1/N)` MSE theorem for the actual finite bootstrap
+particle filter and its exact normalized Feynman--Kac target. -/
+theorem bootstrapPopulationLaw_target_mse_le
+    [Nonempty Sample]
+    (initial : Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (score : Sample → ℝ) :
+    finiteExpectation
+        (bootstrapPopulationLaw (Particle := Particle) initial steps)
+        (fun particles =>
+          (particleAverage score particles -
+            finiteExpectation (bootstrapTargetLaw initial steps) score) ^ 2) ≤
+      bootstrapMSEBudgetFrom (finiteVariance initial) steps score /
+        Fintype.card Particle := by
+  apply bootstrapPopulationLawFrom_target_mse_le_budget
+  intro baseScore
+  exact (iidPopulation_target_mse_eq_variance_div_count initial baseScore).le
+
+/-- Count-indexed MSE of the actual bootstrap particle filter. -/
+noncomputable def bootstrapPopulationMSEByExtra
+    (initial : Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (score : Sample → ℝ) (extra : ℕ) : ℝ :=
+  finiteExpectation
+    (bootstrapPopulationLaw (Particle := Fin (extra + 1)) initial steps)
+    (fun particles =>
+      (particleAverage score particles -
+        finiteExpectation (bootstrapTargetLaw initial steps) score) ^ 2)
+
+omit [DecidableEq Sample] in
+theorem bootstrapPopulationMSEByExtra_nonneg
+    (initial : Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (score : Sample → ℝ) (extra : ℕ) :
+    0 ≤ bootstrapPopulationMSEByExtra initial steps score extra := by
+  unfold bootstrapPopulationMSEByExtra finiteExpectation
+  exact Finset.sum_nonneg fun particles _ => mul_nonneg
+    ((bootstrapPopulationLaw (Particle := Fin (extra + 1)) initial steps).nonneg
+      particles) (sq_nonneg _)
+
+omit [DecidableEq Sample] in
+theorem bootstrapPopulationMSEByExtra_le
+    [Nonempty Sample]
+    (initial : Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (score : Sample → ℝ) (extra : ℕ) :
+    bootstrapPopulationMSEByExtra initial steps score extra ≤
+      bootstrapMSEBudgetFrom (finiteVariance initial) steps score /
+        ((extra : ℝ) + 1) := by
+  unfold bootstrapPopulationMSEByExtra
+  simpa using bootstrapPopulationLaw_target_mse_le
+    (Particle := Fin (extra + 1)) initial steps score
+
+omit [DecidableEq Sample] in
+/-- Fixed-horizon mean-square consistency of the actual finite bootstrap
+particle filter as its particle count tends to infinity. -/
+theorem bootstrapPopulationMSEByExtra_tendsto_zero
+    [Nonempty Sample]
+    (initial : Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (score : Sample → ℝ) :
+    Filter.Tendsto (bootstrapPopulationMSEByExtra initial steps score)
+      Filter.atTop (nhds 0) := by
+  apply squeeze_zero
+    (g := fun extra : ℕ =>
+      bootstrapMSEBudgetFrom (finiteVariance initial) steps score /
+        ((extra : ℝ) + 1))
+  · exact fun extra => bootstrapPopulationMSEByExtra_nonneg
+      initial steps score extra
+  · exact fun extra => bootstrapPopulationMSEByExtra_le
+      initial steps score extra
+  · exact tendsto_const_nhds.div_atTop
+      (Filter.tendsto_atTop_add_const_right Filter.atTop 1
+        tendsto_natCast_atTop_atTop)
+
+/-- Deviation probability of the actual count-indexed bootstrap empirical
+average from its exact normalized Feynman--Kac expectation. -/
+noncomputable def bootstrapPopulationDeviationProbability
+    (initial : Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (score : Sample → ℝ) (extra : ℕ) (tolerance : ℝ) : ℝ :=
+  ∑ particles : Fin (extra + 1) → Sample,
+    (bootstrapPopulationLaw (Particle := Fin (extra + 1)) initial steps).mass
+        particles *
+      if tolerance ≤ |particleAverage score particles -
+          finiteExpectation (bootstrapTargetLaw initial steps) score|
+      then 1 else 0
+
+omit [DecidableEq Sample] in
+theorem bootstrapPopulationDeviationProbability_nonneg
+    (initial : Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (score : Sample → ℝ) (extra : ℕ) (tolerance : ℝ) :
+    0 ≤ bootstrapPopulationDeviationProbability initial steps score extra
+      tolerance := by
+  unfold bootstrapPopulationDeviationProbability
+  apply Finset.sum_nonneg
+  intro particles _
+  split
+  · simpa using
+      (bootstrapPopulationLaw (Particle := Fin (extra + 1)) initial steps).nonneg
+        particles
+  · simp
+
+omit [DecidableEq Sample] in
+theorem bootstrapPopulationDeviationProbability_le
+    [Nonempty Sample]
+    (initial : Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (score : Sample → ℝ) (extra : ℕ) {tolerance : ℝ}
+    (htolerance : 0 < tolerance) :
+    bootstrapPopulationDeviationProbability initial steps score extra tolerance ≤
+      bootstrapMSEBudgetFrom (finiteVariance initial) steps score /
+        ((extra : ℝ) + 1) / tolerance ^ 2 := by
+  unfold bootstrapPopulationDeviationProbability
+  calc
+    _ ≤ ∑ particles : Fin (extra + 1) → Sample,
+        (bootstrapPopulationLaw (Particle := Fin (extra + 1)) initial steps).mass
+            particles *
+          (particleAverage score particles -
+            finiteExpectation (bootstrapTargetLaw initial steps) score) ^ 2 /
+              tolerance ^ 2 := by
+      apply Finset.sum_le_sum
+      intro particles _
+      by_cases hbad : tolerance ≤ |particleAverage score particles -
+          finiteExpectation (bootstrapTargetLaw initial steps) score|
+      · simp only [hbad, if_true]
+        have hsquare : tolerance ^ 2 ≤
+            (particleAverage score particles -
+              finiteExpectation (bootstrapTargetLaw initial steps) score) ^ 2 := by
+          nlinarith [sq_nonneg
+            (|particleAverage score particles -
+              finiteExpectation (bootstrapTargetLaw initial steps) score| -
+                tolerance),
+            sq_abs (particleAverage score particles -
+              finiteExpectation (bootstrapTargetLaw initial steps) score)]
+        have hmass :=
+          (bootstrapPopulationLaw (Particle := Fin (extra + 1)) initial steps).nonneg
+            particles
+        rw [le_div_iff₀ (sq_pos_of_pos htolerance)]
+        nlinarith
+      · simp only [hbad, if_false, mul_zero]
+        exact div_nonneg (mul_nonneg
+          ((bootstrapPopulationLaw (Particle := Fin (extra + 1)) initial steps).nonneg
+            particles) (sq_nonneg _)) (sq_nonneg _)
+    _ = bootstrapPopulationMSEByExtra initial steps score extra /
+        tolerance ^ 2 := by
+      unfold bootstrapPopulationMSEByExtra finiteExpectation
+      rw [Finset.sum_div]
+    _ ≤ _ := div_le_div_of_nonneg_right
+      (bootstrapPopulationMSEByExtra_le initial steps score extra)
+      (sq_nonneg _)
+
+omit [DecidableEq Sample] in
+/-- Fixed-horizon convergence in probability of the actual bootstrap
+particle-filter empirical average. -/
+theorem bootstrapPopulationDeviationProbability_tendsto_zero
+    [Nonempty Sample]
+    (initial : Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (score : Sample → ℝ) {tolerance : ℝ} (htolerance : 0 < tolerance) :
+    Filter.Tendsto
+      (fun extra => bootstrapPopulationDeviationProbability
+        initial steps score extra tolerance)
+      Filter.atTop (nhds 0) := by
+  apply squeeze_zero
+    (g := fun extra : ℕ =>
+      bootstrapMSEBudgetFrom (finiteVariance initial) steps score /
+        ((extra : ℝ) + 1) / tolerance ^ 2)
+  · exact fun extra => bootstrapPopulationDeviationProbability_nonneg
+      initial steps score extra tolerance
+  · exact fun extra => bootstrapPopulationDeviationProbability_le
+      initial steps score extra htolerance
+  · have hbase : Filter.Tendsto
+        (fun extra : ℕ =>
+          bootstrapMSEBudgetFrom (finiteVariance initial) steps score /
+            ((extra : ℝ) + 1)) Filter.atTop (nhds 0) :=
+      tendsto_const_nhds.div_atTop
+        (Filter.tendsto_atTop_add_const_right Filter.atTop 1
+          tendsto_natCast_atTop_atTop)
+    simpa using hbase.div_const (tolerance ^ 2)
 
 end NormalizedWeightPerturbation
 
