@@ -654,6 +654,64 @@ noncomputable def labeledFeynmanKacValue {Label : Type*}
       step.potential x * ∑ y, step.transition.prob x y *
         labeledFeynmanKacValue extend steps observable (extend label y) y
 
+omit [DecidableEq Sample] in
+/-- With the constant-one terminal observable, every finite labeled
+Feynman--Kac continuation value is strictly positive. -/
+theorem labeledFeynmanKacValue_one_pos {Label : Type*}
+    (extend : Label → Sample → Label)
+    (steps : List (FeynmanKacStep Sample)) (label : Label) (state : Sample) :
+    0 < labeledFeynmanKacValue extend steps (fun _ => 1) label state := by
+  induction steps generalizing label state with
+  | nil => simp [labeledFeynmanKacValue]
+  | cons step steps ih =>
+      unfold labeledFeynmanKacValue
+      apply mul_pos (step.potential_pos state)
+      have hexists : ∃ y, 0 < step.transition.prob state y := by
+        by_contra h
+        push Not at h
+        have hzero : ∀ y, step.transition.prob state y = 0 := fun y =>
+          le_antisymm (h y) (step.transition.nonneg state y)
+        have : ∑ y, step.transition.prob state y = 0 := by simp [hzero]
+        linarith [step.transition.sum_prob state]
+      obtain ⟨y, hy⟩ := hexists
+      apply Finset.sum_pos'
+      · intro z _
+        exact mul_nonneg (step.transition.nonneg state z) (ih _ _).le
+      · exact ⟨y, Finset.mem_univ y, mul_pos hy (ih _ _)⟩
+
+/-- Unnormalized labeled Feynman--Kac integral from an arbitrary joint
+initial law. -/
+noncomputable def labeledFeynmanKacIntegral {Label : Type*}
+    [Fintype Label] [DecidableEq Label]
+    (extend : Label → Sample → Label) (law : Distribution (Label × Sample))
+    (steps : List (FeynmanKacStep Sample)) (observable : Label → ℝ) : ℝ :=
+  ∑ value, law.mass value *
+    labeledFeynmanKacValue extend steps observable value.1 value.2
+
+omit [DecidableEq Sample] in
+/-- The constant-one unnormalized labeled integral is a valid strictly
+positive normalizer. -/
+theorem labeledFeynmanKacIntegral_one_pos {Label : Type*}
+    [Fintype Label] [DecidableEq Label]
+    (extend : Label → Sample → Label) (law : Distribution (Label × Sample))
+    (steps : List (FeynmanKacStep Sample)) :
+    0 < labeledFeynmanKacIntegral extend law steps (fun _ => 1) := by
+  unfold labeledFeynmanKacIntegral
+  have hexists : ∃ value, 0 < law.mass value := by
+    by_contra h
+    push Not at h
+    have hzero : ∀ value, law.mass value = 0 := fun value =>
+      le_antisymm (h value) (law.nonneg value)
+    have : ∑ value, law.mass value = 0 := by simp [hzero]
+    linarith [law.sum_mass]
+  obtain ⟨value, hvalue⟩ := hexists
+  apply Finset.sum_pos'
+  · intro z _
+    exact mul_nonneg (law.nonneg z)
+      (labeledFeynmanKacValue_one_pos extend steps z.1 z.2).le
+  · exact ⟨value, Finset.mem_univ value,
+      mul_pos hvalue (labeledFeynmanKacValue_one_pos extend steps value.1 value.2)⟩
+
 /-- Concrete product-weighted terminal label average along an explicit SMC
 history. -/
 noncomputable def labeledHistoryValue {Label : Type*}

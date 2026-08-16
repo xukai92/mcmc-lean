@@ -13,7 +13,11 @@
   `extra/(extra+1)` and the oscillation factor
   `extra/(extra-1+2B)` and compares the forced suffix directly with the exact
   normalized labeled Feynman--Kac update. This verifies the induction algebra
-  end to end before extending it to arbitrary schedules.
+  end to end before extending it to arbitrary schedules. The arbitrary-horizon
+  normalization layer now has an explicit unnormalized labeled Feynman--Kac
+  integral, with machine-checked strict positivity of its constant-one
+  normalizer; this is the ratio representation needed for telescoping the
+  remaining multi-step proof.
 
 - Added the finite horizon-indexed path-match automaton required by the PG
   trajectory client. Its state is a bounded time index plus a Boolean prefix
