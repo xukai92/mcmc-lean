@@ -231,6 +231,12 @@ The Julia evaluator follows that exact expression. Two endpoint instances can
 therefore feed the existing energy-difference and acceptance-margin theorems;
 primitive `Float64`/libm bounds remain explicit backend evidence.
 
+The generic `NumericalRefinement` contract is now inhabited by the ideal-real
+Lean interpreter itself.  It provides an assumption-free oracle theorem for
+Gaussian RWMH trace replay.  This does not collapse the language boundary:
+Julia and IEEE values continue to use explicit approximation relations and
+margin conditions rather than definitional equality with real arithmetic.
+
 ## Xu et al. coupled mixture
 
 Version 9 contains separate commands for coupled multinomial HMC, coupled

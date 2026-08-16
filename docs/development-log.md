@@ -2039,6 +2039,14 @@ and tests the identical unit-parameter expression
 inputs to the existing stable-decision theorem; it still does not assert a
 global libm error bound for arbitrary Julia platforms.
 
+Instantiated the abstract numerical-refinement interface with the exact
+ideal-real Lean IR interpreter. Equality represents values, target callbacks,
+and event sources, and `exactInterpreter_refines` proves the complete RWMH
+step contract without hypotheses.  This gives differential tests a formal
+oracle while preserving the intended boundary: Julia `Float64` is related by
+bounded-error and stable-decision certificates, not by a false equality
+instance.
+
 ## 2026-08-16: normalized particle-error recursion
 
 Added the deterministic nonlinear bridge needed beyond the exact one-step
