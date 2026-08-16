@@ -312,4 +312,61 @@ theorem BouncyParticleInverseHazardData.eventIterate_add
       data.eventIterate first ∘ₖ data.eventIterate second :=
   data.clock.eventIterate_add data.bounce.jumpKernel first second
 
+/-- Inverse-clock data with an explicit inactive branch. This is the correct
+interface for Gaussian BPS at exactly zero velocity, where no positive hazard
+can be reached at any finite time. -/
+structure BouncyParticlePartialInverseHazardData (ι : Type*) [Fintype ι] where
+  bounce : BouncyParticleBounceData ι
+  active : BouncyParticleState ι → NNReal → Bool
+  waitingTime : BouncyParticleState ι → NNReal → NNReal
+  measurable_active : Measurable
+    (fun input : BouncyParticleState ι × NNReal => active input.1 input.2)
+  measurable_waitingTime : Measurable
+    (fun input : BouncyParticleState ι × NNReal =>
+      waitingTime input.1 input.2)
+  waitingTime_pos : ∀ state {hazard}, 0 < hazard → active state hazard = true →
+    0 < waitingTime state hazard
+  inverse : ∀ state {hazard}, 0 < hazard → active state hazard = true →
+    (∫ time in (0 : ℝ)..(waitingTime state hazard : ℝ),
+      bounce.stateRate (bouncyParticleFlow (Real.toNNReal time) state)) =
+        (hazard : ℝ)
+  inactive : ∀ state {hazard}, active state hazard = false → ∀ time : NNReal,
+    (∫ elapsed in (0 : ℝ)..(time : ℝ),
+      bounce.stateRate
+        (bouncyParticleFlow (Real.toNNReal elapsed) state)) < (hazard : ℝ)
+
+noncomputable def BouncyParticlePartialInverseHazardData.clock
+    (data : BouncyParticlePartialInverseHazardData ι) :
+    PartialInverseHazardClock (BouncyParticleState ι) where
+  semiflow := bouncyParticleJointlyMeasurableSemiflow
+  accumulated state time :=
+    ∫ elapsed in (0 : ℝ)..(time : ℝ),
+      data.bounce.stateRate
+        (bouncyParticleFlow (Real.toNNReal elapsed) state)
+  active := data.active
+  waitingTime := data.waitingTime
+  measurable_active := data.measurable_active
+  measurable_waitingTime := data.measurable_waitingTime
+  waitingTime_pos := data.waitingTime_pos
+  inverse := data.inverse
+  inactive := data.inactive
+
+/-- First-event-or-residual-flow BPS kernel on a finite horizon. This kernel
+handles a certified inactive state without imposing a fictitious event. It is
+the one-event recursion component, not yet the complete repeatedly restarted
+nonexplosive horizon process. -/
+noncomputable def BouncyParticlePartialInverseHazardData.firstEventKernel
+    (data : BouncyParticlePartialInverseHazardData ι) (horizon : NNReal) :
+    Kernel (BouncyParticleState ι) (BouncyParticleState ι) :=
+  data.clock.firstEventKernel
+    (fun state =>
+      (state.1, bouncyReflection (data.bounce.normal state.1) state.2))
+    data.bounce.measurable_bounce horizon
+
+instance BouncyParticlePartialInverseHazardData.firstEventKernel.instIsMarkovKernel
+    (data : BouncyParticlePartialInverseHazardData ι) (horizon : NNReal) :
+    IsMarkovKernel (data.firstEventKernel horizon) := by
+  unfold BouncyParticlePartialInverseHazardData.firstEventKernel
+  infer_instance
+
 end Mcmc.PDMP

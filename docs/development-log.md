@@ -1,5 +1,16 @@
 # Development log
 
+- Extended inverse-hazard PDMP execution with a certified inactive branch.
+  `PartialInverseHazardClock` records whether a hazard mark is reachable,
+  proves exact inversion when active, and proves the accumulated rate remains
+  below the mark at every finite time when inactive. Its finite-horizon
+  first-event kernel either applies the event at the exact inverse time or
+  performs only residual flow. The BPS adapter ties both branches to the
+  integrated canonical bounce rate, giving the correct architecture for
+  exactly zero velocity without a fictitious finite waiting time. Repeated
+  restart over a hazard stream and nonexplosion are still required for the
+  complete horizon process.
+
 - Closed the discrete integration part of the practical-slice trace
   packaging. Although valid allocations were originally a bounded subtype of
   the infinite integer type, Lean now gives an explicit equivalence to a

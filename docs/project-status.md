@@ -20,7 +20,7 @@ floating-point code.
 | Xu et al. 2021 | Complete for the corrected theorem surface and fully instantiated Gaussian and regularized-logistic meeting, marginal/target convergence, unbiasedness, and finite variance. The obstructed exponent-two statement is not asserted; more targets and full floating-point experiment reproduction remain extensions. |
 | Concrete GR-HMC convergence | Complete for the bare one-dimensional Gaussian SoftAbs epsilon=1, L=1 chain, including drift, compact minorization, skeleton meeting, residue lift, and setwise convergence. No general ergodicity claim follows. |
 | Adaptation | Predetermined schedules, finite freeze, proxy/containment closure, counterexamples, and warmup-only RWMH tests are complete. A concrete state-selected Bool rule changes forever, has a common one-half Doeblin component after substitution, and has machine-checked setwise convergence; its matching Julia diagnostic is active. Constructing proxy certificates for realistic continuous, genuinely history-dependent rules remains open. |
-| PDMP foundations | General infrastructure and the stationary-suspension theorem are present. Exact Gaussian Zig-Zag nonexplosion/stationarity and unit-speed one-dimensional Gaussian BPS stationarity are complete. For general unbounded rates, Lean now has a proof-bearing inverse-integrated-hazard clock, exact exponential-hazard event kernel and finite event iterates; finite-dimensional BPS data are tied directly to the integral of the canonical rate along linear flow. A concrete multidimensional inverse (including zero-velocity handling), horizon stopping, nonexplosion, stationarity, semigroup, and convergence remain open. |
+| PDMP foundations | General infrastructure and the stationary-suspension theorem are present. Exact Gaussian Zig-Zag nonexplosion/stationarity and unit-speed one-dimensional Gaussian BPS stationarity are complete. For general unbounded rates, Lean has proof-bearing total and partial inverse-integrated-hazard clocks, exact exponential-hazard event kernels and finite event iterates; finite-dimensional BPS data are tied directly to the integral of the canonical rate along linear flow. The partial clock certifies inactive states and its finite-horizon first-event kernel performs residual flow instead of inventing an event, covering the zero-velocity design boundary. A concrete multidimensional Gaussian inverse, repeated-event horizon stopping, nonexplosion, stationarity, semigroup, and convergence remain open. |
 | Diagnostics | All registered Julia suites are active and passing. Statistical and finite-difference tests are diagnostics, not replacements for formal or refinement theorems. |
 
 ## Release evidence
@@ -47,8 +47,8 @@ byte-for-byte, and runs every Julia testset.
 4. Extend the exact complete-refresh uniform particle result to partially
    mixing Feynman--Kac models, then derive particle-count-uniform PG mixing
    and stronger particle-MCMC asymptotics.
-5. Instantiate the inverse-integrated-hazard interface for a concrete
-   multidimensional BPS, including its zero-velocity branch; then construct
+5. Instantiate the partial inverse-integrated-hazard interface for a concrete
+   multidimensional Gaussian BPS; then construct
    the nonexplosive stopped horizon process and prove stationarity, followed
    separately by ergodicity.
 6. Add broader target/runtime instantiations without weakening the numerical
