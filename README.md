@@ -333,6 +333,9 @@ The repository now contains machine-checked implementations and proofs for:
 - finite pseudo-marginal MH with a nonnegative unbiased estimator, including
   zero estimator values, exact extended-target stationarity, and the desired
   target marginal;
+- reversible-jump MH on tagged model spaces, including scalar and product
+  birth/death transports and a genuinely non-product triangular shear whose
+  parallelogram density and complete tagged-target invariance are proved;
 - a general lift--evolve--project invariance theorem for auxiliary-variable
   MCMC, including a deterministic measure-preserving-flow specialization;
 - a phase-space lifting theorem for arbitrary invariant momentum transitions,

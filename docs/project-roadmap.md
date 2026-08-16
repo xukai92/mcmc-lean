@@ -309,7 +309,9 @@ breadth branches are:
 - reversible-jump transports beyond the checked scalar and planar
   birth/death scaling clients. Product transport-density certificates now
   compose recursively and instantiate a three-dimensional scaling transport;
-  richer non-product diffeomorphisms and their complete MH clients remain;
+  a genuinely non-product triangular shear now has an explicit parallelogram
+  pushforward density and a complete tagged MH invariance theorem. Nonlinear
+  diffeomorphisms remain a further extension;
 - particle MCMC after finite SMC and pseudo-marginal foundations;
 - adaptive MCMC beyond the completed boundary counterexample only with
   the completed predetermined nonhomogeneous semantics and deterministic

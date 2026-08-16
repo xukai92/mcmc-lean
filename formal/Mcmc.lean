@@ -37,6 +37,7 @@ import Mcmc.Examples.TwoState
 import Mcmc.Examples.TwoModelReversibleJump
 import Mcmc.Examples.EuclideanBirthDeathReversibleJump
 import Mcmc.Examples.PlanarBirthDeathReversibleJump
+import Mcmc.Examples.ShearedBirthDeathReversibleJump
 import Mcmc.Examples.StateIndexedPMMH
 import Mcmc.Examples.ParticleGibbs
 import Mcmc.Examples.ComposableInference
