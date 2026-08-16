@@ -855,6 +855,33 @@ theorem boundedPotentialParticleGibbs_totalVariation_tendsto_zero_count
     boundedPotentialParticleGibbs_totalVariation_le
       (certificates extra) initialLaw iterations
 
+/-- A single aggregate-history bound valid at every count gives the actual
+fixed-iteration particle-count limit. This is the direct consumer for a
+primitive Feynman--Kac aggregate estimate; no single-history witness is used. -/
+theorem aggregatedForcedLineage_totalVariation_tendsto_zero_count
+    {initial : Distribution Sample} {steps : List (FeynmanKacStep Sample)}
+    {hnormalizer : 0 < normalizingConstant initial steps} {bound : ℝ}
+    (hbound : 0 < bound)
+    (certificates : ∀ extra : ℕ,
+      AggregatedForcedLineageParticleGibbsBound
+        initial steps hnormalizer (extra + 1) bound)
+    (initialLaw : Distribution (Trajectory steps))
+    (iterations : ℕ) (hiterations : 0 < iterations) :
+    Filter.Tendsto (fun extra =>
+      Nonhomogeneous.distributionTotalVariation
+        (Nonhomogeneous.iterateLaw initialLaw
+          (countedTrajectoryParticleGibbsKernel initial steps hnormalizer
+            (extra + 1)) iterations)
+        (countedTrajectoryTarget initial steps hnormalizer (extra + 1)))
+      Filter.atTop (nhds 0) := by
+  let bounded : ∀ extra : ℕ,
+      BoundedPotentialParticleGibbsMinorization
+        initial steps hnormalizer (extra + 1) := fun extra =>
+    (certificates extra).toMinorization (by omega) hbound
+  apply boundedPotentialParticleGibbs_totalVariation_tendsto_zero_count
+    bounded (bound := bound) (hbound := by intro extra; rfl)
+    initialLaw iterations hiterations
+
 /-- Scheduled PG certificates give the corresponding large-particle theorem
 when the penalty list is common to every count. -/
 theorem scheduledPotentialParticleGibbs_totalVariation_tendsto_zero_count

@@ -17,7 +17,9 @@
   the kernel entry with the conditional expectation of that fraction. A
   single-history witness generally loses exponentially much mass as `N`
   grows, so it is retained for fixed-count support but no longer presented as
-  the route to a count-uniform coefficient.
+  the route to a count-uniform coefficient. A new direct consumer proves the
+  actual fixed-positive-iteration particle-count TV limit from one common
+  aggregate-history bound across all counts.
 
 - Completed the compact-minorization and faithful-coupling foundation for the
   actual bare one-dimensional Gaussian SoftAbs multinomial kernel at
