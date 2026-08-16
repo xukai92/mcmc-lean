@@ -1,5 +1,15 @@
 # Development log
 
+- Lifted the Gaussian Zig-Zag signed-coordinate reduction from pointwise
+  dynamics to the exact stopped horizon kernel. The signed horizon kernel is
+  Markov, each row is the signed pushforward of the physical row started from
+  the corresponding physical state, and conjugating twice recovers the
+  original kernel. Because the signed involution preserves the normalized
+  Gaussian/equal-velocity target, Lean proves that physical and signed
+  horizon-kernel stationarity are equivalent. The remaining stationarity
+  obligation can therefore be proved wholly for the canonical unit-speed
+  renewal process and transported back without a second weak-forward proof.
+
 - Began the law-level first-event recursion needed for Gaussian Zig-Zag
   weak-forward uniqueness. Lean now proves that dropping the first hazard and
   restarting from the first post-event state reproduces every later event

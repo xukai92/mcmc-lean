@@ -563,8 +563,11 @@ by paper date:
   uniqueness. The process and its generator are now additionally conjugated
   to a canonical signed coordinate: the target is unchanged, flow has unit
   speed, the rate is `max 0 signed`, and events use the explicit
-  negative-square-root reset. This removes the physical-coordinate coupling
-  from the remaining scalar renewal/transport analysis. Splitting a horizon
+  negative-square-root reset. The reduction now also conjugates the actual
+  stopped horizon kernel, proves the conjugation involutive, and proves that
+  signed and physical Gaussian-target stationarity are equivalent. This
+  removes the physical-coordinate coupling and later coordinate-transfer
+  bookkeeping from the remaining scalar renewal/transport analysis. Splitting a horizon
   between events is still correctly treated as a law-level argument rather
   than a pointwise semigroup identity;
 2. bare Gaussian SoftAbs GR-HMC convergence -- complete for the concrete

@@ -711,6 +711,10 @@ def zigZagSignedCoordinateEquiv : ZigZagState ≃ᵐ ZigZagState where
     unfold zigZagSignedCoordinate zigZagSignedPosition zigZagVelocity
     fun_prop
 
+theorem measurable_zigZagSignedCoordinate :
+    Measurable zigZagSignedCoordinate := by
+  exact zigZagSignedCoordinateEquiv.measurable
+
 /-- Folding the velocity sign into position preserves the normalized
 Gaussian/equal-velocity target. -/
 theorem gaussianZigZagTarget_map_signedCoordinate :
@@ -2254,6 +2258,91 @@ instance gaussianZigZagHorizonKernel.instIsMarkovKernel
   unfold gaussianZigZagHorizonKernel
   apply Kernel.IsMarkovKernel.map
   exact measurable_gaussianZigZagHorizonEndpoint_joint horizon
+
+/-- Exact Gaussian Zig-Zag horizon transition expressed in signed-position
+coordinates.  The same involution converts the signed input to physical
+coordinates and the physical output back to signed coordinates. -/
+noncomputable def gaussianZigZagSignedHorizonKernel
+    (horizon : NNReal) : Kernel ZigZagState ZigZagState :=
+  Kernel.map
+    (Kernel.comap (gaussianZigZagHorizonKernel horizon)
+      zigZagSignedCoordinate measurable_zigZagSignedCoordinate)
+    zigZagSignedCoordinate
+
+instance gaussianZigZagSignedHorizonKernel.instIsMarkovKernel
+    (horizon : NNReal) :
+    IsMarkovKernel (gaussianZigZagSignedHorizonKernel horizon) := by
+  unfold gaussianZigZagSignedHorizonKernel
+  apply Kernel.IsMarkovKernel.map
+  exact measurable_zigZagSignedCoordinate
+
+/-- A row of the signed horizon kernel is the signed pushforward of the
+physical row started from the corresponding physical state. -/
+theorem gaussianZigZagSignedHorizonKernel_apply
+    (horizon : NNReal) (initial : ZigZagState) :
+    gaussianZigZagSignedHorizonKernel horizon initial =
+      (gaussianZigZagHorizonKernel horizon
+        (zigZagSignedCoordinate initial)).map zigZagSignedCoordinate := by
+  unfold gaussianZigZagSignedHorizonKernel
+  rw [Kernel.map_apply _ measurable_zigZagSignedCoordinate,
+    Kernel.comap_apply]
+
+/-- Signed-coordinate conjugation is involutive at the kernel level. -/
+theorem gaussianZigZagHorizonKernel_eq_signed_conjugate
+    (horizon : NNReal) :
+    gaussianZigZagHorizonKernel horizon =
+      Kernel.map
+        (Kernel.comap (gaussianZigZagSignedHorizonKernel horizon)
+          zigZagSignedCoordinate measurable_zigZagSignedCoordinate)
+        zigZagSignedCoordinate := by
+  ext initial event hevent
+  rw [Kernel.map_apply' _ measurable_zigZagSignedCoordinate _ hevent,
+    Kernel.comap_apply', gaussianZigZagSignedHorizonKernel_apply]
+  rw [Measure.map_apply measurable_zigZagSignedCoordinate
+    (measurable_zigZagSignedCoordinate hevent)]
+  rw [zigZagSignedCoordinate_involutive]
+  congr 1
+  have hcomp : zigZagSignedCoordinate ∘ zigZagSignedCoordinate = id := by
+    funext state
+    exact zigZagSignedCoordinate_involutive state
+  change event = (zigZagSignedCoordinate ∘ zigZagSignedCoordinate) ⁻¹' event
+  rw [hcomp, Set.preimage_id]
+
+/-- The physical and signed horizon kernels preserve the Gaussian target
+simultaneously.  This is an exact coordinate-transport equivalence, not an
+additional generator or process-uniqueness premise. -/
+theorem gaussianZigZagSignedHorizonKernel_invariant_iff
+    (horizon : NNReal) :
+    (gaussianZigZagSignedHorizonKernel horizon).Invariant
+        gaussianZigZagTarget ↔
+      (gaussianZigZagHorizonKernel horizon).Invariant
+        gaussianZigZagTarget := by
+  have transported (kernel : Kernel ZigZagState ZigZagState) :
+      (Kernel.map
+          (Kernel.comap kernel zigZagSignedCoordinate
+            measurable_zigZagSignedCoordinate)
+          zigZagSignedCoordinate) ∘ₘ gaussianZigZagTarget =
+        (kernel ∘ₘ
+          (gaussianZigZagTarget.map zigZagSignedCoordinate)).map
+            zigZagSignedCoordinate := by
+    rw [← Measure.map_comp gaussianZigZagTarget
+      (Kernel.comap kernel zigZagSignedCoordinate
+        measurable_zigZagSignedCoordinate)
+      measurable_zigZagSignedCoordinate]
+    congr 1
+    rw [← Kernel.comp_deterministic_eq_comap,
+      ← Measure.comp_assoc, Measure.deterministic_comp_eq_map]
+  constructor
+  · intro hsigned
+    rw [gaussianZigZagHorizonKernel_eq_signed_conjugate]
+    rw [Kernel.Invariant] at hsigned ⊢
+    rw [transported, gaussianZigZagTarget_map_signedCoordinate,
+      hsigned, gaussianZigZagTarget_map_signedCoordinate]
+  · intro hphysical
+    unfold gaussianZigZagSignedHorizonKernel
+    rw [Kernel.Invariant] at hphysical ⊢
+    rw [transported, gaussianZigZagTarget_map_signedCoordinate,
+      hphysical, gaussianZigZagTarget_map_signedCoordinate]
 
 /-- Kernel-level first-event equation. From a fixed state, the exact horizon
 transition can equivalently sample one exponential hazard and an independent
