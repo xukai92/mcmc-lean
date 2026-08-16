@@ -75,6 +75,68 @@ def GaussianZigZagSmoothTest.generator
   fun state => zigZagGenerator id test.derivative test.observable
     state.1 state.2
 
+/-- Embed one compactly supported `C¹` real-line observable into a chosen
+velocity fiber. This exposes the fiberwise smooth test family needed for the
+remaining regular-measure determination proof on `ℝ × Bool`. Generator
+integrability is explicit because it is also a required field of the weak
+forward domain. -/
+noncomputable def GaussianZigZagSmoothTest.ofFiber
+    (velocity : Bool) (observable derivative : ℝ → ℝ)
+    (hderiv : ∀ q, HasDerivAt observable (derivative q) q)
+    (hsmooth : ContDiff ℝ 1 observable)
+    (hcompact : HasCompactSupport observable)
+    (hgenerator : Integrable
+      (fun state : ZigZagState =>
+        zigZagGenerator id
+          (fun q v => if v = velocity then derivative q else 0)
+          (fun q v => if v = velocity then observable q else 0)
+          state.1 state.2)
+      gaussianZigZagTarget) : GaussianZigZagSmoothTest where
+  observable q v := if v = velocity then observable q else 0
+  derivative q v := if v = velocity then derivative q else 0
+  hasDerivAt_observable q v := by
+    by_cases hv : v = velocity
+    · simpa [hv] using hderiv q
+    · simpa [hv] using (hasDerivAt_const q (0 : ℝ))
+  difference q := if velocity then observable q else -observable q
+  difference_eq := by
+    funext q
+    cases velocity <;> simp
+  contDiff_difference := by
+    cases velocity with
+    | false => simpa using hsmooth.neg
+    | true => simpa using hsmooth
+  compact_difference := by
+    cases velocity with
+    | false =>
+        change HasCompactSupport (-observable)
+        exact hcompact.neg
+    | true => simpa using hcompact
+  generator_integrable := hgenerator
+
+@[simp] theorem GaussianZigZagSmoothTest.ofFiber_observe_same
+    (velocity : Bool) (observable derivative : ℝ → ℝ)
+    (hderiv : ∀ q, HasDerivAt observable (derivative q) q)
+    (hsmooth : ContDiff ℝ 1 observable)
+    (hcompact : HasCompactSupport observable)
+    (hgenerator) (q : ℝ) :
+    (GaussianZigZagSmoothTest.ofFiber velocity observable derivative hderiv
+      hsmooth hcompact hgenerator).observe (q, velocity) = observable q := by
+  simp [GaussianZigZagSmoothTest.observe,
+    GaussianZigZagSmoothTest.ofFiber]
+
+@[simp] theorem GaussianZigZagSmoothTest.ofFiber_observe_other
+    (velocity other : Bool) (hother : other ≠ velocity)
+    (observable derivative : ℝ → ℝ)
+    (hderiv : ∀ q, HasDerivAt observable (derivative q) q)
+    (hsmooth : ContDiff ℝ 1 observable)
+    (hcompact : HasCompactSupport observable)
+    (hgenerator) (q : ℝ) :
+    (GaussianZigZagSmoothTest.ofFiber velocity observable derivative hderiv
+      hsmooth hcompact hgenerator).observe (q, other) = 0 := by
+  simp [GaussianZigZagSmoothTest.observe,
+    GaussianZigZagSmoothTest.ofFiber, hother]
+
 /-- The derivative-difference identity is derived from the two genuine
 observable derivatives; it is not an independent certificate field. -/
 theorem GaussianZigZagSmoothTest.derivative_sub_eq_deriv
