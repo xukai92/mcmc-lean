@@ -21,6 +21,10 @@
   score is exactly the indicator that the selected genealogy equals the desired
   `Trajectory steps`. This closes the representation bridge needed to feed the
   labeled aggregate induction into the public particle-Gibbs trajectory kernel.
+  The aggregate conditional-SMC entry now also has a recursion-facing expansion
+  directly in these finite path-match labels (in addition to the older
+  list-valued expansion), so the next theorem can invoke the finite joint-label
+  forced-cloud bound at every propagation stage without a type workaround.
 
 - Closed the representation bridge needed by recursive PG bounds. Lean proves
   that coordinatewise maps commute with independent populations, identifies

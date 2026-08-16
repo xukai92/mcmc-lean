@@ -1005,6 +1005,26 @@ theorem genealogicalTrajectoryFraction_eq_proposedTrajectoryFraction
       exact h (heq.mpr hp).symm
     simp [h, hlist]
 
+/-- The finite path-match automaton computes the same genealogy fraction as
+the list-valued presentation, while remaining a finite label type suitable for
+the sharp labeled Feynman--Kac induction. -/
+theorem pathMatchGenealogicalFraction_eq_proposedTrajectoryFraction
+    (steps : List (FeynmanKacStep Sample)) (extra : ℕ)
+    (history : History (Particle := Fin (extra + 1)) steps)
+    (proposed : Trajectory steps) :
+    particleAverage pathMatchScore
+        (terminalLabels
+          (advancePathMatchLabel steps.length proposed.get) steps
+          (fun i => initialPathMatchLabel steps.length proposed.get (history.1 i))
+          history.2) =
+      proposedTrajectoryFraction steps extra history proposed := by
+  unfold particleAverage proposedTrajectoryFraction
+  congr 1
+  apply Finset.sum_congr rfl
+  intro terminal _
+  rw [pathMatchScore_terminalLabels]
+  simp only [eq_comm]
+
 /-- Uniform terminal-index refresh turns the compatible-index count in a
 fixed history into exactly its proposed-trajectory fraction. -/
 theorem selectedIndexRefresh_aggregate_eq_proposedTrajectoryFraction
@@ -1111,6 +1131,54 @@ theorem aggregatedForcedLineageMass_eq_recursiveLabelExpectation
           if path = proposed.toList then 1 else 0)
           (terminalLabels (fun path y => path ++ [y]) steps
             (fun i => [selected.1.1 i]) selected.1.2)) = _
+  unfold forcedLineageLaw
+  rw [Distribution.bind_expectation]
+  apply Finset.sum_congr rfl
+  intro retained _
+  rw [Distribution.bind_expectation]
+  congr 1
+  apply Finset.sum_congr rfl
+  intro particles _
+  rw [Distribution.map_expectation]
+  rfl
+
+/-- Finite-label version of the recursive aggregate expansion. The
+horizon-indexed path automaton replaces unrestricted list labels, so every
+stage can use finite labeled Feynman--Kac distributions and the sharp forced
+cloud comparison. -/
+theorem aggregatedForcedLineageMass_eq_recursivePathMatchExpectation
+    [Nonempty Sample]
+    (initial : Distribution Sample) (hinitial : ∀ x, 0 < initial.mass x)
+    (steps : List (FeynmanKacStep Sample))
+    (hsupport : FeynmanKacFullSupport steps)
+    (hnormalizer : 0 < normalizingConstant initial steps) (extra : ℕ)
+    (current proposed : Trajectory steps) (first : Sample)
+    (future : List Sample) (hfuture : future.length = steps.length)
+    (hcurrent : current =
+      ⟨first :: future, by simp [hfuture]⟩) :
+    aggregatedForcedLineageMass initial steps hnormalizer extra
+        current proposed =
+      ∑ retained : Fin (extra + 1),
+        (uniformParticleDistribution (Particle := Fin (extra + 1))).mass retained *
+        ∑ particles,
+          (forcedIndependentPopulation (fun _ : Fin (extra + 1) => initial)
+            retained first).mass particles *
+            forcedLineageSuffixLabelExpectation
+              (advancePathMatchLabel steps.length proposed.get)
+              steps first future hfuture particles retained
+              (fun i => initialPathMatchLabel steps.length proposed.get (particles i))
+              pathMatchScore := by
+  rw [aggregatedForcedLineageMass_eq_forcedLineage_expectation
+    initial hinitial steps hsupport hnormalizer extra current proposed]
+  subst current
+  simp_rw [← pathMatchGenealogicalFraction_eq_proposedTrajectoryFraction]
+  change (∑ selected,
+      (forcedLineageLaw (Particle := Fin (extra + 1)) initial steps
+        (first :: future) (by simp [hfuture])).mass selected *
+        particleAverage pathMatchScore
+          (terminalLabels (advancePathMatchLabel steps.length proposed.get) steps
+            (fun i => initialPathMatchLabel steps.length proposed.get
+              (selected.1.1 i)) selected.1.2)) = _
   unfold forcedLineageLaw
   rw [Distribution.bind_expectation]
   apply Finset.sum_congr rfl
