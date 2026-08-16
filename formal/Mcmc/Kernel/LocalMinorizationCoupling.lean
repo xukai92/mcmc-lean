@@ -124,6 +124,92 @@ theorem affineDriftAccumulatedAllowance_ne_top
       exact ENNReal.add_ne_top.2
         ⟨ih, ENNReal.mul_ne_top (ENNReal.pow_ne_top hrate) hallowance⟩
 
+theorem affineDriftAccumulatedAllowance_eq_sum
+    (rate allowance : ENNReal) : ∀ n,
+    affineDriftAccumulatedAllowance rate allowance n =
+      ∑ i ∈ Finset.range n, rate ^ i * allowance := by
+  intro n
+  induction n with
+  | zero => simp [affineDriftAccumulatedAllowance]
+  | succ n ih =>
+      rw [affineDriftAccumulatedAllowance, Finset.sum_range_succ, ih]
+
+/-- Every finite accumulated drift allowance is bounded by the infinite
+geometric allowance, uniformly in the skeleton length. -/
+theorem affineDriftAccumulatedAllowance_le_geometric
+    (rate allowance : ENNReal) (n : ℕ) :
+    affineDriftAccumulatedAllowance rate allowance n ≤
+      (1 - rate)⁻¹ * allowance := by
+  rw [affineDriftAccumulatedAllowance_eq_sum]
+  calc
+    (∑ i ∈ Finset.range n, rate ^ i * allowance) ≤
+        ∑' i : ℕ, rate ^ i * allowance :=
+      ENNReal.sum_le_tsum (Finset.range n)
+    _ = (∑' i : ℕ, rate ^ i) * allowance := by
+      rw [ENNReal.tsum_mul_right]
+    _ = (1 - rate)⁻¹ * allowance := by
+      rw [ENNReal.tsum_geometric]
+
+/-- A strict finite affine rate and finite allowance admit a finite positive
+paired-sublevel threshold that absorbs the doubled allowance. -/
+theorem exists_affineDrift_paired_budget_threshold
+    {rate allowance : ENNReal} (hrate : rate < 1)
+    (hrateTop : rate ≠ ∞) (hallowanceTop : allowance ≠ ∞) :
+    ∃ threshold : ENNReal, threshold ≠ 0 ∧ threshold ≠ ∞ ∧
+      rate * threshold + (allowance + allowance) < threshold := by
+  have hrateReal : rate.toReal < 1 := by
+    exact (ENNReal.toReal_lt_toReal hrateTop ENNReal.one_ne_top).2 hrate
+  let gap : ℝ := 1 - rate.toReal
+  have hgap : 0 < gap := sub_pos.mpr hrateReal
+  let T : ℝ := 2 * allowance.toReal / gap + 1
+  have hT : 0 < T := by
+    dsimp [T]
+    positivity
+  let threshold : ENNReal := ENNReal.ofReal T
+  have hthreshold0 : threshold ≠ 0 :=
+    (ENNReal.ofReal_pos.mpr hT).ne'
+  have hthresholdTop : threshold ≠ ∞ := ENNReal.ofReal_ne_top
+  refine ⟨threshold, hthreshold0, hthresholdTop, ?_⟩
+  have hallowanceAddTop : allowance + allowance ≠ ∞ :=
+    ENNReal.add_ne_top.2 ⟨hallowanceTop, hallowanceTop⟩
+  have hrateMulTop : rate * threshold ≠ ∞ :=
+    ENNReal.mul_ne_top hrateTop hthresholdTop
+  apply (ENNReal.toReal_lt_toReal
+    (ENNReal.add_ne_top.2 ⟨hrateMulTop, hallowanceAddTop⟩)
+    hthresholdTop).1
+  rw [ENNReal.toReal_add hrateMulTop hallowanceAddTop,
+    ENNReal.toReal_mul, ENNReal.toReal_add hallowanceTop hallowanceTop,
+    ENNReal.toReal_ofReal hT.le]
+  dsimp [T, gap]
+  have hgapEq : (1 - rate.toReal) *
+      (2 * allowance.toReal / (1 - rate.toReal)) =
+      2 * allowance.toReal := by
+    rw [div_eq_mul_inv]
+    calc
+      (1 - rate.toReal) *
+          (2 * allowance.toReal * (1 - rate.toReal)⁻¹) =
+          2 * allowance.toReal *
+            ((1 - rate.toReal) * (1 - rate.toReal)⁻¹) := by ring
+      _ = 2 * allowance.toReal := by
+        rw [mul_inv_cancel₀ hgap.ne', mul_one]
+  nlinarith
+
+theorem ennreal_pow_le_self_of_le_one
+    {r : ENNReal} (hr : r ≤ 1) {n : ℕ} (hn : 0 < n) :
+    r ^ n ≤ r := by
+  obtain ⟨k, rfl⟩ := Nat.exists_eq_succ_of_ne_zero (Nat.ne_of_gt hn)
+  have hpow : ∀ m : ℕ, r ^ m ≤ 1 := by
+    intro m
+    induction m with
+    | zero => simp
+    | succ m ih =>
+        rw [pow_succ]
+        calc
+          r ^ m * r ≤ 1 * 1 := by gcongr
+          _ = 1 := mul_one 1
+  rw [pow_succ]
+  simpa only [one_mul, mul_one, mul_comm] using mul_le_mul_right (hpow k) r
+
 /-- An affine one-chain drift certificate lifts to every kernel power with
 the expected powered rate and accumulated allowance. -/
 theorem HasAffineDrift.pow

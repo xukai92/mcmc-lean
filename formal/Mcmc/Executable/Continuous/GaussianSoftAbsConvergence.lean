@@ -1014,6 +1014,27 @@ theorem pairedAdd_sublevel_subset_gaussianSoftAbs_box
     t ht Q hQ z.2 (hright.trans hthreshold)
   exact ⟨abs_le.mp hleftQ, abs_le.mp hrightQ⟩
 
+/-- Every finite positive Lyapunov threshold is dominated by the exponential
+weight at some nonnegative coordinate radius. -/
+theorem exists_gaussianSoftAbsExpWeight_ge
+    (t : ℝ) (ht : 0 < t) (threshold : ENNReal)
+    (hthreshold0 : threshold ≠ 0) (hthresholdTop : threshold ≠ ∞) :
+    ∃ Q : ℝ, 0 ≤ Q ∧ threshold ≤ gaussianSoftAbsExpWeight t Q := by
+  have hrealPos : 0 < threshold.toReal :=
+    ENNReal.toReal_pos hthreshold0 hthresholdTop
+  let Q := max 0 (Real.log threshold.toReal / t)
+  have hQ : 0 ≤ Q := le_max_left _ _
+  have hlog : Real.log threshold.toReal ≤ t * Q := by
+    have hdiv : Real.log threshold.toReal / t ≤ Q := le_max_right _ _
+    rw [div_le_iff₀ ht] at hdiv
+    simpa [mul_comm] using hdiv
+  refine ⟨Q, hQ, ?_⟩
+  rw [← ENNReal.ofReal_toReal hthresholdTop]
+  unfold gaussianSoftAbsExpWeight
+  apply ENNReal.ofReal_le_ofReal
+  rw [abs_of_nonneg hQ, ← Real.exp_log hrealPos]
+  exact Real.exp_le_exp.mpr hlog
+
 /-- Bound a nonnegative expectation by splitting into a favorable event, the
 remainder of a containing event, and its complement. -/
 theorem lintegral_le_of_nested_event_bounds
