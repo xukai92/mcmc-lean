@@ -584,7 +584,12 @@ by paper date:
   constructed, and Tonelli proves its reset-averaged measure equals that
   coverage-density law. The normalized length-biased reset/position joint law
   is now a proved probability measure with the exact Gaussian marginal. What
-  remains is the stationary-renewal shift theorem
+  remains is the stationary-renewal shift theorem. Its Palm-law input is now
+  partly discharged: quadratic energy exactly inverts the negative-Rayleigh
+  reset; beyond a positive occupied radius, restriction and energy subtraction
+  give the scaled fresh exponential law; and at nonpositive positions the
+  future reset energy is already fresh exponential. The next theorem combines
+  these fibers into residual-hazard independence and then identifies the shift
   connecting length-biased cycle occupation to the stopped horizon kernel. Splitting a horizon
   between events is still correctly treated as a law-level argument rather
   than a pointwise semigroup identity;

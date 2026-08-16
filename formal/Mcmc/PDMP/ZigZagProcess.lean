@@ -2534,6 +2534,119 @@ theorem gaussianZigZagNegativeRayleighMeasure_negative_ae :
   unfold gaussianZigZagNegativeRayleighReset
   exact neg_lt_zero.mpr (Real.sqrt_pos.2 (by positivity))
 
+/-- Quadratic energy carried by a negative-Rayleigh reset position. -/
+noncomputable def gaussianZigZagNegativeRayleighEnergy
+    (position : ℝ) : NNReal :=
+  Real.toNNReal (position ^ 2 / 2)
+
+theorem measurable_gaussianZigZagNegativeRayleighEnergy :
+    Measurable gaussianZigZagNegativeRayleighEnergy := by
+  unfold gaussianZigZagNegativeRayleighEnergy
+  fun_prop
+
+/-- The reset transformation and quadratic-energy map are exact inverses on
+nonnegative hazard draws. -/
+@[simp] theorem gaussianZigZagNegativeRayleighEnergy_reset
+    (hazard : NNReal) :
+    gaussianZigZagNegativeRayleighEnergy
+      (gaussianZigZagNegativeRayleighReset hazard) = hazard := by
+  apply NNReal.eq
+  unfold gaussianZigZagNegativeRayleighEnergy
+    gaussianZigZagNegativeRayleighReset
+  rw [Real.coe_toNNReal]
+  · rw [neg_sq, Real.sq_sqrt (by positivity)]
+    ring
+  · positivity
+
+/-- Pushing the negative-Rayleigh event position back through its quadratic
+energy recovers the original unit-exponential hazard law. -/
+theorem gaussianZigZagNegativeRayleighMeasure_map_energy :
+    gaussianZigZagNegativeRayleighMeasure.map
+        gaussianZigZagNegativeRayleighEnergy =
+      gaussianZigZagHazardMeasure := by
+  unfold gaussianZigZagNegativeRayleighMeasure
+  rw [Measure.map_map measurable_gaussianZigZagNegativeRayleighEnergy
+    measurable_gaussianZigZagNegativeRayleighReset]
+  rw [show gaussianZigZagNegativeRayleighEnergy ∘
+      gaussianZigZagNegativeRayleighReset = id by
+    funext hazard
+    exact gaussianZigZagNegativeRayleighEnergy_reset hazard,
+    Measure.map_id]
+
+/-- Quadratic energy threshold corresponding to a nonnegative signed
+position radius. -/
+noncomputable def gaussianZigZagRadiusEnergy (radius : NNReal) : NNReal :=
+  ⟨(radius : ℝ) ^ 2 / 2, by positivity⟩
+
+theorem gaussianZigZagNegativeRayleighReset_preimage_Iio_neg
+    (radius : NNReal) :
+    gaussianZigZagNegativeRayleighReset ⁻¹' Set.Iio (-(radius : ℝ)) =
+      Set.Ioi (gaussianZigZagRadiusEnergy radius) := by
+  ext hazard
+  simp only [Set.mem_preimage, Set.mem_Iio, Set.mem_Ioi]
+  unfold gaussianZigZagNegativeRayleighReset gaussianZigZagRadiusEnergy
+  have hradius : 0 ≤ (radius : ℝ) := radius.coe_nonneg
+  have hrad : 0 ≤ 2 * (hazard : ℝ) := by positivity
+  have hsqrtNonneg := Real.sqrt_nonneg (2 * (hazard : ℝ))
+  have hsqrtSq : (Real.sqrt (2 * (hazard : ℝ))) ^ 2 =
+      2 * (hazard : ℝ) := Real.sq_sqrt hrad
+  constructor <;> intro h
+  · have hlt : (radius : ℝ) < Real.sqrt (2 * (hazard : ℝ)) := by
+      linarith
+    change (radius : ℝ) ^ 2 / 2 < (hazard : ℝ)
+    nlinarith
+  · change (radius : ℝ) ^ 2 / 2 < (hazard : ℝ) at h
+    nlinarith
+
+/-- Conditional on a cycle extending beyond positive radius `r`, subtracting
+the spent quadratic energy `r²/2` from its right-reset energy leaves a fresh
+unit exponential law, scaled by the survival probability. -/
+theorem gaussianZigZagNegativeRayleighMeasure_residual_energy
+    (radius : NNReal) :
+    Measure.map
+        (fun position => gaussianZigZagNegativeRayleighEnergy position -
+          gaussianZigZagRadiusEnergy radius)
+        (gaussianZigZagNegativeRayleighMeasure.restrict
+          (Set.Iio (-(radius : ℝ)))) =
+      ENNReal.ofReal
+          (Real.exp (-(gaussianZigZagRadiusEnergy radius : ℝ))) •
+        gaussianZigZagHazardMeasure := by
+  have hresidual : Measurable (fun position : ℝ =>
+      gaussianZigZagNegativeRayleighEnergy position -
+        gaussianZigZagRadiusEnergy radius) :=
+    measurable_gaussianZigZagNegativeRayleighEnergy.sub measurable_const
+  unfold gaussianZigZagNegativeRayleighMeasure
+  rw [Measure.restrict_map measurable_gaussianZigZagNegativeRayleighReset
+      measurableSet_Iio,
+    gaussianZigZagNegativeRayleighReset_preimage_Iio_neg]
+  rw [Measure.map_map hresidual
+    measurable_gaussianZigZagNegativeRayleighReset]
+  rw [show (fun position => gaussianZigZagNegativeRayleighEnergy position -
+      gaussianZigZagRadiusEnergy radius) ∘
+        gaussianZigZagNegativeRayleighReset =
+      (fun hazard => hazard - gaussianZigZagRadiusEnergy radius) by
+    funext hazard
+    simp]
+  exact gaussianZigZagHazardMeasure_residual_memoryless
+    (gaussianZigZagRadiusEnergy radius)
+
+/-- At a nonpositive occupied signed position the right reset is unconstrained
+almost surely, so its quadratic energy is already a fresh unit exponential. -/
+theorem gaussianZigZagNegativeRayleighMeasure_future_energy_of_nonpos
+    (signed : ℝ) (hsigned : signed ≤ 0) :
+    Measure.map gaussianZigZagNegativeRayleighEnergy
+        (gaussianZigZagNegativeRayleighMeasure.restrict
+          {right | signed < -right}) =
+      gaussianZigZagHazardMeasure := by
+  have hset : {right : ℝ | signed < -right} =ᵐ[
+      gaussianZigZagNegativeRayleighMeasure] Set.univ := by
+    filter_upwards [gaussianZigZagNegativeRayleighMeasure_negative_ae]
+      with right hright
+    change (signed < -right) = True
+    exact propext ⟨fun _ => trivial, fun _ => by linarith⟩
+  rw [Measure.restrict_congr_set hset, Measure.restrict_univ,
+    gaussianZigZagNegativeRayleighMeasure_map_energy]
+
 /-- Exact left tail of the negative-Rayleigh event-start position. -/
 theorem gaussianZigZagNegativeRayleighMeasure_Iio_neg
     (radius : NNReal) :

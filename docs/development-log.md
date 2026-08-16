@@ -1,5 +1,17 @@
 # Development log
 
+- Began the Palm/disintegration bridge from stationary cycle occupation to
+  the inverse-clock executor. The negative-Rayleigh reset is now proved
+  exactly invertible through quadratic energy: mapping `-sqrt(2E)` back to
+  `x²/2` recovers the original unit-exponential hazard law. For a positive
+  occupied radius, restricting the next reset to extend beyond that radius
+  and subtracting the spent energy leaves a fresh exponential law with the
+  exact survival scaling, by the previously checked memorylessness theorem.
+  At nonpositive occupied positions the future reset is unconstrained almost
+  surely and its energy is already a fresh exponential. These are the two
+  fiberwise cases needed to prove independence of the residual hazard from
+  the Gaussian occupied position.
+
 - Closed the Tonelli/Fubini half of the regenerative argument. Lean now
   constructs the literal unit-speed interval-time occupation kernel between
   two consecutive negative-Rayleigh resets, proves every row is Lebesgue
