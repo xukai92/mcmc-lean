@@ -1,5 +1,14 @@
 # Development log
 
+- Proved the nonlinear reciprocal layer behind the candidate
+  particle-Gibbs penalty. Lean now has finite-distribution Jensen for `1/x`,
+  its bounded-mean corollary, and a leave-one-out theorem with one selected
+  ordinary potential and one retained potential. A potential-oscillation
+  certificate bounds each distinguished term by `B * μ(G)`, giving the exact
+  `others + 2B` denominator and explaining the candidate `2B-1` penalty. The
+  next structural step is to disintegrate the forced cloud at a selected
+  ordinary coordinate and feed this inequality into the lineage recursion.
+
 - Isolated the ordinary-cloud first-moment identity needed by the sharp
   positive-horizon particle-Gibbs proof. For a population with one forced
   coordinate, Lean now proves that the expected sum of any score over all

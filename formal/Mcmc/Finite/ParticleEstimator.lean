@@ -1,5 +1,6 @@
 import Mcmc.Finite.PseudoMarginal
 import Mathlib.Algebra.BigOperators.Ring.Finset
+import Mathlib.Analysis.Convex.SpecificFunctions.Deriv
 import Mathlib.Tactic
 
 /-!
@@ -24,6 +25,35 @@ variable {State Sample Particle : Type*}
   [Fintype State] [Fintype Sample] [Fintype Particle]
   [DecidableEq State] [DecidableEq Sample] [DecidableEq Particle]
   [Nonempty Particle]
+
+/-- Finite-distribution Jensen inequality for the reciprocal. This form keeps
+the probability weights explicit and is the nonlinear ingredient in
+leave-one-out bounds for self-normalized particle systems. -/
+theorem one_div_expectation_le_expectation_one_div
+    {α : Type*} [Fintype α] [DecidableEq α]
+    (law : Distribution α) (denominator : α → ℝ)
+    (hdenominator : ∀ x, 0 < denominator x) :
+    1 / (∑ x, law.mass x * denominator x) ≤
+      ∑ x, law.mass x * (1 / denominator x) := by
+  have hjensen :=
+    (strictConvexOn_zpow (m := (-1 : ℤ)) (by norm_num) (by norm_num)).convexOn.map_sum_le
+      (t := Finset.univ) (w := law.mass) (p := denominator)
+      (fun x _ => law.nonneg x) law.sum_mass
+      (fun x _ => hdenominator x)
+  simpa [one_div, zpow_neg_one, smul_eq_mul] using hjensen
+
+/-- A deterministic upper bound on a positive random denominator turns the
+reciprocal Jensen inequality into the lower bound used by leave-one-out
+arguments. -/
+theorem one_div_upper_le_expectation_one_div
+    {α : Type*} [Fintype α] [DecidableEq α]
+    (law : Distribution α) (denominator : α → ℝ) (upper : ℝ)
+    (hdenominator : ∀ x, 0 < denominator x)
+    (hmean : 0 < ∑ x, law.mass x * denominator x)
+    (hupper : (∑ x, law.mass x * denominator x) ≤ upper) :
+    1 / upper ≤ ∑ x, law.mass x * (1 / denominator x) := by
+  exact (one_div_le_one_div_of_le hmean hupper).trans
+    (one_div_expectation_le_expectation_one_div law denominator hdenominator)
 
 /-- Independent population drawn from a common finite distribution. -/
 def iidPopulation (law : Distribution Sample) : Distribution (Particle → Sample) where
@@ -754,6 +784,87 @@ particle-Gibbs resampling estimates. -/
 structure PotentialOscillationBound (potential : Sample → ℝ) (bound : ℝ) : Prop where
   bound_pos : 0 < bound
   le_mul : ∀ x y, potential x ≤ bound * potential y
+
+omit [DecidableEq Sample] [DecidableEq Particle] [Nonempty Particle] in
+/-- An oscillation certificate bounds every point value by `bound` times the
+mean under any probability law. This replaces a supremum in the finite
+leave-one-out argument and remains valid for an arbitrary retained state. -/
+theorem PotentialOscillationBound.le_bound_mul_expectation
+    (potential : Sample → ℝ) (bound : ℝ)
+    (certificate : PotentialOscillationBound potential bound)
+    (law : Distribution Sample) (x : Sample) :
+    potential x ≤ bound * ∑ y, law.mass y * potential y := by
+  calc
+    potential x = ∑ y, law.mass y * potential x := by
+      rw [← Finset.sum_mul, law.sum_mass, one_mul]
+    _ ≤ ∑ y, law.mass y * (bound * potential y) := by
+      apply Finset.sum_le_sum
+      intro y _
+      exact mul_le_mul_of_nonneg_left (certificate.le_mul x y) (law.nonneg y)
+    _ = bound * ∑ y, law.mass y * potential y := by
+      rw [Finset.mul_sum]
+      apply Finset.sum_congr rfl
+      intro y _
+      ring
+
+omit [DecidableEq Sample] [DecidableEq Particle] [Nonempty Particle] in
+/-- Leave-one-out reciprocal bound with two distinguished potential terms.
+One term is the selected ordinary particle and the other is the retained
+particle. If the remaining denominator has mean `others * μ(G)`, oscillation
+bounds each distinguished term by `B * μ(G)`, producing the characteristic
+`others + 2B` denominator. -/
+theorem leaveOneOut_reciprocal_lower_bound
+    {Ω : Type*} [Fintype Ω] [DecidableEq Ω]
+    (potential : Sample → ℝ) (hpotential : ∀ x, 0 < potential x)
+    (bound : ℝ) (certificate : PotentialOscillationBound potential bound)
+    (samplingLaw : Distribution Sample) (selected retained : Sample)
+    (remainderLaw : Distribution Ω) (remainder : Ω → ℝ)
+    (others : ℕ) (hremainder : ∀ ω, 0 ≤ remainder ω)
+    (hremainderMean :
+      (∑ ω, remainderLaw.mass ω * remainder ω) =
+        (others : ℝ) * ∑ x, samplingLaw.mass x * potential x) :
+    1 / (((others : ℝ) + 2 * bound) *
+        (∑ x, samplingLaw.mass x * potential x)) ≤
+      ∑ ω, remainderLaw.mass ω *
+        (1 / (potential selected + potential retained + remainder ω)) := by
+  let meanPotential := ∑ x, samplingLaw.mass x * potential x
+  let denominator := fun ω =>
+    potential selected + potential retained + remainder ω
+  have hdenominator : ∀ ω, 0 < denominator ω := by
+    intro ω
+    dsimp only [denominator]
+    exact add_pos_of_pos_of_nonneg
+      (add_pos (hpotential selected) (hpotential retained)) (hremainder ω)
+  have hmeanEq :
+      (∑ ω, remainderLaw.mass ω * denominator ω) =
+        potential selected + potential retained + (others : ℝ) * meanPotential := by
+    dsimp only [denominator]
+    simp_rw [mul_add]
+    rw [Finset.sum_add_distrib, Finset.sum_add_distrib]
+    rw [← Finset.sum_mul, ← Finset.sum_mul]
+    rw [remainderLaw.sum_mass, one_mul, one_mul, hremainderMean]
+  have hmean : 0 < ∑ ω, remainderLaw.mass ω * denominator ω := by
+    rw [hmeanEq]
+    exact add_pos_of_pos_of_nonneg
+      (add_pos (hpotential selected) (hpotential retained))
+      (mul_nonneg (Nat.cast_nonneg others) (Finset.sum_nonneg fun x _ =>
+        mul_nonneg (samplingLaw.nonneg x) (hpotential x).le))
+  have hselected : potential selected ≤ bound * meanPotential :=
+    certificate.le_bound_mul_expectation potential bound samplingLaw selected
+  have hretained : potential retained ≤ bound * meanPotential :=
+    certificate.le_bound_mul_expectation potential bound samplingLaw retained
+  have hmeanPotential : 0 ≤ meanPotential := by
+    dsimp only [meanPotential]
+    exact Finset.sum_nonneg fun x _ =>
+      mul_nonneg (samplingLaw.nonneg x) (hpotential x).le
+  have hmeanUpper :
+      (∑ ω, remainderLaw.mass ω * denominator ω) ≤
+        ((others : ℝ) + 2 * bound) * meanPotential := by
+    rw [hmeanEq]
+    nlinarith
+  exact one_div_upper_le_expectation_one_div remainderLaw denominator
+    (((others : ℝ) + 2 * bound) * meanPotential)
+    hdenominator hmean hmeanUpper
 
 /-- Total potential carried by all particles except one retained coordinate. -/
 noncomputable def unforcedPotentialSum (potential : Sample → ℝ)
