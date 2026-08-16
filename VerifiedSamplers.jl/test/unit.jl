@@ -101,7 +101,7 @@ end
 end
 
 @testset "versioned reference IR" begin
-    @test Reference.IR_FORMAT_VERSION == 14
+    @test Reference.IR_FORMAT_VERSION == 15
     @test sort!(collect(keys(Reference.PROGRAMS))) ==
         ["categorical_index!", "certified_relativistic_multinomial_hmc_step!",
         "coupled_gaussian_rwmh_step!",
@@ -118,6 +118,15 @@ end
     @test transform.inverse == "exp"
     @test transform.logabsdet_inverse_jacobian == "identity"
     @test_throws ArgumentError generated_transform("missing")
+    @test collect(keys(Reference.DYNAMIC_TREES)) ==
+        ["checked-recursive-doubling"]
+    dynamic = Reference.DYNAMIC_TREES["checked-recursive-doubling"]
+    @test dynamic.builder == "recursive-doubling"
+    @test dynamic.stop_rule == "endpoint-uturn"
+    @test dynamic.subtree_policy == "recursive-exclusion"
+    @test dynamic.failure_policy == "checked-or-identity"
+    @test_throws ArgumentError generated_dynamic_tree(
+        "missing", [0.0], [1.0], Bool[])
     @test_throws ErrorException Reference.parse_document("(unterminated")
     mktemp() do path, stream
         write(stream, "(verified-samplers-ir 2 bogus)\n")

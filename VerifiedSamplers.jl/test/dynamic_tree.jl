@@ -120,6 +120,10 @@
         collect(0.0:6.0), ones(7), Bool[])
     @test recursive_identity.valid
     @test recursive_identity.candidates == [[i] for i in 1:7]
+    generated_recursive_identity = generated_dynamic_tree(
+        "checked-recursive-doubling", collect(0.0:6.0), ones(7), Bool[])
+    @test generated_recursive_identity.valid == recursive_identity.valid
+    @test generated_recursive_identity.candidates == recursive_identity.candidates
     recursive_boundary = recursive_doubling_uturn_candidates(
         collect(0.0:6.0), ones(7), Bool[true, false])
     @test !recursive_boundary.valid

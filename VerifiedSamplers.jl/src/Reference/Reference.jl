@@ -15,7 +15,7 @@ export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_ou
     coupled_multinomial_hmc_step!, coupled_gaussian_rwmh_step!, xu21_coupled_step!,
     IR_FORMAT_VERSION
 
-const IR_FORMAT_VERSION = 14
+const IR_FORMAT_VERSION = 15
 
 """Stable target-weighted selection from a supplied candidate index set.
 
@@ -349,6 +349,30 @@ function decode_transform(node::SList)
     descriptor
 end
 
+struct DynamicTreeDescriptor
+    name::String
+    builder::String
+    stop_rule::String
+    subtree_policy::String
+    failure_policy::String
+end
+
+function decode_dynamic_tree(node::SList)
+    values = items(node)
+    length(values) == 6 && atom(values[1]) == "dynamic-tree" ||
+        error("invalid dynamic-tree descriptor")
+    descriptor = DynamicTreeDescriptor((atom(value) for value in values[2:end])...)
+    descriptor.builder == "recursive-doubling" ||
+        error("unsupported dynamic-tree builder: $(descriptor.builder)")
+    descriptor.stop_rule == "endpoint-uturn" ||
+        error("unsupported dynamic-tree stop rule: $(descriptor.stop_rule)")
+    descriptor.subtree_policy == "recursive-exclusion" ||
+        error("unsupported dynamic-tree subtree policy: $(descriptor.subtree_policy)")
+    descriptor.failure_policy == "checked-or-identity" ||
+        error("unsupported dynamic-tree failure policy: $(descriptor.failure_policy)")
+    descriptor
+end
+
 function load_artifact(path::String)
     source = strip(read(path, String))
     document = parse_document(source)
@@ -361,6 +385,7 @@ function load_artifact(path::String)
     targets = Dict{String,Any}()
     schedules = Dict{String,ScheduleDescriptor}()
     transforms = Dict{String,TransformDescriptor}()
+    dynamic_trees = Dict{String,DynamicTreeDescriptor}()
     for node in root[3:end]
         values = items(aslist(node))
         tag = atom(values[1])
@@ -384,18 +409,23 @@ function load_artifact(path::String)
             haskey(transforms, transform.name) &&
                 error("duplicate transform descriptor: $(transform.name)")
             transforms[transform.name] = transform
+        elseif tag == "dynamic-tree"
+            descriptor = decode_dynamic_tree(aslist(node))
+            haskey(dynamic_trees, descriptor.name) &&
+                error("duplicate dynamic-tree descriptor: $(descriptor.name)")
+            dynamic_trees[descriptor.name] = descriptor
         else
             error("unknown top-level IR declaration: $tag")
         end
     end
-    programs, targets, schedules, transforms
+    programs, targets, schedules, transforms, dynamic_trees
 end
 
 # Retain the program-only loader for downstream callers while the artifact now
 # also carries restricted target declarations.
 load_programs(path::String) = first(load_artifact(path))
 
-const PROGRAMS, TARGETS, SCHEDULES, TRANSFORMS =
+const PROGRAMS, TARGETS, SCHEDULES, TRANSFORMS, DYNAMIC_TREES =
     load_artifact(joinpath(@__DIR__, "Samplers.ir"))
 
 function checked_logdensity(callback, state)

@@ -1,5 +1,13 @@
 # Development log
 
+- Promoted checked recursive dynamic-tree execution into generated IR version
+  15. Lean emits the builder, endpoint U-turn rule, recursive subtree-
+  exclusion policy, and mandatory checked-or-identity failure policy. Julia
+  validates and dispatches that descriptor to the rooted row builder; tests
+  compare generated dispatch with direct construction and reject unknown
+  descriptors. This connects cross-language configuration without claiming
+  that ordinary standard-NUTS recursion always passes reroot certification.
+
 - Added an executable root-dependent recursive-doubling U-turn builder. At
   each requested depth it constructs the new power-of-two subtree, rejects a
   subtree with an internal endpoint U-turn, tests the completed join, and

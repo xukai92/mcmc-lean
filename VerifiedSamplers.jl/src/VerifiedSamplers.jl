@@ -41,6 +41,7 @@ export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, Bounded
     certified_spanning_uturn_partition,
     first_stop_endpoint_uturn_candidates,
     recursive_doubling_uturn_candidates,
+    generated_dynamic_tree,
     generated_schedule,
     generated_transform,
     GaussianZigZag, GaussianZigZagResult, gaussian_zigzag_waiting_time,
@@ -1787,6 +1788,25 @@ recursive_doubling_uturn_candidates(
         directions::AbstractVector{Bool}) =
     recursive_doubling_uturn_candidates([[Float64(q)] for q in positions],
         [[Float64(p)] for p in momenta], directions)
+
+"""Execute a dynamic-tree builder selected by Lean-generated metadata.
+
+The generated descriptor fixes the recursive builder, endpoint U-turn rule,
+subtree exclusion, and checked-or-identity policy. This function returns the
+certificate; callers must use `safe_dynamic_select!` for selection.
+"""
+function generated_dynamic_tree(name::AbstractString, positions, momenta,
+        directions::AbstractVector{Bool})
+    descriptor = get(Reference.DYNAMIC_TREES, String(name), nothing)
+    descriptor === nothing &&
+        throw(ArgumentError("unknown generated dynamic tree: $name"))
+    descriptor.builder == "recursive-doubling" &&
+        descriptor.stop_rule == "endpoint-uturn" &&
+        descriptor.subtree_policy == "recursive-exclusion" &&
+        descriptor.failure_policy == "checked-or-identity" ||
+        error("unsupported generated dynamic-tree descriptor")
+    recursive_doubling_uturn_candidates(positions, momenta, directions)
+end
 
 """Certified conservative dynamic-trajectory HMC.
 

@@ -791,7 +791,7 @@ invariance, including the Cholesky-refreshed specialization. The artifact
 contains separate metric-kind-correct commands.
 
 Corrected relativistic multinomial HMC was introduced in IR version 10 and is
-retained in the current version 14 artifact. The
+retained in the current version 15 artifact. The
 constant diagonal-metric client is directly executable:
 
 ```julia

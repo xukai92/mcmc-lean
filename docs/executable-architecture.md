@@ -421,6 +421,11 @@ a numerical-refinement theorem. The exact Julia boundary is listed in the
 
 ### Xu et al. coupled command status
 
+IR version 15 additionally carries the checked recursive-doubling dynamic-tree
+descriptor. It fixes endpoint U-turn stopping, recursive subtree exclusion,
+and checked-or-identity failure semantics; Julia dispatches the descriptor but
+still constructs and verifies every rooted row at runtime.
+
 IR version 9 adds named commands for shared-momentum multinomial HMC, sticky
 Gaussian RWMH, and their mixture. Their ideal Lean denotations reuse the
 verified coupled kernels rather than defining parallel mathematics. Lean

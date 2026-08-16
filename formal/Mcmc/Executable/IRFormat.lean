@@ -7,6 +7,7 @@ import Mcmc.Executable.Continuous.RelativisticCompilerIR
 import Mcmc.Executable.Continuous.RestrictedArtifact
 import Mcmc.Executable.ComposableIR
 import Mcmc.Executable.ConstrainedTransformIR
+import Mcmc.Executable.DynamicTreeIR
 
 /-!
 # Versioned textual format for sampler IR
@@ -19,7 +20,7 @@ namespace Mcmc.Executable.IRFormat
 
 open Finite.CompilerIR
 
-def version : Nat := 14
+def version : Nat := 15
 
 private def quote (value : String) : String :=
   let escapedBackslash := value.replace "\\" "\\\\"
@@ -219,6 +220,30 @@ private def transformDescriptorRender
     quote descriptor.forward, quote descriptor.inverse,
     quote descriptor.logAbsDetInverseJacobian]
 
+private def dynamicTreeBuilderRender :
+    DynamicTreeIR.Builder → String
+  | .recursiveDoubling => "recursive-doubling"
+
+private def dynamicTreeStopRuleRender :
+    DynamicTreeIR.StopRule → String
+  | .endpointUTurn => "endpoint-uturn"
+
+private def dynamicTreeSubtreePolicyRender :
+    DynamicTreeIR.SubtreePolicy → String
+  | .recursiveExclusion => "recursive-exclusion"
+
+private def dynamicTreeFailurePolicyRender :
+    DynamicTreeIR.FailurePolicy → String
+  | .checkedOrIdentity => "checked-or-identity"
+
+private def dynamicTreeDescriptorRender
+    (descriptor : DynamicTreeIR.Descriptor) : String :=
+  list ["dynamic-tree", quote descriptor.name,
+    dynamicTreeBuilderRender descriptor.builder,
+    dynamicTreeStopRuleRender descriptor.stopRule,
+    dynamicTreeSubtreePolicyRender descriptor.subtreePolicy,
+    dynamicTreeFailurePolicyRender descriptor.failurePolicy]
+
 /-- Serialize all reference entry programs with a format version. -/
 def render : String :=
   list (["verified-samplers-ir", toString version,
@@ -239,6 +264,7 @@ def render : String :=
       Mcmc.Executable.Continuous.restrictedSinusoidalPotentialArtifact,
     scheduleDescriptorRender ComposableIR.gePgHmcSchedule,
     transformDescriptorRender ConstrainedTransformIR.positiveLog] ++
+    [dynamicTreeDescriptorRender DynamicTreeIR.checkedRecursiveDoubling] ++
     Continuous.CoupledXu21.renderedPrograms) ++ "\n"
 
 end Mcmc.Executable.IRFormat
