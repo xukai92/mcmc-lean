@@ -93,6 +93,61 @@ theorem zigZagGenerator_mean_zero
     ring
   rw [heq, integral_sub hdrift hpotential, hibp, sub_self]
 
+/-! ### Gaussian Stein test class -/
+
+/-- A velocity-dependent observable and its supplied position derivative form
+a Gaussian Stein test when their velocity differences obey the standard
+Gaussian integration-by-parts identity.  The two integrability fields make
+the cancellation theorem valid for the Bochner integral; `stein` is the
+remaining analytic obligation that clients may discharge from smoothness and
+decay assumptions.
+
+This certificate is deliberately about a test function, not about invariance
+of the Zig-Zag process. -/
+structure GaussianSteinTest
+    (derivative observable : ℝ → Bool → ℝ) : Prop where
+  derivative_integrable : Integrable
+    (fun q => derivative q true - derivative q false)
+    (ProbabilityTheory.gaussianReal 0 1)
+  position_integrable : Integrable
+    (fun q => q * (observable q true - observable q false))
+    (ProbabilityTheory.gaussianReal 0 1)
+  stein :
+    (∫ q, derivative q true - derivative q false
+      ∂ProbabilityTheory.gaussianReal 0 1) =
+    ∫ q, q * (observable q true - observable q false)
+      ∂ProbabilityTheory.gaussianReal 0 1
+
+/-- Every Gaussian Stein test has mean-zero standard-Gaussian Zig-Zag
+generator.  Unlike the earlier generic weighted theorem, this statement is
+directly phrased over the actual Gaussian target and an arbitrary observable
+class. -/
+theorem gaussian_zigZagGenerator_mean_zero_of_stein
+    (derivative observable : ℝ → Bool → ℝ)
+    (h : GaussianSteinTest derivative observable) :
+    (∫ q, (∑ v : Bool, zigZagGenerator id derivative observable q v)
+      ∂ProbabilityTheory.gaussianReal 0 1) = 0 := by
+  have hdrift : Integrable
+      (fun q => (1 : ℝ) * (derivative q true - derivative q false))
+      (ProbabilityTheory.gaussianReal 0 1) := by
+    simpa using h.derivative_integrable
+  have hposition : Integrable
+      (fun q => (1 : ℝ) * id q *
+        (observable q true - observable q false))
+      (ProbabilityTheory.gaussianReal 0 1) := by
+    simpa using h.position_integrable
+  have hstein :
+      (∫ q, (1 : ℝ) * (derivative q true - derivative q false)
+        ∂ProbabilityTheory.gaussianReal 0 1) =
+      ∫ q, (1 : ℝ) * id q *
+        (observable q true - observable q false)
+        ∂ProbabilityTheory.gaussianReal 0 1 := by
+    simpa using h.stein
+  simpa only [one_mul, id_eq] using
+    zigZagGenerator_mean_zero
+      (ProbabilityTheory.gaussianReal 0 1) (fun _ => 1) id
+      derivative observable hdrift hposition hstein
+
 /-- Velocity itself as a concrete Zig-Zag test observable. -/
 def zigZagVelocityObservable (_q : ℝ) (v : Bool) : ℝ := zigZagVelocity v
 

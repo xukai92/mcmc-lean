@@ -1,5 +1,13 @@
 # Development log
 
+- Added `GaussianSteinTest`, a reusable analytic interface for arbitrary
+  velocity-dependent standard-Gaussian Zig-Zag observables. Its fields expose
+  derivative and position-weighted integrability plus the exact Gaussian
+  integration-by-parts identity; Lean now proves that every certified test has
+  mean-zero Zig-Zag generator expectation. This broadens generator balance
+  beyond the existing affine examples without claiming that generator balance
+  alone proves the setwise forward equation or process stationarity.
+
 - Added an exact unbounded-rate event construction for the one-dimensional
   standard-Gaussian Zig-Zag process. A normalized unit-exponential hazard draw
   is mapped through the already-certified closed-form inverse integrated

@@ -388,7 +388,11 @@ breadth branches are:
   measurable-event transported mass into invariance of the whole Markov
   family. The Gaussian horizon kernel has the concrete consumer theorem; its
   remaining stationarity task is to derive that differential certificate from
-  the checked Gaussian generator identity and the constructed path law.
+  the checked Gaussian generator identity and the constructed path law. A
+  reusable `GaussianSteinTest` certificate now packages arbitrary
+  velocity-dependent observables with their integrability and Gaussian
+  integration-by-parts proof and implies generator cancellation; a rich test
+  class-to-setwise forward-equation argument is still required.
   The normalized Gaussian/equal-velocity target and exact zero-time identity
   are discharged, so the specialized certificate contains only
   differentiability and the zero-derivative forward equation.

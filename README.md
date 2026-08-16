@@ -188,6 +188,11 @@ finite-time kernel when all measurable-set transported masses are
 differentiable on nonnegative time with zero derivative. The Gaussian
 Zig-Zag family is connected to this theorem, leaving the setwise forward
 equation—not process construction or nonexplosion—as its exact analytic input.
+Arbitrary velocity-dependent observables can now enter this analytic layer
+through a `GaussianSteinTest` certificate, which records the two required
+integrability facts and the Gaussian integration-by-parts identity and yields
+mean-zero generator expectation. Deriving the setwise forward equation from a
+sufficiently rich certified test class remains open.
 The normalized Gaussian-position/equal-velocity target is now explicit and
 proved a probability measure, and the stopped horizon family is proved exactly
 the identity kernel at time zero; these parts no longer remain premises of the
