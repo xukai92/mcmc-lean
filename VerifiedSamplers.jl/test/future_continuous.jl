@@ -93,6 +93,14 @@ end
     @test diagonal.logdet == sum(entry.logdet for entry in diagonal.entries)
     @test all(>(0), [entry.eigenvalue for entry in diagonal.entries])
     @test_throws ArgumentError evaluate_softabs_diagonal_float64(Float64[])
+
+    scalar_h = evaluate_softabs_scalar_hamiltonian_float64(0.25, 0.0, 2.0)
+    @test scalar_h.metric.eigenvalue == 1.0
+    @test scalar_h.transformed_momentum == 2.0
+    @test scalar_h.kinetic == sqrt(5.0)
+    @test scalar_h.energy == 0.25 + sqrt(5.0)
+    @test_throws DomainError evaluate_softabs_scalar_hamiltonian_float64(
+        Inf, 0.0, 1.0)
 end
 
 @testset "restricted target expressions" begin

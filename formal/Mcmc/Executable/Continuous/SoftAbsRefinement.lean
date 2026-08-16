@@ -184,4 +184,122 @@ theorem logDet_bound
 
 end SoftAbsDiagonalMetricCertificate
 
+section ScalarHamiltonian
+
+/-- A certified diagonal factor entry transports a certified scalar momentum.
+This is the first missing connection from metric evaluation to the kinetic
+energy actually used by GR-HMC. -/
+theorem SoftAbsMetricEntryCertificate.factorMomentum_bound
+    {α idealHessian computedMomentum idealMomentum momentumError : ℝ}
+    (certificate : SoftAbsMetricEntryCertificate α idealHessian)
+    (hmomentum : Approximates computedMomentum idealMomentum momentumError) :
+    Approximates
+      (certificate.computedFactor * computedMomentum)
+      ((Real.sqrt (Mcmc.Relativistic.softAbs α idealHessian))⁻¹ *
+        idealMomentum)
+      (certificate.factorError * |computedMomentum| +
+        |(Real.sqrt
+          (Mcmc.Relativistic.softAbs α idealHessian))⁻¹| * momentumError) :=
+  certificate.factor_bound.mul hmomentum
+
+/-- Squaring the transformed momentum preserves a fully explicit absolute
+error bound. -/
+theorem SoftAbsMetricEntryCertificate.transformedMomentumSq_bound
+    {α idealHessian computedMomentum idealMomentum momentumError : ℝ}
+    (certificate : SoftAbsMetricEntryCertificate α idealHessian)
+    (hmomentum : Approximates computedMomentum idealMomentum momentumError) :
+    let computed := certificate.computedFactor * computedMomentum
+    let ideal := (Real.sqrt
+      (Mcmc.Relativistic.softAbs α idealHessian))⁻¹ * idealMomentum
+    let error := certificate.factorError * |computedMomentum| +
+      |(Real.sqrt
+        (Mcmc.Relativistic.softAbs α idealHessian))⁻¹| * momentumError
+    Approximates (computed * computed) (ideal * ideal)
+      (error * |computed| + |ideal| * error) := by
+  dsimp only
+  let h := certificate.factorMomentum_bound hmomentum
+  exact h.mul h
+
+/-- For unit rest mass and unit speed, the scalar relativistic radicand is
+`1 + (A(q)p)²`.  A guarded backend square root therefore yields a certified
+kinetic term. -/
+theorem SoftAbsPrimitiveBackend.scalarUnitKinetic_bound
+    (backend : SoftAbsPrimitiveBackend)
+    {α idealHessian computedMomentum idealMomentum momentumError : ℝ}
+    (certificate : SoftAbsMetricEntryCertificate α idealHessian)
+    (hmomentum : Approximates computedMomentum idealMomentum momentumError)
+    (hcomputedRadicand : 0 <
+      (certificate.computedFactor * computedMomentum) ^ 2 + 1) :
+    let computedTransformed := certificate.computedFactor * computedMomentum
+    let idealTransformed := (Real.sqrt
+      (Mcmc.Relativistic.softAbs α idealHessian))⁻¹ * idealMomentum
+    let transformedError := certificate.factorError * |computedMomentum| +
+      |(Real.sqrt
+        (Mcmc.Relativistic.softAbs α idealHessian))⁻¹| * momentumError
+    let radicandError := transformedError * |computedTransformed| +
+      |idealTransformed| * transformedError
+    Approximates
+      (backend.sqrt (computedTransformed ^ 2 + 1))
+      (Real.sqrt (idealTransformed ^ 2 + 1))
+      (backend.sqrtError (computedTransformed ^ 2 + 1)
+        (idealTransformed ^ 2 + 1) radicandError) := by
+  dsimp only
+  have hsquare := certificate.transformedMomentumSq_bound hmomentum
+  simp only [pow_two]
+  have hradicand : Approximates
+      ((certificate.computedFactor * computedMomentum) *
+          (certificate.computedFactor * computedMomentum) + 1)
+      (((Real.sqrt (Mcmc.Relativistic.softAbs α idealHessian))⁻¹ *
+          idealMomentum) *
+        ((Real.sqrt (Mcmc.Relativistic.softAbs α idealHessian))⁻¹ *
+          idealMomentum) + 1)
+      ((certificate.factorError * |computedMomentum| +
+          |(Real.sqrt
+            (Mcmc.Relativistic.softAbs α idealHessian))⁻¹| * momentumError) *
+          |certificate.computedFactor * computedMomentum| +
+        |(Real.sqrt (Mcmc.Relativistic.softAbs α idealHessian))⁻¹ *
+          idealMomentum| *
+          (certificate.factorError * |computedMomentum| +
+            |(Real.sqrt
+              (Mcmc.Relativistic.softAbs α idealHessian))⁻¹| *
+                momentumError)) := by
+    simpa using hsquare.add (Approximates.refl 1)
+  have hcomputed : 0 <
+      (certificate.computedFactor * computedMomentum) *
+          (certificate.computedFactor * computedMomentum) + 1 := by
+    simpa [pow_two] using hcomputedRadicand
+  have hideal : 0 <
+      ((Real.sqrt (Mcmc.Relativistic.softAbs α idealHessian))⁻¹ *
+          idealMomentum) *
+        ((Real.sqrt (Mcmc.Relativistic.softAbs α idealHessian))⁻¹ *
+          idealMomentum) + 1 := by
+    nlinarith [sq_nonneg
+      ((Real.sqrt (Mcmc.Relativistic.softAbs α idealHessian))⁻¹ *
+        idealMomentum)]
+  exact backend.sqrt_bound _ _ _ hcomputed hideal hradicand
+
+/-- Compose potential, unit-parameter relativistic kinetic energy, and the
+SoftAbs log-determinant contribution into the scalar GR Hamiltonian value.
+The square-root approximation may come from
+`SoftAbsPrimitiveBackend.scalarUnitKinetic_bound`. -/
+theorem scalarUnitSoftAbsHamiltonian_bound
+    {α idealHessian computedPotential idealPotential potentialError
+      computedKinetic idealKinetic kineticError : ℝ}
+    (certificate : SoftAbsMetricEntryCertificate α idealHessian)
+    (hpotential : Approximates computedPotential idealPotential potentialError)
+    (hkinetic : Approximates computedKinetic idealKinetic kineticError) :
+    Approximates
+      (computedPotential + computedKinetic +
+        (1 / 2 : ℝ) * certificate.computedLogDet)
+      (idealPotential + idealKinetic +
+        (1 / 2 : ℝ) *
+          Real.log (Mcmc.Relativistic.softAbs α idealHessian))
+      (potentialError + kineticError +
+        (0 * |certificate.computedLogDet| +
+          |(1 / 2 : ℝ)| * certificate.logDetError)) := by
+  exact (hpotential.add hkinetic).add
+    ((Approximates.refl (1 / 2 : ℝ)).mul certificate.logDet_bound)
+
+end ScalarHamiltonian
+
 end Mcmc.Executable.Continuous

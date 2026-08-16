@@ -223,6 +223,14 @@ practical Float64 solver is useful for diagnostics and convergence testing but
 the exact `CertifiedRelativisticMultinomialHMC` interface rejects it unless the
 residuals are exactly zero and all global validity witnesses are supplied.
 
+The guarded SoftAbs numerical layer now continues beyond metric evaluation.
+For the scalar unit-parameter client it transports factor and momentum errors
+through the relativistic radicand and square root, then combines potential,
+kinetic, and log-determinant errors into a complete Hamiltonian-value bound.
+The Julia evaluator follows that exact expression. Two endpoint instances can
+therefore feed the existing energy-difference and acceptance-margin theorems;
+primitive `Float64`/libm bounds remain explicit backend evidence.
+
 ## Xu et al. coupled mixture
 
 Version 9 contains separate commands for coupled multinomial HMC, coupled

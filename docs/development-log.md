@@ -2029,6 +2029,16 @@ bounds for `tanh`, `sqrt`, reciprocal, and `log` remain explicit backend
 premises, and the position-dependent implicit solver remains the next
 separate refinement obligation.
 
+Extended that guarded refinement through the scalar Hamiltonian consumed by
+accept/reject.  Lean now composes the certified SoftAbs factor with an
+approximate momentum, propagates error through the transformed square and
+positive radicand, applies the guarded square-root backend, and combines the
+result with certified potential and half-log-determinant terms.  Julia exposes
+and tests the identical unit-parameter expression
+`U + sqrt(1 + (A*p)^2) + log(G)/2`.  The result supplies endpoint-energy error
+inputs to the existing stable-decision theorem; it still does not assert a
+global libm error bound for arbitrary Julia platforms.
+
 ## 2026-08-16: normalized particle-error recursion
 
 Added the deterministic nonlinear bridge needed beyond the exact one-step

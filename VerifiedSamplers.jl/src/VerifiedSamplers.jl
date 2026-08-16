@@ -24,7 +24,9 @@ export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, Bounded
     certify_restricted_gaussian_float64,
     restricted_gaussian_certificate_arguments,
     SoftAbsMetricFloat64Evaluation, SoftAbsDiagonalFloat64Evaluation,
+    SoftAbsScalarHamiltonianFloat64Evaluation,
     evaluate_softabs_metric_float64, evaluate_softabs_diagonal_float64,
+    evaluate_softabs_scalar_hamiltonian_float64,
     Xu21CoupledSampler, ScopedInferenceOperator, ComposableSampler, covers,
     DynamicTreeCertificate, certify_dynamic_tree, certified_orbit_partition,
     certified_scalar_uturn_partition,
@@ -192,6 +194,18 @@ struct SoftAbsDiagonalFloat64Evaluation
     logdet::Float64
 end
 
+"""Guarded unit-parameter scalar GR-Hamiltonian evaluation.
+
+This is the runtime expression covered compositionally by Lean's scalar
+SoftAbs Hamiltonian error theorem: `U + sqrt(1 + (A*p)^2) + log(G)/2`.
+"""
+struct SoftAbsScalarHamiltonianFloat64Evaluation
+    metric::SoftAbsMetricFloat64Evaluation
+    transformed_momentum::Float64
+    kinetic::Float64
+    energy::Float64
+end
+
 """Evaluate a scalar SoftAbs eigenvalue and its derived metric quantities."""
 function evaluate_softabs_metric_float64(hessian::Real; smoothing::Real=1.0)
     h = Float64(hessian)
@@ -222,6 +236,21 @@ function evaluate_softabs_diagonal_float64(hessian::AbstractVector{<:Real};
     isfinite(logdet) || throw(DomainError(logdet,
         "SoftAbs log determinant must be finite"))
     SoftAbsDiagonalFloat64Evaluation(entries, factors, logdet)
+end
+
+function evaluate_softabs_scalar_hamiltonian_float64(potential::Real,
+        hessian::Real, momentum::Real; smoothing::Real=1.0)
+    u, p = Float64(potential), Float64(momentum)
+    isfinite(u) || throw(DomainError(potential, "potential must be finite"))
+    isfinite(p) || throw(DomainError(momentum, "momentum must be finite"))
+    metric = evaluate_softabs_metric_float64(hessian; smoothing=smoothing)
+    transformed = metric.factor * p
+    kinetic = sqrt(1.0 + transformed * transformed)
+    energy = u + kinetic + 0.5 * metric.logdet
+    all(isfinite, (transformed, kinetic, energy)) ||
+        throw(DomainError((potential, hessian, momentum),
+            "derived SoftAbs Hamiltonian quantities must be finite"))
+    SoftAbsScalarHamiltonianFloat64Evaluation(metric, transformed, kinetic, energy)
 end
 
 function _checked_restricted(value::Float64, derivative::Float64)
