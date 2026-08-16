@@ -97,10 +97,13 @@ Banach-selected solve for each implicit loop, with a matching checked Julia
 calculation. This bound is now specialized to the nonconstant actual-Hessian
 SoftAbs client: the finite half-momentum loop is compared directly with the
 certified solver's half momentum, and the finite position loop at that exact
-half momentum is compared directly with its exact next position. Remaining
-work is to propagate the computed half-momentum error into the position loop,
-then carry the combined state error through trajectory energies and multinomial
-boundaries.
+half momentum is compared directly with its exact next position. The coupled
+perturbation is also complete: the metric factor is proved uniformly at most
+one, hence the momentum callback is uniformly one-Lipschitz in momentum; a
+generic contracting-fixed-point perturbation theorem transports the computed
+half-momentum error into the position solve. Remaining work is to carry the
+combined state error through final momentum, trajectory energies, and
+multinomial boundaries.
 
 ### 2. Restricted callbacks, adaptation, and performance
 

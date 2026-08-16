@@ -258,6 +258,28 @@ theorem shiftedSinusoidalSoftAbsScaleReal_pos (x : ℝ) :
   unfold shiftedSinusoidalSoftAbsScaleReal
   exact inv_pos.2 (Real.sqrt_pos.2 (softAbs_pos 1 (by norm_num) _))
 
+/-- On this target the inverse-square-root SoftAbs factor is uniformly at
+most one. This turns the relativistic momentum callback into a globally
+one-Lipschitz function of momentum at every fixed position. -/
+theorem shiftedSinusoidalSoftAbsScaleReal_le_one (x : ℝ) :
+    shiftedSinusoidalSoftAbsScaleReal x ≤ 1 := by
+  have hx : 1 ≤ 2 + Real.sin x := by
+    linarith [Real.neg_one_le_sin x]
+  have hxpos : 0 < 2 + Real.sin x := lt_of_lt_of_le (by norm_num) hx
+  have htpos : 0 < Real.tanh (2 + Real.sin x) := real_tanh_pos hxpos
+  have hsoft : 1 ≤ softAbs 1 (2 + Real.sin x) := by
+    simp only [softAbs, hxpos.ne', if_false, one_mul]
+    rw [one_le_div htpos]
+    exact (Real.tanh_lt_one _).le.trans hx
+  have hsqrt : 1 ≤ Real.sqrt (softAbs 1 (2 + Real.sin x)) := by
+    calc
+      1 = Real.sqrt 1 := by norm_num
+      _ ≤ Real.sqrt (softAbs 1 (2 + Real.sin x)) :=
+        Real.sqrt_le_sqrt hsoft
+  unfold shiftedSinusoidalSoftAbsScaleReal
+  rw [inv_le_one₀ (Real.sqrt_pos.2 (softAbs_pos 1 (by norm_num) _))]
+  exact hsqrt
+
 theorem differentiable_shiftedSinusoidalSoftAbsScaleReal :
     Differentiable ℝ shiftedSinusoidalSoftAbsScaleReal := by
   intro x
@@ -687,6 +709,28 @@ theorem shiftedSinusoidalSoftAbsMomentumCallbackReal_lipschitz_fst
     shiftedSinusoidalSoftAbsScaleReal p
     shiftedSinusoidalSoftAbsScaleLipschitzConstant
     shiftedSinusoidalSoftAbsScaleReal_lipschitz
+
+/-- Uniform cross-slice control: at fixed position, the target's momentum
+derivative is globally one-Lipschitz in momentum. -/
+theorem shiftedSinusoidalSoftAbsMomentumCallbackReal_lipschitz_snd
+    (q : ℝ) :
+    LipschitzWith 1
+      (fun p => shiftedSinusoidalSoftAbsMomentumCallbackReal (q, p)) := by
+  rw [shiftedSinusoidalSoftAbsMomentumCallbackReal_eq]
+  simpa using scalarGRMomentumCallback_lipschitz_snd
+    shiftedSinusoidalSoftAbsScaleReal q 1 (by
+      rw [abs_of_pos (shiftedSinusoidalSoftAbsScaleReal_pos q)]
+      exact shiftedSinusoidalSoftAbsScaleReal_le_one q)
+
+theorem shiftedSinusoidalSoftAbsMomentumDerivative_lipschitz_momentum
+    (q : Position Unit) :
+    LipschitzWith 1 (fun p : Momentum Unit =>
+      shiftedSinusoidalSoftAbsMomentumDerivative (q, p)) := by
+  apply LipschitzWith.of_dist_le_mul
+  intro p r
+  rw [dist_eq_norm, norm_pi_unit, dist_eq_norm, norm_pi_unit]
+  exact (shiftedSinusoidalSoftAbsMomentumCallbackReal_lipschitz_snd
+    (q Unit.unit)).dist_le_mul (p Unit.unit) (r Unit.unit)
 
 /-- Exact Banach-selected generalized-leapfrog solver for the nonconstant
 SoftAbs scalar callbacks. The only remaining client choice is the

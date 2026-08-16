@@ -2201,3 +2201,14 @@ next position, both with the a posteriori budget
 coupled numerical step is explicit: transport the approximate half-momentum
 error into the position solve and final momentum, then into energy and
 multinomial-selection certificates.
+
+The position part of that coupled step is now closed. For arbitrary scalar
+relativistic callbacks, a new cross-slice lemma bounds the momentum derivative
+as a function of momentum by the square of a uniform metric-factor bound.
+For the nonconstant SoftAbs client the factor is proved globally at most one,
+so this cross Lipschitz constant is exactly one. A reusable fixed-point
+stability theorem then bounds the change of the implicit next position under
+a perturbed half momentum. Combining it with the reported position residual
+gives an explicit two-term error bound against the actual certified solver's
+next position. Final-momentum and energy/selection propagation remain the
+next numerical links.

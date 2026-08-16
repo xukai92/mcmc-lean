@@ -299,6 +299,62 @@ theorem nextPosition_contracting_of_lipschitz
           exact (hlipschitz p).dist_le_mul x y
       _ = _ := by ring
 
+/-- Perturbing the half momentum changes the implicit position update by at
+most twice the momentum-slice error, scaled by the half step. -/
+theorem positionFixedPointUpdate_dist_le_of_momentum_lipschitz
+    (momentumDerivative : PhaseSpace ι → Position ι)
+    (L : NNReal)
+    (hmomentum : ∀ q, LipschitzWith L
+      (fun p => momentumDerivative (q, p)))
+    (ε : ℝ) (q x : Position ι) (p r : Momentum ι) :
+    dist (positionFixedPointUpdate momentumDerivative ε q p x)
+        (positionFixedPointUpdate momentumDerivative ε q r x) ≤
+      (2 * |ε / 2| * L) * dist p r := by
+  rw [dist_eq_norm, dist_eq_norm]
+  unfold positionFixedPointUpdate
+  rw [show (q + (ε / 2) •
+          (momentumDerivative (q, p) + momentumDerivative (x, p))) -
+        (q + (ε / 2) •
+          (momentumDerivative (q, r) + momentumDerivative (x, r))) =
+      (ε / 2) • ((momentumDerivative (q, p) -
+        momentumDerivative (q, r)) + (momentumDerivative (x, p) -
+          momentumDerivative (x, r))) by module,
+    norm_smul, Real.norm_eq_abs]
+  calc
+    |ε / 2| * ‖(momentumDerivative (q, p) - momentumDerivative (q, r)) +
+        (momentumDerivative (x, p) - momentumDerivative (x, r))‖ ≤
+      |ε / 2| * (‖momentumDerivative (q, p) - momentumDerivative (q, r)‖ +
+        ‖momentumDerivative (x, p) - momentumDerivative (x, r)‖) := by
+          gcongr
+          exact norm_add_le _ _
+    _ ≤ |ε / 2| * (L * ‖p - r‖ + L * ‖p - r‖) := by
+      gcongr
+      · simpa [dist_eq_norm] using (hmomentum q).dist_le_mul p r
+      · simpa [dist_eq_norm] using (hmomentum x).dist_le_mul p r
+    _ = (2 * |ε / 2| * L) * ‖p - r‖ := by ring
+
+/-- Uniform contraction plus the preceding update perturbation gives a
+Lipschitz stability bound for the exact implicit next-position fixed point. -/
+theorem dist_positionFixedPoints_le_of_momentum_lipschitz
+    (momentumDerivative : PhaseSpace ι → Position ι)
+    (L K : NNReal)
+    (hmomentum : ∀ q, LipschitzWith L
+      (fun p => momentumDerivative (q, p)))
+    (ε : ℝ) (q : Position ι) (p r : Momentum ι)
+    (hp : ContractingWith K
+      (positionFixedPointUpdate momentumDerivative ε q p))
+    (hr : ContractingWith K
+      (positionFixedPointUpdate momentumDerivative ε q r)) :
+    dist (hp.fixedPoint
+          (positionFixedPointUpdate momentumDerivative ε q p))
+        (hr.fixedPoint
+          (positionFixedPointUpdate momentumDerivative ε q r)) ≤
+      (2 * |ε / 2| * L * dist p r) / (1 - K) := by
+  apply hp.fixedPoint_lipschitz_in_map hr
+  intro x
+  exact positionFixedPointUpdate_dist_le_of_momentum_lipschitz
+    momentumDerivative L hmomentum ε q x p r
+
 /-- Global slice-Lipschitz constants construct both exact implicit solves at
 a fixed sufficiently small step. This is the client-facing route for the
 actual SoftAbs derivative fields once their analytic constants are bounded. -/

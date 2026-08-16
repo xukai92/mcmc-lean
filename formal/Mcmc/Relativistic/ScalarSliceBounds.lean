@@ -145,6 +145,40 @@ theorem scalarGRMomentumCallback_lipschitz_fst
       norm_num only [NNReal.coe_ofNat]
       ring
 
+/-- At fixed position, a uniform bound on the scalar factor gives a uniform
+momentum-Lipschitz bound for the relativistic velocity callback. This is the
+cross-slice estimate needed to propagate half-momentum solver error into the
+implicit position solve. -/
+theorem scalarGRMomentumCallback_lipschitz_snd
+    (scale : ℝ → ℝ) (q : ℝ) (B : NNReal)
+    (hscale : |scale q| ≤ B) :
+    LipschitzWith (B ^ 2)
+      (fun p => scalarGRMomentumCallback scale (q, p)) := by
+  apply LipschitzWith.of_dist_le_mul
+  intro p r
+  rw [Real.dist_eq]
+  unfold scalarGRMomentumCallback scaledVelocityProfile
+  have hv := scalarVelocityProfile_lipschitz.dist_le_mul
+    (scale q * p) (scale q * r)
+  calc
+    |scale q * scalarVelocityProfile (scale q * p) -
+        scale q * scalarVelocityProfile (scale q * r)| =
+      |scale q| * |scalarVelocityProfile (scale q * p) -
+        scalarVelocityProfile (scale q * r)| := by
+          rw [← abs_mul]
+          congr 1
+          ring
+    _ ≤ |scale q| * |scale q * p - scale q * r| := by
+      exact mul_le_mul_of_nonneg_left (by
+        simpa [Real.dist_eq] using hv) (abs_nonneg _)
+    _ = |scale q| ^ 2 * |p - r| := by
+      rw [← mul_sub, abs_mul]
+      ring
+    _ ≤ (B ^ 2 : NNReal) * |p - r| := by
+      rw [NNReal.coe_pow]
+      exact mul_le_mul_of_nonneg_right
+        (pow_le_pow_left₀ (abs_nonneg _) hscale 2) (abs_nonneg _)
+
 /-- Function-space callbacks obtained from their scalar-coordinate forms. -/
 noncomputable def scalarGRPositionCallbackUnit
     (drift scale scaleDerivative : ℝ → ℝ) :

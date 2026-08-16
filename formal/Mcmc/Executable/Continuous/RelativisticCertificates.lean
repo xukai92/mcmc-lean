@@ -144,6 +144,93 @@ theorem shiftedSinusoidalSoftAbs_finiteNextPosition_error_le
     (shiftedSinusoidalSoftAbsCertifiedSolver.positionContracting z.1
       (shiftedSinusoidalSoftAbsCertifiedSolver.halfMomentum z)) hresidual
 
+/-- Propagate an approximate half-momentum error into the implicit position
+solve for the concrete nonconstant SoftAbs target. The first term is the
+reported position residual budget; the second is fixed-point sensitivity to
+the supplied half momentum. -/
+theorem shiftedSinusoidalSoftAbs_nextPosition_error_le_of_half_error
+    (z : PhaseSpace Unit) (pApprox qApprox : Position Unit)
+    {halfError computedPositionResidual positionResidualError : ℝ}
+    (hhalfError : dist pApprox
+      (shiftedSinusoidalSoftAbsCertifiedSolver.halfMomentum z) ≤ halfError)
+    (hpositionResidual : Approximates computedPositionResidual
+      (dist qApprox
+        (positionFixedPointUpdate
+          shiftedSinusoidalSoftAbsMomentumDerivative
+          shiftedSinusoidalSoftAbsCertifiedStep z.1 pApprox qApprox))
+      positionResidualError) :
+    dist qApprox (shiftedSinusoidalSoftAbsCertifiedSolver.nextPosition z) ≤
+      (|computedPositionResidual| + positionResidualError) /
+          (1 - generalizedLeapfrogSliceRate
+            shiftedSinusoidalSoftAbsCertifiedStep
+            (2 * shiftedSinusoidalSoftAbsScaleLipschitzConstant)) +
+        (2 * |shiftedSinusoidalSoftAbsCertifiedStep / 2| * halfError) /
+          (1 - generalizedLeapfrogSliceRate
+            shiftedSinusoidalSoftAbsCertifiedStep
+            (2 * shiftedSinusoidalSoftAbsScaleLipschitzConstant)) := by
+  let K := generalizedLeapfrogSliceRate
+    shiftedSinusoidalSoftAbsCertifiedStep
+    (2 * shiftedSinusoidalSoftAbsScaleLipschitzConstant)
+  have hslice : ∀ p, LipschitzWith
+      (2 * shiftedSinusoidalSoftAbsScaleLipschitzConstant)
+      (fun q => shiftedSinusoidalSoftAbsMomentumDerivative (q, p)) := by
+    intro p
+    exact scalarGRMomentumCallbackUnit_lipschitz_position
+      shiftedSinusoidalSoftAbsScaleReal p
+      shiftedSinusoidalSoftAbsScaleLipschitzConstant
+      shiftedSinusoidalSoftAbsScaleReal_lipschitz
+  have hpApprox : ContractingWith K
+      (positionFixedPointUpdate shiftedSinusoidalSoftAbsMomentumDerivative
+        shiftedSinusoidalSoftAbsCertifiedStep z.1 pApprox) := by
+    exact nextPosition_contracting_of_lipschitz
+      shiftedSinusoidalSoftAbsMomentumDerivative
+      shiftedSinusoidalSoftAbsCertifiedStep
+      (2 * shiftedSinusoidalSoftAbsScaleLipschitzConstant) hslice
+      shiftedSinusoidalSoftAbsCertifiedStep_momentum_bound z.1 pApprox
+  have hpExact : ContractingWith K
+      (positionFixedPointUpdate shiftedSinusoidalSoftAbsMomentumDerivative
+        shiftedSinusoidalSoftAbsCertifiedStep z.1
+        (shiftedSinusoidalSoftAbsCertifiedSolver.halfMomentum z)) := by
+    exact nextPosition_contracting_of_lipschitz
+      shiftedSinusoidalSoftAbsMomentumDerivative
+      shiftedSinusoidalSoftAbsCertifiedStep
+      (2 * shiftedSinusoidalSoftAbsScaleLipschitzConstant) hslice
+      shiftedSinusoidalSoftAbsCertifiedStep_momentum_bound z.1
+      (shiftedSinusoidalSoftAbsCertifiedSolver.halfMomentum z)
+  have hresidual : dist qApprox
+      (hpApprox.fixedPoint
+        (positionFixedPointUpdate shiftedSinusoidalSoftAbsMomentumDerivative
+          shiftedSinusoidalSoftAbsCertifiedStep z.1 pApprox)) ≤
+      (|computedPositionResidual| + positionResidualError) / (1 - K) :=
+    dist_fixedPoint_le_of_computedResidual hpApprox qApprox hpositionResidual
+  have hsensitivity := dist_positionFixedPoints_le_of_momentum_lipschitz
+    shiftedSinusoidalSoftAbsMomentumDerivative 1 K
+    shiftedSinusoidalSoftAbsMomentumDerivative_lipschitz_momentum
+    shiftedSinusoidalSoftAbsCertifiedStep z.1 pApprox
+    (shiftedSinusoidalSoftAbsCertifiedSolver.halfMomentum z)
+    hpApprox hpExact
+  have hsensitivity' : dist
+      (hpApprox.fixedPoint
+        (positionFixedPointUpdate shiftedSinusoidalSoftAbsMomentumDerivative
+          shiftedSinusoidalSoftAbsCertifiedStep z.1 pApprox))
+      (shiftedSinusoidalSoftAbsCertifiedSolver.nextPosition z) ≤
+      (2 * |shiftedSinusoidalSoftAbsCertifiedStep / 2| * halfError) /
+        (1 - K) := by
+    change _ ≤ _ at hsensitivity ⊢
+    calc
+      _ ≤ (2 * |shiftedSinusoidalSoftAbsCertifiedStep / 2| *
+          (1 : ℝ) * dist pApprox
+            (shiftedSinusoidalSoftAbsCertifiedSolver.halfMomentum z)) /
+            (1 - K) := hsensitivity
+      _ ≤ (2 * |shiftedSinusoidalSoftAbsCertifiedStep / 2| * halfError) /
+            (1 - K) := by
+        have hden : 0 ≤ (1 - K : ℝ) := sub_nonneg.mpr hpApprox.1.le
+        apply div_le_div_of_nonneg_right _ hden
+        simpa only [NNReal.coe_one, mul_one] using
+          mul_le_mul_of_nonneg_left hhalfError
+            (mul_nonneg (by norm_num) (abs_nonneg _))
+  exact (dist_triangle _ _ _).trans (add_le_add hresidual hsensitivity')
+
 /-- Backend-facing bounds for the two implicit fixed-point residual norms. -/
 structure BackendImplicitResidualCertificate where
   computedHalfResidual : ℝ
