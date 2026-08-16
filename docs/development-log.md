@@ -17,7 +17,12 @@
   normalization layer now has an explicit unnormalized labeled Feynman--Kac
   integral, with machine-checked strict positivity of its constant-one
   normalizer; this is the ratio representation needed for telescoping the
-  remaining multi-step proof.
+  remaining multi-step proof. Lean now proves the telescoping identity itself:
+  expectation under the iterated normalized labeled law equals the single
+  unnormalized labeled integral divided by its constant-one integral.
+  Constant-one labeled values coincide with the ordinary Feynman--Kac
+  sequence, and attaching any deterministic initial labels leaves that
+  denominator exactly equal to the existing `normalizingConstant`.
 
 - Added the finite horizon-indexed path-match automaton required by the PG
   trajectory client. Its state is a bounded time index plus a Boolean prefix

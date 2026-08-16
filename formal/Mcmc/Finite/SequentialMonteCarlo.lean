@@ -679,6 +679,23 @@ theorem labeledFeynmanKacValue_one_pos {Label : Type*}
         exact mul_nonneg (step.transition.nonneg state z) (ih _ _).le
       · exact ⟨y, Finset.mem_univ y, mul_pos hy (ih _ _)⟩
 
+omit [DecidableEq Sample] in
+/-- Constant-one labeled continuation values forget the label and coincide
+with the ordinary finite Feynman--Kac sequence. -/
+theorem labeledFeynmanKacValue_one_eq_feynmanKacSequence {Label : Type*}
+    (extend : Label → Sample → Label)
+    (steps : List (FeynmanKacStep Sample)) (label : Label) (state : Sample) :
+    labeledFeynmanKacValue extend steps (fun _ => 1) label state =
+      feynmanKacSequence steps (fun _ => 1) state := by
+  induction steps generalizing label state with
+  | nil => rfl
+  | cons step steps ih =>
+      unfold labeledFeynmanKacValue feynmanKacSequence feynmanKacTransform
+      congr 1
+      apply Finset.sum_congr rfl
+      intro y _
+      rw [ih]
+
 /-- Unnormalized labeled Feynman--Kac integral from an arbitrary joint
 initial law. -/
 noncomputable def labeledFeynmanKacIntegral {Label : Type*}
@@ -711,6 +728,82 @@ theorem labeledFeynmanKacIntegral_one_pos {Label : Type*}
       (labeledFeynmanKacValue_one_pos extend steps z.1 z.2).le
   · exact ⟨value, Finset.mem_univ value,
       mul_pos hvalue (labeledFeynmanKacValue_one_pos extend steps value.1 value.2)⟩
+
+/-- One normalized labeled update divides the remaining unnormalized
+Feynman--Kac integral by the current potential normalizer. -/
+theorem labeledFeynmanKacIntegral_step {Label : Type*}
+    [Fintype Label] [DecidableEq Label] [Nonempty Label] [Nonempty Sample]
+    (extend : Label → Sample → Label) (law : Distribution (Label × Sample))
+    (step : FeynmanKacStep Sample) (steps : List (FeynmanKacStep Sample))
+    (observable : Label → ℝ) :
+    labeledFeynmanKacIntegral extend
+        (labeledFeynmanKacStepDistribution extend step law) steps observable =
+      labeledFeynmanKacIntegral extend law (step :: steps) observable /
+        ∑ value, law.mass value * step.potential value.2 := by
+  unfold labeledFeynmanKacIntegral
+  rw [labeledFeynmanKacStepDistribution_expectation]
+  rfl
+
+/-- The iterated normalized labeled law is exactly the normalized
+unnormalized Feynman--Kac integral. This identity exposes all intermediate
+normalizers as a telescoping ratio. -/
+theorem labeledFeynmanKacLawFrom_expectation_eq_integral_ratio
+    {Label : Type*} [Fintype Label] [DecidableEq Label]
+    [Nonempty Label] [Nonempty Sample]
+    (extend : Label → Sample → Label) (law : Distribution (Label × Sample))
+    (steps : List (FeynmanKacStep Sample)) (observable : Label → ℝ) :
+    (∑ value, (labeledFeynmanKacLawFrom extend law steps).mass value *
+        observable value.1) =
+      labeledFeynmanKacIntegral extend law steps observable /
+        labeledFeynmanKacIntegral extend law steps (fun _ => 1) := by
+  induction steps generalizing law with
+  | nil =>
+      simp [labeledFeynmanKacIntegral, labeledFeynmanKacValue, law.sum_mass]
+  | cons step steps ih =>
+      rw [labeledFeynmanKacLawFrom_cons, ih]
+      rw [labeledFeynmanKacIntegral_step extend law step steps observable]
+      rw [labeledFeynmanKacIntegral_step extend law step steps (fun _ => 1)]
+      have hnormalizer : 0 < ∑ value, law.mass value * step.potential value.2 := by
+        apply Finset.sum_pos'
+        · intro value _
+          exact mul_nonneg (law.nonneg value) (step.potential_pos value.2).le
+        · have hexists : ∃ value, 0 < law.mass value := by
+            by_contra h
+            push Not at h
+            have hzero : ∀ value, law.mass value = 0 := fun value =>
+              le_antisymm (h value) (law.nonneg value)
+            have : ∑ value, law.mass value = 0 := by simp [hzero]
+            linarith [law.sum_mass]
+          obtain ⟨value, hvalue⟩ := hexists
+          exact ⟨value, Finset.mem_univ value,
+            mul_pos hvalue (step.potential_pos value.2)⟩
+      have hremaining :
+          0 < labeledFeynmanKacIntegral extend law (step :: steps) (fun _ => 1) :=
+        labeledFeynmanKacIntegral_one_pos extend law (step :: steps)
+      field_simp
+
+/-- Attach an arbitrary deterministic initial label to a sampled initial
+state. -/
+def labeledInitialDistribution {Label : Type*}
+    [Fintype Label] [DecidableEq Label]
+    (initial : Distribution Sample) (initialLabel : Sample → Label) :
+    Distribution (Label × Sample) :=
+  Distribution.map initial fun state => (initialLabel state, state)
+
+/-- Initial labels do not change the constant-one Feynman--Kac normalizer. -/
+theorem labeledInitialDistribution_integral_one
+    {Label : Type*} [Fintype Label] [DecidableEq Label]
+    (extend : Label → Sample → Label) (initial : Distribution Sample)
+    (initialLabel : Sample → Label)
+    (steps : List (FeynmanKacStep Sample)) :
+    labeledFeynmanKacIntegral extend
+        (labeledInitialDistribution initial initialLabel) steps (fun _ => 1) =
+      normalizingConstant initial steps := by
+  unfold labeledFeynmanKacIntegral labeledInitialDistribution normalizingConstant
+  rw [Distribution.map_expectation]
+  apply Finset.sum_congr rfl
+  intro state _
+  rw [labeledFeynmanKacValue_one_eq_feynmanKacSequence]
 
 /-- Concrete product-weighted terminal label average along an explicit SMC
 history. -/
