@@ -1,5 +1,15 @@
 # Development log
 
+- Added a general-state, unbounded-history adaptive-path semantics using
+  mathlib's Ionescu--Tulcea construction. A measurable selector may inspect the
+  complete finite history at every time, choose a parameter for a Markov-kernel
+  family, and thereby construct both an infinite probability path law and its
+  finite-time state kernels. Lean proves that each finite kernel is exactly the
+  corresponding path-coordinate marginal. The API explicitly avoids a false
+  state-only Markov recurrence after history marginalization. General-state
+  diminishing adaptation, containment, and convergence remain to be lifted
+  onto this semantics.
+
 - Tightened the Gaussian Zig-Zag weak-generator domain so every supplied
   position derivative is now certified as the actual derivative of its
   velocity-specific observable. The derivative-of-difference identity used by

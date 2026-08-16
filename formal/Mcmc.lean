@@ -139,6 +139,7 @@ import Mcmc.PDMP.BouncyParticle
 import Mcmc.PDMP.BouncyParticleProcess
 import Mcmc.PDMP.GaussianBouncyParticle
 import Mcmc.Kernel.CoupledChain
+import Mcmc.Kernel.HistoryAdaptive
 import Mcmc.Kernel.CoupledMetropolisHastings
 import Mcmc.Kernel.DensityCoupling
 import Mcmc.Kernel.EuclideanGaussianProposalCoupling

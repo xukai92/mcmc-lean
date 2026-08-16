@@ -242,8 +242,11 @@ The pre-Xu dependency order is:
    and its weighted row-to-target TV bound are complete. The anchored-window
    comparison and finite Roberts--Rosenthal theorem are now machine checked:
    Diminishing Adaptation plus Containment implies TV convergence of state
-   marginals. Unbounded-history adaptation still requires enlarging the finite
-   parameter state.
+   marginals. A separate general-state Ionescu--Tulcea layer now constructs
+   infinite path laws for measurable selectors that inspect the entire finite
+   history, without forcing that memory into a finite parameter state. The
+   general-state diminishing-adaptation, containment, and convergence theorem
+   over this path semantics remains open.
 
 The general-state disintegrated slice client and an exact executable finite
 integer slice client are complete. Reversible jump now includes both the
