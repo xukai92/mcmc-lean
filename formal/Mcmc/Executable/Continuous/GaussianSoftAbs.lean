@@ -224,6 +224,67 @@ theorem gaussianSoftAbsUnit_velocity_eq (p : Momentum Unit) :
     diagonalSoftAbsEigenvalue squaredEuclideanNorm euclideanInner
   simp [pow_two]
 
+/-- Scalar form of the one-dimensional Gaussian SoftAbs velocity. -/
+noncomputable def gaussianSoftAbsUnitScalarVelocity (x : ℝ) : ℝ :=
+  (Real.sqrt ((((Real.sqrt (softAbs 1 1))⁻¹ * x) ^ 2) + 1))⁻¹ *
+    ((softAbs 1 1)⁻¹ * x)
+
+@[simp]
+theorem gaussianSoftAbsUnit_velocity_coordinate (p : Momentum Unit) :
+    gaussianSoftAbsVelocity p Unit.unit =
+      gaussianSoftAbsUnitScalarVelocity (p Unit.unit) := by
+  exact gaussianSoftAbsUnit_velocity_eq p
+
+/-- The scalar velocity written without the inverse square-root factor. -/
+theorem gaussianSoftAbsUnitScalarVelocity_eq (x : ℝ) :
+    gaussianSoftAbsUnitScalarVelocity x =
+      (x / softAbs 1 1) / Real.sqrt (x ^ 2 / softAbs 1 1 + 1) := by
+  have hk : 0 < softAbs 1 1 := softAbs_pos 1 (by norm_num) 1
+  have hsqrt : (Real.sqrt (softAbs 1 1))⁻¹ ^ 2 =
+      (softAbs 1 1)⁻¹ := by
+    rw [inv_pow, Real.sq_sqrt hk.le]
+  have hinside :
+      ((Real.sqrt (softAbs 1 1))⁻¹ * x) ^ 2 + 1 =
+        x ^ 2 / softAbs 1 1 + 1 := by
+    calc
+      _ = (Real.sqrt (softAbs 1 1))⁻¹ ^ 2 * x ^ 2 + 1 := by ring
+      _ = (softAbs 1 1)⁻¹ * x ^ 2 + 1 := by rw [hsqrt]
+      _ = _ := by ring
+  unfold gaussianSoftAbsUnitScalarVelocity
+  rw [hinside]
+  ring
+
+/-- Exact scalar GR Hamiltonian for the one-dimensional Gaussian SoftAbs
+client. The additive log-determinant term will cancel in every energy defect. -/
+theorem gaussianSoftAbsUnit_hamiltonian_eq (q : Position Unit)
+    (p : Momentum Unit) :
+    generalRelativisticHamiltonian gaussianSoftAbsPotential
+        gaussianSoftAbsMetric 1 1 (q, p) =
+      (q Unit.unit) ^ 2 / 2 +
+        Real.sqrt ((p Unit.unit) ^ 2 / softAbs 1 1 + 1) +
+          (1 / 2 : ℝ) * Real.log (softAbs 1 1) := by
+  have hk : 0 < softAbs 1 1 := softAbs_pos 1 (by norm_num) 1
+  have hsqrt : (Real.sqrt (softAbs 1 1))⁻¹ ^ 2 =
+      (softAbs 1 1)⁻¹ := by
+    rw [inv_pow, Real.sq_sqrt hk.le]
+  unfold generalRelativisticHamiltonian gaussianSoftAbsPotential
+    riemannianRelativisticKineticEnergy relativisticKineticEnergy
+    gaussianSoftAbsMetric gaussianHessianDiagonal diagonalSoftAbsMetric
+    diagonalSoftAbsFactor diagonalSoftAbsEigenvalue squaredEuclideanNorm
+    euclideanInner
+  simp [pow_two]
+  have hinside :
+      (Real.sqrt (softAbs 1 1))⁻¹ * p Unit.unit *
+          ((Real.sqrt (softAbs 1 1))⁻¹ * p Unit.unit) + 1 =
+        p Unit.unit * p Unit.unit / softAbs 1 1 + 1 := by
+    calc
+      _ = (Real.sqrt (softAbs 1 1))⁻¹ ^ 2 *
+            (p Unit.unit) ^ 2 + 1 := by ring
+      _ = (softAbs 1 1)⁻¹ * (p Unit.unit) ^ 2 + 1 := by rw [hsqrt]
+      _ = _ := by ring
+  rw [hinside]
+  ring
+
 /-- Elementary lower bound for a relativistic scalar ratio outside the unit
 momentum interval. -/
 theorem div_sqrt_sq_add_one_le_mul_div_sqrt_mul_sq_add_one
@@ -381,6 +442,23 @@ theorem gaussianSoftAbsSelection_step_one_inward_of_pos
     (p - ((1 : ℝ) / 2) • q) hhalf
   simp only [Pi.add_apply, one_smul]
   linarith
+
+/-- Exact scalar coordinates of the concrete unit leapfrog step. -/
+theorem gaussianSoftAbsSelection_step_one_coordinates
+    (q : Position Unit) (p : Momentum Unit) :
+    let pHalf := p Unit.unit - q Unit.unit / 2
+    let qNext := q Unit.unit + gaussianSoftAbsUnitScalarVelocity pHalf
+    (((gaussianSoftAbsSelection (ι := Unit)).step 1 (q, p)).1 Unit.unit,
+      ((gaussianSoftAbsSelection (ι := Unit)).step 1 (q, p)).2 Unit.unit) =
+      (qNext, pHalf - qNext / 2) := by
+  rw [gaussianSoftAbsSelection_step_eq]
+  simp [gaussianSoftAbsUnit_velocity_coordinate]
+  have hhalf : p Unit.unit - (2 : ℝ)⁻¹ * q Unit.unit =
+      p Unit.unit - q Unit.unit / 2 := by ring
+  constructor
+  · rw [hhalf]
+  · rw [hhalf]
+    ring
 
 /-- Symmetric inward movement on the negative half-line. -/
 theorem gaussianSoftAbsSelection_step_one_inward_of_neg

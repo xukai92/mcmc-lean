@@ -2643,3 +2643,15 @@ supplied finite candidate waits, including candidates beyond the horizon,
 preserve the target. The target is sigma-finite, so neither probability
 ergodicity nor convergence is claimed, and canonical state-dependent
 Zig-Zag/BPS spatial flux remains open.
+
+## 2026-08-16: scalar Gaussian SoftAbs tail algebra
+
+Exposed exact one-dimensional formulas for the Gaussian diagonal-SoftAbs
+client's relativistic velocity, complete Hamiltonian, and both coordinates of
+its unit generalized-leapfrog step.  These lemmas reduce the remaining bare
+GR-HMC tail argument to inequalities over real scalars while retaining a
+checked connection to the actual solver.  The already-proved central-momentum
+event moves each Gaussian tail inward by a uniform positive distance; the
+next obligation is an energy comparison giving that inward trajectory a
+uniform multinomial-selection probability.  No bare-kernel convergence claim
+is made yet.
