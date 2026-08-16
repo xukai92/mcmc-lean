@@ -1,5 +1,6 @@
 import Mcmc.PDMP.Flow
 import Mathlib.MeasureTheory.Integral.Bochner.Basic
+import Mathlib.MeasureTheory.Integral.IntegralEqImproper
 import Mathlib.Probability.Distributions.Gaussian.Real
 import Mathlib.Tactic
 
@@ -117,6 +118,105 @@ structure GaussianSteinTest
       ∂ProbabilityTheory.gaussianReal 0 1) =
     ∫ q, q * (observable q true - observable q false)
       ∂ProbabilityTheory.gaussianReal 0 1
+
+/-- Derivative of the standard-Gaussian Lebesgue density. -/
+theorem hasDerivAt_standardGaussianPDF (q : ℝ) :
+    HasDerivAt (ProbabilityTheory.gaussianPDFReal 0 1)
+      (-q * ProbabilityTheory.gaussianPDFReal 0 1 q) q := by
+  rw [ProbabilityTheory.gaussianPDFReal_def]
+  simp only [NNReal.coe_one, sub_zero,
+    mul_one]
+  convert (hasDerivAt_const q (Real.sqrt (2 * Real.pi))⁻¹).mul
+    ((((hasDerivAt_id q).pow 2).neg.div_const 2).exp) using 1
+  · rfl
+  · rfl
+  · funext x
+    simp [Pi.pow_apply]
+  · simp [Pi.pow_apply]
+    ring
+
+/-- Standard-Gaussian integration by parts, stated with the exact analytic
+hypotheses used by mathlib's improper-integral theorem. -/
+theorem standardGaussian_integral_deriv_eq_integral_mul
+    (g g' : ℝ → ℝ)
+    (hg : ∀ q, HasDerivAt g (g' q) q)
+    (hderiv : Integrable (fun q => g' q *
+      ProbabilityTheory.gaussianPDFReal 0 1 q))
+    (hposition : Integrable (fun q => g q *
+      (-q * ProbabilityTheory.gaussianPDFReal 0 1 q)))
+    (hbot : Filter.Tendsto (fun q => g q *
+      ProbabilityTheory.gaussianPDFReal 0 1 q)
+      Filter.atBot (nhds 0))
+    (htop : Filter.Tendsto (fun q => g q *
+      ProbabilityTheory.gaussianPDFReal 0 1 q)
+      Filter.atTop (nhds 0)) :
+    (∫ q, g' q ∂ProbabilityTheory.gaussianReal 0 1) =
+      ∫ q, q * g q ∂ProbabilityTheory.gaussianReal 0 1 := by
+  have hibp := integral_mul_deriv_eq_deriv_mul
+    (u := g) (v := ProbabilityTheory.gaussianPDFReal 0 1)
+    (u' := g')
+    (v' := fun q => -q * ProbabilityTheory.gaussianPDFReal 0 1 q)
+    (a' := 0) (b' := 0)
+    (fun q _ => hg q) (fun q _ => hasDerivAt_standardGaussianPDF q)
+    hposition hderiv hbot htop
+  rw [ProbabilityTheory.integral_gaussianReal_eq_integral_smul
+      (show (1 : NNReal) ≠ 0 by norm_num),
+    ProbabilityTheory.integral_gaussianReal_eq_integral_smul
+      (show (1 : NNReal) ≠ 0 by norm_num)]
+  simp only [smul_eq_mul]
+  have hleft :
+      (∫ q, ProbabilityTheory.gaussianPDFReal 0 1 q * g' q) =
+        ∫ q, g' q * ProbabilityTheory.gaussianPDFReal 0 1 q := by
+    apply integral_congr_ae
+    filter_upwards [] with q
+    ring
+  have hright :
+      (∫ q, ProbabilityTheory.gaussianPDFReal 0 1 q * (q * g q)) =
+        -(∫ q, g q *
+          (-q * ProbabilityTheory.gaussianPDFReal 0 1 q)) := by
+    rw [← integral_neg]
+    apply integral_congr_ae
+    filter_upwards [] with q
+    ring
+  rw [hleft, hright]
+  linarith
+
+/-- Construct a Gaussian Stein test from ordinary differentiability, weighted
+Lebesgue integrability, and decay against the Gaussian density. This discharges
+the `stein` field rather than asking a client to postulate integration by
+parts. -/
+theorem gaussianSteinTest_of_hasDerivAt
+    (derivative observable : ℝ → Bool → ℝ)
+    (hderivativeIntegrable : Integrable
+      (fun q => derivative q true - derivative q false)
+      (ProbabilityTheory.gaussianReal 0 1))
+    (hpositionIntegrable : Integrable
+      (fun q => q * (observable q true - observable q false))
+      (ProbabilityTheory.gaussianReal 0 1))
+    (hhasDeriv : ∀ q, HasDerivAt
+      (fun x => observable x true - observable x false)
+      (derivative q true - derivative q false) q)
+    (hweightedDerivative : Integrable (fun q =>
+      (derivative q true - derivative q false) *
+        ProbabilityTheory.gaussianPDFReal 0 1 q))
+    (hweightedPosition : Integrable (fun q =>
+      (observable q true - observable q false) *
+        (-q * ProbabilityTheory.gaussianPDFReal 0 1 q)))
+    (hbot : Filter.Tendsto (fun q =>
+      (observable q true - observable q false) *
+        ProbabilityTheory.gaussianPDFReal 0 1 q)
+      Filter.atBot (nhds 0))
+    (htop : Filter.Tendsto (fun q =>
+      (observable q true - observable q false) *
+        ProbabilityTheory.gaussianPDFReal 0 1 q)
+      Filter.atTop (nhds 0)) :
+    GaussianSteinTest derivative observable where
+  derivative_integrable := hderivativeIntegrable
+  position_integrable := hpositionIntegrable
+  stein := standardGaussian_integral_deriv_eq_integral_mul
+    (fun q => observable q true - observable q false)
+    (fun q => derivative q true - derivative q false)
+    hhasDeriv hweightedDerivative hweightedPosition hbot htop
 
 /-- Every Gaussian Stein test has mean-zero standard-Gaussian Zig-Zag
 generator.  Unlike the earlier generic weighted theorem, this statement is

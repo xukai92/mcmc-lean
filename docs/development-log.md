@@ -1,5 +1,14 @@
 # Development log
 
+- Closed the manual integration-by-parts gap in the Gaussian Zig-Zag/BPS test
+  layer. Lean proves that the standard-Gaussian density has derivative
+  `-xφ(x)` and applies mathlib's improper integration-by-parts theorem to prove
+  the Gaussian Stein identity under explicit differentiability, weighted
+  integrability, and two-sided boundary-decay hypotheses. A new constructor
+  turns those ordinary analytic hypotheses into `GaussianSteinTest`, and hence
+  into generator cancellation. The later step from a rich smooth test class
+  to the setwise forward equation remains open.
+
 - Added a machine-checked one-dimensional unit-speed Gaussian BPS/Zig-Zag
   bridge. The state embedding is injective; nonzero-normal BPS reflection is
   velocity negation; and the canonical BPS rate and linear flow coincide with

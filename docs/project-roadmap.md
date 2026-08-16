@@ -405,8 +405,12 @@ breadth branches are:
   the checked Gaussian generator identity and the constructed path law. A
   reusable `GaussianSteinTest` certificate now packages arbitrary
   velocity-dependent observables with their integrability and Gaussian
-  integration-by-parts proof and implies generator cancellation; a rich test
-  class-to-setwise forward-equation argument is still required.
+  integration-by-parts proof and implies generator cancellation. The standard
+  Gaussian density derivative and improper integration by parts are now
+  checked, so differentiability, weighted integrability, and Gaussian boundary
+  decay construct this certificate directly rather than assuming the Stein
+  identity. A rich smooth-test-class-to-setwise-forward-equation argument is
+  still required.
   The normalized Gaussian/equal-velocity target and exact zero-time identity
   are discharged, so the specialized certificate contains only
   differentiability and the zero-derivative forward equation.

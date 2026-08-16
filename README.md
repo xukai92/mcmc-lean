@@ -203,8 +203,12 @@ equation—not process construction or nonexplosion—as its exact analytic inpu
 Arbitrary velocity-dependent observables can now enter this analytic layer
 through a `GaussianSteinTest` certificate, which records the two required
 integrability facts and the Gaussian integration-by-parts identity and yields
-mean-zero generator expectation. Deriving the setwise forward equation from a
-sufficiently rich certified test class remains open.
+mean-zero generator expectation. Lean now also proves the derivative of the
+standard-Gaussian density and a general improper integration-by-parts theorem:
+ordinary differentiability, weighted integrability, and Gaussian boundary
+decay construct the Stein certificate without assuming its identity. Deriving
+the setwise forward equation from this smooth certified test class remains
+open.
 The normalized Gaussian-position/equal-velocity target is now explicit and
 proved a probability measure, and the stopped horizon family is proved exactly
 the identity kernel at time zero; these parts no longer remain premises of the
