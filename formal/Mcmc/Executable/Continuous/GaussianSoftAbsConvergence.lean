@@ -188,6 +188,35 @@ theorem gaussianSoftAbsTailBandMass_tendsto_one :
     Filter.Tendsto gaussianSoftAbsTailBandMass Filter.atTop (nhds 1) :=
   gaussianSoftAbsMomentumProbability_tail_band_tendsto_one
 
+/-- Eventually the probability of leaving the expanding momentum band is
+smaller than a fixed fraction of the certified inward displacement. This is
+the strict scalar budget underlying the forthcoming Lyapunov drift. -/
+theorem eventually_gaussianSoftAbs_tail_drift_budget :
+    ∀ᶠ q : ℝ in Filter.atTop,
+      1 - (gaussianSoftAbsTailBandMass q).toReal <
+        (gaussianSoftAbsTailBandMass q).toReal *
+          gaussianSoftAbsUnitMinSpeed / 8 := by
+  have hmass : Filter.Tendsto
+      (fun q : ℝ => (gaussianSoftAbsTailBandMass q).toReal)
+      Filter.atTop (nhds 1) := by
+    simpa [Function.comp_def] using
+      (ENNReal.tendsto_toReal (by norm_num : (1 : ENNReal) ≠ ∞)).comp
+        gaussianSoftAbsTailBandMass_tendsto_one
+  have hbudget : Filter.Tendsto
+      (fun q : ℝ => 1 - (gaussianSoftAbsTailBandMass q).toReal -
+        (gaussianSoftAbsTailBandMass q).toReal *
+          gaussianSoftAbsUnitMinSpeed / 8)
+      Filter.atTop
+      (nhds (1 - 1 - 1 * gaussianSoftAbsUnitMinSpeed / 8)) := by
+    exact (tendsto_const_nhds.sub hmass).sub
+      ((hmass.mul_const gaussianSoftAbsUnitMinSpeed).div_const 8)
+  have hlimit :
+      1 - 1 - 1 * gaussianSoftAbsUnitMinSpeed / 8 < 0 := by
+    have := gaussianSoftAbsUnitMinSpeed_pos
+    linarith
+  filter_upwards [hbudget.eventually (Iio_mem_nhds hlimit)] with q hq
+  linarith
+
 /-- The actual position transition inherits the expanding-band inward floor.
 -/
 theorem gaussianSoftAbsTailBandMass_mul_quarter_le_inward
@@ -254,6 +283,74 @@ theorem gaussianSoftAbsTailBandMass_le_nonoutward
       intro p hp
       simpa [nonoutward] using
         gaussianSoftAbsPhaseTransition_nonoutward_of_abs_momentum q p hp)
+  simpa [momentumSet, nonoutward, gaussianSoftAbsTailBandMass,
+    gaussianSoftAbsMultinomialTransition, riemannianMomentumKernel,
+    gaussianSoftAbsMomentumProbability_eq_zero] using h
+
+/-- Symmetric expanding-band inward floor for the actual negative-tail
+position transition. -/
+theorem gaussianSoftAbsTailBandMass_neg_mul_quarter_le_inward
+    (q : Position Unit) :
+    gaussianSoftAbsTailBandMass (-q Unit.unit) * (4 : ENNReal)⁻¹ ≤
+      gaussianSoftAbsMultinomialTransition 1 1 q
+        {y | q Unit.unit + gaussianSoftAbsUnitMinSpeed ≤ y Unit.unit} := by
+  let momentumSet : Set (Momentum Unit) :=
+    {p | |p Unit.unit| ≤ -q Unit.unit / 2 - 2}
+  let inward : Set (Position Unit) :=
+    {y | q Unit.unit + gaussianSoftAbsUnitMinSpeed ≤ y Unit.unit}
+  have hmomentumSet : MeasurableSet momentumSet :=
+    measurableSet_le (measurable_pi_apply _).abs measurable_const
+  have hinward : MeasurableSet inward :=
+    measurableSet_le measurable_const (measurable_pi_apply _)
+  have h := momentumMeasure_mul_le_positionMultinomialGRHMC_apply
+    gaussianSoftAbsPotential gaussianSoftAbsMetric 1 1
+    (by norm_num) (by norm_num) gaussianSoftAbsSelection
+    gaussianSoftAbsSelection_valid
+    (measurable_diagonalSoftAbs_generalRelativisticHamiltonian
+      gaussianSoftAbsPotential measurable_gaussianSoftAbsPotential
+      1 (by norm_num) gaussianHessianDiagonal
+      measurable_gaussianHessianDiagonal 1 1)
+    (diagonalSoftAbs_isMeasurableRiemannianMomentumFamily
+      1 (by norm_num) gaussianHessianDiagonal 1 1
+      (by norm_num) (by norm_num) measurable_gaussianHessianDiagonal)
+    1 1 q hmomentumSet hinward (4 : ENNReal)⁻¹ (by
+      intro p hp
+      exact
+        quarter_le_gaussianSoftAbsPhaseTransition_inward_of_neg_abs_momentum
+          q p hp)
+  simpa [momentumSet, inward, gaussianSoftAbsTailBandMass,
+    gaussianSoftAbsMultinomialTransition, riemannianMomentumKernel,
+    gaussianSoftAbsMomentumProbability_eq_zero] using h
+
+/-- Symmetric expanding-band non-outward mass on the negative tail. -/
+theorem gaussianSoftAbsTailBandMass_neg_le_nonoutward
+    (q : Position Unit) :
+    gaussianSoftAbsTailBandMass (-q Unit.unit) ≤
+      gaussianSoftAbsMultinomialTransition 1 1 q
+        {y | q Unit.unit ≤ y Unit.unit} := by
+  let momentumSet : Set (Momentum Unit) :=
+    {p | |p Unit.unit| ≤ -q Unit.unit / 2 - 2}
+  let nonoutward : Set (Position Unit) :=
+    {y | q Unit.unit ≤ y Unit.unit}
+  have hmomentumSet : MeasurableSet momentumSet :=
+    measurableSet_le (measurable_pi_apply _).abs measurable_const
+  have hnonoutward : MeasurableSet nonoutward :=
+    measurableSet_le measurable_const (measurable_pi_apply _)
+  have h := momentumMeasure_mul_le_positionMultinomialGRHMC_apply
+    gaussianSoftAbsPotential gaussianSoftAbsMetric 1 1
+    (by norm_num) (by norm_num) gaussianSoftAbsSelection
+    gaussianSoftAbsSelection_valid
+    (measurable_diagonalSoftAbs_generalRelativisticHamiltonian
+      gaussianSoftAbsPotential measurable_gaussianSoftAbsPotential
+      1 (by norm_num) gaussianHessianDiagonal
+      measurable_gaussianHessianDiagonal 1 1)
+    (diagonalSoftAbs_isMeasurableRiemannianMomentumFamily
+      1 (by norm_num) gaussianHessianDiagonal 1 1
+      (by norm_num) (by norm_num) measurable_gaussianHessianDiagonal)
+    1 1 q hmomentumSet hnonoutward 1 (by
+      intro p hp
+      simpa [nonoutward] using
+        gaussianSoftAbsPhaseTransition_nonoutward_of_neg_abs_momentum q p hp)
   simpa [momentumSet, nonoutward, gaussianSoftAbsTailBandMass,
     gaussianSoftAbsMultinomialTransition, riemannianMomentumKernel,
     gaussianSoftAbsMomentumProbability_eq_zero] using h

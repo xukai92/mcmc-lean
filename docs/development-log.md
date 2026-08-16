@@ -2699,3 +2699,17 @@ propagates any measurable momentum-subset phase-event floor through refresh
 and position projection.  Thus the actual position kernel inherits both the
 expanding inward floor and the non-outward mass.  The symmetric negative-tail
 packaging and the final Lyapunov/minorization theorem remain open.
+
+## 2026-08-16: symmetric expanding-band tail certificates
+
+Completed the exact negative-tail counterpart.  Negation invariance of the
+Gaussian Hamiltonian and generalized-leapfrog momentum-flip reversibility
+transfer the forward/backward energy corrections without changing constants.
+For `|p| ≤ -q/2 - 2`, Lean proves both phase endpoints are non-outward and an
+endpoint at least the SoftAbs minimum speed inward is selected with
+probability at least one quarter.  Both statements are propagated through
+momentum refresh to the actual position kernel.  The shared tail-band mass
+tends to one, and Lean now proves an eventual strict scalar budget comparing
+the band-complement probability with the inward displacement.  What remains
+is to convert these eventwise bounds into a checked Lyapunov expectation
+inequality and supply a local small-set/coupling certificate.

@@ -1049,6 +1049,65 @@ theorem gaussianSoftAbsSelection_step_one_hamiltonian_le_of_neg
     gaussianSoftAbsUnit_hamiltonian_neg] at hpos
   exact hpos
 
+/-- Expanding-band forward energy correction on the negative position tail
+for nonpositive momentum. -/
+theorem gaussianSoftAbsSelection_step_one_hamiltonian_le_of_neg_half_momentum
+    (q : Position Unit) (p : Momentum Unit)
+    (hp0 : p Unit.unit ≤ 0)
+    (hhalf : 2 ≤ -q Unit.unit / 2 + p Unit.unit) :
+    generalRelativisticHamiltonian gaussianSoftAbsPotential
+        gaussianSoftAbsMetric 1 1
+        ((gaussianSoftAbsSelection (ι := Unit)).step 1 (q, p)) ≤
+      generalRelativisticHamiltonian gaussianSoftAbsPotential
+        gaussianSoftAbsMetric 1 1 (q, p) := by
+  have hpos :=
+    gaussianSoftAbsSelection_step_one_hamiltonian_le_of_half_momentum
+      (-q) (-p) (by simpa using neg_nonneg.mpr hp0) (by simpa)
+  rw [show ((-q, -p) : PhaseSpace Unit) = -(q, p) by rfl,
+    gaussianSoftAbsSelection_step_one_neg,
+    gaussianSoftAbsUnit_hamiltonian_neg,
+    gaussianSoftAbsUnit_hamiltonian_neg] at hpos
+  exact hpos
+
+/-- Expanding-band backward energy correction on the negative position tail
+for nonnegative momentum. -/
+theorem gaussianSoftAbsSelection_step_neg_one_hamiltonian_le_of_neg_half_momentum
+    (q : Position Unit) (p : Momentum Unit)
+    (hp0 : 0 ≤ p Unit.unit)
+    (hhalf : 2 ≤ -q Unit.unit / 2 - p Unit.unit) :
+    generalRelativisticHamiltonian gaussianSoftAbsPotential
+        gaussianSoftAbsMetric 1 1
+        ((gaussianSoftAbsSelection (ι := Unit)).step (-1) (q, p)) ≤
+      generalRelativisticHamiltonian gaussianSoftAbsPotential
+        gaussianSoftAbsMetric 1 1 (q, p) := by
+  have hforward :=
+    gaussianSoftAbsSelection_step_one_hamiltonian_le_of_neg_half_momentum
+      q (-p) (by simpa using neg_nonpos.mpr hp0) (by dsimp; linarith)
+  have hflipInput : momentumFlip ((q, p) : PhaseSpace Unit) = (q, -p) := by
+    rfl
+  have hreversible :=
+    gaussianSoftAbsSelection_valid.reversible 1 ((q, p) : PhaseSpace Unit)
+  rw [hflipInput] at hreversible
+  calc
+    generalRelativisticHamiltonian gaussianSoftAbsPotential
+        gaussianSoftAbsMetric 1 1
+        (gaussianSoftAbsSelection.step (-1) (q, p)) =
+      generalRelativisticHamiltonian gaussianSoftAbsPotential
+        gaussianSoftAbsMetric 1 1
+        (momentumFlip (gaussianSoftAbsSelection.step 1 (q, -p))) := by
+          rw [hreversible]
+    _ = generalRelativisticHamiltonian gaussianSoftAbsPotential
+        gaussianSoftAbsMetric 1 1
+        (gaussianSoftAbsSelection.step 1 (q, -p)) :=
+      generalRelativisticHamiltonian_momentumFlip _ _ _ _ _
+    _ ≤ generalRelativisticHamiltonian gaussianSoftAbsPotential
+        gaussianSoftAbsMetric 1 1 (q, -p) := hforward
+    _ = generalRelativisticHamiltonian gaussianSoftAbsPotential
+        gaussianSoftAbsMetric 1 1 (momentumFlip (q, p)) := by rw [hflipInput]
+    _ = generalRelativisticHamiltonian gaussianSoftAbsPotential
+        gaussianSoftAbsMetric 1 1 (q, p) :=
+      generalRelativisticHamiltonian_momentumFlip _ _ _ _ _
+
 /-- Under the expanding half-momentum condition, the forward endpoint gets at
 least half of the two-point multinomial selection mass. -/
 theorem half_le_gaussianSoftAbs_forward_indexProbability_of_half_momentum
@@ -1117,6 +1176,56 @@ theorem half_le_gaussianSoftAbs_backward_indexProbability_of_half_momentum
               q p hp0 hhalf)
   simpa using hbound
 
+/-- Negative-tail forward-index floor for nonpositive momentum. -/
+theorem half_le_gaussianSoftAbs_forward_indexProbability_of_neg_half_momentum
+    (q : Position Unit) (p : Momentum Unit)
+    (hp0 : p Unit.unit ≤ 0)
+    (hhalf : 2 ≤ -q Unit.unit / 2 + p Unit.unit) :
+    (2 : ENNReal)⁻¹ ≤
+      orbitIndexProbability
+        (generalRelativisticBoltzmannWeight gaussianSoftAbsPotential
+          gaussianSoftAbsMetric 1 1)
+        (generalizedLeapfrogPerm gaussianSoftAbsSelection
+          gaussianSoftAbsSelection_valid.unique 1)
+        (0 : Fin 2) (1 : Fin 2) (q, p) := by
+  have hbound :=
+    inv_card_exp_le_multinomialGRHMCPhase_indexProbability
+      gaussianSoftAbsPotential gaussianSoftAbsMetric 1 1
+      gaussianSoftAbsSelection gaussianSoftAbsSelection_valid
+      1 (0 : Fin 2) (1 : Fin 2) (q, p) 0 (by
+        intro i
+        fin_cases i
+        · simpa [orbitPoint] using
+            gaussianSoftAbsSelection_step_one_hamiltonian_le_of_neg_half_momentum
+              q p hp0 hhalf
+        · simp [orbitPoint])
+  simpa using hbound
+
+/-- Negative-tail backward-index floor for nonnegative momentum. -/
+theorem half_le_gaussianSoftAbs_backward_indexProbability_of_neg_half_momentum
+    (q : Position Unit) (p : Momentum Unit)
+    (hp0 : 0 ≤ p Unit.unit)
+    (hhalf : 2 ≤ -q Unit.unit / 2 - p Unit.unit) :
+    (2 : ENNReal)⁻¹ ≤
+      orbitIndexProbability
+        (generalRelativisticBoltzmannWeight gaussianSoftAbsPotential
+          gaussianSoftAbsMetric 1 1)
+        (generalizedLeapfrogPerm gaussianSoftAbsSelection
+          gaussianSoftAbsSelection_valid.unique 1)
+        (1 : Fin 2) (0 : Fin 2) (q, p) := by
+  have hbound :=
+    inv_card_exp_le_multinomialGRHMCPhase_indexProbability
+      gaussianSoftAbsPotential gaussianSoftAbsMetric 1 1
+      gaussianSoftAbsSelection gaussianSoftAbsSelection_valid
+      1 (1 : Fin 2) (0 : Fin 2) (q, p) 0 (by
+        intro i
+        fin_cases i
+        · simp [orbitPoint]
+        · simpa [orbitPoint] using
+            gaussianSoftAbsSelection_step_neg_one_hamiltonian_le_of_neg_half_momentum
+              q p hp0 hhalf)
+  simpa using hbound
+
 /-- Symmetric two-point multinomial selection floor on the negative tail. -/
 theorem half_le_gaussianSoftAbs_forward_indexProbability_of_neg
     (q : Position Unit) (p : Momentum Unit)
@@ -1141,6 +1250,76 @@ theorem half_le_gaussianSoftAbs_forward_indexProbability_of_neg
               q p hq hp0 hp1
         · simp [orbitPoint])
   simpa using hbound
+
+/-- Common two-point bridge from a half-probability selected index to a
+one-quarter phase-kernel event after uniform origin randomization. -/
+theorem quarter_le_gaussianSoftAbsPhaseTransition_of_index
+    (origin selected : Fin 2) (q : Position Unit) (p : Momentum Unit)
+    {s : Set (PhaseSpace Unit)} (hs : MeasurableSet s)
+    (hmem : orbitPoint
+      (generalizedLeapfrogPerm gaussianSoftAbsSelection
+        gaussianSoftAbsSelection_valid.unique 1)
+      origin (q, p) selected ∈ s)
+    (hindex : (2 : ENNReal)⁻¹ ≤
+      orbitIndexProbability
+        (generalRelativisticBoltzmannWeight gaussianSoftAbsPotential
+          gaussianSoftAbsMetric 1 1)
+        (generalizedLeapfrogPerm gaussianSoftAbsSelection
+          gaussianSoftAbsSelection_valid.unique 1)
+        origin selected (q, p)) :
+    (4 : ENNReal)⁻¹ ≤ gaussianSoftAbsPhaseTransition 1 1 (q, p) s := by
+  have hbranch :=
+    uniform_mul_indexProbability_le_orbitMultinomialKernel_apply
+      (generalRelativisticBoltzmannWeight gaussianSoftAbsPotential
+        gaussianSoftAbsMetric 1 1)
+      (generalizedLeapfrogPerm gaussianSoftAbsSelection
+        gaussianSoftAbsSelection_valid.unique 1)
+      (generalRelativisticBoltzmannWeight_ne_zero gaussianSoftAbsPotential
+        gaussianSoftAbsMetric 1 1)
+      (generalRelativisticBoltzmannWeight_ne_top gaussianSoftAbsPotential
+        gaussianSoftAbsMetric 1 1)
+      (measurable_generalRelativisticBoltzmannWeight gaussianSoftAbsPotential
+        gaussianSoftAbsMetric 1 1
+        (measurable_diagonalSoftAbs_generalRelativisticHamiltonian
+          gaussianSoftAbsPotential measurable_gaussianSoftAbsPotential
+          1 (by norm_num) gaussianHessianDiagonal
+          measurable_gaussianHessianDiagonal 1 1))
+      (gaussianSoftAbsSelection_valid.measurable 1)
+      (gaussianSoftAbsSelection_valid.measurable (-1))
+      origin selected (q, p) hs hmem
+  change (4 : ENNReal)⁻¹ ≤
+    orbitMultinomialKernel
+      (generalRelativisticBoltzmannWeight gaussianSoftAbsPotential
+        gaussianSoftAbsMetric 1 1)
+      (generalizedLeapfrogPerm gaussianSoftAbsSelection
+        gaussianSoftAbsSelection_valid.unique 1) 1
+      (generalRelativisticBoltzmannWeight_ne_zero gaussianSoftAbsPotential
+        gaussianSoftAbsMetric 1 1)
+      (generalRelativisticBoltzmannWeight_ne_top gaussianSoftAbsPotential
+        gaussianSoftAbsMetric 1 1)
+      (measurable_generalRelativisticBoltzmannWeight gaussianSoftAbsPotential
+        gaussianSoftAbsMetric 1 1
+        (measurable_diagonalSoftAbs_generalRelativisticHamiltonian
+          gaussianSoftAbsPotential measurable_gaussianSoftAbsPotential
+          1 (by norm_num) gaussianHessianDiagonal
+          measurable_gaussianHessianDiagonal 1 1))
+      (gaussianSoftAbsSelection_valid.measurable 1)
+      (gaussianSoftAbsSelection_valid.measurable (-1)) (q, p) s
+  calc
+    (4 : ENNReal)⁻¹ =
+        PMF.uniformOfFintype (Fin 2) origin * (2 : ENNReal)⁻¹ := by
+      simp only [PMF.uniformOfFintype_apply, Fintype.card_fin,
+        Nat.cast_ofNat]
+      rw [show (4 : ENNReal) = 2 * 2 by norm_num,
+        ENNReal.mul_inv (by simp) (by simp)]
+    _ ≤ PMF.uniformOfFintype (Fin 2) origin *
+        orbitIndexProbability
+          (generalRelativisticBoltzmannWeight gaussianSoftAbsPotential
+            gaussianSoftAbsMetric 1 1)
+          (generalizedLeapfrogPerm gaussianSoftAbsSelection
+            gaussianSoftAbsSelection_valid.unique 1)
+          origin selected (q, p) := by gcongr
+    _ ≤ _ := hbranch
 
 /-- Under the expanding half-momentum condition, random-origin selection
 retains at least one-quarter probability for the inward endpoint. -/
@@ -1427,6 +1606,138 @@ theorem gaussianSoftAbsPhaseTransition_nonoutward_of_abs_momentum
           lt_of_le_of_ne hhalf (Ne.symm hzero)
         have hv := gaussianSoftAbsUnit_velocity_pos_of_momentum_pos
           (p - ((-1 : ℝ) / 2) • q) hpos
+        simp only [Pi.add_apply, Pi.smul_apply, smul_eq_mul]
+        linarith
+    · change q Unit.unit ≤ q Unit.unit
+      exact le_rfl
+
+/-- Expanding symmetric momentum band on the negative position tail gives a
+one-quarter probability of moving rightward toward the origin. -/
+theorem quarter_le_gaussianSoftAbsPhaseTransition_inward_of_neg_abs_momentum
+    (q : Position Unit) (p : Momentum Unit)
+    (hp : |p Unit.unit| ≤ -q Unit.unit / 2 - 2) :
+    (4 : ENNReal)⁻¹ ≤
+      gaussianSoftAbsPhaseTransition 1 1 (q, p)
+        {z | q Unit.unit + gaussianSoftAbsUnitMinSpeed ≤ z.1 Unit.unit} := by
+  let inward : Set (PhaseSpace Unit) :=
+    {z | q Unit.unit + gaussianSoftAbsUnitMinSpeed ≤ z.1 Unit.unit}
+  have hinward : MeasurableSet inward :=
+    measurableSet_le measurable_const
+      ((measurable_pi_apply Unit.unit).comp measurable_fst)
+  by_cases hp0 : p Unit.unit ≤ 0
+  · have hhalf : 2 ≤ -q Unit.unit / 2 + p Unit.unit := by
+      rw [abs_of_nonpos hp0] at hp
+      linarith
+    apply quarter_le_gaussianSoftAbsPhaseTransition_of_index
+      (0 : Fin 2) (1 : Fin 2) q p hinward
+    · change q Unit.unit + gaussianSoftAbsUnitMinSpeed ≤
+        ((gaussianSoftAbsSelection (ι := Unit)).step 1 (q, p)).1 Unit.unit
+      rw [gaussianSoftAbsSelection_step_fst]
+      have hhalf' : 1 ≤ (p - ((1 : ℝ) / 2) • q) Unit.unit := by
+        simp only [Pi.sub_apply, Pi.smul_apply, smul_eq_mul]
+        linarith
+      have hv := gaussianSoftAbsUnitMinSpeed_le_velocity
+        (p - ((1 : ℝ) / 2) • q) hhalf'
+      simp only [Pi.add_apply, one_smul]
+      linarith
+    · exact
+        half_le_gaussianSoftAbs_forward_indexProbability_of_neg_half_momentum
+          q p hp0 hhalf
+  · have hpnonneg : 0 ≤ p Unit.unit := le_of_not_ge hp0
+    have hhalf : 2 ≤ -q Unit.unit / 2 - p Unit.unit := by
+      rw [abs_of_nonneg hpnonneg] at hp
+      linarith
+    apply quarter_le_gaussianSoftAbsPhaseTransition_of_index
+      (1 : Fin 2) (0 : Fin 2) q p hinward
+    · change q Unit.unit + gaussianSoftAbsUnitMinSpeed ≤
+        ((gaussianSoftAbsSelection (ι := Unit)).step (-1) (q, p)).1 Unit.unit
+      rw [gaussianSoftAbsSelection_step_fst]
+      have hhalf' : (p - ((-1 : ℝ) / 2) • q) Unit.unit ≤ -1 := by
+        simp only [Pi.sub_apply, Pi.smul_apply, smul_eq_mul]
+        linarith
+      have hv := gaussianSoftAbsUnit_velocity_le_neg_minSpeed
+        (p - ((-1 : ℝ) / 2) • q) hhalf'
+      simp only [Pi.add_apply, Pi.smul_apply, smul_eq_mul]
+      linarith
+    · exact
+        half_le_gaussianSoftAbs_backward_indexProbability_of_neg_half_momentum
+          q p hpnonneg hhalf
+
+/-- On the expanding central band of the negative tail, neither trajectory
+direction can move farther left. -/
+theorem gaussianSoftAbsPhaseTransition_nonoutward_of_neg_abs_momentum
+    (q : Position Unit) (p : Momentum Unit)
+    (hp : |p Unit.unit| ≤ -q Unit.unit / 2 - 2) :
+    gaussianSoftAbsPhaseTransition 1 1 (q, p)
+      {z | q Unit.unit ≤ z.1 Unit.unit} = 1 := by
+  let nonoutward : Set (PhaseSpace Unit) :=
+    {z | q Unit.unit ≤ z.1 Unit.unit}
+  have hnonoutward : MeasurableSet nonoutward :=
+    measurableSet_le measurable_const
+      ((measurable_pi_apply Unit.unit).comp measurable_fst)
+  change orbitMultinomialKernel
+      (generalRelativisticBoltzmannWeight gaussianSoftAbsPotential
+        gaussianSoftAbsMetric 1 1)
+      (generalizedLeapfrogPerm gaussianSoftAbsSelection
+        gaussianSoftAbsSelection_valid.unique 1) 1
+      (generalRelativisticBoltzmannWeight_ne_zero gaussianSoftAbsPotential
+        gaussianSoftAbsMetric 1 1)
+      (generalRelativisticBoltzmannWeight_ne_top gaussianSoftAbsPotential
+        gaussianSoftAbsMetric 1 1)
+      (measurable_generalRelativisticBoltzmannWeight gaussianSoftAbsPotential
+        gaussianSoftAbsMetric 1 1
+        (measurable_diagonalSoftAbs_generalRelativisticHamiltonian
+          gaussianSoftAbsPotential measurable_gaussianSoftAbsPotential
+          1 (by norm_num) gaussianHessianDiagonal
+          measurable_gaussianHessianDiagonal 1 1))
+      (gaussianSoftAbsSelection_valid.measurable 1)
+      (gaussianSoftAbsSelection_valid.measurable (-1)) (q, p) nonoutward = 1
+  apply orbitMultinomialKernel_apply_eq_one_of_forall_mem
+  · exact hnonoutward
+  · intro origin selected
+    fin_cases origin <;> fin_cases selected
+    · change q Unit.unit ≤ q Unit.unit
+      exact le_rfl
+    · change q Unit.unit ≤
+        ((gaussianSoftAbsSelection (ι := Unit)).step 1 (q, p)).1 Unit.unit
+      rw [gaussianSoftAbsSelection_step_fst]
+      have hhalf : 0 ≤ (p - ((1 : ℝ) / 2) • q) Unit.unit := by
+        simp only [Pi.sub_apply, Pi.smul_apply, smul_eq_mul]
+        have hpLower : -(-q Unit.unit / 2 - 2) ≤ p Unit.unit :=
+          le_trans (neg_le_neg hp) (neg_abs_le _)
+        linarith
+      by_cases hzero : (p - ((1 : ℝ) / 2) • q) Unit.unit = 0
+      · simp only [Pi.add_apply, one_smul]
+        rw [show p - ((1 : ℝ) / 2) • q = 0 by
+          funext i
+          simpa [Subsingleton.elim i Unit.unit] using hzero]
+        rw [gaussianSoftAbsUnit_velocity_coordinate]
+        simp [gaussianSoftAbsUnitScalarVelocity]
+      · have hpos : 0 < (p - ((1 : ℝ) / 2) • q) Unit.unit :=
+          lt_of_le_of_ne hhalf (Ne.symm hzero)
+        have hv := gaussianSoftAbsUnit_velocity_pos_of_momentum_pos
+          (p - ((1 : ℝ) / 2) • q) hpos
+        simp only [Pi.add_apply, one_smul]
+        linarith
+    · change q Unit.unit ≤
+        ((gaussianSoftAbsSelection (ι := Unit)).step (-1) (q, p)).1 Unit.unit
+      rw [gaussianSoftAbsSelection_step_fst]
+      have hhalf : (p - ((-1 : ℝ) / 2) • q) Unit.unit ≤ 0 := by
+        simp only [Pi.sub_apply, Pi.smul_apply, smul_eq_mul]
+        have hpUpper : p Unit.unit ≤ -q Unit.unit / 2 - 2 :=
+          le_trans (le_abs_self _) hp
+        linarith
+      by_cases hzero : (p - ((-1 : ℝ) / 2) • q) Unit.unit = 0
+      · simp only [Pi.add_apply, Pi.smul_apply, smul_eq_mul]
+        rw [show p - ((-1 : ℝ) / 2) • q = 0 by
+          funext i
+          simpa [Subsingleton.elim i Unit.unit] using hzero]
+        rw [gaussianSoftAbsUnit_velocity_coordinate]
+        simp [gaussianSoftAbsUnitScalarVelocity]
+      · have hneg : (p - ((-1 : ℝ) / 2) • q) Unit.unit < 0 :=
+          lt_of_le_of_ne hhalf hzero
+        have hv := gaussianSoftAbsUnit_velocity_neg_of_momentum_neg
+          (p - ((-1 : ℝ) / 2) • q) hneg
         simp only [Pi.add_apply, Pi.smul_apply, smul_eq_mul]
         linarith
     · change q Unit.unit ≤ q Unit.unit
