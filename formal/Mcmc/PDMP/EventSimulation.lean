@@ -173,6 +173,28 @@ theorem ThinnedFlowSimulator.executeUntil_of_le
           simulator.semiflow.kernel wait) := by
   rw [ThinnedFlowSimulator.executeUntil, if_pos h]
 
+/-- Conditional finite-candidate execution preserves a target whenever every
+flow segment and the embedded uniformized event kernel preserve it. This
+applies to arbitrary supplied waits, including candidates beyond the horizon;
+it is distinct from proving that a state-dependent Poisson schedule has the
+required target law. -/
+theorem ThinnedFlowSimulator.executeUntil_invariant
+    (simulator : ThinnedFlowSimulator State) (target : Measure State)
+    (hflow : ∀ time, (simulator.semiflow.kernel time).Invariant target)
+    (hevent : (simulator.mechanism.uniformizedKernel
+      simulator.clock.rate).Invariant target) :
+    ∀ (horizon : NNReal) (waits : List NNReal),
+      (simulator.executeUntil horizon waits).Invariant target := by
+  intro horizon waits
+  induction waits generalizing horizon with
+  | nil =>
+      exact hflow horizon
+  | cons wait waits ih =>
+      rw [ThinnedFlowSimulator.executeUntil]
+      split
+      · exact (ih (horizon - wait)).comp (hevent.comp (hflow wait))
+      · exact hflow horizon
+
 /-- Poisson law of the number of homogeneous clock candidates on a fixed
 horizon. -/
 noncomputable def ThinnedFlowSimulator.candidateCountMeasure

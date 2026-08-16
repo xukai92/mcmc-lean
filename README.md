@@ -167,6 +167,11 @@ schedules can now be executed as general-state Markov kernels by alternating
 the semiflow with jumps; schedule concatenation and conditional invariance are
 proved. Concrete one-dimensional Zig-Zag and finite-dimensional BPS clients
 instantiate the linear flows, event kernels, rates, and scheduled execution.
+An additional constant-rate telegraph client gives a nontrivial flow-driven
+stationarity instance: every linear flow, velocity flip, rate-matched
+uniformized event, and arbitrary supplied finite-candidate horizon execution
+preserves equal velocity mass times Lebesgue position. Its target is
+sigma-finite, so this is not a convergence theorem.
 For globally bounded measurable rates, an exact one-candidate thinning kernel
 draws an exponential homogeneous-clock wait, flows for that random duration,
 and then accepts the real jump with probability `rate/clockRate` or takes a

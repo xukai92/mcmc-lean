@@ -2425,3 +2425,17 @@ refresh convergence result. For `0 < p < 1`, Lean now proves setwise
 convergence on every measurable event from every initial probability law. The
 unaugmented PG--GR-HMC composition remains correctly described as stationary,
 not automatically convergent.
+
+## 2026-08-16: stationary telegraph PDMP client
+
+Added a nontrivial flow-driven process client whose conditional horizon
+execution is proved stationary. The Boolean-velocity telegraph flow is a
+measurable semiflow; a skew-product argument proves every linear flow preserves
+equal mass on both velocities times Lebesgue position, and a second
+skew-product argument proves the velocity flip preserves the same target.
+With a constant event rate equal to the homogeneous clock, the uniformized
+kernel is exactly the flip. A reusable induction now shows that arbitrary
+supplied finite candidate waits, including candidates beyond the horizon,
+preserve the target. The target is sigma-finite, so neither probability
+ergodicity nor convergence is claimed, and canonical state-dependent
+Zig-Zag/BPS spatial flux remains open.
