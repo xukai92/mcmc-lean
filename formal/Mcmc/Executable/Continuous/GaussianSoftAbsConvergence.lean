@@ -14,7 +14,7 @@ a convergence rate for the unrefreshed GR-HMC transition.
 
 namespace Mcmc.Executable.Continuous
 
-open Mcmc.Hamiltonian Mcmc.Relativistic MeasureTheory ProbabilityTheory
+open Mcmc.Hamiltonian Mcmc.Kernel Mcmc.Relativistic MeasureTheory ProbabilityTheory
 open scoped ENNReal
 
 variable {ι : Type*} [Fintype ι] [Nonempty ι] [DecidableEq ι]
@@ -188,6 +188,68 @@ theorem exists_pos_gaussianSoftAbsMovedPosition_volume_floor
     sourceFloor floor hsource
   dsimp [floor]
   rw [ENNReal.div_mul_cancel hJPos.ne' hJTop]
+
+/-- Energy error of the actual forward unit SoftAbs leapfrog branch. -/
+noncomputable def gaussianSoftAbsForwardEnergyError
+    (z : PhaseSpace Unit) : ℝ :=
+  generalRelativisticHamiltonian gaussianSoftAbsPotential
+      gaussianSoftAbsMetric 1 1
+      (gaussianSoftAbsSelection.step 1 z) -
+    generalRelativisticHamiltonian gaussianSoftAbsPotential
+      gaussianSoftAbsMetric 1 1 z
+
+theorem continuous_gaussianSoftAbsForwardEnergyError :
+    Continuous gaussianSoftAbsForwardEnergyError := by
+  unfold gaussianSoftAbsForwardEnergyError
+  exact
+    (continuous_gaussianSoftAbsUnit_hamiltonian.comp
+      continuous_gaussianSoftAbsSelection_step_one_unit).sub
+        continuous_gaussianSoftAbsUnit_hamiltonian
+
+/-- Compactness supplies a finite upper bound for the actual leapfrog energy
+error; no global energy-error estimate is assumed. -/
+theorem exists_gaussianSoftAbsForwardEnergyError_le_on_compact
+    {C : Set (PhaseSpace Unit)} (hC : IsCompact C) :
+    ∃ D : ℝ, 0 ≤ D ∧
+      ∀ z ∈ C, gaussianSoftAbsForwardEnergyError z ≤ D := by
+  have himage : IsCompact (gaussianSoftAbsForwardEnergyError '' C) :=
+    hC.image continuous_gaussianSoftAbsForwardEnergyError
+  obtain ⟨D, hD⟩ := himage.isBounded.bddAbove
+  refine ⟨max D 0, le_max_right _ _, ?_⟩
+  intro z hz
+  exact (hD ⟨z, hz, rfl⟩).trans (le_max_left _ _)
+
+/-- On every compact phase-space set, the forward candidate of the actual
+two-point multinomial transition has one common strictly positive selection
+probability. -/
+theorem exists_pos_gaussianSoftAbs_forward_indexProbability_floor_on_compact
+    {C : Set (PhaseSpace Unit)} (hC : IsCompact C) :
+    ∃ floor : ENNReal, 0 < floor ∧ ∀ z ∈ C,
+      floor ≤ orbitIndexProbability
+        (generalRelativisticBoltzmannWeight gaussianSoftAbsPotential
+          gaussianSoftAbsMetric 1 1)
+        (generalizedLeapfrogPerm gaussianSoftAbsSelection
+          gaussianSoftAbsSelection_valid.unique 1)
+        (0 : Fin 2) (1 : Fin 2) z := by
+  obtain ⟨D, hD0, hD⟩ :=
+    exists_gaussianSoftAbsForwardEnergyError_le_on_compact hC
+  let floor : ENNReal :=
+    ((2 : ENNReal) * ENNReal.ofReal (Real.exp D))⁻¹
+  have hfloorPos : 0 < floor := by
+    apply ENNReal.inv_pos.mpr
+    exact ENNReal.mul_ne_top (by norm_num) ENNReal.ofReal_ne_top
+  refine ⟨floor, hfloorPos, ?_⟩
+  intro z hz
+  have hbound :=
+    inv_card_exp_le_multinomialGRHMCPhase_indexProbability
+      gaussianSoftAbsPotential gaussianSoftAbsMetric 1 1
+      gaussianSoftAbsSelection gaussianSoftAbsSelection_valid
+      1 (0 : Fin 2) (1 : Fin 2) z D (by
+        intro i
+        fin_cases i
+        · simpa [orbitPoint, gaussianSoftAbsForwardEnergyError] using hD z hz
+        · simpa [orbitPoint] using hD0)
+  simpa [floor] using hbound
 
 /-- Exponential coordinate Lyapunov weight used for the bare one-dimensional
 Gaussian SoftAbs drift argument. -/

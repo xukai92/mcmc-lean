@@ -346,6 +346,22 @@ theorem continuous_gaussianSoftAbsUnitScalarVelocity :
   intro x
   exact (hasDerivAt_gaussianSoftAbsUnitScalarVelocity x).continuousAt
 
+/-- The actual one-dimensional vector-valued SoftAbs velocity is continuous.
+This public wrapper lets compactness arguments use the certified scalar
+formula without unfolding the factored metric implementation. -/
+theorem continuous_gaussianSoftAbsVelocity_unit :
+    Continuous
+      (gaussianSoftAbsVelocity : Momentum Unit → Position Unit) := by
+  apply continuous_pi
+  intro i
+  fin_cases i
+  simp only [gaussianSoftAbsUnit_velocity_coordinate]
+  change Continuous
+    (gaussianSoftAbsUnitScalarVelocity ∘
+      (fun p : Momentum Unit => p Unit.unit))
+  exact continuous_gaussianSoftAbsUnitScalarVelocity.comp
+    (continuous_apply Unit.unit)
+
 /-- Measurable embedding needed by mathlib's one-dimensional Jacobian
 theorem. -/
 theorem measurableEmbedding_gaussianSoftAbsUnitScalarVelocity :
@@ -950,6 +966,49 @@ theorem gaussianSoftAbsSelection_step_fst (ε : ℝ) (z : PhaseSpace ι) :
     ((gaussianSoftAbsSelection (ι := ι)).step ε z).1 =
       z.1 + ε • gaussianSoftAbsVelocity (z.2 - (ε / 2) • z.1) := by
   rw [gaussianSoftAbsSelection_step_eq]
+
+/-- The concrete one-dimensional unit leapfrog map is continuous. -/
+theorem continuous_gaussianSoftAbsSelection_step_one_unit :
+    Continuous
+      (gaussianSoftAbsSelection.step 1 :
+        PhaseSpace Unit → PhaseSpace Unit) := by
+  let pHalf : PhaseSpace Unit → Momentum Unit := fun z =>
+    z.2 - ((1 : ℝ) / 2) • z.1
+  let qNext : PhaseSpace Unit → Position Unit := fun z =>
+    z.1 + gaussianSoftAbsVelocity (pHalf z)
+  have hpHalf : Continuous pHalf := by
+    dsimp [pHalf]
+    fun_prop
+  have hqNext : Continuous qNext := by
+    dsimp [qNext]
+    exact continuous_fst.add
+      (continuous_gaussianSoftAbsVelocity_unit.comp hpHalf)
+  have hrhs : Continuous (fun z : PhaseSpace Unit =>
+      (qNext z, pHalf z - ((1 : ℝ) / 2) • qNext z)) :=
+    hqNext.prodMk (hpHalf.sub (hqNext.const_smul ((1 : ℝ) / 2)))
+  rw [show (gaussianSoftAbsSelection.step 1 :
+      PhaseSpace Unit → PhaseSpace Unit) = fun z =>
+        (qNext z, pHalf z - ((1 : ℝ) / 2) • qNext z) by
+    funext z
+    simpa only [pHalf, qNext, one_smul] using
+      gaussianSoftAbsSelection_step_eq 1 z]
+  exact hrhs
+
+/-- The scalar Hamiltonian of the one-dimensional Gaussian SoftAbs client is
+continuous on phase space. -/
+theorem continuous_gaussianSoftAbsUnit_hamiltonian :
+    Continuous (fun z : PhaseSpace Unit =>
+      generalRelativisticHamiltonian gaussianSoftAbsPotential
+        gaussianSoftAbsMetric 1 1 z) := by
+  rw [show (fun z : PhaseSpace Unit =>
+      generalRelativisticHamiltonian gaussianSoftAbsPotential
+        gaussianSoftAbsMetric 1 1 z) = fun z =>
+          (z.1 Unit.unit) ^ 2 / 2 +
+            Real.sqrt ((z.2 Unit.unit) ^ 2 / softAbs 1 1 + 1) +
+              (1 / 2 : ℝ) * Real.log (softAbs 1 1) by
+    funext z
+    exact gaussianSoftAbsUnit_hamiltonian_eq z.1 z.2]
+  fun_prop
 
 omit [Nonempty ι] [DecidableEq ι] in
 /-- The concrete unit step is genuinely moving: from zero position and any
