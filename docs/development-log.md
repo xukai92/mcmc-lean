@@ -1,5 +1,14 @@
 # Development log
 
+- Isolated the ordinary-cloud first-moment identity needed by the sharp
+  positive-horizon particle-Gibbs proof. For a population with one forced
+  coordinate, Lean now proves that the expected sum of any score over all
+  unforced coordinates is exactly `(N-1)` times its one-particle expectation,
+  and specializes this to the conditional-SMC potential normalizer. The
+  remaining induction step is genuinely nonlinear: it must control the
+  expectation of the self-normalized ratio, not replace it by a ratio of these
+  expectations.
+
 - Added a checked root-dependent dynamic-trajectory experiment to Julia.
   `first_stop_endpoint_uturn_candidates` enlarges an interval from each root,
   stops at the first endpoint U-turn, and returns the existing reroot

@@ -761,6 +761,62 @@ noncomputable def unforcedPotentialSum (potential : Sample → ℝ)
     (particles : Particle → Sample) (retained : Particle) : ℝ :=
   ∑ i, if i = retained then 0 else potential (particles i)
 
+omit [Nonempty Particle] in
+/-- Exact first moment of an unforced empirical sum.  A cloud with one fixed
+coordinate has `N - 1` ordinary coordinates, so averaging any score over the
+cloud law gives exactly `N - 1` copies of its one-particle expectation.  This
+is the linear input to the self-normalized ordinary-cloud comparison needed
+by the aggregate particle-Gibbs induction. -/
+theorem forcedIndependentPopulation_unforcedSum_expectation
+    (law : Distribution Sample) (retained : Particle) (value : Sample)
+    (score : Sample → ℝ) :
+    (∑ particles,
+        (forcedIndependentPopulation (fun _ : Particle => law) retained value).mass
+            particles *
+          (∑ i : Particle, if i = retained then 0 else score (particles i))) =
+      (Fintype.card Particle - 1 : ℕ) *
+        (∑ x, law.mass x * score x) := by
+  classical
+  calc
+    (∑ particles,
+        (forcedIndependentPopulation (fun _ : Particle => law) retained value).mass
+            particles *
+          (∑ i : Particle, if i = retained then 0 else score (particles i))) =
+        ∑ i : Particle, ∑ particles,
+          (forcedIndependentPopulation (fun _ : Particle => law) retained value).mass
+              particles *
+            (if i = retained then 0 else score (particles i)) := by
+      simp_rw [Finset.mul_sum]
+      rw [Finset.sum_comm]
+    _ = ∑ i : Particle, if i = retained then 0
+          else ∑ x, law.mass x * score x := by
+      apply Finset.sum_congr rfl
+      intro i _
+      by_cases hi : i = retained
+      · simp [hi]
+      · simp only [hi, if_false]
+        rw [forcedIndependentPopulation_coordinate_expectation
+          (fun _ : Particle => law) retained value score i]
+        simp [hi]
+    _ = (Fintype.card Particle - 1 : ℕ) *
+          (∑ x, law.mass x * score x) :=
+      sum_unforced_constant retained _
+
+omit [Nonempty Particle] in
+/-- The preceding generic identity specialized to the ordinary-particle
+potential normalizer used by conditional SMC. -/
+theorem forcedIndependentPopulation_unforcedPotentialSum_expectation
+    (law : Distribution Sample) (retained : Particle) (value : Sample)
+    (potential : Sample → ℝ) :
+    (∑ particles,
+        (forcedIndependentPopulation (fun _ : Particle => law) retained value).mass
+            particles *
+          unforcedPotentialSum potential particles retained) =
+      (Fintype.card Particle - 1 : ℕ) *
+        (∑ x, law.mass x * potential x) := by
+  exact forcedIndependentPopulation_unforcedSum_expectation
+    law retained value potential
+
 omit [Fintype Sample] [DecidableEq Sample] in
 /-- Summing the oscillation comparison over every unforced coordinate bounds
 the retained potential by the aggregate ordinary-particle potential. For
