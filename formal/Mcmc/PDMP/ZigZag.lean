@@ -163,4 +163,76 @@ theorem gaussian_zigZagGenerator_positionVelocity_mean_zero :
       rw [integral_const_mul, hsquare]
       simp
 
+/-- The two-dimensional affine velocity-odd test class contains both concrete
+Gaussian clients above. -/
+def zigZagAffineVelocityObservable (a b q : ℝ) (v : Bool) : ℝ :=
+  (a + b * q) * zigZagVelocity v
+
+/-- Exact position derivative for the affine velocity-odd test class. -/
+def zigZagAffineVelocityDerivative (_a b _q : ℝ) (v : Bool) : ℝ :=
+  b * zigZagVelocity v
+
+theorem sum_bool_gaussian_zigZagGenerator_affineVelocity
+    (a b q : ℝ) :
+    ∑ v : Bool, zigZagGenerator id (zigZagAffineVelocityDerivative a b)
+      (zigZagAffineVelocityObservable a b) q v =
+        2 * b - 2 * a * q - 2 * b * q ^ 2 := by
+  rw [sum_bool_zigZagGenerator]
+  simp [zigZagAffineVelocityDerivative, zigZagAffineVelocityObservable,
+    zigZagVelocity]
+  ring
+
+/-- Generator balance holds simultaneously for every affine velocity-odd
+observable, rather than only for two isolated test functions. -/
+theorem gaussian_zigZagGenerator_affineVelocity_mean_zero (a b : ℝ) :
+    (∫ q, (∑ v : Bool, zigZagGenerator id
+      (zigZagAffineVelocityDerivative a b)
+      (zigZagAffineVelocityObservable a b) q v)
+      ∂ProbabilityTheory.gaussianReal 0 1) = 0 := by
+  let gaussian := ProbabilityTheory.gaussianReal 0 1
+  have hid : MemLp id 2 gaussian :=
+    ProbabilityTheory.memLp_id_gaussianReal 2
+  have hsquare : (∫ q, q ^ 2 ∂gaussian) = 1 := by
+    have hvariance := ProbabilityTheory.variance_eq_sub hid
+    dsimp [gaussian] at hvariance
+    rw [ProbabilityTheory.variance_id_gaussianReal,
+      ProbabilityTheory.integral_id_gaussianReal] at hvariance
+    simpa [Pi.pow_apply] using hvariance.symm
+  simp_rw [sum_bool_gaussian_zigZagGenerator_affineVelocity]
+  change (∫ q, 2 * b - 2 * a * q - 2 * b * q ^ 2 ∂gaussian) = 0
+  have hlinear : Integrable (fun q : ℝ => 2 * a * q) gaussian := by
+    have hidIntegrable : Integrable (fun q : ℝ => q) gaussian :=
+      hid.integrable (by norm_num)
+    exact hidIntegrable.const_mul (2 * a)
+  have hsquareInt : Integrable (fun q : ℝ => 2 * b * q ^ 2) gaussian := by
+    simpa [Pi.pow_apply] using hid.integrable_sq.const_mul (2 * b)
+  have hinner : (∫ q : ℝ, 2 * b - 2 * a * q ∂gaussian) =
+      (∫ _q : ℝ, 2 * b ∂gaussian) -
+        ∫ q : ℝ, 2 * a * q ∂gaussian := by
+    simpa only [Pi.sub_apply] using
+      integral_sub (integrable_const (2 * b)) hlinear
+  have houter : (∫ q : ℝ, (2 * b - 2 * a * q) - 2 * b * q ^ 2
+      ∂gaussian) =
+      (∫ q : ℝ, 2 * b - 2 * a * q ∂gaussian) -
+        ∫ q : ℝ, 2 * b * q ^ 2 ∂gaussian := by
+    simpa only [Pi.sub_apply] using
+      integral_sub ((integrable_const (2 * b)).sub hlinear) hsquareInt
+  calc
+    _ = ((∫ _q : ℝ, 2 * b ∂gaussian) -
+          ∫ q : ℝ, 2 * a * q ∂gaussian) -
+          ∫ q : ℝ, 2 * b * q ^ 2 ∂gaussian := by
+      rw [houter, hinner]
+    _ = 0 := by
+      have hconst : (∫ _q : ℝ, 2 * b ∂gaussian) = 2 * b := by simp
+      have hlinearIntegral : (∫ q : ℝ, 2 * a * q ∂gaussian) = 0 := by
+        rw [integral_const_mul,
+          ProbabilityTheory.integral_id_gaussianReal]
+        ring
+      have hsquareIntegral : (∫ q : ℝ, 2 * b * q ^ 2 ∂gaussian) =
+          2 * b := by
+        rw [integral_const_mul, hsquare]
+        ring
+      rw [hconst, hlinearIntegral, hsquareIntegral]
+      ring
+
 end Mcmc.PDMP

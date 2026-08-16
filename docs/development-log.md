@@ -1993,6 +1993,13 @@ semigroup result. Extending from this checked test family to an integration-
 by-parts class, and connecting it to the all-count event scheduler, remain
 explicit PDMP obligations.
 
+The Gaussian test family now closes under every affine velocity-odd
+observable `(a+bq)v`.  Lean computes the generator sum symbolically and uses
+the exact Gaussian first and second moments to prove zero mean for arbitrary
+real coefficients.  This replaces two isolated checks by their full
+two-dimensional linear span, while retaining the explicit boundary: generator
+balance on this class is not yet an invariant-semigroup theorem.
+
 ## 2026-08-16: practical stepping-out slice runtime
 
 Added a public `SteppingOutSlice` sampler on the real line with randomized
