@@ -468,6 +468,30 @@ theorem aggregatedForcedLineageMass_eq_sum_fraction
   rcases liftCurrent with ⟨history, currentIndex⟩
   rw [selectedIndexRefresh_aggregate_eq_proposedTrajectoryFraction]
 
+/-- Under primitive full support, the aggregate transition entry is an
+expectation under the actual forced-lineage conditional-SMC generator. This
+is the recursion-facing form needed to propagate the per-step oscillation
+bounds. -/
+theorem aggregatedForcedLineageMass_eq_forcedLineage_expectation
+    [Nonempty Sample]
+    (initial : Distribution Sample) (hinitial : ∀ x, 0 < initial.mass x)
+    (steps : List (FeynmanKacStep Sample))
+    (hsupport : FeynmanKacFullSupport steps)
+    (hnormalizer : 0 < normalizingConstant initial steps) (extra : ℕ)
+    (current proposed : Trajectory steps) :
+    aggregatedForcedLineageMass initial steps hnormalizer extra
+        current proposed =
+      ∑ selected :
+          History (Particle := Fin (extra + 1)) steps × Fin (extra + 1),
+        (forcedLineageLaw (Particle := Fin (extra + 1))
+          initial steps current.toList current.toList_length).mass selected *
+          proposedTrajectoryFraction steps extra selected.1 proposed := by
+  rw [aggregatedForcedLineageMass_eq_sum_fraction]
+  apply Finset.sum_congr rfl
+  intro selected _hselected
+  rw [conditionalRow_selectedTrajectoryVector_eq_forcedLineageLaw
+    initial hinitial steps hsupport hnormalizer current]
+
 /-- The aggregated forced-lineage mass is exactly the trajectory particle-
 Gibbs transition entry. This is an expansion theorem, not a minorization
 assumption, and exposes the sum to which primitive Feynman--Kac estimates must

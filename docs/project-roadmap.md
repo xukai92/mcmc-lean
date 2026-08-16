@@ -211,7 +211,9 @@ The pre-Xu dependency order is:
    single-history route for particle-count asymptotics. Primitive positive
    finite potentials now automatically construct count-independent
    oscillation penalties and the resampling estimate `wᵢ ≥ 1/(N B)`; the
-   remaining step is their recursive aggregate-history lift. A parallel
+   aggregate has also been identified exactly with an expectation under the
+   concrete recursive forced-lineage generator. The remaining step is the
+   induction that propagates those local bounds through that generator. A parallel
    scheduled certificate now retains distinct per-time penalties, proves its
    product coefficient is in `(0,1)`, and supplies the refresh decomposition,
    geometric TV estimate, and convergence theorem without a worst-case

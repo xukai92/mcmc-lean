@@ -32,7 +32,13 @@
   Full-support schedules now also discharge `PathSuffixSupported`
   automatically for every retained path of the correct length, removing the
   last path-by-path support premise before connecting the aggregate to the
-  existing exact forced-lineage density formula.
+  existing exact forced-lineage density formula. That connection is now
+  complete: sized trajectory equality is proved equivalent to equality of the
+  underlying ancestral list, the corresponding vector fiber mass equals the
+  existing selected-path mass, and the abstract conditional row is proved
+  equal to the concrete recursive forced-lineage law. Hence the aggregate PG
+  transition entry is exactly an expectation of proposed-lineage fraction
+  under the executable conditional-SMC generator.
 
 - Completed the compact-minorization and faithful-coupling foundation for the
   actual bare one-dimensional Gaussian SoftAbs multinomial kernel at

@@ -30,6 +30,113 @@ def selectedTrajectoryVector (steps : List (FeynmanKacStep Sample))
   ⟨selectedTrajectory steps selected.1.1 selected.1.2 selected.2,
     selectedTrajectory_length steps selected.1.1 selected.1.2 selected.2⟩
 
+omit [Fintype Particle] [DecidableEq Sample] [DecidableEq Particle]
+    [Nonempty Particle] in
+/-- Equality in the sized trajectory type is exactly equality of the
+underlying selected ancestral list. -/
+theorem selectedTrajectoryVector_eq_iff_toList
+    (steps : List (FeynmanKacStep Sample))
+    (selected : History (Particle := Particle) steps × Particle)
+    (trajectory : Trajectory steps) :
+    selectedTrajectoryVector steps selected = trajectory ↔
+      selectedTrajectory steps selected.1.1 selected.1.2 selected.2 =
+        trajectory.toList := by
+  constructor
+  · intro h
+    exact congrArg List.Vector.toList h
+  · intro h
+    apply List.Vector.toList_injective
+    exact h
+
+/-- The finite fiber mass used by the vector-valued particle-Gibbs kernel is
+the existing selected-trajectory mass of the underlying list path. -/
+theorem fiberMass_selectedTrajectoryVector_eq_selectedTrajectoryMass
+    (initial : Distribution Sample)
+    (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : 0 < normalizingConstant initial steps)
+    (trajectory : Trajectory steps) :
+    Mcmc.Finite.Conditional.fiberMass
+        (selectedParticleTarget (Particle := Particle)
+          initial steps hnormalizer)
+        (selectedTrajectoryVector steps) trajectory =
+      selectedTrajectoryMass (Particle := Particle)
+        initial steps hnormalizer trajectory.toList := by
+  unfold Mcmc.Finite.Conditional.fiberMass selectedTrajectoryMass
+  apply Finset.sum_congr rfl
+  intro selected _hselected
+  have heq := selectedTrajectoryVector_eq_iff_toList
+    steps selected trajectory
+  by_cases h : selectedTrajectoryVector steps selected = trajectory
+  · simp [h, heq.mp h]
+  · have hlist : selectedTrajectory steps selected.1.1 selected.1.2 selected.2 ≠
+        trajectory.toList := fun h' => h (heq.mpr h')
+    simp [h, hlist]
+
+/-- Under primitive full support, the conditional row used by the abstract
+trajectory particle-Gibbs kernel is exactly the concrete forced-lineage law
+on the underlying retained path. -/
+theorem conditionalRow_selectedTrajectoryVector_eq_forcedLineageLaw
+    [Nonempty Sample]
+    (initial : Distribution Sample) (hinitial : ∀ x, 0 < initial.mass x)
+    (steps : List (FeynmanKacStep Sample))
+    (hsupport : FeynmanKacFullSupport steps)
+    (hnormalizer : 0 < normalizingConstant initial steps)
+    (trajectory : Trajectory steps) :
+    Mcmc.Finite.Conditional.conditionalRow
+        (selectedParticleTarget (Particle := Particle)
+          initial steps hnormalizer)
+        (selectedTrajectoryVector steps) trajectory =
+      forcedLineageLaw (Particle := Particle) initial steps trajectory.toList
+        trajectory.toList_length := by
+  rcases trajectory with ⟨path, hpathLength⟩
+  cases path with
+  | nil => simp at hpathLength
+  | cons first future =>
+      have hfuture : future.length = steps.length := by
+        simpa using hpathLength
+      have hsuffix : PathSuffixSupported steps first future :=
+        PathSuffixSupported.of_fullSupport steps hsupport first future hfuture
+      have hpathMass : 0 < selectedTrajectoryMass (Particle := Particle)
+          initial steps hnormalizer (first :: future) :=
+        selectedTrajectoryMass_pos_of_supported initial steps hnormalizer
+          first future hfuture (hinitial first) hsuffix
+      have hforced := forcedLineageLaw_eq_conditionalSelectedParticleLaw
+        (Particle := Particle) initial steps hnormalizer first future hfuture
+        (hinitial first) hsuffix
+      change Mcmc.Finite.Conditional.conditionalRow
+          (selectedParticleTarget (Particle := Particle)
+            initial steps hnormalizer)
+          (selectedTrajectoryVector steps)
+          (⟨first :: future, hpathLength⟩ : Trajectory steps) =
+        forcedLineageLaw (Particle := Particle) initial steps
+          (first :: future) _
+      rw [hforced]
+      apply Distribution.ext
+      funext selected
+      have hfiberEq :=
+        fiberMass_selectedTrajectoryVector_eq_selectedTrajectoryMass
+          (Particle := Particle) initial steps hnormalizer
+          (⟨first :: future, hpathLength⟩ : Trajectory steps)
+      have hfiberPos : 0 < Mcmc.Finite.Conditional.fiberMass
+          (selectedParticleTarget (Particle := Particle)
+            initial steps hnormalizer)
+          (selectedTrajectoryVector steps)
+          (⟨first :: future, hpathLength⟩ : Trajectory steps) := by
+        rw [hfiberEq]
+        exact hpathMass
+      simp only [Mcmc.Finite.Conditional.conditionalRow, hfiberPos,
+        dif_pos, Mcmc.Finite.Conditional.fiberLaw,
+        conditionalSelectedParticleLaw]
+      have heq := selectedTrajectoryVector_eq_iff_toList
+        steps selected (⟨first :: future, hpathLength⟩ : Trajectory steps)
+      by_cases h : selectedTrajectoryVector steps selected =
+          (⟨first :: future, hpathLength⟩ : Trajectory steps)
+      · simp [h, heq.mp h, hfiberEq]
+      · have hlist :
+            selectedTrajectory steps selected.1.1 selected.1.2 selected.2 ≠
+              first :: future := fun h' => h (heq.mpr h')
+        simp [h, hlist]
+
 /-- One explicit two-lineage history containing two prescribed trajectories.
 The `false` lineage follows `current`, the `true` lineage follows `proposed`,
 and every ancestry map is the identity. -/
