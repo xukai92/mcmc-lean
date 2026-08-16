@@ -66,9 +66,15 @@
   family, and thereby construct both an infinite probability path law and its
   finite-time state kernels. Lean proves that each finite kernel is exactly the
   corresponding path-coordinate marginal. The API explicitly avoids a false
-  state-only Markov recurrence after history marginalization. General-state
-  diminishing adaptation, containment, and convergence remain to be lifted
-  onto this semantics. A conservativity check now proves that constant
+  state-only Markov recurrence after history marginalization. Lean now proves
+  that recurrence exactly at stages whose selected transition has become
+  history-independent. Consequently, if adaptation freezes after any finite
+  burn-in, every later marginal factors as a power of the frozen kernel
+  composed with the actual adaptive burn-in marginal. Under a positive common
+  Doeblin minorization and invariance of the frozen kernel, two-sided geometric
+  event bounds and setwise convergence follow. General-state diminishing
+  adaptation and containment for rules that never freeze remain to be lifted
+  onto this semantics. A conservativity check proves that constant
   parameter selection recovers the established homogeneous next-step adapter,
   infinite path kernel, and finite-time kernel powers exactly. The first
   nontrivial coordinate is also checked directly: the time-one state kernel is

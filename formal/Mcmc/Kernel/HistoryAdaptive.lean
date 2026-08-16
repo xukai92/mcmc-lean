@@ -1,4 +1,4 @@
-import Mcmc.Kernel.CoupledChain
+import Mcmc.Kernel.GeneralConvergence
 
 /-!
 # General-state history-dependent adaptive paths
@@ -157,6 +157,43 @@ the initial history; this checks the Ionescu--Tulcea stage indexing. -/
   rw [ProbabilityTheory.Kernel.map_partialTraj_succ_self]
   rfl
 
+/-- If the transition selected at stage `n` depends only on the terminal state,
+then the adaptive marginal obeys the ordinary one-step Markov recurrence at
+that stage. This is deliberately a local statement: without `hnext`, a
+history-dependent marginal does not have a state-only recurrence. -/
+theorem HistoryAdaptiveFamily.stateKernel_succ_of_next_eq
+    (adaptive : HistoryAdaptiveFamily (State := State) (Parameter := Parameter))
+    (transition : ProbabilityTheory.Kernel State State)
+    [IsMarkovKernel transition] (n : ℕ)
+    (hnext : adaptive.next n = homogeneousNext transition n) :
+    adaptive.stateKernel (n + 1) =
+      transition ∘ₖ adaptive.stateKernel n := by
+  letI : ∀ k, IsMarkovKernel (adaptive.next k) := fun k =>
+    HistoryAdaptiveFamily.next.instIsMarkovKernel adaptive k
+  rw [HistoryAdaptiveFamily.stateKernel,
+    ProbabilityTheory.Kernel.partialTraj_succ_eq_comp (Nat.zero_le n),
+    ProbabilityTheory.Kernel.map_comp]
+  change
+    (((ProbabilityTheory.Kernel.partialTraj (X := fun _ => State)
+      adaptive.next n (n + 1)).map
+        (fun x => x ⟨n + 1, Finset.mem_Iic.mpr le_rfl⟩) ∘ₖ
+      ProbabilityTheory.Kernel.partialTraj (X := fun _ => State)
+        adaptive.next 0 n).comap
+        (initialHistory (α := State)) measurable_initialHistory) = _
+  rw [ProbabilityTheory.Kernel.map_partialTraj_succ_self]
+  ext state event hevent
+  simp only [ProbabilityTheory.Kernel.comap_apply,
+    ProbabilityTheory.Kernel.comp_apply' _ _ _ hevent]
+  rw [HistoryAdaptiveFamily.stateKernel,
+    ProbabilityTheory.Kernel.comap_apply,
+    ProbabilityTheory.Kernel.map_apply _ (measurable_terminalHistory n),
+    MeasureTheory.lintegral_map
+      (ProbabilityTheory.Kernel.measurable_coe transition hevent)
+      (measurable_terminalHistory n)]
+  rw [hnext]
+  simp only [homogeneousNext, ProbabilityTheory.Kernel.comap_apply,
+    terminalHistory]
+
 /-- The finite state kernel is exactly the corresponding coordinate marginal
 of the infinite adaptive path kernel. No homogeneous Markov recurrence is
 asserted: after marginalizing the history, the selected kernel generally
@@ -240,5 +277,167 @@ theorem HistoryAdaptiveFamily.constant_stateKernel
   rw [← HistoryAdaptiveFamily.pathKernel_map_atTime,
     HistoryAdaptiveFamily.constant_pathKernel,
     Mcmc.Kernel.pathKernel_map_atTime]
+
+/-! ### Eventually frozen adaptation -/
+
+/-- A history-dependent rule freezes after `burnIn` when it selects one fixed
+parameter at every later stage, for every possible history. -/
+def HistoryAdaptiveFamily.FreezesAfter
+    (adaptive : HistoryAdaptiveFamily (State := State) (Parameter := Parameter))
+    (burnIn : ℕ) (parameter : Parameter) : Prop :=
+  ∀ n, burnIn ≤ n → ∀ history, adaptive.select n history = parameter
+
+/-- After freezing, the selected history kernel is exactly the homogeneous
+fixed-parameter adapter. -/
+theorem HistoryAdaptiveFamily.next_eq_homogeneous_of_freezesAfter
+    (adaptive : HistoryAdaptiveFamily (State := State) (Parameter := Parameter))
+    (burnIn : ℕ) (parameter : Parameter)
+    (hfreeze : adaptive.FreezesAfter burnIn parameter)
+    (n : ℕ) (hn : burnIn ≤ n) :
+    adaptive.next n = homogeneousNext
+      (fixedParameterSection adaptive.family parameter) n := by
+  ext history event hevent
+  simp [HistoryAdaptiveFamily.next, homogeneousNext, fixedParameterSection,
+    terminalHistory,
+    ProbabilityTheory.Kernel.comap_apply, hfreeze n hn history]
+
+/-- Every post-freeze marginal obeys the fixed-parameter Markov recurrence. -/
+theorem HistoryAdaptiveFamily.stateKernel_succ_of_freezesAfter
+    (adaptive : HistoryAdaptiveFamily (State := State) (Parameter := Parameter))
+    (burnIn : ℕ) (parameter : Parameter)
+    (hfreeze : adaptive.FreezesAfter burnIn parameter)
+    (n : ℕ) (hn : burnIn ≤ n) :
+    adaptive.stateKernel (n + 1) =
+      fixedParameterSection adaptive.family parameter ∘ₖ
+        adaptive.stateKernel n := by
+  apply adaptive.stateKernel_succ_of_next_eq
+  exact adaptive.next_eq_homogeneous_of_freezesAfter burnIn parameter
+    hfreeze n hn
+
+/-- Exact frozen-tail factorization: after an arbitrary adaptive burn-in, the
+next `steps` transitions are the ordinary power of the frozen kernel applied
+to the burn-in marginal. This is the general-state bridge allowing any
+homogeneous convergence theorem to be reused after finite adaptation. -/
+theorem HistoryAdaptiveFamily.stateKernel_add_eq_pow_comp_of_freezesAfter
+    (adaptive : HistoryAdaptiveFamily (State := State) (Parameter := Parameter))
+    (burnIn : ℕ) (parameter : Parameter)
+    (hfreeze : adaptive.FreezesAfter burnIn parameter)
+    (steps : ℕ) :
+    adaptive.stateKernel (burnIn + steps) =
+      ((fixedParameterSection adaptive.family parameter) ^ steps) ∘ₖ
+        adaptive.stateKernel burnIn := by
+  induction steps with
+  | zero =>
+      rw [Nat.add_zero, pow_zero]
+      exact (ProbabilityTheory.Kernel.id_comp _).symm
+  | succ steps ih =>
+      rw [Nat.add_succ,
+        adaptive.stateKernel_succ_of_freezesAfter burnIn parameter hfreeze
+          (burnIn + steps) (Nat.le_add_right burnIn steps),
+        ih]
+      change fixedParameterSection adaptive.family parameter *
+          ((fixedParameterSection adaptive.family parameter) ^ steps *
+            adaptive.stateKernel burnIn) = _
+      rw [← mul_assoc, pow_succ']
+      rfl
+
+/-- A frozen adaptive tail inherits the upper eventwise Doeblin bound of its
+fixed-parameter kernel. The initial law in the homogeneous theorem is exactly
+the possibly complicated adaptive burn-in marginal. -/
+theorem HistoryAdaptiveFamily.stateKernel_apply_le_target_add_geometric_of_freezesAfter
+    (adaptive : HistoryAdaptiveFamily (State := State) (Parameter := Parameter))
+    (burnIn : ℕ) (parameter : Parameter)
+    (hfreeze : adaptive.FreezesAfter burnIn parameter)
+    (target : Measure State) [IsProbabilityMeasure target]
+    (ε : Set.Icc (0 : NNReal) 1) (hε : ε.1 < 1)
+    (hminor : UniformlyMinorizes
+      (fixedParameterSection adaptive.family parameter) ε.1 target)
+    (hinvariant : (fixedParameterSection adaptive.family parameter).Invariant
+      target)
+    (initial : State) (steps : ℕ) {event : Set State}
+    (hevent : MeasurableSet event) :
+    adaptive.stateKernel (burnIn + steps) initial event ≤
+      target event + (((1 - ε.1) ^ steps : NNReal) : ENNReal) := by
+  let transition := fixedParameterSection adaptive.family parameter
+  have heq : adaptive.stateKernel (burnIn + steps) initial =
+      lawAtTime (adaptive.stateKernel burnIn initial) transition steps := by
+    rw [adaptive.stateKernel_add_eq_pow_comp_of_freezesAfter burnIn parameter
+      hfreeze steps]
+    rfl
+  rw [heq]
+  exact lawAtTime_apply_le_target_add_geometric transition target
+    (adaptive.stateKernel burnIn initial) ε hε hminor hinvariant steps hevent
+
+/-- Symmetric half of the frozen-tail eventwise Doeblin bound. Together with
+the preceding theorem this is an explicit total-variation-style convergence
+certificate after finite adaptation. -/
+theorem HistoryAdaptiveFamily.target_apply_le_stateKernel_add_geometric_of_freezesAfter
+    (adaptive : HistoryAdaptiveFamily (State := State) (Parameter := Parameter))
+    (burnIn : ℕ) (parameter : Parameter)
+    (hfreeze : adaptive.FreezesAfter burnIn parameter)
+    (target : Measure State) [IsProbabilityMeasure target]
+    (ε : Set.Icc (0 : NNReal) 1) (hε : ε.1 < 1)
+    (hminor : UniformlyMinorizes
+      (fixedParameterSection adaptive.family parameter) ε.1 target)
+    (hinvariant : (fixedParameterSection adaptive.family parameter).Invariant
+      target)
+    (initial : State) (steps : ℕ) {event : Set State}
+    (hevent : MeasurableSet event) :
+    target event ≤ adaptive.stateKernel (burnIn + steps) initial event +
+      (((1 - ε.1) ^ steps : NNReal) : ENNReal) := by
+  let transition := fixedParameterSection adaptive.family parameter
+  have heq : adaptive.stateKernel (burnIn + steps) initial =
+      lawAtTime (adaptive.stateKernel burnIn initial) transition steps := by
+    rw [adaptive.stateKernel_add_eq_pow_comp_of_freezesAfter burnIn parameter
+      hfreeze steps]
+    rfl
+  rw [heq]
+  exact target_apply_le_lawAtTime_add_geometric transition target
+    (adaptive.stateKernel burnIn initial) ε hε hminor hinvariant steps hevent
+
+/-- Finite adaptation followed by a genuinely minorized frozen kernel
+converges setwise to the frozen kernel's invariant target. This is a concrete
+general-state adaptive convergence theorem, with arbitrary history dependence
+allowed before `burnIn`. -/
+theorem HistoryAdaptiveFamily.stateKernel_apply_tendsto_of_freezesAfter
+    (adaptive : HistoryAdaptiveFamily (State := State) (Parameter := Parameter))
+    (burnIn : ℕ) (parameter : Parameter)
+    (hfreeze : adaptive.FreezesAfter burnIn parameter)
+    (target : Measure State) [IsProbabilityMeasure target]
+    (ε : Set.Icc (0 : NNReal) 1) (hε : ε.1 < 1) (hεpos : 0 < ε.1)
+    (hminor : UniformlyMinorizes
+      (fixedParameterSection adaptive.family parameter) ε.1 target)
+    (hinvariant : (fixedParameterSection adaptive.family parameter).Invariant
+      target)
+    (initial : State) {event : Set State} (hevent : MeasurableSet event) :
+    Filter.Tendsto
+      (fun steps => adaptive.stateKernel (burnIn + steps) initial event)
+      Filter.atTop (nhds (target event)) := by
+  let remainder : ℕ → ENNReal := fun steps =>
+    (((1 - ε.1) ^ steps : NNReal) : ENNReal)
+  have hrateNN : 1 - ε.1 < 1 := tsub_lt_self (by simp) hεpos
+  have hrate : ((1 - ε.1 : NNReal) : ENNReal) < 1 := by
+    exact_mod_cast hrateNN
+  have hremainder : Filter.Tendsto remainder Filter.atTop (nhds 0) := by
+    simpa only [remainder, ENNReal.coe_pow] using
+      ENNReal.tendsto_pow_atTop_nhds_zero_of_lt_one hrate
+  have hlower : Filter.Tendsto (fun steps => target event - remainder steps)
+      Filter.atTop (nhds (target event)) := by
+    have h := ENNReal.Tendsto.sub tendsto_const_nhds hremainder
+      (Or.inl (measure_ne_top target event))
+    simpa only [tsub_zero] using h
+  have hupper : Filter.Tendsto (fun steps => target event + remainder steps)
+      Filter.atTop (nhds (target event)) := by
+    simpa only [add_zero] using tendsto_const_nhds.add hremainder
+  apply tendsto_of_tendsto_of_tendsto_of_le_of_le hlower hupper
+  · intro steps
+    rw [tsub_le_iff_right]
+    exact adaptive.target_apply_le_stateKernel_add_geometric_of_freezesAfter
+      burnIn parameter hfreeze target ε hε hminor hinvariant initial steps
+      hevent
+  · intro steps
+    exact adaptive.stateKernel_apply_le_target_add_geometric_of_freezesAfter
+      burnIn parameter hfreeze target ε hε hminor hinvariant initial steps
+      hevent
 
 end Mcmc.Kernel

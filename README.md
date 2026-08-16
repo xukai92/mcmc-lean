@@ -477,8 +477,13 @@ The repository now contains machine-checked implementations and proofs for:
 - general-state Ionescu--Tulcea semantics for adaptive selectors that inspect
   the entire finite history, with infinite path laws, finite coordinate
   marginals, and exact reduction to homogeneous kernel powers under constant
-  parameter selection; general-state adaptive convergence over this semantics
-  remains open;
+  parameter selection. Lean now also proves an exact frozen-tail factorization:
+  after arbitrary finite history-dependent burn-in, eventual constant
+  parameter selection gives ordinary powers of the frozen kernel applied to
+  the actual burn-in marginal. A common positive Doeblin minorization and
+  invariance certificate then yield two-sided geometric event bounds and
+  setwise convergence. General-state diminishing-adaptation-plus-containment
+  over an indefinitely adapting history remains open;
 - two-temperature parallel tempering with an MH-corrected swap, product-target
   stationarity, and an exact cold-marginal theorem;
 - finite pseudo-marginal MH with a nonnegative unbiased estimator, including

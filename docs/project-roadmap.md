@@ -500,9 +500,15 @@ by paper date:
    and fixed-positive-iteration particle-count limit. The raw-current-
    potential substitution remains explicitly stronger and unproved; and
 4. finish the optional breadth clients: standard dynamic-NUTS tree recursion,
-   ideal refinement of stepping-out slice sampling, unbounded-history
-   adaptation, and general-dimensional PDMP
+   ideal refinement of stepping-out slice sampling, indefinitely adapting
+   general-state diminishing-adaptation/containment, and general-dimensional PDMP
    stationarity/convergence.
+
+   The unbounded-history adaptive semantics now includes an exact finite-freeze
+   theorem: arbitrary history-dependent burn-in followed by a fixed kernel
+   inherits its homogeneous powers, two-sided Doeblin bounds, and setwise
+   convergence. The remaining adaptation milestone is specifically the
+   Roberts--Rosenthal regime where adaptation continues indefinitely.
 
    The general-dimensional BPS generator and its velocity-integrated
    transport-minus-normal-flux identity are now checked, including the
