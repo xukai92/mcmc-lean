@@ -102,9 +102,10 @@ actual mixture into an unconditional finite-variance estimator theorem whose
 expectation is this constructed limit. The standard-Gaussian target is now
 also normalized explicitly, proved invariant, and coupled to the Dirac-start
 chain with a geometric same-time meeting tail. This yields two-sided
-eventwise geometric convergence to the normalized target. Transporting that
-eventwise bound to arbitrary bounded-observable integrals is the remaining
-target-identification step.
+eventwise geometric convergence to the normalized target. A reusable
+coupling-integral inequality now transports the meeting bound to arbitrary
+bounded measurable observables, and the Gaussian client proves convergence
+to the corresponding normalized-target integral.
 
 The general-target endpoint is a composition theorem: regularity and local
 strong convexity establish local HMC accessibility, while a supplied
@@ -134,9 +135,10 @@ The following follow-on work remains outside the completed theorem surface:
 
 - target-specific drift certificates beyond the standard Gaussian and
   regularized-logistic families;
-- bounded-integral target identification from the completed Gaussian
-  eventwise convergence theorem, plus normalized-Boltzmann construction and
-  the analogous identification for regularized logistic regression;
+- packaging the Gaussian stationary-target convergence and lag-one estimator
+  tails with one shared selected mixture parameter, plus normalized-Boltzmann
+  construction and the analogous identification for regularized logistic
+  regression;
 - full floating-point refinement and reproduction of every reported paper
   experiment. The generated Julia coupling already implements shared-event
   HMC/RWMH mixture steps, checks exact-meeting faithfulness, and now exposes a

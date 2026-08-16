@@ -894,6 +894,52 @@ theorem exists_geometric_eventwise_convergence_standardQuadratic
   · simpa only [transition] using
       hright.trans (add_le_add_right htail' _)
 
+/-- Bounded-observable marginal expectations for the concrete point-started
+Gaussian mixture converge to the corresponding normalized Gaussian integral. -/
+theorem exists_tendsto_boundedExpectation_standardQuadratic_target
+    [Nonempty ι] (variance : NNReal) (hvariance : variance ≠ 0)
+    (q₀ : Position ι) (observable : Position ι → ℝ)
+    (hmeasurable : Measurable observable) {B : ℝ} (hB : 0 ≤ B)
+    (hbounded : ∀ q, ‖observable q‖ ≤ B) :
+    ∃ (gamma : Set.Ioo (0 : NNReal) 1) (C₀ contractionRate : ENNReal),
+      C₀ ≠ ⊤ ∧ contractionRate < 1 ∧
+      let transition := hmcRwmhMixture (xuTheorem41HmcWeight gamma)
+        standardQuadraticPotential standardQuadraticGradient
+        (Real.sqrt 2) 1
+        contDiff_standardQuadraticPotential.continuous.measurable
+        measurable_standardQuadraticGradient variance hvariance
+      Filter.Tendsto
+        (fun n => ∫ q, observable q
+          ∂Mcmc.Kernel.lawAtTime (Measure.dirac q₀) transition n)
+        Filter.atTop
+        (nhds (∫ q, observable q
+          ∂standardGaussianPositionMeasure (ι := ι))) := by
+  obtain ⟨gamma, C₀, contractionRate, hC₀, hrate, htail⟩ :=
+    exists_geometric_exactMeetingTail_standardQuadratic_to_stationary
+      variance hvariance q₀
+  refine ⟨gamma, C₀, contractionRate, hC₀, hrate, ?_⟩
+  dsimp only
+  let transition := hmcRwmhMixture (xuTheorem41HmcWeight gamma)
+    (standardQuadraticPotential : Position ι → ℝ)
+    standardQuadraticGradient (Real.sqrt 2) 1
+    contDiff_standardQuadraticPotential.continuous.measurable
+    measurable_standardQuadraticGradient variance hvariance
+  let coupled := stickyCoupledHmcRwmhMixture (xuTheorem41HmcWeight gamma)
+    (standardQuadraticPotential : Position ι → ℝ)
+    standardQuadraticGradient (Real.sqrt 2) 1
+    contDiff_standardQuadraticPotential.continuous.measurable
+    measurable_standardQuadraticGradient variance hvariance
+  apply Mcmc.Kernel.tendsto_lawAtTime_integral_of_invariant_geometricMeeting
+    ((Measure.dirac q₀).prod (standardGaussianPositionMeasure (ι := ι)))
+    (Measure.dirac q₀) (standardGaussianPositionMeasure (ι := ι))
+    transition coupled (isMeasureCoupling_prod _ _)
+    (stickyCoupledHmcRwmhMixture_isCoupling _ _ _ _ _ _ _ _ _)
+    (stickyCoupledHmcRwmhMixture_isFaithful _ _ _ _ _ _ _ _ _)
+    (hmcRwmhMixture_invariant_standardGaussian
+      (xuTheorem41HmcWeight gamma) (Real.sqrt 2) 1 variance hvariance)
+    observable hmeasurable hB hbounded C₀ contractionRate hC₀ hrate
+  simpa only [coupled] using htail
+
 /-- Concrete standard-Gaussian bounded-observable estimator endpoint. All
 algorithmic and meeting hypotheses are discharged; marginal expectation
 convergence from the selected Dirac start remains as an explicit implication. -/

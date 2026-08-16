@@ -7,6 +7,9 @@
   Boltzmann measure and target invariance, constructs a geometric coupling
   from a Dirac start to a stationary start, and proves two-sided eventwise
   geometric convergence.
+  A general bounded-observable coupling inequality now turns such a tail into
+  an explicit expectation bound and convergence theorem; the normalized
+  Gaussian client instantiates it for every bounded measurable observable.
 
 - Extracted the convergence consequence latent in the coupled-estimator
   argument: a faithful geometric exact-meeting tail forces every bounded

@@ -70,6 +70,54 @@ theorem snd_apply_le_fst_apply_add_compl_diagonal
     _ = μ s + ρ (Set.diagonal α)ᶜ := by
       rw [← h.fst, Measure.fst_apply hs]
 
+/-- Coupling inequality for bounded real observables. The expectation gap is
+controlled by twice the uniform bound times the off-diagonal probability. -/
+theorem norm_integral_sub_integral_le_compl_diagonal
+    [MeasurableEq α]
+    {ρ : Measure (α × α)} [IsProbabilityMeasure ρ]
+    {μ ν : Measure α} (hcoupling : IsMeasureCoupling ρ μ ν)
+    (f : α → ℝ) (hf : Measurable f) {B : ℝ}
+    (hbound : ∀ x, ‖f x‖ ≤ B) :
+    ‖(∫ x, f x ∂μ) - ∫ x, f x ∂ν‖ ≤
+      (2 * B) * ρ.real (Set.diagonal α)ᶜ := by
+  let event : Set (α × α) := (Set.diagonal α)ᶜ
+  have hevent : MeasurableSet event := measurableSet_diagonal.compl
+  have hfstInt : Integrable (fun z : α × α => f z.1) ρ := by
+    exact (MemLp.of_bound (hf.comp measurable_fst).aestronglyMeasurable B
+      (Filter.Eventually.of_forall fun z => hbound z.1) :
+        MemLp (fun z : α × α => f z.1) 1 ρ).integrable le_rfl
+  have hsndInt : Integrable (fun z : α × α => f z.2) ρ := by
+    exact (MemLp.of_bound (hf.comp measurable_snd).aestronglyMeasurable B
+      (Filter.Eventually.of_forall fun z => hbound z.2) :
+        MemLp (fun z : α × α => f z.2) 1 ρ).integrable le_rfl
+  have hfst : (∫ x, f x ∂μ) = ∫ z, f z.1 ∂ρ := by
+    rw [← hcoupling.fst]
+    exact integral_map measurable_fst.aemeasurable hf.aestronglyMeasurable
+  have hsnd : (∫ x, f x ∂ν) = ∫ z, f z.2 ∂ρ := by
+    rw [← hcoupling.snd]
+    exact integral_map measurable_snd.aemeasurable hf.aestronglyMeasurable
+  rw [hfst, hsnd, ← integral_sub hfstInt hsndInt]
+  have hrestrict : (∫ z, f z.1 - f z.2 ∂ρ) =
+      ∫ z, f z.1 - f z.2 ∂ρ.restrict event := by
+    rw [← integral_indicator hevent]
+    apply integral_congr_ae
+    filter_upwards with z
+    by_cases hz : z ∈ event
+    · simp [Set.indicator_of_mem hz]
+    · have heq : z.1 = z.2 := by
+        simpa [event, Set.mem_diagonal_iff] using hz
+      simp [Set.indicator_of_notMem hz, heq]
+  rw [hrestrict]
+  have hnorm : ∀ᵐ z ∂ρ.restrict event, ‖f z.1 - f z.2‖ ≤ 2 * B := by
+    filter_upwards with z
+    exact (norm_sub_le (f z.1) (f z.2)).trans
+      ((add_le_add (hbound z.1) (hbound z.2)).trans_eq (by ring))
+  calc
+    _ ≤ (2 * B) * (ρ.restrict event).real Set.univ :=
+      norm_integral_le_of_norm_le_const hnorm
+    _ = (2 * B) * ρ.real (Set.diagonal α)ᶜ := by
+      simp [event, Measure.real]
+
 end IsMeasureCoupling
 
 namespace Kernel
@@ -119,6 +167,112 @@ theorem lawAtTime_right_apply_le_left_add_exactMeetingTail
   rw [← offDiagonalMassAtTime_eq_exactMeetingTail_pathLaw_of_faithful
     initialCoupling coupled hfaithful n]
   exact hcoupling
+
+/-- Bounded-observable version of the faithful path-law coupling bound. -/
+theorem norm_lawAtTime_integral_sub_le_exactMeetingTail
+    [MeasurableEq α]
+    (initialCoupling : Measure (α × α)) [IsProbabilityMeasure initialCoupling]
+    (leftInitial rightInitial : Measure α)
+    (transition : Kernel α α) [IsMarkovKernel transition]
+    (coupled : Kernel (α × α) (α × α)) [IsMarkovKernel coupled]
+    (hinitial : IsMeasureCoupling initialCoupling leftInitial rightInitial)
+    (hcoupled : IsCoupling coupled transition transition)
+    (hfaithful : IsFaithful coupled) (f : α → ℝ) (hf : Measurable f)
+    {B : ℝ} (hbound : ∀ x, ‖f x‖ ≤ B) (n : ℕ) :
+    ‖(∫ x, f x ∂lawAtTime leftInitial transition n) -
+        ∫ x, f x ∂lawAtTime rightInitial transition n‖ ≤
+      (2 * B) *
+        (exactMeetingTail (pathLaw initialCoupling coupled) n).toReal := by
+  have hmarginals := lawAtTime_isMeasureCoupling initialCoupling
+    leftInitial rightInitial coupled transition transition hinitial hcoupled n
+  have hbound' := hmarginals.norm_integral_sub_integral_le_compl_diagonal
+    f hf hbound
+  change ‖(∫ x, f x ∂lawAtTime leftInitial transition n) -
+      ∫ x, f x ∂lawAtTime rightInitial transition n‖ ≤
+    (2 * B) * (offDiagonalMassAtTime initialCoupling coupled n).toReal
+    at hbound'
+  rw [offDiagonalMassAtTime_eq_exactMeetingTail_pathLaw_of_faithful
+    initialCoupling coupled hfaithful n] at hbound'
+  exact hbound'
+
+/-- Stationary-target specialization of the bounded-observable coupling
+bound. -/
+theorem norm_lawAtTime_integral_sub_invariant_le_exactMeetingTail
+    [MeasurableEq α]
+    (initialCoupling : Measure (α × α)) [IsProbabilityMeasure initialCoupling]
+    (leftInitial target : Measure α)
+    (transition : Kernel α α) [IsMarkovKernel transition]
+    (coupled : Kernel (α × α) (α × α)) [IsMarkovKernel coupled]
+    (hinitial : IsMeasureCoupling initialCoupling leftInitial target)
+    (hcoupled : IsCoupling coupled transition transition)
+    (hfaithful : IsFaithful coupled) (hinvariant : transition.Invariant target)
+    (f : α → ℝ) (hf : Measurable f) {B : ℝ}
+    (hbound : ∀ x, ‖f x‖ ≤ B) (n : ℕ) :
+    ‖(∫ x, f x ∂lawAtTime leftInitial transition n) -
+        ∫ x, f x ∂target‖ ≤
+      (2 * B) *
+        (exactMeetingTail (pathLaw initialCoupling coupled) n).toReal := by
+  simpa only [lawAtTime_eq_of_invariant target transition hinvariant n] using
+    norm_lawAtTime_integral_sub_le_exactMeetingTail initialCoupling leftInitial
+      target transition coupled hinitial hcoupled hfaithful f hf hbound n
+
+/-- A geometric faithful meeting tail gives convergence of every bounded
+observable expectation to its stationary-target expectation. -/
+theorem tendsto_lawAtTime_integral_of_invariant_geometricMeeting
+    [MeasurableEq α]
+    (initialCoupling : Measure (α × α)) [IsProbabilityMeasure initialCoupling]
+    (leftInitial target : Measure α)
+    (transition : Kernel α α) [IsMarkovKernel transition]
+    (coupled : Kernel (α × α) (α × α)) [IsMarkovKernel coupled]
+    (hinitial : IsMeasureCoupling initialCoupling leftInitial target)
+    (hcoupled : IsCoupling coupled transition transition)
+    (hfaithful : IsFaithful coupled) (hinvariant : transition.Invariant target)
+    (f : α → ℝ) (hf : Measurable f) {B : ℝ} (hB : 0 ≤ B)
+    (hbound : ∀ x, ‖f x‖ ≤ B) (C rate : ENNReal)
+    (hC : C ≠ ⊤) (hrate : rate < 1)
+    (htail : ∀ n, exactMeetingTail (pathLaw initialCoupling coupled) n ≤
+      C * rate ^ n) :
+    Filter.Tendsto
+      (fun n => ∫ x, f x ∂lawAtTime leftInitial transition n)
+      Filter.atTop (nhds (∫ x, f x ∂target)) := by
+  rw [tendsto_iff_norm_sub_tendsto_zero]
+  have hrateTop : rate ≠ ⊤ :=
+    ne_top_of_le_ne_top ENNReal.one_ne_top hrate.le
+  have hrateReal : rate.toReal < 1 := by
+    rw [← ENNReal.toReal_one,
+      ENNReal.toReal_lt_toReal hrateTop ENNReal.one_ne_top]
+    exact hrate
+  have hpoint (n : ℕ) :
+      ‖(∫ x, f x ∂lawAtTime leftInitial transition n) -
+          ∫ x, f x ∂target‖ ≤
+        (2 * B * C.toReal) * rate.toReal ^ n := by
+    have hcoupling :=
+      norm_lawAtTime_integral_sub_invariant_le_exactMeetingTail
+        initialCoupling leftInitial target transition coupled hinitial hcoupled
+        hfaithful hinvariant f hf hbound n
+    have hrhsTop : C * rate ^ n ≠ ⊤ :=
+      ENNReal.mul_ne_top hC (ENNReal.pow_ne_top hrateTop)
+    have htailTop : exactMeetingTail
+        (pathLaw initialCoupling coupled) n ≠ ⊤ :=
+      ne_top_of_le_ne_top hrhsTop (htail n)
+    have hreal : (exactMeetingTail
+        (pathLaw initialCoupling coupled) n).toReal ≤
+        (C * rate ^ n).toReal :=
+      (ENNReal.toReal_le_toReal htailTop hrhsTop).2 (htail n)
+    calc
+      _ ≤ (2 * B) *
+          (exactMeetingTail (pathLaw initialCoupling coupled) n).toReal :=
+        hcoupling
+      _ ≤ (2 * B) * (C * rate ^ n).toReal := by
+        gcongr
+      _ = (2 * B * C.toReal) * rate.toReal ^ n := by
+        rw [ENNReal.toReal_mul, ENNReal.toReal_pow]
+        ring
+  apply squeeze_zero' (Filter.Eventually.of_forall fun _ => norm_nonneg _)
+    (Filter.Eventually.of_forall hpoint)
+  simpa only [mul_zero] using
+    (tendsto_pow_atTop_nhds_zero_of_lt_one ENNReal.toReal_nonneg hrateReal).const_mul
+      (2 * B * C.toReal)
 
 /-- If the right marginal starts stationary, the coupling tail directly
 controls eventwise convergence of the left chain. -/
