@@ -5,10 +5,11 @@
   finite[&quot;Finite probability and transport&quot;]
   smc[&quot;Finite Feynman--Kac and explicit SMC histories&quot;]
   pmcmc[&quot;PIMH, PMMH, conditional SMC, and particle Gibbs&quot;]
-  pgRate[&quot;Zero-horizon PG exact N-dependent rate&quot;]
+  pgRate[&quot;Positive-horizon PG convergence and count-indexed rates&quot;]
   trace[&quot;Finite assume/observe posterior semantics&quot;]
   composable[&quot;Scoped composable inference operators&quot;]
   ge18[&quot;Ge et al. 2018 Turing core&quot;]
+  transform[&quot;Constrained-coordinate measure equivalences&quot;]
   mh[&quot;General-state Metropolis--Hastings&quot;]
   rwmh[&quot;Gaussian RWMH and coupling&quot;]
   dynamics[&quot;Hamiltonian dynamics and leapfrog&quot;]
@@ -23,7 +24,7 @@
   finite --&gt;|trajectory-index laws| hmc
   finite --&gt; smc
   smc --&gt;|selected-path extended target| pmcmc
-  pmcmc --&gt;|zero-horizon specialization| pgRate
+  pmcmc --&gt;|full support or explicit minorization| pgRate
   finite --&gt;|normalized factor semantics| trace
   trace --&gt;|common posterior target| composable
   pmcmc --&gt;|PG component| composable
@@ -32,6 +33,8 @@
   kernel --&gt; hmc
   hmc --&gt;|HMC component| composable
   composable --&gt;|scheduled stationarity| ge18
+  kernel --&gt;|kernel conjugation| transform
+  transform --&gt;|positive-real runtime convention| ge18
   rwmh --&gt; meeting
   hmc --&gt; meeting
   meeting --&gt; xu21
@@ -42,13 +45,17 @@
   relativistic --&gt; xu24</code></pre><p>Arrows show definition or theorem dependencies. The finite layer remains useful inside general-state HMC because trajectory-index selection is finite.</p><h2 id="Executable-assurance-graph"><a class="docs-heading-anchor" href="#Executable-assurance-graph">Executable assurance graph</a><a id="Executable-assurance-graph-1"></a><a class="docs-heading-anchor-permalink" href="#Executable-assurance-graph" title="Permalink"></a></h2><pre><code class="language-mermaid hljs">flowchart LR
   ideal[&quot;Ideal real-valued sampler semantics&quot;]
   typed[&quot;Typed sampler IR in Lean&quot;]
+  oracle[&quot;Exact Lean IR interpreter oracle&quot;]
   serialized[&quot;Versioned serialized IR&quot;]
   reference[&quot;Julia Reference interpreter&quot;]
   optimized[&quot;Julia Optimized implementation&quot;]
+  bounds[&quot;Backend-independent error and margin certificates&quot;]
   float[&quot;Floating-point execution&quot;]
   ideal --&gt;|proved refinement| typed
+  typed --&gt;|exact interpreter theorem| oracle
   typed --&gt;|Lean generator| serialized
   serialized --&gt;|direct interpretation| reference
   reference --&gt;|differential tests| optimized
-  ideal -.-&gt;|numerical refinement| float
-  optimized --&gt;|executes as| float</code></pre><p>Solid arrows are implemented generation, proved refinement, or tested conformance links as labeled. The dashed numerical-refinement arrow is an explicit deferred proof obligation, not a theorem.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../architecture/">« Formalization</a><a class="docs-footer-nextpage" href="../../executable-architecture/">Executable system »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Saturday 15 August 2026 17:36">Saturday 15 August 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+  ideal --&gt;|proved bounded refinement| bounds
+  bounds -.-&gt;|platform-local operation bounds| float
+  optimized --&gt;|executes as| float</code></pre><p>Solid arrows are implemented generation, proved refinement, or tested conformance links as labeled. The exact Lean interpreter satisfies its refinement contract. The dashed arrow isolates the remaining platform-specific libm, rounding, and RNG evidence needed to instantiate the proved bounded certificates for Float64.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../architecture/">« Formalization</a><a class="docs-footer-nextpage" href="../../executable-architecture/">Executable system »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Sunday 16 August 2026 15:35">Sunday 16 August 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
