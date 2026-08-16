@@ -774,7 +774,12 @@ the paper's meeting-time result; it does not follow from local strong
 convexity alone. For the separate one-dimensional Gaussian SoftAbs GR-HMC
 validation target at `ε = 1`, `L = 1`, the exponential affine drift
 certificate is now proved for the actual bare multinomial kernel. Its pending
-bare-kernel convergence input is a local accessibility/minorization theorem.
+local accessibility input is now also closed: a positive finite-step skeleton
+minorizes normalized central Lebesgue measure on every bounded band and has a
+faithful exact-meeting coupling there. The remaining bare-convergence
+obligation is the explicit simultaneous band/paired-threshold choice required
+to absorb the skeleton drift allowance while keeping its Lyapunov sublevel
+inside that minorized band.
 Higher-dimensional or non-Gaussian validated instances must still provide
 their own target-specific drift analysis.
 

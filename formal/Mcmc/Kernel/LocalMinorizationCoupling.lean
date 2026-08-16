@@ -204,6 +204,56 @@ theorem locallyMinorizes_normalizedRestriction_of_densityFloor
     ENNReal.mul_inv_cancel hApos.ne' hAtop, mul_one]
   exact hfloor x hx s hs
 
+/-- A positive ENNReal local-minorization coefficient can be shrunk to a
+strictly interior NNReal mixture coefficient, as required by residual
+coupling constructions. -/
+theorem LocallyMinorizes.exists_pos_nnreal_coefficient
+    (transition : Kernel α α) [IsMarkovKernel transition] (D : Set α)
+    (reference : Measure α) [IsProbabilityMeasure reference]
+    {coefficient : ENNReal} (hcoefficient : 0 < coefficient)
+    (hDne : D.Nonempty)
+    (hlocal : LocallyMinorizes transition D coefficient reference) :
+    ∃ p : Set.Icc (0 : NNReal) 1,
+      0 < p.1 ∧ p.1 < 1 ∧
+      LocallyMinorizes transition D (p.1 : ENNReal) reference := by
+  obtain ⟨x, hx⟩ := hDne
+  have hleOne : coefficient ≤ 1 := by
+    have h := hlocal x hx Set.univ MeasurableSet.univ
+    simpa using h
+  have htop : coefficient ≠ ∞ := ne_top_of_le_ne_top ENNReal.one_ne_top hleOne
+  let pval : NNReal := coefficient.toNNReal / 2
+  have hpvalPos : 0 < pval := by
+    dsimp [pval]
+    exact div_pos (ENNReal.toNNReal_pos hcoefficient.ne' htop) (by norm_num)
+  have hpvalLt : pval < 1 := by
+    have hcoe : coefficient.toNNReal ≤ 1 := by
+      exact (ENNReal.toNNReal_le_toNNReal htop ENNReal.one_ne_top).2 hleOne
+    dsimp [pval]
+    calc
+      coefficient.toNNReal / 2 ≤ 1 / 2 := by gcongr
+      _ < 1 := by norm_num
+  let p : Set.Icc (0 : NNReal) 1 :=
+    ⟨pval, hpvalPos.le, hpvalLt.le⟩
+  refine ⟨p, hpvalPos, hpvalLt, ?_⟩
+  intro y hy s hs
+  have hpLe : ((p.1 : NNReal) : ENNReal) ≤ coefficient := by
+    change ((coefficient.toNNReal / 2 : NNReal) : ENNReal) ≤ coefficient
+    have hpvalLe : coefficient.toNNReal / 2 ≤ coefficient.toNNReal := by
+      calc
+        coefficient.toNNReal / 2 ≤ coefficient.toNNReal / 1 := by
+          gcongr
+          norm_num
+        _ = coefficient.toNNReal := div_one _
+    calc
+      ((coefficient.toNNReal / 2 : NNReal) : ENNReal) ≤
+          (coefficient.toNNReal : ENNReal) := by
+        exact_mod_cast hpvalLe
+      _ ≤ coefficient := ENNReal.coe_toNNReal_le_self
+  calc
+    (p.1 : ENNReal) * reference s ≤ coefficient * reference s := by
+      gcongr
+    _ ≤ transition y s := hlocal y hy s hs
+
 section OneDimensionalChangeOfVariables
 
 /-- A source density floor and an upper Jacobian bound imply an output

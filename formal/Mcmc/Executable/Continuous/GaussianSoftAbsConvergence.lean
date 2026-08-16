@@ -977,6 +977,43 @@ theorem measurable_gaussianSoftAbsExpLyapunov (t : ℝ) :
   unfold gaussianSoftAbsExpLyapunov gaussianSoftAbsExpWeight
   fun_prop
 
+/-- An exponential Lyapunov bound by its value at a nonnegative radius forces
+the coordinate into that radius. -/
+theorem abs_coordinate_le_of_gaussianSoftAbsExpLyapunov_le
+    (t : ℝ) (ht : 0 < t) (Q : ℝ) (hQ : 0 ≤ Q)
+    (q : Position Unit)
+    (hV : gaussianSoftAbsExpLyapunov t q ≤
+      gaussianSoftAbsExpWeight t Q) :
+    |q Unit.unit| ≤ Q := by
+  unfold gaussianSoftAbsExpLyapunov gaussianSoftAbsExpWeight at hV
+  rw [ENNReal.ofReal_le_ofReal_iff (Real.exp_nonneg _)] at hV
+  have hexp : Real.exp (t * |q Unit.unit|) ≤ Real.exp (t * |Q|) := by
+    exact hV
+  rw [Real.exp_le_exp] at hexp
+  rw [abs_of_nonneg hQ] at hexp
+  nlinarith
+
+/-- A paired additive Lyapunov sublevel contained below the exponential value
+at `Q` lies inside the product coordinate box `[-Q,Q]²`. -/
+theorem pairedAdd_sublevel_subset_gaussianSoftAbs_box
+    (t : ℝ) (ht : 0 < t) (Q : ℝ) (hQ : 0 ≤ Q)
+    (threshold : ENNReal)
+    (hthreshold : threshold ≤ gaussianSoftAbsExpWeight t Q) :
+    Mcmc.Kernel.lyapunovSublevel
+        (IsCoupling.pairedAdd (gaussianSoftAbsExpLyapunov t)) threshold ⊆
+      ({q : Position Unit | q Unit.unit ∈ Set.Icc (-Q) Q} ×ˢ
+        {q : Position Unit | q Unit.unit ∈ Set.Icc (-Q) Q}) := by
+  intro z hz
+  have hleft : gaussianSoftAbsExpLyapunov t z.1 ≤ threshold :=
+    le_trans (le_add_right le_rfl) hz
+  have hright : gaussianSoftAbsExpLyapunov t z.2 ≤ threshold :=
+    le_trans (le_add_left le_rfl) hz
+  have hleftQ := abs_coordinate_le_of_gaussianSoftAbsExpLyapunov_le
+    t ht Q hQ z.1 (hleft.trans hthreshold)
+  have hrightQ := abs_coordinate_le_of_gaussianSoftAbsExpLyapunov_le
+    t ht Q hQ z.2 (hright.trans hthreshold)
+  exact ⟨abs_le.mp hleftQ, abs_le.mp hrightQ⟩
+
 /-- Bound a nonnegative expectation by splitting into a favorable event, the
 remainder of a containing event, and its complement. -/
 theorem lintegral_le_of_nested_event_bounds
@@ -2269,6 +2306,109 @@ theorem exists_gaussianSoftAbs_power_drift_and_minorization
     hallowanceTop, hεPos, ?_, hminor⟩
   exact Mcmc.Kernel.HasAffineDrift.pow
     (gaussianSoftAbsMultinomialTransition 1 1) hbaseDrift steps
+
+/-- The minorized SoftAbs skeleton admits an explicit Markovian faithful
+self-coupling with a strictly positive exact-meeting probability whenever
+both coordinates lie in the chosen bounded band. -/
+theorem exists_gaussianSoftAbs_faithful_power_coupling_on_box
+    (t : ℝ) (ht : 0 < t) (Q : ℝ) (hQ : 0 ≤ Q) :
+    ∃ steps : ℕ, 0 < steps ∧ ∃ rate allowance : ENNReal,
+      rate < 1 ∧ rate ≠ ∞ ∧ allowance ≠ ∞ ∧
+      ∃ p : Set.Icc (0 : NNReal) 1, 0 < p.1 ∧ p.1 < 1 ∧
+      ∃ coupled : Kernel (Position Unit × Position Unit)
+          (Position Unit × Position Unit),
+        IsMarkovKernel coupled ∧
+        IsCoupling coupled
+          (gaussianSoftAbsMultinomialTransition 1 1 ^ steps)
+          (gaussianSoftAbsMultinomialTransition 1 1 ^ steps) ∧
+        IsFaithful coupled ∧
+        IsExactMeetingSmallSet coupled
+          ({q : Position Unit | q Unit.unit ∈ Set.Icc (-Q) Q} ×ˢ
+            {q : Position Unit | q Unit.unit ∈ Set.Icc (-Q) Q}) p.1 ∧
+        Mcmc.Kernel.HasAffineDrift
+          (gaussianSoftAbsMultinomialTransition 1 1 ^ steps)
+          (gaussianSoftAbsExpLyapunov t) rate allowance := by
+  obtain ⟨steps, hsteps, rate, allowance, ε, hrate, hrateTop,
+    hallowanceTop, hεPos, hdrift, hminor⟩ :=
+    exists_gaussianSoftAbs_power_drift_and_minorization t ht Q hQ
+  let D : Set (Position Unit) :=
+    {q | q Unit.unit ∈ Set.Icc (-Q) Q}
+  let reference := Mcmc.Kernel.normalizedRestriction
+    gaussianSoftAbsUnitPositionLebesgue gaussianSoftAbsCentralPositionSet
+  have hD : MeasurableSet D :=
+    isClosed_Icc.measurableSet.preimage (measurable_pi_apply Unit.unit)
+  have hDne : D.Nonempty := by
+    refine ⟨(0 : Position Unit), ?_⟩
+    change (0 : ℝ) ∈ Set.Icc (-Q) Q
+    simp [hQ]
+  letI : IsProbabilityMeasure reference :=
+    Mcmc.Kernel.normalizedRestriction_isProbabilityMeasure
+      gaussianSoftAbsUnitPositionLebesgue
+      gaussianSoftAbsUnitPositionLebesgue_central_pos
+      gaussianSoftAbsUnitPositionLebesgue_central_ne_top
+  obtain ⟨p, hpPos, hpLt, hpMinor⟩ :=
+    Mcmc.Kernel.LocallyMinorizes.exists_pos_nnreal_coefficient
+      (gaussianSoftAbsMultinomialTransition 1 1 ^ steps) D reference
+      hεPos hDne hminor
+  let coupled := Mcmc.Kernel.faithfulLocalMinorizationCoupling
+    (gaussianSoftAbsMultinomialTransition 1 1 ^ steps)
+    D hD reference p hpLt hpMinor
+  have hcoupled : IsCoupling coupled
+      (gaussianSoftAbsMultinomialTransition 1 1 ^ steps)
+      (gaussianSoftAbsMultinomialTransition 1 1 ^ steps) :=
+    Mcmc.Kernel.faithfulLocalMinorizationCoupling_isCoupling
+      _ D hD reference p hpLt hpMinor
+  have hfaithful : IsFaithful coupled :=
+    Mcmc.Kernel.faithfulLocalMinorizationCoupling_isFaithful
+      _ D hD reference p hpLt hpMinor
+  have hmeeting : IsExactMeetingSmallSet coupled (D ×ˢ D) p.1 :=
+    Mcmc.Kernel.faithfulLocalMinorizationCoupling_isExactMeetingSmallSet
+      _ D hD reference p hpLt hpMinor
+  refine ⟨steps, hsteps, rate, allowance, hrate, hrateTop,
+    hallowanceTop, p, hpPos, hpLt, coupled, inferInstance, hcoupled,
+    hfaithful, ?_, hdrift⟩
+  exact hmeeting
+
+/-- A bounded-box faithful coupling becomes a full meeting-drift certificate
+once the chosen paired Lyapunov sublevel fits inside that box and satisfies
+the usual affine-drift absorption inequality. -/
+theorem gaussianSoftAbs_power_geometricDrift_and_meeting_of_box
+    (t : ℝ) (ht : 0 < t) (Q : ℝ) (hQ : 0 ≤ Q)
+    (steps : ℕ) (rate allowance : ENNReal)
+    (coupled : Kernel (Position Unit × Position Unit)
+      (Position Unit × Position Unit))
+    (hcoupled : IsCoupling coupled
+      (gaussianSoftAbsMultinomialTransition 1 1 ^ steps)
+      (gaussianSoftAbsMultinomialTransition 1 1 ^ steps))
+    (hdrift : Mcmc.Kernel.HasAffineDrift
+      (gaussianSoftAbsMultinomialTransition 1 1 ^ steps)
+      (gaussianSoftAbsExpLyapunov t) rate allowance)
+    (meetingBound : ENNReal)
+    (hmeeting : IsExactMeetingSmallSet coupled
+      ({q : Position Unit | q Unit.unit ∈ Set.Icc (-Q) Q} ×ˢ
+        {q : Position Unit | q Unit.unit ∈ Set.Icc (-Q) Q}) meetingBound)
+    (pairedRate threshold : ENNReal)
+    (hrates : rate ≤ pairedRate)
+    (habsorb : rate * threshold + (allowance + allowance) ≤
+      pairedRate * threshold)
+    (hthreshold : threshold ≤ gaussianSoftAbsExpWeight t Q) :
+    Mcmc.Kernel.HasGeometricDrift coupled
+        (IsCoupling.pairedAdd (gaussianSoftAbsExpLyapunov t))
+        (Mcmc.Kernel.lyapunovSublevel
+          (IsCoupling.pairedAdd (gaussianSoftAbsExpLyapunov t)) threshold)
+        pairedRate (allowance + allowance) ∧
+      IsExactMeetingSmallSet coupled
+        (Mcmc.Kernel.lyapunovSublevel
+          (IsCoupling.pairedAdd (gaussianSoftAbsExpLyapunov t)) threshold)
+        meetingBound := by
+  constructor
+  · exact hdrift.coupling_pairedAdd_sublevel
+      (gaussianSoftAbsMultinomialTransition 1 1 ^ steps)
+      coupled hcoupled hrates habsorb
+  · intro z hz
+    exact hmeeting z
+      (pairedAdd_sublevel_subset_gaussianSoftAbs_box
+        t ht Q hQ threshold hthreshold hz)
 
 /-- A positive exponential scale admits one fixed strict drift rate beyond a
 finite positive-tail threshold. -/

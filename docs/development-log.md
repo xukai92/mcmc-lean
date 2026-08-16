@@ -1,5 +1,22 @@
 # Development log
 
+- Completed the compact-minorization and faithful-coupling foundation for the
+  actual bare one-dimensional Gaussian SoftAbs multinomial kernel at
+  `ε = 1`, `L = 1`. The refreshed scalar momentum law is proved to have a
+  continuous positive Lebesgue density; compact energy-error control gives a
+  uniform positive multinomial selected-index floor; and the actual moved
+  branch has a certified Jacobian density bound. Evenly spaced finite
+  corridors then give a positive skeleton power that locally minorizes one
+  normalized central Lebesgue restriction on every bounded coordinate band.
+  Affine drift is lifted to the same skeleton with an explicit accumulated
+  allowance, and Lean constructs a Markovian faithful residual coupling with
+  positive exact-meeting mass on the product band. The paired exponential
+  Lyapunov sublevel is proved to lie in that band whenever its threshold is
+  below the exponential weight at the band radius. The remaining bare-chain
+  convergence assembly is the explicit simultaneous choice of band,
+  absorption threshold, and paired drift rate; no bare convergence theorem is
+  claimed before that parameter inequality is discharged.
+
 - Established the one-dimensional Jacobian foundation for the Gaussian
   SoftAbs moved branch. The exact scalar relativistic velocity derivative is
   proved positive everywhere and uniformly bounded above by the reciprocal
@@ -8,9 +25,8 @@
   embeddings. Mathlib's one-dimensional change-of-variables theorem then
   yields a uniform Lebesgue-volume image bound, and the moved map is proved
   equal to the actual forward generalized-leapfrog candidate coordinate.
-  This supplies the deterministic Jacobian half of the pending compact
-  transition-density minorization; refreshed-momentum and multinomial-index
-  density floors remain to be combined with it.
+  This supplies the deterministic Jacobian half of the compact
+  transition-density minorization completed above.
 
 - Added the reusable local-minorization coupling bridge. A minorization that
   holds only on a measurable set is globalized by replacing irrelevant rows,

@@ -150,8 +150,15 @@ velocity bound and are not represented as Lean theorems.
 Likewise, the introductory statement that MCMC samples converge
 asymptotically is not established by detailed balance or invariance alone.
 No irreducibility, aperiodicity, recurrence, or quantitative convergence
-conditions for bare GR-HMC are stated in the paper, so this development makes
-no convergence claim for the unaugmented paper kernel. The separate
+conditions for bare GR-HMC are stated in the paper, so invariance alone is not
+reported as convergence. For the concrete one-dimensional Gaussian SoftAbs
+client, Lean now additionally proves strict exponential affine drift, a
+finite-step compact minorization by normalized central Lebesgue measure, and a
+faithful skeleton coupling with positive exact-meeting mass. It also proves
+the exact sublevel-to-box condition needed by the meeting-drift layer. The
+last bare-chain obligation is the simultaneous parameter choice satisfying
+the paired drift-allowance absorption and box-containment inequalities; bare
+convergence is not claimed until that obligation is closed. The separate
 `GaussianSoftAbsConvergence` client adds an explicit independent normalized-
 target refresh to the proved Gaussian SoftAbs multinomial transition. Lean
 proves the concrete Gaussian target has finite, nonzero mass, then proves
