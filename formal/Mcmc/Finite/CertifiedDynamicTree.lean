@@ -204,6 +204,40 @@ theorem stoppedDoublingKernel_stationary
       htarget).Stationary target :=
   (stoppedDoublingTree maxDepth).kernel_stationary target htarget
 
+/-! ### Root-dependent stopping obstruction -/
+
+/-- Minimal root-dependent first-stop pattern: the left root admits both
+leaves, while rerooting at the right leaf exposes only itself. This is the
+finite structural failure that a U-turn recursion must rule out or send to the
+checked identity fallback. -/
+def asymmetricFirstStopCandidates : Fin 2 → Finset (Fin 2)
+  | ⟨0, _⟩ => Finset.univ
+  | ⟨1, _⟩ => {⟨1, by omega⟩}
+
+@[simp] theorem check_asymmetricFirstStopCandidates :
+    CertifiedDynamicTree.check asymmetricFirstStopCandidates = false := by
+  native_decide
+
+/-- Consequently there is no proof-bearing certified tree whose rows are the
+naive asymmetric first-stop rows. This rules out an unconditional theorem
+that root retention alone makes a stopped dynamic trajectory reroot safe. -/
+theorem not_checks_asymmetricFirstStopCandidates :
+    ¬ CertifiedDynamicTree.Checks asymmetricFirstStopCandidates := by
+  intro hchecks
+  have htrue : CertifiedDynamicTree.check asymmetricFirstStopCandidates = true :=
+    (CertifiedDynamicTree.check_eq_true_iff _).2 hchecks
+  simp at htrue
+
+/-- The total safety wrapper makes the obstruction an exact no-move kernel,
+not an unchecked dynamic transition. -/
+theorem asymmetricFirstStop_checkedOrIdentity_eq_identity
+    (target : Distribution (Fin 2))
+    (htarget : ∀ state, 0 < target.mass state) :
+    CertifiedDynamicTree.checkedOrIdentityKernel target
+      asymmetricFirstStopCandidates htarget = identity := by
+  rw [CertifiedDynamicTree.checkedOrIdentityKernel]
+  simp
+
 /-- Canonical component label on a finite trajectory: the number of declared
 barrier edges strictly before the state. -/
 def lineBarrierLabel (barriers : List Bool)

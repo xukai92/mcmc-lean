@@ -1,5 +1,13 @@
 # Development log
 
+- Formalized the minimal obstruction to unconditional first-stop dynamic-NUTS
+  certification. On two leaves, the root-dependent rows `{0,1}` and `{1}`
+  retain both roots but fail the executable reroot checker; Lean proves that
+  they do not satisfy `CertifiedDynamicTree.Checks` and that the total checked
+  wrapper is exactly the identity kernel. This pins the remaining production
+  NUTS task to proving that its recursive subtree rules exclude asymmetric
+  completed rows, rather than trying to derive safety from stopping alone.
+
 - Proved the guarded trace-totalization rule required by finite practical
   slice implementations. A measurable successful transform that preserves the
   augmented state/trace law restricted to its success set may be extended by

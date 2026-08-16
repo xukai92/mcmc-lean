@@ -356,7 +356,12 @@ breadth branches are:
   the identity fallback boundary. Proving equivalence to the ordinary
   randomized standard-NUTS recursion—and therefore that its completed rows
   pass the certificate rather than merely being checked—remains the
-  standard-NUTS-specific gap;
+  standard-NUTS-specific gap. Lean now also contains the minimal two-leaf
+  obstruction: root retention with rows `{0,1}` and `{1}` fails the executable
+  reroot checker, cannot inhabit the certified-tree interface, and reduces
+  exactly to the identity kernel under the total wrapper. Thus an
+  unconditional theorem for naive root-dependent first stopping is false; a
+  production recursion must prove that it excludes this pattern;
 - stepping-out/shrinkage beyond the exact disintegration, finite integer slice,
   and bounded-interval continuous rejection implementation. A practical
   Reference/Optimized real-line stepping-out sampler is now tested; its

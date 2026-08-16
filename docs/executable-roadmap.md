@@ -10,7 +10,10 @@ Root-independent endpoint and all-scales barriers construct certified orbit
 partitions directly. `first_stop_endpoint_uturn_candidates` instead builds
 root-dependent first-stop rows and runs the reroot checker; its result is
 theorem-backed only when `certificate.valid` is true. Equivalence with a
-specific recursive production NUTS tree builder remains open. The conservative
+specific recursive production NUTS tree builder remains open. A checked Lean
+two-leaf counterexample now proves why this cannot follow from root retention
+or first stopping alone: asymmetric rows fail reroot equality and the safe
+wrapper becomes identity. The conservative
 branch is now a public sampler: `CertifiedDynamicHMC` builds a complete
 randomized-origin leapfrog orbit, applies the certified all-scales partition,
 and uses a stable floating Boltzmann selector with Reference/Optimized trace
