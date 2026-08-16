@@ -32,6 +32,12 @@
     failed_source = Runtime.TraceSource(Int[])
     @test safe_dynamic_select!(failed_source, asymmetric_reroot, [1, 1], 1) == 1
     @test Runtime.remaining(failed_source) == 0
+    @test_throws DimensionMismatch safe_dynamic_select!(Runtime.TraceSource(Int[]),
+        asymmetric_reroot, [1], 1)
+    @test_throws ArgumentError safe_dynamic_select!(Runtime.TraceSource(Int[]),
+        asymmetric_reroot, [1, 0], 1)
+    @test_throws BoundsError safe_dynamic_select!(Runtime.TraceSource(Int[]),
+        asymmetric_reroot, [1, 1], 3)
     @test safe_dynamic_select!(Runtime.TraceSource([3]), weighted,
         [1, 3, 2], 1) == 2
     @test_throws DimensionMismatch certified_dynamic_select!(

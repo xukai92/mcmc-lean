@@ -1490,6 +1490,12 @@ certified_dynamic_select(certificate::DynamicTreeCertificate,
 function safe_dynamic_select!(source::Runtime.AbstractRandomSource,
         certificate::DynamicTreeCertificate,
         target_weights::AbstractVector{<:Integer}, current::Integer)
+    count = length(certificate.candidates)
+    length(target_weights) == count || throw(DimensionMismatch(
+        "target weights must match the dynamic-tree state count"))
+    1 <= current <= count || throw(BoundsError(certificate.candidates, current))
+    all(>(0), target_weights) || throw(ArgumentError(
+        "dynamic-tree target weights must be strictly positive"))
     certificate.valid || return Int(current)
     certified_dynamic_select!(source, certificate, target_weights, current)
 end
