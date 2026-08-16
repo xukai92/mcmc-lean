@@ -2090,6 +2090,14 @@ artifact reproducibility and descriptor fields are tested.  The handwritten
 runtime therefore consumes a convention that is versioned at the Lean
 boundary rather than duplicating undocumented metadata.
 
+Extended the general-state PG--HMC client to a genuinely multivariate mixed
+state. A two-dimensional Gaussian position is deterministically augmented by
+its four-valued quadrant, standard-Borel disintegration supplies the exact
+Gaussian-quadrant reverse conditional, and the resulting two-block auxiliary
+update is composed with the actual two-dimensional Gaussian SoftAbs
+multinomial GR-HMC transition. Lean proves invariance of the normalized
+continuous target for the complete schedule.
+
 ## 2026-08-16: normalized particle-error recursion
 
 Added the deterministic nonlinear bridge needed beyond the exact one-step

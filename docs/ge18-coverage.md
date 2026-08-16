@@ -93,13 +93,14 @@ metadata.
 
 ## Remaining milestones
 
-1. Extend the concrete model library beyond the completed dependent sign-region
-   client. `Examples.GeneralStatePgHmc` deterministically augments a Gaussian
-   position by its Boolean sign region, constructs the reverse half-line
-   conditional by standard-Borel disintegration, and composes that exact
-   two-block update with the actual Gaussian SoftAbs multinomial GR-HMC
-   transition. A multivariate likelihood model would be the next richer
-   example, not a missing foundation theorem.
+1. The concrete mixed-model library now contains scalar and multivariate
+   clients. `Examples.GeneralStatePgHmc` includes both the dependent Boolean
+   sign-region model and a two-dimensional four-quadrant auxiliary model. Each
+   constructs its exact reverse conditional by standard-Borel disintegration
+   and composes the resulting two-block update with the actual Gaussian
+   SoftAbs multinomial GR-HMC transition. A noisy multivariate likelihood
+   model remains a useful empirical extension, not a missing composition
+   theorem.
 2. Complete runtime callback refinement beyond the new checked semantic
    binding. `ComposableSemantics.BoundOperator` now pairs every generated
    descriptor with its actual full-state kernel and invariance proof, and

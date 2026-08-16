@@ -85,4 +85,79 @@ theorem pg_grhmc_invariant (ε : ℝ) (L : ℕ) :
       gaussianSoftAbsPositionTarget_ne_zero
     exact gaussianSoftAbs_multinomialGRHMC_invariant ε L
 
+namespace QuadrantClient
+
+abbrev Index := Fin 2
+abbrev State := Position Index
+abbrev Quadrant := Bool × Bool
+
+/-- Normalized two-dimensional Gaussian target. -/
+noncomputable def target : Measure State :=
+  Mcmc.Kernel.finiteNormalize
+    (gaussianSoftAbsPositionTarget (ι := Index))
+
+instance target.instIsProbabilityMeasure : IsProbabilityMeasure target := by
+  unfold target
+  infer_instance
+
+/-- Four-region discrete auxiliary determined by both coordinates. -/
+noncomputable def quadrant (q : State) : Quadrant :=
+  (if q (0 : Index) < 0 then false else true,
+    if q (1 : Index) < 0 then false else true)
+
+theorem measurable_quadrant : Measurable quadrant := by
+  unfold quadrant
+  apply Measurable.prodMk
+  · exact measurable_const.piecewise
+      (measurableSet_lt (measurable_pi_apply (0 : Index)) measurable_const)
+      measurable_const
+  · exact measurable_const.piecewise
+      (measurableSet_lt (measurable_pi_apply (1 : Index)) measurable_const)
+      measurable_const
+
+theorem quadrant_uses_both_coordinates :
+    quadrant (fun _ => -1) = (false, false) ∧
+      quadrant (fun _ => 1) = (true, true) := by
+  norm_num [quadrant]
+
+noncomputable def particleForward : Kernel State Quadrant :=
+  Kernel.deterministic quadrant measurable_quadrant
+
+instance particleForward.instIsMarkovKernel : IsMarkovKernel particleForward := by
+  unfold particleForward
+  infer_instance
+
+/-- Exact Gaussian-quadrant reverse conditional obtained by disintegration. -/
+noncomputable def particleReverse : Kernel Quadrant State :=
+  Mcmc.Kernel.disintegratedAuxiliaryReverse target particleForward
+
+instance particleReverse.instIsMarkovKernel : IsMarkovKernel particleReverse := by
+  unfold particleReverse
+  infer_instance
+
+theorem auxiliary_factorization :
+    Mcmc.Kernel.auxiliaryFirstJoint target particleForward =
+      (particleForward ∘ₘ target) ⊗ₘ particleReverse := by
+  simpa [particleReverse] using
+    Mcmc.Kernel.auxiliaryFirstJoint_eq_compProd_disintegratedAuxiliaryReverse
+      target particleForward
+
+/-- Multivariate mixed discrete/continuous PG--GR-HMC stationarity theorem. -/
+theorem pg_grhmc_invariant (ε : ℝ) (L : ℕ) :
+    (Mcmc.Kernel.ComposableInference.pgHmcKernel
+      (Mcmc.Kernel.twoBlockConditional particleForward particleReverse)
+      (gaussianSoftAbsMultinomialTransition (ι := Index) ε L)).Invariant
+      target := by
+  apply Mcmc.Kernel.ComposableInference.pgHmc_of_auxiliaryFactorization_invariant
+    target particleForward particleReverse
+    (gaussianSoftAbsMultinomialTransition (ι := Index) ε L)
+  · exact auxiliary_factorization
+  · apply Mcmc.Kernel.invariant_finiteNormalize
+      (gaussianSoftAbsMultinomialTransition (ι := Index) ε L)
+      (gaussianSoftAbsPositionTarget (ι := Index))
+      gaussianSoftAbsPositionTarget_ne_zero
+    exact gaussianSoftAbs_multinomialGRHMC_invariant ε L
+
+end QuadrantClient
+
 end Mcmc.Examples.GeneralStatePgHmc
