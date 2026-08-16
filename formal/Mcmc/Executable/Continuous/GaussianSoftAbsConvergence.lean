@@ -19,6 +19,21 @@ open scoped ENNReal
 
 variable {ι : Type*} [Fintype ι] [Nonempty ι] [DecidableEq ι]
 
+/-- The concrete multinomial Gaussian SoftAbs GR-HMC transition. -/
+noncomputable abbrev gaussianSoftAbsMultinomialTransition (ε : ℝ) (L : ℕ) :=
+  positionMultinomialGRHMC (gaussianSoftAbsPotential (ι := ι))
+    (gaussianSoftAbsMetric (ι := ι)) 1 1 (by norm_num) (by norm_num)
+    (gaussianSoftAbsSelection (ι := ι)) gaussianSoftAbsSelection_valid
+    (measurable_diagonalSoftAbs_generalRelativisticHamiltonian
+      (gaussianSoftAbsPotential (ι := ι))
+      (measurable_gaussianSoftAbsPotential (ι := ι))
+      1 (by norm_num) (gaussianHessianDiagonal (ι := ι))
+      (measurable_gaussianHessianDiagonal (ι := ι)) 1 1)
+    (diagonalSoftAbs_isMeasurableRiemannianMomentumFamily
+      1 (by norm_num) (gaussianHessianDiagonal (ι := ι)) 1 1
+      (by norm_num) (by norm_num)
+      (measurable_gaussianHessianDiagonal (ι := ι))) ε L
+
 /-- A coordinate momentum-density floor propagates through the actual
 SoftAbs moved-position map. This is the sampler-specific change-of-variables
 bridge used by the compact minorization argument. -/
@@ -251,6 +266,264 @@ theorem exists_pos_gaussianSoftAbs_forward_indexProbability_floor_on_compact
         · simpa [orbitPoint] using hD0)
   simpa [floor] using hbound
 
+/-- The selected forward endpoint under the actual refreshed momentum law is
+exactly the scalar moved-position pushforward when observed through the unique
+position coordinate. -/
+theorem gaussianSoftAbs_selectedEndpoint_map_coordinate_apply
+    (q : Position Unit) {S : Set ℝ} (hS : MeasurableSet S) :
+    Measure.map (fun p : Momentum Unit =>
+        (orbitPoint
+          (generalizedLeapfrogPerm gaussianSoftAbsSelection
+            gaussianSoftAbsSelection_valid.unique 1)
+          (0 : Fin 2) (q, p) (1 : Fin 2)).1)
+        (riemannianMomentumKernel gaussianSoftAbsMetric 1 1
+          (by norm_num) (by norm_num)
+          (diagonalSoftAbs_isMeasurableRiemannianMomentumFamily
+            1 (by norm_num) gaussianHessianDiagonal 1 1
+            (by norm_num) (by norm_num)
+            measurable_gaussianHessianDiagonal) q)
+        {y | y Unit.unit ∈ S} =
+      Measure.map (gaussianSoftAbsUnitMovedPosition (q Unit.unit))
+        gaussianSoftAbsMomentumCoordinateProbability S := by
+  have hposition : MeasurableSet {y : Position Unit | y Unit.unit ∈ S} :=
+    hS.preimage (measurable_pi_apply Unit.unit)
+  have hcandidate : Measurable (fun p : Momentum Unit =>
+      (orbitPoint
+        (generalizedLeapfrogPerm gaussianSoftAbsSelection
+          gaussianSoftAbsSelection_valid.unique 1)
+        (0 : Fin 2) (q, p) (1 : Fin 2)).1) := by
+    simp only [orbitPoint]
+    exact (continuous_fst.comp
+      (continuous_gaussianSoftAbsSelection_step_one_unit.comp
+        (continuous_const.prodMk continuous_id))).measurable
+  rw [Measure.map_apply hcandidate hposition,
+    Measure.map_apply
+      (measurableEmbedding_gaussianSoftAbsUnitMovedPosition
+        (q Unit.unit)).measurable hS]
+  rw [gaussianSoftAbsMomentumCoordinateProbability,
+    Measure.map_apply (measurable_pi_apply Unit.unit) (hS.preimage
+      (measurableEmbedding_gaussianSoftAbsUnitMovedPosition
+        (q Unit.unit)).measurable)]
+  rw [show (riemannianMomentumKernel gaussianSoftAbsMetric 1 1
+      (by norm_num) (by norm_num)
+      (diagonalSoftAbs_isMeasurableRiemannianMomentumFamily
+        1 (by norm_num) gaussianHessianDiagonal 1 1
+        (by norm_num) (by norm_num)
+        measurable_gaussianHessianDiagonal) q) =
+      (riemannianRelativisticMomentumProbability gaussianSoftAbsMetric 1 1
+        (by norm_num) (by norm_num) q : Measure (Momentum Unit)) by rfl]
+  rw [gaussianSoftAbsMomentumProbability_eq_zero]
+  congr 1
+  ext p
+  change ((gaussianSoftAbsSelection.step 1 (q, p)).1 Unit.unit ∈ S) ↔
+    gaussianSoftAbsUnitMovedPosition (q Unit.unit) (p Unit.unit) ∈ S
+  rw [gaussianSoftAbsSelection_step_one_fst_eq_movedPosition]
+
+/-- Compact phase-space control, the selected-index floor, and the actual
+refreshed-momentum Jacobian bound combine into a one-step Lebesgue
+minorization for coordinate events. -/
+theorem exists_pos_gaussianSoftAbs_oneStep_coordinate_volume_floor
+    {C : Set (PhaseSpace Unit)} (hC : IsCompact C)
+    (D : Set (Position Unit)) (R : ℝ) (hR : 0 ≤ R)
+    (hphase : ∀ q ∈ D, ∀ p : Momentum Unit,
+      p Unit.unit ∈ Set.Icc (-R) R → (q, p) ∈ C) :
+    ∃ floor : ENNReal, 0 < floor ∧ ∀ q ∈ D, ∀ S : Set ℝ,
+      MeasurableSet S →
+      S ⊆ gaussianSoftAbsUnitMovedPosition (q Unit.unit) '' Set.Icc (-R) R →
+      floor * volume S ≤
+        gaussianSoftAbsMultinomialTransition 1 1 q
+          {y | y Unit.unit ∈ S} := by
+  obtain ⟨densityFloor, hdensityPos, hdensity⟩ :=
+    exists_pos_gaussianSoftAbsMovedPosition_volume_floor R hR
+  obtain ⟨indexFloor, hindexPos, hindex⟩ :=
+    exists_pos_gaussianSoftAbs_forward_indexProbability_floor_on_compact hC
+  let originMass : ENNReal := PMF.uniformOfFintype (Fin 2) (0 : Fin 2)
+  let floor := densityFloor * (originMass * indexFloor)
+  have horiginPos : 0 < originMass := by
+    simp [originMass]
+  have hfloorPos : 0 < floor :=
+    ENNReal.mul_pos hdensityPos.ne'
+      (ENNReal.mul_pos horiginPos.ne' hindexPos.ne').ne'
+  refine ⟨floor, hfloorPos, ?_⟩
+  intro q hq S hS hSimage
+  let momentumSet : Set (Momentum Unit) :=
+    {p | p Unit.unit ∈ Set.Icc (-R) R}
+  let positionSet : Set (Position Unit) := {y | y Unit.unit ∈ S}
+  have hmomentumSet : MeasurableSet momentumSet :=
+    isClosed_Icc.measurableSet.preimage (continuous_apply Unit.unit).measurable
+  have hpositionSet : MeasurableSet positionSet :=
+    hS.preimage (measurable_pi_apply Unit.unit)
+  have hcandidate : Measurable (fun p : Momentum Unit =>
+      (orbitPoint
+        (generalizedLeapfrogPerm gaussianSoftAbsSelection
+          gaussianSoftAbsSelection_valid.unique 1)
+        (0 : Fin 2) (q, p) (1 : Fin 2)).1) := by
+    simp only [orbitPoint]
+    exact (continuous_fst.comp
+      (continuous_gaussianSoftAbsSelection_step_one_unit.comp
+        (continuous_const.prodMk continuous_id))).measurable
+  have hbranch :=
+    map_selectedEndpoint_mul_uniform_mul_floor_le_positionMultinomialGRHMC_apply
+      gaussianSoftAbsPotential gaussianSoftAbsMetric 1 1
+      (by norm_num) (by norm_num) gaussianSoftAbsSelection
+      gaussianSoftAbsSelection_valid
+      (measurable_diagonalSoftAbs_generalRelativisticHamiltonian
+        gaussianSoftAbsPotential measurable_gaussianSoftAbsPotential
+        1 (by norm_num) gaussianHessianDiagonal
+        measurable_gaussianHessianDiagonal 1 1)
+      (diagonalSoftAbs_isMeasurableRiemannianMomentumFamily
+        1 (by norm_num) gaussianHessianDiagonal 1 1
+        (by norm_num) (by norm_num) measurable_gaussianHessianDiagonal)
+      1 (0 : Fin 2) (1 : Fin 2) q hmomentumSet hcandidate
+      hpositionSet indexFloor
+      (fun p hp => hindex (q, p) (hphase q hq p hp)) (by
+        intro p hp
+        obtain ⟨x, hx, hxeq⟩ := hSimage hp
+        have heq : p Unit.unit = x := by
+          apply (strictMono_gaussianSoftAbsUnitMovedPosition
+            (q Unit.unit)).injective
+          simpa [positionSet, orbitPoint,
+            gaussianSoftAbsSelection_step_one_fst_eq_movedPosition] using hxeq.symm
+        show p Unit.unit ∈ Set.Icc (-R) R
+        rw [heq]
+        exact hx)
+  have hdensityS := hdensity (q Unit.unit) S hS hSimage
+  rw [gaussianSoftAbs_selectedEndpoint_map_coordinate_apply q hS] at hbranch
+  change Measure.map (gaussianSoftAbsUnitMovedPosition (q Unit.unit))
+      gaussianSoftAbsMomentumCoordinateProbability S *
+        (originMass * indexFloor) ≤
+      gaussianSoftAbsMultinomialTransition 1 1 q positionSet at hbranch
+  calc
+    floor * volume S =
+        (densityFloor * volume S) * (originMass * indexFloor) := by
+      simp only [floor]
+      ac_rfl
+    _ ≤ Measure.map (gaussianSoftAbsUnitMovedPosition (q Unit.unit))
+          gaussianSoftAbsMomentumCoordinateProbability S *
+            (originMass * indexFloor) := by gcongr
+    _ ≤ gaussianSoftAbsMultinomialTransition 1 1 q positionSet := hbranch
+
+/-- Concrete compact phase box, expressed through the two scalar coordinates
+so compactness does not depend on an opaque finite-dimensional-space
+instance. -/
+def gaussianSoftAbsPhaseBox (Q R : ℝ) : Set (PhaseSpace Unit) :=
+  (fun z : ℝ × ℝ =>
+    ((fun _ : Unit => z.1), (fun _ : Unit => z.2))) ''
+      (Set.Icc (-Q) Q ×ˢ Set.Icc (-R) R)
+
+theorem isCompact_gaussianSoftAbsPhaseBox (Q R : ℝ) :
+    IsCompact (gaussianSoftAbsPhaseBox Q R) := by
+  apply (isCompact_Icc.prod isCompact_Icc).image
+  fun_prop
+
+theorem mem_gaussianSoftAbsPhaseBox
+    (Q R : ℝ) (q : Position Unit) (p : Momentum Unit)
+    (hq : q Unit.unit ∈ Set.Icc (-Q) Q)
+    (hp : p Unit.unit ∈ Set.Icc (-R) R) :
+    (q, p) ∈ gaussianSoftAbsPhaseBox Q R := by
+  refine ⟨(q Unit.unit, p Unit.unit), ⟨hq, hp⟩, ?_⟩
+  apply Prod.ext
+  · funext i
+    fin_cases i
+    rfl
+  · funext i
+    fin_cases i
+    rfl
+
+/-- Fully concrete uniform one-step coordinate density floor over a bounded
+position band and bounded refreshed-momentum band. The reachable output
+region is allowed to translate with the current position; a common output
+set is deliberately deferred to the finite-step corridor construction. -/
+theorem exists_pos_gaussianSoftAbs_oneStep_coordinate_volume_floor_on_box
+    (Q R : ℝ) (hR : 0 ≤ R) :
+    ∃ floor : ENNReal, 0 < floor ∧
+      ∀ q : Position Unit, q Unit.unit ∈ Set.Icc (-Q) Q →
+      ∀ S : Set ℝ, MeasurableSet S →
+      S ⊆ gaussianSoftAbsUnitMovedPosition (q Unit.unit) '' Set.Icc (-R) R →
+      floor * volume S ≤
+        gaussianSoftAbsMultinomialTransition 1 1 q
+          {y | y Unit.unit ∈ S} := by
+  apply exists_pos_gaussianSoftAbs_oneStep_coordinate_volume_floor
+    (isCompact_gaussianSoftAbsPhaseBox Q R)
+    {q : Position Unit | q Unit.unit ∈ Set.Icc (-Q) Q} R hR
+  intro q hq p hp
+  exact mem_gaussianSoftAbsPhaseBox Q R q p hq hp
+
+@[simp]
+theorem gaussianSoftAbsUnitScalarVelocity_zero :
+    gaussianSoftAbsUnitScalarVelocity 0 = 0 := by
+  rw [gaussianSoftAbsUnitScalarVelocity_eq]
+  simp
+
+/-- A bounded position band has a common nontrivial local interval inside
+the moved-position image. Choosing momentum radius `Q/2+1` guarantees that
+the half-kicked momentum spans at least `[-1,1]` for every `q ∈ [-Q,Q]`. -/
+theorem gaussianSoftAbs_localInterval_subset_movedPosition_image
+    (Q q : ℝ) (hq : q ∈ Set.Icc (-Q) Q) :
+    Set.Icc
+        (q - gaussianSoftAbsUnitScalarVelocity 1)
+        (q + gaussianSoftAbsUnitScalarVelocity 1) ⊆
+      gaussianSoftAbsUnitMovedPosition q ''
+        Set.Icc (-(Q / 2 + 1)) (Q / 2 + 1) := by
+  have hcontinuous : Continuous (gaussianSoftAbsUnitMovedPosition q) := by
+    rw [continuous_iff_continuousAt]
+    intro p
+    exact (hasDerivAt_gaussianSoftAbsUnitMovedPosition q p).continuousAt
+  rw [hcontinuous.image_Icc_of_strictMono
+    (strictMono_gaussianSoftAbsUnitMovedPosition q)]
+  intro y hy
+  refine ⟨?_, ?_⟩
+  · calc
+      gaussianSoftAbsUnitMovedPosition q (-(Q / 2 + 1)) =
+          q + gaussianSoftAbsUnitScalarVelocity
+            (-(Q / 2 + 1) - q / 2) := rfl
+      _ ≤ q + gaussianSoftAbsUnitScalarVelocity (-1) := by
+        apply add_le_add_right
+        apply strictMono_gaussianSoftAbsUnitScalarVelocity.monotone
+        linarith [hq.1]
+      _ = q - gaussianSoftAbsUnitScalarVelocity 1 := by
+        rw [gaussianSoftAbsUnitScalarVelocity_neg]
+        ring
+      _ ≤ y := hy.1
+  · calc
+      y ≤ q + gaussianSoftAbsUnitScalarVelocity 1 := hy.2
+      _ ≤ q + gaussianSoftAbsUnitScalarVelocity
+          (Q / 2 + 1 - q / 2) := by
+        apply add_le_add_right
+        apply strictMono_gaussianSoftAbsUnitScalarVelocity.monotone
+        linarith [hq.2]
+      _ = gaussianSoftAbsUnitMovedPosition q (Q / 2 + 1) := rfl
+
+/-- The common local interval above has positive radius. -/
+theorem gaussianSoftAbsUnitScalarVelocity_one_pos :
+    0 < gaussianSoftAbsUnitScalarVelocity 1 := by
+  simpa using strictMono_gaussianSoftAbsUnitScalarVelocity
+    (show (0 : ℝ) < 1 by norm_num)
+
+/-- Uniform local Lebesgue minorization over a bounded position band. Every
+row dominates the same density constant on a fixed-radius interval centered
+at its current coordinate. -/
+theorem exists_pos_gaussianSoftAbs_localInterval_volume_floor_on_box
+    (Q : ℝ) (hQ : 0 ≤ Q) :
+    ∃ floor : ENNReal, 0 < floor ∧
+      ∀ q : Position Unit, q Unit.unit ∈ Set.Icc (-Q) Q →
+      ∀ S : Set ℝ, MeasurableSet S →
+      S ⊆ Set.Icc
+        (q Unit.unit - gaussianSoftAbsUnitScalarVelocity 1)
+        (q Unit.unit + gaussianSoftAbsUnitScalarVelocity 1) →
+      floor * volume S ≤
+        gaussianSoftAbsMultinomialTransition 1 1 q
+          {y | y Unit.unit ∈ S} := by
+  obtain ⟨floor, hfloorPos, hfloor⟩ :=
+    exists_pos_gaussianSoftAbs_oneStep_coordinate_volume_floor_on_box
+      Q (Q / 2 + 1) (by linarith)
+  refine ⟨floor, hfloorPos, ?_⟩
+  intro q hq S hS hSloc
+  apply hfloor q hq S hS
+  exact hSloc.trans
+    (gaussianSoftAbs_localInterval_subset_movedPosition_image
+      Q (q Unit.unit) hq)
+
 /-- Exponential coordinate Lyapunov weight used for the bare one-dimensional
 Gaussian SoftAbs drift argument. -/
 noncomputable def gaussianSoftAbsExpWeight (t x : ℝ) : ENNReal :=
@@ -445,21 +718,6 @@ theorem gaussianSoftAbsPositionTarget_ne_zero :
     obtain ⟨q, hq⟩ := hweight.exists
     exact (positionBoltzmannWeight_pos
       (gaussianSoftAbsPotential (ι := ι)) q).ne' hq
-
-/-- The concrete multinomial Gaussian SoftAbs GR-HMC transition. -/
-noncomputable abbrev gaussianSoftAbsMultinomialTransition (ε : ℝ) (L : ℕ) :=
-  positionMultinomialGRHMC (gaussianSoftAbsPotential (ι := ι))
-    (gaussianSoftAbsMetric (ι := ι)) 1 1 (by norm_num) (by norm_num)
-    (gaussianSoftAbsSelection (ι := ι)) gaussianSoftAbsSelection_valid
-    (measurable_diagonalSoftAbs_generalRelativisticHamiltonian
-      (gaussianSoftAbsPotential (ι := ι))
-      (measurable_gaussianSoftAbsPotential (ι := ι))
-      1 (by norm_num) (gaussianHessianDiagonal (ι := ι))
-      (measurable_gaussianHessianDiagonal (ι := ι)) 1 1)
-    (diagonalSoftAbs_isMeasurableRiemannianMomentumFamily
-      1 (by norm_num) (gaussianHessianDiagonal (ι := ι)) 1 1
-      (by norm_num) (by norm_num)
-      (measurable_gaussianHessianDiagonal (ι := ι))) ε L
 
 /-- Common refreshed-momentum probability of the one-sided interval `(0,1)`
 used by the positive Gaussian tail certificate. -/
