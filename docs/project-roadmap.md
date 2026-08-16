@@ -532,21 +532,22 @@ by paper date:
 
 1. prove weak-forward uniqueness for the constructed Gaussian Zig-Zag stopped
    path, closing Gaussian Zig-Zag and one-dimensional unit-speed Gaussian BPS
-   stationarity. The obligation is now split exactly into scalar weak-
-   expectation uniqueness and measure determination by the certified smooth
-   test family; Lean proves that these two statements reconstruct the full
-   uniqueness interface. A separate target-started interface records the
+   stationarity. The measure-determination half is now complete for the actual
+   probability-valued curves: Lean uniformly smooths compact continuous tests,
+   proves compact `C¹` tests determine each finite regular real-line fiber,
+   and reconstructs the joint measure from the two Boolean velocity fibers.
+   A separate target-started interface records the
    strictly weaker premise actually sufficient for stationarity, avoiding an
    unnecessary global well-posedness theorem. The target-started scalar
-   uniqueness and measure-determination pair now feeds Gaussian Zig-Zag and
-   unit-speed Gaussian BPS stationarity directly;
+   scalar uniqueness premise now feeds Gaussian Zig-Zag and unit-speed
+   Gaussian BPS stationarity directly, with determination internal;
   the smooth test certificate now also requires each supplied derivative to
   be the actual derivative of its velocity-specific observable, and derives
   the difference identity rather than assuming it independently. The test
   domain now has a checked `ofFiber` constructor embedding any compactly
   supported `C¹` real-line observable into either Boolean velocity fiber,
-  with the opposite fiber identically zero. This isolates regular-measure
-  determination to the standard smooth-density theorem on each real line;
+  with the opposite fiber identically zero. Its generator integrability is
+  derived automatically from compact `C¹` support;
 2. bare Gaussian SoftAbs GR-HMC convergence -- complete for the concrete
    one-dimensional `ε = 1`, `L = 1` chain. Lean proves affine drift, compact
    skeleton minorization, faithful geometric meeting, the normalized target's

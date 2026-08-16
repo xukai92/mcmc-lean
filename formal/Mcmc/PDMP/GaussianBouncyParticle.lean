@@ -208,4 +208,15 @@ theorem gaussianUnitBouncyHorizonKernel_invariant_of_targetWeakExpectationUnique
   gaussianZigZagHorizonKernel_invariant_of_targetWeakExpectationUniqueness_regular
     scalar determining horizon
 
+/-- Fiberwise smooth-test determination is discharged by the shared Zig-Zag
+theorem, leaving only scalar weak-expectation uniqueness for unit-speed
+Gaussian BPS stationarity. -/
+theorem gaussianUnitBouncyHorizonKernel_invariant_of_targetWeakExpectationUniqueness_finiteRegular
+    (scalar : GaussianUnitBouncyTargetWeakExpectationUniqueness)
+    (horizon : NNReal) :
+    (gaussianUnitBouncyHorizonKernel horizon).Invariant
+      gaussianUnitBouncyTarget :=
+  gaussianZigZagHorizonKernel_invariant_of_targetWeakExpectationUniqueness_finiteRegular
+    scalar horizon
+
 end Mcmc.PDMP

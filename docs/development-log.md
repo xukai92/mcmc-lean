@@ -1,13 +1,21 @@
 # Development log
 
+- Completed the measure-determination half of Gaussian Zig-Zag/BPS
+  weak-forward uniqueness. Compact `C¹` fiber observables now receive automatic
+  Gaussian-generator integrability. Lean uniformly approximates arbitrary
+  compact continuous real tests by support-preserving compact `C¹` tests,
+  controls their integrals using finite total mass, proves the resulting tests
+  determine each finite regular velocity-fiber measure, and reconstructs the
+  full `ℝ × Bool` measure from its two fibers. A finite-regular generic upgrade
+  now matches probability-valued weak-forward curves, so the exact Zig-Zag and
+  unit-speed BPS stationarity consumers require only target-started scalar
+  weak-expectation uniqueness. That scalar stopped-path theorem remains open.
+
 - Added the fiberwise foundation for Gaussian Zig-Zag weak-forward measure
   determination. `GaussianZigZagSmoothTest.ofFiber` embeds a compactly
   supported `C¹` real-line observable and its genuine derivative into either
   Boolean velocity fiber, proves the certified difference smoothness/support
-  fields, retains explicit generator integrability, and proves exact same- and
-  opposite-fiber observation formulas. The remaining analytic bridge is now
-  the density of these smooth compact tests for finite regular measures on
-  each real fiber, followed by reassembly of the two fibers.
+  fields, and proves exact same- and opposite-fiber observation formulas.
 
 - Generalized reversible-jump product transport certificates from binary and
   handwritten 3D composition to every finite homogeneous product dimension.

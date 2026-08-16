@@ -1,6 +1,7 @@
 import Mcmc.PDMP.EventSimulation
 import Mcmc.PDMP.SemigroupStationarity
 import Mcmc.PDMP.ZigZag
+import Mathlib.Geometry.Manifold.SmoothApprox
 import Mathlib.Probability.BorelCantelli
 import Mathlib.Probability.Independence.InfinitePi
 import Mathlib.Tactic
@@ -75,6 +76,83 @@ def GaussianZigZagSmoothTest.generator
   fun state => zigZagGenerator id test.derivative test.observable
     state.1 state.2
 
+/-- The Gaussian Zig-Zag generator of a compact `C¹` observable placed on one
+velocity fiber is automatically integrable. -/
+theorem gaussianZigZagGenerator_integrable_ofFiber
+    (velocity : Bool) (observable derivative : ℝ → ℝ)
+    (hderiv : ∀ q, HasDerivAt observable (derivative q) q)
+    (hsmooth : ContDiff ℝ 1 observable)
+    (hcompact : HasCompactSupport observable) :
+    Integrable
+      (fun state : ZigZagState =>
+        zigZagGenerator id
+          (fun q v => if v = velocity then derivative q else 0)
+          (fun q v => if v = velocity then observable q else 0)
+          state.1 state.2)
+      gaussianZigZagTarget := by
+  have hderivative : derivative = deriv observable := by
+    funext q
+    exact (hderiv q).deriv.symm
+  have hcontinuousDerivative : Continuous derivative := by
+    rw [hderivative]
+    exact hsmooth.continuous_deriv le_rfl
+  have hfiber : IsClopen
+      {state : ZigZagState | state.2 = velocity} := by
+    change IsClopen (Prod.snd ⁻¹' ({velocity} : Set Bool))
+    exact (isClopen_discrete _).preimage continuous_snd
+  have hfiberFrontier : frontier
+      {state : ZigZagState | state.2 = velocity} = ∅ :=
+    hfiber.frontier_eq
+  have hderivativeFiber : Continuous
+      (fun state : ZigZagState =>
+        if state.2 = velocity then derivative state.1 else 0) := by
+    apply Continuous.if
+    · intro state hstate
+      rw [hfiberFrontier] at hstate
+      exact hstate.elim
+    · exact hcontinuousDerivative.comp continuous_fst
+    · exact continuous_const
+  have hobservableFiber : Continuous
+      (fun state : ZigZagState =>
+        if state.2 = velocity then observable state.1 else 0) := by
+    apply Continuous.if
+    · intro state hstate
+      rw [hfiberFrontier] at hstate
+      exact hstate.elim
+    · exact hsmooth.continuous.comp continuous_fst
+    · exact continuous_const
+  have hflip : Continuous (fun state : ZigZagState =>
+      (state.1, !state.2)) := by
+    have hnot : Continuous (fun value : Bool => !value) :=
+      continuous_of_discreteTopology
+    exact continuous_fst.prodMk (hnot.comp continuous_snd)
+  have hvelocity : Continuous (fun state : ZigZagState =>
+      zigZagVelocity state.2) := by
+    have hz : Continuous zigZagVelocity := continuous_of_discreteTopology
+    exact hz.comp continuous_snd
+  have hcontinuous : Continuous
+      (fun state : ZigZagState =>
+        zigZagGenerator id
+          (fun q v => if v = velocity then derivative q else 0)
+          (fun q v => if v = velocity then observable q else 0)
+          state.1 state.2) := by
+    unfold zigZagGenerator zigZagRate zigZagVelocity
+    exact (hvelocity.mul hderivativeFiber).add
+      ((continuous_const.max (hvelocity.mul continuous_fst)).mul
+        ((hobservableFiber.comp hflip).sub hobservableFiber))
+  apply hcontinuous.integrable_of_hasCompactSupport
+  apply HasCompactSupport.intro (hcompact.prod isCompact_univ)
+  intro state hstate
+  have hq : state.1 ∉ tsupport observable := by
+    simpa using hstate
+  have hobs : observable state.1 = 0 := by
+    by_contra hne
+    exact hq (subset_tsupport _ hne)
+  have hderivZero : derivative state.1 = 0 := by
+    rw [hderivative, deriv_of_notMem_tsupport hq]
+  unfold zigZagGenerator
+  simp [hobs, hderivZero]
+
 /-- Embed one compactly supported `C¹` real-line observable into a chosen
 velocity fiber. This exposes the fiberwise smooth test family needed for the
 remaining regular-measure determination proof on `ℝ × Bool`. Generator
@@ -113,6 +191,207 @@ noncomputable def GaussianZigZagSmoothTest.ofFiber
         exact hcompact.neg
     | true => simpa using hcompact
   generator_integrable := hgenerator
+
+/-- Fully automatic compact-fiber constructor: compact `C¹` support supplies
+the generator-integrability field required by the weak-forward domain. -/
+noncomputable def GaussianZigZagSmoothTest.ofFiberCompact
+    (velocity : Bool) (observable derivative : ℝ → ℝ)
+    (hderiv : ∀ q, HasDerivAt observable (derivative q) q)
+    (hsmooth : ContDiff ℝ 1 observable)
+    (hcompact : HasCompactSupport observable) : GaussianZigZagSmoothTest :=
+  GaussianZigZagSmoothTest.ofFiber velocity observable derivative hderiv
+    hsmooth hcompact
+    (gaussianZigZagGenerator_integrable_ofFiber velocity observable derivative
+      hderiv hsmooth hcompact)
+
+/-- Continuous compact real-line observables admit uniformly close smooth
+compact approximants whose support stays inside the original support. This is
+the analytic density input for upgrading fiberwise smooth-test equality to
+regular-measure equality. -/
+theorem exists_contDiff_compactSupport_uniformApprox
+    (observable : ℝ → ℝ) (hcontinuous : Continuous observable)
+    (hcompact : HasCompactSupport observable)
+    {ε : ℝ} (hε : 0 < ε) :
+    ∃ smooth : ℝ → ℝ, ContDiff ℝ 1 smooth ∧
+      HasCompactSupport smooth ∧
+      ∀ q, |smooth q - observable q| < ε := by
+  obtain ⟨smooth, hsmooth, hclose, hsupport⟩ :=
+    hcontinuous.exists_contDiff_approx 1
+      (ε := fun _ => ε) continuous_const (fun _ => hε)
+  refine ⟨smooth, hsmooth,
+    hcompact.mono' (hsupport.trans (subset_tsupport observable)), ?_⟩
+  intro q
+  simpa [Real.dist_eq] using hclose q
+
+/-- Finite regular real-line measures are determined by compactly supported
+`C¹` test functions. The proof smooths each compact continuous Riesz test
+uniformly and controls the two integral errors by total mass. -/
+theorem Measure.ext_of_integral_eq_on_contDiff_compactSupport
+    (left right : Measure ℝ) [IsFiniteMeasure left] [IsFiniteMeasure right]
+    [left.Regular] [right.Regular]
+    (heq : ∀ test : ℝ → ℝ, ContDiff ℝ 1 test →
+      HasCompactSupport test →
+      (∫ q, test q ∂left) = ∫ q, test q ∂right) :
+    left = right := by
+  apply Measure.ext_of_integral_eq_on_compactlySupported
+  intro test
+  apply eq_of_abs_sub_le_all
+  intro ε hε
+  let mass : ℝ := left.real Set.univ + right.real Set.univ
+  have hmass : 0 ≤ mass := by
+    dsimp [mass]
+    positivity
+  have hmassOne : 0 < mass + 1 := by linarith
+  let tolerance : ℝ := ε / (mass + 1)
+  have htolerance : 0 < tolerance := div_pos hε hmassOne
+  obtain ⟨smooth, hsmooth, hcompact, hclose⟩ :=
+    exists_contDiff_compactSupport_uniformApprox test test.continuous
+      test.hasCompactSupport htolerance
+  have htestLeft : Integrable test left :=
+    test.continuous.integrable_of_hasCompactSupport test.hasCompactSupport
+  have htestRight : Integrable test right :=
+    test.continuous.integrable_of_hasCompactSupport test.hasCompactSupport
+  have hsmoothLeft : Integrable smooth left :=
+    hsmooth.continuous.integrable_of_hasCompactSupport hcompact
+  have hsmoothRight : Integrable smooth right :=
+    hsmooth.continuous.integrable_of_hasCompactSupport hcompact
+  have hleft : |(∫ q, test q ∂left) - ∫ q, smooth q ∂left| ≤
+      left.real Set.univ * tolerance := by
+    rw [← integral_sub htestLeft hsmoothLeft]
+    calc
+      |∫ q, test q - smooth q ∂left| ≤
+          ∫ q, |test q - smooth q| ∂left :=
+        abs_integral_le_integral_abs
+      _ ≤ ∫ _q, tolerance ∂left := by
+        apply integral_mono_ae (htestLeft.sub hsmoothLeft).abs
+          (integrable_const tolerance)
+        filter_upwards [] with q
+        simpa [abs_sub_comm] using (hclose q).le
+      _ = left.real Set.univ * tolerance := by
+        rw [integral_const]
+        simp [smul_eq_mul]
+  have hright : |(∫ q, smooth q ∂right) - ∫ q, test q ∂right| ≤
+      right.real Set.univ * tolerance := by
+    rw [← integral_sub hsmoothRight htestRight]
+    calc
+      |∫ q, smooth q - test q ∂right| ≤
+          ∫ q, |smooth q - test q| ∂right :=
+        abs_integral_le_integral_abs
+      _ ≤ ∫ _q, tolerance ∂right := by
+        apply integral_mono_ae (hsmoothRight.sub htestRight).abs
+          (integrable_const tolerance)
+        filter_upwards [] with q
+        exact (hclose q).le
+      _ = right.real Set.univ * tolerance := by
+        rw [integral_const]
+        simp [smul_eq_mul]
+  have hsmoothEq := heq smooth hsmooth hcompact
+  have hfirst := abs_sub_le (∫ q, test q ∂left)
+    (∫ q, smooth q ∂left) (∫ q, test q ∂right)
+  have htotal : |(∫ q, test q ∂left) - ∫ q, test q ∂right| ≤
+      mass * tolerance := by
+    rw [hsmoothEq] at hfirst hleft
+    dsimp [mass]
+    nlinarith
+  calc
+    |(∫ q, test q ∂left) - ∫ q, test q ∂right| ≤
+        mass * tolerance := htotal
+    _ ≤ (mass + 1) * tolerance := by
+      exact mul_le_mul_of_nonneg_right (by linarith) htolerance.le
+    _ = ε := by
+      dsimp [tolerance]
+      field_simp
+
+/-- Position measure carried by one Boolean velocity fiber. -/
+noncomputable def zigZagFiberMeasure
+    (measure : Measure ZigZagState) (velocity : Bool) : Measure ℝ :=
+  (measure.restrict {state | state.2 = velocity}).map Prod.fst
+
+instance zigZagFiberMeasure.instIsFiniteMeasure
+    (measure : Measure ZigZagState) [IsFiniteMeasure measure]
+    (velocity : Bool) : IsFiniteMeasure (zigZagFiberMeasure measure velocity) := by
+  unfold zigZagFiberMeasure
+  infer_instance
+
+instance zigZagFiberMeasure.instRegular
+    (measure : Measure ZigZagState) [IsFiniteMeasure measure] [measure.Regular]
+    (velocity : Bool) : (zigZagFiberMeasure measure velocity).Regular := by
+  unfold zigZagFiberMeasure
+  infer_instance
+
+/-- Integrating on a fiber is the same as integrating the corresponding
+zero-extended observable on the full Zig-Zag state space. -/
+theorem integral_zigZagFiberMeasure
+    (measure : Measure ZigZagState) [IsFiniteMeasure measure]
+    (velocity : Bool) (test : ℝ → ℝ) (htest : Continuous test) :
+    (∫ q, test q ∂zigZagFiberMeasure measure velocity) =
+      ∫ state, (if state.2 = velocity then test state.1 else 0) ∂measure := by
+  let fiber : Set ZigZagState := {state | state.2 = velocity}
+  have hfiber : MeasurableSet fiber := by
+    change MeasurableSet (Prod.snd ⁻¹' ({velocity} : Set Bool))
+    exact (measurableSet_singleton velocity).preimage measurable_snd
+  have hstrong : AEStronglyMeasurable test
+      (zigZagFiberMeasure measure velocity) :=
+    htest.aestronglyMeasurable
+  rw [zigZagFiberMeasure, integral_map measurable_fst.aemeasurable hstrong]
+  rw [← integral_indicator hfiber]
+  apply integral_congr_ae
+  filter_upwards [] with state
+  by_cases hstate : state ∈ fiber
+  · have heq : state.2 = velocity := hstate
+    simp [Set.indicator_of_mem hstate, heq]
+  · have hne : state.2 ≠ velocity := by simpa [fiber] using hstate
+    simp [Set.indicator_of_notMem hstate, hne]
+
+/-- Mapping a fiber position back to its tagged velocity reconstructs the
+restricted joint measure exactly. -/
+theorem map_zigZagFiberMeasure_embed
+    (measure : Measure ZigZagState) (velocity : Bool) :
+    (zigZagFiberMeasure measure velocity).map (fun q => (q, velocity)) =
+      measure.restrict {state | state.2 = velocity} := by
+  let fiber : Set ZigZagState := {state | state.2 = velocity}
+  have hfiber : MeasurableSet fiber := by
+    change MeasurableSet (Prod.snd ⁻¹' ({velocity} : Set Bool))
+    exact (measurableSet_singleton velocity).preimage measurable_snd
+  change ((measure.restrict fiber).map Prod.fst).map
+      (fun q => (q, velocity)) = measure.restrict fiber
+  rw [Measure.map_map (μ := measure.restrict fiber)
+    (g := fun q => (q, velocity)) (f := Prod.fst)
+    (measurable_id.prodMk measurable_const) measurable_fst]
+  calc
+    (measure.restrict fiber).map
+        ((fun q => (q, velocity)) ∘ Prod.fst) =
+      (measure.restrict fiber).map id := by
+        apply Measure.map_congr
+        filter_upwards [ae_restrict_mem hfiber] with state hstate
+        simp [fiber] at hstate
+        exact Prod.ext rfl hstate.symm
+    _ = measure.restrict fiber := Measure.map_id
+
+/-- The two velocity fibers determine a measure on `ℝ × Bool`. -/
+theorem measure_eq_of_zigZagFiberMeasure_eq
+    (left right : Measure ZigZagState)
+    (hfibers : ∀ velocity,
+      zigZagFiberMeasure left velocity = zigZagFiberMeasure right velocity) :
+    left = right := by
+  have hrestrict : ∀ velocity,
+      left.restrict {state | state.2 = velocity} =
+        right.restrict {state | state.2 = velocity} := by
+    intro velocity
+    have hmap := congrArg
+      (fun fiber : Measure ℝ => fiber.map (fun q => (q, velocity)))
+      (hfibers velocity)
+    simpa [map_zigZagFiberMeasure_embed] using hmap
+  let falseFiber : Set ZigZagState := {state | state.2 = false}
+  have hfalse : MeasurableSet falseFiber := by
+    change MeasurableSet (Prod.snd ⁻¹' ({false} : Set Bool))
+    exact (measurableSet_singleton false).preimage measurable_snd
+  have hcompl : falseFiberᶜ = {state : ZigZagState | state.2 = true} := by
+    ext state
+    cases state.2 <;> simp [falseFiber]
+  rw [← Measure.restrict_add_restrict_compl (μ := left) hfalse,
+    ← Measure.restrict_add_restrict_compl (μ := right) hfalse,
+    hrestrict false, hcompl, hrestrict true]
 
 @[simp] theorem GaussianZigZagSmoothTest.ofFiber_observe_same
     (velocity : Bool) (observable derivative : ℝ → ℝ)
@@ -1222,6 +1501,38 @@ state space. -/
 abbrev GaussianZigZagSmoothTestRegularDetermining :=
   CompactTestRegularExpectationDetermining GaussianZigZagSmoothTest.observe
 
+/-- Finite regular determination is the exact strength used by
+probability-valued weak-forward curves. -/
+abbrev GaussianZigZagSmoothTestFiniteRegularDetermining :=
+  CompactTestFiniteRegularExpectationDetermining
+    GaussianZigZagSmoothTest.observe
+
+/-- Compact `C¹` fiber tests determine every finite regular measure on the
+Gaussian Zig-Zag state space. -/
+theorem gaussianZigZagSmoothTest_finiteRegularDetermining :
+    GaussianZigZagSmoothTestFiniteRegularDetermining where
+  eq_of_expectations left right hleftRegular hrightRegular
+      hleftFinite hrightFinite heq := by
+    letI : left.Regular := hleftRegular
+    letI : right.Regular := hrightRegular
+    letI : IsFiniteMeasure left := hleftFinite
+    letI : IsFiniteMeasure right := hrightFinite
+    apply measure_eq_of_zigZagFiberMeasure_eq
+    intro velocity
+    apply Measure.ext_of_integral_eq_on_contDiff_compactSupport
+    intro test hsmooth hcompact
+    have hderiv : ∀ q, HasDerivAt test (deriv test q) q := by
+      intro q
+      exact (hsmooth.differentiable (by norm_num)).differentiableAt.hasDerivAt
+    let fiberTest := GaussianZigZagSmoothTest.ofFiberCompact velocity test
+      (deriv test) hderiv hsmooth hcompact
+    have hfull := heq fiberTest
+    rw [integral_zigZagFiberMeasure left velocity test hsmooth.continuous,
+      integral_zigZagFiberMeasure right velocity test hsmooth.continuous]
+    simpa [fiberTest, GaussianZigZagSmoothTest.ofFiberCompact,
+      GaussianZigZagSmoothTest.ofFiber,
+      GaussianZigZagSmoothTest.observe] using hfull
+
 theorem GaussianZigZagForwardEquation.toSetwiseCertificate
     (forward : GaussianZigZagForwardEquation) :
     SetwiseForwardStationarityCertificate
@@ -1334,6 +1645,31 @@ theorem gaussianZigZagHorizonKernel_invariant_of_targetWeakExpectationUniqueness
       gaussianZigZagHorizonKernel GaussianZigZagSmoothTest.observe
       GaussianZigZagSmoothTest.generator gaussianZigZagTarget determining
       hcurve htransport)
+    horizon
+
+/-- The measure-determination half is now discharged internally. Exact
+Gaussian Zig-Zag stationarity therefore requires only target-started scalar
+weak-expectation uniqueness for the constructed stopped path. -/
+theorem gaussianZigZagHorizonKernel_invariant_of_targetWeakExpectationUniqueness_finiteRegular
+    (scalar : GaussianZigZagTargetWeakExpectationUniqueness)
+    (horizon : NNReal) :
+    (gaussianZigZagHorizonKernel horizon).Invariant gaussianZigZagTarget := by
+  have hcurve : ∀ (curve : NNReal → Measure ZigZagState),
+      CompactTestWeakForwardSolution GaussianZigZagSmoothTest.observe
+        GaussianZigZagSmoothTest.generator gaussianZigZagTarget curve →
+      ∀ time, (curve time).Regular := by
+    intro curve solution time
+    letI := solution.probability time
+    infer_instance
+  have htransport : ∀ time,
+      ((gaussianZigZagHorizonKernel time) ∘ₘ gaussianZigZagTarget).Regular := by
+    intro time
+    infer_instance
+  exact gaussianZigZagHorizonKernel_invariant_of_targetWeakForwardUniqueness
+    (scalar.toTargetWeakForwardUniqueness_of_finiteRegular
+      gaussianZigZagHorizonKernel GaussianZigZagSmoothTest.observe
+      GaussianZigZagSmoothTest.generator gaussianZigZagTarget
+      gaussianZigZagSmoothTest_finiteRegularDetermining hcurve htransport)
     horizon
 
 /-- Under the event kernel's actual exponential-hazard law, inverse-clock

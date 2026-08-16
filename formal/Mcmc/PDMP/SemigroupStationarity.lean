@@ -219,6 +219,17 @@ structure CompactTestRegularExpectationDetermining
     (∀ test, (∫ state, observe test state ∂left) =
       ∫ state, observe test state ∂right) → left = right
 
+/-- The finite regular variant needed by probability-valued weak-forward
+curves. Unlike the unrestricted regular certificate, it asks for determination
+only where both measures are finite, exactly matching Markov marginals. -/
+structure CompactTestFiniteRegularExpectationDetermining
+    {Test : Type*} (observe : Test → State → ℝ) : Prop where
+  eq_of_expectations : ∀ (left right : Measure State),
+    left.Regular → right.Regular →
+    IsFiniteMeasure left → IsFiniteMeasure right →
+    (∀ test, (∫ state, observe test state ∂left) =
+      ∫ state, observe test state ∂right) → left = right
+
 /-- A test family is determining for regular measures whenever it represents
 every compactly supported continuous real function. This discharges the
 measure-theoretic half of weak-forward uniqueness; proving scalar uniqueness
@@ -326,6 +337,34 @@ theorem CompactTestTargetWeakExpectationUniqueness.toTargetWeakForwardUniqueness
   unique curve solution time :=
     determining.eq_of_expectations (curve time) ((transition time) ∘ₘ target)
       (hcurve curve solution time) (htransport time)
+      (fun test => scalar.unique_expectation curve solution time test)
+
+omit [BorelSpace State] [LocallyCompactSpace State] [T2Space State] in
+/-- Finite-regular version of the target-started scalar-to-measure upgrade.
+Probability laws supply the two finiteness witnesses automatically. -/
+theorem CompactTestTargetWeakExpectationUniqueness.toTargetWeakForwardUniqueness_of_finiteRegular
+    {Test : Type*}
+    (transition : NNReal → Kernel State State)
+    (observe generator : Test → State → ℝ) (target : Measure State)
+    [IsProbabilityMeasure target]
+    [∀ time, IsMarkovKernel (transition time)]
+    (scalar : CompactTestTargetWeakExpectationUniqueness
+      transition observe generator target)
+    (determining : CompactTestFiniteRegularExpectationDetermining observe)
+    (hcurve : ∀ (curve : NNReal → Measure State),
+      CompactTestWeakForwardSolution observe generator target curve →
+      ∀ time, (curve time).Regular)
+    (htransport : ∀ time, ((transition time) ∘ₘ target).Regular) :
+    CompactTestTargetWeakForwardUniqueness
+      transition observe generator target where
+  unique curve solution time := by
+    letI : IsProbabilityMeasure (curve time) := solution.probability time
+    letI : IsProbabilityMeasure ((transition time) ∘ₘ target) := by
+      infer_instance
+    exact determining.eq_of_expectations
+      (curve time) ((transition time) ∘ₘ target)
+      (hcurve curve solution time) (htransport time)
+      (by infer_instance) (by infer_instance)
       (fun test => scalar.unique_expectation curve solution time test)
 
 omit [TopologicalSpace State] [BorelSpace State]

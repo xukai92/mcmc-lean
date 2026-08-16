@@ -286,11 +286,15 @@ For the measure-determination half, the API now uses the mathematically
 minimal regular-measure notion: a general Riesz bridge automatically proves
 determination whenever the generator test family represents every compactly
 supported continuous function. Target-started Gaussian Zig-Zag and unit-speed
-BPS stationarity consumers use this weaker route. Weak-forward solutions now
+BPS stationarity consumers use a finite-regular specialization matching their
+probability marginals. Lean now proves this determination premise: compact
+continuous real-line tests are uniformly approximated by compact `C¹` tests,
+those tests determine each velocity fiber, and the two fibers reconstruct the
+joint measure. Weak-forward solutions now
 carry their semantically required probability-law certificate at every time;
 on the Gaussian Polish state space this discharges regularity of both candidate
-and transported curves automatically. The smooth-core representation/density
-argument itself is not yet proved.
+and transported curves automatically. Target-started scalar weak-expectation
+uniqueness for the stopped path is the remaining weak-forward premise.
 The normalized Gaussian-position/equal-velocity target is now explicit and
 proved a probability measure, and the stopped horizon family is proved exactly
 the identity kernel at time zero; these parts no longer remain premises of the
