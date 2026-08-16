@@ -1,5 +1,15 @@
 # Development log
 
+- Lifted bounded-rate BPS from fixed schedules to an actual positive-horizon
+  Markov transition. The kernel uses the checked Poisson candidate count,
+  continuous ordered uniform candidate times, exact linear flow, and thinning.
+  Added the practical refresh-then-bounce composition and proved it Markov.
+  If the bounce-horizon kernel preserves a compatible position–velocity
+  product target, the composition preserves it using the independently proved
+  refresh invariance. The spatial-flux premise is intentionally explicit, and
+  this result does not cover Gaussian BPS with globally unbounded velocity and
+  rate.
+
 - Added the practical Bouncy Particle velocity-refresh transition. It reuses
   the common Hamiltonian momentum-refresh implementation, retains position,
   independently redraws velocity from any probability law, is a Markov

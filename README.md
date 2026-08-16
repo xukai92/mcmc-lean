@@ -164,8 +164,12 @@ proved involutive, kinetic-norm preserving, and reversing the normal velocity
 component. The process API now also provides full independent velocity
 refreshment, proves it Markov, proves it preserves every compatible
 position–velocity product target, and proves that it leaves measurable
-position events unchanged. These are generator/geometric foundations, not yet path-existence,
-unbounded-rate nonexplosion, or convergence theorems. Fixed finite event
+position events unchanged. For globally bounded bounce intensities, Lean now
+also constructs the exact positive-horizon Poisson/ordered-time thinning
+kernel and the practical refresh-then-bounce composition. The latter preserves
+a product target conditional on the still-explicit bounce-horizon spatial-flux
+proof. These are not yet unbounded-rate BPS stationarity, nonexplosion, or
+convergence theorems. Fixed finite event
 schedules can now be executed as general-state Markov kernels by alternating
 the semiflow with jumps; schedule concatenation and conditional invariance are
 proved. Concrete one-dimensional Zig-Zag and finite-dimensional BPS clients

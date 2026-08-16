@@ -373,8 +373,12 @@ breadth branches are:
   The BPS client now includes a full independent velocity-refresh kernel,
   unified with the Hamiltonian momentum-refresh layer, with Markovness,
   product-target invariance, and exact retention of measurable position
-  events proved. Combining refreshment with an exact unbounded-rate bounce
-  horizon process and proving its ergodicity remain open.
+  events proved. Under a global rate bound, it now also exposes the exact
+  positive-horizon Poisson/ordered-time bounce kernel and a Markov
+  refresh-then-bounce composition. Product invariance of that composition is
+  reduced to the explicit bounce spatial-flux obligation. Removing the global
+  bound for Gaussian BPS and proving that obligation and ergodicity remain
+  open.
   Separately, the unbounded-rate standard-Gaussian Zig-Zag now has a genuine
   event kernel based on the closed-form inverse integrated hazard. Its unit
   exponential draw is positive almost surely, the inversion equation is

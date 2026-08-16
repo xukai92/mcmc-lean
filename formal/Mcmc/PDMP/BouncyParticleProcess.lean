@@ -1,5 +1,6 @@
 import Mcmc.PDMP.BouncyParticle
 import Mcmc.PDMP.EventSimulation
+import Mcmc.PDMP.ScheduledExecutionKernel
 import Mcmc.Hamiltonian.MomentumRefresh
 import Mathlib.Tactic
 
@@ -171,5 +172,76 @@ noncomputable def BouncyParticleBounceData.thinnedSimulator
   mechanism := data.jumpMechanism hmeasurableRate
   clock := clock
   rate_le_clock := hbound
+
+/-- Exact fixed-positive-horizon BPS transition for a globally bounded bounce
+rate. Candidate counts are Poisson and candidate times are continuous ordered
+uniform times; thinning selects genuine bounces. -/
+noncomputable def BouncyParticleBounceData.horizonKernel
+    (data : BouncyParticleBounceData ι)
+    (hmeasurableRate : Measurable (fun state : BouncyParticleState ι =>
+      ENNReal.ofReal (data.stateRate state)))
+    (clock : HomogeneousClock)
+    (hbound : ∀ state, ENNReal.ofReal (data.stateRate state) ≤ clock.rate)
+    (horizon : PositiveHorizon) :
+    Kernel (BouncyParticleState ι) (BouncyParticleState ι) :=
+  (data.thinnedSimulator hmeasurableRate clock hbound).horizonKernel horizon
+
+instance BouncyParticleBounceData.horizonKernel.instIsMarkovKernel
+    (data : BouncyParticleBounceData ι)
+    (hmeasurableRate : Measurable (fun state : BouncyParticleState ι =>
+      ENNReal.ofReal (data.stateRate state)))
+    (clock : HomogeneousClock)
+    (hbound : ∀ state, ENNReal.ofReal (data.stateRate state) ≤ clock.rate)
+    (horizon : PositiveHorizon) :
+    IsMarkovKernel
+      (data.horizonKernel hmeasurableRate clock hbound horizon) := by
+  unfold BouncyParticleBounceData.horizonKernel
+  infer_instance
+
+/-- A practical bounded-rate BPS step: independently refresh velocity, then
+run the exact thinned bounce process for a positive horizon. -/
+noncomputable def BouncyParticleBounceData.refreshedHorizonKernel
+    (data : BouncyParticleBounceData ι)
+    (velocityLaw : Measure (Position ι))
+    (hmeasurableRate : Measurable (fun state : BouncyParticleState ι =>
+      ENNReal.ofReal (data.stateRate state)))
+    (clock : HomogeneousClock)
+    (hbound : ∀ state, ENNReal.ofReal (data.stateRate state) ≤ clock.rate)
+    (horizon : PositiveHorizon) :
+    Kernel (BouncyParticleState ι) (BouncyParticleState ι) :=
+  data.horizonKernel hmeasurableRate clock hbound horizon ∘ₖ
+    bouncyParticleVelocityRefresh velocityLaw
+
+instance BouncyParticleBounceData.refreshedHorizonKernel.instIsMarkovKernel
+    (data : BouncyParticleBounceData ι)
+    (velocityLaw : Measure (Position ι)) [IsProbabilityMeasure velocityLaw]
+    (hmeasurableRate : Measurable (fun state : BouncyParticleState ι =>
+      ENNReal.ofReal (data.stateRate state)))
+    (clock : HomogeneousClock)
+    (hbound : ∀ state, ENNReal.ofReal (data.stateRate state) ≤ clock.rate)
+    (horizon : PositiveHorizon) :
+    IsMarkovKernel (data.refreshedHorizonKernel velocityLaw hmeasurableRate
+      clock hbound horizon) := by
+  unfold BouncyParticleBounceData.refreshedHorizonKernel
+  infer_instance
+
+/-- Refresh-then-bounce preserves a compatible product target whenever the
+exact horizon bounce transition preserves it. This theorem keeps the spatial-
+flux obligation explicit rather than deriving it from reflection algebra. -/
+theorem BouncyParticleBounceData.refreshedHorizonKernel_invariant
+    (data : BouncyParticleBounceData ι)
+    (positionTarget velocityTarget : Measure (Position ι))
+    [SFinite positionTarget] [IsProbabilityMeasure velocityTarget]
+    (hmeasurableRate : Measurable (fun state : BouncyParticleState ι =>
+      ENNReal.ofReal (data.stateRate state)))
+    (clock : HomogeneousClock)
+    (hbound : ∀ state, ENNReal.ofReal (data.stateRate state) ≤ clock.rate)
+    (horizon : PositiveHorizon)
+    (hbounce : (data.horizonKernel hmeasurableRate clock hbound horizon).Invariant
+      (positionTarget.prod velocityTarget)) :
+    (data.refreshedHorizonKernel velocityTarget hmeasurableRate clock hbound
+      horizon).Invariant (positionTarget.prod velocityTarget) := by
+  exact hbounce.comp
+    (bouncyParticleVelocityRefresh_invariant positionTarget velocityTarget)
 
 end Mcmc.PDMP
