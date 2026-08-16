@@ -40,6 +40,12 @@ geometric TV rate from an explicit pointwise bounded-model minorization and
 proves that its displayed refresh coefficient improves monotonically with
 `N`. Deriving that minorization from primitive potential and transition bounds
 for each concrete conditional-SMC generator remains model-specific.
+At a singleton positive horizon, primitive finite full support now directly
+proves the candidate raw-current-potential coefficient: the remaining
+backward potential reduces to the current potential, yielding an explicit
+geometric TV bound and convergence theorem. Longer schedules still use the
+cumulative backward-potential result rather than silently applying that
+one-step identity recursively.
 
 For particle-count consistency, the exact one-step resample--propagate MSE,
 self-normalized-ratio bound, and recursively generated population/target laws

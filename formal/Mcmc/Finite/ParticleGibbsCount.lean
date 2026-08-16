@@ -657,6 +657,17 @@ noncomputable def feynmanKacBackwardPotential
   feynmanKacSequence steps (fun _ => 1)
 
 omit [DecidableEq Sample] in
+/-- At the first positive horizon, the full remaining backward potential is
+exactly the current raw potential. The transition contributes one because its
+row is normalized. -/
+@[simp] theorem feynmanKacBackwardPotential_singleton
+    (step : FeynmanKacStep Sample) :
+    feynmanKacBackwardPotential [step] = step.potential := by
+  funext state
+  simp [feynmanKacBackwardPotential, feynmanKacSequence,
+    feynmanKacTransform, step.transition.sum_prob]
+
+omit [DecidableEq Sample] in
 theorem feynmanKacBackwardPotential_pos
     (steps : List (FeynmanKacStep Sample)) (state : Sample) :
     0 < feynmanKacBackwardPotential steps state := by
@@ -1674,6 +1685,86 @@ noncomputable def backwardPotentialScheduledParticleGibbsMinorization
                 pathMatchScore pathMatchScore_nonneg
             · exact (uniformParticleDistribution
                 (Particle := Fin (extra + 1))).nonneg retained
+
+omit [DecidableEq Sample] in
+/-- For a single positive-horizon step, the public raw-potential coefficient
+is exactly the proved backward-potential coefficient. Beyond one step this
+identity is not asserted: future potentials enter every backward function. -/
+theorem singleton_rawPotential_scheduleCoefficient_eq_backward
+    (extra : ℕ) (step : FeynmanKacStep Sample) :
+    particleGibbsScheduleCoefficient extra
+        (feynmanKacOscillationPenalties [step]) =
+      particleGibbsScheduleCoefficient extra
+        (feynmanKacBackwardOscillationPenalties [step]) := by
+  simp [feynmanKacOscillationPenalties,
+    feynmanKacBackwardOscillationPenalties,
+    particleGibbsScheduleCoefficient, mul_comm]
+
+/-- Primitive full support therefore proves the raw-current-potential
+minorization at the first positive horizon. This is a theorem about the actual
+particle-Gibbs trajectory kernel, not merely a candidate coefficient. -/
+noncomputable def singletonRawPotentialScheduledParticleGibbsMinorization
+    [Nonempty Sample]
+    (initial : Distribution Sample) (hinitial : ∀ x, 0 < initial.mass x)
+    (step : FeynmanKacStep Sample)
+    (hsupport : FeynmanKacFullSupport [step])
+    (hnormalizer : 0 < normalizingConstant initial [step])
+    (extra : ℕ) (hextra : 0 < extra) :
+    ScheduledPotentialParticleGibbsMinorization
+      initial [step] hnormalizer extra where
+  penalties := feynmanKacOscillationPenalties [step]
+  penalties_length := length_feynmanKacOscillationPenalties [step]
+  extra_pos := hextra
+  penalties_pos := feynmanKacOscillationPenalties_pos [step]
+  minorization current proposed := by
+    rw [singleton_rawPotential_scheduleCoefficient_eq_backward extra step]
+    exact (backwardPotentialScheduledParticleGibbsMinorization
+      initial hinitial [step] hsupport hnormalizer extra hextra).minorization
+        current proposed
+
+/-- Explicit geometric TV bound using only the raw current potential at the
+first positive horizon. -/
+theorem singletonRawPotentialParticleGibbs_totalVariation_le
+    [Nonempty Sample]
+    (initial : Distribution Sample) (hinitial : ∀ x, 0 < initial.mass x)
+    (step : FeynmanKacStep Sample)
+    (hsupport : FeynmanKacFullSupport [step])
+    (hnormalizer : 0 < normalizingConstant initial [step])
+    (extra : ℕ) (hextra : 0 < extra)
+    (initialLaw : Distribution (Trajectory [step])) (iterations : ℕ) :
+    Nonhomogeneous.distributionTotalVariation
+      (Nonhomogeneous.iterateLaw initialLaw
+        (countedTrajectoryParticleGibbsKernel initial [step] hnormalizer extra)
+        iterations)
+      (countedTrajectoryTarget initial [step] hnormalizer extra) ≤
+      (1 - particleGibbsScheduleCoefficient extra
+        (feynmanKacOscillationPenalties [step])) ^ iterations := by
+  exact scheduledPotentialParticleGibbs_totalVariation_le
+    (singletonRawPotentialScheduledParticleGibbsMinorization
+      initial hinitial step hsupport hnormalizer extra hextra)
+    initialLaw iterations
+
+/-- The one-step raw-potential PG chain converges in total variation from
+every initial trajectory law for every explicit particle count at least two. -/
+theorem singletonRawPotentialParticleGibbs_totalVariation_tendsto_zero
+    [Nonempty Sample]
+    (initial : Distribution Sample) (hinitial : ∀ x, 0 < initial.mass x)
+    (step : FeynmanKacStep Sample)
+    (hsupport : FeynmanKacFullSupport [step])
+    (hnormalizer : 0 < normalizingConstant initial [step])
+    (extra : ℕ) (hextra : 0 < extra)
+    (initialLaw : Distribution (Trajectory [step])) :
+    Filter.Tendsto (fun iterations =>
+      Nonhomogeneous.distributionTotalVariation
+        (Nonhomogeneous.iterateLaw initialLaw
+          (countedTrajectoryParticleGibbsKernel initial [step] hnormalizer extra)
+          iterations)
+        (countedTrajectoryTarget initial [step] hnormalizer extra))
+      Filter.atTop (nhds 0) := by
+  exact scheduledPotentialParticleGibbs_totalVariation_tendsto_zero
+    (singletonRawPotentialScheduledParticleGibbsMinorization
+      initial hinitial step hsupport hnormalizer extra hextra)
+    initialLaw
 
 /-- Primitive full-support finite models therefore converge geometrically in
 total variation at every fixed particle count of at least two. -/

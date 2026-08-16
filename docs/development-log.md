@@ -1,5 +1,14 @@
 # Development log
 
+- Proved the raw-current-potential particle-Gibbs minorization at the first
+  positive horizon. For a singleton Feynman--Kac schedule, Lean proves that
+  the full remaining backward potential is exactly the current potential, the
+  raw and backward scheduled coefficients agree, and the actual trajectory
+  kernel has the resulting refresh decomposition, geometric TV bound, and TV
+  convergence from every initial trajectory law for every `N >= 2`. At longer
+  horizons future potentials enter each backward function, so this theorem
+  deliberately does not make the unproved recursive raw substitution.
+
 - Promoted checked recursive dynamic-tree execution into generated IR version
   15. Lean emits the builder, endpoint U-turn rule, recursive subtree-
   exclusion policy, and mandatory checked-or-identity failure policy. Julia
