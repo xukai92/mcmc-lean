@@ -6,7 +6,7 @@ using ..Runtime: AbstractRandomSource, draw_below!, standard_normal!, uniform_un
 using ..Certificates: ImplicitSolveCertificate, certify_implicit_solve,
     certifies_exact_solver
 
-export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_out_slice_step!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!, scalar_hmc_step!, vector_hmc_step!, metric_hmc_step!, multinomial_hmc_step!, metric_multinomial_hmc_step!, categorical_dhmc_step!,
+export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_out_slice_step!, sheared_birth_death_step!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!, scalar_hmc_step!, vector_hmc_step!, metric_hmc_step!, multinomial_hmc_step!, metric_multinomial_hmc_step!, categorical_dhmc_step!,
     finite_hmm_particle_gibbs_step!,
     relativistic_multinomial_hmc_step!,
     fixed_point_generalized_leapfrog,
@@ -127,6 +127,22 @@ function stepping_out_slice_step!(source::AbstractRandomSource, logdensity,
         proposal < x ? (left = proposal) : (right = proposal)
     end
     throw(ErrorException("slice shrinkage exceeded max_shrink"))
+end
+
+"""Reference nonlinear reversible-jump birth/death update.
+
+`nothing` denotes the zero-dimensional model. A birth draws the proved
+uniform auxiliary pair and applies `(u₁,u₂) ↦ (2u₁+8u₂³,2u₂)`;
+a death deterministically returns to `nothing`. The formal density correction
+makes both directions accept with probability one.
+"""
+function sheared_birth_death_step!(source::AbstractRandomSource, current)
+    current === nothing || current isa Tuple{<:Real,<:Real} ||
+        throw(ArgumentError("RJ state must be nothing or a pair of reals"))
+    current === nothing || return nothing
+    u1 = 2.0 * uniform_unit!(source) - 1.0
+    u2 = 2.0 * uniform_unit!(source) - 1.0
+    (2.0 * u1 + 8.0 * u2^3, 2.0 * u2)
 end
 
 struct SList

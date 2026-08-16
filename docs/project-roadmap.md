@@ -483,9 +483,13 @@ by paper date:
    theorem; the coefficient algebra and fixed-iteration large-particle
    asymptotics are complete once one common model bound is supplied; and
 4. finish the optional breadth clients: standard dynamic-NUTS tree recursion,
-   ideal refinement of stepping-out slice sampling, nonlinear RJ transports,
-   unbounded-history adaptation, and general-dimensional PDMP
+   ideal refinement of stepping-out slice sampling, unbounded-history
+   adaptation, and general-dimensional PDMP
    stationarity/convergence.
+
+   The nonlinear reversible-jump branch is complete at the exact theorem and
+   executable-client levels; only the shared Float64 primitive boundary
+   remains, as for the other generated/runtime samplers.
 
 These open items do not weaken the completed finite Gibbs, tempering,
 pseudo-marginal, independence-MH, MALA, adaptive-boundary, Xu et al. coupling,

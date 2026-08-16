@@ -124,7 +124,11 @@ normalized integer-weight target stationary. Julia supplies independent
 Reference and Optimized implementations with exhaustive trace tests. The
 reversible-jump layer also has a zero-to-two-dimensional planar birth/death
 client: the product transport `(u₁,u₂) ↦ (2u₁,2u₂)` carries the checked inverse
-determinant factor and yields a complete tagged-target invariance theorem.
+determinant factor and yields a complete tagged-target invariance theorem. A
+genuinely nonlinear version shears that output to
+`(2u₁+8u₂³,2u₂)`; Julia exposes it as `ShearedBirthDeathRJ`, with matching
+Reference/Optimized traces, curved-strip checks, moment diagnostics, and
+seeded reproducibility tests.
 
 Continuous-time samplers now begin in a separate `Mcmc.PDMP` namespace.
 Generator invariance, rate-biased jump-flux balance, and finite reversible-rate

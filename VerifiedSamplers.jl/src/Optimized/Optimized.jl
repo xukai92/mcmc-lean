@@ -6,7 +6,7 @@ using ...Runtime: AbstractRandomSource, draw_below!, standard_normal!, uniform_u
 using ...Certificates: ImplicitSolveCertificate, certify_implicit_solve,
     certifies_exact_solver
 
-export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_out_slice_step!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!,
+export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_out_slice_step!, sheared_birth_death_step!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!,
     finite_hmm_particle_gibbs_step!,
     scalar_hmc_step!, vector_hmc_step!, metric_hmc_step!, multinomial_hmc_step!,
     metric_multinomial_hmc_step!,
@@ -140,6 +140,16 @@ function stepping_out_slice_step!(source::AbstractRandomSource, logdensity,
         attempts += 1
     end
     throw(ErrorException("slice shrinkage exceeded max_shrink"))
+end
+
+"""Low-allocation nonlinear reversible-jump birth/death update."""
+function sheared_birth_death_step!(source::AbstractRandomSource, current)
+    current === nothing || current isa Tuple{<:Real,<:Real} ||
+        throw(ArgumentError("RJ state must be nothing or a pair of reals"))
+    current === nothing || return nothing
+    u1 = muladd(2.0, uniform_unit!(source), -1.0)
+    u2 = muladd(2.0, uniform_unit!(source), -1.0)
+    (muladd(8.0, u2^3, 2.0 * u1), 2.0 * u2)
 end
 
 """Allocation-conscious fixed-point generalized-leapfrog solver.

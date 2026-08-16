@@ -20,6 +20,7 @@ include("composable.jl")
 include("particle_gibbs.jl")
 include("integer_slice.jl")
 include("bounded_slice.jl")
+include("reversible_jump.jl")
 include("dynamic_tree.jl")
 
 @testset "finite categorical core" begin

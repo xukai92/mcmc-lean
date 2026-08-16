@@ -1,5 +1,14 @@
 # Development log
 
+- Added an executable client for the proved nonlinear reversible-jump shear.
+  `ShearedBirthDeathRJ` represents the empty model by `nothing`, draws the two
+  uniform birth auxiliaries, applies `(u₁,u₂) ↦ (2u₁+8u₂³,2u₂)`, and
+  deterministically applies the reverse death. Reference and Optimized paths
+  agree event for event. Tests check the inverse curved-strip coordinates,
+  model-mass alternation, transported moments, invalid states, and seeded
+  reproducibility. The exact acceptance-one/invariance argument remains the
+  Lean theorem; Float64 uniform/arithmetic refinement remains explicit.
+
 - Expanded guarded stepping-out slice conformance beyond the happy path.
   Deterministic traces now cover a zero expansion budget and a rejected
   proposal that shrinks the bracket before acceptance. Reference and Optimized
@@ -96,8 +105,9 @@
   `(N−1)/N` coefficient (including the degenerate `N=1` zero coefficient).
   Attempting the one-step target comparison exposed a second, distinct
   self-normalization cost: the raw oscillation constant `B` cannot in general
-  be used directly as the displayed PG penalty. A skewed two-state initial law
-  already violates that proposed bound. The primitive schedule is therefore
+  be used directly as the displayed PG penalty. A skewed finite model with
+  distinct high-weight current and proposed states violates that proposed
+  bound. The primitive schedule is therefore
   corrected to the standard safe penalty `2B−1`, giving the slice factor
   `(N−1)/(N−2+2B)`. Lean proves `B ≥ 1`, hence positivity of every
   corrected penalty. Abstract certificate theorems with an arbitrary supplied

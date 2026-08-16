@@ -9,7 +9,7 @@ include("Certificates/Certificates.jl")
 include("Reference/Reference.jl")
 include("Optimized/Optimized.jl")
 
-export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, BoundedRejectionSlice, SteppingOutSlice, TwoStateMH, GaussianRWMH, PositiveTransformedRWMH,
+export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, BoundedRejectionSlice, SteppingOutSlice, ShearedBirthDeathRJ, sheared_birth_unshear, TwoStateMH, GaussianRWMH, PositiveTransformedRWMH,
     WarmupGaussianRWMH, GaussianRWMHWarmupResult, warmup,
     ScalarHMC, VectorHMC, MultinomialHMC, MetricMultinomialHMC,
     CategoricalDHMC,
@@ -1372,6 +1372,43 @@ function sample(rng::AbstractRNG, sampler::SteppingOutSlice,
 end
 
 sample(sampler::SteppingOutSlice, initial::Real, count::Integer) =
+    sample(Random.default_rng(), sampler, initial, count)
+
+"""Certified nonlinear two-model reversible-jump sampler.
+
+The empty model is represented by `nothing`; the planar model is a pair of
+`Float64`s. The exact Lean client proves invariance for the nonlinear
+triangular transport. This Julia implementation mirrors that transport; its
+uniform draws and arithmetic remain the usual runtime boundary.
+"""
+struct ShearedBirthDeathRJ end
+
+"""Inverse nonlinear shear, useful for checking curved-strip membership."""
+function sheared_birth_unshear(state::Tuple{<:Real,<:Real})
+    y1, y2 = Float64(state[1]), Float64(state[2])
+    (y1 - y2^3, y2)
+end
+
+function step(rng::AbstractRNG, ::ShearedBirthDeathRJ, current)
+    Reference.sheared_birth_death_step!(Runtime.RNGSource(rng), current)
+end
+
+step(sampler::ShearedBirthDeathRJ, current) =
+    step(Random.default_rng(), sampler, current)
+
+function sample(rng::AbstractRNG, sampler::ShearedBirthDeathRJ,
+        initial, count::Integer)
+    count >= 0 || throw(ArgumentError("sample count must be nonnegative"))
+    states = Vector{Union{Nothing,Tuple{Float64,Float64}}}(undef, count)
+    current = initial
+    for index in eachindex(states)
+        current = step(rng, sampler, current)
+        states[index] = current
+    end
+    states
+end
+
+sample(sampler::ShearedBirthDeathRJ, initial, count::Integer) =
     sample(Random.default_rng(), sampler, initial, count)
 
 """Per-output certificate for a finite dynamic trajectory builder.
