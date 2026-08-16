@@ -165,9 +165,11 @@ The pre-Xu dependency order is:
    pointwise minorization, Lean constructs the refresh residual and proves a
    uniform geometric TV rate with coefficient
    `((N-1)/(N-1+B))^(T+1)`, including monotonic improvement of that coefficient
-   with particle count. Deriving the displayed minorization from primitive
-   potential and transition bounds for the recursive forced-lineage generator
-   remains the next model-level obligation.
+   with particle count. Separately, primitive full-support assumptions now
+   construct a conservative refresh certificate and TV convergence directly
+   for every explicit `N ≥ 2`. Deriving the sharper displayed minorization from
+   primitive potential and transition bounds for the recursive forced-lineage
+   generator remains the next quantitative model-level obligation.
 7. adaptive-MCMC boundary -- finite state-dependent kernel selection and a
    counterexample where two frozen target-invariant kernels combine into a
    non-invariant selected kernel are complete. Predetermined nonhomogeneous law
@@ -228,9 +230,10 @@ For the first positive-horizon model class, every finite particle index type
 with at least two members now constructs a shared identity-ancestry history
 containing any two requested trajectories. Positive initial mass and
 full-support propagation therefore discharge fiber connectivity at every
-finite horizon and give TV convergence from every initial law. Sharper
-coefficients under bounded potentials and
-their explicit dependence on a general particle count remain open.
+finite horizon and give TV convergence from every initial law. The
+count-indexed `Fin (extra+1)` wrapper constructs the conservative
+strict-positivity refresh and its geometric bound for every `extra > 0`.
+Sharper closed-form coefficients under bounded potentials remain open.
 For finite clients, strict positivity of the complete trajectory transition
 matrix already discharges convergence: the library constructs an explicit
 positive product lower bound and proves TV convergence from every initial law.

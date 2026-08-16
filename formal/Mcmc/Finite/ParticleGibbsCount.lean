@@ -154,4 +154,76 @@ theorem boundedPotentialParticleGibbs_totalVariation_tendsto_zero
     (particleGibbsCountCoefficient_pos certificate.extra_pos
       certificate.bound_pos) initialLaw
 
+/-- Full-support model ingredients construct a conservative positive refresh
+certificate directly at the `extra + 1` particle interface. This certificate
+does not claim the sharper bounded-potential coefficient above; it uses the
+generic finite strictly-positive-matrix construction. -/
+noncomputable def countedFullSupportParticleGibbsRefresh
+    [Nonempty Sample]
+    (initial : Distribution Sample) (hinitial : ∀ x, 0 < initial.mass x)
+    (steps : List (FeynmanKacStep Sample))
+    (hsupport : FeynmanKacFullSupport steps)
+    (hnormalizer : 0 < normalizingConstant initial steps)
+    (extra : ℕ) (hextra : 0 < extra) :
+    RefreshDecomposition
+      (countedTrajectoryParticleGibbsKernel initial steps hnormalizer extra)
+      (countedTrajectoryTarget initial steps hnormalizer extra) := by
+  letI : Nontrivial (Fin (extra + 1)) :=
+    Fintype.one_lt_card_iff_nontrivial.mp (by simp; omega)
+  letI : Nonempty (Trajectory steps) :=
+    ⟨⟨List.replicate (steps.length + 1)
+      (Classical.choice ‹Nonempty Sample›), by simp⟩⟩
+  apply RefreshDecomposition.ofStrictlyPositive
+  · apply trajectoryParticleGibbsKernel_prob_pos_of_fiberConnectivity
+    exact particleGibbsFiberConnectivity_of_pairRealizable
+      initial hinitial steps hsupport hnormalizer
+        (particleGibbsPairRealizable_of_nontrivial steps)
+  · exact trajectoryParticleGibbsKernel_stationary
+      (Particle := Fin (extra + 1)) initial steps hnormalizer
+
+/-- Count-indexed geometric TV bound under primitive full-support assumptions.
+The rate is the explicit conservative finite-matrix rate stored in the refresh
+certificate above. -/
+theorem countedFullSupportParticleGibbs_totalVariation_le
+    [Nonempty Sample]
+    (initial : Distribution Sample) (hinitial : ∀ x, 0 < initial.mass x)
+    (steps : List (FeynmanKacStep Sample))
+    (hsupport : FeynmanKacFullSupport steps)
+    (hnormalizer : 0 < normalizingConstant initial steps)
+    (extra : ℕ) (hextra : 0 < extra)
+    (initialLaw : Distribution (Trajectory steps)) (iterations : ℕ) :
+    Nonhomogeneous.distributionTotalVariation
+      (Nonhomogeneous.iterateLaw initialLaw
+        (countedTrajectoryParticleGibbsKernel initial steps hnormalizer extra)
+        iterations)
+      (countedTrajectoryTarget initial steps hnormalizer extra) ≤
+      (countedFullSupportParticleGibbsRefresh initial hinitial steps hsupport
+        hnormalizer extra hextra).rate ^ iterations := by
+  exact (countedFullSupportParticleGibbsRefresh initial hinitial steps hsupport
+    hnormalizer extra hextra).iterateLaw_totalVariation_le initialLaw iterations
+
+/-- For every explicit count `N = extra + 1 ≥ 2`, primitive full-support
+bootstrap assumptions imply positive-horizon TV convergence from every
+initial trajectory law. -/
+theorem countedFullSupportParticleGibbs_totalVariation_tendsto_zero
+    [Nonempty Sample]
+    (initial : Distribution Sample) (hinitial : ∀ x, 0 < initial.mass x)
+    (steps : List (FeynmanKacStep Sample))
+    (hsupport : FeynmanKacFullSupport steps)
+    (hnormalizer : 0 < normalizingConstant initial steps)
+    (extra : ℕ) (hextra : 0 < extra)
+    (initialLaw : Distribution (Trajectory steps)) :
+    Filter.Tendsto (fun iterations =>
+      Nonhomogeneous.distributionTotalVariation
+        (Nonhomogeneous.iterateLaw initialLaw
+          (countedTrajectoryParticleGibbsKernel initial steps hnormalizer extra)
+          iterations)
+        (countedTrajectoryTarget initial steps hnormalizer extra))
+      Filter.atTop (nhds 0) := by
+  letI : Nontrivial (Fin (extra + 1)) :=
+    Fintype.one_lt_card_iff_nontrivial.mp (by simp; omega)
+  exact particleGibbs_totalVariation_tendsto_zero_of_fullSupport
+    (Particle := Fin (extra + 1)) initial hinitial steps hsupport hnormalizer
+      initialLaw
+
 end Mcmc.Finite.MarkovKernel

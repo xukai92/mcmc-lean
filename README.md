@@ -202,8 +202,11 @@ full-support propagation at every Feynman--Kac step, the trajectory kernel
 converges in total variation from every initial trajectory law. The proof
 constructs two simultaneous genealogies for every pair of trajectories and
 then applies the checked Doeblin layer. Its coefficient is deliberately
-conservative; sharp dependence on particle count, horizon, and bounded
-potentials remains separate quantitative work.
+conservative. The same theorem is now exposed directly with labels
+`Fin (extra+1)`: every `extra > 0` constructs a positive refresh certificate,
+an explicit geometric bound using its finite-matrix rate, and TV convergence.
+The sharper closed-form dependence on bounded-potential constants remains
+separate quantitative work.
 
 The Julia layer also exposes bounded warmup-only tuning for Gaussian RWMH.
 `WarmupGaussianRWMH` uses diminishing `1/√n` Robbins--Monro log-scale updates,

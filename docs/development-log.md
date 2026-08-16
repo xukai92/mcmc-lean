@@ -1558,6 +1558,14 @@ arbitrary-horizon TV convergence of bootstrap PG; the Boolean one-transition
 example instantiates it. This proves convergence, but not a
 sharp particle-count rate from bounded-potential constants.
 
+The full-support theorem is now connected directly to the count-indexed API.
+For every `extra > 0`, hence `N = extra+1 ≥ 2`, Lean constructs the generic
+strictly-positive finite-matrix refresh decomposition, exposes its geometric
+TV bound, and proves convergence from every initial trajectory law. Thus the
+qualitative positive-horizon/count result no longer depends on a
+client-supplied minorization certificate; only the sharper closed-form
+bounded-potential rate does.
+
 Extended the separate continuous-time branch with finite bounded-rate
 uniformization. `FiniteRateGenerator.uniformizedKernel` converts a rate matrix
 with off-diagonal exit rate bounded by `Λ` into the exact embedded Markov
@@ -1653,8 +1661,10 @@ dimension and parameter validation, and finite outputs.
   positive coefficient from the product of all matrix entries and proves TV
   convergence from every initial trajectory law.
 
-1. Discharge the positive-horizon particle-Gibbs refresh certificate for
-   bounded-potential model classes and sharpen its particle-count dependence.
+1. Derive the sharper displayed positive-horizon particle-Gibbs coefficient
+   directly from bounded-potential constants. Primitive full-support models
+   already construct a conservative refresh certificate for every explicit
+   count `N = extra+1 ≥ 2` and converge in TV.
 2. Certify a practical diagonal SoftAbs solver and restricted Float64/Julia
    refinement.
 3. Extend the Ge, Xu, GR-HMC convergence, dynamic-NUTS, slice, reversible-
