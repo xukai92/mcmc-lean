@@ -2612,6 +2612,55 @@ theorem sequential_error_le_geometric_sum
             rw [← Finset.mul_sum]
             ring
 
+/-- A strict one-step contraction makes the accumulated Monte Carlo noise
+uniformly bounded over all time horizons. -/
+theorem sequential_error_le_uniform_geometric
+    (error : ℕ → ℝ) {rate initialError noise : ℝ}
+    (hrate : 0 ≤ rate) (hrateOne : rate < 1)
+    (hinitial0 : 0 ≤ initialError) (hnoise0 : 0 ≤ noise)
+    (hinitial : error 0 ≤ initialError)
+    (hstep : ∀ n, error (n + 1) ≤ rate * error n + noise) :
+    ∀ n, error n ≤ initialError + noise / (1 - rate) := by
+  intro n
+  have hgeometric := sequential_error_le_geometric_sum error hrate hinitial hstep n
+  have hpow : rate ^ n ≤ 1 := pow_le_one₀ hrate hrateOne.le
+  have hsum : (∑ k ∈ Finset.range n, rate ^ k) ≤ 1 / (1 - rate) := by
+    rw [le_div_iff₀ (sub_pos.mpr hrateOne), geom_sum_mul_neg]
+    have hpow0 : 0 ≤ rate ^ n := pow_nonneg hrate n
+    linarith
+  calc
+    error n ≤ rate ^ n * initialError +
+        noise * ∑ k ∈ Finset.range n, rate ^ k := hgeometric
+    _ ≤ 1 * initialError + noise * (1 / (1 - rate)) := by
+      gcongr
+    _ = initialError + noise / (1 - rate) := by ring
+
+/-- Uniform-in-time inverse-particle-count control under a count-independent
+strict contraction. This isolates the precise stability certificate a
+concrete Feynman--Kac model must supply beyond the fixed-horizon SMC theorem. -/
+theorem sequential_error_le_uniform_inverse_count
+    (error : ℕ → ℕ → ℝ) {rate initialCoefficient noiseCoefficient : ℝ}
+    (hrate : 0 ≤ rate) (hrateOne : rate < 1)
+    (hinitial0 : 0 ≤ initialCoefficient) (hnoise0 : 0 ≤ noiseCoefficient)
+    (hinitial : ∀ extra,
+      error extra 0 ≤ initialCoefficient / ((extra : ℝ) + 1))
+    (hstep : ∀ extra n,
+      error extra (n + 1) ≤ rate * error extra n +
+        noiseCoefficient / ((extra : ℝ) + 1)) :
+    ∀ extra n, error extra n ≤
+      (initialCoefficient + noiseCoefficient / (1 - rate)) /
+        ((extra : ℝ) + 1) := by
+  intro extra n
+  have hdenom : (0 : ℝ) < (extra : ℝ) + 1 := by positivity
+  have hbound := sequential_error_le_uniform_geometric (error extra)
+    hrate hrateOne (div_nonneg hinitial0 hdenom.le)
+    (div_nonneg hnoise0 hdenom.le) (hinitial extra) (hstep extra) n
+  calc
+    error extra n ≤ initialCoefficient / ((extra : ℝ) + 1) +
+        (noiseCoefficient / ((extra : ℝ) + 1)) / (1 - rate) := hbound
+    _ = (initialCoefficient + noiseCoefficient / (1 - rate)) /
+        ((extra : ℝ) + 1) := by field_simp
+
 end SequentialErrorRecursion
 
 end Mcmc.Finite.ParticleEstimator

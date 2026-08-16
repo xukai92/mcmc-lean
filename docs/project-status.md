@@ -9,7 +9,7 @@ floating-point code.
 |---|---|
 | General-state PG--HMC | Complete for common-target kernel invariance through Mcmc.Kernel.ComposableInference and the sign/quadrant GeneralStatePgHmc clients using the actual Gaussian SoftAbs transition. Runtime callback equality with a bound Lean kernel remains explicit. |
 | Positive-horizon particle Gibbs | Complete for the supportable cumulative backward-potential schedule under primitive finite full support, including geometric TV convergence and a fixed-iteration particle-count limit. Recursive raw-current substitution beyond one step and horizon-uniform rates are not claimed. |
-| Particle-count SMC asymptotics | Complete at fixed finite horizon through explicit C/N mean-square and probability bounds. Uniform-in-time stability and particle-count-uniform PG mixing remain open. |
+| Particle-count SMC asymptotics | Complete at fixed finite horizon through explicit C/N mean-square and probability bounds. A reusable strict-contraction theorem now upgrades any count-independent affine one-step estimate to a uniform-in-time C/N bound. Concrete time-uniform Feynman--Kac stability and particle-count-uniform PG mixing remain open. |
 | Diagonal SoftAbs / Xu--Ge solver | Complete for the exact Gaussian, bounded 2 + sin(q), and shifted-sinusoidal clients, including selected solver, reversal, phase volume, and invariance. Generic six-step Float64 solving still requires residual and primitive-error certificates. |
 | Cross-language refinement | Complete for the declared IR operations, byte-for-byte generation, Lean oracle, trace replay, exact dyadic polynomial checks, and guarded bounded-error contracts. Platform libm, arbitrary callbacks, RNGs, and unrestricted IEEE execution remain outside the proof. |
 | Ge et al. coroutine/operators | Complete for explicit copyable cursor state, generated PG--HMC descriptors, semantic BoundOperator bindings, and descriptor-ordered invariance. Opaque Task stack copying and arbitrary callback equivalence are not claimed. |
@@ -44,8 +44,9 @@ byte-for-byte, and runs every Julia testset.
 3. Extend the concrete indefinitely state-selected finite certificate to a
    realistic continuous and genuinely history-dependent rule through the
    existing diminishing-adaptation/containment proxy interface.
-4. Add uniform-in-time particle stability and stronger particle-MCMC
-   asymptotics.
+4. Instantiate the new uniform-in-time strict-contraction particle theorem
+   for concrete stable Feynman--Kac models, then derive stronger
+   particle-MCMC asymptotics.
 5. Construct general-dimensional unbounded-rate BPS and prove stationarity,
    followed separately by ergodicity.
 6. Add broader target/runtime instantiations without weakening the numerical

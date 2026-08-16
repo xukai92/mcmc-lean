@@ -1,5 +1,13 @@
 # Development log
 
+- Added the stability implication missing from the fixed-horizon particle
+  asymptotics. A nonnegative affine error recurrence with rate strictly below
+  one is now bounded uniformly over every horizon by the initial error plus
+  the geometric noise budget. Its particle-indexed corollary turns uniform
+  `C/N` initial and one-step bounds into an explicit uniform-in-time `C'/N`
+  theorem. Concrete models still have to prove the strict contraction; the
+  theorem does not assume time-uniform SMC stability for free.
+
 - Factored the stopped stepping-out obligation into checked grid arithmetic.
   Lean now proves that any finite prefix of aligned grid endpoints certified
   strictly inside the sampled slice can be removed from a leftward or
