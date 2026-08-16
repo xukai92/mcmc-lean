@@ -178,4 +178,53 @@ theorem stoppedDoublingKernel_stationary
       htarget).Stationary target :=
   (stoppedDoublingTree maxDepth).kernel_stationary target htarget
 
+/-- Canonical component label on a finite trajectory: the number of declared
+barrier edges strictly before the state. -/
+def lineBarrierLabel (barriers : List Bool)
+    (state : Fin (barriers.length + 1)) : ℕ :=
+  (barriers.take state.val).count true
+
+/-- Candidate component obtained by cutting a finite trajectory at every
+declared barrier edge. -/
+def lineBarrierCandidates (barriers : List Bool)
+    (root : Fin (barriers.length + 1)) :
+    Finset (Fin (barriers.length + 1)) :=
+  Finset.univ.filter fun leaf =>
+    lineBarrierLabel barriers leaf = lineBarrierLabel barriers root
+
+/-- Barrier partitioning is reroot stable by construction. A numerical
+U-turn detector may safely feed this builder only after assigning barriers on
+the canonical full trajectory, rather than stopping from a root-dependent
+partial view. -/
+def lineBarrierTree (barriers : List Bool) :
+    CertifiedDynamicTree (Fin (barriers.length + 1)) where
+  candidates := lineBarrierCandidates barriers
+  root_mem root := by simp [lineBarrierCandidates]
+  reroot_eq := by
+    intro root leaf hleaf
+    simp only [lineBarrierCandidates, Finset.mem_filter, Finset.mem_univ,
+      true_and] at hleaf
+    apply Finset.filter_congr
+    intro candidate _
+    constructor <;> intro h
+    · exact h.trans hleaf
+    · exact h.trans hleaf.symm
+
+@[simp] theorem check_lineBarrierCandidates (barriers : List Bool) :
+    CertifiedDynamicTree.check (lineBarrierCandidates barriers) = true := by
+  rw [CertifiedDynamicTree.check_eq_true_iff]
+  exact ⟨(lineBarrierTree barriers).root_mem,
+    fun root leaf hleaf => (lineBarrierTree barriers).reroot_eq hleaf⟩
+
+/-- Target-weighted selection within canonical barrier-delimited trajectory
+components is stationary. -/
+theorem lineBarrierKernel_stationary
+    (barriers : List Bool)
+    (target : Distribution (Fin (barriers.length + 1)))
+    (htarget : ∀ state, 0 < target.mass state) :
+    (dynamicCandidateKernel target
+      ((lineBarrierTree barriers).toCandidateSet target)
+      htarget).Stationary target :=
+  (lineBarrierTree barriers).kernel_stationary target htarget
+
 end Mcmc.Finite.MarkovKernel

@@ -12,4 +12,13 @@
 
     @test_throws ArgumentError certify_dynamic_tree(Vector{Vector{Int}}())
     @test_throws ArgumentError certify_dynamic_tree([[1, 3], [2]])
+
+    partition = certified_orbit_partition(Bool[false, true, false, false])
+    @test partition.valid
+    @test partition.candidates ==
+        [[1, 2], [1, 2], [3, 4, 5], [3, 4, 5], [3, 4, 5]]
+    @test certified_orbit_partition(Bool[]).candidates == [[1]]
+    @test certified_orbit_partition(fill(false, 3)).candidates ==
+        [collect(1:4) for _ in 1:4]
+    @test certified_orbit_partition(fill(true, 3)).candidates == [[1], [2], [3], [4]]
 end

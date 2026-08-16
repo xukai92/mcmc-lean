@@ -66,9 +66,11 @@ root inclusion plus equality of the completed candidate `Finset` after every
 admissible reroot imply reversible and stationary target-weighted selection.
 Lean provides an executable checker whose successful result constructs that
 proof-bearing tree, and Julia checks the same completed-tree conditions on
-runtime candidate rows. Variable-depth stopped doubling trees instantiate it;
-a particular numerical U-turn/subtree-exclusion builder must still produce a
-passing certificate.
+runtime candidate rows. Variable-depth stopped doubling trees and canonical
+finite-orbit partitions at declared barrier edges instantiate it in both
+languages. A particular numerical U-turn/subtree-exclusion detector must still
+justify the barriers it supplies; root-dependent first-stop output is not
+silently accepted.
 
 The implicit-solver foundation now includes a fixed-step, smooth,
 momentum-even nonseparable example `H(q,p) = a q √(1+p²)`. Lean proves the

@@ -244,8 +244,8 @@ After those foundations and the paper execution milestones, the optional
 breadth branches are:
 
 - numerical U-turn/subtree-exclusion construction beyond the completed finite
-  certified-tree, executable checker, Julia certificate mirror, and
-  stopped-doubling selection theorems;
+  certified-tree, executable checker, Julia certificate mirror, canonical
+  barrier-partition builder, and stopped-doubling selection theorems;
 - stepping-out/shrinkage beyond the exact disintegration, finite integer slice,
   and bounded-interval continuous rejection implementation;
 - reversible-jump transports beyond the checked scalar and planar

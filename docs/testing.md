@@ -74,8 +74,9 @@ the finite retry guard with the disintegrated ideal slice kernel.
 
 Dynamic-tree tests exercise the runtime form of Lean's completed-tree checker:
 they accept components with different candidate counts and reject missing-root
-and asymmetric-reroot outputs. This validates certificate transport logic, not
-the geometry of a future floating-point U-turn detector.
+and asymmetric-reroot outputs. They also cover no barriers, all barriers, and
+mixed canonical orbit partitions. This validates certificate and partition
+transport logic, not the geometry of a future floating-point U-turn detector.
 
 Position-dependent generalized leapfrog now has Reference-versus-Optimized
 fixed-point tests using nonseparable derivatives, direct checks of both

@@ -22,7 +22,7 @@ export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, Bounded
     certify_restricted_gaussian_float64,
     restricted_gaussian_certificate_arguments,
     Xu21CoupledSampler, ScopedInferenceOperator, ComposableSampler, covers,
-    DynamicTreeCertificate, certify_dynamic_tree,
+    DynamicTreeCertificate, certify_dynamic_tree, certified_orbit_partition,
     generated_schedule,
     ObservationCursor, observation_cursor, resume_observation, run_observations,
     FiniteHMMParticleGibbs,
@@ -1071,6 +1071,31 @@ function certify_dynamic_tree(rows::AbstractVector{<:AbstractVector{<:Integer}})
         valid || break
     end
     DynamicTreeCertificate(candidates, valid)
+end
+
+"""Partition a canonical finite orbit at declared barrier edges.
+
+The `k`th Boolean separates states `k` and `k+1`. Candidate rows are the full
+connected components between barriers, hence pass the reroot checker by
+construction. A U-turn detector can supply the barriers, but this function
+does not claim that an arbitrary detector implements standard NUTS stopping.
+"""
+function certified_orbit_partition(barriers::AbstractVector{Bool})
+    state_count = length(barriers) + 1
+    rows = Vector{Vector{Int}}(undef, state_count)
+    component_start = 1
+    for edge in 1:state_count
+        if edge == state_count || barriers[edge]
+            component = collect(component_start:edge)
+            for state in component
+                rows[state] = component
+            end
+            component_start = edge + 1
+        end
+    end
+    certificate = certify_dynamic_tree(rows)
+    certificate.valid || error("internal orbit-partition certificate failure")
+    certificate
 end
 
 struct FiniteKernelWeights

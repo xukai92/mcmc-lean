@@ -241,6 +241,15 @@ missing-root and asymmetric-reroot failures. The still-open numerical task is
 to make a concrete U-turn/subtree-exclusion builder emit a passing candidate
 family; the checker does not assume that geometric property.
 
+Added a concrete reroot-safe dynamic builder on canonical finite trajectories.
+A Boolean barrier on edge `k` separates orbit states `k` and `k+1`; every root
+receives its entire barrier-delimited component. Lean proves that these rows
+pass the executable checker and that target-weighted component selection is
+stationary. Julia constructs the identical partitions and tests empty, full,
+and mixed barrier patterns. This supports verified dynamic stopping once a
+geometric detector has justified canonical barriers, but it deliberately does
+not equate a root-dependent first-U-turn heuristic with the certified builder.
+
 ## 2026-08-15: normalized targets and refresh-augmented GR-HMC convergence
 
 Added a reusable bridge from any nonzero finite invariant measure to mathlib's
