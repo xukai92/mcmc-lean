@@ -37,6 +37,34 @@ noncomputable def particleGibbsCountCoefficient
     (extra : ℕ) (bound : ℝ) (horizon : ℕ) : ℝ :=
   ((extra : ℝ) / ((extra : ℝ) + bound)) ^ horizon
 
+/-- Time-inhomogeneous version of the PG refresh coefficient. Each entry is
+the nonnegative penalty for one Feynman--Kac time slice. This is the algebraic
+shape used when model bounds vary with time instead of being replaced by one
+global worst-case constant. -/
+noncomputable def particleGibbsScheduleCoefficient
+    (extra : ℕ) (penalties : List ℝ) : ℝ :=
+  (penalties.map fun penalty =>
+    (extra : ℝ) / ((extra : ℝ) + penalty)).prod
+
+/-- A constant schedule recovers the original power coefficient exactly. -/
+theorem particleGibbsScheduleCoefficient_replicate
+    (extra horizon : ℕ) (bound : ℝ) :
+    particleGibbsScheduleCoefficient extra (List.replicate horizon bound) =
+      particleGibbsCountCoefficient extra bound horizon := by
+  simp [particleGibbsScheduleCoefficient, particleGibbsCountCoefficient]
+
+theorem particleGibbsScheduleCoefficient_pos
+    {extra : ℕ} {penalties : List ℝ} (hextra : 0 < extra)
+    (hpenalties : ∀ penalty ∈ penalties, 0 < penalty) :
+    0 < particleGibbsScheduleCoefficient extra penalties := by
+  unfold particleGibbsScheduleCoefficient
+  apply List.prod_pos
+  intro ratio hratio
+  simp only [List.mem_map] at hratio
+  obtain ⟨penalty, hmem, rfl⟩ := hratio
+  have hpenalty := hpenalties penalty hmem
+  positivity
+
 theorem particleGibbsCountCoefficient_pos
     {extra horizon : ℕ} {bound : ℝ} (hextra : 0 < extra)
     (hbound : 0 < bound) :

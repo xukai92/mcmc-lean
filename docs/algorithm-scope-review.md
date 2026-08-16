@@ -272,6 +272,26 @@ initialization. Keep fixed-particle stationarity,
 chain convergence, and consistency as particle count grows as separate theorem
 families.
 
+### Quantitative particle-Gibbs convergence -- P2
+
+[Andrieu, Lee, and Vihola](https://doi.org/10.3150/15-BEJ785) derive
+quantitative uniform-ergodicity bounds for iterated conditional SMC from
+bounded potentials using a doubly conditional SMC argument. Independently,
+[Lindsten, Douc, and Moulines](https://arxiv.org/abs/1401.0683) give a
+time-inhomogeneous PG minorization whose coefficient is a product of
+per-time factors involving model-specific future-likelihood bounds. These
+results do not follow from stationarity or pointwise support alone.
+
+**Repository fit.** The finite library now separates the exact steps needed
+to formalize such a bound: a compatible shared-history density estimate, the
+conditional-fiber normalization, uniform terminal-index refresh, trajectory
+projection, and Doeblin convergence. `particleGibbsScheduleCoefficient`
+records the product form for time-varying penalties; a constant penalty
+specializes exactly to `particleGibbsCountCoefficient`. The doubly conditional
+SMC density estimate that supplies the published model-dependent penalties is
+still an open theorem, so the current generic `bound` must not be presented as
+one paper's constant without an explicit instantiation.
+
 ## HMC foundations and practical variants
 
 ### Duane et al. (1987): hybrid/Hamiltonian Monte Carlo -- P0

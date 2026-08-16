@@ -18,6 +18,13 @@ task. The sharper displayed coefficient is not yet derived from pointwise
 potential/transition bounds; the remaining work is precisely the explicit
 forced-lineage history-density inequality.
 
+The coefficient algebra now also retains time-inhomogeneous information:
+`particleGibbsScheduleCoefficient` is the product of the per-slice refresh
+factors, is positive under positive particle count and penalties, and reduces
+definitionally to the original power coefficient for a replicated penalty.
+This matches the shape of published PG bounds without claiming that the
+model-specific penalty sequence has already been derived.
+
 ## 2026-08-15: finite continuous-time event schedules
 
 Extended the Poissonized fixed-event skeleton with ordered real timestamps.
