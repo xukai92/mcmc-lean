@@ -113,4 +113,42 @@ noncomputable def SoftAbsPrimitiveBackend.metricEntryCertificate
     factor_bound := hfactor
     logDet_bound := hlog }
 
+/-- Coordinatewise guarded certificates for a finite diagonal SoftAbs metric.
+The aggregate log determinant is the sum of the certified scalar entries. -/
+structure SoftAbsDiagonalMetricCertificate (ι : Type*) [Fintype ι]
+    (α : ℝ) (idealHessian : ι → ℝ) where
+  entry : ∀ i, SoftAbsMetricEntryCertificate α (idealHessian i)
+
+namespace SoftAbsDiagonalMetricCertificate
+
+variable {ι : Type*} [Fintype ι] {α : ℝ} {idealHessian : ι → ℝ}
+
+noncomputable def computedLogDet
+    (certificate : SoftAbsDiagonalMetricCertificate ι α idealHessian) : ℝ :=
+  ∑ i, (certificate.entry i).computedLogDet
+
+noncomputable def idealLogDet
+    (_certificate : SoftAbsDiagonalMetricCertificate ι α idealHessian) : ℝ :=
+  ∑ i, Real.log (Mcmc.Relativistic.softAbs α (idealHessian i))
+
+noncomputable def logDetError
+    (certificate : SoftAbsDiagonalMetricCertificate ι α idealHessian) : ℝ :=
+  ∑ i, (certificate.entry i).logDetError
+
+/-- Scalar log-determinant errors compose into the diagonal metric's complete
+log-determinant error bound. -/
+theorem logDet_bound
+    (certificate : SoftAbsDiagonalMetricCertificate ι α idealHessian) :
+    Approximates certificate.computedLogDet certificate.idealLogDet
+      certificate.logDetError := by
+  classical
+  unfold computedLogDet idealLogDet logDetError
+  exact Approximates.sum Finset.univ
+    (fun i => (certificate.entry i).computedLogDet)
+    (fun i => Real.log (Mcmc.Relativistic.softAbs α (idealHessian i)))
+    (fun i => (certificate.entry i).logDetError)
+    (fun i _ => (certificate.entry i).logDet_bound)
+
+end SoftAbsDiagonalMetricCertificate
+
 end Mcmc.Executable.Continuous

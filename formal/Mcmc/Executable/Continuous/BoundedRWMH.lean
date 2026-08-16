@@ -31,6 +31,20 @@ theorem Approximates.add {aHat a bHat b ea eb : ℝ}
   rw [Approximates, add_sub_add_comm]
   exact (abs_add_le _ _).trans (add_le_add ha hb)
 
+/-- Componentwise absolute-error bounds add over a finite sum. -/
+theorem Approximates.sum {ι : Type*} (s : Finset ι)
+    (computed ideal error : ι → ℝ)
+    (h : ∀ i ∈ s, Approximates (computed i) (ideal i) (error i)) :
+    Approximates (∑ i ∈ s, computed i) (∑ i ∈ s, ideal i)
+      (∑ i ∈ s, error i) := by
+  classical
+  induction s using Finset.induction_on with
+  | empty => simp [Approximates]
+  | @insert i s hi ih =>
+      simp only [Finset.sum_insert hi]
+      exact Approximates.add (h i (by simp))
+        (ih (fun j hj => h j (by simp [hj])))
+
 theorem Approximates.sub {aHat a bHat b ea eb : ℝ}
     (ha : Approximates aHat a ea) (hb : Approximates bHat b eb) :
     Approximates (aHat - bHat) (a - b) (ea + eb) := by

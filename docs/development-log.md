@@ -1872,6 +1872,9 @@ entry. Given a Hessian approximation and backend error bounds, Lean now
 composes guarded approximations for the positive SoftAbs eigenvalue, its
 square root, inverse-square-root factor, and log-determinant contribution.
 The ideal positivity proof discharges every exact-real domain obligation.
+The construction now lifts coordinatewise over any finite diagonal metric;
+a reusable finite-sum lemma proves that entrywise log-determinant errors add
+to a certified bound for the complete log determinant.
 
 Julia exposes the matching guarded Float64 evaluator, including the removable
 zero-Hessian branch, and tests its algebraic outputs and invalid domains. This
