@@ -1,5 +1,6 @@
 import Mcmc.Executable.Continuous.GaussianSoftAbs
 import Mcmc.Kernel.RefreshAugmented
+import Mcmc.Kernel.LocalMinorizationCoupling
 
 /-!
 # Geometric convergence for refresh-augmented Gaussian SoftAbs GR-HMC
@@ -17,6 +18,176 @@ open Mcmc.Hamiltonian Mcmc.Relativistic MeasureTheory ProbabilityTheory
 open scoped ENNReal
 
 variable {ι : Type*} [Fintype ι] [Nonempty ι] [DecidableEq ι]
+
+/-- A coordinate momentum-density floor propagates through the actual
+SoftAbs moved-position map. This is the sampler-specific change-of-variables
+bridge used by the compact minorization argument. -/
+theorem mul_volume_le_map_gaussianSoftAbsUnitMovedPosition
+    (source : Measure ℝ) (q : ℝ) {P S : Set ℝ}
+    (hS : MeasurableSet S)
+    (hSP : S ⊆ gaussianSoftAbsUnitMovedPosition q '' P)
+    (sourceFloor outputFloor : ENNReal)
+    (hsource : ∀ T, MeasurableSet T → T ⊆ P →
+      sourceFloor * volume T ≤ source T)
+    (hcoefficient : outputFloor *
+      ENNReal.ofReal ((softAbs 1 1)⁻¹) ≤ sourceFloor) :
+    outputFloor * volume S ≤
+      Measure.map (gaussianSoftAbsUnitMovedPosition q) source S := by
+  apply Mcmc.Kernel.mul_volume_le_map_of_sourceFloor_of_image_le
+    source (gaussianSoftAbsUnitMovedPosition q)
+    (measurableEmbedding_gaussianSoftAbsUnitMovedPosition q)
+    hS hSP sourceFloor (ENNReal.ofReal ((softAbs 1 1)⁻¹)) outputFloor
+    hsource _ hcoefficient
+  intro T hT
+  exact volume_image_gaussianSoftAbsUnitMovedPosition_le q T hT
+
+/-- Lebesgue density of the refreshed one-dimensional Gaussian SoftAbs
+momentum coordinate. -/
+noncomputable def gaussianSoftAbsMomentumCoordinateDensity (x : ℝ) : ENNReal :=
+  (euclideanRelativisticMomentumPartition Unit 1 1
+      (by norm_num) (by norm_num) : ENNReal)⁻¹ *
+    riemannianRelativisticMomentumWeight
+      (gaussianSoftAbsMetric (ι := Unit)) 1 1 0 (fun _ => x)
+
+theorem continuous_gaussianSoftAbsMomentumCoordinateDensity :
+    Continuous gaussianSoftAbsMomentumCoordinateDensity := by
+  unfold gaussianSoftAbsMomentumCoordinateDensity
+    riemannianRelativisticMomentumWeight
+    riemannianRelativisticKineticEnergy
+  apply (ENNReal.continuous_const_mul (ENNReal.inv_ne_top.mpr (by
+    exact_mod_cast euclideanRelativisticMomentumPartition_ne_zero
+      Unit 1 1 (by norm_num) (by norm_num)))).comp
+  apply ENNReal.continuous_ofReal.comp
+  unfold relativisticKineticEnergy gaussianSoftAbsMetric
+    gaussianHessianDiagonal diagonalSoftAbsMetric diagonalSoftAbsFactor
+    diagonalSoftAbsEigenvalue squaredEuclideanNorm euclideanInner
+  fun_prop
+
+theorem gaussianSoftAbsMomentumCoordinateDensity_pos (x : ℝ) :
+    0 < gaussianSoftAbsMomentumCoordinateDensity x := by
+  unfold gaussianSoftAbsMomentumCoordinateDensity
+  apply ENNReal.mul_pos
+  · rw [ENNReal.inv_ne_zero]
+    exact ENNReal.coe_ne_top
+  · unfold riemannianRelativisticMomentumWeight
+    positivity
+
+/-- Every bounded momentum coordinate interval has one common strictly
+positive refreshed-density floor. -/
+theorem exists_pos_gaussianSoftAbsMomentumCoordinateDensity_floor
+    (R : ℝ) (hR : 0 ≤ R) :
+    ∃ floor : ENNReal, 0 < floor ∧
+      ∀ x ∈ Set.Icc (-R) R,
+        floor ≤ gaussianSoftAbsMomentumCoordinateDensity x := by
+  apply Mcmc.Kernel.exists_pos_le_on_compact
+  · exact isCompact_Icc
+  · exact ⟨0, by simp [hR]⟩
+  · exact continuous_gaussianSoftAbsMomentumCoordinateDensity
+  · intro x _hx
+    exact gaussianSoftAbsMomentumCoordinateDensity_pos x
+
+/-- Distribution of the refreshed momentum's unique scalar coordinate. -/
+noncomputable def gaussianSoftAbsMomentumCoordinateProbability : Measure ℝ :=
+  Measure.map (fun p : Momentum Unit => p Unit.unit)
+    (riemannianRelativisticMomentumProbability
+      (gaussianSoftAbsMetric (ι := Unit)) 1 1
+      (by norm_num) (by norm_num) 0 : Measure (Momentum Unit))
+
+instance gaussianSoftAbsMomentumCoordinateProbability.instIsProbabilityMeasure :
+    IsProbabilityMeasure gaussianSoftAbsMomentumCoordinateProbability := by
+  unfold gaussianSoftAbsMomentumCoordinateProbability
+  apply Measure.isProbabilityMeasure_map
+  exact (measurable_pi_apply Unit.unit).aemeasurable
+
+/-- The coordinate law has exactly the continuous density defined above. -/
+theorem gaussianSoftAbsMomentumCoordinateProbability_apply
+    {T : Set ℝ} (hT : MeasurableSet T) :
+    gaussianSoftAbsMomentumCoordinateProbability T =
+      ∫⁻ x in T, gaussianSoftAbsMomentumCoordinateDensity x := by
+  let eval : Momentum Unit → ℝ := fun p => p Unit.unit
+  have heval : Measurable eval := measurable_pi_apply Unit.unit
+  have hweight : Measurable (Function.uncurry
+      (riemannianRelativisticMomentumWeight
+        (gaussianSoftAbsMetric (ι := Unit)) 1 1)) :=
+    measurable_riemannianRelativisticMomentumWeight
+      measurable_gaussianSoftAbsPotential
+      (gaussianSoftAbsMetric (ι := Unit)) 1 1
+      (measurable_diagonalSoftAbs_generalRelativisticHamiltonian
+        gaussianSoftAbsPotential measurable_gaussianSoftAbsPotential
+        1 (by norm_num) gaussianHessianDiagonal
+        measurable_gaussianHessianDiagonal 1 1)
+  have hvolumeMap : Measure.map eval
+      (volume : Measure (Momentum Unit)) = (volume : Measure ℝ) := by
+    rw [volume_pi]
+    simpa [eval] using
+      (Measure.pi_map_eval
+        (μ := fun _ : Unit => (volume : Measure ℝ)) Unit.unit)
+  rw [gaussianSoftAbsMomentumCoordinateProbability,
+    Measure.map_apply heval hT,
+    riemannianRelativisticMomentumProbability_eq_withDensity
+      (gaussianSoftAbsMetric (ι := Unit))
+      (diagonalSoftAbsMetric_hasCompatibleFactorVolume
+        1 (by norm_num) gaussianHessianDiagonal)
+      1 1 (by norm_num) (by norm_num) hweight 0,
+    withDensity_apply _ (hT.preimage heval)]
+  rw [← lintegral_indicator hT]
+  have hdensity : Measurable gaussianSoftAbsMomentumCoordinateDensity :=
+    continuous_gaussianSoftAbsMomentumCoordinateDensity.measurable
+  rw [← hvolumeMap, lintegral_map (hdensity.indicator hT) heval]
+  rw [← lintegral_indicator (hT.preimage heval)]
+  apply lintegral_congr
+  intro p
+  by_cases hp : eval p ∈ T
+  · rw [Set.indicator_of_mem (show p ∈ eval ⁻¹' T from hp),
+      Set.indicator_of_mem hp]
+    unfold gaussianSoftAbsMomentumCoordinateDensity eval
+    congr 2
+  · rw [Set.indicator_of_notMem (show p ∉ eval ⁻¹' T from hp),
+      Set.indicator_of_notMem hp]
+
+/-- On every bounded momentum interval, the actual refreshed coordinate law
+dominates Lebesgue measure by one strictly positive constant. -/
+theorem exists_pos_gaussianSoftAbsMomentumCoordinateProbability_volume_floor
+    (R : ℝ) (hR : 0 ≤ R) :
+    ∃ floor : ENNReal, 0 < floor ∧
+      ∀ T, MeasurableSet T → T ⊆ Set.Icc (-R) R →
+        floor * volume T ≤ gaussianSoftAbsMomentumCoordinateProbability T := by
+  obtain ⟨floor, hfloorPos, hfloor⟩ :=
+    exists_pos_gaussianSoftAbsMomentumCoordinateDensity_floor R hR
+  refine ⟨floor, hfloorPos, ?_⟩
+  intro T hT hTR
+  rw [gaussianSoftAbsMomentumCoordinateProbability_apply hT,
+    ← setLIntegral_const]
+  apply setLIntegral_mono' hT
+  intro x hx
+  exact hfloor x (hTR hx)
+
+/-- The actual refreshed-momentum moved-position law has a positive Lebesgue
+density floor on every output region reached from a bounded momentum band.
+The floor is uniform in the current position. -/
+theorem exists_pos_gaussianSoftAbsMovedPosition_volume_floor
+    (R : ℝ) (hR : 0 ≤ R) :
+    ∃ floor : ENNReal, 0 < floor ∧
+      ∀ q : ℝ, ∀ S, MeasurableSet S →
+        S ⊆ gaussianSoftAbsUnitMovedPosition q '' Set.Icc (-R) R →
+        floor * volume S ≤
+          Measure.map (gaussianSoftAbsUnitMovedPosition q)
+            gaussianSoftAbsMomentumCoordinateProbability S := by
+  obtain ⟨sourceFloor, hsourceFloorPos, hsource⟩ :=
+    exists_pos_gaussianSoftAbsMomentumCoordinateProbability_volume_floor R hR
+  let J : ENNReal := ENNReal.ofReal ((softAbs 1 1)⁻¹)
+  have hk : 0 < softAbs 1 1 := softAbs_pos 1 (by norm_num) 1
+  have hJPos : 0 < J := ENNReal.ofReal_pos.mpr (inv_pos.mpr hk)
+  have hJTop : J ≠ ∞ := ENNReal.ofReal_ne_top
+  let floor := sourceFloor / J
+  have hfloorPos : 0 < floor := ENNReal.div_pos hsourceFloorPos.ne' hJTop
+  refine ⟨floor, hfloorPos, ?_⟩
+  intro q S hS hSimage
+  apply mul_volume_le_map_gaussianSoftAbsUnitMovedPosition
+    gaussianSoftAbsMomentumCoordinateProbability q hS hSimage
+    sourceFloor floor hsource
+  dsimp [floor]
+  rw [ENNReal.div_mul_cancel hJPos.ne' hJTop]
 
 /-- Exponential coordinate Lyapunov weight used for the bare one-dimensional
 Gaussian SoftAbs drift argument. -/

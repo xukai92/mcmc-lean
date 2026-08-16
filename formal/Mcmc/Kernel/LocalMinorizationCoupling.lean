@@ -23,6 +23,86 @@ def LocallyMinorizes (transition : Kernel α α) (D : Set α)
     (ε : ENNReal) (reference : Measure α) : Prop :=
   ∀ x ∈ D, ∀ s, MeasurableSet s → ε * reference s ≤ transition x s
 
+/-- Normalize a finite positive restriction of a measure. -/
+noncomputable def normalizedRestriction
+    (μ : Measure α) (A : Set α) : Measure α :=
+  (μ A)⁻¹ • μ.restrict A
+
+theorem normalizedRestriction_isProbabilityMeasure
+    (μ : Measure α) {A : Set α}
+    (hApos : 0 < μ A) (hAtop : μ A ≠ ∞) :
+    IsProbabilityMeasure (normalizedRestriction μ A) := by
+  constructor
+  rw [normalizedRestriction, Measure.smul_apply, Measure.restrict_apply
+    MeasurableSet.univ, Set.univ_inter]
+  exact ENNReal.inv_mul_cancel hApos.ne' hAtop
+
+theorem normalizedRestriction_apply
+    (μ : Measure α) {A s : Set α} (hs : MeasurableSet s) :
+    normalizedRestriction μ A s = (μ A)⁻¹ * μ (s ∩ A) := by
+  rw [normalizedRestriction, Measure.smul_apply, Measure.restrict_apply hs,
+    smul_eq_mul]
+
+/-- A lower density bound against `μ` on one finite positive output region
+is exactly a local minorization by its normalized restriction. -/
+theorem locallyMinorizes_normalizedRestriction_of_densityFloor
+    (transition : Kernel α α) (D : Set α) (μ : Measure α)
+    {A : Set α}
+    (hApos : 0 < μ A) (hAtop : μ A ≠ ∞) (floor : ENNReal)
+    (hfloor : ∀ x ∈ D, ∀ s, MeasurableSet s →
+      floor * μ (s ∩ A) ≤ transition x s) :
+    LocallyMinorizes transition D (floor * μ A)
+      (normalizedRestriction μ A) := by
+  intro x hx s hs
+  rw [normalizedRestriction_apply μ hs]
+  rw [show floor * μ A * ((μ A)⁻¹ * μ (s ∩ A)) =
+      floor * (μ A * (μ A)⁻¹) * μ (s ∩ A) by ac_rfl,
+    ENNReal.mul_inv_cancel hApos.ne' hAtop, mul_one]
+  exact hfloor x hx s hs
+
+section OneDimensionalChangeOfVariables
+
+/-- A source density floor and an upper Jacobian bound imply an output
+density floor for an injective one-dimensional transformation. The theorem
+uses image-volume control directly, so clients need not construct an inverse
+or its derivative. -/
+theorem mul_volume_le_map_of_sourceFloor_of_image_le
+    (source : Measure ℝ) (f : ℝ → ℝ)
+    (hf : MeasurableEmbedding f) {P S : Set ℝ}
+    (hS : MeasurableSet S) (hSP : S ⊆ f '' P)
+    (sourceFloor jacobianBound outputFloor : ENNReal)
+    (hsource : ∀ T, MeasurableSet T → T ⊆ P →
+      sourceFloor * volume T ≤ source T)
+    (himage : ∀ T, MeasurableSet T →
+      volume (f '' T) ≤ jacobianBound * volume T)
+    (hcoefficient : outputFloor * jacobianBound ≤ sourceFloor) :
+    outputFloor * volume S ≤ Measure.map f source S := by
+  let T := f ⁻¹' S
+  have hT : MeasurableSet T := hf.measurable hS
+  have hTP : T ⊆ P := by
+    intro x hx
+    obtain ⟨y, hyP, hy⟩ := hSP hx
+    exact (hf.injective hy).symm ▸ hyP
+  have himageEq : f '' T = S := by
+    apply Set.Subset.antisymm
+    · rintro z ⟨x, hx, rfl⟩
+      exact hx
+    · intro z hz
+      obtain ⟨x, hxP, rfl⟩ := hSP hz
+      exact ⟨x, hz, rfl⟩
+  rw [Measure.map_apply hf.measurable hS]
+  calc
+    outputFloor * volume S = outputFloor * volume (f '' T) := by
+      rw [himageEq]
+    _ ≤ outputFloor * (jacobianBound * volume T) := by
+      gcongr
+      exact himage T hT
+    _ = (outputFloor * jacobianBound) * volume T := by ring
+    _ ≤ sourceFloor * volume T := by gcongr
+    _ ≤ source T := hsource T hT hTP
+
+end OneDimensionalChangeOfVariables
+
 /-- Replace rows outside `D` by the reference probability law.  On `D` this
 is definitionally the original transition. -/
 noncomputable def localizedMinorizationKernel
