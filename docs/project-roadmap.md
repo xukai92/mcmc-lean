@@ -509,8 +509,10 @@ by paper date:
    reduces full generator balance exactly to reflection invariance plus a
    multidimensional spatial integration-by-parts premise. Orthogonal
    reflection invariance of mathlib's finite-dimensional standard Gaussian is
-   now proved coordinate-free. Identifying the `Position` Householder map
-   through the `L²` equivalence, target-specific integration by parts,
+   now proved coordinate-free and transported to `Position`; the coordinate
+   Householder formula is proved equal to that conjugated reflection and hence
+   preserves the transported probability law. Equality with the separately
+   density-defined standard momentum law, target-specific integration by parts,
    construction of the unbounded-rate process,
    weak-forward uniqueness, and ergodicity remain.
 

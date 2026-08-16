@@ -9,9 +9,12 @@
   target-specific integration by parts, process construction, weak-forward
   uniqueness, and convergence are not inferred silently. The coordinate-free
   Gaussian premise is now discharged: every closed-subspace orthogonal
-  reflection preserves mathlib's finite-dimensional standard Gaussian. A
-  `Position` client must still identify its sup-norm coordinate Householder map
-  with that Euclidean reflection through the measurable `L²` equivalence.
+  reflection preserves mathlib's finite-dimensional standard Gaussian. Lean
+  transports that law through the measurable `L²` equivalence, proves the
+  repository's coordinate Householder bounce equals the conjugated orthogonal
+  hyperplane reflection, and obtains its exact measure-preservation theorem on
+  `Position`. Identifying this transported Gaussian with the independently
+  density-defined `standardMomentumMeasure` remains a compatibility lemma.
 
 - Connected Julia dynamic-tree certificates to executable sampling. The new
   checked selector refuses uncertified candidate-row families and otherwise

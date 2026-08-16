@@ -401,4 +401,94 @@ theorem stdGaussian_reflection_measurePreserving
 
 end GaussianReflection
 
+/-- Standard Gaussian on the repository's coordinate `Position` space,
+transported from mathlib's Euclidean-space Gaussian through `ofLp`. -/
+noncomputable def l2StandardGaussianPosition : Measure (Position ι) :=
+  (ProbabilityTheory.stdGaussian (EuclideanSpace ℝ ι)).map
+    (MeasurableEquiv.toLp 2 (Position ι)).symm
+
+instance l2StandardGaussianPosition.instIsProbabilityMeasure :
+    IsProbabilityMeasure (l2StandardGaussianPosition (ι := ι)) := by
+  constructor
+  rw [l2StandardGaussianPosition, Measure.map_apply
+    (MeasurableEquiv.toLp 2 (Position ι)).symm.measurable MeasurableSet.univ]
+  simp
+
+/-- Conjugate a Euclidean reflection back to the coordinate `Position` space. -/
+noncomputable def conjugatedEuclideanReflection
+    (subspace : Submodule ℝ (EuclideanSpace ℝ ι)) : Position ι → Position ι :=
+  fun velocity => (MeasurableEquiv.toLp 2 (Position ι)).symm
+    (subspace.reflection (MeasurableEquiv.toLp 2 (Position ι) velocity))
+
+/-- Every conjugated Euclidean reflection preserves the transported standard
+Gaussian on coordinate positions. -/
+theorem l2StandardGaussianPosition_reflection_measurePreserving
+    (subspace : Submodule ℝ (EuclideanSpace ℝ ι)) :
+    MeasurePreserving (conjugatedEuclideanReflection subspace)
+      (l2StandardGaussianPosition (ι := ι))
+      (l2StandardGaussianPosition (ι := ι)) := by
+  let equiv := MeasurableEquiv.toLp 2 (Position ι)
+  have hofLp : MeasurePreserving equiv.symm
+      (ProbabilityTheory.stdGaussian (EuclideanSpace ℝ ι))
+      (l2StandardGaussianPosition (ι := ι)) := by
+    refine ⟨equiv.symm.measurable, ?_⟩
+    rfl
+  have htoLp : MeasurePreserving equiv
+      (l2StandardGaussianPosition (ι := ι))
+      (ProbabilityTheory.stdGaussian (EuclideanSpace ℝ ι)) :=
+    hofLp.symm
+  have hreflection := stdGaussian_reflection_measurePreserving subspace
+  exact hofLp.comp (hreflection.comp htoLp)
+
+/-- The coordinate Householder bounce is the Euclidean reflection across the
+hyperplane orthogonal to its nonzero normal, conjugated through `toLp/ofLp`. -/
+theorem bouncyReflection_eq_conjugatedEuclideanReflection
+    (normal : Position ι) (hnormal : normal ≠ 0) :
+    bouncyReflection normal = conjugatedEuclideanReflection
+      ((ℝ ∙ (MeasurableEquiv.toLp 2 (Position ι) normal))ᗮ) := by
+  funext velocity
+  have hsum : (∑ x, normal x * normal x) ≠ 0 := by
+    simpa [squaredEuclideanNorm, euclideanInner] using
+      ne_of_gt (squaredEuclideanNorm_pos hnormal)
+  have hinner : inner ℝ (MeasurableEquiv.toLp 2 (Position ι) normal)
+      (MeasurableEquiv.toLp 2 (Position ι) velocity) =
+      ∑ x, velocity x * normal x := by
+    rw [EuclideanSpace.inner_toLp_toLp]
+    rfl
+  have hnormsq : ‖MeasurableEquiv.toLp 2 (Position ι) normal‖ ^ 2 =
+      ∑ x, normal x * normal x := by
+    rw [← real_inner_self_eq_norm_sq,
+      EuclideanSpace.inner_toLp_toLp]
+    rfl
+  have hcoordinate (x : Position ι) (i : ι) :
+      ((MeasurableEquiv.toLp 2 (Position ι) x).ofLp) i = x i := rfl
+  unfold conjugatedEuclideanReflection
+  rw [Submodule.reflection_orthogonal_apply,
+    Submodule.reflection_singleton_apply]
+  unfold bouncyReflection squaredEuclideanNorm euclideanInner
+  ext i
+  rw [hinner]
+  simp only [RCLike.ofReal_real_eq_id, id_eq]
+  rw [hnormsq]
+  simp only [MeasurableEquiv.coe_toLp_symm]
+  simp only [WithLp.ofLp_neg, WithLp.ofLp_sub, WithLp.ofLp_smul,
+    WithLp.ofLp_add,
+    Pi.neg_apply, Pi.sub_apply, Pi.smul_apply, smul_eq_mul,
+    two_smul]
+  simp only [Pi.add_apply, Pi.smul_apply, smul_eq_mul]
+  rw [hcoordinate normal i, hcoordinate velocity i]
+  simp only [div_eq_mul_inv]
+  ring
+
+/-- Therefore the repository's nonzero-normal Householder bounce preserves the
+transported standard Gaussian velocity law on `Position`. -/
+theorem bouncyReflection_l2StandardGaussian_measurePreserving
+    (normal : Position ι) (hnormal : normal ≠ 0) :
+    MeasurePreserving (bouncyReflection normal)
+      (l2StandardGaussianPosition (ι := ι))
+      (l2StandardGaussianPosition (ι := ι)) := by
+  rw [bouncyReflection_eq_conjugatedEuclideanReflection normal hnormal]
+  exact l2StandardGaussianPosition_reflection_measurePreserving
+    ((ℝ ∙ (MeasurableEquiv.toLp 2 (Position ι) normal))ᗮ)
+
 end Mcmc.PDMP
