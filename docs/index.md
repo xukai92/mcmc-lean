@@ -25,6 +25,9 @@ arguments, and explicit audits of the targeted papers.
   differential, and statistical tests.
 - [Phase I core release audit](core-release-audit.md) maps each completed
   milestone to its formal or executable evidence and records its exact scope.
+- [Project completion status](project-status.md) reconciles the expanded
+  cross-paper goal into one evidence-backed matrix and orders the genuinely
+  remaining work.
 - [Development log](development-log.md) records current completed work and
   remaining obligations; its [archive](development-log-archive.md) preserves
   older milestone detail.

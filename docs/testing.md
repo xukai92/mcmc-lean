@@ -106,8 +106,11 @@ always produces reroot-invariant rows.
 The Gaussian Zig-Zag suite checks the Lean-proved closed-form integrated-
 hazard inversion at representative phase states, deterministic seeded event
 simulation, velocity validity, and stationary Gaussian moments. The exact
-clock algebra is formalized over `ℝ`; the moment test remains a runtime
-diagnostic for the Float64 scheduler.
+clock algebra, nonexplosion, regenerative suspension, and target stationarity
+of the actual stopped horizon kernel are formalized over `ℝ`; the moment test
+remains a runtime diagnostic for the Float64 scheduler. The same exact
+stationarity theorem transfers to the unit-speed one-dimensional Gaussian BPS
+client, without asserting a floating-point refinement or convergence rate.
 
 Position-dependent generalized leapfrog now has Reference-versus-Optimized
 fixed-point tests using nonseparable derivatives, direct checks of both

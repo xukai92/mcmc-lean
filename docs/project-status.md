@@ -1,0 +1,49 @@
+# Project completion status
+
+This matrix is the authoritative high-level status of the expanded Verified
+Samplers goal. “Complete” means complete only at the stated boundary; it never
+promotes invariance to convergence or an ideal-real theorem to arbitrary
+floating-point code.
+
+| Workstream | Evidence and exact status |
+|---|---|
+| General-state PG--HMC | Complete for common-target kernel invariance through Mcmc.Kernel.ComposableInference and the sign/quadrant GeneralStatePgHmc clients using the actual Gaussian SoftAbs transition. Runtime callback equality with a bound Lean kernel remains explicit. |
+| Positive-horizon particle Gibbs | Complete for the supportable cumulative backward-potential schedule under primitive finite full support, including geometric TV convergence and a fixed-iteration particle-count limit. Recursive raw-current substitution beyond one step and horizon-uniform rates are not claimed. |
+| Particle-count SMC asymptotics | Complete at fixed finite horizon through explicit C/N mean-square and probability bounds. Uniform-in-time stability and particle-count-uniform PG mixing remain open. |
+| Diagonal SoftAbs / Xu--Ge solver | Complete for the exact Gaussian, bounded 2 + sin(q), and shifted-sinusoidal clients, including selected solver, reversal, phase volume, and invariance. Generic six-step Float64 solving still requires residual and primitive-error certificates. |
+| Cross-language refinement | Complete for the declared IR operations, byte-for-byte generation, Lean oracle, trace replay, exact dyadic polynomial checks, and guarded bounded-error contracts. Platform libm, arbitrary callbacks, RNGs, and unrestricted IEEE execution remain outside the proof. |
+| Ge et al. coroutine/operators | Complete for explicit copyable cursor state, generated PG--HMC descriptors, semantic BoundOperator bindings, and descriptor-ordered invariance. Opaque Task stack copying and arbitrary callback equivalence are not claimed. |
+| Constrained transforms | Complete at exact measurable-equivalence semantics and guarded positive-log/open-unit refinement boundaries. Platform transcendental accuracy remains a premise. |
+| Dynamic NUTS | Complete for conservative certified dynamic trees, stopped doubling, all-scales/adjacent builders, checked-or-identity execution, and replay tests. Equivalence with ordinary randomized root-dependent standard NUTS remains open; the two-leaf obstruction rules out naive universal certification. |
+| Practical slice sampling | Exact disintegration, interval kernels, randomized horizontal updates, joint trace reversal, guarded success, runtime stepping-out/shrinkage, and exhaustion fallback are present. The concrete Julia success transform still needs restricted joint-law preservation and Float64 refinement. |
+| Reversible jump | Complete for scalar, planar, dimension-generic product, three-dimensional executable, and nonlinear cubic triangular-shear clients. A compiler for arbitrary nonlinear diffeomorphisms is optional breadth. |
+| Xu et al. 2021 | Complete for the corrected theorem surface and fully instantiated Gaussian and regularized-logistic meeting, marginal/target convergence, unbiasedness, and finite variance. The obstructed exponent-two statement is not asserted; more targets and full floating-point experiment reproduction remain extensions. |
+| Concrete GR-HMC convergence | Complete for the bare one-dimensional Gaussian SoftAbs epsilon=1, L=1 chain, including drift, compact minorization, skeleton meeting, residue lift, and setwise convergence. No general ergodicity claim follows. |
+| Adaptation | Predetermined schedules, finite freeze, proxy/containment closure, counterexamples, and warmup-only RWMH tests are complete. Concrete certificates for genuinely state/history-dependent indefinite rules remain open. |
+| PDMP foundations | General infrastructure and the stationary-suspension theorem are present. Exact Gaussian Zig-Zag nonexplosion/stationarity and unit-speed one-dimensional Gaussian BPS stationarity are complete. Semigroup, convergence, and general-dimensional unbounded-rate BPS remain open. |
+| Diagnostics | All registered Julia suites are active and passing. Statistical and finite-difference tests are diagnostics, not replacements for formal or refinement theorems. |
+
+## Release evidence
+
+The complete release gate is:
+
+    make test
+    make check-docs-generated
+    julia --project=docs docs/make.jl
+
+The first command builds the full Lean library and oracle, checks generated IR
+byte-for-byte, and runs every Julia testset.
+
+## Dependency-ordered remaining work
+
+1. Prove restricted trace preservation and bounded Float64 refinement for the
+   concrete stepping-out/shrinkage implementation.
+2. Certify a production-style randomized NUTS recursion or prove a precisely
+   scoped equivalence to the conservative dynamic-tree interface.
+3. Construct concrete indefinite general-state adaptation certificates.
+4. Add uniform-in-time particle stability and stronger particle-MCMC
+   asymptotics.
+5. Construct general-dimensional unbounded-rate BPS and prove stationarity,
+   followed separately by ergodicity.
+6. Add broader target/runtime instantiations without weakening the numerical
+   boundary.

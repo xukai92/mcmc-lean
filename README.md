@@ -66,6 +66,8 @@ Xu--Ge execution is available directly for
 constant diagonal metrics and through an explicit certificate-gated
 position-dependent interface. The [Phase I release audit](docs/core-release-audit.md)
 records the evidence and remaining numerical boundary.
+The [project completion status](docs/project-status.md) reconciles the expanded
+Lean, Julia, paper, refinement, and optional-breadth workstreams in one matrix.
 
 For the zero-horizon particle-Gibbs specialization, Lean proves the exact
 kernel `N⁻¹ I + (1-N⁻¹) Π` and the exact `N⁻ᵏ` total-variation contraction
