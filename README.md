@@ -177,8 +177,12 @@ signed-position recurrence is also proved, yielding a fresh `sqrt(2E)` lower
 bound on every wait after the first. Lean constructs the infinite i.i.d.
 hazard product law, uses second Borel--Cantelli to prove infinitely many hazards
 exceed one, and concludes that cumulative event time tends to infinity almost
-surely. This proves nonexplosion of the exact event sequence; a stationary
-finite-horizon transition kernel and convergence remain open.
+surely. This proves nonexplosion of the exact event sequence. A finite-horizon
+transition is now constructed by a measurable first-crossing search over
+cumulative event times, followed by exact residual flow. Lean proves the
+totalized endpoint jointly measurable, its fallback unused almost surely, and
+the resulting general-state kernel Markov. Stationarity, the semigroup law,
+and convergence remain open.
 An additional constant-rate telegraph client gives a nontrivial flow-driven
 stationarity instance. Lean proves that every linear flow and rate-matched
 velocity flip preserves equal velocity mass times Lebesgue position, lifts

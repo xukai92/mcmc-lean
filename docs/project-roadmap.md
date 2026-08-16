@@ -374,9 +374,12 @@ breadth branches are:
   event kernel based on the closed-form inverse integrated hazard. Its unit
   exponential draw is positive almost surely, the inversion equation is
   machine checked almost surely, and fixed-event iterates are Markov. Turning
-  those event iterates into a stationary finite-horizon process still requires
-  a stopping-kernel construction and stationarity proof. Nonexplosion itself
-  is now complete: the signed
+  those event iterates into a stationary finite-horizon process now has the
+  stopping-kernel construction but still requires stationarity. A measurable
+  first cumulative-time crossing selects the completed-event state and exact
+  residual flow; the endpoint is jointly measurable and its kernel is Markov,
+  with the fallback branch null by nonexplosion. Nonexplosion itself is now
+  complete: the signed
   position after an event is an explicit negative square root of the fresh
   hazard, so every subsequent wait is at least `sqrt(2E)`; under the constructed
   infinite i.i.d. hazard product law, second Borel--Cantelli proves that this

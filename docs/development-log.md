@@ -18,8 +18,13 @@
   computes a strictly positive probability of exceeding one, applies the
   second Borel--Cantelli lemma, and derives almost-sure divergence of both the
   square-root lower-bound series and cumulative exact event time. Thus the
-  Gaussian event sequence is nonexplosive; finite-horizon stopping,
-  stationarity, and convergence remain separate.
+  Gaussian event sequence is nonexplosive. A total measurable first-crossing
+  search over cumulative event times now returns the last completed-event
+  state and flows through the residual interval. Nonexplosion proves a crossing
+  exists almost surely, so the fallback is null. Lean proves the endpoint
+  jointly measurable in initial state and hazard stream and the induced
+  fixed-horizon kernel Markov. Stationarity, semigroup consistency, and
+  convergence are not inferred from construction alone.
 
 - Proved a fixed-padded-schedule correspondence for the bounded PDMP executor:
   augmented execution retains the supplied schedule and its state marginal is

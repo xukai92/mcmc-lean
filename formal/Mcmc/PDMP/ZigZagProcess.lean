@@ -579,6 +579,332 @@ theorem gaussianZigZagEventElapsed_tendsto_atTop_ae
     Filter.atTop (nhds (∞ : ENNReal))
   exact htendsto
 
+theorem measurable_gaussianZigZagEventUpdate :
+    Measurable (fun input : ZigZagState × NNReal =>
+      gaussianZigZagEventUpdate input.1 input.2) := by
+  have hwait : Measurable (fun input : ZigZagState × NNReal =>
+      gaussianZigZagWaitingNNReal input.1 input.2) :=
+    measurable_gaussianZigZagWaitingNNReal
+  have hvelocity : Measurable (fun input : ZigZagState × NNReal =>
+      zigZagVelocity input.1.2) := by
+    unfold zigZagVelocity
+    fun_prop
+  unfold gaussianZigZagEventUpdate zigZagFlip zigZagFlow
+  exact ((measurable_fst.comp measurable_fst).add
+    (hwait.coe_nnreal_real.mul hvelocity)).prodMk (by fun_prop)
+
+theorem measurable_gaussianZigZagEventState
+    (initial : ZigZagState) (eventCount : ℕ) :
+    Measurable (fun hazards : ℕ → NNReal =>
+      gaussianZigZagEventState initial hazards eventCount) := by
+  induction eventCount with
+  | zero => exact measurable_const
+  | succ eventCount ih =>
+      exact measurable_gaussianZigZagEventUpdate.comp
+        (ih.prodMk (measurable_pi_apply eventCount))
+
+theorem measurable_gaussianZigZagEventWait
+    (initial : ZigZagState) (eventCount : ℕ) :
+    Measurable (fun hazards : ℕ → NNReal =>
+      gaussianZigZagEventWait initial hazards eventCount) := by
+  unfold gaussianZigZagEventWait
+  exact measurable_gaussianZigZagWaitingNNReal.comp
+    ((measurable_gaussianZigZagEventState initial eventCount).prodMk
+      (measurable_pi_apply eventCount))
+
+theorem measurable_gaussianZigZagEventWaitTerm
+    (initial : ZigZagState) (eventCount : ℕ) :
+    Measurable (fun hazards : ℕ → NNReal =>
+      gaussianZigZagEventWaitTerm initial hazards eventCount) := by
+  unfold gaussianZigZagEventWaitTerm
+  exact (measurable_gaussianZigZagEventWait initial eventCount).coe_nnreal_real.ennreal_ofReal
+
+theorem measurable_gaussianZigZagEventElapsed
+    (initial : ZigZagState) (eventCount : ℕ) :
+    Measurable (fun hazards : ℕ → NNReal =>
+      gaussianZigZagEventElapsed initial hazards eventCount) := by
+  unfold gaussianZigZagEventElapsed
+  exact Finset.measurable_sum _ fun index _ =>
+    measurable_gaussianZigZagEventWaitTerm initial index
+
+def gaussianZigZagEventCrossed
+    (initial : ZigZagState) (horizon : NNReal)
+    (hazards : ℕ → NNReal) (eventCount : ℕ) : Prop :=
+  (horizon : ENNReal) <
+    gaussianZigZagEventElapsed initial hazards eventCount
+
+theorem measurableSet_gaussianZigZagEventCrossed
+    (initial : ZigZagState) (horizon : NNReal)
+    (eventCount : ℕ) :
+    MeasurableSet {hazards | gaussianZigZagEventCrossed
+      initial horizon hazards eventCount} := by
+  unfold gaussianZigZagEventCrossed
+  exact measurableSet_lt measurable_const
+    (measurable_gaussianZigZagEventElapsed initial eventCount)
+
+def gaussianZigZagCrossingSearchPredicate
+    (initial : ZigZagState) (horizon : NNReal)
+    (hazards : ℕ → NNReal) (eventCount : ℕ) : Prop :=
+  gaussianZigZagEventCrossed initial horizon hazards eventCount ∨
+    (eventCount = 0 ∧
+      ¬∃ count, gaussianZigZagEventCrossed initial horizon hazards count)
+
+theorem gaussianZigZagCrossingSearchPredicate_exists
+    (initial : ZigZagState) (horizon : NNReal)
+    (hazards : ℕ → NNReal) :
+    ∃ eventCount, gaussianZigZagCrossingSearchPredicate
+      initial horizon hazards eventCount := by
+  classical
+  by_cases hcrossing : ∃ eventCount,
+      gaussianZigZagEventCrossed initial horizon hazards eventCount
+  · obtain ⟨eventCount, heventCount⟩ := hcrossing
+    exact ⟨eventCount, Or.inl heventCount⟩
+  · exact ⟨0, Or.inr ⟨rfl, hcrossing⟩⟩
+
+theorem measurableSet_gaussianZigZagCrossingSearchPredicate
+    (initial : ZigZagState) (horizon : NNReal)
+    (eventCount : ℕ) :
+    MeasurableSet {hazards | gaussianZigZagCrossingSearchPredicate
+      initial horizon hazards eventCount} := by
+  classical
+  by_cases hzero : eventCount = 0
+  · subst eventCount
+    simp only [gaussianZigZagCrossingSearchPredicate, true_and]
+    apply MeasurableSet.union
+    · exact measurableSet_gaussianZigZagEventCrossed initial horizon 0
+    · have hexists : MeasurableSet {hazards : ℕ → NNReal |
+          ∃ count, gaussianZigZagEventCrossed
+            initial horizon hazards count} := by
+        rw [show {hazards : ℕ → NNReal | ∃ count,
+            gaussianZigZagEventCrossed initial horizon hazards count} =
+            ⋃ count, {hazards | gaussianZigZagEventCrossed
+              initial horizon hazards count} by
+          ext hazards
+          simp]
+        exact MeasurableSet.iUnion fun count =>
+          measurableSet_gaussianZigZagEventCrossed initial horizon count
+      exact hexists.compl
+  · simp only [gaussianZigZagCrossingSearchPredicate, hzero, false_and,
+      or_false]
+    exact measurableSet_gaussianZigZagEventCrossed initial horizon eventCount
+
+/-- First event count whose cumulative time exceeds the horizon, with a total
+fallback value `0` on the null set where no crossing exists. -/
+noncomputable def gaussianZigZagCrossingIndex
+    (initial : ZigZagState) (horizon : NNReal)
+    (hazards : ℕ → NNReal) : ℕ := by
+  classical
+  exact Nat.find (gaussianZigZagCrossingSearchPredicate_exists
+    initial horizon hazards)
+
+theorem measurable_gaussianZigZagCrossingIndex
+    (initial : ZigZagState) (horizon : NNReal) :
+    Measurable (gaussianZigZagCrossingIndex initial horizon) := by
+  unfold gaussianZigZagCrossingIndex
+  classical
+  apply measurable_find
+  exact measurableSet_gaussianZigZagCrossingSearchPredicate initial horizon
+
+theorem gaussianZigZagEventCrossed_exists_ae
+    (initial : ZigZagState) (horizon : NNReal) :
+    ∀ᵐ hazards ∂gaussianZigZagHazardSequenceMeasure,
+      ∃ eventCount, gaussianZigZagEventCrossed
+        initial horizon hazards eventCount := by
+  filter_upwards [gaussianZigZagEventElapsed_tendsto_atTop_ae initial]
+    with hazards htendsto
+  have hneighborhood : Set.Ioi (horizon : ENNReal) ∈ nhds (∞ : ENNReal) :=
+    Ioi_mem_nhds (ENNReal.coe_lt_top)
+  have heventually : ∀ᶠ eventCount in Filter.atTop,
+      (horizon : ENNReal) <
+        gaussianZigZagEventElapsed initial hazards eventCount :=
+    htendsto.eventually hneighborhood
+  obtain ⟨eventCount, heventCount⟩ := heventually.exists
+  exact ⟨eventCount, heventCount⟩
+
+theorem gaussianZigZagCrossingIndex_crossed
+    (initial : ZigZagState) (horizon : NNReal) (hazards : ℕ → NNReal)
+    (hexists : ∃ eventCount,
+      gaussianZigZagEventCrossed initial horizon hazards eventCount) :
+    gaussianZigZagEventCrossed initial horizon hazards
+      (gaussianZigZagCrossingIndex initial horizon hazards) := by
+  classical
+  have hspec := Nat.find_spec
+    (gaussianZigZagCrossingSearchPredicate_exists initial horizon hazards)
+  rcases hspec with hcrossed | ⟨_, hnone⟩
+  · exact hcrossed
+  · exact (hnone hexists).elim
+
+theorem gaussianZigZagCrossingIndex_crossed_ae
+    (initial : ZigZagState) (horizon : NNReal) :
+    ∀ᵐ hazards ∂gaussianZigZagHazardSequenceMeasure,
+      gaussianZigZagEventCrossed initial horizon hazards
+        (gaussianZigZagCrossingIndex initial horizon hazards) := by
+  filter_upwards [gaussianZigZagEventCrossed_exists_ae initial horizon]
+    with hazards hexists
+  exact gaussianZigZagCrossingIndex_crossed initial horizon hazards hexists
+
+/-- Exact state at a fixed horizon, obtained by retaining all events strictly
+before the first crossing and flowing through the residual interval. -/
+noncomputable def gaussianZigZagHorizonEndpoint
+    (initial : ZigZagState) (horizon : NNReal)
+    (hazards : ℕ → NNReal) : ZigZagState :=
+  let completed := gaussianZigZagCrossingIndex initial horizon hazards - 1
+  zigZagFlow
+    (horizon -
+      (gaussianZigZagEventElapsed initial hazards completed).toNNReal)
+    (gaussianZigZagEventState initial hazards completed)
+
+theorem measurable_gaussianZigZagHorizonEndpoint
+    (initial : ZigZagState) (horizon : NNReal) :
+    Measurable (gaussianZigZagHorizonEndpoint initial horizon) := by
+  classical
+  let predicate := gaussianZigZagCrossingSearchPredicate initial horizon
+  let existsPredicate := gaussianZigZagCrossingSearchPredicate_exists initial horizon
+  have hfamily : ∀ eventCount, Measurable (fun hazards : ℕ → NNReal =>
+      zigZagFlow
+        (horizon -
+          (gaussianZigZagEventElapsed initial hazards (eventCount - 1)).toNNReal)
+        (gaussianZigZagEventState initial hazards (eventCount - 1))) := by
+    intro eventCount
+    have hstate := measurable_gaussianZigZagEventState initial (eventCount - 1)
+    have helapsed := measurable_gaussianZigZagEventElapsed initial (eventCount - 1)
+    have htime : Measurable (fun hazards : ℕ → NNReal =>
+        horizon - (gaussianZigZagEventElapsed initial hazards
+          (eventCount - 1)).toNNReal) :=
+      measurable_const.sub helapsed.ennreal_toNNReal
+    unfold zigZagFlow
+    have hvelocity : Measurable (fun hazards : ℕ → NNReal =>
+        zigZagVelocity (gaussianZigZagEventState initial hazards
+          (eventCount - 1)).2) := by
+      unfold zigZagVelocity
+      fun_prop
+    exact ((hstate.fst).add
+      (htime.coe_nnreal_real.mul hvelocity)).prodMk hstate.snd
+  change Measurable (fun hazards =>
+    (fun eventCount hazards => zigZagFlow
+      (horizon -
+        (gaussianZigZagEventElapsed initial hazards (eventCount - 1)).toNNReal)
+      (gaussianZigZagEventState initial hazards (eventCount - 1)))
+      (Nat.find (existsPredicate hazards)) hazards)
+  exact Measurable.find hfamily
+    (measurableSet_gaussianZigZagCrossingSearchPredicate initial horizon)
+    existsPredicate
+
+theorem measurable_gaussianZigZagEventState_joint (eventCount : ℕ) :
+    Measurable (fun input : ZigZagState × (ℕ → NNReal) =>
+      gaussianZigZagEventState input.1 input.2 eventCount) := by
+  induction eventCount with
+  | zero => exact measurable_fst
+  | succ eventCount ih =>
+      exact measurable_gaussianZigZagEventUpdate.comp
+        (ih.prodMk ((measurable_pi_apply eventCount).comp measurable_snd))
+
+theorem measurable_gaussianZigZagEventWaitTerm_joint (eventCount : ℕ) :
+    Measurable (fun input : ZigZagState × (ℕ → NNReal) =>
+      gaussianZigZagEventWaitTerm input.1 input.2 eventCount) := by
+  unfold gaussianZigZagEventWaitTerm gaussianZigZagEventWait
+  exact (measurable_gaussianZigZagWaitingNNReal.comp
+    ((measurable_gaussianZigZagEventState_joint eventCount).prodMk
+      ((measurable_pi_apply eventCount).comp measurable_snd))).coe_nnreal_real.ennreal_ofReal
+
+theorem measurable_gaussianZigZagEventElapsed_joint (eventCount : ℕ) :
+    Measurable (fun input : ZigZagState × (ℕ → NNReal) =>
+      gaussianZigZagEventElapsed input.1 input.2 eventCount) := by
+  unfold gaussianZigZagEventElapsed
+  exact Finset.measurable_sum _ fun index _ =>
+    measurable_gaussianZigZagEventWaitTerm_joint index
+
+theorem measurableSet_gaussianZigZagEventCrossed_joint
+    (horizon : NNReal) (eventCount : ℕ) :
+    MeasurableSet {input : ZigZagState × (ℕ → NNReal) |
+      gaussianZigZagEventCrossed input.1 horizon input.2 eventCount} := by
+  unfold gaussianZigZagEventCrossed
+  exact measurableSet_lt measurable_const
+    (measurable_gaussianZigZagEventElapsed_joint eventCount)
+
+theorem measurableSet_gaussianZigZagCrossingSearchPredicate_joint
+    (horizon : NNReal) (eventCount : ℕ) :
+    MeasurableSet {input : ZigZagState × (ℕ → NNReal) |
+      gaussianZigZagCrossingSearchPredicate
+        input.1 horizon input.2 eventCount} := by
+  classical
+  by_cases hzero : eventCount = 0
+  · subst eventCount
+    simp only [gaussianZigZagCrossingSearchPredicate, true_and]
+    apply MeasurableSet.union
+    · exact measurableSet_gaussianZigZagEventCrossed_joint horizon 0
+    · have hexists : MeasurableSet
+          {input : ZigZagState × (ℕ → NNReal) | ∃ count,
+            gaussianZigZagEventCrossed input.1 horizon input.2 count} := by
+        rw [show {input : ZigZagState × (ℕ → NNReal) | ∃ count,
+            gaussianZigZagEventCrossed input.1 horizon input.2 count} =
+            ⋃ count, {input | gaussianZigZagEventCrossed
+              input.1 horizon input.2 count} by
+          ext input
+          simp]
+        exact MeasurableSet.iUnion fun count =>
+          measurableSet_gaussianZigZagEventCrossed_joint horizon count
+      exact hexists.compl
+  · simp only [gaussianZigZagCrossingSearchPredicate, hzero, false_and,
+      or_false]
+    exact measurableSet_gaussianZigZagEventCrossed_joint horizon eventCount
+
+theorem measurable_gaussianZigZagHorizonEndpoint_joint (horizon : NNReal) :
+    Measurable (fun input : ZigZagState × (ℕ → NNReal) =>
+      gaussianZigZagHorizonEndpoint input.1 horizon input.2) := by
+  classical
+  let searchExists : ∀ input : ZigZagState × (ℕ → NNReal),
+      ∃ eventCount, gaussianZigZagCrossingSearchPredicate
+        input.1 horizon input.2 eventCount := fun input =>
+    gaussianZigZagCrossingSearchPredicate_exists input.1 horizon input.2
+  have hfamily : ∀ eventCount, Measurable
+      (fun input : ZigZagState × (ℕ → NNReal) =>
+        zigZagFlow
+          (horizon - (gaussianZigZagEventElapsed input.1 input.2
+            (eventCount - 1)).toNNReal)
+          (gaussianZigZagEventState input.1 input.2 (eventCount - 1))) := by
+    intro eventCount
+    have hstate := measurable_gaussianZigZagEventState_joint (eventCount - 1)
+    have helapsed := measurable_gaussianZigZagEventElapsed_joint (eventCount - 1)
+    have htime : Measurable (fun input : ZigZagState × (ℕ → NNReal) =>
+        horizon - (gaussianZigZagEventElapsed input.1 input.2
+          (eventCount - 1)).toNNReal) :=
+      measurable_const.sub helapsed.ennreal_toNNReal
+    unfold zigZagFlow
+    have hvelocity : Measurable
+        (fun input : ZigZagState × (ℕ → NNReal) =>
+          zigZagVelocity (gaussianZigZagEventState input.1 input.2
+            (eventCount - 1)).2) := by
+      unfold zigZagVelocity
+      fun_prop
+    exact hstate.fst.add (htime.coe_nnreal_real.mul hvelocity) |>.prodMk hstate.snd
+  change Measurable (fun input =>
+    (fun eventCount input => zigZagFlow
+      (horizon - (gaussianZigZagEventElapsed input.1 input.2
+        (eventCount - 1)).toNNReal)
+      (gaussianZigZagEventState input.1 input.2 (eventCount - 1)))
+      (Nat.find (searchExists input)) input)
+  exact Measurable.find hfamily
+    (measurableSet_gaussianZigZagCrossingSearchPredicate_joint horizon)
+    searchExists
+
+/-- Exact fixed-horizon standard-Gaussian Zig-Zag transition obtained by
+sampling the infinite hazard stream and applying the nonexplosive stopping
+construction. -/
+noncomputable def gaussianZigZagHorizonKernel
+    (horizon : NNReal) : Kernel ZigZagState ZigZagState :=
+  Kernel.map
+    (Kernel.prod Kernel.id
+      (Kernel.const ZigZagState gaussianZigZagHazardSequenceMeasure))
+    (fun input => gaussianZigZagHorizonEndpoint input.1 horizon input.2)
+
+instance gaussianZigZagHorizonKernel.instIsMarkovKernel
+    (horizon : NNReal) :
+    IsMarkovKernel (gaussianZigZagHorizonKernel horizon) := by
+  unfold gaussianZigZagHorizonKernel
+  apply Kernel.IsMarkovKernel.map
+  exact measurable_gaussianZigZagHorizonEndpoint_joint horizon
+
 /-- Under the event kernel's actual exponential-hazard law, inverse-clock
 execution satisfies the integrated-hazard equation almost surely. -/
 theorem gaussianZigZagIntegratedRate_waitingNNReal_ae
