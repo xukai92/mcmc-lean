@@ -107,6 +107,46 @@ theorem orbitIndexProbability_flow_reroot
   rw [orbitNormalizer_reroot, orbitPoint_reroot, orbitPoint_origin]
   ac_rfl
 
+omit [MeasurableSpace α] in
+/-- A uniform relative-weight bound gives a concrete floor for one selected
+orbit index. This is the generic bridge from Hamiltonian-error estimates to a
+multinomial proposal-selection probability. -/
+theorem inv_card_mul_le_orbitIndexProbability
+    {weight : α → ENNReal} (hweight0 : ∀ z, weight z ≠ 0)
+    (hweightTop : ∀ z, weight z ≠ ∞)
+    (T : Equiv.Perm α) {L : ℕ} (origin selected : Fin (L + 1))
+    (z : α) (C : ENNReal)
+    (hrelative : ∀ i : Fin (L + 1),
+      weight (orbitPoint T origin z i) ≤
+        C * weight (orbitPoint T origin z selected)) :
+    (((L + 1 : ℕ) : ENNReal) * C)⁻¹ ≤
+      orbitIndexProbability weight T origin selected z := by
+  let w := weight (orbitPoint T origin z selected)
+  let A : ENNReal := ((L + 1 : ℕ) : ENNReal) * C
+  have hw0 : w ≠ 0 := hweight0 _
+  have hwTop : w ≠ ∞ := hweightTop _
+  have hnormalizer : orbitNormalizer weight T origin z ≤ A * w := by
+    unfold orbitNormalizer
+    calc
+      (∑ i : Fin (L + 1), weight (orbitPoint T origin z i)) ≤
+          ∑ _i : Fin (L + 1), C * w :=
+        Finset.sum_le_sum fun i _hi => hrelative i
+      _ = ((L + 1 : ℕ) : ENNReal) * (C * w) := by simp
+      _ = A * w := by simp [A, mul_assoc]
+  have hinv : (A * w)⁻¹ ≤ (orbitNormalizer weight T origin z)⁻¹ :=
+    ENNReal.inv_le_inv.mpr hnormalizer
+  unfold orbitIndexProbability
+  change A⁻¹ ≤ w * (orbitNormalizer weight T origin z)⁻¹
+  calc
+    A⁻¹ = w * (A * w)⁻¹ := by
+      rw [show (A * w)⁻¹ = A⁻¹ * w⁻¹ by
+        exact ENNReal.mul_inv (Or.inr hwTop) (Or.inr hw0)]
+      calc
+        A⁻¹ = A⁻¹ * (w * w⁻¹) := by
+          rw [ENNReal.mul_inv_cancel hw0 hwTop, mul_one]
+        _ = w * (A⁻¹ * w⁻¹) := by ac_rfl
+    _ ≤ w * (orbitNormalizer weight T origin z)⁻¹ := by gcongr
+
 theorem measurable_orbitPoint
     {T : Equiv.Perm α} (hT : Measurable T) (hTinv : Measurable T.symm)
     {L : ℕ} (origin i : Fin (L + 1)) :

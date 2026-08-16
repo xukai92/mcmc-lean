@@ -74,6 +74,24 @@ noncomputable def generalRelativisticBoltzmannWeight
   ENNReal.ofReal (Real.exp
     (-generalRelativisticHamiltonian potential metric m c z))
 
+/-- A one-sided GR-Hamiltonian discrepancy gives multiplicative domination
+of the corresponding unnormalized Boltzmann weights. -/
+theorem generalRelativisticBoltzmannWeight_le_exp_mul_of_sub_le
+    (potential : Position ι → ℝ)
+    (metric : FactoredRiemannianMetric ι) (m c : ℝ)
+    (z₁ z₂ : PhaseSpace ι) {r : ℝ}
+    (h : generalRelativisticHamiltonian potential metric m c z₂ -
+      generalRelativisticHamiltonian potential metric m c z₁ ≤ r) :
+    generalRelativisticBoltzmannWeight potential metric m c z₁ ≤
+      ENNReal.ofReal (Real.exp r) *
+        generalRelativisticBoltzmannWeight potential metric m c z₂ := by
+  unfold generalRelativisticBoltzmannWeight
+  rw [← ENNReal.ofReal_mul (Real.exp_pos r).le]
+  apply ENNReal.ofReal_le_ofReal
+  rw [← Real.exp_add]
+  apply Real.exp_le_exp.mpr
+  linarith
+
 @[simp]
 theorem generalRelativisticBoltzmannWeight_ne_zero
     (potential : Position ι → ℝ)

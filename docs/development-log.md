@@ -1,5 +1,15 @@
 # Development log
 
+- Added the missing multinomial selected-index probability bridge. At the
+  generic orbit layer, if every competing unnormalized weight is at most `C`
+  times a designated candidate's weight, Lean proves that candidate has
+  probability at least `1 / ((L+1)C)`. A new GR-Hamiltonian specialization
+  converts a uniform one-sided energy discrepancy `D` into the explicit floor
+  `1 / ((L+1)exp(D))`. For the one-dimensional `ε=1`, `L=1` Gaussian SoftAbs
+  client, the remaining selection calculation is therefore exactly a uniform
+  forward/backward Hamiltonian-defect bound on the already-certified central
+  momentum event.
+
 - Began the concrete bare Gaussian SoftAbs drift analysis in the explicit
   one-dimensional `ε=1`, `L=1` regime. The constant SoftAbs factor and inverse
   metric are proved not to annihilate nonzero momentum; the client

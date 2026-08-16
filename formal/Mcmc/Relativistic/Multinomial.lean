@@ -86,6 +86,35 @@ noncomputable def multinomialGRHMCPhase
     (measurable_generalRelativisticBoltzmannWeight potential metric m c hH)
     (hvalid.measurable ε) (hvalid.measurable (-ε))
 
+/-- A uniform one-sided Hamiltonian-error bound over an orbit gives an
+explicit floor for selecting a designated index. -/
+theorem inv_card_exp_le_multinomialGRHMCPhase_indexProbability
+    {positionDerivative momentumDerivative : PhaseSpace ι → Position ι}
+    (potential : Position ι → ℝ)
+    (metric : FactoredRiemannianMetric ι) (m c : ℝ)
+    (selection : GeneralizedLeapfrogSelection
+      positionDerivative momentumDerivative)
+    (hvalid : selection.IsValid) (ε : ℝ) {L : ℕ}
+    (origin selected : Fin (L + 1)) (z : PhaseSpace ι) (D : ℝ)
+    (henergy : ∀ i : Fin (L + 1),
+      generalRelativisticHamiltonian potential metric m c
+          (orbitPoint (generalizedLeapfrogPerm selection hvalid.unique ε)
+            origin z selected) -
+        generalRelativisticHamiltonian potential metric m c
+          (orbitPoint (generalizedLeapfrogPerm selection hvalid.unique ε)
+            origin z i) ≤ D) :
+    (((L + 1 : ℕ) : ENNReal) * ENNReal.ofReal (Real.exp D))⁻¹ ≤
+      orbitIndexProbability
+        (generalRelativisticBoltzmannWeight potential metric m c)
+        (generalizedLeapfrogPerm selection hvalid.unique ε)
+        origin selected z := by
+  apply inv_card_mul_le_orbitIndexProbability
+    (generalRelativisticBoltzmannWeight_ne_zero potential metric m c)
+    (generalRelativisticBoltzmannWeight_ne_top potential metric m c)
+  intro i
+  exact generalRelativisticBoltzmannWeight_le_exp_mul_of_sub_le
+    potential metric m c _ _ (henergy i)
+
 instance multinomialGRHMCPhase_isMarkovKernel
     {positionDerivative momentumDerivative : PhaseSpace ι → Position ι}
     (potential : Position ι → ℝ)
