@@ -89,7 +89,10 @@
   normalizer comparison is now composed with the forced resample--propagate
   expectation in one checked theorem, leaving only the telescoping of the
   successive unforced-cloud normalizers against the existing unbiased
-  Feynman--Kac history identity.
+  Feynman--Kac history identity. The recursion base is complete end to end:
+  for the zero-step trajectory kernel, Lean identifies the target with the
+  initial law and constructs an aggregate certificate with the exact
+  `(N−1)/N` coefficient (including the degenerate `N=1` zero coefficient).
 
 - Completed the compact-minorization and faithful-coupling foundation for the
   actual bare one-dimensional Gaussian SoftAbs multinomial kernel at

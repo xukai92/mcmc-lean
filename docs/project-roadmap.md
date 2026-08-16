@@ -217,7 +217,9 @@ The pre-Xu dependency order is:
    base and one-step population algebra are now machine checked: initialization
    loses only the retained slot, and a forced resample--propagate stage carries
    the aggregate marked-lineage mass with the exact `(N-1)/N` child-count
-   factor. A parallel
+   factor. The zero-step kernel-level aggregate certificate is complete with
+   exact coefficient `(N-1)/N`; positive horizons now require only the
+   normalizer-telescoping induction. A parallel
    scheduled certificate now retains distinct per-time penalties, proves its
    product coefficient is in `(0,1)`, and supplies the refresh decomposition,
    geometric TV estimate, and convergence theorem without a worst-case

@@ -78,6 +78,41 @@ noncomputable def countedTrajectoryTarget
     Distribution (Trajectory steps) :=
   trajectoryTarget (Particle := Fin (extra + 1)) initial steps hnormalizer
 
+/-- At zero propagation steps, the trajectory target is exactly the initial
+one-state law. -/
+theorem countedTrajectoryTarget_nil_mass
+    (initial : Distribution Sample) (hinitial : ∀ x, 0 < initial.mass x)
+    (hnormalizer : 0 < normalizingConstant initial []) (extra : ℕ)
+    (trajectory : Trajectory ([] : List (FeynmanKacStep Sample)))
+    (first : Sample) (htrajectory : trajectory = ⟨[first], by simp⟩) :
+    (countedTrajectoryTarget initial [] hnormalizer extra).mass trajectory =
+      initial.mass first := by
+  subst trajectory
+  unfold countedTrajectoryTarget trajectoryTarget
+  rw [Mcmc.Finite.Conditional.statisticMarginal_mass]
+  rw [fiberMass_selectedTrajectoryVector_eq_selectedTrajectoryMass]
+  change selectedTrajectoryMass (Particle := Fin (extra + 1))
+    initial [] hnormalizer [first] = initial.mass first
+  rw [selectedTrajectoryMass_eq_pathDensity_div initial [] hnormalizer
+    first [] (by simp) (hinitial first) (by trivial)]
+  simp [pathSuffixDensity, normalizingConstant, feynmanKacSequence,
+    Distribution.sum_mass]
+
+omit [DecidableEq Sample] in
+/-- Every zero-step trajectory contains exactly one state. -/
+theorem trajectory_nil_eq_singleton
+    (trajectory : Trajectory ([] : List (FeynmanKacStep Sample))) :
+    ∃ first : Sample, trajectory = ⟨[first], by simp⟩ := by
+  rcases trajectory with ⟨path, hpath⟩
+  cases path with
+  | nil => simp at hpath
+  | cons first rest =>
+      have hrest : rest = [] := by
+        apply List.eq_nil_of_length_eq_zero
+        simpa using hpath
+      subst rest
+      exact ⟨first, rfl⟩
+
 /-- A conservative coefficient shape used by bounded-potential PG analyses.
 `extra = N-1`, and `bound` records the model-dependent path-weight penalty. -/
 noncomputable def particleGibbsCountCoefficient
@@ -635,6 +670,61 @@ structure AggregatedForcedLineageParticleGibbsBound
         (countedTrajectoryTarget initial steps hnormalizer extra).mass proposed ≤
       aggregatedForcedLineageMass initial steps hnormalizer extra
         current proposed
+
+/-- Base case of the sharp aggregate particle-Gibbs induction. With no
+propagation steps, all compatible initial particles are aggregated and the
+exact minorization coefficient is `(N - 1) / N`. -/
+theorem aggregatedForcedLineageParticleGibbsBound_nil
+    [Nonempty Sample]
+    (initial : Distribution Sample) (hinitial : ∀ x, 0 < initial.mass x)
+    (hnormalizer : 0 < normalizingConstant initial [])
+    (extra : ℕ) :
+    AggregatedForcedLineageParticleGibbsBound
+      initial [] hnormalizer extra 1 := by
+  constructor
+  intro current proposed
+  obtain ⟨currentFirst, hcurrent⟩ := trajectory_nil_eq_singleton current
+  obtain ⟨proposedFirst, hproposed⟩ := trajectory_nil_eq_singleton proposed
+  subst current
+  subst proposed
+  rw [countedTrajectoryTarget_nil_mass initial hinitial hnormalizer extra
+    ⟨[proposedFirst], by simp⟩ proposedFirst rfl]
+  have haggregate :=
+    aggregatedForcedLineageMass_eq_recursiveLabelExpectation
+      initial hinitial [] (by trivial) hnormalizer extra
+      ⟨[currentFirst], by simp⟩ ⟨[proposedFirst], by simp⟩
+      currentFirst [] (by simp) rfl
+  rw [haggregate]
+  simp only [particleGibbsCountCoefficient, List.length_nil, zero_add, pow_one,
+    List.Vector.toList]
+  let coefficient : ℝ := (extra : ℝ) / ((extra : ℝ) + 1)
+  change coefficient * initial.mass proposedFirst ≤ _
+  calc
+    coefficient * initial.mass proposedFirst =
+        ∑ retained : Fin (extra + 1),
+          (uniformParticleDistribution (Particle := Fin (extra + 1))).mass retained *
+            (coefficient * initial.mass proposedFirst) := by
+      rw [← Finset.sum_mul,
+        (uniformParticleDistribution (Particle := Fin (extra + 1))).sum_mass,
+        one_mul]
+    _ ≤ ∑ retained : Fin (extra + 1),
+        (uniformParticleDistribution (Particle := Fin (extra + 1))).mass retained *
+          ∑ particles,
+            (forcedIndependentPopulation
+              (fun _ : Fin (extra + 1) => initial)
+              retained currentFirst).mass particles *
+              forcedLineageSuffixLabelExpectation
+                (fun path y => path ++ [y]) [] currentFirst [] (by simp)
+                particles retained (fun i => [particles i])
+                (fun path => if path = [proposedFirst] then 1 else 0) := by
+      apply Finset.sum_le_sum
+      intro retained _
+      apply mul_le_mul_of_nonneg_left
+      · simpa [coefficient, initialStateFraction, particleAverage] using
+          (forcedInitialPopulation_initialStateFraction_ge
+            initial extra retained currentFirst proposedFirst)
+      · exact (uniformParticleDistribution
+          (Particle := Fin (extra + 1))).nonneg retained
 
 /-- An aggregate-history certificate yields the existing pointwise
 minorization API without losing any compatible-history mass. -/
