@@ -1,5 +1,14 @@
 # Development log
 
+- Added the conditional product structure required to apply the PG
+  leave-one-out bound. Lean now defines a two-coordinate-forced independent
+  population, proves that sampling and then forcing one coordinate reconstructs
+  the original product, disintegrates a one-coordinate-forced cloud at any
+  distinct ordinary coordinate, and computes the exact `(N-2)`-coordinate
+  remainder expectation. Instantiating reciprocal Jensen on this law gives
+  the per-selected-particle denominator bound with `N-2+2B`; summing those
+  selected contributions is the next induction-facing step.
+
 - Proved the nonlinear reciprocal layer behind the candidate
   particle-Gibbs penalty. Lean now has finite-distribution Jensen for `1/x`,
   its bounded-mean corollary, and a leave-one-out theorem with one selected

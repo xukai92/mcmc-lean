@@ -228,6 +228,102 @@ def forcedIndependentPopulation (law : Particle → Distribution Sample)
   independentPopulation fun i =>
     if i = retained then pointDistribution value else law i
 
+/-- Independent population with two named coordinates forced. When the
+coordinates are distinct, this is the conditional remainder law obtained by
+fixing both a retained particle and one selected ordinary particle. -/
+def doublyForcedIndependentPopulation (law : Particle → Distribution Sample)
+    (first : Particle) (firstValue : Sample)
+    (second : Particle) (secondValue : Sample) :
+    Distribution (Particle → Sample) :=
+  independentPopulation fun i =>
+    if i = first then pointDistribution firstValue
+    else if i = second then pointDistribution secondValue
+    else law i
+
+omit [Nonempty Particle] in
+/-- Sampling one coordinate and then forcing it to the sampled value rebuilds
+the original independent product law. -/
+theorem bind_forcedIndependentPopulation_eq_independentPopulation
+    (law : Particle → Distribution Sample) (selected : Particle) :
+    Distribution.bind (law selected) (fun value =>
+      forcedIndependentPopulation law selected value) =
+      independentPopulation law := by
+  classical
+  apply Distribution.ext
+  funext samples
+  simp only [Distribution.bind_mass]
+  rw [Finset.sum_eq_single (samples selected)]
+  · unfold forcedIndependentPopulation independentPopulation
+    change (law selected).mass (samples selected) *
+        (∏ i, (if i = selected then pointDistribution (samples selected)
+          else law i).mass (samples i)) =
+      ∏ i, (law i).mass (samples i)
+    let f : Particle → ℝ := fun i => (law i).mass (samples i)
+    have hfull := Finset.mul_prod_erase Finset.univ f
+      (Finset.mem_univ selected)
+    have hforced :
+        (∏ i, (if i = selected then pointDistribution (samples selected)
+          else law i).mass (samples i)) =
+          ∏ i ∈ Finset.univ.erase selected, f i := by
+      rw [← Finset.prod_erase Finset.univ (a := selected)]
+      · apply Finset.prod_congr rfl
+        intro i hi
+        have hne : i ≠ selected := (Finset.mem_erase.mp hi).1
+        simp [hne, f]
+      · simp [pointDistribution]
+    rw [hforced]
+    simpa [f] using hfull
+  · intro other _ hother
+    apply mul_eq_zero_of_right
+    unfold forcedIndependentPopulation independentPopulation
+    apply Finset.prod_eq_zero (Finset.mem_univ selected)
+    simp [pointDistribution, Ne.symm hother]
+  · simp
+
+omit [Nonempty Particle] in
+/-- Disintegrating a one-coordinate-forced product at any distinct ordinary
+coordinate gives the corresponding two-coordinate-forced product. -/
+theorem forcedIndependentPopulation_bind_doublyForced
+    (law : Particle → Distribution Sample)
+    (retained selected : Particle) (hneq : retained ≠ selected)
+    (retainedValue : Sample) :
+    Distribution.bind (law selected) (fun selectedValue =>
+      doublyForcedIndependentPopulation law retained retainedValue
+        selected selectedValue) =
+      forcedIndependentPopulation law retained retainedValue := by
+  let retainedLaw : Particle → Distribution Sample := fun i =>
+    if i = retained then pointDistribution retainedValue else law i
+  have hselected : retainedLaw selected = law selected := by
+    simp [retainedLaw, Ne.symm hneq]
+  have hdouble (selectedValue : Sample) :
+      forcedIndependentPopulation retainedLaw selected selectedValue =
+        doublyForcedIndependentPopulation law retained retainedValue
+          selected selectedValue := by
+    apply Distribution.ext
+    funext samples
+    unfold forcedIndependentPopulation doublyForcedIndependentPopulation
+    unfold independentPopulation
+    apply Finset.prod_congr rfl
+    intro i _
+    by_cases hfirst : i = retained
+    · subst i
+      simp [hneq, retainedLaw]
+    · by_cases hsecond : i = selected <;>
+        simp [hfirst, hsecond, retainedLaw, Ne.symm hneq]
+  calc
+    Distribution.bind (law selected) (fun selectedValue =>
+        doublyForcedIndependentPopulation law retained retainedValue
+          selected selectedValue) =
+      Distribution.bind (retainedLaw selected) (fun selectedValue =>
+        forcedIndependentPopulation retainedLaw selected selectedValue) := by
+          rw [hselected]
+          congr 1
+          funext selectedValue
+          exact (hdouble selectedValue).symm
+    _ = independentPopulation retainedLaw :=
+      bind_forcedIndependentPopulation_eq_independentPopulation retainedLaw selected
+    _ = forcedIndependentPopulation law retained retainedValue := rfl
+
 omit [Nonempty Particle] in
 theorem forcedIndependentPopulation_incompatible_zero
     (law : Particle → Distribution Sample) (retained : Particle) (value : Sample)
@@ -334,6 +430,49 @@ theorem independentPopulation_coordinate_expectation
           if j = i then (law j).mass s * score s else (law j).mass s)).symm
     _ = ∑ s, (law i).mass s * score s := by
       simp [Distribution.sum_mass]
+
+omit [Nonempty Particle] in
+/-- Under a two-coordinate-forced product law, the expected score sum over
+the remaining coordinates is exactly the sum of their original marginal
+expectations. Keeping the exclusions explicit avoids premature cardinal
+arithmetic and is the form consumed by the leave-one-out PG proof. -/
+theorem doublyForcedIndependentPopulation_remainder_expectation
+    (law : Particle → Distribution Sample)
+    (first : Particle) (firstValue : Sample)
+    (second : Particle) (secondValue : Sample)
+    (score : Sample → ℝ) :
+    (∑ samples,
+        (doublyForcedIndependentPopulation law first firstValue second secondValue).mass
+            samples *
+          (∑ i : Particle,
+            if i = first ∨ i = second then 0 else score (samples i))) =
+      ∑ i : Particle, if i = first ∨ i = second then 0
+        else ∑ x, (law i).mass x * score x := by
+  classical
+  calc
+    (∑ samples,
+        (doublyForcedIndependentPopulation law first firstValue second secondValue).mass
+            samples *
+          (∑ i : Particle,
+            if i = first ∨ i = second then 0 else score (samples i))) =
+        ∑ i : Particle, ∑ samples,
+          (doublyForcedIndependentPopulation law first firstValue second secondValue).mass
+              samples *
+            (if i = first ∨ i = second then 0 else score (samples i)) := by
+      simp_rw [Finset.mul_sum]
+      rw [Finset.sum_comm]
+    _ = ∑ i : Particle, if i = first ∨ i = second then 0
+          else ∑ x, (law i).mass x * score x := by
+      apply Finset.sum_congr rfl
+      intro i _
+      by_cases hi : i = first ∨ i = second
+      · simp [hi]
+      · simp only [hi, if_false]
+        unfold doublyForcedIndependentPopulation
+        rw [independentPopulation_coordinate_expectation]
+        have hfirst : i ≠ first := fun h => hi (Or.inl h)
+        have hsecond : i ≠ second := fun h => hi (Or.inr h)
+        simp [hfirst, hsecond]
 
 omit [DecidableEq Sample] [Nonempty Particle] in
 /-- Expected empirical average after independent heterogeneous propagation. -/
@@ -462,6 +601,49 @@ theorem sum_unforced_constant (retained : Particle) (value : ℝ) :
       rw [Nat.cast_sub hcard]
       push_cast
       ring
+
+/-- With `extra + 1` total particles, excluding two distinct coordinates
+leaves exactly `extra - 1` copies of a constant. -/
+theorem sum_excluding_pair_constant (extra : ℕ) (hextra : 0 < extra)
+    (first second : Fin (extra + 1)) (hneq : first ≠ second) (value : ℝ) :
+    (∑ i : Fin (extra + 1),
+      if i = first ∨ i = second then 0 else value) =
+      (extra - 1 : ℕ) * value := by
+  calc
+    (∑ i : Fin (extra + 1),
+        if i = first ∨ i = second then 0 else value) =
+      ∑ i : Fin (extra + 1), (
+        value - (if i = first then value else 0) -
+          (if i = second then value else 0)) := by
+      apply Finset.sum_congr rfl
+      intro i _
+      by_cases hfirst : i = first
+      · simp [hfirst, hneq]
+      · by_cases hsecond : i = second <;> simp [hfirst, hsecond, Ne.symm hneq]
+    _ = (extra + 1 : ℕ) * value - value - value := by
+      rw [Finset.sum_sub_distrib, Finset.sum_sub_distrib]
+      simp
+    _ = (extra - 1 : ℕ) * value := by
+      rw [Nat.cast_sub (Nat.one_le_iff_ne_zero.mpr (Nat.ne_of_gt hextra))]
+      push_cast
+      ring
+
+/-- Common-law specialization of the two-coordinate remainder identity for
+`extra + 1` particles. -/
+theorem doublyForcedIndependentPopulation_remainder_expectation_fin
+    (law : Distribution Sample) (extra : ℕ) (hextra : 0 < extra)
+    (first second : Fin (extra + 1)) (hneq : first ≠ second)
+    (firstValue secondValue : Sample) (score : Sample → ℝ) :
+    (∑ samples,
+        (doublyForcedIndependentPopulation
+          (fun _ : Fin (extra + 1) => law)
+          first firstValue second secondValue).mass samples *
+          (∑ i : Fin (extra + 1),
+            if i = first ∨ i = second then 0 else score (samples i))) =
+      (extra - 1 : ℕ) * (∑ x, law.mass x * score x) := by
+  rw [doublyForcedIndependentPopulation_remainder_expectation]
+  simpa using sum_excluding_pair_constant extra hextra first second hneq
+    (∑ x, law.mass x * score x)
 
 omit [Nonempty Particle] in
 /-- Cardinal form of the common-marginal forced-cloud lower bound. -/
@@ -865,6 +1047,41 @@ theorem leaveOneOut_reciprocal_lower_bound
   exact one_div_upper_le_expectation_one_div remainderLaw denominator
     (((others : ℝ) + 2 * bound) * meanPotential)
     hdenominator hmean hmeanUpper
+
+/-- Concrete two-coordinate forced-cloud instance of the leave-one-out
+reciprocal estimate. For `extra + 1` total particles, the remainder contains
+`extra - 1` independent draws. -/
+theorem doublyForced_reciprocal_totalPotential_lower_bound
+    (potential : Sample → ℝ) (hpotential : ∀ x, 0 < potential x)
+    (bound : ℝ) (certificate : PotentialOscillationBound potential bound)
+    (law : Distribution Sample) (extra : ℕ) (hextra : 0 < extra)
+    (retained selected : Fin (extra + 1)) (hneq : retained ≠ selected)
+    (retainedValue selectedValue : Sample) :
+    1 / (((extra - 1 : ℕ) : ℝ) + 2 * bound) /
+        (∑ x, law.mass x * potential x) ≤
+      ∑ particles,
+        (doublyForcedIndependentPopulation
+          (fun _ : Fin (extra + 1) => law)
+          retained retainedValue selected selectedValue).mass particles *
+          (1 / (potential selectedValue + potential retainedValue +
+            ∑ i : Fin (extra + 1),
+              if i = retained ∨ i = selected then 0
+              else potential (particles i))) := by
+  have h := leaveOneOut_reciprocal_lower_bound
+    potential hpotential bound certificate law selectedValue retainedValue
+    (doublyForcedIndependentPopulation
+      (fun _ : Fin (extra + 1) => law)
+      retained retainedValue selected selectedValue)
+    (fun particles => ∑ i : Fin (extra + 1),
+      if i = retained ∨ i = selected then 0 else potential (particles i))
+    (extra - 1)
+    (fun particles => Finset.sum_nonneg fun i _ => by
+      by_cases hi : i = retained ∨ i = selected
+      · simp [hi]
+      · simpa [hi] using (hpotential (particles i)).le)
+    (doublyForcedIndependentPopulation_remainder_expectation_fin
+      law extra hextra retained selected hneq retainedValue selectedValue potential)
+  simpa [div_eq_mul_inv, mul_assoc, mul_comm] using h
 
 /-- Total potential carried by all particles except one retained coordinate. -/
 noncomputable def unforcedPotentialSum (potential : Sample → ℝ)
