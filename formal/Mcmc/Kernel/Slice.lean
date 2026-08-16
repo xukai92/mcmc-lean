@@ -1150,6 +1150,36 @@ theorem guardedTraceTransform_measurePreserving
       rw [hpreserving.map_eq, Measure.map_id]
     _ = joint := Measure.restrict_add_restrict_compl hsuccess
 
+/-- A globally measure-preserving trace reversal preserves the law restricted
+to a measurable success set whenever success is invariant under reversal.
+This is the convenient obligation for concrete stepping-out/shrinkage traces:
+prove preservation of the ambient augmented law and prove that reversing a
+successful execution is again successful. -/
+theorem measurePreserving_restrict_of_preimage_eq
+    {Augmented : Type*} [MeasurableSpace Augmented]
+    {joint : Measure Augmented} {success : Set Augmented}
+    {transform : Augmented → Augmented}
+    (hpreserving : MeasurePreserving transform joint joint)
+    (hsuccess : MeasurableSet success)
+    (hinvariant : transform ⁻¹' success = success) :
+    MeasurePreserving transform (joint.restrict success)
+      (joint.restrict success) := by
+  simpa only [hinvariant] using hpreserving.restrict_preimage hsuccess
+
+/-- Guarded trace preservation from the two concrete reversal facts: ambient
+law preservation and invariance of the measurable success event. -/
+theorem guardedTraceTransform_measurePreserving_of_invariant
+    {Augmented : Type*} [MeasurableSpace Augmented]
+    (joint : Measure Augmented)
+    (success : Set Augmented) (hsuccess : MeasurableSet success)
+    (transform : Augmented → Augmented)
+    (hpreserving : MeasurePreserving transform joint joint)
+    (hinvariant : transform ⁻¹' success = success) :
+    MeasurePreserving (guardedTraceTransform success transform) joint joint := by
+  exact guardedTraceTransform_measurePreserving joint success hsuccess
+    transform hpreserving.measurable
+    (measurePreserving_restrict_of_preimage_eq hpreserving hsuccess hinvariant)
+
 /-- Horizontal update obtained by sampling a complete independent execution
 trace, applying a deterministic map on augmented-state--trace space, and
 discarding the transformed trace. This is the appropriate semantics when the

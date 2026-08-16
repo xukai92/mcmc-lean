@@ -1,5 +1,13 @@
 # Development log
 
+- Simplified the concrete practical-slice proof boundary. A measurable trace
+  reversal that preserves the ambient augmented law and leaves the success
+  event invariant now automatically preserves the law restricted to
+  successful traces; the guarded identity-fallback theorem consumes this
+  result directly. Concrete stepping-out/shrinkage work therefore only needs
+  the two natural reversal facts, rather than a separate restricted-measure
+  calculation.
+
 - Combined the positive and nonpositive residual-clock cases into the exact
   pointwise Palm identity. For every occupied signed position `s`, restrict
   two independent negative-Rayleigh resets to cycles that cover `s`, then map
