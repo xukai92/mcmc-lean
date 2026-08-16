@@ -28,6 +28,7 @@ export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, Bounded
     Xu21CoupledSampler, ScopedInferenceOperator, ComposableSampler, covers,
     DynamicTreeCertificate, certify_dynamic_tree, certified_orbit_partition,
     certified_scalar_uturn_partition,
+    certified_vector_uturn_partition,
     generated_schedule,
     ObservationCursor, observation_cursor, resume_observation, run_observations,
     FiniteHMMParticleGibbs,
@@ -1220,6 +1221,32 @@ function certified_scalar_uturn_partition(positions::AbstractVector{<:Real},
         throw(DomainError((positions, momenta), "trajectory must be finite"))
     barriers = Bool[(q[i + 1] - q[i]) * p[i] < 0 ||
         (q[i + 1] - q[i]) * p[i + 1] < 0 for i in 1:length(q)-1]
+    certified_orbit_partition(barriers)
+end
+
+"""Finite-dimensional canonical endpoint U-turn partition."""
+function certified_vector_uturn_partition(
+        positions::AbstractVector{<:AbstractVector{<:Real}},
+        momenta::AbstractVector{<:AbstractVector{<:Real}})
+    length(positions) == length(momenta) ||
+        throw(DimensionMismatch("position and momentum trajectories must match"))
+    isempty(positions) && throw(ArgumentError("trajectory cannot be empty"))
+    dimension = length(first(positions))
+    dimension > 0 || throw(ArgumentError("phase-space dimension cannot be zero"))
+    all(q -> length(q) == dimension, positions) &&
+        all(p -> length(p) == dimension, momenta) ||
+        throw(DimensionMismatch("all phase points must have the same dimension"))
+    q = [Float64.(point) for point in positions]
+    p = [Float64.(point) for point in momenta]
+    all(point -> all(isfinite, point), q) &&
+        all(point -> all(isfinite, point), p) ||
+        throw(DomainError((positions, momenta), "trajectory must be finite"))
+    barriers = Vector{Bool}(undef, length(q) - 1)
+    for i in eachindex(barriers)
+        displacement = q[i + 1] .- q[i]
+        barriers[i] = dot(displacement, p[i]) < 0 ||
+            dot(displacement, p[i + 1]) < 0
+    end
     certified_orbit_partition(barriers)
 end
 

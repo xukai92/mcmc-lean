@@ -1940,6 +1940,13 @@ partitioning. Recursive subtree U-turn aggregation, doubling, and multinomial
 selection over such a tree still require their own equivalence and refinement
 proofs.
 
+The same construction now covers every finite-dimensional Euclidean phase
+trajectory. Lean uses the endpoint displacement inner products with both
+momenta, proves the barrier count and checked reroot partition, and derives
+stationarity. Julia mirrors the vector detector with dimension and finiteness
+validation. The scalar client remains the one-coordinate specialization in
+spirit; no floating-point equivalence theorem is inferred from the tests.
+
 ## 2026-08-16: product-compositional reversible-jump transports
 
 Added a reusable product constructor for reversible-jump transport-density

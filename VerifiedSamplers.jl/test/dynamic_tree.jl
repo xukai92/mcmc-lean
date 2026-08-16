@@ -30,4 +30,17 @@
     @test_throws DimensionMismatch certified_scalar_uturn_partition([0.0], [1.0, 2.0])
     @test_throws ArgumentError certified_scalar_uturn_partition(Float64[], Float64[])
     @test_throws DomainError certified_scalar_uturn_partition([0.0, Inf], [1.0, 1.0])
+
+    vector_uturn = certified_vector_uturn_partition(
+        [[0.0, 0.0], [1.0, 0.0], [1.5, 0.5], [1.25, 0.5]],
+        [[1.0, 0.0], [0.8, 0.2], [0.2, 0.1], [-0.5, 0.0]])
+    @test vector_uturn.valid
+    @test vector_uturn.candidates ==
+        [[1, 2, 3], [1, 2, 3], [1, 2, 3], [4]]
+    @test_throws DimensionMismatch certified_vector_uturn_partition(
+        [[0.0]], [[1.0], [2.0]])
+    @test_throws DimensionMismatch certified_vector_uturn_partition(
+        [[0.0], [1.0, 2.0]], [[1.0], [1.0]])
+    @test_throws ArgumentError certified_vector_uturn_partition(
+        Vector{Vector{Float64}}(), Vector{Vector{Float64}}())
 end

@@ -276,4 +276,54 @@ theorem scalarAdjacentUTurnKernel_stationary
       htarget).Stationary target :=
   lineBarrierKernel_stationary _ target htarget
 
+/-- Finite-dimensional endpoint U-turn test using the Euclidean inner
+product with both endpoint momenta. -/
+noncomputable def vectorAdjacentUTurn {ι : Type*} [Fintype ι]
+    (left right : (ι → ℝ) × (ι → ℝ)) : Bool :=
+  decide ((∑ i, (right.1 i - left.1 i) * left.2 i) < 0 ∨
+    (∑ i, (right.1 i - left.1 i) * right.2 i) < 0)
+
+/-- Root-independent finite-dimensional U-turn barriers on a complete
+canonical trajectory. -/
+noncomputable def vectorAdjacentUTurnBarriers {ι : Type*} [Fintype ι] :
+    List ((ι → ℝ) × (ι → ℝ)) → List Bool
+  | left :: right :: rest =>
+      vectorAdjacentUTurn left right ::
+        vectorAdjacentUTurnBarriers (right :: rest)
+  | _ => []
+
+@[simp] theorem length_vectorAdjacentUTurnBarriers
+    {ι : Type*} [Fintype ι]
+    (trajectory : List ((ι → ℝ) × (ι → ℝ))) :
+    (vectorAdjacentUTurnBarriers trajectory).length = trajectory.length - 1 := by
+  induction trajectory with
+  | nil => rfl
+  | cons left tail ih =>
+      cases tail with
+      | nil => rfl
+      | cons right rest =>
+          simp [vectorAdjacentUTurnBarriers] at ih ⊢
+          exact ih
+
+@[simp] theorem check_vectorAdjacentUTurnCandidates
+    {ι : Type*} [Fintype ι]
+    (trajectory : List ((ι → ℝ) × (ι → ℝ))) :
+    CertifiedDynamicTree.check
+      (lineBarrierCandidates (vectorAdjacentUTurnBarriers trajectory)) = true :=
+  check_lineBarrierCandidates _
+
+/-- Target-weighted selection inside a finite-dimensional canonical U-turn
+partition is stationary. -/
+theorem vectorAdjacentUTurnKernel_stationary
+    {ι : Type*} [Fintype ι]
+    (trajectory : List ((ι → ℝ) × (ι → ℝ)))
+    (target : Distribution
+      (Fin ((vectorAdjacentUTurnBarriers trajectory).length + 1)))
+    (htarget : ∀ state, 0 < target.mass state) :
+    (dynamicCandidateKernel target
+      ((lineBarrierTree (vectorAdjacentUTurnBarriers trajectory)).toCandidateSet
+        target)
+      htarget).Stationary target :=
+  lineBarrierKernel_stationary _ target htarget
+
 end Mcmc.Finite.MarkovKernel

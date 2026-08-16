@@ -258,8 +258,9 @@ breadth branches are:
 - numerical U-turn/subtree-exclusion construction beyond the completed finite
   certified-tree, executable checker, Julia certificate mirror, canonical
   barrier-partition builder, stopped-doubling selection theorems, and concrete
-  scalar adjacent-endpoint U-turn partition. Recursive subtree aggregation and
-  equivalence with a standard dynamic-NUTS builder remain;
+  scalar and arbitrary finite-dimensional adjacent-endpoint U-turn partitions.
+  Recursive subtree aggregation and equivalence with a standard dynamic-NUTS
+  builder remain;
 - stepping-out/shrinkage beyond the exact disintegration, finite integer slice,
   and bounded-interval continuous rejection implementation;
 - reversible-jump transports beyond the checked scalar and planar
