@@ -3679,3 +3679,18 @@ unnormalized suspension occupation is exactly the mean cycle duration times
 the normalized stationary-cycle source law used by the stopped executor.
 The remaining transfer is now solely the pathwise commuting equation between
 the suspension endpoint and the exact stopped recursion.
+
+## 2026-08-16: exact Gaussian Zig-Zag and unit-BPS stationarity
+
+Closed the end-to-end regenerative proof for the actual stopped executor.
+Lean proves pointwise, by induction on a finite suspension-crossing witness,
+that the exact signed inverse-clock recursion commutes with the suspension
+endpoint on every positive divergent hazard stream. The equation holds almost
+surely under normalized suspension occupation. Combining it with suspension
+invariance and the exact Palm decoder law proves that the signed Gaussian
+Zig-Zag horizon kernel preserves the Gaussian/equal-velocity target for every
+nonnegative horizon. The existing involutive signed/physical conjugacy then
+proves the same theorem for the production physical Zig-Zag kernel, and the
+proved one-dimensional BPS identification transfers it to exact unit-speed
+Gaussian BPS. These are stationarity theorems, not semigroup, ergodicity, or
+convergence theorems; those remain separate milestones.

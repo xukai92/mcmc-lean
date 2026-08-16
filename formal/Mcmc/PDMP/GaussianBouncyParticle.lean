@@ -139,6 +139,13 @@ theorem gaussianUnitBouncyEventElapsed_tendsto_atTop_ae
         Filter.atTop (nhds (∞ : ENNReal)) :=
   gaussianZigZagEventElapsed_tendsto_atTop_ae initial
 
+/-- Exact unit-speed one-dimensional Gaussian BPS preserves its Gaussian
+position/equal-sign target at every nonnegative horizon. -/
+theorem gaussianUnitBouncyHorizonKernel_invariant (horizon : NNReal) :
+    (gaussianUnitBouncyHorizonKernel horizon).Invariant
+      gaussianUnitBouncyTarget :=
+  gaussianZigZagHorizonKernel_invariant horizon
+
 /-- The unit-speed Gaussian BPS stationarity obligation is exactly the same
 setwise forward equation as in its Zig-Zag representation. -/
 abbrev GaussianUnitBouncyForwardEquation := GaussianZigZagForwardEquation
@@ -176,8 +183,8 @@ theorem gaussianUnitBouncyHorizonKernel_invariant_of_weakExpectationUniqueness
   gaussianZigZagHorizonKernel_invariant_of_weakExpectationUniqueness
     scalar determining horizon
 
-/-- Target-started weak-forward uniqueness is the minimal remaining premise
-for exact unit-speed Gaussian BPS stationarity. -/
+/-- Target-started weak-forward uniqueness gives an alternative analytic
+proof of exact unit-speed Gaussian BPS stationarity. -/
 theorem gaussianUnitBouncyHorizonKernel_invariant_of_targetWeakForwardUniqueness
     (uniqueness : GaussianUnitBouncyTargetWeakForwardUniqueness)
     (horizon : NNReal) :

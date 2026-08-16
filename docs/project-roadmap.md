@@ -473,14 +473,14 @@ breadth branches are:
   client, reflection, canonical rate, and flow are now proved identical to
   the exact Gaussian Zig-Zag representation. Its unbounded-rate horizon kernel
   and almost-sure nonexplosion therefore reuse the checked Zig-Zag path
-  construction. The shared setwise forward equation and convergence remain
-  open.
+  construction. The regenerative suspension argument now also proves exact
+  target stationarity for both concrete kernels; convergence remains open.
   Separately, the unbounded-rate standard-Gaussian Zig-Zag now has a genuine
   event kernel based on the closed-form inverse integrated hazard. Its unit
   exponential draw is positive almost surely, the inversion equation is
   machine checked almost surely, and fixed-event iterates are Markov. Turning
   those event iterates into a stationary finite-horizon process now has the
-  stopping-kernel construction but still requires stationarity. A measurable
+  stopping-kernel construction and now has unconditional target stationarity. A measurable
   first cumulative-time crossing selects the completed-event state and exact
   residual flow; the endpoint is jointly measurable and its kernel is Markov,
   with the fallback branch null by nonexplosion. Nonexplosion itself is now
@@ -492,8 +492,8 @@ breadth branches are:
   A new setwise forward-equation bridge turns zero time derivative of every
   measurable-event transported mass into invariance of the whole Markov
   family. The Gaussian horizon kernel has the concrete consumer theorem; its
-  remaining stationarity task is to derive that differential certificate from
-  the checked Gaussian generator identity and the constructed path law. A
+  forward-equation route remains available as an independent analytic
+  certificate, but stationarity no longer depends on deriving it. A
   reusable `GaussianSteinTest` certificate now packages arbitrary
   velocity-dependent observables with their integrability and Gaussian
   integration-by-parts proof and implies generator cancellation. The standard
@@ -513,8 +513,9 @@ breadth branches are:
   uniqueness theorem upgrades generator balance to invariance on an explicit
   differentiable test domain. The Gaussian smooth-test domain is instantiated,
   its full product-target generator expectation is zero, and exact horizon
-  stationarity follows from one remaining weak-forward uniqueness theorem for
-  the stopped path construction.
+  stationarity follows from weak-forward uniqueness for the stopped path
+  construction. That uniqueness remains open as an optional well-posedness
+  result, not as a stationarity premise.
   The normalized Gaussian/equal-velocity target and exact zero-time identity
   are discharged, so the specialized certificate contains only
   differentiability and the zero-derivative forward equation.
@@ -530,9 +531,10 @@ A1--A4, B1, and the exact/guarded B2 sampler construction are complete. The
 remaining work is ordered by the missing mathematical dependency rather than
 by paper date:
 
-1. prove weak-forward uniqueness for the constructed Gaussian Zig-Zag stopped
-   path, closing Gaussian Zig-Zag and one-dimensional unit-speed Gaussian BPS
-   stationarity. The measure-determination half is now complete for the actual
+1. Gaussian Zig-Zag and one-dimensional unit-speed Gaussian BPS target
+   stationarity are complete for the actual stopped kernels. The
+   measure-determination half of the independent weak-forward route is also
+   complete for the actual
    probability-valued curves: Lean uniformly smooths compact continuous tests,
    proves compact `C¹` tests determine each finite regular real-line fiber,
    and reconstructs the joint measure from the two Boolean velocity fibers.
@@ -558,16 +560,16 @@ by paper date:
   the first-crossing index have exact restarted-tail recursions. The endpoint
   recursion and its integration are now complete as well: the stopped measure
   and concrete horizon kernel satisfy an exact first-event renewal equation
-  driven by one exponential hazard and a fresh iid tail. The next dependency
-  is to use this equation to prove target-started scalar weak-forward
-  uniqueness. The process and its generator are now additionally conjugated
+   driven by one exponential hazard and a fresh iid tail. Target-started
+   scalar weak-forward uniqueness remains an optional process-uniqueness
+   theorem. The process and its generator are now additionally conjugated
   to a canonical signed coordinate: the target is unchanged, flow has unit
   speed, the rate is `max 0 signed`, and events use the explicit
   negative-square-root reset. The reduction now also conjugates the actual
   stopped horizon kernel, proves the conjugation involutive, and proves that
   signed and physical Gaussian-target stationarity are equivalent. This
-  removes the physical-coordinate coupling and later coordinate-transfer
-  bookkeeping from the remaining scalar renewal/transport analysis. The exact
+   removes the physical-coordinate coupling and later coordinate-transfer
+   bookkeeping from the regenerative analysis. The exact
   horizon kernel now also satisfies the explicit signed first-event renewal
   equation: unit-speed translation before the first event and restart from
   the negative-square-root reset afterward. The signed inverse clock is now
@@ -583,9 +585,10 @@ by paper date:
   is the exact target. A literal interval-time occupation kernel is now
   constructed, and Tonelli proves its reset-averaged measure equals that
   coverage-density law. The normalized length-biased reset/position joint law
-  is now a proved probability measure with the exact Gaussian marginal. What
-  remains is the stationary-renewal shift theorem. Its Palm-law input is now
-  partly discharged: quadratic energy exactly inverts the negative-Rayleigh
+   is now a proved probability measure with the exact Gaussian marginal. The
+   stationary-renewal shift theorem is now complete via a reusable measurable,
+   nonexplosive suspension-occupation theorem. Its Palm-law input is fully
+   discharged: quadratic energy exactly inverts the negative-Rayleigh
   reset; beyond a positive occupied radius, restriction and energy subtraction
   give the scaled fresh exponential law; and at nonpositive positions the
   future reset energy is already fresh exponential. These cases are now
@@ -595,10 +598,11 @@ by paper date:
   and residual hazard is exactly standard Gaussian times an independent unit
   exponential law. This Palm law is now lifted with the velocity and future
   iid hazard tail, and Lean identifies its pushforward with the exact
-  target-started stopped-horizon executor input law. The next theorem proves
-  that the resulting stationary renewal shift preserves cycle occupation. Splitting a horizon
-  between events is still correctly treated as a law-level argument rather
-  than a pointwise semigroup identity;
+   target-started stopped-horizon executor input law. Lean proves the concrete
+   suspension nonexplosive, its occupation invariant, and its decoder commutes
+   pathwise with the exact stopped recursion. This closes signed and physical
+   Zig-Zag stationarity and transfers it to unit-speed one-dimensional BPS.
+   The semigroup law, convergence, and optional weak-forward uniqueness remain;
 2. bare Gaussian SoftAbs GR-HMC convergence -- complete for the concrete
    one-dimensional `ε = 1`, `L = 1` chain. Lean proves affine drift, compact
    skeleton minorization, faithful geometric meeting, the normalized target's

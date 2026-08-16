@@ -433,7 +433,11 @@ intensity bounds.
 rate/kernel, nonexplosion, reflection algebra, generator cancellation, then
 refreshment and ergodicity. An executable event simulator needs explicit
 integrated-hazard or thinning certificates. Do not encode BPS as a
-discrete-time reversible kernel.
+discrete-time reversible kernel. The concrete one-dimensional unit-speed
+standard-Gaussian client is now the completed exception: its exact path,
+nonexplosion, and target stationarity transfer from the formally identified
+Gaussian Zig-Zag construction. General dimension, refreshment-driven
+ergodicity, and convergence remain separate milestones.
 
 ### Bierkens, Fearnhead, and Roberts (2019): Zig-Zag -- P2
 
@@ -448,7 +452,11 @@ not a finite-sample mixing theorem.
 BPS, then formalize the flip-rate generator identity and a factorized-rate
 specialization. Keep invariance, uniqueness, convergence, time-average
 estimation, and computational scaling as distinct claims. A stationary
-generator identity is the sensible first milestone.
+generator identity is the sensible first milestone for general targets. For
+the one-dimensional standard-Gaussian client, the repository now goes further:
+a regenerative suspension proof establishes target stationarity of the actual
+exact stopped kernel at every nonnegative horizon. Its semigroup law and
+convergence are not claimed.
 
 ### Jacob, O'Leary, and Atchadé (2020): unbiased coupled MCMC -- P0
 

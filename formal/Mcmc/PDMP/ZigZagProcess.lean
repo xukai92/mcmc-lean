@@ -4116,6 +4116,30 @@ noncomputable def gaussianZigZagSuspensionDecode
     ((((ℝ × ℝ) × ℝ) × Bool) × (ℕ → NNReal)) :=
   (((input.1.1.1, input.1.1.1.1 + input.2), input.1.2), input.1.1.2)
 
+/-- Signed phase state represented by a regenerative suspension point. -/
+noncomputable def gaussianZigZagSuspensionState
+    (input : ((((ℝ × ℝ) × (ℕ → NNReal)) × Bool) × ℝ)) :
+    ZigZagState :=
+  (input.1.1.1.1 + input.2, input.1.2)
+
+/-- Exact residual-head/future-tail stream represented by a regenerative
+suspension point. -/
+noncomputable def gaussianZigZagSuspensionHazardStream
+    (input : ((((ℝ × ℝ) × (ℕ → NNReal)) × Bool) × ℝ)) :
+    ℕ → NNReal :=
+  gaussianZigZagHazardCons
+    (gaussianZigZagCycleResidualHazard
+      (gaussianZigZagSuspensionState input).1 input.1.1.1.2,
+      input.1.1.2)
+
+theorem gaussianZigZagStationaryCycleStreamMap_decode
+    (input : ((((ℝ × ℝ) × (ℕ → NNReal)) × Bool) × ℝ)) :
+    gaussianZigZagStationaryCycleStreamMap
+        (gaussianZigZagSuspensionDecode input) =
+      (gaussianZigZagSuspensionState input,
+        gaussianZigZagSuspensionHazardStream input) := by
+  rfl
+
 theorem measurable_gaussianZigZagSuspensionDecode :
     Measurable gaussianZigZagSuspensionDecode := by
   unfold gaussianZigZagSuspensionDecode
@@ -4312,6 +4336,60 @@ theorem gaussianZigZagSuspensionDecode_map_occupation_eq_smul :
   rw [Measure.prod_smul_left, Measure.prod_smul_left, smul_smul]
   rw [ENNReal.mul_inv_cancel gaussianZigZagCycleMeanDuration_ne_zero
     gaussianZigZagCycleMeanDuration_ne_top, one_smul]
+
+/-- Probability-normalized version of the concrete suspension occupation. -/
+noncomputable def gaussianZigZagNormalizedSuspensionOccupationMeasure :
+    Measure (((((ℝ × ℝ) × (ℕ → NNReal)) × Bool) × ℝ)) :=
+  gaussianZigZagCycleMeanDuration⁻¹ •
+    gaussianZigZagSuspensionOccupationMeasure
+
+instance gaussianZigZagNormalizedSuspensionOccupationMeasure.instIsProbabilityMeasure :
+    IsProbabilityMeasure gaussianZigZagNormalizedSuspensionOccupationMeasure := by
+  constructor
+  unfold gaussianZigZagNormalizedSuspensionOccupationMeasure
+  rw [Measure.smul_apply, smul_eq_mul]
+  have hmass := suspensionOccupationMeasure_apply_univ
+    gaussianZigZagCyclePhaseEnvironmentMeasure
+    measurable_gaussianZigZagCyclePhaseEnvironmentRoof
+  rw [hmass]
+  have hmean : suspensionMeanRoof
+      gaussianZigZagCyclePhaseEnvironmentMeasure
+      gaussianZigZagCyclePhaseEnvironmentRoof =
+      gaussianZigZagCycleMeanDuration := by
+    apply ENNReal.eq_of_inv_eq_inv
+    have hdecoderMass := congrArg (fun measure : Measure
+        ((((ℝ × ℝ) × ℝ) × Bool) × (ℕ → NNReal)) =>
+          measure Set.univ)
+      gaussianZigZagSuspensionDecode_map_occupation_eq_smul
+    simpa [Measure.map_apply measurable_gaussianZigZagSuspensionDecode
+      MeasurableSet.univ] using hdecoderMass
+  rw [hmean]
+  exact ENNReal.inv_mul_cancel gaussianZigZagCycleMeanDuration_ne_zero
+    gaussianZigZagCycleMeanDuration_ne_top
+
+theorem gaussianZigZagSuspensionDecode_map_normalized :
+    Measure.map gaussianZigZagSuspensionDecode
+        gaussianZigZagNormalizedSuspensionOccupationMeasure =
+      (gaussianZigZagStationaryCycleMeasure.prod
+        zigZagVelocityProbability).prod
+          gaussianZigZagHazardSequenceMeasure := by
+  unfold gaussianZigZagNormalizedSuspensionOccupationMeasure
+  rw [Measure.map_smul,
+    gaussianZigZagSuspensionDecode_map_occupation_eq_smul, smul_smul,
+    ENNReal.inv_mul_cancel gaussianZigZagCycleMeanDuration_ne_zero
+      gaussianZigZagCycleMeanDuration_ne_top,
+    one_smul]
+
+theorem gaussianZigZagSuspensionEndpoint_map_normalized
+    (horizon : NNReal) :
+    Measure.map
+        (suspensionEndpoint gaussianZigZagCyclePhaseEnvironmentShift
+          gaussianZigZagCyclePhaseEnvironmentRoof (horizon : ℝ))
+        gaussianZigZagNormalizedSuspensionOccupationMeasure =
+      gaussianZigZagNormalizedSuspensionOccupationMeasure := by
+  unfold gaussianZigZagNormalizedSuspensionOccupationMeasure
+  rw [Measure.map_smul,
+    gaussianZigZagSuspensionEndpoint_map_occupation]
 
 /-- Regenerative event-epoch law: negative-Rayleigh signed position and an
 independent uniform velocity label. -/
@@ -4583,6 +4661,395 @@ theorem zigZagSignedCoordinate_gaussianZigZagFirstEventEndpoint
       gaussianZigZagSignedEventUpdate
     rw [zigZagSignedCoordinate_involutive]
 
+/-- Pointwise first-event equation for the signed stopped executor under the
+explicit positive, divergent-tail conditions used in the nonexplosion proof. -/
+theorem gaussianZigZagSignedHorizonEndpoint_eq_firstEvent_of_goodTail
+    (initial : ZigZagState) (horizon : NNReal)
+    (headTail : NNReal × (ℕ → NNReal))
+    (htailPositive : ∀ index, 0 < headTail.2 index)
+    (htailDiverges : (∑' index,
+      gaussianZigZagSqrtHazardTerm headTail.2 index) = ∞) :
+    gaussianZigZagSignedHorizonEndpoint initial horizon
+        (gaussianZigZagHazardCons headTail) =
+      gaussianZigZagSignedFirstEventEndpoint initial horizon headTail := by
+  have hphysical : gaussianZigZagHorizonEndpoint
+      (zigZagSignedCoordinate initial) horizon
+      (gaussianZigZagHazardCons headTail) =
+      gaussianZigZagFirstEventEndpoint
+        (zigZagSignedCoordinate initial) horizon headTail := by
+    by_cases hbefore : horizon <
+        gaussianZigZagWaitingNNReal (zigZagSignedCoordinate initial) headTail.1
+    · have hpoint := gaussianZigZagHorizonEndpoint_eq_flow_of_lt_firstWait
+        (zigZagSignedCoordinate initial) horizon
+        (gaussianZigZagHazardCons headTail)
+        (by simpa [gaussianZigZagEventWait, gaussianZigZagEventState,
+          gaussianZigZagHazardCons] using hbefore)
+      simpa [gaussianZigZagFirstEventEndpoint, hbefore] using hpoint
+    · have hwait : gaussianZigZagEventWait
+          (zigZagSignedCoordinate initial)
+          (gaussianZigZagHazardCons headTail) 0 ≤ horizon := by
+        simpa [gaussianZigZagEventWait, gaussianZigZagEventState,
+          gaussianZigZagHazardCons] using not_lt.mp hbefore
+      have htailExists : ∃ eventCount, gaussianZigZagEventCrossed
+          (gaussianZigZagEventUpdate
+            (zigZagSignedCoordinate initial) headTail.1)
+          (horizon - gaussianZigZagWaitingNNReal
+            (zigZagSignedCoordinate initial) headTail.1)
+          headTail.2 eventCount :=
+        gaussianZigZagEventCrossed_exists_of_positive_of_sqrt_tsum
+          _ _ _ htailPositive htailDiverges
+      have hpoint := gaussianZigZagHorizonEndpoint_eq_tail_of_firstWait_le
+        (zigZagSignedCoordinate initial) horizon
+        (gaussianZigZagHazardCons headTail) hwait
+        (by simpa [gaussianZigZagEventWait, gaussianZigZagEventState,
+          gaussianZigZagHazardCons] using htailExists)
+      simpa [gaussianZigZagFirstEventEndpoint, hbefore,
+        gaussianZigZagEventWait, gaussianZigZagEventState,
+        gaussianZigZagHazardCons] using hpoint
+  unfold gaussianZigZagSignedHorizonEndpoint
+  rw [hphysical,
+    zigZagSignedCoordinate_gaussianZigZagFirstEventEndpoint]
+
+omit [MeasurableSpace ZigZagState] in
+theorem gaussianZigZagCycleResidualHazard_reset_of_nonpos
+    (signed : ℝ) (hazard : NNReal) (hsigned : signed ≤ 0) :
+    gaussianZigZagCycleResidualHazard signed
+        (gaussianZigZagNegativeRayleighReset hazard) = hazard := by
+  unfold gaussianZigZagCycleResidualHazard
+  rw [max_eq_left hsigned]
+  simp
+
+/-- On every terminating good regenerative input, exact stopped execution
+commutes with the suspension endpoint and its signed-state decoder. -/
+theorem gaussianZigZagSignedHorizonEndpoint_suspensionState
+    (eventCount : ℕ) :
+    ∀ (input : ((((ℝ × ℝ) × (ℕ → NNReal)) × Bool) × ℝ))
+      (horizon : NNReal),
+      input.1.1.1.1 < 0 ∧ input.1.1.1.2 < 0 →
+      0 ≤ input.2 →
+      input.2 < gaussianZigZagCyclePhaseEnvironmentRoof input.1 →
+      (∀ index, 0 < input.1.1.2 index) →
+      (∑' index, gaussianZigZagSqrtHazardTerm input.1.1.2 index) = ∞ →
+      suspensionCrossed gaussianZigZagCyclePhaseEnvironmentShift
+        gaussianZigZagCyclePhaseEnvironmentRoof input.1 input.2
+          (horizon : ℝ) eventCount →
+      gaussianZigZagSignedHorizonEndpoint
+          (gaussianZigZagSuspensionState input) horizon
+          (gaussianZigZagSuspensionHazardStream input) =
+        gaussianZigZagSuspensionState
+          (suspensionEndpoint gaussianZigZagCyclePhaseEnvironmentShift
+            gaussianZigZagCyclePhaseEnvironmentRoof (horizon : ℝ) input) := by
+  induction eventCount with
+  | zero =>
+      intro input horizon hresets hage hbelow hpositive hdiverges hcrossed
+      have hroof : gaussianZigZagCyclePhaseEnvironmentRoof input.1 =
+          -input.1.1.1.2 - input.1.1.1.1 := by
+        unfold gaussianZigZagCyclePhaseEnvironmentRoof
+          gaussianZigZagCycleEnvironmentRoof
+        rw [NNReal.coe_toNNReal]
+        linarith
+      have hcover : (gaussianZigZagSuspensionState input).1 <
+          -input.1.1.1.2 := by
+        unfold gaussianZigZagSuspensionState
+        rw [hroof] at hbelow
+        linarith
+      have hbefore : input.2 + (horizon : ℝ) <
+          gaussianZigZagCyclePhaseEnvironmentRoof input.1 := by
+        simpa [suspensionCrossed, suspensionRoofElapsed] using hcrossed
+      have hremaining : horizon < gaussianZigZagCycleRemainingTime
+          (gaussianZigZagSuspensionState input).1 input.1.1.1.2 := by
+        apply NNReal.coe_lt_coe.mp
+        rw [coe_gaussianZigZagCycleRemainingTime _ _ hcover, hroof]
+        unfold gaussianZigZagSuspensionState
+        linarith
+      rw [show gaussianZigZagSuspensionHazardStream input =
+          gaussianZigZagHazardCons
+            (gaussianZigZagCycleResidualHazard
+              (gaussianZigZagSuspensionState input).1 input.1.1.1.2,
+              input.1.1.2) by rfl,
+        gaussianZigZagSignedHorizonEndpoint_eq_firstEvent_of_goodTail
+          _ _ _ hpositive hdiverges,
+        gaussianZigZagSignedFirstEventEndpoint_cycleResidual
+          _ _ _ _ _ hcover hresets.2,
+        if_pos hremaining,
+        suspensionEndpoint_eq_translate_of_lt_roof
+          gaussianZigZagCyclePhaseEnvironmentShift
+          gaussianZigZagCyclePhaseEnvironmentRoof (horizon : ℝ) input hbefore]
+      unfold gaussianZigZagSuspensionState
+      congr 1
+      ring
+  | succ eventCount ih =>
+      intro input horizon hresets hage hbelow hpositive hdiverges hcrossed
+      have hroof : gaussianZigZagCyclePhaseEnvironmentRoof input.1 =
+          -input.1.1.1.2 - input.1.1.1.1 := by
+        unfold gaussianZigZagCyclePhaseEnvironmentRoof
+          gaussianZigZagCycleEnvironmentRoof
+        rw [NNReal.coe_toNNReal]
+        linarith
+      have hcover : (gaussianZigZagSuspensionState input).1 <
+          -input.1.1.1.2 := by
+        unfold gaussianZigZagSuspensionState
+        rw [hroof] at hbelow
+        linarith
+      let remaining := gaussianZigZagCycleRemainingTime
+        (gaussianZigZagSuspensionState input).1 input.1.1.1.2
+      have hremainingCoe : (remaining : ℝ) =
+          gaussianZigZagCyclePhaseEnvironmentRoof input.1 - input.2 := by
+        unfold remaining
+        rw [coe_gaussianZigZagCycleRemainingTime _ _ hcover, hroof]
+        unfold gaussianZigZagSuspensionState
+        ring
+      rw [show gaussianZigZagSuspensionHazardStream input =
+          gaussianZigZagHazardCons
+            (gaussianZigZagCycleResidualHazard
+              (gaussianZigZagSuspensionState input).1 input.1.1.1.2,
+              input.1.1.2) by rfl,
+        gaussianZigZagSignedHorizonEndpoint_eq_firstEvent_of_goodTail
+          _ _ _ hpositive hdiverges,
+        gaussianZigZagSignedFirstEventEndpoint_cycleResidual
+          _ _ _ _ _ hcover hresets.2]
+      by_cases hbefore : horizon < remaining
+      · rw [if_pos hbefore]
+        have hbeforeReal : input.2 + (horizon : ℝ) <
+            gaussianZigZagCyclePhaseEnvironmentRoof input.1 := by
+          exact_mod_cast hbefore
+          rw [hremainingCoe]
+          linarith
+        rw [suspensionEndpoint_eq_translate_of_lt_roof
+          gaussianZigZagCyclePhaseEnvironmentShift
+          gaussianZigZagCyclePhaseEnvironmentRoof (horizon : ℝ) input
+          hbeforeReal]
+        unfold gaussianZigZagSuspensionState
+        congr 1
+        ring
+      · rw [if_neg hbefore]
+        have hreach : gaussianZigZagCyclePhaseEnvironmentRoof input.1 ≤
+            input.2 + (horizon : ℝ) := by
+          have := not_lt.mp hbefore
+          exact_mod_cast this
+          rw [hremainingCoe]
+          linarith
+        let shiftedInput :=
+          (gaussianZigZagCyclePhaseEnvironmentShift input.1, (0 : ℝ))
+        let residual := horizon - remaining
+        have hresidualCoe : (residual : ℝ) =
+            input.2 + (horizon : ℝ) -
+              gaussianZigZagCyclePhaseEnvironmentRoof input.1 := by
+          unfold residual
+          rw [NNReal.coe_sub (not_lt.mp hbefore), hremainingCoe]
+          ring
+        have htailCrossed : suspensionCrossed
+            gaussianZigZagCyclePhaseEnvironmentShift
+            gaussianZigZagCyclePhaseEnvironmentRoof shiftedInput.1 shiftedInput.2
+              (residual : ℝ) eventCount := by
+          apply (suspensionCrossed_succ_iff_tail
+            gaussianZigZagCyclePhaseEnvironmentShift
+            gaussianZigZagCyclePhaseEnvironmentRoof input (horizon : ℝ)
+              eventCount).mp at hcrossed
+          simpa [shiftedInput, hresidualCoe] using hcrossed
+        have hshiftedResets : shiftedInput.1.1.1.1 < 0 ∧
+            shiftedInput.1.1.1.2 < 0 := by
+          unfold shiftedInput gaussianZigZagCyclePhaseEnvironmentShift
+            gaussianZigZagCycleEnvironmentShift
+          exact ⟨hresets.2, by
+            unfold gaussianZigZagNegativeRayleighReset
+            exact neg_lt_zero.mpr (Real.sqrt_pos.2 (by positivity))⟩
+        have hshiftedBelow : shiftedInput.2 <
+            gaussianZigZagCyclePhaseEnvironmentRoof shiftedInput.1 := by
+          unfold shiftedInput gaussianZigZagCyclePhaseEnvironmentShift
+            gaussianZigZagCycleEnvironmentShift
+            gaussianZigZagCyclePhaseEnvironmentRoof
+            gaussianZigZagCycleEnvironmentRoof
+          rw [NNReal.coe_toNNReal]
+          · linarith [Real.sqrt_pos.2 (show 0 <
+                2 * (input.1.1.2 0 : ℝ) by positivity)]
+          · positivity
+        have hshiftedPositive : ∀ index, 0 < shiftedInput.1.1.2 index := by
+          intro index
+          simpa [shiftedInput, gaussianZigZagCyclePhaseEnvironmentShift,
+            gaussianZigZagCycleEnvironmentShift] using hpositive (index + 1)
+        have hshiftedDiverges : (∑' index,
+            gaussianZigZagSqrtHazardTerm shiftedInput.1.1.2 index) = ∞ := by
+          have htail := ENNReal.tsum_add_one_eq_top hdiverges
+            (by exact ENNReal.ofReal_ne_top)
+          simpa [shiftedInput, gaussianZigZagCyclePhaseEnvironmentShift,
+            gaussianZigZagCycleEnvironmentShift,
+            gaussianZigZagSqrtHazardTerm] using htail
+        have hstream : gaussianZigZagSuspensionHazardStream shiftedInput =
+            input.1.1.2 := by
+          funext index
+          cases index with
+          | zero =>
+              simp only [gaussianZigZagSuspensionHazardStream,
+                gaussianZigZagHazardCons]
+              rw [gaussianZigZagCycleResidualHazard_reset_of_nonpos]
+              exact hresets.2.le
+          | succ index =>
+              simp [gaussianZigZagSuspensionHazardStream,
+                gaussianZigZagHazardCons, shiftedInput,
+                gaussianZigZagCyclePhaseEnvironmentShift,
+                gaussianZigZagCycleEnvironmentShift]
+        have hrecursive := ih shiftedInput residual hshiftedResets
+          (by simp [shiftedInput]) hshiftedBelow hshiftedPositive
+          hshiftedDiverges htailCrossed
+        rw [hstream] at hrecursive
+        rw [hrecursive]
+        have hendpoint := suspensionEndpoint_crossing_recursion
+          gaussianZigZagCyclePhaseEnvironmentShift
+          gaussianZigZagCyclePhaseEnvironmentRoof input (horizon : ℝ)
+          hreach ⟨eventCount + 1, hcrossed⟩
+        rw [hendpoint]
+        congr 1
+        exact hresidualCoe
+
+/-- The pathwise commuting equation holds almost surely under normalized
+stationary suspension occupation. -/
+theorem gaussianZigZagSignedHorizonEndpoint_suspensionState_ae
+    (horizon : NNReal) :
+    (fun input => gaussianZigZagSignedHorizonEndpoint
+        (gaussianZigZagSuspensionState input) horizon
+        (gaussianZigZagSuspensionHazardStream input)) =ᵐ[
+      gaussianZigZagNormalizedSuspensionOccupationMeasure]
+    (fun input => gaussianZigZagSuspensionState
+      (suspensionEndpoint gaussianZigZagCyclePhaseEnvironmentShift
+        gaussianZigZagCyclePhaseEnvironmentRoof (horizon : ℝ) input)) := by
+  have hbaseGood : ∀ᵐ base ∂gaussianZigZagCyclePhaseEnvironmentMeasure,
+      (base.1.1.1 < 0 ∧ base.1.1.2 < 0) ∧
+      (∀ index, 0 < base.1.2 index) ∧
+      (∑' index, gaussianZigZagSqrtHazardTerm base.1.2 index) = ∞ ∧
+      (∀ shift, 0 ≤ shift → ∃ eventCount,
+        suspensionCrossed gaussianZigZagCyclePhaseEnvironmentShift
+          gaussianZigZagCyclePhaseEnvironmentRoof base 0 shift eventCount) := by
+    have hresets := (Measure.quasiMeasurePreserving_fst
+      (μ := gaussianZigZagCycleEnvironmentMeasure)
+      (ν := zigZagVelocityProbability)).ae
+        gaussianZigZagCycleEnvironment_resets_negative_ae
+    have hpositive := (Measure.quasiMeasurePreserving_fst
+      (μ := gaussianZigZagCycleEnvironmentMeasure)
+      (ν := zigZagVelocityProbability)).ae
+        ((Measure.quasiMeasurePreserving_snd
+          (μ := gaussianZigZagNegativeRayleighMeasure.prod
+            gaussianZigZagNegativeRayleighMeasure)
+          (ν := gaussianZigZagHazardSequenceMeasure)).ae
+            gaussianZigZagHazardSequence_positive_ae)
+    have hdiverges := (Measure.quasiMeasurePreserving_fst
+      (μ := gaussianZigZagCycleEnvironmentMeasure)
+      (ν := zigZagVelocityProbability)).ae
+        ((Measure.quasiMeasurePreserving_snd
+          (μ := gaussianZigZagNegativeRayleighMeasure.prod
+            gaussianZigZagNegativeRayleighMeasure)
+          (ν := gaussianZigZagHazardSequenceMeasure)).ae
+            gaussianZigZagSqrtHazard_tsum_eq_top_ae)
+    filter_upwards [hresets, hpositive, hdiverges,
+      gaussianZigZagCyclePhaseEnvironment_nonexplosive_ae]
+      with base hresets hpositive hdiverges hnonexplosive
+    exact ⟨hresets, hpositive, hdiverges, hnonexplosive⟩
+  have hproductGood : ∀ᵐ input ∂
+      gaussianZigZagCyclePhaseEnvironmentMeasure.prod volume,
+      (input.1.1.1.1 < 0 ∧ input.1.1.1.2 < 0) ∧
+      (∀ index, 0 < input.1.1.2 index) ∧
+      (∑' index, gaussianZigZagSqrtHazardTerm input.1.1.2 index) = ∞ ∧
+      (∀ shift, 0 ≤ shift → ∃ eventCount,
+        suspensionCrossed gaussianZigZagCyclePhaseEnvironmentShift
+          gaussianZigZagCyclePhaseEnvironmentRoof input.1 0 shift eventCount) :=
+    (Measure.quasiMeasurePreserving_fst
+      (μ := gaussianZigZagCyclePhaseEnvironmentMeasure)
+      (ν := (volume : Measure ℝ))).ae hbaseGood
+  have hdomain := measurableSet_suspensionFundamentalDomain
+    measurable_gaussianZigZagCyclePhaseEnvironmentRoof
+  have hoccupation : ∀ᵐ input ∂gaussianZigZagSuspensionOccupationMeasure,
+      (input.1.1.1.1 < 0 ∧ input.1.1.1.2 < 0) ∧
+      (∀ index, 0 < input.1.1.2 index) ∧
+      (∑' index, gaussianZigZagSqrtHazardTerm input.1.1.2 index) = ∞ ∧
+      input ∈ suspensionFundamentalDomain
+        gaussianZigZagCyclePhaseEnvironmentRoof ∧
+      (∀ shift, 0 ≤ shift → ∃ eventCount,
+        suspensionCrossed gaussianZigZagCyclePhaseEnvironmentShift
+          gaussianZigZagCyclePhaseEnvironmentRoof input.1 0 shift eventCount) := by
+    unfold gaussianZigZagSuspensionOccupationMeasure
+      suspensionOccupationMeasure
+    rw [ae_restrict_iff' hdomain]
+    filter_upwards [hproductGood] with input hgood hmem
+    exact ⟨hgood.1, hgood.2.1, hgood.2.2.1, hmem, hgood.2.2.2⟩
+  unfold gaussianZigZagNormalizedSuspensionOccupationMeasure
+  rw [ae_smul_measure]
+  filter_upwards [hoccupation] with input hgood
+  have hage : 0 ≤ input.2 := hgood.2.2.2.1.1
+  have hbelow : input.2 <
+      gaussianZigZagCyclePhaseEnvironmentRoof input.1 :=
+    hgood.2.2.2.1.2
+  obtain ⟨eventCount, hcrossedZero⟩ := hgood.2.2.2.2
+    (input.2 + (horizon : ℝ)) (by positivity)
+  have hcrossed : suspensionCrossed
+      gaussianZigZagCyclePhaseEnvironmentShift
+      gaussianZigZagCyclePhaseEnvironmentRoof input.1 input.2
+        (horizon : ℝ) eventCount := by
+    simpa [suspensionCrossed] using hcrossedZero
+  exact gaussianZigZagSignedHorizonEndpoint_suspensionState eventCount
+    input horizon hgood.1 hage hbelow hgood.2.1 hgood.2.2.1 hcrossed
+
+/-- The signed-state marginal of normalized stationary suspension occupation
+is exactly the Gaussian phase target. -/
+theorem gaussianZigZagSuspensionState_map_normalized :
+    Measure.map gaussianZigZagSuspensionState
+        gaussianZigZagNormalizedSuspensionOccupationMeasure =
+      gaussianZigZagTarget := by
+  have hstate : Measurable gaussianZigZagSuspensionState := by
+    unfold gaussianZigZagSuspensionState
+    fun_prop
+  have hfactor : gaussianZigZagSuspensionState =
+      Prod.fst ∘ gaussianZigZagStationaryCycleStreamMap ∘
+        gaussianZigZagSuspensionDecode := by
+    funext input
+    rw [gaussianZigZagStationaryCycleStreamMap_decode]
+    rfl
+  rw [hfactor, ← Measure.map_map measurable_fst
+    measurable_gaussianZigZagStationaryCycleStreamMap,
+    ← Measure.map_map
+      (measurable_fst.comp measurable_gaussianZigZagStationaryCycleStreamMap)
+      measurable_gaussianZigZagSuspensionDecode,
+    gaussianZigZagSuspensionDecode_map_normalized,
+    gaussianZigZagStationaryCycleStreamMap_map,
+    Measure.map_fst_prod, measure_univ, one_smul]
+
+/-- The exact stopped signed Gaussian Zig-Zag kernel preserves the Gaussian
+phase target at every nonnegative horizon. -/
+theorem gaussianZigZagSignedHorizonKernel_invariant
+    (horizon : NNReal) :
+    (gaussianZigZagSignedHorizonKernel horizon).Invariant
+      gaussianZigZagTarget := by
+  rw [Kernel.Invariant,
+    gaussianZigZagSignedHorizonKernel_comp_target_eq_stationaryCycle]
+  let execute := fun input : ((((ℝ × ℝ) × ℝ) × Bool) ×
+      (ℕ → NNReal)) =>
+    let clocked := gaussianZigZagStationaryCycleStreamMap input
+    gaussianZigZagSignedHorizonEndpoint clocked.1 horizon clocked.2
+  have hexecute : Measurable execute := by
+    unfold execute
+    exact (measurable_gaussianZigZagSignedHorizonEndpoint_joint horizon).comp
+      measurable_gaussianZigZagStationaryCycleStreamMap
+  rw [← gaussianZigZagSuspensionDecode_map_normalized,
+    Measure.map_map hexecute measurable_gaussianZigZagSuspensionDecode]
+  have hcomposition : execute ∘ gaussianZigZagSuspensionDecode =
+      fun input => gaussianZigZagSignedHorizonEndpoint
+        (gaussianZigZagSuspensionState input) horizon
+        (gaussianZigZagSuspensionHazardStream input) := by
+    funext input
+    unfold execute Function.comp_def
+    rw [gaussianZigZagStationaryCycleStreamMap_decode]
+  rw [hcomposition]
+  rw [Measure.map_congr
+    (gaussianZigZagSignedHorizonEndpoint_suspensionState_ae horizon)]
+  have hstate : Measurable gaussianZigZagSuspensionState := by
+    unfold gaussianZigZagSuspensionState
+    fun_prop
+  have hendpoint := measurable_suspensionEndpoint
+    measurable_gaussianZigZagCyclePhaseEnvironmentShift
+    measurable_gaussianZigZagCyclePhaseEnvironmentRoof (horizon : ℝ)
+  rw [← Measure.map_map hstate hendpoint,
+    gaussianZigZagSuspensionEndpoint_map_normalized,
+    gaussianZigZagSuspensionState_map_normalized]
+
 /-- Signed-coordinate conjugation is involutive at the kernel level. -/
 theorem gaussianZigZagHorizonKernel_eq_signed_conjugate
     (horizon : NNReal) :
@@ -4639,6 +5106,14 @@ theorem gaussianZigZagSignedHorizonKernel_invariant_iff
     rw [Kernel.Invariant] at hphysical ⊢
     rw [transported, gaussianZigZagTarget_map_signedCoordinate,
       hphysical, gaussianZigZagTarget_map_signedCoordinate]
+
+/-- The production physical-coordinate stopped Gaussian Zig-Zag kernel
+preserves its Gaussian phase target at every nonnegative horizon. -/
+theorem gaussianZigZagHorizonKernel_invariant (horizon : NNReal) :
+    (gaussianZigZagHorizonKernel horizon).Invariant
+      gaussianZigZagTarget :=
+  (gaussianZigZagSignedHorizonKernel_invariant_iff horizon).mp
+    (gaussianZigZagSignedHorizonKernel_invariant horizon)
 
 /-- Kernel-level first-event equation. From a fixed state, the exact horizon
 transition can equivalently sample one exponential hazard and an independent

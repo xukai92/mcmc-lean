@@ -194,8 +194,8 @@ rate-biased balanced-flux certificate through the embedded chain and
 Poissonization to real-time target invariance, and records finite-count
 nonexplosion. The flow-driven bounded-rate path construction described below
 now supplies the dependent all-count schedule and fixed-horizon transition;
-unbounded clocks and BPS/Zig-Zag process-level stationarity and convergence
-remain open.
+unbounded clocks remain open in general; the concrete one-dimensional Gaussian
+Zig-Zag/BPS exception is described below.
 
 The deterministic PDMP branch now has a measurable-semiflow interface. Every
 elapsed time yields a deterministic Markov kernel, the exact semigroup law is
@@ -234,8 +234,8 @@ convergence theorems in general dimension. In one dimension at unit speed,
 Lean now proves that Gaussian BPS reflection, rate, and flow coincide with the
 Gaussian Zig-Zag representation. Consequently the exact unbounded-rate
 horizon kernel and almost-sure nonexplosion theorem transfer to this concrete
-BPS client; its stationarity remains conditional on the same explicit setwise
-forward equation. Fixed finite event
+BPS client. Its target stationarity is now unconditional: the regenerative
+suspension proof described below applies to every nonnegative horizon. Fixed finite event
 schedules can now be executed as general-state Markov kernels by alternating
 the semiflow with jumps; schedule concatenation and conditional invariance are
 proved. Concrete one-dimensional Zig-Zag and finite-dimensional BPS clients
@@ -254,13 +254,21 @@ surely. This proves nonexplosion of the exact event sequence. A finite-horizon
 transition is now constructed by a measurable first-crossing search over
 cumulative event times, followed by exact residual flow. Lean proves the
 totalized endpoint jointly measurable, its fallback unused almost surely, and
-the resulting general-state kernel Markov. Stationarity, the semigroup law,
-and convergence remain open. The stationarity boundary is now formal rather
-than prose: a reusable forward-equation theorem proves invariance of every
+the resulting general-state kernel Markov. Lean now proves this exact stopped
+kernel preserves the Gaussian-position/equal-velocity target at every
+nonnegative horizon. The proof constructs an invariant regenerative event
+environment, proves its suspension nonexplosive from the divergent
+`sqrt(2E)` lower bound, proves the general suspension occupation theorem, and
+checks both the Palm decoder law and the pathwise commuting equation with the
+actual stopped executor. Signed-coordinate invariance transfers through the
+proved involution to the physical Zig-Zag kernel and hence to unit-speed
+one-dimensional Gaussian BPS. The semigroup law and convergence remain open.
+
+An independent forward-equation API remains available: it proves invariance of every
 finite-time kernel when all measurable-set transported masses are
 differentiable on nonnegative time with zero derivative. The Gaussian
-Zig-Zag family is connected to this theorem, leaving the setwise forward
-equation—not process construction or nonexplosion—as its exact analytic input.
+Zig-Zag family is connected to this theorem, but this is now an alternate
+analytic route rather than a premise of the regenerative stationarity result.
 Arbitrary velocity-dependent observables can now enter this analytic layer
 through a `GaussianSteinTest` certificate, which records the two required
 integrability facts and the Gaussian integration-by-parts identity and yields
@@ -280,8 +288,9 @@ The weak-forward route is also explicit and domain-correct: a concrete
 compactly supported `C¹` Zig-Zag test type includes full phase-generator
 integrability, and Lean proves zero generator expectation under the actual
 Gaussian×equal-velocity target. A generic theorem shows that weak-forward
-uniqueness for this test domain implies exact stationarity. Proving that
-uniqueness theorem for the constructed stopped path remains open.
+uniqueness for this test domain implies exact stationarity. That uniqueness
+theorem remains open as an independent well-posedness result, but is no longer
+needed for target preservation of the constructed stopped path.
 For the measure-determination half, the API now uses the mathematically
 minimal regular-measure notion: a general Riesz bridge automatically proves
 determination whenever the generator test family represents every compactly
@@ -294,7 +303,7 @@ joint measure. Weak-forward solutions now
 carry their semantically required probability-law certificate at every time;
 on the Gaussian Polish state space this discharges regularity of both candidate
 and transported curves automatically. Target-started scalar weak-expectation
-uniqueness for the stopped path is the remaining weak-forward premise.
+uniqueness remains the only premise of this optional weak-forward route.
 The normalized Gaussian-position/equal-velocity target is now explicit and
 proved a probability measure, and the stopped horizon family is proved exactly
 the identity kernel at time zero; these parts no longer remain premises of the
