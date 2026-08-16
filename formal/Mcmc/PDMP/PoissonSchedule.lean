@@ -277,6 +277,17 @@ theorem tsum_poisson_singletons (intensity : NNReal) :
     exact Set.disjoint_singleton.2 hij
   · exact fun i => MeasurableSet.singleton i
 
+/-- Adjacent Poisson count weights satisfy the birth/death recurrence used by
+cross-count generator cancellation. -/
+theorem poissonMeasure_real_singleton_succ_flux
+    (intensity : NNReal) (count : ℕ) :
+    ((count + 1 : ℕ) : ℝ) * (poissonMeasure intensity).real {count + 1} =
+      (intensity : ℝ) * (poissonMeasure intensity).real {count} := by
+  rw [poissonMeasure_real_singleton, poissonMeasure_real_singleton]
+  rw [Nat.factorial_succ, pow_succ]
+  push_cast
+  field_simp
+
 /-- Joint law of a Poisson candidate count and its conditional ordered wait
 sequence. The family argument makes the measurable-sorting obligation
 explicit at every count. -/

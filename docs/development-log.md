@@ -160,6 +160,9 @@ proves the entire count mixture equals the target. Instantiating this
 certificate with the exact Poisson schedule decomposition proves bounded
 horizon-kernel invariance. Concrete Zig-Zag/BPS generator calculations must
 still supply the core and flux measures; no fixed count is assumed invariant.
+Lean also proves the exact adjacent Poisson-mass recurrence
+`(n+1)p(n+1) = intensity·p(n)`, discharging the count-weight algebra needed
+when constructing those flux measures.
 
 ## 2026-08-15: categorical discontinuous-HMC vertical slice
 
