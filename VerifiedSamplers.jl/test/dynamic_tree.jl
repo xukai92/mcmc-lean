@@ -21,4 +21,13 @@
     @test certified_orbit_partition(fill(false, 3)).candidates ==
         [collect(1:4) for _ in 1:4]
     @test certified_orbit_partition(fill(true, 3)).candidates == [[1], [2], [3], [4]]
+
+    uturn = certified_scalar_uturn_partition(
+        [0.0, 1.0, 1.5, 1.25, 0.5], [1.0, 0.8, 0.2, -0.5, -0.8])
+    @test uturn.valid
+    @test uturn.candidates == [[1, 2, 3], [1, 2, 3], [1, 2, 3], [4, 5], [4, 5]]
+    @test certified_scalar_uturn_partition([0.0], [1.0]).candidates == [[1]]
+    @test_throws DimensionMismatch certified_scalar_uturn_partition([0.0], [1.0, 2.0])
+    @test_throws ArgumentError certified_scalar_uturn_partition(Float64[], Float64[])
+    @test_throws DomainError certified_scalar_uturn_partition([0.0, Inf], [1.0, 1.0])
 end

@@ -1924,6 +1924,22 @@ bounds. Thus random resampling weights are no longer missing from the local
 recurrence; iteration across horizons and control of the nonlinear normalized
 weight map remain the sequential consistency obligations.
 
+## 2026-08-16: concrete certified scalar U-turn partition
+
+Added the first numerical stopping detector that feeds the reroot-safe dynamic
+tree construction. On a complete canonical scalar phase trajectory, an edge
+is marked whenever its displacement has negative product with either endpoint
+momentum. Lean proves that the resulting barrier list has exactly one entry
+per adjacent pair, passes the dynamic-tree checker, and yields a stationary
+target-weighted candidate kernel. Julia implements the identical detector and
+checks representative turns and invalid trajectories.
+
+This construction is intentionally narrower than recursive NUTS: it is a
+root-independent adjacent-endpoint detector followed by canonical component
+partitioning. Recursive subtree U-turn aggregation, doubling, and multinomial
+selection over such a tree still require their own equivalence and refinement
+proofs.
+
 Julia exposes the matching guarded Float64 evaluator, including the removable
 zero-Hessian branch, and tests its algebraic outputs and invalid domains. This
 is deliberately runtime evidence rather than a platform certificate: error

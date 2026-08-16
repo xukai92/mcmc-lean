@@ -192,6 +192,33 @@ def lineBarrierCandidates (barriers : List Bool)
   Finset.univ.filter fun leaf =>
     lineBarrierLabel barriers leaf = lineBarrierLabel barriers root
 
+/-- Scalar endpoint U-turn test for two adjacent phase points. A barrier is
+declared when the displacement has negative inner product with either endpoint
+momentum. -/
+noncomputable def scalarAdjacentUTurn (left right : ℝ × ℝ) : Bool :=
+  decide ((right.1 - left.1) * left.2 < 0 ∨
+    (right.1 - left.1) * right.2 < 0)
+
+/-- Canonical local U-turn barriers along a complete scalar trajectory. The
+detector runs on the full root-independent orbit before partitioning. -/
+noncomputable def scalarAdjacentUTurnBarriers : List (ℝ × ℝ) → List Bool
+  | left :: right :: rest =>
+      scalarAdjacentUTurn left right ::
+        scalarAdjacentUTurnBarriers (right :: rest)
+  | _ => []
+
+@[simp] theorem length_scalarAdjacentUTurnBarriers
+    (trajectory : List (ℝ × ℝ)) :
+    (scalarAdjacentUTurnBarriers trajectory).length = trajectory.length - 1 := by
+  induction trajectory with
+  | nil => rfl
+  | cons left tail ih =>
+      cases tail with
+      | nil => rfl
+      | cons right rest =>
+          simp [scalarAdjacentUTurnBarriers] at ih ⊢
+          exact ih
+
 /-- Barrier partitioning is reroot stable by construction. A numerical
 U-turn detector may safely feed this builder only after assigning barriers on
 the canonical full trajectory, rather than stopping from a root-dependent
@@ -226,5 +253,27 @@ theorem lineBarrierKernel_stationary
       ((lineBarrierTree barriers).toCandidateSet target)
       htarget).Stationary target :=
   (lineBarrierTree barriers).kernel_stationary target htarget
+
+/-- The concrete adjacent-endpoint U-turn detector produces a checked
+reroot-invariant partition. This is a safe dynamic trajectory construction,
+not an equivalence theorem for recursive subtree-based NUTS. -/
+@[simp] theorem check_scalarAdjacentUTurnCandidates
+    (trajectory : List (ℝ × ℝ)) :
+    CertifiedDynamicTree.check
+      (lineBarrierCandidates (scalarAdjacentUTurnBarriers trajectory)) = true :=
+  check_lineBarrierCandidates _
+
+/-- Target-weighted selection inside the concrete scalar U-turn partition is
+stationary. -/
+theorem scalarAdjacentUTurnKernel_stationary
+    (trajectory : List (ℝ × ℝ))
+    (target : Distribution
+      (Fin ((scalarAdjacentUTurnBarriers trajectory).length + 1)))
+    (htarget : ∀ state, 0 < target.mass state) :
+    (dynamicCandidateKernel target
+      ((lineBarrierTree (scalarAdjacentUTurnBarriers trajectory)).toCandidateSet
+        target)
+      htarget).Stationary target :=
+  lineBarrierKernel_stationary _ target htarget
 
 end Mcmc.Finite.MarkovKernel

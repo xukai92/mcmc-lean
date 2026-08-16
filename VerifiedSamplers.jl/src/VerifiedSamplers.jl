@@ -27,6 +27,7 @@ export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, Bounded
     evaluate_softabs_metric_float64, evaluate_softabs_diagonal_float64,
     Xu21CoupledSampler, ScopedInferenceOperator, ComposableSampler, covers,
     DynamicTreeCertificate, certify_dynamic_tree, certified_orbit_partition,
+    certified_scalar_uturn_partition,
     generated_schedule,
     ObservationCursor, observation_cursor, resume_observation, run_observations,
     FiniteHMMParticleGibbs,
@@ -1200,6 +1201,26 @@ function certified_orbit_partition(barriers::AbstractVector{Bool})
     certificate = certify_dynamic_tree(rows)
     certificate.valid || error("internal orbit-partition certificate failure")
     certificate
+end
+
+"""Build a certified scalar orbit partition from adjacent endpoint U-turns.
+
+An edge is cut when its displacement has negative product with either endpoint
+momentum. The detector is evaluated on the complete canonical trajectory, so
+the resulting rows are reroot invariant. This is a local safe detector, not a
+claim of equivalence to a recursive subtree-based NUTS implementation.
+"""
+function certified_scalar_uturn_partition(positions::AbstractVector{<:Real},
+        momenta::AbstractVector{<:Real})
+    length(positions) == length(momenta) ||
+        throw(DimensionMismatch("position and momentum trajectories must match"))
+    isempty(positions) && throw(ArgumentError("trajectory cannot be empty"))
+    q, p = Float64.(positions), Float64.(momenta)
+    all(isfinite, q) && all(isfinite, p) ||
+        throw(DomainError((positions, momenta), "trajectory must be finite"))
+    barriers = Bool[(q[i + 1] - q[i]) * p[i] < 0 ||
+        (q[i + 1] - q[i]) * p[i + 1] < 0 for i in 1:length(q)-1]
+    certified_orbit_partition(barriers)
 end
 
 struct FiniteKernelWeights
