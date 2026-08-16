@@ -17,8 +17,10 @@ structure RestrictedGaussianRationalCertificate where
   input : ℚ
   computedValue : ℚ
   computedDerivative : ℚ
+  computedSecondDerivative : ℚ
   valueError : ℚ
   derivativeError : ℚ
+  secondDerivativeError : ℚ
   deriving DecidableEq, Repr
 
 /-- Exact checker predicate. Error fields must be the actual absolute rational
@@ -28,7 +30,9 @@ def RestrictedGaussianRationalCertificate.Valid
   certificate.valueError =
       |certificate.computedValue - certificate.input ^ 2 / 2| ∧
     certificate.derivativeError =
-      |certificate.computedDerivative - certificate.input|
+      |certificate.computedDerivative - certificate.input| ∧
+    certificate.secondDerivativeError =
+      |certificate.computedSecondDerivative - 1|
 
 instance (certificate : RestrictedGaussianRationalCertificate) :
     Decidable certificate.Valid := by
@@ -68,6 +72,19 @@ theorem RestrictedGaussianRationalCertificate.derivative_approximates
   rw [restrictedGaussianPotential_derivative_eval]
   rw [Approximates]
   norm_cast
-  rw [hvalid.2]
+  rw [hvalid.2.1]
+
+/-- The same exact record reaches the Hessian consumed by diagonal SoftAbs. -/
+theorem RestrictedGaussianRationalCertificate.secondDerivative_approximates
+    (certificate : RestrictedGaussianRationalCertificate)
+    (hvalid : certificate.Valid) :
+    Approximates (certificate.computedSecondDerivative : ℝ)
+      (restrictedGaussianPotential.derivative.derivative.eval
+        (certificate.input : ℝ))
+      (certificate.secondDerivativeError : ℝ) := by
+  rw [restrictedGaussianPotential_secondDerivative_eval]
+  rw [Approximates]
+  norm_cast
+  rw [hvalid.2.2]
 
 end Mcmc.Executable.Continuous

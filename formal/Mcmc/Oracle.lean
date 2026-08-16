@@ -7,7 +7,7 @@ import Mcmc.Executable.Continuous.RestrictedCertificate
 open Mcmc.Executable.Finite
 
 private def usage : String :=
-  "usage: mcmc-oracle categorical WEIGHTS DRAW | mh STATE PROPOSAL_DRAW [ACCEPT_DRAW] | gaussian_certificate INPUT VALUE DERIVATIVE VALUE_ERROR DERIVATIVE_ERROR"
+  "usage: mcmc-oracle categorical WEIGHTS DRAW | mh STATE PROPOSAL_DRAW [ACCEPT_DRAW] | gaussian_certificate INPUT VALUE DERIVATIVE HESSIAN VALUE_ERROR DERIVATIVE_ERROR HESSIAN_ERROR"
 
 private def parseNat (text : String) : Except String Nat :=
   match text.toNat? with
@@ -36,22 +36,28 @@ private def parseRat (text : String) : Except String ℚ := do
   | _ => throw s!"invalid rational: {text}"
 
 private def runGaussianCertificate
-    (inputText valueText derivativeText valueErrorText derivativeErrorText : String) :
+    (inputText valueText derivativeText hessianText valueErrorText
+      derivativeErrorText hessianErrorText : String) :
     IO Unit := do
   match parseRat inputText, parseRat valueText, parseRat derivativeText,
-      parseRat valueErrorText, parseRat derivativeErrorText with
-  | .ok input, .ok value, .ok derivative, .ok valueError, .ok derivativeError =>
+      parseRat hessianText, parseRat valueErrorText, parseRat derivativeErrorText,
+      parseRat hessianErrorText with
+  | .ok input, .ok value, .ok derivative, .ok hessian, .ok valueError,
+      .ok derivativeError, .ok hessianError =>
       let certificate :
           Mcmc.Executable.Continuous.RestrictedGaussianRationalCertificate :=
         { input := input
           computedValue := value
           computedDerivative := derivative
+          computedSecondDerivative := hessian
           valueError := valueError
-          derivativeError := derivativeError }
+          derivativeError := derivativeError
+          secondDerivativeError := hessianError }
       if certificate.check then IO.println "ok" else IO.println "error invalidCertificate"
-  | .error error, _, _, _, _ | _, .error error, _, _, _ |
-      _, _, .error error, _, _ | _, _, _, .error error, _ |
-      _, _, _, _, .error error => IO.println s!"error {error}"
+  | .error error, _, _, _, _, _, _ | _, .error error, _, _, _, _, _ |
+      _, _, .error error, _, _, _, _ | _, _, _, .error error, _, _, _ |
+      _, _, _, _, .error error, _, _ | _, _, _, _, _, .error error, _ |
+      _, _, _, _, _, _, .error error => IO.println s!"error {error}"
 
 private def printIRResult
     (result : Except CompilerIR.RuntimeError (Nat × List DrawEvent)) : IO Unit :=
@@ -159,9 +165,10 @@ def main (args : List String) : IO UInt32 := do
   | ["mh_generic", target, rows, state, proposal, accept] =>
       runGenericMH target rows state proposal (some accept)
       return 0
-  | ["gaussian_certificate", input, value, derivative, valueError,
-      derivativeError] =>
-      runGaussianCertificate input value derivative valueError derivativeError
+  | ["gaussian_certificate", input, value, derivative, hessian, valueError,
+      derivativeError, hessianError] =>
+      runGaussianCertificate input value derivative hessian valueError
+        derivativeError hessianError
       return 0
   | _ =>
       IO.eprintln usage

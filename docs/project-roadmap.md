@@ -123,6 +123,10 @@ finite loops through position, final momentum, endpoint energy, stabilized
 weights, cumulative boundaries, and multinomial selection. Instantiating the
 remaining primitive Float64/libm/arithmetic/RNG error premises for a particular
 Julia platform is deliberately separate from this real-valued certificate.
+The polynomial Gaussian callback is now exception-free at this boundary:
+Julia emits exact dyadic value, gradient, and Hessian records, and Lean checks
+all three against `x^2/2`, `x`, and `1`. Nonconstant transcendental callbacks
+and SoftAbs `sqrt`/inverse/`log` remain backend premises.
 For the paper-style nonconstant metric, in addition to the removable-zero sinusoidal client, Lean
 now has the nondegenerate target `U(q)=q²-sin(q)`, whose actual Hessian lies in
 `[1,3]`. Its potential, force/Hessian relationship, measurability, Equation

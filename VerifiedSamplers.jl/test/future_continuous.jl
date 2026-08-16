@@ -132,16 +132,21 @@ end
     @test exact.ideal_value == 1 // 8
     @test iszero(exact.value_error)
     @test iszero(exact.derivative_error)
+    @test exact.ideal_second_derivative == 1
+    @test iszero(exact.second_derivative_error)
 
     rounded = certify_restricted_gaussian_float64(0.1)
     x = Rational{BigInt}(0.1)
     @test rounded.ideal_value == x^2 / 2
     @test rounded.ideal_derivative == x
+    @test rounded.ideal_second_derivative == 1
     @test rounded.value_error ==
         abs(Rational{BigInt}(rounded.computed_value) - x^2 / 2)
     @test iszero(rounded.derivative_error)
+    @test rounded.second_derivative_error ==
+        abs(Rational{BigInt}(rounded.computed_second_derivative) - 1)
     arguments = restricted_gaussian_certificate_arguments(rounded)
-    @test length(arguments) == 5
+    @test length(arguments) == 7
     if isfile(ORACLE)
         @test readchomp(`$ORACLE gaussian_certificate $arguments`) == "ok"
         invalid = copy(arguments)

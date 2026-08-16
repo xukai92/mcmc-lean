@@ -182,6 +182,12 @@ theorem restrictedGaussianArtifact_compile :
     RestrictedExpr.eval]
   ring
 
+@[simp] theorem restrictedGaussianPotential_secondDerivative_eval (x : ℝ) :
+    restrictedGaussianPotential.derivative.derivative.eval x = 1 := by
+  simp [restrictedGaussianPotential, RestrictedExpr.derivative,
+    RestrictedExpr.eval]
+  ring
+
 /-- Verified ideal value semantics of the generated nonconstant SoftAbs
 potential artifact. -/
 theorem restrictedSinusoidalPotentialArtifact_eval (x : ℝ) :

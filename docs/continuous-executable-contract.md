@@ -230,6 +230,10 @@ kinetic, and log-determinant errors into a complete Hamiltonian-value bound.
 The Julia evaluator follows that exact expression. Two endpoint instances can
 therefore feed the existing energy-difference and acceptance-margin theorems;
 primitive `Float64`/libm bounds remain explicit backend evidence.
+For the polynomial Gaussian callback, the executable exact-rational checker
+now covers value, gradient, and Hessian. This part needs no libm premise and
+feeds the constant-Hessian diagonal SoftAbs client; it does not certify the
+subsequent square root, reciprocal, or logarithm implementation.
 
 The generic `NumericalRefinement` contract is now inhabited by the ideal-real
 Lean interpreter itself.  It provides an assumption-free oracle theorem for

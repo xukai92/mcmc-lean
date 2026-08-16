@@ -356,8 +356,9 @@ const restricted_sinusoidal_potential = _restricted_from_ir(
 """Exact dyadic post-execution certificate for the generated Gaussian target.
 
 Every finite `Float64` is converted to its exact rational value. The ideal
-value `x²/2` and derivative `x` are therefore mathematical rationals, and the
-stored errors are exact rational differences from the Float64 execution. This
+value `x²/2`, derivative `x`, and second derivative `1` are therefore
+mathematical rationals, and the stored errors are exact rational differences
+from the Float64 execution. This
 uses no BigFloat approximation and no libm call. The Lean theorem identifying
 the generated artifact with `x²/2` supplies the formal semantic endpoint;
 transporting this Julia record into Lean remains an artifact-checking step.
@@ -366,25 +367,33 @@ struct RestrictedGaussianFloat64Certificate
     input::Float64
     computed_value::Float64
     computed_derivative::Float64
+    computed_second_derivative::Float64
     ideal_value::Rational{BigInt}
     ideal_derivative::Rational{BigInt}
+    ideal_second_derivative::Rational{BigInt}
     value_error::Rational{BigInt}
     derivative_error::Rational{BigInt}
+    second_derivative_error::Rational{BigInt}
 end
 
 function certify_restricted_gaussian_float64(input::Real)
     x = Float64(input)
     isfinite(x) || throw(ArgumentError("input must be finite"))
-    value, derivative = restricted_value_gradient(restricted_gaussian_potential, x)
+    value, derivative, second_derivative =
+        restricted_value_gradient_hessian(restricted_gaussian_potential, x)
     exact_input = Rational{BigInt}(x)
     exact_value = exact_input^2 / 2
     exact_derivative = exact_input
+    exact_second_derivative = Rational{BigInt}(1)
     computed_value = Rational{BigInt}(value)
     computed_derivative = Rational{BigInt}(derivative)
+    computed_second_derivative = Rational{BigInt}(second_derivative)
     RestrictedGaussianFloat64Certificate(x, value, derivative,
-        exact_value, exact_derivative,
+        second_derivative, exact_value, exact_derivative,
+        exact_second_derivative,
         abs(computed_value - exact_value),
-        abs(computed_derivative - exact_derivative))
+        abs(computed_derivative - exact_derivative),
+        abs(computed_second_derivative - exact_second_derivative))
 end
 
 _rational_wire(value::Rational{BigInt}) =
@@ -397,8 +406,10 @@ function restricted_gaussian_certificate_arguments(
         _rational_wire(Rational{BigInt}(certificate.input)),
         _rational_wire(Rational{BigInt}(certificate.computed_value)),
         _rational_wire(Rational{BigInt}(certificate.computed_derivative)),
+        _rational_wire(Rational{BigInt}(certificate.computed_second_derivative)),
         _rational_wire(certificate.value_error),
         _rational_wire(certificate.derivative_error),
+        _rational_wire(certificate.second_derivative_error),
     ]
 end
 

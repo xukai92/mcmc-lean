@@ -1,5 +1,15 @@
 # Development log
 
+- Extended the assumption-free exact-dyadic Gaussian callback certificate
+  through the Hessian consumed by diagonal SoftAbs. Julia now evaluates value,
+  gradient, and second derivative together and serializes all finite Float64
+  results and observed errors as exact rationals. The compiled Lean checker
+  validates `x^2/2`, `x`, and `1`; checker soundness yields separate
+  `Approximates` theorems for all three, and mutation tests reject a false
+  Hessian error. This removes a callback boundary for the constant-Hessian
+  Gaussian client; transcendental SoftAbs primitives and the nonconstant
+  sinusoidal Hessian still require backend-local bounds.
+
 - Proved the raw-current-potential particle-Gibbs minorization at the first
   positive horizon. For a singleton Feynman--Kac schedule, Lean proves that
   the full remaining backward potential is exactly the current potential, the

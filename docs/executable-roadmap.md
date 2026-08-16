@@ -162,7 +162,9 @@ while backend-local libm errors remain explicit. The generated sinusoidally
 perturbed Gaussian tree is exactly the nonconstant SoftAbs potential and force.
 For the polynomial Gaussian client, Julia serializes every finite Float64 as
 an exact rational certificate; the compiled Lean oracle checks that artifact,
-and checker soundness yields the value and derivative approximation facts.
+and checker soundness yields value, derivative, and second-derivative
+approximation facts. The Hessian certificate reaches the input consumed by
+the diagonal SoftAbs metric.
 The remaining platform work is instantiating primitive operation premises for
 transcendental operations (`exp`, `sin`, and `cos`), extending the checked path
 from target/force evaluation through the genuinely position-dependent SoftAbs
