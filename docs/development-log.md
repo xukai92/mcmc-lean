@@ -1,5 +1,14 @@
 # Development log
 
+- Added the finite horizon-indexed path-match automaton required by the PG
+  trajectory client. Its state is a bounded time index plus a Boolean prefix
+  match flag, so it has genuine `Fintype`/`DecidableEq` instances unlike an
+  unrestricted list label. Lean proves canonical initialization, one-step
+  advancement along an actual path, and that the terminal flag is true exactly
+  when the complete finite path equals the proposed path. This supplies the
+  finite label whose terminal score is the trajectory indicator in the
+  aggregate induction.
+
 - Closed the representation bridge needed by recursive PG bounds. Lean proves
   that coordinatewise maps commute with independent populations, identifies
   the original ancestor-plus-propagated-state construction with the packaged

@@ -19,6 +19,142 @@ open Mcmc.Finite.ParticleEstimator Mcmc.Finite.SequentialMonteCarlo
 
 variable {Sample : Type*} [Fintype Sample] [DecidableEq Sample]
 
+/-- Finite automaton state recording how much of a fixed-horizon proposed
+path has been consumed and whether every state has matched so far. -/
+structure PathMatchLabel (horizon : ℕ) where
+  time : Fin (horizon + 1)
+  matched : Bool
+deriving Fintype, DecidableEq
+
+/-- Initial path-match label after inspecting time zero. -/
+def initialPathMatchLabel (horizon : ℕ)
+    (desired : Fin (horizon + 1) → Sample) (state : Sample) :
+    PathMatchLabel horizon :=
+  ⟨⟨0, Nat.zero_lt_succ horizon⟩, decide (state = desired ⟨0, Nat.zero_lt_succ horizon⟩)⟩
+
+/-- Consume one state of the proposed path. At the terminal index the
+automaton is total and remains unchanged; the intended client invokes exactly
+`horizon` genuine advances. -/
+def advancePathMatchLabel (horizon : ℕ)
+    (desired : Fin (horizon + 1) → Sample)
+    (label : PathMatchLabel horizon) (state : Sample) :
+    PathMatchLabel horizon := by
+  by_cases hnext : label.time.val + 1 < horizon + 1
+  · let next : Fin (horizon + 1) := ⟨label.time.val + 1, hnext⟩
+    exact ⟨next, label.matched && decide (state = desired next)⟩
+  · exact label
+
+/-- Nonnegative indicator observable read from the path-match automaton. -/
+def pathMatchScore {horizon : ℕ} (label : PathMatchLabel horizon) : ℝ :=
+  if label.matched then 1 else 0
+
+theorem pathMatchScore_nonneg {horizon : ℕ} (label : PathMatchLabel horizon) :
+    0 ≤ pathMatchScore label := by
+  unfold pathMatchScore
+  split <;> norm_num
+
+omit [Fintype Sample] in
+@[simp] theorem initialPathMatchLabel_matched_iff (horizon : ℕ)
+    (desired : Fin (horizon + 1) → Sample) (state : Sample) :
+    (initialPathMatchLabel horizon desired state).matched = true ↔
+      state = desired ⟨0, Nat.zero_lt_succ horizon⟩ := by
+  simp [initialPathMatchLabel]
+
+omit [Fintype Sample] in
+theorem advancePathMatchLabel_of_not_terminal (horizon : ℕ)
+    (desired : Fin (horizon + 1) → Sample)
+    (label : PathMatchLabel horizon) (state : Sample)
+    (hnext : label.time.val + 1 < horizon + 1) :
+    advancePathMatchLabel horizon desired label state =
+      ⟨⟨label.time.val + 1, hnext⟩,
+        label.matched && decide
+          (state = desired ⟨label.time.val + 1, hnext⟩)⟩ := by
+  unfold advancePathMatchLabel
+  simp [hnext]
+
+/-- Two fixed-horizon paths agree through a given time index. -/
+def pathMatchesThrough {horizon : ℕ}
+    (desired actual : Fin (horizon + 1) → Sample)
+    (time : Fin (horizon + 1)) : Prop :=
+  ∀ i, i.val ≤ time.val → actual i = desired i
+
+/-- Canonical automaton label associated with two complete paths at a fixed
+time. -/
+noncomputable def canonicalPathMatchLabel {horizon : ℕ}
+    (desired actual : Fin (horizon + 1) → Sample)
+    (time : Fin (horizon + 1)) : PathMatchLabel horizon := by
+  classical
+  exact ⟨time, if pathMatchesThrough desired actual time then true else false⟩
+
+omit [Fintype Sample] [DecidableEq Sample] in
+/-- At the final time, the automaton's match bit is exactly equality of the
+two complete finite paths. -/
+theorem canonicalPathMatchLabel_last_matched_iff {horizon : ℕ}
+    (desired actual : Fin (horizon + 1) → Sample) :
+    (canonicalPathMatchLabel desired actual (Fin.last horizon)).matched = true ↔
+      actual = desired := by
+  classical
+  simp only [canonicalPathMatchLabel]
+  simp only [ite_eq_left_iff, Bool.false_eq_true, imp_false, not_not]
+  constructor
+  · intro h
+    funext i
+    exact h i (Nat.le_of_lt_succ i.isLt)
+  · intro h
+    subst actual
+    intro i _
+    rfl
+
+omit [Fintype Sample] in
+/-- Advancing the canonical label with the actual next state produces the
+canonical label at the successor time. -/
+theorem advance_canonicalPathMatchLabel {horizon : ℕ}
+    (desired actual : Fin (horizon + 1) → Sample)
+    (time : Fin (horizon + 1))
+    (hnext : time.val + 1 < horizon + 1) :
+    advancePathMatchLabel horizon desired
+        (canonicalPathMatchLabel desired actual time)
+        (actual ⟨time.val + 1, hnext⟩) =
+      canonicalPathMatchLabel desired actual ⟨time.val + 1, hnext⟩ := by
+  classical
+  let next : Fin (horizon + 1) := ⟨time.val + 1, hnext⟩
+  have hthrough :
+      pathMatchesThrough desired actual next ↔
+        pathMatchesThrough desired actual time ∧ actual next = desired next := by
+    constructor
+    · intro h
+      refine ⟨?_, h next (by simp [next])⟩
+      intro i hi
+      exact h i (by dsimp [next]; omega)
+    · rintro ⟨hprefix, hnew⟩ i hi
+      by_cases hle : i.val ≤ time.val
+      · exact hprefix i hle
+      · have hval : i.val = next.val := by
+          dsimp [next] at hi ⊢
+          omega
+        have hiEq : i = next := Fin.ext hval
+        simpa [hiEq] using hnew
+  rw [advancePathMatchLabel_of_not_terminal horizon desired
+    (canonicalPathMatchLabel desired actual time)
+    (actual next) (by simpa [canonicalPathMatchLabel, next] using hnext)]
+  unfold canonicalPathMatchLabel
+  simp only
+  rw [show (⟨time.val + 1, _⟩ : Fin (horizon + 1)) = next from rfl]
+  simp [hthrough]
+
+omit [Fintype Sample] in
+/-- Initialization is the canonical path-match label at time zero. -/
+theorem initialPathMatchLabel_eq_canonical {horizon : ℕ}
+    (desired actual : Fin (horizon + 1) → Sample) :
+    initialPathMatchLabel horizon desired
+        (actual ⟨0, Nat.zero_lt_succ horizon⟩) =
+      canonicalPathMatchLabel desired actual
+        ⟨0, Nat.zero_lt_succ horizon⟩ := by
+  classical
+  unfold initialPathMatchLabel canonicalPathMatchLabel pathMatchesThrough
+  congr
+  simp
+
 /-- A strictly positive real family over a nonempty finite type has one
 strictly positive uniform lower bound. The product-of-truncations construction
 keeps this lemma computationally explicit enough for finite model clients. -/
