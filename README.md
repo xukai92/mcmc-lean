@@ -133,7 +133,9 @@ seeded reproducibility tests.
 Completed dynamic-trajectory candidate sets now also have a recursive binary
 barrier-tree representation. Lean proves their reroot certificate and
 target-weighted stationarity; Julia mirrors the aggregation and exposes a
-checked target-weighted selector that refuses invalid row families. This is a
+checked target-weighted selector that refuses invalid row families. A total
+safe wrapper instead falls back to the identity transition, which Lean also
+proves stationary for arbitrary rows. This is a
 usable conservative dynamic-tree transition, not yet an equivalence proof for
 a root-dependent standard NUTS builder.
 

@@ -1,4 +1,5 @@
 import Mcmc.Finite.DynamicCandidate
+import Mcmc.Finite.Combinators
 
 /-!
 # Certified finite dynamic trees
@@ -120,6 +121,31 @@ theorem CertifiedDynamicTree.checkedKernel_stationary
       ((ofCheck candidates hcheck).toCandidateSet target)
       htarget).Stationary target :=
   (ofCheck candidates hcheck).kernel_stationary target htarget
+
+/-- Total safety wrapper for an arbitrary completed candidate-row family.
+Certified output uses target-weighted dynamic selection; failed certification
+falls back to the identity kernel. -/
+noncomputable def CertifiedDynamicTree.checkedOrIdentityKernel
+    (target : Distribution State) (candidates : State → Finset State)
+    (htarget : ∀ state, 0 < target.mass state) : MarkovKernel State :=
+  if hcheck : check candidates = true then
+    dynamicCandidateKernel target
+      ((ofCheck candidates hcheck).toCandidateSet target) htarget
+  else
+    identity
+
+/-- The total checked-or-identity wrapper is stationary for every candidate
+family. This does not certify a failed dynamic builder; it makes failure an
+explicit no-move transition. -/
+theorem CertifiedDynamicTree.checkedOrIdentityKernel_stationary
+    (target : Distribution State) (candidates : State → Finset State)
+    (htarget : ∀ state, 0 < target.mass state) :
+    (checkedOrIdentityKernel target candidates htarget).Stationary target := by
+  by_cases hcheck : check candidates = true
+  · rw [checkedOrIdentityKernel, dif_pos hcheck]
+    exact checkedKernel_stationary target candidates hcheck htarget
+  · rw [checkedOrIdentityKernel, dif_neg hcheck]
+    exact identity_stationary target
 
 /-- A leaf of a stopped doubling tree. `depth` may vary between tree
 components, while a completed component contains `2^depth` leaf offsets. -/

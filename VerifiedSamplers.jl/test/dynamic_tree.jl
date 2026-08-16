@@ -29,6 +29,11 @@
         certified_dynamic_select(MersenneTwister(44), weighted, [1, 3, 2], 1)
     @test_throws ArgumentError certified_dynamic_select!(Runtime.TraceSource([0]),
         asymmetric_reroot, [1, 1], 1)
+    failed_source = Runtime.TraceSource(Int[])
+    @test safe_dynamic_select!(failed_source, asymmetric_reroot, [1, 1], 1) == 1
+    @test Runtime.remaining(failed_source) == 0
+    @test safe_dynamic_select!(Runtime.TraceSource([3]), weighted,
+        [1, 3, 2], 1) == 2
     @test_throws DimensionMismatch certified_dynamic_select!(
         Runtime.TraceSource([0]), weighted, [1, 3], 1)
     @test_throws ArgumentError certified_dynamic_select!(Runtime.TraceSource([0]),

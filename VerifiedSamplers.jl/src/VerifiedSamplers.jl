@@ -31,6 +31,7 @@ export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, Bounded
     ScopedInferenceOperator, ComposableSampler, covers,
     DynamicTreeCertificate, certify_dynamic_tree, certified_orbit_partition,
     certified_dynamic_select!, certified_dynamic_select,
+    safe_dynamic_select!, safe_dynamic_select,
     RecursiveBarrierTree, RecursiveBarrierLeaf, RecursiveBarrierNode,
     recursive_barriers, certified_recursive_partition,
     certified_scalar_uturn_partition,
@@ -1483,6 +1484,24 @@ certified_dynamic_select(rng::AbstractRNG,
 certified_dynamic_select(certificate::DynamicTreeCertificate,
         target_weights::AbstractVector{<:Integer}, current::Integer) =
     certified_dynamic_select(Random.default_rng(), certificate,
+        target_weights, current)
+
+"""Total checked dynamic transition: invalid certificates make no move."""
+function safe_dynamic_select!(source::Runtime.AbstractRandomSource,
+        certificate::DynamicTreeCertificate,
+        target_weights::AbstractVector{<:Integer}, current::Integer)
+    certificate.valid || return Int(current)
+    certified_dynamic_select!(source, certificate, target_weights, current)
+end
+
+safe_dynamic_select(rng::AbstractRNG, certificate::DynamicTreeCertificate,
+        target_weights::AbstractVector{<:Integer}, current::Integer) =
+    safe_dynamic_select!(Runtime.RNGSource(rng), certificate,
+        target_weights, current)
+
+safe_dynamic_select(certificate::DynamicTreeCertificate,
+        target_weights::AbstractVector{<:Integer}, current::Integer) =
+    safe_dynamic_select(Random.default_rng(), certificate,
         target_weights, current)
 
 """Partition a canonical finite orbit at declared barrier edges.

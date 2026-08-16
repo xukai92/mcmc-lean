@@ -1,5 +1,15 @@
 # Development log
 
+- Made certified dynamic-tree execution total. For arbitrary completed
+  candidate rows, Lean defines a checked wrapper that performs the proved
+  target-weighted transition when reroot certification succeeds and otherwise
+  uses the identity kernel; it proves stationarity in both cases. Julia mirrors
+  this as `safe_dynamic_select!`, consuming no randomness and retaining the
+  current state on a failed certificate. Thus an experimental first-stop tree
+  can be run safely without turning certification failure into an invalid
+  transition, although failure still means no dynamic move rather than a proof
+  of standard-NUTS correctness.
+
 - Lifted the finite-dimensional BPS reflection algebra to a full phase-space
   generator-balance theorem. After integrating the position-dependent BPS
   generator against a product target, Lean uses the checked velocity

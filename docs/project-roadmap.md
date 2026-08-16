@@ -333,8 +333,9 @@ breadth branches are:
   Recursive aggregation of completed binary subtrees is now checked in Lean
   and mirrored in Julia. Julia now refuses invalid row families and performs
   the formally specified target-weighted transition directly from a valid
-  certificate. Equivalence with a root-dependent standard dynamic-NUTS builder
-  remains;
+  certificate. A total checked-or-identity wrapper is proved stationary for
+  arbitrary rows and mirrored in Julia, where failed certification makes no
+  move. Equivalence with a root-dependent standard dynamic-NUTS builder remains;
 - stepping-out/shrinkage beyond the exact disintegration, finite integer slice,
   and bounded-interval continuous rejection implementation. A practical
   Reference/Optimized real-line stepping-out sampler is now tested; its
