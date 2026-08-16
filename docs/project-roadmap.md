@@ -203,31 +203,28 @@ The pre-Xu dependency order is:
    Primitive full support separately proves every trajectory fiber positive.
    Finite compactness now also constructs a count-specific positive uniform
    floor over the explicit shared-history edges, converts it to the displayed
-   coefficient shape, and yields its geometric TV theorem. Only a sharper
-   count-uniform aggregate-history comparison from primitive model constants
-   remains. The exact aggregation identity is now proved: the transition entry
+   coefficient shape, and yields its geometric TV theorem. The exact aggregation identity is proved: the transition entry
    is the conditional expectation of the fraction of terminal indices whose
    genealogy equals the proposed trajectory. This replaces the inadequate
    single-history route for particle-count asymptotics. Primitive positive
    finite potentials now automatically construct count-independent
    oscillation penalties and the resampling estimate `wᵢ ≥ 1/(N B)`; the
-   aggregate has also been identified exactly with an expectation under the
-   concrete recursive forced-lineage generator. The remaining step is the
-   induction that propagates those local bounds through that generator. Its
+   aggregate is also identified exactly with an expectation under the
+   concrete recursive forced-lineage generator. The cumulative backward-potential
+   induction now propagates the local bounds through that generator. Its
    base and one-step population algebra are now machine checked: initialization
    loses only the retained slot, and a forced resample--propagate stage carries
    the aggregate marked-lineage mass with the exact `(N-1)/N` child-count
-   factor. The zero-step kernel-level aggregate certificate is complete with
-   exact coefficient `(N-1)/N`; positive horizons now require only the
-   normalizer-telescoping induction. The primitive candidate schedule has been corrected
+   factor. The zero-step kernel-level aggregate certificate has exact
+   coefficient `(N-1)/N`. Normalizer telescoping, finite path labels, and the
+   arbitrary-horizon forced-cloud induction are complete. The primitive raw-potential candidate schedule was corrected
    after the one-step audit: a raw potential oscillation constant `B` incurs
    the conservative penalty `2B-1`, hence factor `(N-1)/(N-2+2B)`, because comparing
    the self-normalized ordinary cloud with the exact target is a second cost
-   beyond the retained-particle denominator. A parallel
-   scheduled certificate now retains distinct per-time penalties, proves its
-   product coefficient is in `(0,1)`, and supplies the refresh decomposition,
-   geometric TV estimate, and convergence theorem without a worst-case
-   constant-penalty reduction.
+   beyond the retained-particle denominator. The proved schedule uses the
+   oscillation of each full remaining backward potential, supplies the refresh
+   decomposition and geometric TV estimate, and proves the actual fixed-
+   iteration particle-count limit without a worst-case constant reduction.
 7. adaptive-MCMC boundary -- finite state-dependent kernel selection and a
    counterexample where two frozen target-invariant kernels combine into a
    non-invariant selected kernel are complete. Predetermined nonhomogeneous law
@@ -477,11 +474,10 @@ by paper date:
    lift to every unthinned time index. Length zero and zero step size remain
    exact identity obstructions, so this result is deliberately not stated for
    arbitrary parameters;
-3. derive a count-uniform sharp positive-horizon particle-Gibbs aggregate-
-   history comparison from primitive Feynman--Kac bounds. Primitive full support now
-   constructs a count-specific forced-lineage coefficient and geometric TV
-   theorem; the coefficient algebra and fixed-iteration large-particle
-   asymptotics are complete once one common model bound is supplied; and
+3. count-uniform positive-horizon particle Gibbs -- complete with the
+   cumulative backward-potential schedule, fixed-count geometric TV theorem,
+   and fixed-positive-iteration particle-count limit. The raw-current-
+   potential substitution remains explicitly stronger and unproved; and
 4. finish the optional breadth clients: standard dynamic-NUTS tree recursion,
    ideal refinement of stepping-out slice sampling, unbounded-history
    adaptation, and general-dimensional PDMP

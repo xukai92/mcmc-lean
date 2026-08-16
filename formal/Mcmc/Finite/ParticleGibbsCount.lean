@@ -701,6 +701,263 @@ theorem feynmanKacBackwardOscillationPenalties_pos [Nonempty Sample]
           (feynmanKacBackwardPotential_pos (step :: steps))
       · exact ih penalty htail
 
+/-- Recursive form of the cumulative backward-potential coefficient. -/
+noncomputable def backwardParticleGibbsCoefficient (extra : ℕ) :
+    List (FeynmanKacStep Sample) → ℝ
+  | [] => (extra : ℝ) / (extra + 1)
+  | step :: steps =>
+      (extra : ℝ) /
+          (((extra - 1 : ℕ) : ℝ) +
+            2 * finitePotentialOscillationConstant
+              (feynmanKacBackwardPotential (step :: steps))) *
+        backwardParticleGibbsCoefficient extra steps
+
+omit [DecidableEq Sample] in
+theorem backwardParticleGibbsCoefficient_nonneg [Nonempty Sample]
+    (extra : ℕ) (steps : List (FeynmanKacStep Sample)) :
+    0 ≤ backwardParticleGibbsCoefficient extra steps := by
+  induction steps with
+  | nil =>
+      unfold backwardParticleGibbsCoefficient
+      exact div_nonneg (Nat.cast_nonneg _) (by positivity)
+  | cons step steps ih =>
+      unfold backwardParticleGibbsCoefficient
+      apply mul_nonneg
+      · apply div_nonneg (Nat.cast_nonneg _)
+        have hbound := one_le_finitePotentialOscillationConstant
+          (feynmanKacBackwardPotential (step :: steps))
+          (feynmanKacBackwardPotential_pos (step :: steps))
+        positivity
+      · exact ih
+
+/-- Sharp cumulative forced-cloud bound for an arbitrary finite schedule.
+The valid stage potential is the full remaining backward Feynman--Kac
+potential, so no unproved raw-potential substitution is used. -/
+theorem forcedCloudLineageSuffixLabelExpectation_backward_lower_bound
+    {Label : Type*} [Fintype Label] [DecidableEq Label] [Nonempty Label]
+    [Nonempty Sample]
+    (extend : Label → Sample → Label)
+    (steps : List (FeynmanKacStep Sample)) (future : List Sample)
+    (hlength : future.length = steps.length)
+    (law : Distribution (Label × Sample)) (extra : ℕ) (hextra : 0 < extra)
+    (retained : Fin (extra + 1)) (retainedValue : Label × Sample)
+    (observable : Label → ℝ) (hobservable : ∀ label, 0 ≤ observable label) :
+    backwardParticleGibbsCoefficient (Sample := Sample) extra steps *
+        (∑ value, (labeledFeynmanKacLawFrom extend law steps).mass value *
+          observable value.1) ≤
+      forcedCloudLineageSuffixLabelExpectation extend steps future hlength
+        law extra retained retainedValue observable := by
+  induction steps generalizing future law retained retainedValue with
+  | nil =>
+      have hfuture : future = [] := List.eq_nil_of_length_eq_zero hlength
+      subst future
+      simpa [backwardParticleGibbsCoefficient] using
+        (forcedCloudLineageSuffixLabelExpectation_nil_lower_bound
+          extend law extra retained retainedValue observable hobservable)
+  | cons step steps ih =>
+      cases future with
+      | nil => simp at hlength
+      | cons nextState future =>
+        have htail : future.length = steps.length := by simpa using hlength
+        let backward : Sample → ℝ :=
+          feynmanKacBackwardPotential (step :: steps)
+        let bound := finitePotentialOscillationConstant backward
+        let score : Label × Sample → ℝ :=
+          labeledFeynmanKacContinuationScore extend step steps observable
+        have hbackward : ∀ state, 0 < backward state := by
+          intro state
+          exact feynmanKacBackwardPotential_pos (step :: steps) state
+        have hscore : ∀ value, 0 ≤ score value := by
+          intro value
+          exact labeledFeynmanKacContinuationScore_nonneg
+            extend step steps observable hobservable value
+        let tailCoefficient :=
+          backwardParticleGibbsCoefficient (Sample := Sample) extra steps
+        have htailCoefficient : 0 ≤ tailCoefficient :=
+          backwardParticleGibbsCoefficient_nonneg extra steps
+        let childLaw := fun population : Fin (extra + 1) → (Label × Sample) =>
+          resamplePropagateLabelDistribution extend
+            (normalizedPotentialWeights step.potential step.potential_pos
+              (fun i => (population i).2))
+            step.transition (fun i => (population i).2)
+            (fun i => (population i).1)
+        let exactTail := fun population : Fin (extra + 1) → (Label × Sample) =>
+          ∑ value,
+            (labeledFeynmanKacLawFrom extend (childLaw population) steps).mass value *
+              observable value.1
+        have hratio (population : Fin (extra + 1) → (Label × Sample)) :
+            exactTail population =
+              (∑ i, backward (population i).2 * score (population i)) /
+                ∑ i, backward (population i).2 := by
+          rw [show exactTail population =
+            (∑ value,
+              (labeledFeynmanKacLawFrom extend (childLaw population) steps).mass value *
+                observable value.1) from rfl]
+          rw [labeledChildLaw_tail_expectation_eq_parent_ratio]
+          unfold backward feynmanKacBackwardPotential score
+            labeledFeynmanKacContinuationScore
+          congr 1
+          · apply Finset.sum_congr rfl
+            intro i _
+            simp_rw [labeledFeynmanKacValue_one_eq_feynmanKacSequence]
+            rw [show feynmanKacSequence (step :: steps) (fun _ => 1)
+                (population i).2 =
+              step.potential (population i).2 *
+                ∑ y, step.transition.prob (population i).2 y *
+                  feynmanKacSequence steps (fun _ => 1) y by rfl]
+            have hden : 0 < ∑ y, step.transition.prob (population i).2 y *
+                feynmanKacSequence steps (fun _ => 1) y := by
+              have hfull := labeledFeynmanKacValue_one_pos
+                (fun _ _ => ()) (step :: steps) () (population i).2
+              unfold labeledFeynmanKacValue at hfull
+              simp_rw [labeledFeynmanKacValue_one_eq_feynmanKacSequence] at hfull
+              nlinarith [step.potential_pos (population i).2]
+            field_simp
+          · apply Finset.sum_congr rfl
+            intro i _
+            rw [show feynmanKacSequence (step :: steps) (fun _ => 1)
+                (population i).2 =
+              step.potential (population i).2 *
+                ∑ y, step.transition.prob (population i).2 y *
+                  feynmanKacSequence steps (fun _ => 1) y by rfl]
+            simp_rw [labeledFeynmanKacValue_one_eq_feynmanKacSequence
+              extend steps]
+        have hinner (population : Fin (extra + 1) → (Label × Sample)) :
+            tailCoefficient *
+                ((∑ i : Fin (extra + 1), if i = retained then 0 else
+                    backward (population i).2 * score (population i)) /
+                  ∑ i, backward (population i).2) ≤
+              ∑ nextRetained,
+                (uniformParticleDistribution (Particle := Fin (extra + 1))).mass
+                    nextRetained *
+                  forcedCloudLineageSuffixLabelExpectation extend steps future
+                    htail (childLaw population) extra nextRetained
+                    (extend (population retained).1 nextState, nextState)
+                    observable := by
+          have hden : 0 < ∑ i, backward (population i).2 :=
+            Finset.sum_pos (fun i _ => hbackward _) Finset.univ_nonempty
+          have hexcluded :
+              ((∑ i : Fin (extra + 1), if i = retained then 0 else
+                  backward (population i).2 * score (population i)) /
+                ∑ i, backward (population i).2) ≤ exactTail population := by
+            rw [hratio]
+            apply div_le_div_of_nonneg_right
+            · apply Finset.sum_le_sum
+              intro i _
+              by_cases hi : i = retained
+              · simp [hi]
+                exact mul_nonneg (hbackward _).le (hscore _)
+              · simp [hi]
+            · exact hden.le
+          calc
+            tailCoefficient *
+                ((∑ i : Fin (extra + 1), if i = retained then 0 else
+                    backward (population i).2 * score (population i)) /
+                  ∑ i, backward (population i).2) ≤
+                tailCoefficient * exactTail population :=
+              mul_le_mul_of_nonneg_left hexcluded htailCoefficient
+            _ = ∑ nextRetained : Fin (extra + 1),
+                (uniformParticleDistribution (Particle := Fin (extra + 1))).mass
+                    nextRetained * (tailCoefficient * exactTail population) := by
+              rw [← Finset.sum_mul,
+                (uniformParticleDistribution (Particle := Fin (extra + 1))).sum_mass,
+                one_mul]
+            _ ≤ _ := by
+              apply Finset.sum_le_sum
+              intro nextRetained _
+              apply mul_le_mul_of_nonneg_left
+              · exact ih future htail (childLaw population) nextRetained
+                  (extend (population retained).1 nextState, nextState)
+              · exact (uniformParticleDistribution
+                  (Particle := Fin (extra + 1))).nonneg nextRetained
+        have hexact :
+            (∑ value, (labeledFeynmanKacLawFrom extend law (step :: steps)).mass value *
+              observable value.1) =
+              ∑ value,
+                (positivePotentialReweight law (backward ∘ Prod.snd)
+                  (fun value => hbackward value.2)).mass value * score value := by
+          rw [labeledFeynmanKacLawFrom_expectation_eq_integral_ratio]
+          rw [labeledFeynmanKacIntegral_ratio_eq_backwardReweight]
+          rfl
+        have hsharp := forcedJointPopulation_normalizedTargetScore_lower_bound
+          backward hbackward bound
+          (finitePotentialOscillationBound backward hbackward)
+          law extra hextra retained retainedValue score hscore
+        rw [forcedCloudLineageSuffixLabelExpectation_cons]
+        unfold backwardParticleGibbsCoefficient
+        change ((extra : ℝ) / (((extra - 1 : ℕ) : ℝ) + 2 * bound) *
+            tailCoefficient) *
+            (∑ value,
+              (labeledFeynmanKacLawFrom extend law (step :: steps)).mass value *
+                observable value.1) ≤ _
+        rw [hexact]
+        calc
+          ((extra : ℝ) / (((extra - 1 : ℕ) : ℝ) + 2 * bound) *
+              tailCoefficient) *
+              (∑ value,
+                (positivePotentialReweight law (backward ∘ Prod.snd)
+                  (fun value => hbackward value.2)).mass value * score value) =
+            tailCoefficient *
+              (((extra : ℝ) / (((extra - 1 : ℕ) : ℝ) + 2 * bound)) *
+                ∑ value,
+                  (positivePotentialReweight law (backward ∘ Prod.snd)
+                    (fun value => hbackward value.2)).mass value * score value) := by
+              ring
+          _ ≤ tailCoefficient *
+              (∑ population,
+                (forcedIndependentPopulation
+                  (fun _ : Fin (extra + 1) => law) retained retainedValue).mass
+                    population *
+                  ((∑ i : Fin (extra + 1), if i = retained then 0 else
+                      backward (population i).2 * score (population i)) /
+                    ∑ i, backward (population i).2)) :=
+            mul_le_mul_of_nonneg_left hsharp htailCoefficient
+          _ = ∑ population,
+              (forcedIndependentPopulation
+                (fun _ : Fin (extra + 1) => law) retained retainedValue).mass
+                  population *
+                (tailCoefficient *
+                  ((∑ i : Fin (extra + 1), if i = retained then 0 else
+                      backward (population i).2 * score (population i)) /
+                    ∑ i, backward (population i).2)) := by
+            rw [Finset.mul_sum]
+            apply Finset.sum_congr rfl
+            intro population _
+            ring
+          _ ≤ _ := by
+            apply Finset.sum_le_sum
+            intro population _
+            apply mul_le_mul_of_nonneg_left
+            · exact hinner population
+            · exact (forcedIndependentPopulation
+                (fun _ : Fin (extra + 1) => law) retained retainedValue).nonneg
+                  population
+
+omit [DecidableEq Sample] in
+/-- The recursive backward coefficient is exactly the public scheduled
+product for the cumulative backward-oscillation penalties. -/
+theorem backwardParticleGibbsCoefficient_eq_schedule
+    (extra : ℕ) (hextra : 0 < extra)
+    (steps : List (FeynmanKacStep Sample)) :
+    backwardParticleGibbsCoefficient (Sample := Sample) extra steps =
+      particleGibbsScheduleCoefficient extra
+        (feynmanKacBackwardOscillationPenalties steps) := by
+  induction steps with
+  | nil =>
+      simp [backwardParticleGibbsCoefficient,
+        feynmanKacBackwardOscillationPenalties,
+        particleGibbsScheduleCoefficient]
+  | cons step steps ih =>
+      unfold backwardParticleGibbsCoefficient
+      simp only [feynmanKacBackwardOscillationPenalties,
+        particleGibbsScheduleCoefficient, List.map_cons, List.prod_cons]
+      rw [← particleGibbsScheduleCoefficient, ← ih]
+      unfold finitePotentialParticleGibbsCandidatePenalty
+      rw [Nat.cast_sub (Nat.one_le_iff_ne_zero.mpr (Nat.ne_of_gt hextra))]
+      push_cast
+      congr 2
+      ring
+
 omit [DecidableEq Sample] in
 @[simp] theorem length_feynmanKacOscillationPenalties
     (steps : List (FeynmanKacStep Sample)) :
@@ -1347,6 +1604,99 @@ theorem aggregatedForcedLineageMass_eq_forcedCloudExpectation
   exact forcedInitialPathMatchExpectation_eq_forcedCloud
     initial steps proposed extra retained first future hfuture
 
+/-- Primitive finite full-support models admit the sharp cumulative
+backward-potential scheduled particle-Gibbs minorization at every particle
+count `extra + 1` with `extra > 0`. -/
+noncomputable def backwardPotentialScheduledParticleGibbsMinorization
+    [Nonempty Sample]
+    (initial : Distribution Sample) (hinitial : ∀ x, 0 < initial.mass x)
+    (steps : List (FeynmanKacStep Sample))
+    (hsupport : FeynmanKacFullSupport steps)
+    (hnormalizer : 0 < normalizingConstant initial steps)
+    (extra : ℕ) (hextra : 0 < extra) :
+    ScheduledPotentialParticleGibbsMinorization
+      initial steps hnormalizer extra where
+  penalties := feynmanKacBackwardOscillationPenalties steps
+  penalties_length := length_feynmanKacBackwardOscillationPenalties steps
+  extra_pos := hextra
+  penalties_pos := feynmanKacBackwardOscillationPenalties_pos steps
+  minorization current proposed := by
+    unfold countedTrajectoryParticleGibbsKernel trajectoryParticleGibbsKernel
+    rw [Mcmc.Finite.Conditional.collapsedKernel_prob_eq_aggregate
+      (selectedParticleTarget (Particle := Fin (extra + 1))
+        initial steps hnormalizer)
+      (selectedTrajectoryVector steps)
+      (selectedIndexRefreshKernel (Particle := Fin (extra + 1)) steps)
+      current proposed]
+    rcases current with ⟨path, hpath⟩
+    cases path with
+    | nil => simp at hpath
+    | cons first future =>
+        have hfuture : future.length = steps.length := by simpa using hpath
+        change particleGibbsScheduleCoefficient extra
+            (feynmanKacBackwardOscillationPenalties steps) *
+              (countedTrajectoryTarget initial steps hnormalizer extra).mass proposed ≤
+          aggregatedForcedLineageMass initial steps hnormalizer extra
+            ⟨first :: future, hpath⟩ proposed
+        rw [aggregatedForcedLineageMass_eq_forcedCloudExpectation
+          initial hinitial steps hsupport hnormalizer extra
+          ⟨first :: future, hpath⟩ proposed first future hfuture rfl]
+        rw [← backwardParticleGibbsCoefficient_eq_schedule extra hextra steps]
+        rw [← labeledPathMatchLaw_success_eq_countedTrajectoryTarget_mass
+          initial steps hnormalizer extra proposed]
+        let exactSuccess := ∑ value,
+          (labeledFeynmanKacLawFrom
+            (advancePathMatchLabel steps.length proposed.get)
+            (labeledInitialDistribution initial
+              (initialPathMatchLabel steps.length proposed.get)) steps).mass value *
+            pathMatchScore value.1
+        change backwardParticleGibbsCoefficient extra steps * exactSuccess ≤ _
+        calc
+          backwardParticleGibbsCoefficient extra steps * exactSuccess =
+              ∑ retained : Fin (extra + 1),
+                (uniformParticleDistribution (Particle := Fin (extra + 1))).mass
+                    retained *
+                  (backwardParticleGibbsCoefficient extra steps * exactSuccess) := by
+            rw [← Finset.sum_mul,
+              (uniformParticleDistribution (Particle := Fin (extra + 1))).sum_mass,
+              one_mul]
+          _ ≤ _ := by
+            apply Finset.sum_le_sum
+            intro retained _
+            apply mul_le_mul_of_nonneg_left
+            · exact forcedCloudLineageSuffixLabelExpectation_backward_lower_bound
+                (advancePathMatchLabel steps.length proposed.get)
+                steps future hfuture
+                (labeledInitialDistribution initial
+                  (initialPathMatchLabel steps.length proposed.get))
+                extra hextra retained
+                (initialPathMatchLabel steps.length proposed.get first, first)
+                pathMatchScore pathMatchScore_nonneg
+            · exact (uniformParticleDistribution
+                (Particle := Fin (extra + 1))).nonneg retained
+
+/-- Primitive full-support finite models therefore converge geometrically in
+total variation at every fixed particle count of at least two. -/
+theorem backwardPotentialParticleGibbs_totalVariation_tendsto_zero
+    [Nonempty Sample]
+    (initial : Distribution Sample) (hinitial : ∀ x, 0 < initial.mass x)
+    (steps : List (FeynmanKacStep Sample))
+    (hsupport : FeynmanKacFullSupport steps)
+    (hnormalizer : 0 < normalizingConstant initial steps)
+    (extra : ℕ) (hextra : 0 < extra)
+    (initialLaw : Distribution (Trajectory steps)) :
+    Filter.Tendsto (fun iterations =>
+      Nonhomogeneous.distributionTotalVariation
+        (Nonhomogeneous.iterateLaw initialLaw
+          (countedTrajectoryParticleGibbsKernel initial steps hnormalizer extra)
+          iterations)
+        (countedTrajectoryTarget initial steps hnormalizer extra))
+      Filter.atTop (nhds 0) :=
+  scheduledPotentialParticleGibbs_totalVariation_tendsto_zero
+    (backwardPotentialScheduledParticleGibbsMinorization
+      initial hinitial steps hsupport hnormalizer extra hextra)
+    initialLaw
+
 /-- The aggregated forced-lineage mass is exactly the trajectory particle-
 Gibbs transition entry. This is an expansion theorem, not a minorization
 assumption, and exposes the sum to which primitive Feynman--Kac estimates must
@@ -1874,6 +2224,33 @@ theorem scheduledPotentialParticleGibbs_totalVariation_tendsto_zero_count
   simpa only [hpenalties extra] using
     scheduledPotentialParticleGibbs_totalVariation_le
       (certificates extra) initialLaw iterations
+
+/-- For every fixed positive iteration count, the actual PG output law under
+primitive full-support assumptions approaches its exact trajectory target as
+the particle count tends to infinity. -/
+theorem backwardPotentialParticleGibbs_totalVariation_tendsto_zero_count
+    [Nonempty Sample]
+    (initial : Distribution Sample) (hinitial : ∀ x, 0 < initial.mass x)
+    (steps : List (FeynmanKacStep Sample))
+    (hsupport : FeynmanKacFullSupport steps)
+    (hnormalizer : 0 < normalizingConstant initial steps)
+    (initialLaw : Distribution (Trajectory steps))
+    (iterations : ℕ) (hiterations : 0 < iterations) :
+    Filter.Tendsto (fun extra =>
+      Nonhomogeneous.distributionTotalVariation
+        (Nonhomogeneous.iterateLaw initialLaw
+          (countedTrajectoryParticleGibbsKernel initial steps hnormalizer
+            (extra + 1)) iterations)
+        (countedTrajectoryTarget initial steps hnormalizer (extra + 1)))
+      Filter.atTop (nhds 0) := by
+  let certificates : ∀ extra : ℕ,
+      ScheduledPotentialParticleGibbsMinorization
+        initial steps hnormalizer (extra + 1) := fun extra =>
+    backwardPotentialScheduledParticleGibbsMinorization
+      initial hinitial steps hsupport hnormalizer (extra + 1) (by omega)
+  exact scheduledPotentialParticleGibbs_totalVariation_tendsto_zero_count
+    certificates (penalties := feynmanKacBackwardOscillationPenalties steps)
+    (fun _ => rfl) initialLaw iterations hiterations
 
 /-- Full-support model ingredients construct a conservative positive refresh
 certificate directly at the `extra + 1` particle interface. This certificate

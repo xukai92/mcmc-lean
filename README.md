@@ -314,13 +314,15 @@ in particle count and now proved to tend to one as `N → ∞`; every fixed-
 positive-iteration geometric factor consequently tends to zero. Establishing
 the model-specific minorization remains distinct from this asymptotic algebra.
 Here `B` denotes the supplied PG penalty, not merely a raw potential ratio.
-For the primitive finite oscillation constant `Bosc`, the conservative
-candidate schedule now
-uses `B = 2Bosc - 1`, so each propagation factor is
-`(N-1)/(N-2+2Bosc)`. The extra term accounts for self-normalizing the ordinary
-particle cloud against the exact normalized trajectory target; omitting it is
-false for skewed finite initial laws. The full doubly-conditional SMC proof for
-this candidate remains open and is not implied by the schedule definition.
+Primitive finite full-support models now construct a proved count-uniform
+schedule directly. At each propagation it uses the oscillation constant of the
+full remaining backward Feynman--Kac potential, with factor
+`(N-1)/(N-2+2Bback)`, plus the terminal `(N-1)/N` factor. This yields geometric
+TV convergence for every `N ≥ 2` and, at every fixed positive iteration count,
+convergence of the actual PG output law to its trajectory target as
+`N → ∞`. A smaller schedule obtained by substituting only each raw current
+potential's oscillation remains a candidate and is not claimed by the proved
+cumulative theorem.
 
 For dynamic HMC trajectories, Julia also exposes
 `first_stop_endpoint_uturn_candidates`. It builds root-dependent first-stop

@@ -1,5 +1,18 @@
 # Development log
 
+- Completed the supportable arbitrary-horizon positive-horizon particle-Gibbs
+  theorem. The forced-cloud induction now composes over every finite schedule
+  using the oscillation of each full remaining backward Feynman--Kac
+  potential. Its recursive coefficient is proved equal to the public scheduled
+  product: one `(N-1)/(N-2+2Bback)` factor per propagation and the terminal
+  `(N-1)/N` factor. Primitive positive initialization and full-support
+  transitions construct this scheduled minorization for every `N ≥ 2`.
+  Consequently Lean proves geometric total-variation convergence from every
+  initial trajectory law at each fixed count, and proves that at every fixed
+  positive iteration count the actual PG output law approaches its exact
+  trajectory target as `N → ∞`. Documentation now distinguishes this proved
+  cumulative schedule from the stronger raw-current-potential candidate.
+
 - Added the backward-potential formulation needed for a valid arbitrary-horizon
   PG bound. Lean proves nonnegativity of arbitrary labeled continuation values,
   positivity of every constant-one backward potential, and positivity/length
