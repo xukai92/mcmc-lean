@@ -18,7 +18,9 @@
   corresponding path-coordinate marginal. The API explicitly avoids a false
   state-only Markov recurrence after history marginalization. General-state
   diminishing adaptation, containment, and convergence remain to be lifted
-  onto this semantics.
+  onto this semantics. A conservativity check now proves that constant
+  parameter selection recovers the established homogeneous next-step adapter,
+  infinite path kernel, and finite-time kernel powers exactly.
 
 - Tightened the Gaussian Zig-Zag weak-generator domain so every supplied
   position derivative is now certified as the actual derivative of its

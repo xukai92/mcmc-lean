@@ -136,4 +136,68 @@ theorem HistoryAdaptiveFamily.pathKernel_map_atTime
     ProbabilityTheory.Kernel.traj_map_frestrictLe]
   rfl
 
+/-! ### Conservativity for constant parameter selection -/
+
+/-- Fixed-parameter section of a measurable parameterized kernel. -/
+noncomputable def fixedParameterSection
+    (family : ProbabilityTheory.Kernel (State × Parameter) State)
+    (parameter : Parameter) : ProbabilityTheory.Kernel State State :=
+  family.comap (fun state => (state, parameter))
+    (measurable_id.prodMk measurable_const)
+
+instance fixedParameterSection.instIsMarkovKernel
+    (family : ProbabilityTheory.Kernel (State × Parameter) State)
+    [IsMarkovKernel family] (parameter : Parameter) :
+    IsMarkovKernel (fixedParameterSection family parameter) := by
+  unfold fixedParameterSection
+  infer_instance
+
+/-- Regard constant parameter selection as a history-adaptive family. -/
+noncomputable def HistoryAdaptiveFamily.constant
+    (family : ProbabilityTheory.Kernel (State × Parameter) State)
+    [IsMarkovKernel family] (parameter : Parameter) :
+    HistoryAdaptiveFamily State Parameter where
+  family := family
+  select := fun _ _ => parameter
+  measurable_select := fun _ => measurable_const
+
+/-- Constant history selection gives exactly the homogeneous next-step adapter
+for the corresponding fixed-parameter kernel. -/
+theorem HistoryAdaptiveFamily.constant_next
+    (family : ProbabilityTheory.Kernel (State × Parameter) State)
+    [IsMarkovKernel family] (parameter : Parameter) (n : ℕ) :
+    (HistoryAdaptiveFamily.constant family parameter).next n =
+      homogeneousNext (fixedParameterSection family parameter) n := by
+  ext history event hevent
+  simp [HistoryAdaptiveFamily.next, HistoryAdaptiveFamily.constant,
+    homogeneousNext, fixedParameterSection,
+    ProbabilityTheory.Kernel.comap_apply]
+  rfl
+
+/-- Consequently the infinite adaptive path kernel conservatively extends the
+existing homogeneous path-kernel semantics. -/
+theorem HistoryAdaptiveFamily.constant_pathKernel
+    (family : ProbabilityTheory.Kernel (State × Parameter) State)
+    [IsMarkovKernel family] (parameter : Parameter) :
+    (HistoryAdaptiveFamily.constant family parameter).pathKernel =
+      Mcmc.Kernel.pathKernel (fixedParameterSection family parameter) := by
+  have hnext : (HistoryAdaptiveFamily.constant family parameter).next =
+      homogeneousNext (fixedParameterSection family parameter) := by
+    funext n
+    exact HistoryAdaptiveFamily.constant_next family parameter n
+  unfold HistoryAdaptiveFamily.pathKernel Mcmc.Kernel.pathKernel
+  cases hnext
+  rfl
+
+/-- Constant selection also reduces every finite-time adaptive marginal to
+the ordinary power of the fixed-parameter transition kernel. -/
+theorem HistoryAdaptiveFamily.constant_stateKernel
+    (family : ProbabilityTheory.Kernel (State × Parameter) State)
+    [IsMarkovKernel family] (parameter : Parameter) (n : ℕ) :
+    (HistoryAdaptiveFamily.constant family parameter).stateKernel n =
+      fixedParameterSection family parameter ^ n := by
+  rw [← HistoryAdaptiveFamily.pathKernel_map_atTime,
+    HistoryAdaptiveFamily.constant_pathKernel,
+    Mcmc.Kernel.pathKernel_map_atTime]
+
 end Mcmc.Kernel
