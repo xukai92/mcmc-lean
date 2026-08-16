@@ -1,5 +1,13 @@
 # Development log
 
+- Added the density-lifting step needed for full practical-slice trace
+  assembly. Lean now proves generally that a measure-preserving transform also
+  preserves a measurable reweighting whose density is invariant. For the
+  fixed-bracket accepted-proposal reversal, every measurable symmetric density
+  of the old/new point pair is invariant after conversion to uniform-fraction
+  coordinates. This will carry the identical forward/reverse rejected-trace
+  likelihood once its finite recursive density is packaged.
+
 - Closed the continuous Jacobian component of practical-slice trace reversal.
   For a fixed nondegenerate bracket, Lean defines the map that swaps the old
   and accepted points while converting each into the other's uniform bracket

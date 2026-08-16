@@ -20,6 +20,34 @@ namespace Mcmc.Kernel.PracticalSlice
 
 open MeasureTheory
 
+/-- A measure-preserving map also preserves a measurable reweighting whenever
+the density is pointwise invariant. This packages the likelihood-factor step
+needed after constructing a volume-preserving trace reversal. -/
+theorem measurePreserving_withDensity_of_invariant
+    {Space : Type*} [MeasurableSpace Space]
+    {measure : Measure Space} {transform : Space → Space}
+    {density : Space → ENNReal}
+    (htransform : MeasurePreserving transform measure measure)
+    (hdensity : Measurable density)
+    (hinvariant : ∀ point, density (transform point) = density point) :
+    MeasurePreserving transform (measure.withDensity density)
+      (measure.withDensity density) := by
+  refine ⟨htransform.measurable, ?_⟩
+  ext event hevent
+  rw [Measure.map_apply htransform.measurable hevent,
+    withDensity_apply _ (htransform.measurable hevent),
+    withDensity_apply _ hevent,
+    ← lintegral_indicator (htransform.measurable hevent),
+    ← lintegral_indicator hevent,
+    ← htransform.lintegral_comp (hdensity.indicator hevent)]
+  apply lintegral_congr
+  intro point
+  by_cases hmem : transform point ∈ event
+  · have hpreimage : point ∈ transform ⁻¹' event := hmem
+    simp [Set.indicator, hmem, hpreimage, hinvariant]
+  · have hpreimage : point ∉ transform ⁻¹' event := hmem
+    simp [Set.indicator, hmem, hpreimage]
+
 /-- Coordinate-free law for the random initial-bracket alignment. Haar volume
 on the unit additive circle is a probability measure. -/
 abbrev Alignment := AddCircle (1 : ℝ)
@@ -428,6 +456,54 @@ theorem acceptedProposalReverse_restrict_measurePreserving
     (acceptedProposalReverse_measurePreserving (sub_ne_zero.mpr hwidth.ne'))
     (measurableSet_acceptedProposalSuccess hlogDensity threshold left right)
   exact acceptedProposalSuccess_preimage logDensity threshold hwidth
+
+/-- Lift any density on the old/proposed pair to current-point/uniform-fraction
+coordinates in a fixed bracket. -/
+noncomputable def acceptedProposalPairDensity (left right : ℝ)
+    (pairDensity : ℝ × ℝ → ENNReal) (point : ℝ × ℝ) : ENNReal :=
+  pairDensity (point.1, left + (right - left) * point.2)
+
+theorem measurable_acceptedProposalPairDensity
+    {pairDensity : ℝ × ℝ → ENNReal} (hpairDensity : Measurable pairDensity)
+    (left right : ℝ) :
+    Measurable (acceptedProposalPairDensity left right pairDensity) := by
+  exact hpairDensity.comp <|
+    measurable_fst.prodMk
+      (measurable_const.add
+        ((measurable_const.sub measurable_const).mul measurable_snd))
+
+theorem acceptedProposalPairDensity_invariant
+    {left right : ℝ} (hwidth : left < right)
+    (pairDensity : ℝ × ℝ → ENNReal)
+    (hsymmetric : ∀ old new, pairDensity (old, new) = pairDensity (new, old))
+    (point : ℝ × ℝ) :
+    acceptedProposalPairDensity left right pairDensity
+        (acceptedProposalReverse left right point) =
+      acceptedProposalPairDensity left right pairDensity point := by
+  have hrecover :
+      left + (right - left) * ((point.1 - left) / (right - left)) = point.1 := by
+    field_simp [sub_ne_zero.mpr hwidth.ne']
+    ring
+  simp only [acceptedProposalPairDensity, acceptedProposalReverse_fst,
+    acceptedProposalReverse_snd]
+  rw [hrecover]
+  exact hsymmetric _ _
+
+/-- Consequently the accepted-proposal reversal preserves every measurable
+symmetric old/new density, not only unweighted planar volume. -/
+theorem acceptedProposalReverse_withDensity_measurePreserving
+    {left right : ℝ} (hwidth : left < right)
+    {pairDensity : ℝ × ℝ → ENNReal} (hpairDensity : Measurable pairDensity)
+    (hsymmetric : ∀ old new, pairDensity (old, new) = pairDensity (new, old)) :
+    MeasurePreserving (acceptedProposalReverse left right)
+      (((volume : Measure ℝ).prod volume).withDensity
+        (acceptedProposalPairDensity left right pairDensity))
+      (((volume : Measure ℝ).prod volume).withDensity
+        (acceptedProposalPairDensity left right pairDensity)) := by
+  apply measurePreserving_withDensity_of_invariant
+    (acceptedProposalReverse_measurePreserving (sub_ne_zero.mpr hwidth.ne'))
+    (measurable_acceptedProposalPairDensity hpairDensity left right)
+  exact acceptedProposalPairDensity_invariant hwidth pairDensity hsymmetric
 
 /-- Literal ideal-real execution of one bounded practical slice update. The
 precondition `trace.leftSteps ≤ maxSteps` is checked rather than silently
