@@ -101,6 +101,15 @@ end
     @test rounded.value_error ==
         abs(Rational{BigInt}(rounded.computed_value) - x^2 / 2)
     @test iszero(rounded.derivative_error)
+    arguments = restricted_gaussian_certificate_arguments(rounded)
+    @test length(arguments) == 5
+    if isfile(ORACLE)
+        @test readchomp(`$ORACLE gaussian_certificate $arguments`) == "ok"
+        invalid = copy(arguments)
+        invalid[end] = "1/1"
+        @test readchomp(`$ORACLE gaussian_certificate $invalid`) ==
+            "error invalidCertificate"
+    end
     @test_throws ArgumentError certify_restricted_gaussian_float64(Inf)
 end
 

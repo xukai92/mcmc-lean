@@ -1581,8 +1581,12 @@ exact dyadic record: `Rational{BigInt}` conversions preserve the precise
 Float64 input and outputs, and exact rational subtraction computes the value
 and derivative errors against `x²/2` and `x`. Tests cover exactly represented
 and rounded cases plus non-finite rejection. This avoids any BigFloat or libm
-trust for the polynomial client; importing/checking that record as a Lean
-artifact is still explicit future work.
+trust for the polynomial client. Lean now parses the rational wire record,
+checks all defining equalities executably, and proves that a successful check
+yields the value and derivative approximation statements. A cross-language
+test submits a Julia-produced record to `mcmc_oracle` and verifies that a
+mutated error is rejected. The serializer/compiler remains in the operational
+test boundary; it is not universally verified by this per-artifact check.
 
 Extended the separate continuous-time branch with finite bounded-rate
 uniformization. `FiniteRateGenerator.uniformizedKernel` converts a rate matrix

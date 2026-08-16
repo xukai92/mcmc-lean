@@ -60,6 +60,10 @@ its value and symbolic derivative, and reject non-finite exponential results.
 They now also construct exact dyadic Float64 certificates for `x²/2`: tests
 compare the stored ideal values and observed errors as `Rational{BigInt}`, so
 this polynomial check uses neither approximate BigFloat references nor libm.
+When the Lean oracle binary is available, the suite serializes that exact
+record to Lean, checks that it is accepted, and checks that a mutated
+derivative error is rejected. Lean's checker theorem turns acceptance into the
+corresponding approximation facts.
 
 Position-dependent generalized leapfrog now has Reference-versus-Optimized
 fixed-point tests using nonseparable derivatives, direct checks of both

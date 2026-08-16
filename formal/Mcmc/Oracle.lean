@@ -1,12 +1,13 @@
 import Mcmc.Executable.Finite.TwoState
 import Mcmc.Executable.Finite.CompilerIRInterpreter
+import Mcmc.Executable.Continuous.RestrictedCertificate
 
 /-! A small compiled oracle for cross-language conformance tests. -/
 
 open Mcmc.Executable.Finite
 
 private def usage : String :=
-  "usage: mcmc-oracle categorical WEIGHTS DRAW | mh STATE PROPOSAL_DRAW [ACCEPT_DRAW]"
+  "usage: mcmc-oracle categorical WEIGHTS DRAW | mh STATE PROPOSAL_DRAW [ACCEPT_DRAW] | gaussian_certificate INPUT VALUE DERIVATIVE VALUE_ERROR DERIVATIVE_ERROR"
 
 private def parseNat (text : String) : Except String Nat :=
   match text.toNat? with
@@ -20,6 +21,37 @@ private def parseWeights (text : String) : Except String (List Nat) := do
 
 private def parseRows (text : String) : Except String (List (List Nat)) :=
   (text.splitOn ";").mapM parseWeights
+
+private def parseRat (text : String) : Except String ℚ := do
+  match text.splitOn "/" with
+  | [numeratorText, denominatorText] =>
+      let numerator ← match numeratorText.toInt? with
+        | some value => .ok value
+        | none => .error s!"invalid rational numerator: {numeratorText}"
+      let denominator ← parseNat denominatorText
+      if hdenominator : denominator ≠ 0 then
+        return Rat.normalize numerator denominator hdenominator
+      else
+        throw "rational denominator must be positive"
+  | _ => throw s!"invalid rational: {text}"
+
+private def runGaussianCertificate
+    (inputText valueText derivativeText valueErrorText derivativeErrorText : String) :
+    IO Unit := do
+  match parseRat inputText, parseRat valueText, parseRat derivativeText,
+      parseRat valueErrorText, parseRat derivativeErrorText with
+  | .ok input, .ok value, .ok derivative, .ok valueError, .ok derivativeError =>
+      let certificate :
+          Mcmc.Executable.Continuous.RestrictedGaussianRationalCertificate :=
+        { input := input
+          computedValue := value
+          computedDerivative := derivative
+          valueError := valueError
+          derivativeError := derivativeError }
+      if certificate.check then IO.println "ok" else IO.println "error invalidCertificate"
+  | .error error, _, _, _, _ | _, .error error, _, _, _ |
+      _, _, .error error, _, _ | _, _, _, .error error, _ |
+      _, _, _, _, .error error => IO.println s!"error {error}"
 
 private def printIRResult
     (result : Except CompilerIR.RuntimeError (Nat × List DrawEvent)) : IO Unit :=
@@ -126,6 +158,10 @@ def main (args : List String) : IO UInt32 := do
       return 0
   | ["mh_generic", target, rows, state, proposal, accept] =>
       runGenericMH target rows state proposal (some accept)
+      return 0
+  | ["gaussian_certificate", input, value, derivative, valueError,
+      derivativeError] =>
+      runGaussianCertificate input value derivative valueError derivativeError
       return 0
   | _ =>
       IO.eprintln usage

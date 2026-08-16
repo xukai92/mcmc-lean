@@ -541,8 +541,10 @@ For the generated polynomial Gaussian target, Julia now also emits an exact
 dyadic execution certificate: finite Float64 inputs and outputs are converted
 to mathematical `Rational{BigInt}` values, so the value and derivative errors
 against `x²/2` and `x` are exact and require neither BigFloat nor libm. Lean
-already proves that the generated target denotes those formulas; checking the
-Julia certificate artifact inside Lean remains a separate transport step.
+checks the serialized rational artifact through `mcmc_oracle` and proves that
+every accepted record satisfies the corresponding value and derivative
+approximation statements. This checks each submitted artifact, not the Julia
+compiler or serializer implementation itself.
 
 Executable randomized-origin multinomial HMC is available separately from
 endpoint-corrected HMC:

@@ -20,6 +20,7 @@ export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, TwoStat
     RestrictedMul, RestrictedNeg, RestrictedExp, restricted_value_gradient,
     restricted_gaussian_potential, RestrictedGaussianFloat64Certificate,
     certify_restricted_gaussian_float64,
+    restricted_gaussian_certificate_arguments,
     Xu21CoupledSampler, ScopedInferenceOperator, ComposableSampler, covers,
     generated_schedule,
     ObservationCursor, observation_cursor, resume_observation, run_observations,
@@ -235,6 +236,21 @@ function certify_restricted_gaussian_float64(input::Real)
         exact_value, exact_derivative,
         abs(computed_value - exact_value),
         abs(computed_derivative - exact_derivative))
+end
+
+_rational_wire(value::Rational{BigInt}) =
+    string(numerator(value), "/", denominator(value))
+
+"""Serialize an exact Gaussian certificate for the compiled Lean checker."""
+function restricted_gaussian_certificate_arguments(
+        certificate::RestrictedGaussianFloat64Certificate)
+    String[
+        _rational_wire(Rational{BigInt}(certificate.input)),
+        _rational_wire(Rational{BigInt}(certificate.computed_value)),
+        _rational_wire(Rational{BigInt}(certificate.computed_derivative)),
+        _rational_wire(certificate.value_error),
+        _rational_wire(certificate.derivative_error),
+    ]
 end
 
 """A full-state transition annotated with the variables it may update.
