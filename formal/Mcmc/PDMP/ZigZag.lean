@@ -218,6 +218,100 @@ theorem gaussianSteinTest_of_hasDerivAt
     (fun q => derivative q true - derivative q false)
     hhasDeriv hweightedDerivative hweightedPosition hbot htop
 
+/-- Compactly supported `C¹` velocity differences form an automatically
+certified Gaussian Stein core. All integrability and boundary-decay
+obligations are derived from compact support. -/
+theorem gaussianSteinTest_of_contDiff_compactSupport
+    (derivative observable : ℝ → Bool → ℝ)
+    (g : ℝ → ℝ)
+    (hg : g = fun q => observable q true - observable q false)
+    (hsmooth : ContDiff ℝ 1 g)
+    (hcompact : HasCompactSupport g)
+    (hderivative : ∀ q,
+      derivative q true - derivative q false = deriv g q) :
+    GaussianSteinTest derivative observable := by
+  have hcontinuousDeriv : Continuous (deriv g) :=
+    hsmooth.continuous_deriv le_rfl
+  have hcompactDeriv : HasCompactSupport (deriv g) := hcompact.deriv
+  have hpdfContinuous : Continuous
+      (ProbabilityTheory.gaussianPDFReal 0 1) :=
+    continuous_iff_continuousAt.mpr fun q =>
+      (hasDerivAt_standardGaussianPDF q).continuousAt
+  have hderivativeGaussian : Integrable
+      (fun q => derivative q true - derivative q false)
+      (ProbabilityTheory.gaussianReal 0 1) := by
+    apply (hcontinuousDeriv.integrable_of_hasCompactSupport hcompactDeriv).congr
+    filter_upwards [] with q
+    exact (hderivative q).symm
+  have hpositionGaussian : Integrable
+      (fun q => q * (observable q true - observable q false))
+      (ProbabilityTheory.gaussianReal 0 1) := by
+    have hint : Integrable (fun q => q * g q)
+        (ProbabilityTheory.gaussianReal 0 1) :=
+      (continuous_id.mul hsmooth.continuous).integrable_of_hasCompactSupport
+        hcompact.mul_left
+    apply hint.congr
+    filter_upwards [] with q
+    rw [hg]
+  have hweightedDerivative : Integrable (fun q =>
+      (derivative q true - derivative q false) *
+        ProbabilityTheory.gaussianPDFReal 0 1 q) := by
+    have hint : Integrable (fun q => deriv g q *
+        ProbabilityTheory.gaussianPDFReal 0 1 q) :=
+      (hcontinuousDeriv.mul hpdfContinuous).integrable_of_hasCompactSupport
+        hcompactDeriv.mul_right
+    apply hint.congr
+    filter_upwards [] with q
+    rw [hderivative q]
+  have hweightedPosition : Integrable (fun q =>
+      (observable q true - observable q false) *
+        (-q * ProbabilityTheory.gaussianPDFReal 0 1 q)) := by
+    have hcont : Continuous (fun q => g q *
+        (-q * ProbabilityTheory.gaussianPDFReal 0 1 q)) :=
+      hsmooth.continuous.mul
+        (continuous_id.neg.mul hpdfContinuous)
+    have hint : Integrable (fun q => g q *
+        (-q * ProbabilityTheory.gaussianPDFReal 0 1 q)) :=
+      hcont.integrable_of_hasCompactSupport hcompact.mul_right
+    apply hint.congr
+    filter_upwards [] with q
+    rw [hg]
+  have hboundaryCompact : HasCompactSupport (fun q =>
+      (observable q true - observable q false) *
+        ProbabilityTheory.gaussianPDFReal 0 1 q) := by
+    have heq : (fun q => (observable q true - observable q false) *
+        ProbabilityTheory.gaussianPDFReal 0 1 q) =
+        fun q => g q * ProbabilityTheory.gaussianPDFReal 0 1 q := by
+      funext q
+      rw [hg]
+    rw [heq]
+    exact hcompact.mul_right
+  have hbot : Filter.Tendsto (fun q =>
+      (observable q true - observable q false) *
+        ProbabilityTheory.gaussianPDFReal 0 1 q)
+      Filter.atBot (nhds 0) := by
+    rw [hasCompactSupport_iff_eventuallyEq,
+      Filter.coclosedCompact_eq_cocompact] at hboundaryCompact
+    exact hboundaryCompact.filter_mono
+      (_root_.atBot_le_cocompact) |>.tendsto
+  have htop : Filter.Tendsto (fun q =>
+      (observable q true - observable q false) *
+        ProbabilityTheory.gaussianPDFReal 0 1 q)
+      Filter.atTop (nhds 0) := by
+    rw [hasCompactSupport_iff_eventuallyEq,
+      Filter.coclosedCompact_eq_cocompact] at hboundaryCompact
+    exact hboundaryCompact.filter_mono
+      (_root_.atTop_le_cocompact) |>.tendsto
+  apply gaussianSteinTest_of_hasDerivAt derivative observable
+    hderivativeGaussian hpositionGaussian
+  · intro q
+    rw [hderivative q, ← hg]
+    exact (hsmooth.differentiable one_ne_zero q).hasDerivAt
+  · exact hweightedDerivative
+  · exact hweightedPosition
+  · exact hbot
+  · exact htop
+
 /-- Every Gaussian Stein test has mean-zero standard-Gaussian Zig-Zag
 generator.  Unlike the earlier generic weighted theorem, this statement is
 directly phrased over the actual Gaussian target and an arbitrary observable
@@ -247,6 +341,22 @@ theorem gaussian_zigZagGenerator_mean_zero_of_stein
     zigZagGenerator_mean_zero
       (ProbabilityTheory.gaussianReal 0 1) (fun _ => 1) id
       derivative observable hdrift hposition hstein
+
+/-- Direct generator-cancellation theorem for the compactly supported smooth
+core. -/
+theorem gaussian_zigZagGenerator_mean_zero_of_contDiff_compactSupport
+    (derivative observable : ℝ → Bool → ℝ)
+    (g : ℝ → ℝ)
+    (hg : g = fun q => observable q true - observable q false)
+    (hsmooth : ContDiff ℝ 1 g)
+    (hcompact : HasCompactSupport g)
+    (hderivative : ∀ q,
+      derivative q true - derivative q false = deriv g q) :
+    (∫ q, (∑ v : Bool, zigZagGenerator id derivative observable q v)
+      ∂ProbabilityTheory.gaussianReal 0 1) = 0 :=
+  gaussian_zigZagGenerator_mean_zero_of_stein derivative observable
+    (gaussianSteinTest_of_contDiff_compactSupport derivative observable g hg
+      hsmooth hcompact hderivative)
 
 /-- Velocity itself as a concrete Zig-Zag test observable. -/
 def zigZagVelocityObservable (_q : ℝ) (v : Bool) : ℝ := zigZagVelocity v

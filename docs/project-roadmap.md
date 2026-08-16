@@ -409,8 +409,10 @@ breadth branches are:
   Gaussian density derivative and improper integration by parts are now
   checked, so differentiability, weighted integrability, and Gaussian boundary
   decay construct this certificate directly rather than assuming the Stein
-  identity. A rich smooth-test-class-to-setwise-forward-equation argument is
-  still required.
+  identity. Compactly supported `C¹` velocity differences now form an
+  automatically certified core: all integrability and boundary hypotheses and
+  the resulting generator cancellation are proved. A smooth-core-to-setwise-
+  forward-equation argument is still required.
   The normalized Gaussian/equal-velocity target and exact zero-time identity
   are discharged, so the specialized certificate contains only
   differentiability and the zero-derivative forward equation.

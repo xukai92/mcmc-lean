@@ -207,7 +207,9 @@ mean-zero generator expectation. Lean now also proves the derivative of the
 standard-Gaussian density and a general improper integration-by-parts theorem:
 ordinary differentiability, weighted integrability, and Gaussian boundary
 decay construct the Stein certificate without assuming its identity. Deriving
-the setwise forward equation from this smooth certified test class remains
+these side conditions is automatic for compactly supported `C¹` velocity
+differences, giving a genuine smooth core with a direct generator-cancellation
+theorem. Deriving the setwise forward equation from this certified core remains
 open.
 The normalized Gaussian-position/equal-velocity target is now explicit and
 proved a probability measure, and the stopped horizon family is proved exactly

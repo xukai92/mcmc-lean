@@ -1,5 +1,14 @@
 # Development log
 
+- Added an automatically certified compactly supported `C¹` Gaussian
+  Zig-Zag/BPS test core. From compact support and continuous differentiability,
+  Lean derives Gaussian integrability of the derivative and position term,
+  Lebesgue integrability of both density-weighted terms, and zero limits at
+  both infinities. These discharge the general Stein constructor and yield a
+  direct generator-cancellation theorem with no manually supplied analytic
+  side conditions. Connecting this core to uniqueness of the constructed
+  path law's forward equation remains the next analytic step.
+
 - Closed the manual integration-by-parts gap in the Gaussian Zig-Zag/BPS test
   layer. Lean proves that the standard-Gaussian density has derivative
   `-xφ(x)` and applies mathlib's improper integration-by-parts theorem to prove
