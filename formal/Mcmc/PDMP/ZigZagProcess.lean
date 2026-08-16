@@ -2659,6 +2659,126 @@ theorem measurable_gaussianZigZagCycleResidualHazard (signed : ℝ) :
   unfold gaussianZigZagCycleResidualHazard
   exact measurable_gaussianZigZagNegativeRayleighEnergy.sub measurable_const
 
+/-- On a genuine cycle interval, the nonnegative residual-clock definition
+has the expected real quadratic-energy difference. -/
+theorem coe_gaussianZigZagCycleResidualHazard
+    (signed rightReset : ℝ) (hcover : signed < -rightReset) :
+    (gaussianZigZagCycleResidualHazard signed rightReset : ℝ) =
+      rightReset ^ 2 / 2 - (max 0 signed) ^ 2 / 2 := by
+  unfold gaussianZigZagCycleResidualHazard
+    gaussianZigZagNegativeRayleighEnergy
+  have henergy : 0 ≤ rightReset ^ 2 / 2 := by positivity
+  have hspent : 0 ≤ (max 0 signed) ^ 2 / 2 := by positivity
+  have hle : (max 0 signed) ^ 2 / 2 ≤ rightReset ^ 2 / 2 := by
+    by_cases hsigned : signed ≤ 0
+    · rw [max_eq_left hsigned]
+      simpa using henergy
+    · rw [max_eq_right (le_of_not_ge hsigned)]
+      have hright : signed < -rightReset := hcover
+      have hsignedPos : 0 < signed := lt_of_not_ge hsigned
+      nlinarith
+  rw [NNReal.coe_sub]
+  · rw [Real.coe_toNNReal _ henergy, Real.coe_toNNReal _ hspent]
+  · exact Real.toNNReal_le_toNNReal hle
+
+/-- The residual hazard stored by a covering cycle drives the canonical event
+update exactly to that cycle's right reset. -/
+theorem gaussianZigZagSignedEventUpdate_cycleResidual
+    (signed rightReset : ℝ) (velocity : Bool)
+    (hcover : signed < -rightReset) (hright : rightReset < 0) :
+    gaussianZigZagSignedEventUpdate (signed, velocity)
+        (gaussianZigZagCycleResidualHazard signed rightReset) =
+      (rightReset, !velocity) := by
+  rw [gaussianZigZagSignedEventUpdate_eq]
+  change ((if 0 ≤ signed then
+      -Real.sqrt (signed ^ 2 + 2 *
+        (gaussianZigZagCycleResidualHazard signed rightReset : ℝ))
+    else
+      -Real.sqrt (2 *
+        (gaussianZigZagCycleResidualHazard signed rightReset : ℝ))), !velocity) =
+      (rightReset, !velocity)
+  have hresidual := coe_gaussianZigZagCycleResidualHazard
+    signed rightReset hcover
+  by_cases hsigned : 0 ≤ signed
+  · rw [if_pos hsigned]
+    rw [max_eq_right hsigned] at hresidual
+    congr 1
+    rw [hresidual]
+    have : signed ^ 2 + 2 * (rightReset ^ 2 / 2 - signed ^ 2 / 2) =
+        rightReset ^ 2 := by ring
+    rw [this, Real.sqrt_sq_eq_abs, abs_of_neg hright]
+    simp
+  · rw [if_neg hsigned]
+    rw [max_eq_left (le_of_not_ge hsigned)] at hresidual
+    congr 1
+    rw [hresidual]
+    have : 2 * (rightReset ^ 2 / 2 - 0 ^ 2 / 2) =
+        rightReset ^ 2 := by ring
+    rw [this, Real.sqrt_sq_eq_abs, abs_of_neg hright]
+    simp
+
+/-- The same residual clock rings after exactly the remaining geometric
+distance to the right endpoint of the covering cycle. -/
+theorem coe_gaussianZigZagSignedWaitingNNReal_cycleResidual
+    (signed rightReset : ℝ) (velocity : Bool)
+    (hcover : signed < -rightReset) (hright : rightReset < 0) :
+    (gaussianZigZagSignedWaitingNNReal (signed, velocity)
+        (gaussianZigZagCycleResidualHazard signed rightReset) : ℝ) =
+      -rightReset - signed := by
+  unfold gaussianZigZagSignedWaitingNNReal
+  rw [coe_gaussianZigZagWaitingNNReal]
+  unfold gaussianZigZagWaitingTime
+  rw [show zigZagVelocity (zigZagSignedCoordinate (signed, velocity)).2 *
+      (zigZagSignedCoordinate (signed, velocity)).1 = signed by
+    exact zigZagSignedPosition_signedCoordinate (signed, velocity)]
+  change (if 0 ≤ signed then
+      Real.sqrt (signed ^ 2 + 2 *
+        (gaussianZigZagCycleResidualHazard signed rightReset : ℝ)) - signed
+    else -signed + Real.sqrt (2 *
+      (gaussianZigZagCycleResidualHazard signed rightReset : ℝ))) = _
+  have hresidual := coe_gaussianZigZagCycleResidualHazard
+    signed rightReset hcover
+  by_cases hsigned : 0 ≤ signed
+  · rw [if_pos hsigned]
+    rw [max_eq_right hsigned] at hresidual
+    rw [hresidual]
+    have : signed ^ 2 + 2 *
+        (rightReset ^ 2 / 2 - signed ^ 2 / 2) = rightReset ^ 2 := by ring
+    rw [this, Real.sqrt_sq_eq_abs, abs_of_neg hright]
+  · rw [if_neg hsigned]
+    rw [max_eq_left (le_of_not_ge hsigned)] at hresidual
+    rw [hresidual]
+    have : 2 * (rightReset ^ 2 / 2 - 0 ^ 2 / 2) =
+        rightReset ^ 2 := by ring
+    rw [this, Real.sqrt_sq_eq_abs, abs_of_neg hright]
+    ring
+
+/-- Remaining unit-speed time from an occupied cycle position to its right
+endpoint. -/
+noncomputable def gaussianZigZagCycleRemainingTime
+    (signed rightReset : ℝ) : NNReal :=
+  Real.toNNReal (-rightReset - signed)
+
+theorem coe_gaussianZigZagCycleRemainingTime
+    (signed rightReset : ℝ) (hcover : signed < -rightReset) :
+    (gaussianZigZagCycleRemainingTime signed rightReset : ℝ) =
+      -rightReset - signed := by
+  unfold gaussianZigZagCycleRemainingTime
+  rw [Real.coe_toNNReal]
+  linarith
+
+/-- Residual integrated hazard and remaining geometric cycle time describe
+the same next-event clock. -/
+theorem gaussianZigZagSignedWaitingNNReal_cycleResidual
+    (signed rightReset : ℝ) (velocity : Bool)
+    (hcover : signed < -rightReset) (hright : rightReset < 0) :
+    gaussianZigZagSignedWaitingNNReal (signed, velocity)
+        (gaussianZigZagCycleResidualHazard signed rightReset) =
+      gaussianZigZagCycleRemainingTime signed rightReset := by
+  apply NNReal.eq
+  rw [coe_gaussianZigZagSignedWaitingNNReal_cycleResidual
+      signed rightReset velocity hcover hright,
+    coe_gaussianZigZagCycleRemainingTime signed rightReset hcover]
 /-- Exact left tail of the negative-Rayleigh event-start position. -/
 theorem gaussianZigZagNegativeRayleighMeasure_Iio_neg
     (radius : NNReal) :
@@ -3452,6 +3572,26 @@ noncomputable def gaussianZigZagSignedFirstEventEndpoint
     gaussianZigZagSignedHorizonEndpoint
       (gaussianZigZagSignedEventUpdate initial headTail.1)
       (horizon - wait) headTail.2
+
+/-- Pathwise bridge from stationary-cycle coordinates to the exact signed
+first-event recursion: the stored right reset is precisely the next event and
+the geometric residual is precisely its waiting time. -/
+theorem gaussianZigZagSignedFirstEventEndpoint_cycleResidual
+    (signed rightReset : ℝ) (velocity : Bool) (horizon : NNReal)
+    (tail : ℕ → NNReal) (hcover : signed < -rightReset)
+    (hright : rightReset < 0) :
+    gaussianZigZagSignedFirstEventEndpoint (signed, velocity) horizon
+        (gaussianZigZagCycleResidualHazard signed rightReset, tail) =
+      if horizon < gaussianZigZagCycleRemainingTime signed rightReset then
+        (signed + (horizon : ℝ), velocity)
+      else
+        gaussianZigZagSignedHorizonEndpoint (rightReset, !velocity)
+          (horizon - gaussianZigZagCycleRemainingTime signed rightReset) tail := by
+  unfold gaussianZigZagSignedFirstEventEndpoint
+  rw [gaussianZigZagSignedWaitingNNReal_cycleResidual
+      signed rightReset velocity hcover hright,
+    gaussianZigZagSignedEventUpdate_cycleResidual
+      signed rightReset velocity hcover hright]
 
 /-- The physical first-event branch, conjugated by the signed involution, is
 the explicit unit-speed signed renewal branch. -/

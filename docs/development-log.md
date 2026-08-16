@@ -3563,3 +3563,15 @@ independent unit exponential law. This is a joint-law theorem, not merely two
 marginal calculations. The remaining scalar process obligation is the
 stationary renewal-shift/horizon identification and its transfer through the
 already-proved signed/physical conjugacy.
+
+## 2026-08-16: stationary-cycle/exact-clock pathwise bridge
+
+Connected the Palm construction to the executable exact path recursion. For
+every occupied signed position strictly inside a cycle with a genuine negative
+right reset, Lean proves that the cycle's residual quadratic hazard makes the
+canonical inverse clock wait exactly the remaining geometric distance, and
+that its event update lands exactly at the stored right reset. The signed
+first-event endpoint is consequently rewritten into the literal cycle branch:
+translate within the current interval, or restart the exact horizon execution
+from the right reset with the remaining horizon. This removes the last
+coordinate-level mismatch before the stationary renewal-shift argument.
