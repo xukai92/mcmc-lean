@@ -1,14 +1,23 @@
 # Development log
 
+- Made the variable-interval slice proposal total on the whole real height
+  space. `totalVariableIntervalKernel` uses the normalized Lebesgue interval
+  row at positive width and an explicit identity fallback otherwise. Lean
+  proves the full kernel is Markov by cases and proves exact agreement with
+  the normalized restriction on every valid row. Thus bounded targets no
+  longer lack a defined horizontal transition above their maximal height; the
+  remaining factorization step is to show those fallback rows are null under
+  the width-weighted height marginal.
+
 - Proved the first explicit continuous interval-level slice factorization.
   Swapping a measurable density over a product measure now transports the
   density arguments exactly. Combining that lemma with the variable-interval
   row formula shows that a height law weighted by interval width followed by
   its normalized uniform horizontal draw reconstructs the swapped under-graph
   measure whenever the superlevel sets are those intervals. The current
-  theorem assumes every indexed interval is strictly nonempty; bounded targets
-  still need the zero-width-height fallback kernel before this specializes to
-  their full real height space.
+  initial factorization theorem assumes every indexed interval is strictly
+  nonempty; the newly constructed total fallback kernel is the endpoint needed
+  to remove that restriction.
 
 - Added the missing continuous bracket primitive for formal stepping-out:
   `variableIntervalKernel` samples uniformly from a measurable input-dependent

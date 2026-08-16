@@ -156,8 +156,7 @@ theorem measurable_uncurry_variableIntervalDensity
 omit [MeasurableSpace State] in
 theorem variableIntervalDensity_lintegral
     {Parameter : Type*} (lower upper : Parameter → ℝ)
-    (hordered : ∀ parameter, lower parameter < upper parameter)
-    (parameter : Parameter) :
+    (parameter : Parameter) (hordered : lower parameter < upper parameter) :
     ∫⁻ x, variableIntervalDensity lower upper parameter x ∂volume = 1 := by
   rw [show variableIntervalDensity lower upper parameter =
       (Ioc (lower parameter) (upper parameter)).indicator
@@ -169,7 +168,7 @@ theorem variableIntervalDensity_lintegral
   rw [lintegral_indicator measurableSet_Ioc, MeasureTheory.lintegral_const,
     Measure.restrict_apply_univ, Real.volume_Ioc]
   exact ENNReal.inv_mul_cancel
-    (ENNReal.ofReal_ne_zero_iff.mpr (sub_pos.mpr (hordered parameter)))
+    (ENNReal.ofReal_ne_zero_iff.mpr (sub_pos.mpr hordered))
     ENNReal.ofReal_ne_top
 
 /-- Markov kernel that samples uniformly from a measurable interval depending
@@ -197,7 +196,8 @@ instance variableIntervalKernel.instIsMarkovKernel
   rw [variableIntervalKernel, ProbabilityTheory.Kernel.withDensity_apply'
     _ (measurable_uncurry_variableIntervalDensity hlower hupper),
     ProbabilityTheory.Kernel.const_apply, Measure.restrict_univ,
-    variableIntervalDensity_lintegral lower upper hordered]
+    variableIntervalDensity_lintegral lower upper parameter
+      (hordered parameter)]
 
 /-- Each row of the variable-interval kernel is exactly normalized Lebesgue
 restriction to its declared interval. -/
@@ -313,7 +313,75 @@ theorem variableIntervalKernel_apply_interval
     by_cases hx : x ∈ Ioc (lower parameter) (upper parameter) <;>
       simp [variableIntervalDensity, hx]
   rw [hindicator]
-  exact variableIntervalDensity_lintegral lower upper hordered parameter
+  exact variableIntervalDensity_lintegral lower upper parameter
+    (hordered parameter)
+
+/-- Measurable set of parameters whose declared interval has positive width. -/
+def validVariableIntervalSet {Parameter : Type*} [MeasurableSpace Parameter]
+    (lower upper : Parameter → ℝ) : Set Parameter :=
+  {parameter | lower parameter < upper parameter}
+
+theorem measurableSet_validVariableIntervalSet
+    {Parameter : Type*} [MeasurableSpace Parameter]
+    {lower upper : Parameter → ℝ}
+    (hlower : Measurable lower) (hupper : Measurable upper) :
+    MeasurableSet (validVariableIntervalSet lower upper) :=
+  measurableSet_lt hlower hupper
+
+/-- Total variable-interval proposal. Positive-width rows are uniform on the
+declared interval; zero/negative-width rows use the identity kernel. The
+fallback is irrelevant under a width-weighted height law but makes this a
+genuine Markov kernel on the entire height space. -/
+noncomputable def totalVariableIntervalKernel
+    (lower upper : ℝ → ℝ) (hlower : Measurable lower)
+    (hupper : Measurable upper) : Kernel ℝ ℝ := by
+  classical
+  exact Kernel.piecewise (measurableSet_validVariableIntervalSet hlower hupper)
+    ((Kernel.const ℝ (volume : Measure ℝ)).withDensity
+      (variableIntervalDensity lower upper)) Kernel.id
+
+instance totalVariableIntervalKernel.instIsMarkovKernel
+    (lower upper : ℝ → ℝ) (hlower : Measurable lower)
+    (hupper : Measurable upper) :
+    IsMarkovKernel (totalVariableIntervalKernel lower upper hlower hupper) := by
+  classical
+  constructor
+  intro parameter
+  constructor
+  rw [totalVariableIntervalKernel, Kernel.piecewise_apply]
+  by_cases hvalid : parameter ∈ validVariableIntervalSet lower upper
+  · rw [if_pos hvalid,
+      ProbabilityTheory.Kernel.withDensity_apply'
+        _ (measurable_uncurry_variableIntervalDensity hlower hupper),
+      ProbabilityTheory.Kernel.const_apply, Measure.restrict_univ]
+    exact variableIntervalDensity_lintegral lower upper parameter hvalid
+  · rw [if_neg hvalid, ProbabilityTheory.Kernel.id_apply]
+    simp
+
+/-- On a positive-width parameter, the total proposal agrees exactly with the
+normalized variable-interval kernel. -/
+theorem totalVariableIntervalKernel_apply_of_lt
+    (lower upper : ℝ → ℝ) (hlower : Measurable lower)
+    (hupper : Measurable upper) (parameter : ℝ)
+    (hvalid : lower parameter < upper parameter) :
+    totalVariableIntervalKernel lower upper hlower hupper parameter =
+      (ENNReal.ofReal (upper parameter - lower parameter))⁻¹ •
+        (volume.restrict (Ioc (lower parameter) (upper parameter))) := by
+  classical
+  have hmem : parameter ∈ validVariableIntervalSet lower upper := hvalid
+  rw [totalVariableIntervalKernel, Kernel.piecewise_apply,
+    if_pos hmem]
+  rw [ProbabilityTheory.Kernel.withDensity_apply
+    _ (measurable_uncurry_variableIntervalDensity hlower hupper),
+    ProbabilityTheory.Kernel.const_apply]
+  rw [show variableIntervalDensity lower upper parameter =
+      (Ioc (lower parameter) (upper parameter)).indicator
+        (fun _ ↦ (ENNReal.ofReal
+          (upper parameter - lower parameter))⁻¹) by
+    funext x
+    by_cases hx : x ∈ Ioc (lower parameter) (upper parameter) <;>
+      simp [variableIntervalDensity, hx],
+    withDensity_indicator measurableSet_Ioc, withDensity_const]
 
 /-- Indicator density of the region under the graph of `weight`, in
 state--height coordinate order. -/

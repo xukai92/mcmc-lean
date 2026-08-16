@@ -359,9 +359,11 @@ breadth branches are:
   measurable input-dependent strictly ordered interval and proves exact
   normalization and bracket support. The corresponding width-weighted height
   measure is now proved to factor exactly into the swapped under-graph law
-  when all superlevel intervals are strictly nonempty. Extending the horizontal
-  kernel with an arbitrary Markov fallback on zero-width heights is the next
-  step for bounded targets. Proving each deterministic guarded Julia
+  when all superlevel intervals are strictly nonempty. The horizontal kernel
+  is now total as well: zero/negative-width heights use an identity fallback,
+  while every valid row is proved equal to normalized restricted Lebesgue
+  measure. Showing the fallback region has zero width-weighted height mass is
+  the remaining step for bounded targets. Proving each deterministic guarded Julia
   expansion/shrinkage section satisfies the resulting joint-preservation
   premise, plus its Float64 refinement, then remains;
 - reversible-jump transports beyond the checked scalar and planar
