@@ -261,4 +261,29 @@ theorem disintegratedSliceSampler_invariant
     (sliceHorizontalKernel base weight)
   exact (compProd_sliceHorizontalKernel base weight hweight hpositive).symm
 
+/-- Slice-specific wrapper around general disintegration when the target
+measure itself is already finite. This avoids asking a client to separately
+construct a finite-measure instance for the equal under-graph joint. -/
+noncomputable def targetDisintegratedSliceSampler
+    (target : Measure State) [IsFiniteMeasure target]
+    (weight : State → ℝ) (hweight : Measurable weight)
+    (hpositive : ∀ x, 0 < weight x)
+    [StandardBorelSpace State] [Nonempty State] : Kernel State State :=
+  exactSliceSampler weight hweight hpositive
+    (disintegratedAuxiliaryReverse target
+      (sliceHeightKernel weight hweight hpositive))
+
+/-- The finite-target disintegrated slice wrapper preserves its supplied
+target. For the usual weighted-base interpretation, clients should additionally
+identify `target` with the intended density measure. -/
+theorem targetDisintegratedSliceSampler_invariant
+    (target : Measure State) [IsFiniteMeasure target]
+    (weight : State → ℝ) (hweight : Measurable weight)
+    (hpositive : ∀ x, 0 < weight x)
+    [StandardBorelSpace State] [Nonempty State] :
+    (targetDisintegratedSliceSampler target weight hweight hpositive).Invariant
+      target := by
+  exact twoBlockConditional_disintegrated_invariant target
+    (sliceHeightKernel weight hweight hpositive)
+
 end Mcmc.Kernel

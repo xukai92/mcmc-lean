@@ -1813,3 +1813,10 @@ Lean through under-graph disintegration. The runtime is deliberately not
 claimed as an unconditional refinement: arbitrary callbacks, Float64 uniform
 draws, and exhaustion of the finite attempt guard remain explicit execution
 boundaries.
+
+The Lean API now also offers a finite-target disintegrated wrapper, avoiding a
+redundant client-side finiteness proof for the equal under-graph joint. A
+continuous example instantiates it for the uniform probability law on
+`(-2,2]` and proves exact invariance. This is the ideal mathematical client
+behind the runtime's flat-density test, while cross-language numerical
+refinement remains explicitly separate.

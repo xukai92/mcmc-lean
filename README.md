@@ -256,10 +256,10 @@ The repository now contains machine-checked implementations and proofs for:
   its lifted weighted target is exactly Lebesgue measure under the target
   graph, plus a measurable horizontal conditional obtained by standard-Borel
   disintegration and an exact target-invariance theorem for the resulting
-  general-state slice sampler; Julia additionally exposes a bounded-interval
-  rejection implementation with Reference/Optimized trace replay and uniform
-  moment tests, while its callback, Float64 RNG, and finite retry guard remain
-  outside the ideal refinement theorem;
+  general-state slice sampler, instantiated for the uniform law on `(-2,2]`;
+  Julia additionally exposes a bounded-interval rejection implementation with
+  Reference/Optimized trace replay and uniform moment tests, while its callback,
+  Float64 RNG, and finite retry guard remain outside the ideal refinement theorem;
 - tagged two-model reversible-jump MH with a common reference measure,
   transport-density certificate, cross-model accepted-flow symmetry, and
   Markov/reversibility/invariance theorems, including a zero-to-one-dimensional
