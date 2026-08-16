@@ -1,5 +1,16 @@
 # Development log
 
+- Completed the target-specific Foster--Lyapunov analysis for the actual bare
+  one-dimensional Gaussian SoftAbs multinomial GR-HMC kernel at `ε = 1` and
+  `L = 1`. Finite relativistic speed gives a global exponential-moment bound;
+  expanding refreshed-momentum bands give nested inward and non-outward event
+  probabilities; and their three-region expectation bound factors into a
+  dimensionless coefficient converging strictly below one. Lean therefore
+  selects one uniform `rate < 1` outside a compact interval and packages the
+  result as a global `HasAffineDrift` certificate with finite allowance. The
+  remaining bare-kernel convergence input is local accessibility or
+  minorization for this continuous transition, not tail drift.
+
 - Added the missing multinomial selected-index probability bridge. At the
   generic orbit layer, if every competing unnormalized weight is at most `C`
   times a designated candidate's weight, Lean proves that candidate has

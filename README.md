@@ -771,8 +771,12 @@ For a general target, the remaining analytic input is a compatible
 Foster--Lyapunov drift certificate for at least one `ε,L` pair selected by the
 local-convexity window. Such a drift condition is an explicit hypothesis of
 the paper's meeting-time result; it does not follow from local strong
-convexity alone. Higher-dimensional or non-Gaussian validated instances must
-provide that target-specific drift analysis.
+convexity alone. For the separate one-dimensional Gaussian SoftAbs GR-HMC
+validation target at `ε = 1`, `L = 1`, the exponential affine drift
+certificate is now proved for the actual bare multinomial kernel. Its pending
+bare-kernel convergence input is a local accessibility/minorization theorem.
+Higher-dimensional or non-Gaussian validated instances must still provide
+their own target-specific drift analysis.
 
 For regularized logistic regression, the local regularity, convexity, and HMC
 accessibility obligations are proved. For the cancellation step size

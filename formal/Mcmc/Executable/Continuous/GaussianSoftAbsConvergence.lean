@@ -98,6 +98,48 @@ theorem lintegral_le_of_nested_event_bounds
             lintegral_indicator_const (hB.diff hA),
             lintegral_indicator_const hB.compl]
 
+/-- Algebraic form of the three-region estimate. A favorable region of mass
+at least `r`, together with a bad region of mass at most `s`, gives a bound
+whose limiting coefficient is the convex combination `a*r + b*(1-r)`.
+The additional `c*s` term is deliberately conservative. -/
+theorem threeRegionWeightedSum_le
+    {a b c r s x d e : ENNReal}
+    (hab : a ≤ b) (hr : r ≤ x) (he : e ≤ s)
+    (hsum : x + d + e = 1) :
+    a * x + b * d + c * e ≤
+      a * r + b * (1 - r) + c * s := by
+  obtain ⟨z, rfl⟩ := exists_add_of_le hr
+  have hone : 1 = r + (z + d + e) := by
+    rw [← hsum]
+    ac_rfl
+  have hrTop : r ≠ ∞ := by
+    apply ne_top_of_le_ne_top ENNReal.one_ne_top
+    calc
+      r ≤ r + (z + d + e) := le_add_right le_rfl
+      _ = 1 := hone.symm
+  have hzd : z + d ≤ 1 - r := by
+    rw [hone, ENNReal.add_sub_cancel_left hrTop]
+    exact le_add_right le_rfl
+  calc
+    a * (r + z) + b * d + c * e =
+        a * r + a * z + b * d + c * e := by ring
+    _ ≤ a * r + b * z + b * d + c * e := by gcongr
+    _ = a * r + b * (z + d) + c * e := by ring
+    _ ≤ a * r + b * (1 - r) + c * s := by gcongr
+
+/-- The favorable, intermediate, and complementary regions associated with
+nested measurable sets partition a probability measure's mass. -/
+theorem measure_nested_partition
+    {α : Type*} [MeasurableSpace α] (μ : Measure α)
+    [IsProbabilityMeasure μ] {A B : Set α}
+    (hA : MeasurableSet A) (hB : MeasurableSet B) (hAB : A ⊆ B) :
+    μ A + μ (B \ A) + μ Bᶜ = 1 := by
+  have hBsplit : μ B = μ A + μ (B \ A) := by
+    rw [← measure_union Set.disjoint_sdiff_right (hB.diff hA),
+      Set.union_sdiff_cancel hAB]
+  rw [← hBsplit, ← measure_union disjoint_compl_right hB.compl,
+    Set.union_compl_self, measure_univ]
+
 /-- The unnormalized position target of the Gaussian SoftAbs client. -/
 noncomputable abbrev gaussianSoftAbsPositionTarget : Measure (Position ι) :=
   generalRelativisticPositionTarget (gaussianSoftAbsPotential (ι := ι))
@@ -642,6 +684,49 @@ theorem gaussianSoftAbsMultinomialTransition_unit_position_support
   simp_rw [hphase]
   simp
 
+/-- Finite relativistic speed gives a global exponential-moment growth
+bound, independent of the current position. -/
+theorem lintegral_gaussianSoftAbsExpLyapunov_le_global
+    (t : ℝ) (ht : 0 ≤ t) (q : Position Unit) :
+    (∫⁻ y, gaussianSoftAbsExpLyapunov t y
+        ∂gaussianSoftAbsMultinomialTransition 1 1 q) ≤
+      ENNReal.ofReal (Real.exp t) * gaussianSoftAbsExpLyapunov t q := by
+  let μ := gaussianSoftAbsMultinomialTransition 1 1 q
+  let C : Set (Position Unit) := {y | |y Unit.unit - q Unit.unit| < 1}
+  have hC : MeasurableSet C := by
+    exact measurableSet_lt
+      (((measurable_pi_apply Unit.unit).sub measurable_const).abs)
+      measurable_const
+  have hCmass : μ C = 1 :=
+    gaussianSoftAbsMultinomialTransition_unit_position_support q
+  have hCcompl : μ Cᶜ = 0 := by
+    rw [measure_compl hC (by rw [hCmass]; norm_num), hCmass]
+    simp
+  have hCae : ∀ᵐ y ∂μ, y ∈ C := by
+    rw [ae_iff]
+    simpa [Set.compl_def] using hCcompl
+  calc
+    (∫⁻ y, gaussianSoftAbsExpLyapunov t y ∂μ) ≤
+        ∫⁻ _y, gaussianSoftAbsExpWeight t (|q Unit.unit| + 1) ∂μ := by
+      apply lintegral_mono_ae
+      filter_upwards [hCae] with y hy
+      unfold gaussianSoftAbsExpLyapunov gaussianSoftAbsExpWeight
+      apply ENNReal.ofReal_le_ofReal
+      apply Real.exp_le_exp.mpr
+      rw [abs_of_nonneg (by positivity : 0 ≤ |q Unit.unit| + 1)]
+      apply mul_le_mul_of_nonneg_left _ ht
+      dsimp [C] at hy
+      have habs := abs_add_le (y Unit.unit - q Unit.unit) (q Unit.unit)
+      rw [sub_add_cancel] at habs
+      linarith
+    _ = gaussianSoftAbsExpWeight t (|q Unit.unit| + 1) := by simp
+    _ = ENNReal.ofReal (Real.exp t) * gaussianSoftAbsExpLyapunov t q := by
+      unfold gaussianSoftAbsExpLyapunov gaussianSoftAbsExpWeight
+      rw [abs_of_nonneg (by positivity : 0 ≤ |q Unit.unit| + 1)]
+      rw [← ENNReal.ofReal_mul (Real.exp_pos _).le, ← Real.exp_add]
+      congr 2
+      ring
+
 /-- Exact three-region exponential expectation bound on the positive tail.
 The three coefficients correspond to a certified inward move, a non-outward
 move, and the globally bounded outward displacement. -/
@@ -756,6 +841,499 @@ theorem lintegral_gaussianSoftAbsExpLyapunov_le_of_pos
       (q Unit.unit - gaussianSoftAbsUnitMinSpeed))
     (gaussianSoftAbsExpWeight t (q Unit.unit))
     (gaussianSoftAbsExpWeight t (q Unit.unit + 1)) ha hb hc
+
+/-- Symmetric three-region exponential expectation bound on the negative
+tail. -/
+theorem lintegral_gaussianSoftAbsExpLyapunov_le_of_neg
+    (t : ℝ) (ht : 0 ≤ t) (q : Position Unit) (hq : q Unit.unit ≤ -2) :
+    (∫⁻ y, gaussianSoftAbsExpLyapunov t y
+        ∂gaussianSoftAbsMultinomialTransition 1 1 q) ≤
+      gaussianSoftAbsExpWeight t
+          (-q Unit.unit - gaussianSoftAbsUnitMinSpeed) *
+          gaussianSoftAbsMultinomialTransition 1 1 q
+            {y | q Unit.unit + gaussianSoftAbsUnitMinSpeed ≤ y Unit.unit} +
+        gaussianSoftAbsExpWeight t (-q Unit.unit) *
+          gaussianSoftAbsMultinomialTransition 1 1 q
+            ({y | q Unit.unit ≤ y Unit.unit} \
+              {y | q Unit.unit + gaussianSoftAbsUnitMinSpeed ≤ y Unit.unit}) +
+        gaussianSoftAbsExpWeight t (-q Unit.unit + 1) *
+          gaussianSoftAbsMultinomialTransition 1 1 q
+            {y | q Unit.unit ≤ y Unit.unit}ᶜ := by
+  let μ := gaussianSoftAbsMultinomialTransition 1 1 q
+  let A : Set (Position Unit) :=
+    {y | q Unit.unit + gaussianSoftAbsUnitMinSpeed ≤ y Unit.unit}
+  let B : Set (Position Unit) := {y | q Unit.unit ≤ y Unit.unit}
+  let C : Set (Position Unit) := {y | |y Unit.unit - q Unit.unit| < 1}
+  let f : Position Unit → ENNReal := fun y =>
+    C.indicator (gaussianSoftAbsExpLyapunov t) y
+  have hA : MeasurableSet A :=
+    measurableSet_le measurable_const (measurable_pi_apply _)
+  have hB : MeasurableSet B :=
+    measurableSet_le measurable_const (measurable_pi_apply _)
+  have hC : MeasurableSet C := by
+    exact measurableSet_lt
+      (((measurable_pi_apply Unit.unit).sub measurable_const).abs)
+      measurable_const
+  have hAB : A ⊆ B := by
+    intro y hy
+    have hδ := gaussianSoftAbsUnitMinSpeed_pos
+    dsimp [A, B] at hy ⊢
+    linarith
+  have hCmass : μ C = 1 :=
+    gaussianSoftAbsMultinomialTransition_unit_position_support q
+  have hCcompl : μ Cᶜ = 0 := by
+    rw [measure_compl hC (by rw [hCmass]; norm_num), hCmass]
+    simp
+  have hCae : ∀ᵐ y ∂μ, y ∈ C := by
+    rw [ae_iff]
+    simpa [Set.compl_def] using hCcompl
+  have hIntegral :
+      (∫⁻ y, f y ∂μ) = ∫⁻ y, gaussianSoftAbsExpLyapunov t y ∂μ := by
+    apply lintegral_congr_ae
+    filter_upwards [hCae] with y hy
+    simp [f, hy]
+  have hqδ : 0 ≤ -q Unit.unit - gaussianSoftAbsUnitMinSpeed := by
+    have hδ := gaussianSoftAbsUnitMinSpeed_lt_one
+    linarith
+  have ha : ∀ y ∈ A, f y ≤
+      gaussianSoftAbsExpWeight t
+        (-q Unit.unit - gaussianSoftAbsUnitMinSpeed) := by
+    intro y hyA
+    by_cases hyC : y ∈ C
+    · rw [show f y = gaussianSoftAbsExpLyapunov t y by simp [f, hyC]]
+      unfold gaussianSoftAbsExpLyapunov gaussianSoftAbsExpWeight
+      apply ENNReal.ofReal_le_ofReal
+      apply Real.exp_le_exp.mpr
+      have hy0 : y Unit.unit ≤ 0 := by
+        dsimp [C] at hyC
+        rw [abs_lt] at hyC
+        linarith
+      rw [abs_of_nonpos hy0, abs_of_nonneg hqδ]
+      apply mul_le_mul_of_nonneg_left _ ht
+      change q Unit.unit + gaussianSoftAbsUnitMinSpeed ≤ y Unit.unit at hyA
+      linarith
+    · simp [f, hyC]
+  have hb : ∀ y ∈ B \ A, f y ≤
+      gaussianSoftAbsExpWeight t (-q Unit.unit) := by
+    intro y hyBA
+    by_cases hyC : y ∈ C
+    · rw [show f y = gaussianSoftAbsExpLyapunov t y by simp [f, hyC]]
+      unfold gaussianSoftAbsExpLyapunov gaussianSoftAbsExpWeight
+      apply ENNReal.ofReal_le_ofReal
+      apply Real.exp_le_exp.mpr
+      have hy0 : y Unit.unit ≤ 0 := by
+        dsimp [C] at hyC
+        rw [abs_lt] at hyC
+        linarith
+      rw [abs_of_nonpos hy0,
+        abs_of_nonneg (by linarith : 0 ≤ -q Unit.unit)]
+      have hyB : q Unit.unit ≤ y Unit.unit := hyBA.1
+      exact mul_le_mul_of_nonneg_left (neg_le_neg hyB) ht
+    · simp [f, hyC]
+  have hc : ∀ y ∈ Bᶜ, f y ≤
+      gaussianSoftAbsExpWeight t (-q Unit.unit + 1) := by
+    intro y hyB
+    by_cases hyC : y ∈ C
+    · rw [show f y = gaussianSoftAbsExpLyapunov t y by simp [f, hyC]]
+      unfold gaussianSoftAbsExpLyapunov gaussianSoftAbsExpWeight
+      apply ENNReal.ofReal_le_ofReal
+      apply Real.exp_le_exp.mpr
+      have hy0 : y Unit.unit ≤ 0 := by
+        change ¬q Unit.unit ≤ y Unit.unit at hyB
+        have hyB' : y Unit.unit < q Unit.unit := lt_of_not_ge hyB
+        linarith
+      have hyLower : q Unit.unit - 1 ≤ y Unit.unit := by
+        dsimp [C] at hyC
+        rw [abs_lt] at hyC
+        linarith
+      rw [abs_of_nonpos hy0,
+        abs_of_nonneg (by linarith : 0 ≤ -q Unit.unit + 1)]
+      exact mul_le_mul_of_nonneg_left (by linarith) ht
+    · simp [f, hyC]
+  rw [← hIntegral]
+  exact lintegral_le_of_nested_event_bounds μ hA hB hAB f
+    (gaussianSoftAbsExpWeight t
+      (-q Unit.unit - gaussianSoftAbsUnitMinSpeed))
+    (gaussianSoftAbsExpWeight t (-q Unit.unit))
+    (gaussianSoftAbsExpWeight t (-q Unit.unit + 1)) ha hb hc
+
+/-- Probability-free coefficient form of the positive-tail expectation
+bound. The first term records the expanding-band inward floor; the last term
+charges the worst possible outward weight only to the band-complement mass.
+-/
+theorem lintegral_gaussianSoftAbsExpLyapunov_le_tailCoefficient_of_pos
+    (t : ℝ) (ht : 0 ≤ t) (q : Position Unit) (hq : 2 ≤ q Unit.unit) :
+    (∫⁻ y, gaussianSoftAbsExpLyapunov t y
+        ∂gaussianSoftAbsMultinomialTransition 1 1 q) ≤
+      gaussianSoftAbsExpWeight t
+          (q Unit.unit - gaussianSoftAbsUnitMinSpeed) *
+          (gaussianSoftAbsTailBandMass (q Unit.unit) * (4 : ENNReal)⁻¹) +
+        gaussianSoftAbsExpWeight t (q Unit.unit) *
+          (1 - gaussianSoftAbsTailBandMass (q Unit.unit) *
+            (4 : ENNReal)⁻¹) +
+        gaussianSoftAbsExpWeight t (q Unit.unit + 1) *
+          (1 - gaussianSoftAbsTailBandMass (q Unit.unit)) := by
+  let μ := gaussianSoftAbsMultinomialTransition 1 1 q
+  let A : Set (Position Unit) :=
+    {y | y Unit.unit ≤ q Unit.unit - gaussianSoftAbsUnitMinSpeed}
+  let B : Set (Position Unit) := {y | y Unit.unit ≤ q Unit.unit}
+  let a := gaussianSoftAbsExpWeight t
+    (q Unit.unit - gaussianSoftAbsUnitMinSpeed)
+  let b := gaussianSoftAbsExpWeight t (q Unit.unit)
+  let c := gaussianSoftAbsExpWeight t (q Unit.unit + 1)
+  let r := gaussianSoftAbsTailBandMass (q Unit.unit) * (4 : ENNReal)⁻¹
+  let s := 1 - gaussianSoftAbsTailBandMass (q Unit.unit)
+  have hA : MeasurableSet A :=
+    measurableSet_le (measurable_pi_apply _) measurable_const
+  have hB : MeasurableSet B :=
+    measurableSet_le (measurable_pi_apply _) measurable_const
+  have hAB : A ⊆ B := by
+    intro y hy
+    have hδ := gaussianSoftAbsUnitMinSpeed_pos
+    dsimp [A, B] at hy ⊢
+    linarith
+  have hab : a ≤ b := by
+    unfold a b gaussianSoftAbsExpWeight
+    apply ENNReal.ofReal_le_ofReal
+    apply Real.exp_le_exp.mpr
+    have hqδ : 0 ≤ q Unit.unit - gaussianSoftAbsUnitMinSpeed := by
+      have hδ := gaussianSoftAbsUnitMinSpeed_lt_one
+      linarith
+    rw [abs_of_nonneg hqδ, abs_of_nonneg (by linarith : 0 ≤ q Unit.unit)]
+    exact mul_le_mul_of_nonneg_left (sub_le_self _
+      gaussianSoftAbsUnitMinSpeed_pos.le) ht
+  have hr : r ≤ μ A := by
+    exact gaussianSoftAbsTailBandMass_mul_quarter_le_inward q
+  have hmassB : gaussianSoftAbsTailBandMass (q Unit.unit) ≤ μ B := by
+    exact gaussianSoftAbsTailBandMass_le_nonoutward q
+  have he : μ Bᶜ ≤ s := by
+    rw [measure_compl hB (measure_ne_top μ B), measure_univ]
+    exact tsub_le_tsub_left hmassB 1
+  have hsum : μ A + μ (B \ A) + μ Bᶜ = 1 :=
+    measure_nested_partition μ hA hB hAB
+  exact (lintegral_gaussianSoftAbsExpLyapunov_le_of_pos t ht q hq).trans
+    (threeRegionWeightedSum_le hab hr he hsum)
+
+/-- Coefficient form of the symmetric negative-tail estimate. -/
+theorem lintegral_gaussianSoftAbsExpLyapunov_le_tailCoefficient_of_neg
+    (t : ℝ) (ht : 0 ≤ t) (q : Position Unit) (hq : q Unit.unit ≤ -2) :
+    (∫⁻ y, gaussianSoftAbsExpLyapunov t y
+        ∂gaussianSoftAbsMultinomialTransition 1 1 q) ≤
+      gaussianSoftAbsExpWeight t
+          (-q Unit.unit - gaussianSoftAbsUnitMinSpeed) *
+          (gaussianSoftAbsTailBandMass (-q Unit.unit) * (4 : ENNReal)⁻¹) +
+        gaussianSoftAbsExpWeight t (-q Unit.unit) *
+          (1 - gaussianSoftAbsTailBandMass (-q Unit.unit) *
+            (4 : ENNReal)⁻¹) +
+        gaussianSoftAbsExpWeight t (-q Unit.unit + 1) *
+          (1 - gaussianSoftAbsTailBandMass (-q Unit.unit)) := by
+  let μ := gaussianSoftAbsMultinomialTransition 1 1 q
+  let A : Set (Position Unit) :=
+    {y | q Unit.unit + gaussianSoftAbsUnitMinSpeed ≤ y Unit.unit}
+  let B : Set (Position Unit) := {y | q Unit.unit ≤ y Unit.unit}
+  let a := gaussianSoftAbsExpWeight t
+    (-q Unit.unit - gaussianSoftAbsUnitMinSpeed)
+  let b := gaussianSoftAbsExpWeight t (-q Unit.unit)
+  let c := gaussianSoftAbsExpWeight t (-q Unit.unit + 1)
+  let r := gaussianSoftAbsTailBandMass (-q Unit.unit) * (4 : ENNReal)⁻¹
+  let s := 1 - gaussianSoftAbsTailBandMass (-q Unit.unit)
+  have hA : MeasurableSet A :=
+    measurableSet_le measurable_const (measurable_pi_apply _)
+  have hB : MeasurableSet B :=
+    measurableSet_le measurable_const (measurable_pi_apply _)
+  have hAB : A ⊆ B := by
+    intro y hy
+    have hδ := gaussianSoftAbsUnitMinSpeed_pos
+    dsimp [A, B] at hy ⊢
+    linarith
+  have hab : a ≤ b := by
+    unfold a b gaussianSoftAbsExpWeight
+    apply ENNReal.ofReal_le_ofReal
+    apply Real.exp_le_exp.mpr
+    have hqδ : 0 ≤ -q Unit.unit - gaussianSoftAbsUnitMinSpeed := by
+      have hδ := gaussianSoftAbsUnitMinSpeed_lt_one
+      linarith
+    rw [abs_of_nonneg hqδ,
+      abs_of_nonneg (by linarith : 0 ≤ -q Unit.unit)]
+    exact mul_le_mul_of_nonneg_left (sub_le_self _
+      gaussianSoftAbsUnitMinSpeed_pos.le) ht
+  have hr : r ≤ μ A := by
+    exact gaussianSoftAbsTailBandMass_neg_mul_quarter_le_inward q
+  have hmassB : gaussianSoftAbsTailBandMass (-q Unit.unit) ≤ μ B := by
+    exact gaussianSoftAbsTailBandMass_neg_le_nonoutward q
+  have he : μ Bᶜ ≤ s := by
+    rw [measure_compl hB (measure_ne_top μ B), measure_univ]
+    exact tsub_le_tsub_left hmassB 1
+  have hsum : μ A + μ (B \ A) + μ Bᶜ = 1 :=
+    measure_nested_partition μ hA hB hAB
+  exact (lintegral_gaussianSoftAbsExpLyapunov_le_of_neg t ht q hq).trans
+    (threeRegionWeightedSum_le hab hr he hsum)
+
+/-- Dimensionless coefficient obtained after factoring the current
+exponential Lyapunov value out of the positive-tail estimate. -/
+noncomputable def gaussianSoftAbsTailDriftCoefficient (t q : ℝ) : ENNReal :=
+  ENNReal.ofReal (Real.exp (-t * gaussianSoftAbsUnitMinSpeed)) *
+      (gaussianSoftAbsTailBandMass q * (4 : ENNReal)⁻¹) +
+    (1 - gaussianSoftAbsTailBandMass q * (4 : ENNReal)⁻¹) +
+    ENNReal.ofReal (Real.exp t) *
+      (1 - gaussianSoftAbsTailBandMass q)
+
+theorem gaussianSoftAbsExpWeight_sub_minSpeed
+    (t : ℝ) (q : ℝ) (hq : 2 ≤ q) :
+    gaussianSoftAbsExpWeight t (q - gaussianSoftAbsUnitMinSpeed) =
+      ENNReal.ofReal (Real.exp (-t * gaussianSoftAbsUnitMinSpeed)) *
+        gaussianSoftAbsExpWeight t q := by
+  have hδ := gaussianSoftAbsUnitMinSpeed_lt_one
+  unfold gaussianSoftAbsExpWeight
+  rw [abs_of_nonneg (by linarith : 0 ≤ q - gaussianSoftAbsUnitMinSpeed),
+    abs_of_nonneg (by linarith : 0 ≤ q)]
+  rw [← ENNReal.ofReal_mul (Real.exp_pos _).le, ← Real.exp_add]
+  congr 2
+  ring
+
+theorem gaussianSoftAbsExpWeight_add_one
+    (t : ℝ) (q : ℝ) (hq : 0 ≤ q) :
+    gaussianSoftAbsExpWeight t (q + 1) =
+      ENNReal.ofReal (Real.exp t) * gaussianSoftAbsExpWeight t q := by
+  unfold gaussianSoftAbsExpWeight
+  rw [abs_of_nonneg (by linarith : 0 ≤ q + 1), abs_of_nonneg hq]
+  rw [← ENNReal.ofReal_mul (Real.exp_pos _).le, ← Real.exp_add]
+  congr 2
+  ring
+
+theorem gaussianSoftAbsExpWeight_neg (t x : ℝ) :
+    gaussianSoftAbsExpWeight t (-x) = gaussianSoftAbsExpWeight t x := by
+  simp [gaussianSoftAbsExpWeight]
+
+/-- The positive-tail transition contracts the current Lyapunov value by the
+explicit dimensionless tail coefficient. -/
+theorem lintegral_gaussianSoftAbsExpLyapunov_le_mul_tailDriftCoefficient_of_pos
+    (t : ℝ) (ht : 0 ≤ t) (q : Position Unit) (hq : 2 ≤ q Unit.unit) :
+    (∫⁻ y, gaussianSoftAbsExpLyapunov t y
+        ∂gaussianSoftAbsMultinomialTransition 1 1 q) ≤
+      gaussianSoftAbsTailDriftCoefficient t (q Unit.unit) *
+        gaussianSoftAbsExpLyapunov t q := by
+  refine (lintegral_gaussianSoftAbsExpLyapunov_le_tailCoefficient_of_pos
+    t ht q hq).trans_eq ?_
+  rw [gaussianSoftAbsExpWeight_sub_minSpeed t (q Unit.unit) hq,
+    gaussianSoftAbsExpWeight_add_one t (q Unit.unit) (by linarith)]
+  unfold gaussianSoftAbsExpLyapunov gaussianSoftAbsTailDriftCoefficient
+  ring
+
+/-- Symmetric negative-tail contraction by the same coefficient evaluated at
+the absolute tail coordinate. -/
+theorem lintegral_gaussianSoftAbsExpLyapunov_le_mul_tailDriftCoefficient_of_neg
+    (t : ℝ) (ht : 0 ≤ t) (q : Position Unit) (hq : q Unit.unit ≤ -2) :
+    (∫⁻ y, gaussianSoftAbsExpLyapunov t y
+        ∂gaussianSoftAbsMultinomialTransition 1 1 q) ≤
+      gaussianSoftAbsTailDriftCoefficient t (-q Unit.unit) *
+        gaussianSoftAbsExpLyapunov t q := by
+  refine (lintegral_gaussianSoftAbsExpLyapunov_le_tailCoefficient_of_neg
+    t ht q hq).trans_eq ?_
+  rw [gaussianSoftAbsExpWeight_sub_minSpeed t (-q Unit.unit) (by linarith),
+    gaussianSoftAbsExpWeight_add_one t (-q Unit.unit) (by linarith),
+    gaussianSoftAbsExpWeight_neg t (q Unit.unit)]
+  unfold gaussianSoftAbsExpLyapunov gaussianSoftAbsTailDriftCoefficient
+  ring
+
+theorem gaussianSoftAbsTailDriftCoefficient_tendsto
+    (t : ℝ) :
+    Filter.Tendsto (gaussianSoftAbsTailDriftCoefficient t)
+      Filter.atTop
+      (nhds
+        (ENNReal.ofReal (Real.exp (-t * gaussianSoftAbsUnitMinSpeed)) *
+            (1 * (4 : ENNReal)⁻¹) +
+          (1 - 1 * (4 : ENNReal)⁻¹) +
+          ENNReal.ofReal (Real.exp t) * (1 - 1))) := by
+  have hm := gaussianSoftAbsTailBandMass_tendsto_one
+  have hr : Filter.Tendsto
+      (fun q => gaussianSoftAbsTailBandMass q * (4 : ENNReal)⁻¹)
+      Filter.atTop (nhds (1 * (4 : ENNReal)⁻¹)) :=
+    ENNReal.Tendsto.mul_const (b := (4 : ENNReal)⁻¹) hm
+      (Or.inr (by norm_num : (4 : ENNReal)⁻¹ ≠ ∞))
+  have hremR : Filter.Tendsto
+      (fun q => 1 - gaussianSoftAbsTailBandMass q * (4 : ENNReal)⁻¹)
+      Filter.atTop (nhds (1 - 1 * (4 : ENNReal)⁻¹)) :=
+    ENNReal.Tendsto.sub tendsto_const_nhds hr
+      (Or.inl ENNReal.one_ne_top)
+  have hremM : Filter.Tendsto
+      (fun q => 1 - gaussianSoftAbsTailBandMass q)
+      Filter.atTop (nhds (1 - 1)) :=
+    ENNReal.Tendsto.sub tendsto_const_nhds hm
+      (Or.inl ENNReal.one_ne_top)
+  have hfirst := ENNReal.Tendsto.const_mul
+    (a := ENNReal.ofReal (Real.exp (-t * gaussianSoftAbsUnitMinSpeed))) hr
+    (Or.inr (ENNReal.ofReal_ne_top : ENNReal.ofReal
+      (Real.exp (-t * gaussianSoftAbsUnitMinSpeed)) ≠ ∞))
+  have hlast := ENNReal.Tendsto.const_mul
+    (a := ENNReal.ofReal (Real.exp t)) hremM
+    (Or.inr (ENNReal.ofReal_ne_top : ENNReal.ofReal (Real.exp t) ≠ ∞))
+  exact (hfirst.add hremR).add hlast
+
+theorem gaussianSoftAbsTailDriftCoefficient_limit_lt_one
+    (t : ℝ) (ht : 0 < t) :
+    ENNReal.ofReal (Real.exp (-t * gaussianSoftAbsUnitMinSpeed)) *
+          (1 * (4 : ENNReal)⁻¹) +
+        (1 - 1 * (4 : ENNReal)⁻¹) +
+        ENNReal.ofReal (Real.exp t) * (1 - 1) < 1 := by
+  have hneg : -t * gaussianSoftAbsUnitMinSpeed < 0 := by
+    have hδ := gaussianSoftAbsUnitMinSpeed_pos
+    nlinarith
+  have hexp : ENNReal.ofReal
+      (Real.exp (-t * gaussianSoftAbsUnitMinSpeed)) < 1 := by
+    rw [ENNReal.ofReal_lt_one]
+    exact (Real.exp_lt_one_iff.mpr hneg)
+  have hr0 : (4 : ENNReal)⁻¹ ≠ 0 := by norm_num
+  have hrTop : (4 : ENNReal)⁻¹ ≠ ∞ := by norm_num
+  have hmul := ENNReal.mul_lt_mul_right hr0 hrTop hexp
+  simp only [one_mul, tsub_self, mul_zero, add_zero]
+  calc
+    ENNReal.ofReal (Real.exp (-t * gaussianSoftAbsUnitMinSpeed)) *
+          (4 : ENNReal)⁻¹ + (1 - (4 : ENNReal)⁻¹) <
+        1 * (4 : ENNReal)⁻¹ + (1 - (4 : ENNReal)⁻¹) := by
+      have hadd := ENNReal.add_lt_add_right
+        (by norm_num : 1 - (4 : ENNReal)⁻¹ ≠ ∞) hmul
+      simpa [mul_comm, add_comm] using hadd
+    _ = 1 := by
+      rw [one_mul]
+      rw [add_comm]
+      exact tsub_add_cancel_of_le (by norm_num : (4 : ENNReal)⁻¹ ≤ 1)
+
+/-- For every positive exponential scale, the explicit tail coefficient is
+eventually uniformly subunit. -/
+theorem eventually_gaussianSoftAbsTailDriftCoefficient_lt_one
+    (t : ℝ) (ht : 0 < t) :
+    ∀ᶠ q : ℝ in Filter.atTop,
+      gaussianSoftAbsTailDriftCoefficient t q < 1 := by
+  exact (gaussianSoftAbsTailDriftCoefficient_tendsto t).eventually
+    (Iio_mem_nhds (gaussianSoftAbsTailDriftCoefficient_limit_lt_one t ht))
+
+theorem exists_gaussianSoftAbsTailDriftCoefficient_le_rate
+    (t : ℝ) (ht : 0 < t) :
+    ∃ R : ℝ, ∃ rate : ENNReal, rate < 1 ∧
+      ∀ x : ℝ, R ≤ x →
+        gaussianSoftAbsTailDriftCoefficient t x ≤ rate := by
+  let limit : ENNReal :=
+    ENNReal.ofReal (Real.exp (-t * gaussianSoftAbsUnitMinSpeed)) *
+          (1 * (4 : ENNReal)⁻¹) +
+        (1 - 1 * (4 : ENNReal)⁻¹) +
+        ENNReal.ofReal (Real.exp t) * (1 - 1)
+  have hlimit : limit < 1 :=
+    gaussianSoftAbsTailDriftCoefficient_limit_lt_one t ht
+  obtain ⟨rate, hlimitRate, hrate⟩ := exists_between hlimit
+  have heventually : ∀ᶠ x : ℝ in Filter.atTop,
+      gaussianSoftAbsTailDriftCoefficient t x < rate :=
+    (gaussianSoftAbsTailDriftCoefficient_tendsto t).eventually
+      (Iio_mem_nhds hlimitRate)
+  rw [Filter.eventually_atTop] at heventually
+  obtain ⟨R, hR⟩ := heventually
+  exact ⟨R, rate, hrate, fun x hx => (hR x hx).le⟩
+
+/-- The bare one-dimensional Gaussian SoftAbs multinomial transition has a
+strict exponential Lyapunov contraction outside a compact interval. -/
+theorem exists_gaussianSoftAbs_outsideCompact_strict_drift
+    (t : ℝ) (ht : 0 < t) :
+    ∃ R : ℝ, ∃ rate : ENNReal, rate < 1 ∧
+      ∀ q : Position Unit, R ≤ |q Unit.unit| →
+        (∫⁻ y, gaussianSoftAbsExpLyapunov t y
+            ∂gaussianSoftAbsMultinomialTransition 1 1 q) ≤
+          rate * gaussianSoftAbsExpLyapunov t q := by
+  obtain ⟨R₀, rate, hrate, hcoefficient⟩ :=
+    exists_gaussianSoftAbsTailDriftCoefficient_le_rate t ht
+  refine ⟨max R₀ 2, rate, hrate, ?_⟩
+  intro q hq
+  by_cases hq0 : 0 ≤ q Unit.unit
+  · rw [abs_of_nonneg hq0] at hq
+    have hqR₀ : R₀ ≤ q Unit.unit := le_trans (le_max_left _ _) hq
+    have hq2 : 2 ≤ q Unit.unit := le_trans (le_max_right _ _) hq
+    refine (lintegral_gaussianSoftAbsExpLyapunov_le_mul_tailDriftCoefficient_of_pos
+      t ht.le q hq2).trans ?_
+    simpa [mul_comm] using (mul_le_mul_right
+      (hcoefficient _ hqR₀) (gaussianSoftAbsExpLyapunov t q))
+  · have hq0' : q Unit.unit ≤ 0 := le_of_not_ge hq0
+    rw [abs_of_nonpos hq0'] at hq
+    have hqR₀ : R₀ ≤ -q Unit.unit := le_trans (le_max_left _ _) hq
+    have hq2 : q Unit.unit ≤ -2 := by
+      have := le_trans (le_max_right R₀ 2) hq
+      linarith
+    refine (lintegral_gaussianSoftAbsExpLyapunov_le_mul_tailDriftCoefficient_of_neg
+      t ht.le q hq2).trans ?_
+    simpa [mul_comm] using (mul_le_mul_right
+      (hcoefficient _ hqR₀) (gaussianSoftAbsExpLyapunov t q))
+
+/-- The outside-compact contraction and finite-speed bound combine into an
+ordinary affine Foster--Lyapunov certificate for the actual bare sampler. -/
+theorem exists_gaussianSoftAbs_hasAffineDrift
+    (t : ℝ) (ht : 0 < t) :
+    ∃ rate allowance : ENNReal,
+      rate < 1 ∧ rate ≠ ∞ ∧ allowance ≠ ∞ ∧
+        Mcmc.Kernel.HasAffineDrift
+          (gaussianSoftAbsMultinomialTransition 1 1)
+          (gaussianSoftAbsExpLyapunov t) rate allowance := by
+  obtain ⟨R₀, rate, hrate, houtside⟩ :=
+    exists_gaussianSoftAbs_outsideCompact_strict_drift t ht
+  let R := max R₀ 0
+  let allowance := ENNReal.ofReal (Real.exp t) *
+    gaussianSoftAbsExpWeight t R
+  have hR0 : 0 ≤ R := le_max_right _ _
+  have hallowanceTop : allowance ≠ ∞ := by
+    exact ENNReal.mul_ne_top ENNReal.ofReal_ne_top ENNReal.ofReal_ne_top
+  refine ⟨rate, allowance, hrate, ne_top_of_lt (hrate.trans_le le_top),
+    hallowanceTop, measurable_gaussianSoftAbsExpLyapunov t, ?_⟩
+  intro q
+  by_cases hq : R ≤ |q Unit.unit|
+  · have hR₀q : R₀ ≤ |q Unit.unit| := le_trans (le_max_left _ _) hq
+    exact (houtside q hR₀q).trans (le_add_right le_rfl)
+  · have hV : gaussianSoftAbsExpLyapunov t q ≤
+        gaussianSoftAbsExpWeight t R := by
+      unfold gaussianSoftAbsExpLyapunov gaussianSoftAbsExpWeight
+      apply ENNReal.ofReal_le_ofReal
+      apply Real.exp_le_exp.mpr
+      rw [abs_of_nonneg hR0]
+      exact mul_le_mul_of_nonneg_left (le_of_not_ge hq) ht.le
+    calc
+      (∫⁻ y, gaussianSoftAbsExpLyapunov t y
+          ∂gaussianSoftAbsMultinomialTransition 1 1 q) ≤
+          ENNReal.ofReal (Real.exp t) *
+            gaussianSoftAbsExpLyapunov t q :=
+        lintegral_gaussianSoftAbsExpLyapunov_le_global t ht.le q
+      _ ≤ allowance := by
+        simpa [mul_comm] using
+          (mul_le_mul_right hV (ENNReal.ofReal (Real.exp t)))
+      _ ≤ rate * gaussianSoftAbsExpLyapunov t q + allowance :=
+        le_add_left le_rfl
+
+/-- A positive exponential scale admits one fixed strict drift rate beyond a
+finite positive-tail threshold. -/
+theorem exists_gaussianSoftAbs_positiveTail_strict_drift
+    (t : ℝ) (ht : 0 < t) :
+    ∃ R : ℝ, ∃ rate : ENNReal, rate < 1 ∧
+      ∀ q : Position Unit, R ≤ q Unit.unit →
+        (∫⁻ y, gaussianSoftAbsExpLyapunov t y
+            ∂gaussianSoftAbsMultinomialTransition 1 1 q) ≤
+          rate * gaussianSoftAbsExpLyapunov t q := by
+  let limit : ENNReal :=
+    ENNReal.ofReal (Real.exp (-t * gaussianSoftAbsUnitMinSpeed)) *
+          (1 * (4 : ENNReal)⁻¹) +
+        (1 - 1 * (4 : ENNReal)⁻¹) +
+        ENNReal.ofReal (Real.exp t) * (1 - 1)
+  have hlimit : limit < 1 :=
+    gaussianSoftAbsTailDriftCoefficient_limit_lt_one t ht
+  obtain ⟨rate, hlimitRate, hrate⟩ := exists_between hlimit
+  have heventually : ∀ᶠ q : ℝ in Filter.atTop,
+      gaussianSoftAbsTailDriftCoefficient t q < rate :=
+    (gaussianSoftAbsTailDriftCoefficient_tendsto t).eventually
+      (Iio_mem_nhds hlimitRate)
+  rw [Filter.eventually_atTop] at heventually
+  obtain ⟨R₀, hR₀⟩ := heventually
+  refine ⟨max R₀ 2, rate, hrate, ?_⟩
+  intro q hq
+  have hqR₀ : R₀ ≤ q Unit.unit := le_trans (le_max_left _ _) hq
+  have hq2 : 2 ≤ q Unit.unit := le_trans (le_max_right _ _) hq
+  refine (lintegral_gaussianSoftAbsExpLyapunov_le_mul_tailDriftCoefficient_of_pos
+    t ht.le q hq2).trans ?_
+  simpa [mul_comm] using (mul_le_mul_right
+    (hR₀ _ hqR₀).le (gaussianSoftAbsExpLyapunov t q))
 
 /-- The bare Gaussian SoftAbs transition is identity at trajectory length
 zero. Consequently any convergence theorem for the unaugmented sampler must
