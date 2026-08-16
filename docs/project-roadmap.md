@@ -279,7 +279,10 @@ bounded Feynman--Kac potentials remains model-specific work. Conditional on
 that certificate, the count/horizon coefficient is explicit and its
 large-particle asymptotics are now complete: constant and scheduled
 coefficients tend to one, and fixed-positive-iteration geometric factors tend
-to zero. The intermediate support interface is now
+to zero. Under a count-uniform family of those explicit model certificates,
+Lean now transfers that scalar limit to the actual count-indexed PG laws:
+their total-variation distance from the trajectory target tends to zero after
+every fixed positive number of iterations. The intermediate support interface is now
 machine checked: `ParticleGibbsFiberConnectivity` reduces positivity of each
 collapsed trajectory transition to a positive selected-history witness and a
 positive terminal-index edge between the corresponding fibers, and this

@@ -471,6 +471,76 @@ theorem boundedPotentialParticleGibbs_totalVariation_tendsto_zero
     (particleGibbsCountCoefficient_pos certificate.extra_pos
       certificate.bound_pos) initialLaw
 
+/-- If the same finite model bound supplies the displayed PG minorization at
+every particle count, then for every fixed positive number of PG iterations
+the actual count-indexed output law approaches its trajectory target as the
+number of particles tends to infinity.  The index `extra` below represents
+`extra + 2` total particles, keeping the retained particle and at least one
+additional particle present at every index. -/
+theorem boundedPotentialParticleGibbs_totalVariation_tendsto_zero_count
+    {initial : Distribution Sample} {steps : List (FeynmanKacStep Sample)}
+    {hnormalizer : 0 < normalizingConstant initial steps} {bound : ℝ}
+    (certificates : ∀ extra : ℕ,
+      BoundedPotentialParticleGibbsMinorization
+        initial steps hnormalizer (extra + 1))
+    (hbound : ∀ extra, (certificates extra).bound = bound)
+    (initialLaw : Distribution (Trajectory steps))
+    (iterations : ℕ) (hiterations : 0 < iterations) :
+    Filter.Tendsto (fun extra =>
+      Nonhomogeneous.distributionTotalVariation
+        (Nonhomogeneous.iterateLaw initialLaw
+          (countedTrajectoryParticleGibbsKernel initial steps hnormalizer
+            (extra + 1)) iterations)
+        (countedTrajectoryTarget initial steps hnormalizer (extra + 1)))
+      Filter.atTop (nhds 0) := by
+  have hrate : Filter.Tendsto (fun extra =>
+      (1 - particleGibbsCountCoefficient (extra + 1) bound
+        (steps.length + 1)) ^ iterations) Filter.atTop (nhds 0) := by
+    have h := (particleGibbsCountRate_tendsto_zero bound
+      (steps.length + 1) iterations hiterations).comp
+        (Filter.tendsto_add_atTop_nat 1)
+    simpa [Function.comp_def, Nat.add_comm] using h
+  apply squeeze_zero'
+    (Filter.Eventually.of_forall fun extra =>
+      Nonhomogeneous.distributionTotalVariation_nonneg _ _)
+    (Filter.Eventually.of_forall fun extra => ?_) hrate
+  simpa only [hbound extra] using
+    boundedPotentialParticleGibbs_totalVariation_le
+      (certificates extra) initialLaw iterations
+
+/-- Scheduled PG certificates give the corresponding large-particle theorem
+when the penalty list is common to every count. -/
+theorem scheduledPotentialParticleGibbs_totalVariation_tendsto_zero_count
+    {initial : Distribution Sample} {steps : List (FeynmanKacStep Sample)}
+    {hnormalizer : 0 < normalizingConstant initial steps}
+    {penalties : List ℝ}
+    (certificates : ∀ extra : ℕ,
+      ScheduledPotentialParticleGibbsMinorization
+        initial steps hnormalizer (extra + 1))
+    (hpenalties : ∀ extra, (certificates extra).penalties = penalties)
+    (initialLaw : Distribution (Trajectory steps))
+    (iterations : ℕ) (hiterations : 0 < iterations) :
+    Filter.Tendsto (fun extra =>
+      Nonhomogeneous.distributionTotalVariation
+        (Nonhomogeneous.iterateLaw initialLaw
+          (countedTrajectoryParticleGibbsKernel initial steps hnormalizer
+            (extra + 1)) iterations)
+        (countedTrajectoryTarget initial steps hnormalizer (extra + 1)))
+      Filter.atTop (nhds 0) := by
+  have hrate : Filter.Tendsto (fun extra =>
+      (1 - particleGibbsScheduleCoefficient (extra + 1) penalties) ^
+        iterations) Filter.atTop (nhds 0) := by
+    have h := (particleGibbsScheduleRate_tendsto_zero penalties iterations
+      hiterations).comp (Filter.tendsto_add_atTop_nat 1)
+    simpa [Function.comp_def, Nat.add_comm] using h
+  apply squeeze_zero'
+    (Filter.Eventually.of_forall fun extra =>
+      Nonhomogeneous.distributionTotalVariation_nonneg _ _)
+    (Filter.Eventually.of_forall fun extra => ?_) hrate
+  simpa only [hpenalties extra] using
+    scheduledPotentialParticleGibbs_totalVariation_le
+      (certificates extra) initialLaw iterations
+
 /-- Full-support model ingredients construct a conservative positive refresh
 certificate directly at the `extra + 1` particle interface. This certificate
 does not claim the sharper bounded-potential coefficient above; it uses the

@@ -1,5 +1,15 @@
 # Development log
 
+- Lifted the positive-horizon particle-count rate asymptotics from scalar
+  coefficients to the actual particle-Gibbs laws. If one common bounded-model
+  penalty (or one common time-varying penalty schedule) supplies the explicit
+  minorization certificate at every count, then for every fixed positive
+  number of PG iterations the total-variation distance between the
+  count-indexed output law and its trajectory target tends to zero as the
+  total particle count tends to infinity. This remains conditional on the
+  stated model-level density certificates and does not infer them from
+  stationarity or support.
+
 - Connected the geometric drift/small-set machinery directly to marginal
   convergence. A finite initial Lyapunov moment now proves finiteness of the
   time-zero weighted off-diagonal mass, and the new endpoint combines this
