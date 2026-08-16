@@ -3,6 +3,7 @@ module Certificates
 export BoundWitness, DecisionCertificate, certify_bound, certify_decision,
     SamplerDecisionCertificate, certify_rwmh_decision, certify_hmc_decision,
     MultinomialSelectionCertificate, certify_multinomial_selection,
+    SliceComparisonCertificate, certify_slice_comparisons,
     ImplicitSolveCertificate, certify_implicit_solve, certifies_exact_solver,
     ContractionErrorBound, contraction_error_bound,
     is_stable, uncertainty_band
@@ -19,6 +20,47 @@ struct BoundWitness
     ideal::BigFloat
     bound::BigFloat
     observed_error::BigFloat
+end
+
+"""Checked comparison margins for one finite stepping-out/shrinkage trace.
+
+The supplied ideals and bounds remain proof inputs. When `is_stable` holds,
+Lean's `SliceComparisonCertificate.decisionTrace_eq` theorem proves that every
+endpoint-stop and proposal-accept comparison agrees with ideal-real execution.
+"""
+struct SliceComparisonCertificate
+    threshold::BoundWitness
+    values::Vector{BoundWitness}
+    minimum_margin::BigFloat
+    maximum_uncertainty::BigFloat
+end
+
+is_stable(certificate::SliceComparisonCertificate) =
+    certificate.maximum_uncertainty < certificate.minimum_margin
+uncertainty_band(certificate::SliceComparisonCertificate) =
+    certificate.maximum_uncertainty
+
+function certify_slice_comparisons(computed_threshold::Real,
+        ideal_threshold::Real, threshold_bound::Real,
+        computed_values::AbstractVector{<:Real},
+        ideal_values::AbstractVector{<:Real},
+        value_bounds::AbstractVector{<:Real}; precision::Integer=256)
+    length(computed_values) == length(ideal_values) == length(value_bounds) ||
+        throw(DimensionMismatch("value and bound vectors must have equal length"))
+    isempty(computed_values) &&
+        throw(ArgumentError("a slice trace must contain at least one comparison"))
+    threshold = certify_bound(computed_threshold, ideal_threshold,
+        threshold_bound; precision=precision)
+    values = [certify_bound(computed_values[index], ideal_values[index],
+        value_bounds[index]; precision=precision) for index in eachindex(computed_values)]
+    setprecision(BigFloat, precision) do
+        minimum_margin = minimum(abs(witness.ideal - threshold.ideal)
+            for witness in values)
+        maximum_uncertainty = maximum(witness.bound + threshold.bound
+            for witness in values)
+        SliceComparisonCertificate(threshold, values, minimum_margin,
+            maximum_uncertainty)
+    end
 end
 
 """Checked residual information for one implicit generalized-leapfrog solve.

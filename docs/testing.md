@@ -112,6 +112,13 @@ remains a runtime diagnostic for the Float64 scheduler. The same exact
 stationarity theorem transfers to the unit-speed one-dimensional Gaussian BPS
 client, without asserting a floating-point refinement or convergence rate.
 
+The practical stepping-out/shrinkage slice suite also checks stable and
+unstable bounded-comparison certificates. Lean proves that a stable
+certificate forces every endpoint-stop and proposal-accept decision in the
+finite trace to agree with ideal-real execution. The supplied ideal values and
+platform error bounds remain certificate inputs, and this test is not evidence
+for the separate restricted joint trace-preservation theorem.
+
 Position-dependent generalized leapfrog now has Reference-versus-Optimized
 fixed-point tests using nonseparable derivatives, direct checks of both
 implicit residuals, public-API validation, and a check that approximate

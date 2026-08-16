@@ -116,4 +116,15 @@ end
     @test_throws ArgumentError SteppingOutSlice(normal_logdensity, 0.0)
     @test_throws ArgumentError SteppingOutSlice(normal_logdensity, 1.0;
         max_steps=-1)
+
+    stable = Certificates.certify_slice_comparisons(-0.5, -0.5, 1e-12,
+        [-1.0, -0.2], [-1.0, -0.2], [1e-12, 1e-12])
+    @test Certificates.is_stable(stable)
+    @test Certificates.uncertainty_band(stable) == BigFloat(1e-12) + BigFloat(1e-12)
+
+    boundary = Certificates.certify_slice_comparisons(-0.5, -0.5, 1e-3,
+        [-0.4995], [-0.4995], [1e-3])
+    @test !Certificates.is_stable(boundary)
+    @test_throws DimensionMismatch Certificates.certify_slice_comparisons(
+        -0.5, -0.5, 0.0, [-1.0], [-1.0, -0.2], [0.0])
 end

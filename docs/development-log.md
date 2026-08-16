@@ -1,5 +1,13 @@
 # Development log
 
+- Added bounded numerical refinement for every comparison in a finite
+  stepping-out/shrinkage trace. Lean proves simultaneous agreement of strict,
+  non-strict stop, and acceptance decisions from per-evaluation callback
+  bounds, one log-height bound, and explicit boundary margins. Julia checks
+  the same execution-specific certificate using `BigFloat`; it does not claim
+  the supplied ideals or platform bounds automatically. The restricted joint
+  trace-reversal proof remains separate.
+
 - Simplified the concrete practical-slice proof boundary. A measurable trace
   reversal that preserves the ambient augmented law and leaves the success
   event invariant now automatically preserves the law restricted to
