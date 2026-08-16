@@ -841,6 +841,28 @@ instance gaussianZigZagHazardSequenceMeasure.instIsProbabilityMeasure :
   unfold gaussianZigZagHazardSequenceMeasure
   infer_instance
 
+/-- Removing the first coordinate from the iid hazard stream leaves the same
+infinite-product law. -/
+theorem gaussianZigZagHazardSequenceMeasure_map_tail :
+    gaussianZigZagHazardSequenceMeasure.map
+        (fun hazards index => hazards (index + 1)) =
+      gaussianZigZagHazardSequenceMeasure := by
+  unfold gaussianZigZagHazardSequenceMeasure
+  simpa using Measure.map_infinitePi_infinitePi_of_inj
+    (P := fun _ : ℕ => gaussianZigZagHazardMeasure)
+    (f := fun index : ℕ => index + 1) (by
+      intro left right heq
+      exact Nat.add_right_cancel heq)
+
+/-- The hazard-stream tail operation is measure preserving. -/
+theorem gaussianZigZagHazardSequenceMeasure_preserving_tail :
+    MeasurePreserving (fun hazards : ℕ → NNReal =>
+      fun index => hazards (index + 1))
+      gaussianZigZagHazardSequenceMeasure
+      gaussianZigZagHazardSequenceMeasure where
+  measurable := by fun_prop
+  map_eq := gaussianZigZagHazardSequenceMeasure_map_tail
+
 def gaussianZigZagLargeHazardEvent (index : ℕ) : Set (ℕ → NNReal) :=
   (fun hazards => hazards index) ⁻¹' Set.Ioi (1 : NNReal)
 
@@ -1039,6 +1061,76 @@ noncomputable def gaussianZigZagEventElapsed
     (eventCount : ℕ) : ENNReal :=
   ∑ index ∈ Finset.range eventCount,
     gaussianZigZagEventWaitTerm initial hazards index
+
+/-- Dropping the first hazard and restarting from the first post-event state
+reproduces every later pre-event state. -/
+theorem gaussianZigZagEventState_succ_eq_tail
+    (initial : ZigZagState) (hazards : ℕ → NNReal) (eventCount : ℕ) :
+    gaussianZigZagEventState initial hazards (eventCount + 1) =
+      gaussianZigZagEventState
+        (gaussianZigZagEventUpdate initial (hazards 0))
+        (fun index => hazards (index + 1)) eventCount := by
+  induction eventCount with
+  | zero => simp [gaussianZigZagEventState]
+  | succ eventCount ih =>
+      change gaussianZigZagEventUpdate
+          (gaussianZigZagEventState initial hazards (eventCount + 1))
+          (hazards (eventCount + 1)) =
+        gaussianZigZagEventUpdate
+          (gaussianZigZagEventState
+            (gaussianZigZagEventUpdate initial (hazards 0))
+            (fun index => hazards (index + 1)) eventCount)
+          (hazards (eventCount + 1))
+      exact congrArg
+        (fun state => gaussianZigZagEventUpdate state (hazards (eventCount + 1))) ih
+
+/-- Inter-event waits shift with the hazard stream after the first event. -/
+theorem gaussianZigZagEventWait_succ_eq_tail
+    (initial : ZigZagState) (hazards : ℕ → NNReal) (eventCount : ℕ) :
+    gaussianZigZagEventWait initial hazards (eventCount + 1) =
+      gaussianZigZagEventWait
+        (gaussianZigZagEventUpdate initial (hazards 0))
+        (fun index => hazards (index + 1)) eventCount := by
+  unfold gaussianZigZagEventWait
+  rw [gaussianZigZagEventState_succ_eq_tail]
+
+theorem gaussianZigZagEventWaitTerm_succ_eq_tail
+    (initial : ZigZagState) (hazards : ℕ → NNReal) (eventCount : ℕ) :
+    gaussianZigZagEventWaitTerm initial hazards (eventCount + 1) =
+      gaussianZigZagEventWaitTerm
+        (gaussianZigZagEventUpdate initial (hazards 0))
+        (fun index => hazards (index + 1)) eventCount := by
+  unfold gaussianZigZagEventWaitTerm
+  rw [gaussianZigZagEventWait_succ_eq_tail]
+
+/-- Cumulative event time splits into the first wait plus the cumulative time
+of the restarted tail process. -/
+theorem gaussianZigZagEventElapsed_succ_eq_first_add_tail
+    (initial : ZigZagState) (hazards : ℕ → NNReal) (eventCount : ℕ) :
+    gaussianZigZagEventElapsed initial hazards (eventCount + 1) =
+      gaussianZigZagEventWaitTerm initial hazards 0 +
+        gaussianZigZagEventElapsed
+          (gaussianZigZagEventUpdate initial (hazards 0))
+          (fun index => hazards (index + 1)) eventCount := by
+  induction eventCount with
+  | zero => simp [gaussianZigZagEventElapsed]
+  | succ eventCount ih =>
+      rw [show gaussianZigZagEventElapsed initial hazards (eventCount + 2) =
+          gaussianZigZagEventElapsed initial hazards (eventCount + 1) +
+            gaussianZigZagEventWaitTerm initial hazards (eventCount + 1) by
+        simp [gaussianZigZagEventElapsed, Finset.sum_range_succ]]
+      rw [ih, gaussianZigZagEventWaitTerm_succ_eq_tail]
+      rw [show gaussianZigZagEventElapsed
+          (gaussianZigZagEventUpdate initial (hazards 0))
+          (fun index => hazards (index + 1)) (eventCount + 1) =
+          gaussianZigZagEventElapsed
+            (gaussianZigZagEventUpdate initial (hazards 0))
+            (fun index => hazards (index + 1)) eventCount +
+          gaussianZigZagEventWaitTerm
+            (gaussianZigZagEventUpdate initial (hazards 0))
+            (fun index => hazards (index + 1)) eventCount by
+        simp [gaussianZigZagEventElapsed, Finset.sum_range_succ]]
+      ac_rfl
 
 /-- Equivalent finite-horizon form of nonexplosion: almost surely, cumulative
 event time tends to infinity as the event count grows. -/
@@ -1261,6 +1353,48 @@ theorem gaussianZigZagCrossingIndex_zero_eq_one
     · unfold gaussianZigZagEventCrossed gaussianZigZagEventElapsed
       simp
     · exact ⟨1, hcrossing⟩
+
+/-- If the first event wait lies strictly beyond the requested horizon, the
+first cumulative-time crossing occurs at index one.  This is the no-event
+branch of the stopped-path first-event decomposition. -/
+theorem gaussianZigZagCrossingIndex_eq_one_of_lt_firstWait
+    (initial : ZigZagState) (horizon : NNReal) (hazards : ℕ → NNReal)
+    (hbefore : horizon < gaussianZigZagEventWait initial hazards 0) :
+    gaussianZigZagCrossingIndex initial horizon hazards = 1 := by
+  classical
+  have hcrossing : gaussianZigZagEventCrossed initial horizon hazards 1 := by
+    unfold gaussianZigZagEventCrossed gaussianZigZagEventElapsed
+    simp only [Finset.sum_range_succ, Finset.sum_range_zero, zero_add]
+    unfold gaussianZigZagEventWaitTerm
+    rw [ENNReal.ofReal_coe_nnreal]
+    exact_mod_cast hbefore
+  unfold gaussianZigZagCrossingIndex
+  apply (Nat.find_eq_iff
+    (gaussianZigZagCrossingSearchPredicate_exists initial horizon hazards)).2
+  constructor
+  · exact Or.inl hcrossing
+  · intro eventCount heventCount
+    have heq : eventCount = 0 := Nat.lt_one_iff.mp heventCount
+    subst eventCount
+    simp only [gaussianZigZagCrossingSearchPredicate, true_and]
+    push Not
+    constructor
+    · unfold gaussianZigZagEventCrossed gaussianZigZagEventElapsed
+      simp
+    · exact ⟨1, hcrossing⟩
+
+/-- Before the first event, the stopped construction is exactly deterministic
+linear flow.  This pointwise lemma is the base branch needed before applying
+the exponential clock's law-level memoryless property. -/
+theorem gaussianZigZagHorizonEndpoint_eq_flow_of_lt_firstWait
+    (initial : ZigZagState) (horizon : NNReal) (hazards : ℕ → NNReal)
+    (hbefore : horizon < gaussianZigZagEventWait initial hazards 0) :
+    gaussianZigZagHorizonEndpoint initial horizon hazards =
+      zigZagFlow horizon initial := by
+  unfold gaussianZigZagHorizonEndpoint
+  rw [gaussianZigZagCrossingIndex_eq_one_of_lt_firstWait
+    initial horizon hazards hbefore]
+  simp [gaussianZigZagEventElapsed, gaussianZigZagEventState]
 
 theorem gaussianZigZagHorizonEndpoint_zero
     (initial : ZigZagState) (hazards : ℕ → NNReal)

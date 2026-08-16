@@ -1,5 +1,16 @@
 # Development log
 
+- Began the law-level first-event recursion needed for Gaussian Zig-Zag
+  weak-forward uniqueness. Lean now proves that dropping the first hazard and
+  restarting from the first post-event state reproduces every later event
+  state, inter-event wait, and cumulative elapsed time. The tail of the iid
+  infinite hazard stream is measure preserving, and the stopped endpoint is
+  exactly deterministic flow whenever the horizon lies before the first
+  event. These results deliberately stop short of a semigroup claim: a
+  horizon may cut through the current exponential clock, so the next required
+  theorem is the conditional residual-clock memoryless law, followed by the
+  law-level first-event equation.
+
 - Reconciled the Julia diagnostic inventory. Every registered property,
   Geweke, continuous/mixed-state, robustness, ESS, and callback-count test is
   active; there are no skipped or broken testsets. The formerly historical

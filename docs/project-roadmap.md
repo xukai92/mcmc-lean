@@ -547,7 +547,12 @@ by paper date:
   domain now has a checked `ofFiber` constructor embedding any compactly
   supported `C¹` real-line observable into either Boolean velocity fiber,
   with the opposite fiber identically zero. Its generator integrability is
-  derived automatically from compact `C¹` support;
+  derived automatically from compact `C¹` support. The stopped construction
+  now has its pointwise first-event foundation: state, wait, and elapsed-time
+  tail recursions; preservation of the iid hazard law by the tail map; and the
+  exact no-event endpoint branch. The next dependency is a law-level
+  exponential residual-clock theorem. This is essential because splitting a
+  horizon between events is not a pointwise semigroup identity;
 2. bare Gaussian SoftAbs GR-HMC convergence -- complete for the concrete
    one-dimensional `ε = 1`, `L = 1` chain. Lean proves affine drift, compact
    skeleton minorization, faithful geometric meeting, the normalized target's
