@@ -583,4 +583,53 @@ theorem integral_bouncyPhaseGenerator_l2StandardGaussian_eq_zero
   · exact hfluxIntegrated
   · exact hibp
 
+/-- Canonical-momentum formulation of Gaussian-velocity BPS generator balance.
+This is the version intended for clients shared with the HMC development: the
+velocity law is exactly `standardMomentumMeasure`, rather than the definitionally
+different transported Euclidean Gaussian used to prove reflection invariance. -/
+theorem integral_bouncyPhaseGenerator_standardMomentum_eq_zero
+    (positionLaw : Measure (Position ι)) [SFinite positionLaw]
+    (normal : Position ι → Position ι)
+    (directionalDerivative observable : Position ι → Position ι → ℝ)
+    (htransport : ∀ position,
+      Integrable (directionalDerivative position)
+        Mcmc.Hamiltonian.standardMomentumMeasure)
+    (hincoming : ∀ position, Integrable (fun velocity =>
+      bouncyRate (normal position) velocity *
+        observable position
+          (bouncyReflection (normal position) velocity))
+        Mcmc.Hamiltonian.standardMomentumMeasure)
+    (houtgoing : ∀ position, Integrable (fun velocity =>
+      bouncyRate (normal position) velocity * observable position velocity)
+        Mcmc.Hamiltonian.standardMomentumMeasure)
+    (hreflected : ∀ position, Integrable (fun velocity =>
+      bouncyRate (normal position)
+          (bouncyReflection (normal position) velocity) *
+        observable position velocity)
+        Mcmc.Hamiltonian.standardMomentumMeasure)
+    (hphase : Integrable
+      (bouncyPhaseGenerator normal directionalDerivative observable)
+      (positionLaw.prod Mcmc.Hamiltonian.standardMomentumMeasure))
+    (htransportIntegrated : Integrable (fun position =>
+      ∫ velocity, directionalDerivative position velocity
+        ∂Mcmc.Hamiltonian.standardMomentumMeasure) positionLaw)
+    (hfluxIntegrated : Integrable (fun position =>
+      ∫ velocity, euclideanInner velocity (normal position) *
+        observable position velocity
+          ∂Mcmc.Hamiltonian.standardMomentumMeasure) positionLaw)
+    (hibp :
+      (∫ position, ∫ velocity, directionalDerivative position velocity
+          ∂Mcmc.Hamiltonian.standardMomentumMeasure ∂positionLaw) =
+        ∫ position, ∫ velocity,
+          euclideanInner velocity (normal position) *
+            observable position velocity
+          ∂Mcmc.Hamiltonian.standardMomentumMeasure ∂positionLaw) :
+    (∫ state,
+      bouncyPhaseGenerator normal directionalDerivative observable state
+        ∂(positionLaw.prod Mcmc.Hamiltonian.standardMomentumMeasure)) = 0 := by
+  rw [← l2StandardGaussianPosition_eq_standardMomentumMeasure] at htransport hincoming houtgoing hreflected hphase htransportIntegrated hfluxIntegrated hibp ⊢
+  exact integral_bouncyPhaseGenerator_l2StandardGaussian_eq_zero positionLaw
+    normal directionalDerivative observable htransport hincoming houtgoing
+    hreflected hphase htransportIntegrated hfluxIntegrated hibp
+
 end Mcmc.PDMP

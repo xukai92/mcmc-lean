@@ -30,9 +30,10 @@
   `standardMomentumMeasure`. Consequently the coordinate Householder bounce
   now has an exact preservation theorem for the canonical HMC momentum law.
   The full product-space generator theorem now consumes this result directly:
-  for transported standard-Gaussian velocities, reflection invariance is no
-  longer a client premise, leaving only integrability and the multidimensional
-  spatial integration-by-parts identity.
+  its public canonical-momentum specialization discharges reflection
+  invariance internally and leaves only integrability and the multidimensional
+  spatial integration-by-parts identity. Clients shared with HMC no longer
+  need to expose or rewrite through the transported Gaussian construction.
 
 - Connected Julia dynamic-tree certificates to executable sampling. The new
   checked selector refuses uncertified candidate-row families and otherwise
