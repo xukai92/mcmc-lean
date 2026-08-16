@@ -8,9 +8,12 @@
   estimator layer now also identifies normalized labeled-child expectations
   with their self-normalized population ratio and proves that deleting the
   retained nonnegative numerator contribution only decreases that expectation.
-  These results isolate the next proof as composition of the already-checked
-  sharp forced-cloud inequality with this invariant, rather than an invalid
-  pointwise comparison of conditioned populations.
+  The full one-propagation composition is now machine checked: for every
+  nonnegative label observable, it combines the terminal factor
+  `extra/(extra+1)` and the oscillation factor
+  `extra/(extra-1+2B)` and compares the forced suffix directly with the exact
+  normalized labeled Feynman--Kac update. This verifies the induction algebra
+  end to end before extending it to arbitrary schedules.
 
 - Added the finite horizon-indexed path-match automaton required by the PG
   trajectory client. Its state is a bounded time index plus a Boolean prefix

@@ -1421,6 +1421,208 @@ theorem forcedCloudLineageSuffixLabelExpectation_cons
   congr 1
   rw [forcedResamplePropagateLabelPopulation_eq_forcedIndependent]
 
+/-- For a single remaining propagation, terminal forced-cloud averaging
+dominates the ordinary-child self-normalized score with the exact terminal
+index factor. The retained parent contribution is discarded using
+nonnegativity. -/
+theorem forcedCloudLineageSuffixLabelExpectation_singleton_inner_lower_bound
+    {Label : Type*} [Fintype Label] [DecidableEq Label]
+    (extend : Label → Sample → Label) (step : FeynmanKacStep Sample)
+    (nextState : Sample) (extra : ℕ)
+    (population : Fin (extra + 1) → (Label × Sample))
+    (retained : Fin (extra + 1))
+    (observable : Label → ℝ) (hobservable : ∀ label, 0 ≤ observable label) :
+    (extra : ℝ) / (extra + 1) *
+        ((∑ i : Fin (extra + 1), if i = retained then 0 else
+            step.potential (population i).2 *
+              ∑ y, step.transition.prob (population i).2 y *
+                observable (extend (population i).1 y)) /
+          ∑ i, step.potential (population i).2) ≤
+      ∑ nextRetained,
+        (uniformParticleDistribution (Particle := Fin (extra + 1))).mass
+            nextRetained *
+          forcedCloudLineageSuffixLabelExpectation extend [] [] (by simp)
+            (resamplePropagateLabelDistribution extend
+              (normalizedPotentialWeights step.potential step.potential_pos
+                (fun i => (population i).2))
+              step.transition (fun i => (population i).2)
+              (fun i => (population i).1))
+            extra nextRetained
+            (extend (population retained).1 nextState, nextState) observable := by
+  let childLaw := resamplePropagateLabelDistribution extend
+    (normalizedPotentialWeights step.potential step.potential_pos
+      (fun i => (population i).2))
+    step.transition (fun i => (population i).2) (fun i => (population i).1)
+  let childExpectation := ∑ child, childLaw.mass child * observable child.1
+  have hexcluded :
+      ((∑ i : Fin (extra + 1), if i = retained then 0 else
+          step.potential (population i).2 *
+            ∑ y, step.transition.prob (population i).2 y *
+              observable (extend (population i).1 y)) /
+        ∑ i, step.potential (population i).2) ≤ childExpectation := by
+    exact unforcedNormalizedLabelScore_le_resamplePropagateExpectation
+      extend step.potential step.potential_pos step.transition
+      (fun i => (population i).2) (fun i => (population i).1) retained
+      (fun label _state => observable label) (fun label _ => hobservable label)
+  have hfactor : 0 ≤ (extra : ℝ) / (extra + 1) := by positivity
+  calc
+    (extra : ℝ) / (extra + 1) *
+        ((∑ i : Fin (extra + 1), if i = retained then 0 else
+            step.potential (population i).2 *
+              ∑ y, step.transition.prob (population i).2 y *
+                observable (extend (population i).1 y)) /
+          ∑ i, step.potential (population i).2) ≤
+        (extra : ℝ) / (extra + 1) * childExpectation :=
+      mul_le_mul_of_nonneg_left hexcluded hfactor
+    _ = ∑ nextRetained : Fin (extra + 1),
+        (uniformParticleDistribution (Particle := Fin (extra + 1))).mass
+            nextRetained *
+          ((extra : ℝ) / (extra + 1) * childExpectation) := by
+      rw [← Finset.sum_mul,
+        (uniformParticleDistribution (Particle := Fin (extra + 1))).sum_mass,
+        one_mul]
+    _ ≤ ∑ nextRetained,
+        (uniformParticleDistribution (Particle := Fin (extra + 1))).mass
+            nextRetained *
+          forcedCloudLineageSuffixLabelExpectation extend [] [] (by simp)
+            childLaw extra nextRetained
+            (extend (population retained).1 nextState, nextState) observable := by
+      apply Finset.sum_le_sum
+      intro nextRetained _
+      apply mul_le_mul_of_nonneg_left
+      · exact forcedCloudLineageSuffixLabelExpectation_nil_lower_bound
+          extend childLaw extra nextRetained
+          (extend (population retained).1 nextState, nextState)
+          observable hobservable
+      · exact (uniformParticleDistribution
+          (Particle := Fin (extra + 1))).nonneg nextRetained
+
+/-- Complete one-propagation instance of the sharp forced-cloud induction.
+It composes the terminal-index loss with the `2B-1` self-normalization loss
+and compares directly with the exact normalized labeled Feynman--Kac update. -/
+theorem forcedCloudLineageSuffixLabelExpectation_singleton_lower_bound
+    {Label : Type*} [Fintype Label] [DecidableEq Label] [Nonempty Label]
+    [Nonempty Sample]
+    (extend : Label → Sample → Label) (step : FeynmanKacStep Sample)
+    (bound : ℝ) (certificate : PotentialOscillationBound step.potential bound)
+    (nextState : Sample) (law : Distribution (Label × Sample))
+    (extra : ℕ) (hextra : 0 < extra) (retained : Fin (extra + 1))
+    (retainedValue : Label × Sample) (observable : Label → ℝ)
+    (hobservable : ∀ label, 0 ≤ observable label) :
+    ((extra : ℝ) / (extra + 1)) *
+        ((extra : ℝ) / (((extra - 1 : ℕ) : ℝ) + 2 * bound)) *
+        (∑ child,
+          (labeledFeynmanKacStepDistribution extend step law).mass child *
+            observable child.1) ≤
+      forcedCloudLineageSuffixLabelExpectation extend [step] [nextState]
+        (by simp) law extra retained retainedValue observable := by
+  let score : Label × Sample → ℝ := fun parent =>
+    ∑ y, step.transition.prob parent.2 y *
+      observable (extend parent.1 y)
+  have hscore : ∀ parent, 0 ≤ score parent := by
+    intro parent
+    apply Finset.sum_nonneg
+    intro y _
+    exact mul_nonneg (step.transition.nonneg _ _) (hobservable _)
+  let exactExpectation := ∑ child,
+    (labeledFeynmanKacStepDistribution extend step law).mass child *
+      observable child.1
+  have hexact : exactExpectation =
+      ∑ parent,
+        (positivePotentialReweight law (fun z : Label × Sample => step.potential z.2)
+          (fun z => step.potential_pos z.2)).mass parent * score parent := by
+    unfold exactExpectation labeledFeynmanKacStepDistribution
+    simpa [score] using
+      (resamplePropagateLabelDistribution_expectation
+        (Particle := Label × Sample) extend
+        (positivePotentialReweight law
+          (fun z : Label × Sample => step.potential z.2)
+          (fun z => step.potential_pos z.2))
+        step.transition (fun z : Label × Sample => z.2)
+        (fun z : Label × Sample => z.1)
+        (fun label _state => observable label))
+  have hsharp := forcedJointPopulation_normalizedTargetScore_lower_bound
+    step.potential step.potential_pos bound certificate law extra hextra
+    retained retainedValue score hscore
+  have hterminal (population : Fin (extra + 1) → (Label × Sample)) :
+      (extra : ℝ) / (extra + 1) *
+          ((∑ i : Fin (extra + 1), if i = retained then 0 else
+              step.potential (population i).2 * score (population i)) /
+            ∑ i, step.potential (population i).2) ≤
+        ∑ nextRetained,
+          (uniformParticleDistribution (Particle := Fin (extra + 1))).mass
+              nextRetained *
+            forcedCloudLineageSuffixLabelExpectation extend [] [] (by simp)
+              (resamplePropagateLabelDistribution extend
+                (normalizedPotentialWeights step.potential step.potential_pos
+                  (fun i => (population i).2))
+                step.transition (fun i => (population i).2)
+                (fun i => (population i).1))
+              extra nextRetained
+              (extend (population retained).1 nextState, nextState) observable := by
+    exact forcedCloudLineageSuffixLabelExpectation_singleton_inner_lower_bound
+      extend step nextState extra population retained observable hobservable
+  rw [forcedCloudLineageSuffixLabelExpectation_cons]
+  change ((extra : ℝ) / (extra + 1)) *
+      ((extra : ℝ) / (((extra - 1 : ℕ) : ℝ) + 2 * bound)) *
+      exactExpectation ≤ _
+  rw [hexact]
+  calc
+    ((extra : ℝ) / (extra + 1)) *
+        ((extra : ℝ) / (((extra - 1 : ℕ) : ℝ) + 2 * bound)) *
+        (∑ parent,
+          (positivePotentialReweight law
+            (fun z : Label × Sample => step.potential z.2)
+            (fun z => step.potential_pos z.2)).mass parent * score parent) ≤
+      ((extra : ℝ) / (extra + 1)) *
+        (∑ population,
+          (forcedIndependentPopulation
+            (fun _ : Fin (extra + 1) => law) retained retainedValue).mass population *
+            ((∑ i : Fin (extra + 1), if i = retained then 0 else
+                step.potential (population i).2 * score (population i)) /
+              ∑ i, step.potential (population i).2)) := by
+        calc
+          _ = ((extra : ℝ) / (extra + 1)) *
+              (((extra : ℝ) / (((extra - 1 : ℕ) : ℝ) + 2 * bound)) *
+                ∑ parent,
+                  (positivePotentialReweight law
+                    (fun z : Label × Sample => step.potential z.2)
+                    (fun z => step.potential_pos z.2)).mass parent *
+                      score parent) := by ring
+          _ ≤ _ := mul_le_mul_of_nonneg_left hsharp (by positivity)
+    _ = ∑ population,
+        (forcedIndependentPopulation
+          (fun _ : Fin (extra + 1) => law) retained retainedValue).mass population *
+          (((extra : ℝ) / (extra + 1)) *
+            ((∑ i : Fin (extra + 1), if i = retained then 0 else
+                step.potential (population i).2 * score (population i)) /
+              ∑ i, step.potential (population i).2)) := by
+        rw [Finset.mul_sum]
+        apply Finset.sum_congr rfl
+        intro population _
+        ring
+    _ ≤ ∑ population,
+        (forcedIndependentPopulation
+          (fun _ : Fin (extra + 1) => law) retained retainedValue).mass population *
+          ∑ nextRetained,
+            (uniformParticleDistribution (Particle := Fin (extra + 1))).mass
+                nextRetained *
+              forcedCloudLineageSuffixLabelExpectation extend [] [] (by simp)
+                (resamplePropagateLabelDistribution extend
+                  (normalizedPotentialWeights step.potential step.potential_pos
+                    (fun i => (population i).2))
+                  step.transition (fun i => (population i).2)
+                  (fun i => (population i).1))
+                extra nextRetained
+                (extend (population retained).1 nextState, nextState)
+                observable := by
+        apply Finset.sum_le_sum
+        intro population _
+        apply mul_le_mul_of_nonneg_left
+        · exact hterminal population
+        · exact (forcedIndependentPopulation
+            (fun _ : Fin (extra + 1) => law) retained retainedValue).nonneg population
+
 /-- Unnormalized one-particle Feynman--Kac density of a fixed path suffix,
 excluding the initial-state mass. -/
 noncomputable def pathSuffixDensity :
