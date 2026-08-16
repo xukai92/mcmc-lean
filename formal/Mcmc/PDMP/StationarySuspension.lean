@@ -623,4 +623,446 @@ theorem suspensionEndpoint_crossing_recursion
     ring
   simpa [suspensionEndpoint, originalIndex, tailIndex, residual] using hfinal
 
+omit [MeasurableSpace Base] in
+theorem suspensionCrossingIndex_congr_total
+    (baseMap : Base → Base) (roof : Base → ℝ)
+    (input₁ input₂ : Base × ℝ) (shift₁ shift₂ : ℝ)
+    (hbase : input₁.1 = input₂.1)
+    (htotal : input₁.2 + shift₁ = input₂.2 + shift₂) :
+    suspensionCrossingIndex baseMap roof shift₁ input₁ =
+      suspensionCrossingIndex baseMap roof shift₂ input₂ := by
+  classical
+  rcases input₁ with ⟨base₁, age₁⟩
+  rcases input₂ with ⟨base₂, age₂⟩
+  simp only at hbase htotal
+  subst base₂
+  unfold suspensionCrossingIndex
+  congr 1
+  funext eventCount
+  apply propext
+  unfold suspensionCrossingSearchPredicate suspensionCrossed
+  rw [htotal]
+
+omit [MeasurableSpace Base] in
+/-- Starting from an age inside a roof and shifting by a horizon is exactly
+the same pathwise operation as starting at age zero and running for their
+sum. -/
+theorem suspensionEndpoint_eq_from_zero
+    (baseMap : Base → Base) (roof : Base → ℝ)
+    (shift : ℝ) (input : Base × ℝ) :
+    suspensionEndpoint baseMap roof shift input =
+      suspensionEndpoint baseMap roof (input.2 + shift) (input.1, 0) := by
+  have hindex := suspensionCrossingIndex_congr_total
+    baseMap roof input (input.1, 0) shift (input.2 + shift) rfl (by ring)
+  unfold suspensionEndpoint
+  rw [hindex]
+  simp
+
+/-- The orbit map with variable elapsed time is jointly measurable; it is the
+zero-fixed-horizon endpoint with elapsed time stored as the initial age. -/
+theorem measurable_suspensionOrbit
+    {baseMap : Base → Base} (hbaseMap : Measurable baseMap)
+    {roof : Base → ℝ} (hroof : Measurable roof) :
+    Measurable (fun input : Base × ℝ =>
+      suspensionEndpoint baseMap roof input.2 (input.1, 0)) := by
+  have heq : (fun input : Base × ℝ =>
+      suspensionEndpoint baseMap roof input.2 (input.1, 0)) =
+      suspensionEndpoint baseMap roof 0 := by
+    funext input
+    simpa using (suspensionEndpoint_eq_from_zero
+      baseMap roof 0 input).symm
+  rw [heq]
+  exact measurable_suspensionEndpoint hbaseMap hroof 0
+
+omit [MeasurableSpace Base] in
+/-- After exactly one roof duration, the orbit restarts from the shifted base
+at age zero. -/
+theorem suspensionEndpoint_roof_add
+    (baseMap : Base → Base) (roof : Base → ℝ)
+    (initial : Base) {shift : ℝ} (hshift : 0 ≤ shift)
+    (htailExists : ∃ eventCount,
+      suspensionCrossed baseMap roof (baseMap initial) 0 shift eventCount) :
+    suspensionEndpoint baseMap roof (roof initial + shift) (initial, 0) =
+      suspensionEndpoint baseMap roof shift (baseMap initial, 0) := by
+  have hexists : ∃ eventCount,
+      suspensionCrossed baseMap roof initial 0 (roof initial + shift)
+        eventCount := by
+    obtain ⟨eventCount, hcrossed⟩ := htailExists
+    exact ⟨eventCount + 1,
+      (suspensionCrossed_succ_iff_tail baseMap roof
+        (initial, 0) (roof initial + shift) eventCount).mpr (by
+          simpa using hcrossed)⟩
+  have hrecursion := suspensionEndpoint_crossing_recursion
+    baseMap roof (initial, 0) (roof initial + shift) (by linarith) hexists
+  simpa using hrecursion
+
+/-- Two decompositions of a translated finite interval give the telescoping
+Lebesgue-measure identity used by stationary suspension occupation. -/
+theorem restrict_Ico_shift_add_telescope (shift roof : ℝ)
+    (hshift : 0 ≤ shift) (hroof : 0 ≤ roof) :
+    volume.restrict (Set.Ico shift (shift + roof)) +
+        volume.restrict (Set.Ico 0 shift) =
+      volume.restrict (Set.Ico 0 roof) +
+        volume.restrict (Set.Ico roof (roof + shift)) := by
+  have hdisjointLeft : Disjoint (Set.Ico 0 shift) (Set.Ico shift
+      (shift + roof)) := by
+    rw [Set.disjoint_left]
+    intro value hleft hright
+    exact (not_lt_of_ge hright.1) hleft.2
+  have hdisjointRight : Disjoint (Set.Ico 0 roof) (Set.Ico roof
+      (roof + shift)) := by
+    rw [Set.disjoint_left]
+    intro value hleft hright
+    exact (not_lt_of_ge hright.1) hleft.2
+  rw [add_comm (volume.restrict (Set.Ico shift (shift + roof))),
+    ← Measure.restrict_union hdisjointLeft measurableSet_Ico,
+    Set.Ico_union_Ico_eq_Ico hshift (by linarith),
+    ← Measure.restrict_union hdisjointRight measurableSet_Ico,
+    Set.Ico_union_Ico_eq_Ico hroof (by linarith)]
+  ring_nf
+
+/-- Setwise interval telescope for any measurable suspension orbit. -/
+theorem suspensionOrbit_interval_telescope
+    {baseMap : Base → Base} (hbaseMap : Measurable baseMap)
+    {roof : Base → ℝ} (hroof : Measurable roof)
+    (initial : Base) (shift : ℝ) (hshift : 0 ≤ shift)
+    (hroofNonneg : 0 ≤ roof initial) (event : Set (Base × ℝ))
+    (hevent : MeasurableSet event) :
+    (volume.restrict (Set.Ico shift (shift + roof initial)))
+          ((fun elapsed => suspensionEndpoint baseMap roof elapsed
+            (initial, 0)) ⁻¹' event) +
+        (volume.restrict (Set.Ico 0 shift))
+          ((fun elapsed => suspensionEndpoint baseMap roof elapsed
+            (initial, 0)) ⁻¹' event) =
+      (volume.restrict (Set.Ico 0 (roof initial)))
+          ((fun elapsed => suspensionEndpoint baseMap roof elapsed
+            (initial, 0)) ⁻¹' event) +
+        (volume.restrict (Set.Ico (roof initial)
+          (roof initial + shift)))
+          ((fun elapsed => suspensionEndpoint baseMap roof elapsed
+            (initial, 0)) ⁻¹' event) := by
+  have horbit : Measurable (fun elapsed =>
+      suspensionEndpoint baseMap roof elapsed (initial, 0)) :=
+    (measurable_suspensionOrbit hbaseMap hroof).comp
+      (measurable_const.prodMk measurable_id)
+  have hset := horbit hevent
+  exact congrArg (fun measure : Measure ℝ =>
+    measure ((fun elapsed => suspensionEndpoint baseMap roof elapsed
+      (initial, 0)) ⁻¹' event))
+    (restrict_Ico_shift_add_telescope shift (roof initial)
+      hshift hroofNonneg)
+
+/-- Terminal orbit occupation above the current roof equals initial orbit
+occupation above the shifted base. -/
+theorem suspensionOrbit_terminal_eq_shifted_initial
+    {baseMap : Base → Base} (hbaseMap : Measurable baseMap)
+    {roof : Base → ℝ} (hroof : Measurable roof)
+    (initial : Base) (shift : ℝ)
+    (hnonexplosive : ∀ elapsed ∈ Set.Ico 0 shift,
+      ∃ eventCount, suspensionCrossed baseMap roof
+        (baseMap initial) 0 elapsed eventCount)
+    (event : Set (Base × ℝ)) (hevent : MeasurableSet event) :
+    (volume.restrict (Set.Ico (roof initial) (roof initial + shift)))
+          ((fun elapsed => suspensionEndpoint baseMap roof elapsed
+            (initial, 0)) ⁻¹' event) =
+      (volume.restrict (Set.Ico 0 shift))
+          ((fun elapsed => suspensionEndpoint baseMap roof elapsed
+            (baseMap initial, 0)) ⁻¹' event) := by
+  let addRoof : ℝ → ℝ := fun elapsed => roof initial + elapsed
+  have haddRoof : Measurable addRoof := by
+    unfold addRoof
+    fun_prop
+  have horbit : Measurable (fun elapsed =>
+      suspensionEndpoint baseMap roof elapsed (initial, 0)) :=
+    (measurable_suspensionOrbit hbaseMap hroof).comp
+      (measurable_const.prodMk measurable_id)
+  have hset : MeasurableSet ((fun elapsed =>
+      suspensionEndpoint baseMap roof elapsed (initial, 0)) ⁻¹' event) :=
+    horbit hevent
+  have htranslated := congrArg (fun measure : Measure ℝ =>
+      measure ((fun elapsed => suspensionEndpoint baseMap roof elapsed
+        (initial, 0)) ⁻¹' event))
+    (map_add_restrict_Ico (roof initial) (roof initial + shift))
+  rw [Measure.map_apply haddRoof hset] at htranslated
+  have hsource : addRoof ⁻¹'
+      ((fun elapsed => suspensionEndpoint baseMap roof elapsed
+        (initial, 0)) ⁻¹' event) =ᵐ[
+          volume.restrict (Set.Ico 0 shift)]
+      ((fun elapsed => suspensionEndpoint baseMap roof elapsed
+        (baseMap initial, 0)) ⁻¹' event) := by
+    filter_upwards [ae_restrict_mem measurableSet_Ico] with elapsed helapsed
+    change (suspensionEndpoint baseMap roof
+        (roof initial + elapsed) (initial, 0) ∈ event) =
+      (suspensionEndpoint baseMap roof elapsed
+        (baseMap initial, 0) ∈ event)
+    rw [suspensionEndpoint_roof_add baseMap roof initial
+      helapsed.1 (hnonexplosive elapsed helapsed)]
+  have hlength : roof initial + shift - roof initial = shift := by ring
+  rw [hlength] at htranslated
+  rw [measure_congr hsource] at htranslated
+  simpa [addRoof] using htranslated.symm
+
+/-- Orbit occupation of a measurable event over a base-dependent half-open
+elapsed-time interval. -/
+noncomputable def suspensionOrbitIntervalMass
+    (baseMap : Base → Base) (roof : Base → ℝ)
+    (lower upper : Base → ℝ) (event : Set (Base × ℝ))
+    (initial : Base) : ENNReal :=
+  (volume.restrict (Set.Ico (lower initial) (upper initial)))
+    ((fun elapsed => suspensionEndpoint baseMap roof elapsed
+      (initial, 0)) ⁻¹' event)
+
+theorem measurable_suspensionOrbitIntervalMass
+    {baseMap : Base → Base} (hbaseMap : Measurable baseMap)
+    {roof : Base → ℝ} (hroof : Measurable roof)
+    {lower upper : Base → ℝ} (hlower : Measurable lower)
+    (hupper : Measurable upper) {event : Set (Base × ℝ)}
+    (hevent : MeasurableSet event) :
+    Measurable (suspensionOrbitIntervalMass
+      baseMap roof lower upper event) := by
+  let orbit : Base × ℝ → Base × ℝ := fun input =>
+    suspensionEndpoint baseMap roof input.2 (input.1, 0)
+  have horbit : Measurable orbit :=
+    measurable_suspensionOrbit hbaseMap hroof
+  let orbitSet : Set (Base × ℝ) :=
+    {input | lower input.1 ≤ input.2 ∧ input.2 < upper input.1} ∩
+      orbit ⁻¹' event
+  have horbitSet : MeasurableSet orbitSet := by
+    apply MeasurableSet.inter
+    · exact (measurableSet_le (hlower.comp measurable_fst) measurable_snd).inter
+        (measurableSet_lt measurable_snd (hupper.comp measurable_fst))
+    · exact horbit hevent
+  have hsection : (fun initial =>
+      volume (Prod.mk initial ⁻¹' orbitSet)) =
+      suspensionOrbitIntervalMass baseMap roof lower upper event := by
+    funext initial
+    unfold suspensionOrbitIntervalMass orbitSet orbit
+    rw [Measure.restrict_apply]
+    · congr 1
+      ext elapsed
+      simp [and_comm, and_assoc]
+    · exact hevent.preimage (horbit.comp
+        (measurable_const.prodMk measurable_id))
+  rw [← hsection]
+  exact measurable_measure_prodMk_left horbitSet
+
+/-- Integrated orbit occupation over a shifted roof interval equals ordinary
+roof occupation. This is the stationary-suspension telescoping theorem at the
+base-integral level. -/
+theorem lintegral_suspensionOrbitIntervalMass_shift
+    (base : Measure Base) [IsProbabilityMeasure base]
+    {baseMap : Base → Base} (hbaseMap : Measurable baseMap)
+    (hbaseInvariant : Measure.map baseMap base = base)
+    {roof : Base → ℝ} (hroof : Measurable roof)
+    (hroofNonneg : ∀ᵐ initial ∂base, 0 ≤ roof initial)
+    (hnonexplosive : ∀ᵐ initial ∂base, ∀ shift, 0 ≤ shift →
+      ∃ eventCount, suspensionCrossed baseMap roof initial 0 shift eventCount)
+    (shift : ℝ) (hshift : 0 ≤ shift)
+    (event : Set (Base × ℝ)) (hevent : MeasurableSet event) :
+    (∫⁻ initial, suspensionOrbitIntervalMass baseMap roof
+        (fun _ => shift) (fun initial => shift + roof initial)
+        event initial ∂base) =
+      ∫⁻ initial, suspensionOrbitIntervalMass baseMap roof
+        (fun _ => 0) roof event initial ∂base := by
+  let shiftedMass := suspensionOrbitIntervalMass baseMap roof
+    (fun _ => shift) (fun initial => shift + roof initial) event
+  let initialMass := suspensionOrbitIntervalMass baseMap roof
+    (fun _ => 0) roof event
+  let earlyMass := suspensionOrbitIntervalMass baseMap roof
+    (fun _ => 0) (fun _ => shift) event
+  let terminalMass := suspensionOrbitIntervalMass baseMap roof
+    roof (fun initial => roof initial + shift) event
+  have hshiftedMass : Measurable shiftedMass :=
+    measurable_suspensionOrbitIntervalMass hbaseMap hroof
+      measurable_const (measurable_const.add hroof) hevent
+  have hinitialMass : Measurable initialMass :=
+    measurable_suspensionOrbitIntervalMass hbaseMap hroof
+      measurable_const hroof hevent
+  have hearlyMass : Measurable earlyMass :=
+    measurable_suspensionOrbitIntervalMass hbaseMap hroof
+      measurable_const measurable_const hevent
+  have hterminalMass : Measurable terminalMass :=
+    measurable_suspensionOrbitIntervalMass hbaseMap hroof
+      hroof (hroof.add measurable_const) hevent
+  have hnonexplosiveShifted : ∀ᵐ initial ∂base,
+      ∀ elapsed, 0 ≤ elapsed → ∃ eventCount,
+        suspensionCrossed baseMap roof (baseMap initial) 0 elapsed eventCount :=
+    (MeasurePreserving.quasiMeasurePreserving
+      ⟨hbaseMap, hbaseInvariant⟩).ae hnonexplosive
+  have htelescope : ∀ᵐ initial ∂base,
+      shiftedMass initial + earlyMass initial =
+        initialMass initial + terminalMass initial := by
+    filter_upwards [hroofNonneg] with initial hroofInitial
+    simpa [shiftedMass, initialMass, earlyMass, terminalMass,
+      suspensionOrbitIntervalMass] using
+      suspensionOrbit_interval_telescope hbaseMap hroof initial shift
+        hshift hroofInitial event hevent
+  have hterminal : ∀ᵐ initial ∂base,
+      terminalMass initial = earlyMass (baseMap initial) := by
+    filter_upwards [hnonexplosiveShifted] with initial hnonexplosiveInitial
+    apply suspensionOrbit_terminal_eq_shifted_initial
+      hbaseMap hroof initial shift
+    · intro elapsed helapsed
+      exact hnonexplosiveInitial elapsed helapsed.1
+    · exact hevent
+  have hterminalIntegral :
+      (∫⁻ initial, terminalMass initial ∂base) =
+        ∫⁻ initial, earlyMass initial ∂base := by
+    calc
+      (∫⁻ initial, terminalMass initial ∂base) =
+          ∫⁻ initial, earlyMass (baseMap initial) ∂base :=
+        lintegral_congr_ae hterminal
+      _ = ∫⁻ initial, earlyMass initial ∂Measure.map baseMap base := by
+        exact (lintegral_map hearlyMass hbaseMap).symm
+      _ = ∫⁻ initial, earlyMass initial ∂base := by rw [hbaseInvariant]
+  have hintegrated := lintegral_congr_ae htelescope
+  rw [lintegral_add_left hshiftedMass,
+    lintegral_add_left hinitialMass, hterminalIntegral] at hintegrated
+  have hearlyLe (initial : Base) : earlyMass initial ≤
+      ENNReal.ofReal shift := by
+    unfold earlyMass suspensionOrbitIntervalMass
+    calc
+      (volume.restrict (Set.Ico 0 shift))
+          ((fun elapsed => suspensionEndpoint baseMap roof elapsed
+            (initial, 0)) ⁻¹' event) ≤
+          (volume.restrict (Set.Ico 0 shift)) Set.univ :=
+        measure_mono (Set.subset_univ _)
+      _ = ENNReal.ofReal shift := by
+        rw [Measure.restrict_apply MeasurableSet.univ, Set.univ_inter,
+          Real.volume_Ico]
+        simp
+  have hearlyIntegralLe : (∫⁻ initial, earlyMass initial ∂base) ≤
+      ENNReal.ofReal shift := by
+    calc
+      (∫⁻ initial, earlyMass initial ∂base) ≤
+          ∫⁻ _ : Base, ENNReal.ofReal shift ∂base :=
+        lintegral_mono hearlyLe
+      _ = ENNReal.ofReal shift := by simp [lintegral_const]
+  have hearlyIntegralNeTop :
+      (∫⁻ initial, earlyMass initial ∂base) ≠ ⊤ := by
+    exact ne_of_lt (hearlyIntegralLe.trans_lt ENNReal.ofReal_lt_top)
+  have hcancel := congrArg (fun mass : ENNReal =>
+      mass - ∫⁻ initial, earlyMass initial ∂base) hintegrated
+  simpa [ENNReal.add_sub_cancel_right hearlyIntegralNeTop,
+    shiftedMass, initialMass] using hcancel
+
+/-- Main stationary-suspension theorem: a measurable, nonexplosive special
+flow over an invariant probability base preserves its roof-occupation
+measure at every nonnegative time. -/
+theorem suspensionEndpoint_map_occupation
+    (base : Measure Base) [IsProbabilityMeasure base]
+    {baseMap : Base → Base} (hbaseMap : Measurable baseMap)
+    (hbaseInvariant : Measure.map baseMap base = base)
+    {roof : Base → ℝ} (hroof : Measurable roof)
+    (hroofNonneg : ∀ᵐ initial ∂base, 0 ≤ roof initial)
+    (hnonexplosive : ∀ᵐ initial ∂base, ∀ shift, 0 ≤ shift →
+      ∃ eventCount, suspensionCrossed baseMap roof initial 0 shift eventCount)
+    (shift : ℝ) (hshift : 0 ≤ shift) :
+    Measure.map (suspensionEndpoint baseMap roof shift)
+        (suspensionOccupationMeasure base roof) =
+      suspensionOccupationMeasure base roof := by
+  have hendpoint := measurable_suspensionEndpoint hbaseMap hroof shift
+  have hdomain := measurableSet_suspensionFundamentalDomain hroof
+  ext event hevent
+  unfold suspensionOccupationMeasure
+  rw [Measure.map_apply hendpoint hevent,
+    Measure.restrict_apply (hendpoint hevent),
+    Measure.restrict_apply hevent,
+    Measure.prod_apply ((hendpoint hevent).inter hdomain),
+    Measure.prod_apply (hevent.inter hdomain)]
+  have hintegral := lintegral_suspensionOrbitIntervalMass_shift
+    base hbaseMap hbaseInvariant hroof hroofNonneg hnonexplosive
+    shift hshift event hevent
+  have hleft : ∀ᵐ initial ∂base,
+      volume (Prod.mk initial ⁻¹'
+        (suspensionEndpoint baseMap roof shift ⁻¹' event ∩
+          suspensionFundamentalDomain roof)) =
+      suspensionOrbitIntervalMass baseMap roof
+        (fun _ => shift) (fun initial => shift + roof initial)
+        event initial := by
+    filter_upwards [hroofNonneg] with initial hroofInitial
+    unfold suspensionOrbitIntervalMass
+    have horbit : Measurable (fun elapsed =>
+        suspensionEndpoint baseMap roof elapsed (initial, 0)) :=
+      (measurable_suspensionOrbit hbaseMap hroof).comp
+        (measurable_const.prodMk measurable_id)
+    have hset : MeasurableSet ((fun elapsed =>
+        suspensionEndpoint baseMap roof elapsed (initial, 0)) ⁻¹' event) :=
+      horbit hevent
+    have htranslated := congrArg (fun measure : Measure ℝ =>
+        measure ((fun elapsed => suspensionEndpoint baseMap roof elapsed
+          (initial, 0)) ⁻¹' event))
+      (map_add_restrict_Ico shift (shift + roof initial))
+    rw [Measure.map_apply (by fun_prop) hset] at htranslated
+    have hlength : shift + roof initial - shift = roof initial := by ring
+    rw [hlength] at htranslated
+    change volume (Prod.mk initial ⁻¹'
+        (suspensionEndpoint baseMap roof shift ⁻¹' event ∩
+          suspensionFundamentalDomain roof)) =
+      (volume.restrict (Set.Ico shift (shift + roof initial)))
+        ((fun elapsed => suspensionEndpoint baseMap roof elapsed
+          (initial, 0)) ⁻¹' event)
+    rw [← htranslated]
+    have hshiftSet : MeasurableSet
+        ((fun age => shift + age) ⁻¹'
+          ((fun elapsed => suspensionEndpoint baseMap roof elapsed
+            (initial, 0)) ⁻¹' event)) :=
+      (measurable_const.add measurable_id) hset
+    rw [Measure.restrict_apply hshiftSet]
+    congr 1
+    ext age
+    simp only [Set.mem_inter_iff, Set.mem_preimage,
+      suspensionFundamentalDomain, Set.mem_setOf_eq, Set.mem_Ico]
+    constructor
+    · rintro ⟨heventAge, hage⟩
+      refine ⟨?_, hage⟩
+      rw [suspensionEndpoint_eq_from_zero] at heventAge
+      simpa [add_comm] using heventAge
+    · rintro ⟨horbitAge, hage⟩
+      refine ⟨?_, hage⟩
+      rw [suspensionEndpoint_eq_from_zero]
+      simpa [add_comm] using horbitAge
+  have hright : ∀ᵐ initial ∂base,
+      suspensionOrbitIntervalMass baseMap roof (fun _ => 0) roof
+          event initial =
+        volume (Prod.mk initial ⁻¹'
+          (event ∩ suspensionFundamentalDomain roof)) := by
+    filter_upwards [hroofNonneg] with initial hroofInitial
+    unfold suspensionOrbitIntervalMass
+    have horbit : Measurable (fun elapsed =>
+        suspensionEndpoint baseMap roof elapsed (initial, 0)) :=
+      (measurable_suspensionOrbit hbaseMap hroof).comp
+        (measurable_const.prodMk measurable_id)
+    have hset : MeasurableSet ((fun elapsed =>
+        suspensionEndpoint baseMap roof elapsed (initial, 0)) ⁻¹' event) :=
+      horbit hevent
+    rw [Measure.restrict_apply hset]
+    congr 1
+    ext age
+    simp only [Set.mem_inter_iff, Set.mem_preimage,
+      suspensionFundamentalDomain, Set.mem_setOf_eq, Set.mem_Ico]
+    constructor
+    · rintro ⟨horbitEvent, hage⟩
+      have hbefore : (initial, 0).2 + age < roof (initial, 0).1 := by
+        simpa using hage.2
+      rw [suspensionEndpoint_eq_translate_of_lt_roof
+        baseMap roof age (initial, 0) hbefore] at horbitEvent
+      have heventAge : (initial, age) ∈ event := by
+        simpa using horbitEvent
+      exact ⟨heventAge, hage⟩
+    · rintro ⟨heventAge, hage⟩
+      refine ⟨?_, hage⟩
+      have hbefore : (initial, 0).2 + age < roof (initial, 0).1 := by
+        simpa using hage.2
+      rw [suspensionEndpoint_eq_translate_of_lt_roof
+        baseMap roof age (initial, 0) hbefore]
+      simpa using heventAge
+  calc
+    _ = ∫⁻ initial, suspensionOrbitIntervalMass baseMap roof
+        (fun _ => shift) (fun initial => shift + roof initial)
+        event initial ∂base := lintegral_congr_ae hleft
+    _ = ∫⁻ initial, suspensionOrbitIntervalMass baseMap roof
+        (fun _ => 0) roof event initial ∂base := hintegral
+    _ = _ := lintegral_congr_ae hright
+
 end Mcmc.PDMP

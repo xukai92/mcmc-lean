@@ -3642,3 +3642,16 @@ base-shifted environment at age zero with the residual horizon. Before the
 first boundary it is exactly vertical translation. These two exhaustive
 equations are the induction interface for the remaining finite-crossing
 measure identity and nonexplosive limit.
+
+## 2026-08-16: stationary-suspension invariance
+
+Completed the reusable special-flow theorem. For a measurable base map that
+preserves a probability measure, a measurable almost-everywhere nonnegative
+roof, and almost-sure nonexplosion, Lean proves that every nonnegative-time
+suspension endpoint preserves the unnormalized roof-occupation measure. The
+proof telescopes the occupation of every orbit interval across all crossed
+roofs, uses base invariance for the boundary flux, and cancels the finite
+initial segment. This closes the abstract continuous-time renewal argument;
+the remaining work is to discharge its hypotheses for the Gaussian Zig-Zag
+environment and push the resulting invariant law through the existing
+decoder and signed/physical/BPS equivalences.
