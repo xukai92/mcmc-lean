@@ -331,8 +331,10 @@ breadth branches are:
   barrier-partition builder, stopped-doubling selection theorems, and concrete
   scalar and arbitrary finite-dimensional adjacent-endpoint U-turn partitions.
   Recursive aggregation of completed binary subtrees is now checked in Lean
-  and mirrored in Julia. Equivalence with a root-dependent standard
-  dynamic-NUTS builder remains;
+  and mirrored in Julia. Julia now refuses invalid row families and performs
+  the formally specified target-weighted transition directly from a valid
+  certificate. Equivalence with a root-dependent standard dynamic-NUTS builder
+  remains;
 - stepping-out/shrinkage beyond the exact disintegration, finite integer slice,
   and bounded-interval continuous rejection implementation. A practical
   Reference/Optimized real-line stepping-out sampler is now tested; its

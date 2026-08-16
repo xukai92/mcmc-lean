@@ -30,6 +30,7 @@ export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, Bounded
     Xu21CoupledSampler, coupled_meeting_time,
     ScopedInferenceOperator, ComposableSampler, covers,
     DynamicTreeCertificate, certify_dynamic_tree, certified_orbit_partition,
+    certified_dynamic_select!,
     RecursiveBarrierTree, RecursiveBarrierLeaf, RecursiveBarrierNode,
     recursive_barriers, certified_recursive_partition,
     certified_scalar_uturn_partition,
@@ -1447,6 +1448,30 @@ function certify_dynamic_tree(rows::AbstractVector{<:AbstractVector{<:Integer}})
         valid || break
     end
     DynamicTreeCertificate(candidates, valid)
+end
+
+"""Target-weighted selection from a checked completed dynamic tree.
+
+This is the executable counterpart of Lean's `checkedKernel_stationary`:
+selection is enabled only when the complete candidate-row family passes the
+root-retention and reroot-equality certificate. `current` and the returned
+state use Julia's one-based indexing.
+"""
+function certified_dynamic_select!(source::Runtime.AbstractRandomSource,
+        certificate::DynamicTreeCertificate,
+        target_weights::AbstractVector{<:Integer}, current::Integer)
+    certificate.valid || throw(ArgumentError(
+        "dynamic-tree candidate rows failed reroot certification"))
+    count = length(certificate.candidates)
+    length(target_weights) == count || throw(DimensionMismatch(
+        "target weights must match the dynamic-tree state count"))
+    1 <= current <= count || throw(BoundsError(certificate.candidates, current))
+    all(>(0), target_weights) || throw(ArgumentError(
+        "dynamic-tree target weights must be strictly positive"))
+    candidates = certificate.candidates[current]
+    local_weights = Int[target_weights[state] for state in candidates]
+    selected = Reference.categorical_index!(source, local_weights)
+    candidates[selected + 1]
 end
 
 """Partition a canonical finite orbit at declared barrier edges.

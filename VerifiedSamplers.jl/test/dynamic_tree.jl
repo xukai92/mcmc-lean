@@ -13,6 +13,25 @@
     @test_throws ArgumentError certify_dynamic_tree(Vector{Vector{Int}}())
     @test_throws ArgumentError certify_dynamic_tree([[1, 3], [2]])
 
+    weighted = certify_dynamic_tree([[1, 2], [1, 2], [3]])
+    # Component weights are 1 and 3, hence integer draws 0,1,2,3 select
+    # states 1,2,2,2 from either root in the component.
+    expected = [1, 2, 2, 2]
+    for root in (1, 2), draw in 0:3
+        source = Runtime.TraceSource([draw])
+        @test certified_dynamic_select!(source, weighted, [1, 3, 2], root) ==
+            expected[draw + 1]
+        @test Runtime.remaining(source) == 0
+    end
+    @test certified_dynamic_select!(Runtime.TraceSource([0]), weighted,
+        [1, 3, 2], 3) == 3
+    @test_throws ArgumentError certified_dynamic_select!(Runtime.TraceSource([0]),
+        asymmetric_reroot, [1, 1], 1)
+    @test_throws DimensionMismatch certified_dynamic_select!(
+        Runtime.TraceSource([0]), weighted, [1, 3], 1)
+    @test_throws ArgumentError certified_dynamic_select!(Runtime.TraceSource([0]),
+        weighted, [1, 0, 2], 1)
+
     partition = certified_orbit_partition(Bool[false, true, false, false])
     @test partition.valid
     @test partition.candidates ==

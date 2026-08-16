@@ -1,5 +1,14 @@
 # Development log
 
+- Connected Julia dynamic-tree certificates to executable sampling. The new
+  checked selector refuses uncertified candidate-row families and otherwise
+  performs the exact target-weighted selection consumed by Lean's
+  `checkedKernel_stationary` theorem. Exhaustive integer traces cover unequal
+  target weights from every root of a nontrivial component, plus invalid-tree,
+  dimension, and positivity failures. This makes the conservative certified
+  dynamic-tree branch directly usable; equivalence of a particular standard
+  recursive NUTS builder with an accepted completed tree remains separate.
+
 - Generalized the auxiliary-Gibbs and slice foundations from exact conditional
   redraws to within-conditional Markov updates. Lean now proves that any
   transition on the sampled auxiliary/current-state pair which preserves the
