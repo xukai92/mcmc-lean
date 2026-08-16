@@ -131,7 +131,10 @@ by the separate finite-precision refinement. The generic triangular-shear
 derivative matrices, determinant formulas, and mixed-partial pairing are now
 extracted from the earlier bounded client, and the SoftAbs callbacks satisfy
 the required scalar mixed identity. The remaining volume step is the inverse-
-stage differentiability and determinant composition for the Banach selection.
+stage differentiability for the Banach selection. The determinant composition
+is now a generic theorem: differentiable inverse selections plus their two
+left-inverse identities and the mixed-partial condition imply determinant one.
+The contraction bounds also imply nonsingularity of both triangular maps.
 
 ## Track C: later breadth branches
 

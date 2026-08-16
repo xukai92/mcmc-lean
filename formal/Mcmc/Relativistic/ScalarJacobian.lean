@@ -237,4 +237,149 @@ theorem scalarGRCallbacks_fderiv_mixed_eq
   exact scalarGRCallbacks_mixed_derivatives_eq drift scale hscale
     hscalePos q p
 
+/-- Four-stage scalar generalized-leapfrog map built from two inverse
+selections and the two explicit triangular transfers. -/
+noncomputable def scalarGeneralizedLeapfrogStep
+    (a : ℝ) (F G : ℝ × ℝ → ℝ)
+    (incomingInverse leftInverse : ℝ × ℝ → ℝ × ℝ) :
+    ℝ × ℝ → ℝ × ℝ :=
+  scalarVerticalShear (-a) F ∘ leftInverse ∘
+    scalarHorizontalShear a G ∘ incomingInverse
+
+theorem differentiable_scalarGeneralizedLeapfrogStep
+    (a : ℝ) (F G : ℝ × ℝ → ℝ)
+    (incomingInverse leftInverse : ℝ × ℝ → ℝ × ℝ)
+    (hF : Differentiable ℝ F) (hG : Differentiable ℝ G)
+    (hinverse : Differentiable ℝ incomingInverse)
+    (hleft : Differentiable ℝ leftInverse) :
+    Differentiable ℝ (scalarGeneralizedLeapfrogStep a F G
+      incomingInverse leftInverse) := by
+  unfold scalarGeneralizedLeapfrogStep
+  have hout : Differentiable ℝ (scalarVerticalShear (-a) F) := by
+    unfold scalarVerticalShear
+    fun_prop
+  have hright : Differentiable ℝ (scalarHorizontalShear a G) := by
+    unfold scalarHorizontalShear
+    fun_prop
+  exact hout.comp (hleft.comp (hright.comp hinverse))
+
+/-- Generic inverse-stage determinant theorem. It is independent of how the
+inverse selections were constructed; Banach fixed points are one client. -/
+theorem det_fderiv_scalarGeneralizedLeapfrogStep_eq_one
+    (a : ℝ) (F G : ℝ × ℝ → ℝ)
+    (incomingInverse leftInverse : ℝ × ℝ → ℝ × ℝ)
+    (hF : Differentiable ℝ F) (hG : Differentiable ℝ G)
+    (hinverse : Differentiable ℝ incomingInverse)
+    (hleft : Differentiable ℝ leftInverse)
+    (hincomingLeft : Function.LeftInverse
+      (scalarVerticalShear a F) incomingInverse)
+    (hleftLeft : Function.LeftInverse
+      (scalarHorizontalShear (-a) G) leftInverse)
+    (hmixed : ∀ z,
+      fderiv ℝ F z (0, 1) = fderiv ℝ G z (1, 0))
+    (z : ℝ × ℝ) :
+    (fderiv ℝ (scalarGeneralizedLeapfrogStep a F G
+      incomingInverse leftInverse) z).det = 1 := by
+  let half := incomingInverse z
+  let right := scalarHorizontalShear a G half
+  let next := leftInverse right
+  have hincomingDiff : Differentiable ℝ (scalarVerticalShear a F) := by
+    unfold scalarVerticalShear
+    fun_prop
+  have hrightDiff : Differentiable ℝ (scalarHorizontalShear a G) := by
+    unfold scalarHorizontalShear
+    fun_prop
+  have hleftMapDiff : Differentiable ℝ (scalarHorizontalShear (-a) G) := by
+    unfold scalarHorizontalShear
+    fun_prop
+  have houtDiff : Differentiable ℝ (scalarVerticalShear (-a) F) := by
+    unfold scalarVerticalShear
+    fun_prop
+  have hinverseDet := det_fderiv_mul_det_fderiv_of_leftInverse
+    (scalarVerticalShear a F) incomingInverse hincomingDiff hinverse
+    hincomingLeft z
+  have hleftInverseDet := det_fderiv_mul_det_fderiv_of_leftInverse
+    (scalarHorizontalShear (-a) G) leftInverse hleftMapDiff hleft
+    hleftLeft right
+  have hhalf := (hinverse z).hasFDerivAt
+  have hright := hasFDerivAt_scalarHorizontalShear a G hG half
+  have hnext := (hleft right).hasFDerivAt
+  have hout := hasFDerivAt_scalarVerticalShear (-a) F hF next
+  have hcomp := hout.comp z (hnext.comp z (hright.comp z hhalf))
+  have hdetStep :
+      (fderiv ℝ (scalarGeneralizedLeapfrogStep a F G
+        incomingInverse leftInverse) z).det =
+      (scalarVerticalShearFDeriv (-a) F next).det *
+        (fderiv ℝ leftInverse right).det *
+        (scalarHorizontalShearFDeriv a G half).det *
+        (fderiv ℝ incomingInverse z).det := by
+    rw [show scalarGeneralizedLeapfrogStep a F G
+        incomingInverse leftInverse =
+      scalarVerticalShear (-a) F ∘ leftInverse ∘
+        scalarHorizontalShear a G ∘ incomingInverse by rfl]
+    rw [hcomp.fderiv]
+    simp only [det_continuousLinearMap_comp]
+    ring
+  have hincomingActual :
+      (fderiv ℝ (scalarVerticalShear a F) half).det =
+        (scalarVerticalShearFDeriv a F half).det := by
+    rw [(hasFDerivAt_scalarVerticalShear a F hF half).fderiv]
+  have hleftActual :
+      (fderiv ℝ (scalarHorizontalShear (-a) G) next).det =
+        (scalarHorizontalShearFDeriv (-a) G next).det := by
+    rw [(hasFDerivAt_scalarHorizontalShear (-a) G hG next).fderiv]
+  have hrightIncoming := det_scalar_shears_eq_of_mixed
+    a F G half (hmixed half)
+  have houtLeft := det_scalar_negative_shears_eq_of_mixed
+    a F G next (hmixed next)
+  rw [hdetStep]
+  rw [← houtLeft, ← hrightIncoming]
+  rw [hincomingActual] at hinverseDet
+  rw [hleftActual] at hleftInverseDet
+  nlinarith
+
+/-- A strict slice-contraction bound makes every incoming triangular
+Jacobian nonsingular. -/
+theorem det_scalarVerticalShearFDeriv_ne_zero_of_lipschitz
+    (a : ℝ) (F : ℝ × ℝ → ℝ) (K : NNReal)
+    (hF : Differentiable ℝ F)
+    (hlip : ∀ q, LipschitzWith K (fun p => F (q, p)))
+    (hstep : |a| * K < 1) (z : ℝ × ℝ) :
+    (scalarVerticalShearFDeriv a F z).det ≠ 0 := by
+  rcases z with ⟨q, p⟩
+  rw [det_scalarVerticalShearFDeriv,
+    fderiv_apply_snd_eq_deriv_slice F hF q p]
+  have hd : |deriv (fun r => F (q, r)) p| ≤ K := by
+    simpa [Real.norm_eq_abs] using
+      norm_deriv_le_of_lipschitz (x₀ := p) (hlip q)
+  have hproduct : |a * deriv (fun r => F (q, r)) p| < 1 := by
+    rw [abs_mul]
+    exact lt_of_le_of_lt (mul_le_mul_of_nonneg_left hd (abs_nonneg a)) hstep
+  intro hzero
+  have : a * deriv (fun r => F (q, r)) p = -1 := by linarith
+  rw [this, abs_neg, abs_one] at hproduct
+  exact (lt_irrefl 1 hproduct)
+
+/-- The corresponding strict position-slice bound makes both signs of the
+horizontal triangular Jacobian nonsingular. -/
+theorem det_scalarHorizontalShearFDeriv_ne_zero_of_lipschitz
+    (a : ℝ) (G : ℝ × ℝ → ℝ) (K : NNReal)
+    (hG : Differentiable ℝ G)
+    (hlip : ∀ p, LipschitzWith K (fun q => G (q, p)))
+    (hstep : |a| * K < 1) (z : ℝ × ℝ) :
+    (scalarHorizontalShearFDeriv a G z).det ≠ 0 := by
+  rcases z with ⟨q, p⟩
+  rw [det_scalarHorizontalShearFDeriv,
+    fderiv_apply_fst_eq_deriv_slice G hG q p]
+  have hd : |deriv (fun r => G (r, p)) q| ≤ K := by
+    simpa [Real.norm_eq_abs] using
+      norm_deriv_le_of_lipschitz (x₀ := q) (hlip p)
+  have hproduct : |a * deriv (fun r => G (r, p)) q| < 1 := by
+    rw [abs_mul]
+    exact lt_of_le_of_lt (mul_le_mul_of_nonneg_left hd (abs_nonneg a)) hstep
+  intro hzero
+  have : a * deriv (fun r => G (r, p)) q = -1 := by linarith
+  rw [this, abs_neg, abs_one] at hproduct
+  exact (lt_irrefl 1 hproduct)
+
 end Mcmc.Relativistic

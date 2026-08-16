@@ -2156,3 +2156,14 @@ derivatives for every differentiable positive factor; the nonconstant SoftAbs
 client instantiates that identity. Remaining is the global inverse-stage
 composition that turns these paired factors into determinant one for the
 Banach-selected step.
+
+The global determinant composition itself is now generic as well.
+`scalarGeneralizedLeapfrogStep` composes arbitrary differentiable incoming and
+left inverse selections with the right and outgoing shears. Given the two
+left-inverse identities and the mixed-partial equality, Lean multiplies the
+four actual Fréchet determinants, uses the inverse-function determinant
+identities, and proves determinant exactly one. Separate reusable lemmas show
+that the strict slice-contraction inequalities make the incoming and left-map
+Jacobians nonsingular. The target-specific residue is therefore narrowed to
+constructing the scalar-coordinate inverse selections from the existing
+Banach solver and proving their continuity/differentiability.
