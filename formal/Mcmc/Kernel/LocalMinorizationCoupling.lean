@@ -253,6 +253,21 @@ theorem HasAffineDrift.pow
           simp only [affineDriftAccumulatedAllowance, pow_succ]
           ring
 
+/-- Invariance is preserved by every kernel power. -/
+theorem invariant_pow
+    {transition : Kernel α α} {target : Measure α}
+    (hinvariant : transition.Invariant target) :
+    ∀ n : ℕ, (transition ^ n).Invariant target := by
+  intro n
+  induction n with
+  | zero =>
+      have hone : (1 : Kernel α α) = Kernel.id := rfl
+      rw [pow_zero, hone]
+      rw [ProbabilityTheory.Kernel.Invariant, Measure.id_comp]
+  | succ n ih =>
+      rw [pow_succ]
+      exact ih.comp hinvariant
+
 /-- Normalize a finite positive restriction of a measure. -/
 noncomputable def normalizedRestriction
     (μ : Measure α) (A : Set α) : Measure α :=

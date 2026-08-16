@@ -12,10 +12,17 @@
   allowance, and Lean constructs a Markovian faithful residual coupling with
   positive exact-meeting mass on the product band. The paired exponential
   Lyapunov sublevel is proved to lie in that band whenever its threshold is
-  below the exponential weight at the band radius. The remaining bare-chain
-  convergence assembly is the explicit simultaneous choice of band,
-  absorption threshold, and paired drift rate; no bare convergence theorem is
-  claimed before that parameter inequality is discharged.
+  below the exponential weight at the band radius. A uniform infinite-
+  geometric bound on every skeleton allowance breaks the apparent circularity
+  between corridor length and box radius: Lean now constructs the band,
+  absorption threshold, paired rate, faithful coupling, and positive meeting
+  constant unconditionally and proves the complete geometric meeting-drift
+  certificate. This yields setwise convergence of a positive bare skeleton
+  conditional only on the separately stated finiteness of the normalized
+  Gaussian target's exponential Lyapunov moment. Closing that elementary
+  Gaussian integral removes the last premise of the skeleton convergence
+  theorem; convergence of every unthinned time index remains a distinct
+  residue-class/aperiodicity step.
 
 - Established the one-dimensional Jacobian foundation for the Gaussian
   SoftAbs moved branch. The exact scalar relativistic velocity derivative is

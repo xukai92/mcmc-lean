@@ -2431,6 +2431,191 @@ theorem gaussianSoftAbs_power_geometricDrift_and_meeting_of_box
       (pairedAdd_sublevel_subset_gaussianSoftAbs_box
         t ht Q hQ threshold hthreshold hz)
 
+/-- Unconditional meeting-drift certificate for a positive skeleton of the
+actual bare one-dimensional Gaussian SoftAbs multinomial kernel. All box,
+threshold, rate, and coupling witnesses are constructed from the proved
+one-step affine drift and compact corridor minorization. -/
+theorem exists_gaussianSoftAbs_bare_power_meetingDrift
+    (t : ℝ) (ht : 0 < t) :
+    ∃ steps : ℕ, 0 < steps ∧
+      ∃ rate allowance threshold meetingBound : ENNReal,
+        rate < 1 ∧ rate ≠ ∞ ∧ allowance ≠ ∞ ∧
+        threshold ≠ 0 ∧ threshold ≠ ∞ ∧
+        0 < meetingBound ∧ meetingBound ≤ 1 ∧
+      ∃ coupled : Kernel (Position Unit × Position Unit)
+          (Position Unit × Position Unit),
+        IsMarkovKernel coupled ∧
+        IsCoupling coupled
+          (gaussianSoftAbsMultinomialTransition 1 1 ^ steps)
+          (gaussianSoftAbsMultinomialTransition 1 1 ^ steps) ∧
+        IsFaithful coupled ∧
+        Mcmc.Kernel.HasGeometricDrift coupled
+          (IsCoupling.pairedAdd (gaussianSoftAbsExpLyapunov t))
+          (Mcmc.Kernel.lyapunovSublevel
+            (IsCoupling.pairedAdd (gaussianSoftAbsExpLyapunov t)) threshold)
+          rate allowance ∧
+        IsExactMeetingSmallSet coupled
+          (Mcmc.Kernel.lyapunovSublevel
+            (IsCoupling.pairedAdd (gaussianSoftAbsExpLyapunov t)) threshold)
+          meetingBound := by
+  obtain ⟨baseRate, baseAllowance, hbaseRate, hbaseRateTop,
+    hbaseAllowanceTop, hbaseDrift⟩ :=
+    exists_gaussianSoftAbs_hasAffineDrift t ht
+  let geometricAllowance : ENNReal :=
+    (1 - baseRate)⁻¹ * baseAllowance
+  have hgapPos : 0 < 1 - baseRate := tsub_pos_iff_lt.mpr hbaseRate
+  have hgeometricAllowanceTop : geometricAllowance ≠ ∞ := by
+    exact ENNReal.mul_ne_top (ENNReal.inv_ne_top.mpr hgapPos.ne')
+      hbaseAllowanceTop
+  obtain ⟨threshold, hthreshold0, hthresholdTop, hbaseBudget⟩ :=
+    Mcmc.Kernel.exists_affineDrift_paired_budget_threshold
+      hbaseRate hbaseRateTop hgeometricAllowanceTop
+  obtain ⟨Q, hQ, hthresholdQ⟩ :=
+    exists_gaussianSoftAbsExpWeight_ge t ht threshold
+      hthreshold0 hthresholdTop
+  obtain ⟨steps, hsteps, ε, hεPos, hminor⟩ :=
+    exists_gaussianSoftAbs_power_locallyMinorizes_on_box Q hQ
+  let skeleton : Kernel (Position Unit) (Position Unit) :=
+    gaussianSoftAbsMultinomialTransition 1 1 ^ steps
+  let sourceRate := baseRate ^ steps
+  let sourceAllowance := Mcmc.Kernel.affineDriftAccumulatedAllowance
+    baseRate baseAllowance steps
+  have hsourceDrift : Mcmc.Kernel.HasAffineDrift skeleton
+      (gaussianSoftAbsExpLyapunov t) sourceRate sourceAllowance :=
+    Mcmc.Kernel.HasAffineDrift.pow
+      (gaussianSoftAbsMultinomialTransition 1 1) hbaseDrift steps
+  have hsourceRateLe : sourceRate ≤ baseRate :=
+    Mcmc.Kernel.ennreal_pow_le_self_of_le_one hbaseRate.le hsteps
+  have hsourceRate : sourceRate < 1 := hsourceRateLe.trans_lt hbaseRate
+  have hsourceRateTop : sourceRate ≠ ∞ :=
+    ENNReal.pow_ne_top hbaseRateTop
+  have hsourceAllowanceLe : sourceAllowance ≤ geometricAllowance :=
+    Mcmc.Kernel.affineDriftAccumulatedAllowance_le_geometric
+      baseRate baseAllowance steps
+  have hsourceAllowanceTop : sourceAllowance ≠ ∞ :=
+    ne_top_of_le_ne_top hgeometricAllowanceTop hsourceAllowanceLe
+  have hsourceBudget : sourceRate * threshold +
+      (sourceAllowance + sourceAllowance) < threshold := by
+    apply lt_of_le_of_lt _ hbaseBudget
+    gcongr
+  let pairedRate := Mcmc.Kernel.affinePairedSublevelRate
+    sourceRate sourceAllowance threshold
+  obtain ⟨hrates, habsorb, hpairedRate⟩ :=
+    Mcmc.Kernel.affinePairedSublevelRate_spec
+      hthreshold0 hthresholdTop hsourceBudget
+  have hpairedRateTop : pairedRate ≠ ∞ :=
+    ne_top_of_lt (hpairedRate.trans_le le_top)
+  have hpairedAllowanceTop : sourceAllowance + sourceAllowance ≠ ∞ :=
+    ENNReal.add_ne_top.2 ⟨hsourceAllowanceTop, hsourceAllowanceTop⟩
+  let D : Set (Position Unit) :=
+    {q | q Unit.unit ∈ Set.Icc (-Q) Q}
+  let reference := Mcmc.Kernel.normalizedRestriction
+    gaussianSoftAbsUnitPositionLebesgue gaussianSoftAbsCentralPositionSet
+  have hD : MeasurableSet D :=
+    isClosed_Icc.measurableSet.preimage (measurable_pi_apply Unit.unit)
+  have hDne : D.Nonempty := by
+    refine ⟨(0 : Position Unit), ?_⟩
+    change (0 : ℝ) ∈ Set.Icc (-Q) Q
+    simp [hQ]
+  letI : IsProbabilityMeasure reference :=
+    Mcmc.Kernel.normalizedRestriction_isProbabilityMeasure
+      gaussianSoftAbsUnitPositionLebesgue
+      gaussianSoftAbsUnitPositionLebesgue_central_pos
+      gaussianSoftAbsUnitPositionLebesgue_central_ne_top
+  obtain ⟨p, hpPos, hpLt, hpMinor⟩ :=
+    Mcmc.Kernel.LocallyMinorizes.exists_pos_nnreal_coefficient
+      skeleton D reference hεPos hDne hminor
+  let coupled := Mcmc.Kernel.faithfulLocalMinorizationCoupling
+    skeleton D hD reference p hpLt hpMinor
+  have hcoupled : IsCoupling coupled skeleton skeleton :=
+    Mcmc.Kernel.faithfulLocalMinorizationCoupling_isCoupling
+      skeleton D hD reference p hpLt hpMinor
+  have hfaithful : IsFaithful coupled :=
+    Mcmc.Kernel.faithfulLocalMinorizationCoupling_isFaithful
+      skeleton D hD reference p hpLt hpMinor
+  have hmeetingBox : IsExactMeetingSmallSet coupled (D ×ˢ D) p.1 :=
+    Mcmc.Kernel.faithfulLocalMinorizationCoupling_isExactMeetingSmallSet
+      skeleton D hD reference p hpLt hpMinor
+  obtain ⟨hgeometric, hmeeting⟩ :=
+    gaussianSoftAbs_power_geometricDrift_and_meeting_of_box
+      t ht Q hQ steps sourceRate sourceAllowance coupled hcoupled
+      hsourceDrift p.1 hmeetingBox pairedRate threshold hrates habsorb
+      hthresholdQ
+  refine ⟨steps, hsteps, pairedRate, sourceAllowance + sourceAllowance,
+    threshold, p.1, hpairedRate, hpairedRateTop, hpairedAllowanceTop,
+    hthreshold0, hthresholdTop, ?_, ?_, coupled, inferInstance,
+    hcoupled, hfaithful, hgeometric, hmeeting⟩
+  · exact_mod_cast hpPos
+  · exact_mod_cast p.2.2
+
+/-- The unconditional meeting-drift certificate yields setwise convergence
+of a positive bare SoftAbs skeleton whenever the normalized Gaussian target's
+exponential Lyapunov moment is finite. The moment premise is isolated here so
+the probabilistic conclusion does not hide this remaining analytic integral.
+-/
+theorem exists_gaussianSoftAbs_bare_power_setwise_convergence_of_targetMoment
+    (t : ℝ) (ht : 0 < t)
+    (htargetMoment : (∫⁻ q, gaussianSoftAbsExpLyapunov t q
+      ∂Mcmc.Kernel.finiteNormalize
+        (gaussianSoftAbsPositionTarget (ι := Unit))) ≠ ∞)
+    (q : Position Unit) {s : Set (Position Unit)} (hs : MeasurableSet s) :
+    ∃ steps : ℕ, 0 < steps ∧
+      Filter.Tendsto
+        (fun n => Mcmc.Kernel.lawAtTime (Measure.dirac q)
+          (gaussianSoftAbsMultinomialTransition 1 1 ^ steps) n s)
+        Filter.atTop
+        (nhds (Mcmc.Kernel.finiteNormalize
+          (gaussianSoftAbsPositionTarget (ι := Unit)) s)) := by
+  obtain ⟨steps, hsteps, rate, allowance, threshold, meetingBound,
+    hrate, hrateTop, hallowanceTop, hthreshold0, hthresholdTop,
+    hmeetingPos, hmeetingLe, coupled, _hmarkov, hcoupled, hfaithful,
+    hdrift, hmeeting⟩ := exists_gaussianSoftAbs_bare_power_meetingDrift t ht
+  let target := Mcmc.Kernel.finiteNormalize
+    (gaussianSoftAbsPositionTarget (ι := Unit))
+  let initialCoupling : Measure (Position Unit × Position Unit) :=
+    (Measure.dirac q).prod target
+  letI : IsProbabilityMeasure target := inferInstance
+  letI : IsProbabilityMeasure initialCoupling := inferInstance
+  have hinitial : IsMeasureCoupling initialCoupling (Measure.dirac q) target :=
+    isMeasureCoupling_prod _ _
+  have hinvariantBase :
+      (gaussianSoftAbsMultinomialTransition 1 1).Invariant target := by
+    apply Mcmc.Kernel.invariant_finiteNormalize _ _
+      gaussianSoftAbsPositionTarget_ne_zero
+    exact gaussianSoftAbs_multinomialGRHMC_invariant 1 1
+  have hinvariant :
+      (gaussianSoftAbsMultinomialTransition 1 1 ^ steps).Invariant target :=
+    Mcmc.Kernel.invariant_pow hinvariantBase steps
+  have hVmoment : (∫⁻ z, IsCoupling.pairedAdd
+      (gaussianSoftAbsExpLyapunov t) z ∂initialCoupling) ≠ ∞ := by
+    have hv := measurable_gaussianSoftAbsExpLyapunov t
+    have hfst : Measurable (fun z : Position Unit × Position Unit =>
+        gaussianSoftAbsExpLyapunov t z.1) := hv.comp measurable_fst
+    rw [show (∫⁻ z, IsCoupling.pairedAdd
+        (gaussianSoftAbsExpLyapunov t) z ∂initialCoupling) =
+        (∫⁻ z, gaussianSoftAbsExpLyapunov t z.1 ∂initialCoupling) +
+          ∫⁻ z, gaussianSoftAbsExpLyapunov t z.2
+            ∂initialCoupling by
+      unfold IsCoupling.pairedAdd
+      rw [lintegral_add_left hfst]]
+    rw [lintegral_fst_eq_of_isMeasureCoupling hinitial hv,
+      lintegral_snd_eq_of_isMeasureCoupling hinitial hv,
+      lintegral_dirac' q hv]
+    apply ENNReal.add_ne_top.2
+    constructor
+    · unfold gaussianSoftAbsExpLyapunov gaussianSoftAbsExpWeight
+      exact ENNReal.ofReal_ne_top
+    · exact htargetMoment
+  have hdriftBudgetTop : rate * threshold + allowance ≠ ∞ :=
+    ENNReal.add_ne_top.2
+      ⟨ENNReal.mul_ne_top hrateTop hthresholdTop, hallowanceTop⟩
+  refine ⟨steps, hsteps, ?_⟩
+  exact hdrift.lawAtTime_apply_tendsto_of_invariant
+    initialCoupling (Measure.dirac q) target
+    (gaussianSoftAbsMultinomialTransition 1 1 ^ steps) coupled
+    hinitial hcoupled hfaithful hinvariant hmeeting hrate hmeetingPos
+    hmeetingLe hthreshold0 hthresholdTop hdriftBudgetTop hVmoment hs
+
 /-- A positive exponential scale admits one fixed strict drift rate beyond a
 finite positive-tail threshold. -/
 theorem exists_gaussianSoftAbs_positiveTail_strict_drift

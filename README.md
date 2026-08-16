@@ -776,10 +776,13 @@ validation target at `ε = 1`, `L = 1`, the exponential affine drift
 certificate is now proved for the actual bare multinomial kernel. Its pending
 local accessibility input is now also closed: a positive finite-step skeleton
 minorizes normalized central Lebesgue measure on every bounded band and has a
-faithful exact-meeting coupling there. The remaining bare-convergence
-obligation is the explicit simultaneous band/paired-threshold choice required
-to absorb the skeleton drift allowance while keeping its Lyapunov sublevel
-inside that minorized band.
+faithful exact-meeting coupling there. A uniform geometric allowance bound now
+also constructs the compatible paired threshold and enclosing band, yielding
+an unconditional geometric meeting-drift certificate. Setwise convergence of
+the resulting positive skeleton is reduced to the explicitly isolated finite
+exponential moment of the normalized one-dimensional Gaussian target; proving
+that integral and then controlling all residue classes remain the outstanding
+bare-convergence obligations.
 Higher-dimensional or non-Gaussian validated instances must still provide
 their own target-specific drift analysis.
 

@@ -154,11 +154,14 @@ conditions for bare GR-HMC are stated in the paper, so invariance alone is not
 reported as convergence. For the concrete one-dimensional Gaussian SoftAbs
 client, Lean now additionally proves strict exponential affine drift, a
 finite-step compact minorization by normalized central Lebesgue measure, and a
-faithful skeleton coupling with positive exact-meeting mass. It also proves
-the exact sublevel-to-box condition needed by the meeting-drift layer. The
-last bare-chain obligation is the simultaneous parameter choice satisfying
-the paired drift-allowance absorption and box-containment inequalities; bare
-convergence is not claimed until that obligation is closed. The separate
+faithful skeleton coupling with positive exact-meeting mass. It constructs a
+finite absorption threshold and enclosing box and proves the complete
+geometric meeting-drift certificate unconditionally. A positive bare skeleton
+therefore has a setwise-convergence theorem conditional only on the explicitly
+isolated finiteness of the normalized Gaussian target's exponential Lyapunov
+moment. The elementary Gaussian integral and the subsequent passage from the
+skeleton subsequence to every time index remain open, so unrestricted bare
+convergence is not yet claimed. The separate
 `GaussianSoftAbsConvergence` client adds an explicit independent normalized-
 target refresh to the proved Gaussian SoftAbs multinomial transition. Lean
 proves the concrete Gaussian target has finite, nonzero mass, then proves
