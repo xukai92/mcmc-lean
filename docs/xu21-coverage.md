@@ -132,13 +132,18 @@ record, and proves the concrete exact lag-one geometric meeting tail.
 It also proves the analogous unconditional bounded-observable marginal-limit
 and finite-variance estimator endpoint for the concrete regularized-logistic
 mixture.
+Positive quadratic coercivity now additionally proves integrability and
+nonzeroness of the unnormalized logistic Boltzmann measure. The normalized
+posterior is constructed as a probability measure, and the concrete mixture
+is proved invariant for it. A finite distance-Lyapunov moment under this
+normalized target is the next requirement for the stationary-start coupling.
 
 The following follow-on work remains outside the completed theorem surface:
 
 - target-specific drift certificates beyond the standard Gaussian and
   regularized-logistic families;
-- normalized-Boltzmann construction and the analogous stationary-target
-  identification for regularized logistic regression;
+- the normalized logistic target's finite distance-Lyapunov moment and the
+  resulting stationary-target coupling/estimator identification;
 - full floating-point refinement and reproduction of every reported paper
   experiment. The generated Julia coupling already implements shared-event
   HMC/RWMH mixture steps, checks exact-meeting faithfulness, and now exposes a

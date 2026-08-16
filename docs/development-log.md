@@ -1,5 +1,10 @@
 # Development log
 
+- Used the regularized-logistic coercive lower bound to prove integrability of
+  its unnormalized Boltzmann density. The finite nonzero measure is now
+  normalized to a probability target, and the concrete HMC/RWMH mixture is
+  proved invariant for that normalized posterior.
+
 - Added the heterogeneous-initialization form of the Xu drift closure and the
   faithful path-law identity equating meeting tails with finite-time
   off-diagonal mass. The standard quadratic client now defines its normalized
