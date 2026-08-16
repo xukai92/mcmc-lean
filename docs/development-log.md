@@ -3655,3 +3655,15 @@ initial segment. This closes the abstract continuous-time renewal argument;
 the remaining work is to discharge its hypotheses for the Gaussian Zig-Zag
 environment and push the resulting invariant law through the existing
 decoder and signed/physical/BPS equivalences.
+
+## 2026-08-16: Gaussian regenerative nonexplosion
+
+Discharged the abstract suspension theorem's final probabilistic hypothesis
+for the Gaussian Zig-Zag environment. Lean tracks the iid hazard tail through
+every event shift, identifies each newly generated right reset, and proves
+that every future roof dominates the corresponding square-root hazard term.
+The previously established almost-sure divergence of that series forces the
+cumulative roof time past every finite horizon. Consequently, the concrete
+Gaussian suspension occupation measure is now machine-checked invariant at
+every nonnegative time. Only the pathwise decoder/intertwining transfer to the
+public stopped Zig-Zag kernel remains.
