@@ -22,7 +22,15 @@
   unnormalized labeled integral divided by its constant-one integral.
   Constant-one labeled values coincide with the ordinary Feynman--Kac
   sequence, and attaching any deterministic initial labels leaves that
-  denominator exactly equal to the existing `normalizingConstant`.
+  denominator exactly equal to the existing `normalizingConstant`. A generic
+  selected-particle theorem now identifies the terminal-label expectation
+  under the extended SMC target with this exact normalized labeled law.
+  Instantiating it with the path-match automaton proves that terminal success
+  is exactly the requested `countedTrajectoryTarget` mass. Finally,
+  coordinatewise mapping is proved to commute with a forced independent cloud,
+  and the aggregate particle-Gibbs kernel entry is rewritten exactly as an
+  average of the joint forced-cloud induction invariant. Thus both sides of
+  the remaining arbitrary-schedule inequality now use the same checked APIs.
 
 - Added the finite horizon-indexed path-match automaton required by the PG
   trajectory client. Its state is a bounded time index plus a Boolean prefix

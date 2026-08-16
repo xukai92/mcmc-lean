@@ -329,6 +329,27 @@ def forcedIndependentPopulation (law : Particle → Distribution Sample)
   independentPopulation fun i =>
     if i = retained then pointDistribution value else law i
 
+omit [Nonempty Particle] in
+/-- Coordinatewise mapping commutes with forcing one coordinate of an
+independent population. -/
+theorem map_forcedIndependentPopulation_coordinatewise
+    {Output : Type*} [Fintype Output] [DecidableEq Output]
+    (law : Particle → Distribution Sample) (retained : Particle) (value : Sample)
+    (transform : Particle → Sample → Output) :
+    Distribution.map (forcedIndependentPopulation law retained value)
+        (fun samples i => transform i (samples i)) =
+      forcedIndependentPopulation
+        (fun i => Distribution.map (law i) (transform i)) retained
+        (transform retained value) := by
+  unfold forcedIndependentPopulation
+  rw [map_independentPopulation_coordinatewise]
+  congr 1
+  funext i
+  by_cases hi : i = retained
+  · subst i
+    simp [map_pointDistribution]
+  · simp [hi]
+
 /-- Independent population with two named coordinates forced. When the
 coordinates are distinct, this is the conditional remainder law obtained by
 fixing both a retained particle and one selected ordinary particle. -/

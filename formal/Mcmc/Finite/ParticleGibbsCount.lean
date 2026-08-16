@@ -26,6 +26,9 @@ structure PathMatchLabel (horizon : ℕ) where
   matched : Bool
 deriving Fintype, DecidableEq
 
+instance (horizon : ℕ) : Nonempty (PathMatchLabel horizon) :=
+  ⟨⟨⟨0, Nat.zero_lt_succ horizon⟩, false⟩⟩
+
 /-- Initial path-match label after inspecting time zero. -/
 def initialPathMatchLabel (horizon : ℕ)
     (desired : Fin (horizon + 1) → Sample) (state : Sample) :
@@ -559,6 +562,35 @@ noncomputable def countedTrajectoryTarget
     Distribution (Trajectory steps) :=
   trajectoryTarget (Particle := Fin (extra + 1)) initial steps hnormalizer
 
+/-- The exact finite path-match label process has terminal success probability
+equal to the normalized trajectory target mass of the requested path. -/
+theorem labeledPathMatchLaw_success_eq_countedTrajectoryTarget_mass
+    [Nonempty Sample]
+    (initial : Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : 0 < normalizingConstant initial steps) (extra : ℕ)
+    (proposed : Trajectory steps) :
+    (∑ value,
+      (labeledFeynmanKacLawFrom
+        (advancePathMatchLabel steps.length proposed.get)
+        (labeledInitialDistribution initial
+          (initialPathMatchLabel steps.length proposed.get))
+        steps).mass value * pathMatchScore value.1) =
+      (countedTrajectoryTarget initial steps hnormalizer extra).mass proposed := by
+  rw [← selectedParticleTarget_terminalLabel_expectation
+    (Particle := Fin (extra + 1))
+    (advancePathMatchLabel steps.length proposed.get) initial
+    (initialPathMatchLabel steps.length proposed.get) steps hnormalizer
+    pathMatchScore]
+  unfold countedTrajectoryTarget trajectoryTarget
+  rw [Mcmc.Finite.Conditional.statisticMarginal_mass]
+  unfold Mcmc.Finite.Conditional.fiberMass
+  apply Finset.sum_congr rfl
+  intro selected _
+  rw [pathMatchScore_terminalLabels]
+  by_cases h : selectedTrajectoryVector steps selected = proposed
+  · simp [h]
+  · simp [h]
+
 /-- At zero propagation steps, the trajectory target is exactly the initial
 one-state law. -/
 theorem countedTrajectoryTarget_nil_mass
@@ -1025,6 +1057,49 @@ theorem pathMatchGenealogicalFraction_eq_proposedTrajectoryFraction
   rw [pathMatchScore_terminalLabels]
   simp only [eq_comm]
 
+/-- The state-cloud presentation used by conditional SMC and the joint
+`(path-label,state)` forced-cloud induction invariant have exactly the same
+expectation. -/
+theorem forcedInitialPathMatchExpectation_eq_forcedCloud
+    (initial : Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (proposed : Trajectory steps) (extra : ℕ)
+    (retained : Fin (extra + 1)) (first : Sample)
+    (future : List Sample) (hfuture : future.length = steps.length) :
+    (∑ particles,
+      (forcedIndependentPopulation (fun _ : Fin (extra + 1) => initial)
+        retained first).mass particles *
+        forcedLineageSuffixLabelExpectation
+          (advancePathMatchLabel steps.length proposed.get)
+          steps first future hfuture particles retained
+          (fun i => initialPathMatchLabel steps.length proposed.get (particles i))
+          pathMatchScore) =
+      forcedCloudLineageSuffixLabelExpectation
+        (advancePathMatchLabel steps.length proposed.get)
+        steps future hfuture
+        (labeledInitialDistribution initial
+          (initialPathMatchLabel steps.length proposed.get))
+        extra retained
+        (initialPathMatchLabel steps.length proposed.get first, first)
+        pathMatchScore := by
+  unfold forcedCloudLineageSuffixLabelExpectation
+  let transform : Fin (extra + 1) → Sample → PathMatchLabel steps.length × Sample :=
+    fun _ state =>
+      (initialPathMatchLabel steps.length proposed.get state, state)
+  have hlaw :
+      forcedIndependentPopulation
+          (fun _ : Fin (extra + 1) =>
+            labeledInitialDistribution initial
+              (initialPathMatchLabel steps.length proposed.get))
+          retained
+          (initialPathMatchLabel steps.length proposed.get first, first) =
+        Distribution.map
+          (forcedIndependentPopulation
+            (fun _ : Fin (extra + 1) => initial) retained first)
+          (fun particles i => transform i (particles i)) := by
+    rw [map_forcedIndependentPopulation_coordinatewise]
+    rfl
+  rw [hlaw, Distribution.map_expectation]
+
 /-- Uniform terminal-index refresh turns the compatible-index count in a
 fixed history into exactly its proposed-trajectory fraction. -/
 theorem selectedIndexRefresh_aggregate_eq_proposedTrajectoryFraction
@@ -1189,6 +1264,38 @@ theorem aggregatedForcedLineageMass_eq_recursivePathMatchExpectation
   intro particles _
   rw [Distribution.map_expectation]
   rfl
+
+/-- Joint-cloud form of the aggregate particle-Gibbs entry. This is the final
+representation bridge: the kernel entry is an average of exactly the
+forced-cloud invariant used by the sharp induction. -/
+theorem aggregatedForcedLineageMass_eq_forcedCloudExpectation
+    [Nonempty Sample]
+    (initial : Distribution Sample) (hinitial : ∀ x, 0 < initial.mass x)
+    (steps : List (FeynmanKacStep Sample))
+    (hsupport : FeynmanKacFullSupport steps)
+    (hnormalizer : 0 < normalizingConstant initial steps) (extra : ℕ)
+    (current proposed : Trajectory steps) (first : Sample)
+    (future : List Sample) (hfuture : future.length = steps.length)
+    (hcurrent : current = ⟨first :: future, by simp [hfuture]⟩) :
+    aggregatedForcedLineageMass initial steps hnormalizer extra current proposed =
+      ∑ retained : Fin (extra + 1),
+        (uniformParticleDistribution (Particle := Fin (extra + 1))).mass retained *
+          forcedCloudLineageSuffixLabelExpectation
+            (advancePathMatchLabel steps.length proposed.get)
+            steps future hfuture
+            (labeledInitialDistribution initial
+              (initialPathMatchLabel steps.length proposed.get))
+            extra retained
+            (initialPathMatchLabel steps.length proposed.get first, first)
+            pathMatchScore := by
+  rw [aggregatedForcedLineageMass_eq_recursivePathMatchExpectation
+    initial hinitial steps hsupport hnormalizer extra current proposed
+    first future hfuture hcurrent]
+  apply Finset.sum_congr rfl
+  intro retained _
+  congr 1
+  exact forcedInitialPathMatchExpectation_eq_forcedCloud
+    initial steps proposed extra retained first future hfuture
 
 /-- The aggregated forced-lineage mass is exactly the trajectory particle-
 Gibbs transition entry. This is an expansion theorem, not a minorization

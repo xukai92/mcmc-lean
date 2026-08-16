@@ -1009,6 +1009,62 @@ theorem continuationLaw_labeledHistoryValue_expectation {Label : Type*}
         (fun label y => labeledFeynmanKacValue extend steps observable
           (extend label y) y)
 
+/-- Generic labeled many-to-one identity after an iid initial population. -/
+theorem iid_labeledHistoryValue_expectation
+    {Label : Type*} [Fintype Label] [DecidableEq Label]
+    (extend : Label → Sample → Label) (initial : Distribution Sample)
+    (initialLabel : Sample → Label) (steps : List (FeynmanKacStep Sample))
+    (observable : Label → ℝ) :
+    ∑ particles, (iidPopulation (Particle := Particle) initial).mass particles *
+      (∑ history, (continuationLaw (Particle := Particle) steps particles).mass history *
+        labeledHistoryValue extend steps observable
+          (fun i => initialLabel (particles i)) particles history) =
+      labeledFeynmanKacIntegral extend
+        (labeledInitialDistribution initial initialLabel) steps observable := by
+  simp_rw [continuationLaw_labeledHistoryValue_expectation]
+  have havg (particles : Particle → Sample) :
+      particleAverage
+          (fun i => labeledFeynmanKacValue extend steps observable
+            (initialLabel (particles i)) (particles i)) (fun i => i) =
+        particleAverage
+          (fun state => labeledFeynmanKacValue extend steps observable
+            (initialLabel state) state) particles := rfl
+  simp_rw [havg]
+  rw [iidPopulation_particleAverage_expectation]
+  unfold labeledFeynmanKacIntegral labeledInitialDistribution
+  rw [Distribution.map_expectation]
+
+/-- Complete-history form of the generic labeled many-to-one identity. -/
+theorem historyLaw_labeledHistoryValue_expectation
+    {Label : Type*} [Fintype Label] [DecidableEq Label]
+    (extend : Label → Sample → Label) (initial : Distribution Sample)
+    (initialLabel : Sample → Label) (steps : List (FeynmanKacStep Sample))
+    (observable : Label → ℝ) :
+    ∑ history, (historyLaw (Particle := Particle) initial steps).mass history *
+      labeledHistoryValue extend steps observable
+        (fun i => initialLabel (history.1 i)) history.1 history.2 =
+      labeledFeynmanKacIntegral extend
+        (labeledInitialDistribution initial initialLabel) steps observable := by
+  rw [Fintype.sum_prod_type]
+  change ∑ particles, ∑ continuation,
+      ((iidPopulation (Particle := Particle) initial).mass particles *
+        (continuationLaw steps particles).mass continuation) *
+      labeledHistoryValue extend steps observable
+        (fun i => initialLabel (particles i)) particles continuation = _
+  simp_rw [show ∀ (particles : Particle → Sample)
+      (continuation : Continuation Particle Sample steps),
+      ((iidPopulation (Particle := Particle) initial).mass particles *
+        (continuationLaw steps particles).mass continuation) *
+          labeledHistoryValue extend steps observable
+            (fun i => initialLabel (particles i)) particles continuation =
+        (iidPopulation (Particle := Particle) initial).mass particles *
+          ((continuationLaw steps particles).mass continuation *
+            labeledHistoryValue extend steps observable
+              (fun i => initialLabel (particles i)) particles continuation) by
+      intro particles continuation; ring,
+    ← Finset.mul_sum]
+  exact iid_labeledHistoryValue_expectation extend initial initialLabel steps observable
+
 /-- Exact path-space Feynman--Kac value, represented by successively appending
 states to a path prefix. -/
 noncomputable def pathFeynmanKacValue (steps : List (FeynmanKacStep Sample))
@@ -1113,6 +1169,81 @@ noncomputable def selectedParticleTarget (initial : Distribution Sample)
       rw [Finset.sum_div]]
     rw [normalizingWeight_expectation]
     exact div_self (ne_of_gt hnormalizer)
+
+/-- The selected-particle extended target transports any finite deterministic
+label process to the same normalized labeled Feynman--Kac law. -/
+theorem selectedParticleTarget_terminalLabel_expectation
+    {Label : Type*} [Fintype Label] [DecidableEq Label] [Nonempty Label]
+    [Nonempty Sample]
+    (extend : Label → Sample → Label) (initial : Distribution Sample)
+    (initialLabel : Sample → Label) (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : 0 < normalizingConstant initial steps)
+    (observable : Label → ℝ) :
+    (∑ selected,
+      (selectedParticleTarget (Particle := Particle)
+        initial steps hnormalizer).mass selected *
+        observable (terminalLabels extend steps
+          (fun i => initialLabel (selected.1.1 i)) selected.1.2 selected.2)) =
+      ∑ value,
+        (labeledFeynmanKacLawFrom extend
+          (labeledInitialDistribution initial initialLabel) steps).mass value *
+          observable value.1 := by
+  rw [labeledFeynmanKacLawFrom_expectation_eq_integral_ratio]
+  rw [labeledInitialDistribution_integral_one]
+  unfold selectedParticleTarget
+  rw [Fintype.sum_prod_type]
+  simp_rw [show ∀ (history : History (Particle := Particle) steps)
+      (terminal : Particle),
+      ((historyLaw (Particle := Particle) initial steps).mass history *
+          normalizingWeight steps history /
+          normalizingConstant initial steps / Fintype.card Particle) *
+        observable (terminalLabels extend steps
+          (fun i => initialLabel (history.1 i)) history.2 terminal) =
+      ((historyLaw (Particle := Particle) initial steps).mass history /
+          normalizingConstant initial steps) *
+        (normalizingWeight steps history *
+          observable (terminalLabels extend steps
+            (fun i => initialLabel (history.1 i)) history.2 terminal) /
+          Fintype.card Particle) by
+      intro history terminal; ring]
+  have hinner (history : History (Particle := Particle) steps) :
+      (∑ terminal,
+        normalizingWeight steps history *
+          observable (terminalLabels extend steps
+            (fun i => initialLabel (history.1 i)) history.2 terminal) /
+          Fintype.card Particle) =
+        labeledHistoryValue extend steps observable
+          (fun i => initialLabel (history.1 i)) history.1 history.2 := by
+    rw [labeledHistoryValue_eq_normalizingWeight_mul_terminalAverage]
+    unfold normalizingWeight fullHistoryValue
+    rw [← Finset.sum_div, ← Finset.mul_sum]
+    ring
+  simp_rw [← Finset.mul_sum]
+  change (∑ history : History (Particle := Particle) steps,
+      (historyLaw (Particle := Particle) initial steps).mass history /
+          normalizingConstant initial steps *
+        (∑ terminal : Particle,
+          normalizingWeight steps history *
+            observable (terminalLabels extend steps
+              (fun i => initialLabel (history.1 i)) history.2 terminal) /
+            Fintype.card Particle)) = _
+  simp_rw [hinner]
+  calc
+    (∑ history,
+      (historyLaw (Particle := Particle) initial steps).mass history /
+          normalizingConstant initial steps *
+        labeledHistoryValue extend steps observable
+          (fun i => initialLabel (history.1 i)) history.1 history.2) =
+      (∑ history,
+        (historyLaw (Particle := Particle) initial steps).mass history *
+          labeledHistoryValue extend steps observable
+            (fun i => initialLabel (history.1 i)) history.1 history.2) /
+        normalizingConstant initial steps := by
+      rw [Finset.sum_div]
+      apply Finset.sum_congr rfl
+      intro history _
+      ring
+    _ = _ := by rw [historyLaw_labeledHistoryValue_expectation]
 
 omit [DecidableEq Sample] in
 /-- With full-support initialization and propagation, every selected SMC
