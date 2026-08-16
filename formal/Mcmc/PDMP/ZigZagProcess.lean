@@ -810,6 +810,105 @@ theorem gaussianZigZagHazardMeasure_Iic_one_toReal :
   norm_num at hcdf ⊢
   exact hcdf
 
+/-- Closed form of the unit-exponential hazard CDF on `NNReal`. -/
+theorem gaussianZigZagHazardMeasure_Iic (time : NNReal) :
+    gaussianZigZagHazardMeasure (Set.Iic time) =
+      ENNReal.ofReal (1 - Real.exp (-(time : ℝ))) := by
+  unfold gaussianZigZagHazardMeasure HomogeneousClock.waitMeasure
+  change (Measure.map Real.toNNReal (expMeasure (1 : ℝ)))
+    (Set.Iic time) = _
+  rw [Measure.map_apply measurable_real_toNNReal measurableSet_Iic]
+  have hpre : Real.toNNReal ⁻¹' (Set.Iic time : Set NNReal) =
+      Set.Iic (time : ℝ) := by
+    ext value
+    simp only [Set.mem_preimage, Set.mem_Iic, Real.toNNReal_le_iff_le_coe]
+  rw [hpre]
+  letI : IsProbabilityMeasure (expMeasure (1 : ℝ)) :=
+    isProbabilityMeasure_expMeasure zero_lt_one
+  have hcdf := cdf_expMeasure_eq (r := (1 : ℝ)) zero_lt_one (time : ℝ)
+  rw [cdf_eq_real] at hcdf
+  simp only [NNReal.coe_nonneg, if_pos, one_mul] at hcdf
+  apply (ENNReal.toReal_eq_toReal_iff'
+    (measure_ne_top _ _) ENNReal.ofReal_ne_top).mp
+  rw [ENNReal.toReal_ofReal]
+  · exact hcdf
+  · exact sub_nonneg.mpr (Real.exp_le_one_iff.mpr (neg_nonpos.mpr time.coe_nonneg))
+
+/-- Unnormalized memorylessness of the unit-exponential hazard law. Restrict
+to clocks strictly larger than `elapsed`, subtract `elapsed`, and the result
+is the original law scaled by the survival probability `exp (-elapsed)`. -/
+theorem gaussianZigZagHazardMeasure_residual_memoryless
+    (elapsed : NNReal) :
+    Measure.map (fun hazard : NNReal => hazard - elapsed)
+        (gaussianZigZagHazardMeasure.restrict (Set.Ioi elapsed)) =
+      ENNReal.ofReal (Real.exp (-(elapsed : ℝ))) •
+        gaussianZigZagHazardMeasure := by
+  apply Measure.ext_of_Iic
+  intro residual
+  rw [Measure.map_apply (by fun_prop) measurableSet_Iic,
+    Measure.restrict_apply (measurableSet_Iic.preimage (by fun_prop))]
+  have hpre :
+      (fun hazard : NNReal => hazard - elapsed) ⁻¹' Set.Iic residual ∩
+          Set.Ioi elapsed =
+        Set.Ioc elapsed (elapsed + residual) := by
+    ext hazard
+    simp only [Set.mem_inter_iff, Set.mem_preimage, Set.mem_Iic, Set.mem_Ioi,
+      Set.mem_Ioc]
+    rw [tsub_le_iff_right]
+    simp [add_comm, and_comm]
+  rw [hpre]
+  have hsubset : Set.Iic elapsed ⊆ Set.Iic (elapsed + residual) :=
+    Set.Iic_subset_Iic.mpr (le_add_right le_rfl)
+  rw [show Set.Ioc elapsed (elapsed + residual) =
+      Set.Iic (elapsed + residual) \ Set.Iic elapsed by
+    ext hazard
+    simp]
+  rw [measure_sdiff hsubset nullMeasurableSet_Iic (measure_ne_top _ _),
+    gaussianZigZagHazardMeasure_Iic,
+    gaussianZigZagHazardMeasure_Iic]
+  rw [Measure.smul_apply]
+  simp only [smul_eq_mul]
+  rw [gaussianZigZagHazardMeasure_Iic]
+  have hexp :
+      Real.exp (-((elapsed + residual : NNReal) : ℝ)) =
+        Real.exp (-(elapsed : ℝ)) * Real.exp (-(residual : ℝ)) := by
+    push_cast
+    rw [neg_add_rev, Real.exp_add]
+    ac_rfl
+  have hnonneg : 0 ≤ 1 - Real.exp (-(elapsed : ℝ)) :=
+    sub_nonneg.mpr (Real.exp_le_one_iff.mpr
+      (neg_nonpos.mpr elapsed.coe_nonneg))
+  rw [← ENNReal.ofReal_sub _ hnonneg, ← ENNReal.ofReal_mul
+    (Real.exp_nonneg (-(elapsed : ℝ)))]
+  congr 1
+  rw [hexp]
+  ring
+
+/-- Survival function of the unit-exponential hazard law. -/
+theorem gaussianZigZagHazardMeasure_Ioi (elapsed : NNReal) :
+    gaussianZigZagHazardMeasure (Set.Ioi elapsed) =
+      ENNReal.ofReal (Real.exp (-(elapsed : ℝ))) := by
+  rw [← Set.compl_Iic,
+    measure_compl measurableSet_Iic (measure_ne_top _ _),
+    measure_univ, gaussianZigZagHazardMeasure_Iic]
+  rw [← ENNReal.ofReal_one, ← ENNReal.ofReal_sub _
+    (sub_nonneg.mpr (Real.exp_le_one_iff.mpr
+      (neg_nonpos.mpr elapsed.coe_nonneg)))]
+  congr 1
+  ring
+
+/-- Conditional memorylessness in normalized probability-law form. -/
+theorem gaussianZigZagHazardMeasure_conditional_residual
+    (elapsed : NNReal) :
+    (ENNReal.ofReal (Real.exp (-(elapsed : ℝ))))⁻¹ •
+        Measure.map (fun hazard : NNReal => hazard - elapsed)
+          (gaussianZigZagHazardMeasure.restrict (Set.Ioi elapsed)) =
+      gaussianZigZagHazardMeasure := by
+  rw [gaussianZigZagHazardMeasure_residual_memoryless, smul_smul]
+  have hne : ENNReal.ofReal (Real.exp (-(elapsed : ℝ))) ≠ 0 :=
+    (ENNReal.ofReal_pos.mpr (Real.exp_pos _)).ne'
+  rw [ENNReal.inv_mul_cancel hne ENNReal.ofReal_ne_top, one_smul]
+
 theorem gaussianZigZagHazardMeasure_Ioi_one_pos :
     0 < gaussianZigZagHazardMeasure (Set.Ioi 1) := by
   rw [pos_iff_ne_zero]

@@ -11,6 +11,15 @@
   theorem is the conditional residual-clock memoryless law, followed by the
   law-level first-event equation.
 
+- Closed that residual-clock obligation for the actual `NNReal` hazard law.
+  Lean proves the unit-exponential CDF and survival function at every
+  nonnegative threshold, the unnormalized restricted-and-shifted measure
+  identity, and its normalized conditional-probability form. Thus the
+  memoryless step is no longer an informal appeal to the real exponential
+  distribution. The remaining first-event-law bookkeeping is independence of
+  the first coordinate from the infinite iid tail and integration of the two
+  stopped-endpoint branches.
+
 - Reconciled the Julia diagnostic inventory. Every registered property,
   Geweke, continuous/mixed-state, robustness, ESS, and callback-count test is
   active; there are no skipped or broken testsets. The formerly historical
