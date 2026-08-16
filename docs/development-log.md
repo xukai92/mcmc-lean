@@ -69,6 +69,13 @@ corollaries prove fixed-horizon mean-square and in-probability convergence.
 These results concern SMC approximation as `N → ∞`; they do not assert a
 particle-count-uniform convergence rate for the particle-Gibbs chain.
 
+The new normalized target is not a parallel specification. Lean proves that
+its expectation is the usual unnormalized `feynmanKacSequence` numerator
+divided by `normalizingConstant`, then proves the distribution itself equals
+the selected terminal-state marginal of the existing particle-MCMC extended
+target. The `C/N` theorem is therefore also restated directly around the same
+terminal marginal used by PIMH and particle Gibbs.
+
 ## 2026-08-15: finite continuous-time event schedules
 
 Extended the Poissonized fixed-event skeleton with ordered real timestamps.

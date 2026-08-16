@@ -242,6 +242,10 @@ construct an observable-indexed coefficient `C`, and Lean proves
 nonempty state space. Count-indexed laws then converge in mean square and in
 probability at every fixed horizon. Uniform-in-time consistency and a PG-chain
 mixing theorem uniform in particle count remain distinct stability problems.
+The recursively normalized target is proved equal both to the conventional
+unnormalized Feynman--Kac ratio and to the selected terminal marginal of the
+existing particle-MCMC extended target, so this asymptotic layer introduces no
+competing target definition.
 
 General-state composable inference is also complete at the common-target
 stationarity layer. `Mcmc.Kernel.ComposableInference` supplies scoped

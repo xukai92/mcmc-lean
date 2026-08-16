@@ -1,5 +1,6 @@
 import Mcmc.Finite.ParticleEstimator
 import Mcmc.Finite.Dynamics
+import Mcmc.Finite.SequentialMonteCarlo
 import Mathlib.Tactic
 
 /-!
@@ -16,7 +17,7 @@ open scoped BigOperators
 
 namespace Mcmc.Finite.ParticleEstimator
 
-open MarkovKernel
+open MarkovKernel Mcmc.Finite.SequentialMonteCarlo
 
 variable {Sample Particle : Type*}
   [Fintype Sample] [Fintype Particle]
@@ -65,6 +66,18 @@ theorem finiteExpectation_pos
     (Finset.single_le_sum
       (fun y _ => mul_nonneg (law.nonneg y) (hscore y).le)
       (Finset.mem_univ x))
+
+theorem finiteExpectation_singleton
+    {State : Type*} [Fintype State] [DecidableEq State]
+    (law : Distribution State) (state : State) :
+    finiteExpectation law (fun x => if x = state then 1 else 0) =
+      law.mass state := by
+  unfold finiteExpectation
+  rw [Finset.sum_eq_single state]
+  · simp
+  · intro other _ hne
+    simp [hne]
+  · simp
 
 /-- Minimum of a real function on a nonempty finite type. -/
 noncomputable def finiteFunctionMinimum
@@ -792,6 +805,120 @@ theorem bootstrapTargetLaw_append_singleton_expectation
           step.potential := by
   rw [bootstrapTargetLaw_append_singleton]
   exact bootstrapTargetUpdate_expectation _ _ _
+
+omit [DecidableEq Sample] in
+/-- Strict positivity is preserved by every finite Feynman--Kac sequence. -/
+theorem feynmanKacSequence_pos
+    (steps : List (FeynmanKacStep Sample)) (score : Sample → ℝ)
+    (hscore : ∀ x, 0 < score x) (x : Sample) :
+    0 < feynmanKacSequence steps score x := by
+  induction steps generalizing x with
+  | nil => exact hscore x
+  | cons step steps ih =>
+      unfold feynmanKacSequence feynmanKacTransform
+      exact mul_pos (step.potential_pos x)
+        (finiteExpectation_pos (rowDistribution step.transition x)
+          (feynmanKacSequence steps score) ih)
+
+omit [DecidableEq Sample] in
+/-- Sequential normalization agrees exactly with the usual unnormalized
+Feynman--Kac numerator divided by its normalizing constant. -/
+theorem bootstrapTargetLawFrom_expectation_eq_feynmanKacSequence_div
+    (initial : Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (score : Sample → ℝ) :
+    finiteExpectation (bootstrapTargetLawFrom initial steps) score =
+      finiteExpectation initial (feynmanKacSequence steps score) /
+        finiteExpectation initial (feynmanKacSequence steps (fun _ => 1)) := by
+  induction steps generalizing initial with
+  | nil =>
+      simp only [bootstrapTargetLawFrom, feynmanKacSequence]
+      rw [show finiteExpectation initial (fun _ => 1) = 1 by
+        unfold finiteExpectation
+        simp [initial.sum_mass]]
+      simp
+  | cons step steps ih =>
+      rw [bootstrapTargetLawFrom, ih]
+      rw [bootstrapTargetUpdate_expectation, bootstrapTargetUpdate_expectation]
+      change
+        (finiteExpectation initial (fun x => step.potential x *
+            finiteExpectation (rowDistribution step.transition x)
+              (feynmanKacSequence steps score)) /
+          finiteExpectation initial step.potential) /
+          (finiteExpectation initial (fun x => step.potential x *
+              finiteExpectation (rowDistribution step.transition x)
+                (feynmanKacSequence steps (fun _ => 1))) /
+            finiteExpectation initial step.potential) =
+        finiteExpectation initial (fun x => step.potential x *
+            finiteExpectation (rowDistribution step.transition x)
+              (feynmanKacSequence steps score)) /
+          finiteExpectation initial (fun x => step.potential x *
+            finiteExpectation (rowDistribution step.transition x)
+              (feynmanKacSequence steps (fun _ => 1)))
+      have hpotential :
+          finiteExpectation initial step.potential ≠ 0 :=
+        ne_of_gt (finiteExpectation_pos initial step.potential step.potential_pos)
+      have hnormalizer :
+          finiteExpectation initial (fun x => step.potential x *
+            finiteExpectation (rowDistribution step.transition x)
+              (feynmanKacSequence steps (fun _ => 1))) ≠ 0 := by
+        apply ne_of_gt
+        apply finiteExpectation_pos
+        intro x
+        exact mul_pos (step.potential_pos x)
+          (finiteExpectation_pos (rowDistribution step.transition x)
+            (feynmanKacSequence steps (fun _ => 1))
+            (fun y => feynmanKacSequence_pos steps (fun _ => 1)
+              (fun _ => by norm_num) y))
+      field_simp
+
+omit [DecidableEq Sample] in
+theorem bootstrapTargetLaw_expectation_eq_normalizedFeynmanKac
+    (initial : Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (score : Sample → ℝ) :
+    finiteExpectation (bootstrapTargetLaw initial steps) score =
+      (∑ x, initial.mass x * feynmanKacSequence steps score x) /
+        Mcmc.Finite.SequentialMonteCarlo.normalizingConstant initial steps := by
+  unfold bootstrapTargetLaw
+  rw [bootstrapTargetLawFrom_expectation_eq_feynmanKacSequence_div]
+  rfl
+
+/-- Terminal-state marginal of the selected-particle extended target already
+used by PIMH and particle Gibbs. -/
+noncomputable def selectedTerminalTarget
+    (initial : Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : 0 < normalizingConstant initial steps) : Distribution Sample :=
+  Distribution.map
+    (selectedParticleTarget (Particle := Particle) initial steps hnormalizer)
+    (fun selected => terminalPopulation steps selected.1.1 selected.1.2 selected.2)
+
+/-- The recursively normalized target used by the SMC MSE theorem is exactly
+the terminal marginal of the particle-MCMC extended target. -/
+theorem selectedTerminalTarget_eq_bootstrapTargetLaw
+    (initial : Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : 0 < normalizingConstant initial steps) :
+    selectedTerminalTarget (Particle := Particle) initial steps hnormalizer =
+      bootstrapTargetLaw initial steps := by
+  apply Distribution.ext
+  funext terminal
+  calc
+    (selectedTerminalTarget (Particle := Particle) initial steps hnormalizer).mass
+        terminal =
+      ∑ selected,
+        (selectedParticleTarget (Particle := Particle) initial steps
+          hnormalizer).mass selected *
+        (if terminalPopulation steps selected.1.1 selected.1.2 selected.2 = terminal
+          then 1 else 0) := by
+            simp [selectedTerminalTarget, Distribution.map,
+              Distribution.bind_mass, eq_comm]
+    _ = (∑ x, initial.mass x * feynmanKacSequence steps
+          (fun y => if y = terminal then 1 else 0) x) /
+        normalizingConstant initial steps :=
+      selectedParticleTarget_terminal_event initial steps hnormalizer terminal
+    _ = finiteExpectation (bootstrapTargetLaw initial steps)
+        (fun y => if y = terminal then 1 else 0) := by
+      rw [bootstrapTargetLaw_expectation_eq_normalizedFeynmanKac]
+    _ = (bootstrapTargetLaw initial steps).mass terminal :=
+      finiteExpectation_singleton _ _
 
 omit [DecidableEq Sample] in
 @[simp] theorem bootstrapPopulationLawFrom_nil
@@ -2209,6 +2336,25 @@ theorem bootstrapPopulationMSEByExtra_le
   unfold bootstrapPopulationMSEByExtra
   simpa using bootstrapPopulationLaw_target_mse_le
     (Particle := Fin (extra + 1)) initial steps score
+
+/-- The same count-indexed MSE bound centered explicitly at the terminal
+marginal used by the particle-MCMC extended target. -/
+theorem bootstrapPopulationLaw_selectedTerminalTarget_mse_le
+    [Nonempty Sample]
+    (initial : Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : 0 < normalizingConstant initial steps)
+    (score : Sample → ℝ) (extra : ℕ) :
+    finiteExpectation
+        (bootstrapPopulationLaw (Particle := Fin (extra + 1)) initial steps)
+        (fun particles =>
+          (particleAverage score particles -
+            finiteExpectation
+              (selectedTerminalTarget (Particle := Fin (extra + 1))
+                initial steps hnormalizer) score) ^ 2) ≤
+      bootstrapMSEBudgetFrom (finiteVariance initial) steps score /
+        ((extra : ℝ) + 1) := by
+  rw [selectedTerminalTarget_eq_bootstrapTargetLaw]
+  exact bootstrapPopulationMSEByExtra_le initial steps score extra
 
 omit [DecidableEq Sample] in
 /-- Fixed-horizon mean-square consistency of the actual finite bootstrap
