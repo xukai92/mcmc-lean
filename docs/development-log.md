@@ -141,14 +141,16 @@ not create artificial proof obligations. This is still only a reduction:
 averaged event-time invariance from the BPS/Zig-Zag generator identities is not
 yet proved.
 
-The stationarity boundary is sharpened further to the mathematically natural
-one. A reusable theorem proves invariance for a countable weighted sum of
-parameter laws whenever the kernel averaged under each component law is
-invariant. Applied to the Poisson schedule decomposition, the full bounded
-PDMP horizon kernel is invariant if its ordered event-time mixture is invariant
-at every fixed event count. Individual timestamp schedules need not preserve
-the target. Establishing these count-conditional identities from generator
-cancellation remains the analytic step for Zig-Zag and BPS.
+The parameter-mixture layer also proves a sufficient count-conditional
+criterion: the full bounded PDMP horizon kernel is invariant if its ordered
+event-time mixture is invariant at every fixed event count. Individual
+timestamp schedules need not preserve the target. This criterion is still too
+strong for transport PDMPs in general, since the zero-event component is pure
+flow and need not be invariant. Accordingly Lean now proves the exact
+transported-law decomposition as the Poisson-weighted sum of all fixed-count
+time-averaged components. This exposes the correct generator-proof boundary:
+cancellation may occur between adjacent count strata. Proving that total
+cancellation for Zig-Zag and BPS remains the analytic step.
 
 ## 2026-08-15: categorical discontinuous-HMC vertical slice
 

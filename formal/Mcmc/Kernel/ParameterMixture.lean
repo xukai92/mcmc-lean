@@ -133,4 +133,37 @@ theorem independentParameterMixture_measureSum_invariant
         (∑' index, weight index) * target s := ENNReal.tsum_mul_right
     _ = target s := by rw [hweight, one_mul]
 
+/-- Exact transport decomposition for a countable mixture of parameter laws.
+Unlike `independentParameterMixture_measureSum_invariant`, this identity does
+not ask each component to be invariant: cancellation may occur only after the
+weighted transported component measures are summed. -/
+theorem measure_comp_independentParameterMixture_measureSum
+    {Index : Type*} [Countable Index]
+    (family : Kernel (State × Parameter) State) [IsMarkovKernel family]
+    (source : Measure State) [SFinite source]
+    (weight : Index → ENNReal)
+    (componentLaw : Index → Measure Parameter)
+    [componentSFinite : ∀ index, SFinite (componentLaw index)] :
+    independentParameterMixture family
+        (Measure.sum fun index => weight index • componentLaw index) ∘ₘ source =
+      Measure.sum fun index => weight index •
+        (independentParameterMixture family (componentLaw index) ∘ₘ source) := by
+  ext s hs
+  unfold independentParameterMixture
+  rw [← Measure.comp_assoc, ← Measure.compProd_eq_comp_prod,
+    Measure.compProd_const, Measure.bind_apply hs family.aemeasurable,
+    MeasureTheory.lintegral_prod_symm _
+      (Kernel.measurable_coe family hs).aemeasurable]
+  rw [lintegral_sum_measure]
+  simp_rw [lintegral_smul_measure, smul_eq_mul]
+  rw [Measure.sum_apply _ hs]
+  apply tsum_congr
+  intro index
+  rw [Measure.smul_apply, smul_eq_mul]
+  congr 1
+  rw [← Measure.comp_assoc, ← Measure.compProd_eq_comp_prod,
+    Measure.compProd_const, Measure.bind_apply hs family.aemeasurable,
+    MeasureTheory.lintegral_prod_symm _
+      (Kernel.measurable_coe family hs).aemeasurable]
+
 end Mcmc.Kernel

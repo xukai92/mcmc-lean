@@ -333,10 +333,10 @@ theorem ThinnedFlowSimulator.horizonKernel_invariant_of_ae_sections
     (poissonCandidateSchedule
       (simulator.clock.rate * horizon.duration) horizon) hsection
 
-/-- The natural count-conditional stationarity reduction. Unlike fixed
-schedule invariance, this permits the continuous averaging over ordered event
-times at a fixed Poisson count to supply the cancellation needed by genuine
-PDMPs. -/
+/-- A sufficient count-conditional stationarity criterion. Unlike fixed
+schedule invariance, it permits continuous averaging over ordered event times.
+For transport PDMPs this can still be too strong (the zero-event component is
+pure flow), so the exact cross-count decomposition below is the general route. -/
 theorem ThinnedFlowSimulator.horizonKernel_invariant_of_count_mixtures
     (simulator : ThinnedFlowSimulator State) (horizon : PositiveHorizon)
     (target : Measure State) [SFinite target]
@@ -356,6 +356,29 @@ theorem ThinnedFlowSimulator.horizonKernel_invariant_of_count_mixtures
       horizon.fixedScheduleMeasure (timestampOrdering count))
     (tsum_poisson_singletons
       (simulator.clock.rate * horizon.duration)) hcount
+
+/-- Exact decomposition of the transported state law by Poisson candidate
+count. This is the correct interface for a generator proof: individual count
+components need not preserve the target, and cancellation may occur between
+adjacent event-count strata in their weighted sum. -/
+theorem ThinnedFlowSimulator.horizonKernel_comp_eq_sum_count_mixtures
+    (simulator : ThinnedFlowSimulator State) (horizon : PositiveHorizon)
+    (source : Measure State) [SFinite source] :
+    simulator.horizonKernel horizon ∘ₘ source =
+      Measure.sum fun count : ℕ =>
+        poissonMeasure (simulator.clock.rate * horizon.duration) {count} •
+          (Mcmc.Kernel.independentParameterMixture
+            (simulator.executeScheduled horizon.duration)
+            (horizon.fixedScheduleMeasure (timestampOrdering count)) ∘ₘ
+              source) := by
+  rw [simulator.horizonKernel_eq_independentParameterMixture horizon]
+  unfold poissonCandidateSchedule poissonCandidateScheduleMeasure
+  exact Mcmc.Kernel.measure_comp_independentParameterMixture_measureSum
+    (simulator.executeScheduled horizon.duration) source
+    (fun count : ℕ => poissonMeasure
+      (simulator.clock.rate * horizon.duration) {count})
+    (fun count : ℕ =>
+      horizon.fixedScheduleMeasure (timestampOrdering count))
 
 /-- It suffices to prove invariance of the executor selected by each schedule's
 stored count. -/
