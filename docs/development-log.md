@@ -1,5 +1,15 @@
 # Development log
 
+- Derived the first-event renewal equation for the exact stopped Gaussian
+  Zig-Zag kernel directly in signed coordinates. Its no-event branch is now
+  explicit unit-speed translation, while its event branch restarts the same
+  stopped construction from the checked negative-square-root reset and flips
+  the velocity label. The proof also records the exact almost-everywhere
+  measurability needed for the branch under the real head/tail hazard law;
+  this avoids imposing an unnecessarily stronger variable-horizon pointwise
+  measurability interface. The remaining stationarity step is the scalar
+  renewal/transport argument using this equation.
+
 - Lifted the Gaussian Zig-Zag signed-coordinate reduction from pointwise
   dynamics to the exact stopped horizon kernel. The signed horizon kernel is
   Markov, each row is the signed pushforward of the physical row started from

@@ -567,7 +567,10 @@ by paper date:
   stopped horizon kernel, proves the conjugation involutive, and proves that
   signed and physical Gaussian-target stationarity are equivalent. This
   removes the physical-coordinate coupling and later coordinate-transfer
-  bookkeeping from the remaining scalar renewal/transport analysis. Splitting a horizon
+  bookkeeping from the remaining scalar renewal/transport analysis. The exact
+  horizon kernel now also satisfies the explicit signed first-event renewal
+  equation: unit-speed translation before the first event and restart from
+  the negative-square-root reset afterward. Splitting a horizon
   between events is still correctly treated as a law-level argument rather
   than a pointwise semigroup identity;
 2. bare Gaussian SoftAbs GR-HMC convergence -- complete for the concrete

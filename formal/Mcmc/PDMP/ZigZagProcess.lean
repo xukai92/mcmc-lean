@@ -715,6 +715,12 @@ theorem measurable_zigZagSignedCoordinate :
     Measurable zigZagSignedCoordinate := by
   exact zigZagSignedCoordinateEquiv.measurable
 
+@[simp] theorem zigZagSignedPosition_signedCoordinate
+    (state : ZigZagState) :
+    zigZagSignedPosition (zigZagSignedCoordinate state) = state.1 := by
+  have h := congrArg Prod.fst (zigZagSignedCoordinate_involutive state)
+  exact h
+
 /-- Folding the velocity sign into position preserves the normalized
 Gaussian/equal-velocity target. -/
 theorem gaussianZigZagTarget_map_signedCoordinate :
@@ -2105,6 +2111,24 @@ theorem measurable_gaussianZigZagHorizonEndpoint
     (measurableSet_gaussianZigZagCrossingSearchPredicate initial horizon)
     existsPredicate
 
+/-- The first-event branch is measurable modulo the actual head/tail hazard
+law. This is the exact strength needed for law-level renewal calculations;
+the branch agrees almost surely with the already measurable direct stopped
+execution. -/
+theorem aemeasurable_gaussianZigZagFirstEventEndpoint
+    (initial : ZigZagState) (horizon : NNReal) :
+    AEMeasurable (gaussianZigZagFirstEventEndpoint initial horizon)
+      (gaussianZigZagHazardMeasure.prod
+        gaussianZigZagHazardSequenceMeasure) := by
+  have hdirect : Measurable (fun headTail =>
+      gaussianZigZagHorizonEndpoint initial horizon
+        (gaussianZigZagHazardCons headTail)) :=
+    (measurable_gaussianZigZagHorizonEndpoint initial horizon).comp
+      measurable_gaussianZigZagHazardCons
+  exact hdirect.aemeasurable.congr
+    (gaussianZigZagHorizonEndpoint_cons_ae_eq_firstEvent
+      initial horizon)
+
 /-- Law-level first-event equation for the stopped Gaussian Zig-Zag path.
 The left side is the original infinite-stream construction; the right side
 draws an independent first hazard and fresh tail, then executes the explicit
@@ -2287,6 +2311,72 @@ theorem gaussianZigZagSignedHorizonKernel_apply
   rw [Kernel.map_apply _ measurable_zigZagSignedCoordinate,
     Kernel.comap_apply]
 
+/-- Waiting time viewed from signed coordinates. -/
+noncomputable def gaussianZigZagSignedWaitingNNReal
+    (initial : ZigZagState) (hazard : NNReal) : NNReal :=
+  gaussianZigZagWaitingNNReal (zigZagSignedCoordinate initial) hazard
+
+/-- Event update viewed from signed coordinates. -/
+noncomputable def gaussianZigZagSignedEventUpdate
+    (initial : ZigZagState) (hazard : NNReal) : ZigZagState :=
+  zigZagSignedCoordinate
+    (gaussianZigZagEventUpdate (zigZagSignedCoordinate initial) hazard)
+
+/-- Closed-form canonical event reset. It depends only on the current signed
+position and the fresh exponential hazard, and flips the velocity label. -/
+theorem gaussianZigZagSignedEventUpdate_eq
+    (initial : ZigZagState) (hazard : NNReal) :
+    gaussianZigZagSignedEventUpdate initial hazard =
+      (if 0 ≤ initial.1 then
+          -Real.sqrt (initial.1 ^ 2 + 2 * (hazard : ℝ))
+        else -Real.sqrt (2 * (hazard : ℝ)), !initial.2) := by
+  unfold gaussianZigZagSignedEventUpdate
+  rw [zigZagSignedCoordinate_gaussianZigZagEventUpdate,
+    zigZagSignedPosition_signedCoordinate]
+  rfl
+
+/-- Exact stopped endpoint viewed from signed coordinates. -/
+noncomputable def gaussianZigZagSignedHorizonEndpoint
+    (initial : ZigZagState) (horizon : NNReal)
+    (hazards : ℕ → NNReal) : ZigZagState :=
+  zigZagSignedCoordinate
+    (gaussianZigZagHorizonEndpoint
+      (zigZagSignedCoordinate initial) horizon hazards)
+
+/-- Explicit first-event renewal branch in signed coordinates. Before the
+first event the signed position translates at unit speed; after the event the
+same signed stopped construction restarts from the canonical event update. -/
+noncomputable def gaussianZigZagSignedFirstEventEndpoint
+    (initial : ZigZagState) (horizon : NNReal)
+    (headTail : NNReal × (ℕ → NNReal)) : ZigZagState :=
+  let wait := gaussianZigZagSignedWaitingNNReal initial headTail.1
+  if horizon < wait then
+    (initial.1 + (horizon : ℝ), initial.2)
+  else
+    gaussianZigZagSignedHorizonEndpoint
+      (gaussianZigZagSignedEventUpdate initial headTail.1)
+      (horizon - wait) headTail.2
+
+/-- The physical first-event branch, conjugated by the signed involution, is
+the explicit unit-speed signed renewal branch. -/
+theorem zigZagSignedCoordinate_gaussianZigZagFirstEventEndpoint
+    (initial : ZigZagState) (horizon : NNReal)
+    (headTail : NNReal × (ℕ → NNReal)) :
+    zigZagSignedCoordinate
+        (gaussianZigZagFirstEventEndpoint
+          (zigZagSignedCoordinate initial) horizon headTail) =
+      gaussianZigZagSignedFirstEventEndpoint initial horizon headTail := by
+  simp only [gaussianZigZagFirstEventEndpoint,
+    gaussianZigZagSignedFirstEventEndpoint,
+    gaussianZigZagSignedWaitingNNReal]
+  split_ifs with hbefore
+  · rw [zigZagSignedCoordinate_flow,
+      zigZagSignedPosition_signedCoordinate]
+    rfl
+  · unfold gaussianZigZagSignedHorizonEndpoint
+      gaussianZigZagSignedEventUpdate
+    rw [zigZagSignedCoordinate_involutive]
+
 /-- Signed-coordinate conjugation is involutive at the kernel level. -/
 theorem gaussianZigZagHorizonKernel_eq_signed_conjugate
     (horizon : NNReal) :
@@ -2362,6 +2452,26 @@ theorem gaussianZigZagHorizonKernel_apply_firstEvent
   change Measure.map (gaussianZigZagHorizonEndpoint initial horizon)
       gaussianZigZagHazardSequenceMeasure = _
   exact gaussianZigZagHorizonEndpoint_firstEventLaw initial horizon
+
+/-- Kernel-level first-event renewal equation in canonical signed
+coordinates. -/
+theorem gaussianZigZagSignedHorizonKernel_apply_firstEvent
+    (horizon : NNReal) (initial : ZigZagState) :
+    gaussianZigZagSignedHorizonKernel horizon initial =
+      Measure.map
+        (gaussianZigZagSignedFirstEventEndpoint initial horizon)
+        (gaussianZigZagHazardMeasure.prod
+          gaussianZigZagHazardSequenceMeasure) := by
+  rw [gaussianZigZagSignedHorizonKernel_apply,
+    gaussianZigZagHorizonKernel_apply_firstEvent]
+  rw [AEMeasurable.map_map_of_aemeasurable
+    measurable_zigZagSignedCoordinate.aemeasurable
+    (aemeasurable_gaussianZigZagFirstEventEndpoint
+      (zigZagSignedCoordinate initial) horizon)]
+  congr 1
+  funext headTail
+  exact zigZagSignedCoordinate_gaussianZigZagFirstEventEndpoint
+    initial horizon headTail
 
 @[simp] theorem gaussianZigZagHorizonKernel_zero :
     gaussianZigZagHorizonKernel 0 = Kernel.id := by
