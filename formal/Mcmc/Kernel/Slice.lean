@@ -235,6 +235,33 @@ theorem exactSliceSampler_invariant_underGraph
   rw [auxiliaryFirstJoint_sliceHeightKernel base weight hweight hpositive]
   exact hhorizontal
 
+/-- Slice update whose horizontal transition may depend on both the sampled
+height and current state. This is the appropriate exact-kernel interface for
+stepping-out and shrinkage algorithms. -/
+noncomputable def withinSliceSampler
+    (weight : State → ℝ) (hweight : Measurable weight)
+    (hpositive : ∀ x, 0 < weight x)
+    (horizontal : Kernel (ℝ × State) (ℝ × State)) : Kernel State State :=
+  auxiliaryInvariantUpdate (sliceHeightKernel weight hweight hpositive)
+    horizontal
+
+/-- A horizontal transition preserving the swapped under-the-graph joint law
+yields an invariant weighted-target slice sampler. Exact conditional redraw is
+not required. -/
+theorem withinSliceSampler_invariant_underGraph
+    (base : Measure State) [SFinite base]
+    (weight : State → ℝ) (hweight : Measurable weight)
+    (hpositive : ∀ x, 0 < weight x)
+    (horizontal : Kernel (ℝ × State) (ℝ × State))
+    [IsMarkovKernel horizontal]
+    (hhorizontal : horizontal.Invariant
+      ((sliceUnderGraph base weight).map Prod.swap)) :
+    (withinSliceSampler weight hweight hpositive horizontal).Invariant
+      (base.withDensity (fun x => ENNReal.ofReal (weight x))) := by
+  apply auxiliaryInvariantUpdate_invariant
+  rw [auxiliaryFirstJoint_sliceHeightKernel base weight hweight hpositive]
+  exact hhorizontal
+
 /-- A fully constructed exact general-state slice sampler on a standard Borel
 state space, using the conditional kernel of the finite under-the-graph
 measure for its horizontal update. -/

@@ -185,6 +185,37 @@ theorem twoBlockConditional_disintegrated_invariant
     (auxiliaryFirstJoint_eq_compProd_disintegratedAuxiliaryReverse
       target forward)
 
+/-- Auxiliary-variable update with memory of both the sampled auxiliary and
+the current state. This is strictly more general than an exact reverse
+conditional refresh and accommodates within-conditional Markov transitions
+such as slice shrinkage. -/
+noncomputable def auxiliaryInvariantUpdate
+    (forward : Kernel State Aux)
+    (update : Kernel (Aux × State) (Aux × State)) : Kernel State State :=
+  liftEvolveProject (auxiliaryFirstLift forward) update Prod.snd measurable_snd
+
+instance auxiliaryInvariantUpdate.instIsMarkovKernel
+    (forward : Kernel State Aux) [IsMarkovKernel forward]
+    (update : Kernel (Aux × State) (Aux × State)) [IsMarkovKernel update] :
+    IsMarkovKernel (auxiliaryInvariantUpdate forward update) := by
+  unfold auxiliaryInvariantUpdate
+  infer_instance
+
+/-- Any joint-invariant auxiliary-state transition gives a target-invariant
+projected update. It need not redraw from, or equal, the reverse conditional. -/
+theorem auxiliaryInvariantUpdate_invariant
+    (target : Measure State) [SFinite target]
+    (forward : Kernel State Aux) [IsMarkovKernel forward]
+    (update : Kernel (Aux × State) (Aux × State)) [IsMarkovKernel update]
+    (hupdate : update.Invariant (auxiliaryFirstJoint target forward)) :
+    (auxiliaryInvariantUpdate forward update).Invariant target := by
+  unfold auxiliaryInvariantUpdate
+  apply liftEvolveProject_invariant target
+    (auxiliaryFirstJoint target forward)
+  · exact auxiliaryFirstLift_comp target forward
+  · exact hupdate
+  · exact auxiliaryFirstJoint_map_snd target forward
+
 /-- Slice sampling is the two-block construction with a vertical height
 kernel and a horizontal level-set kernel.  This named wrapper records the
 precise factorization obligation a concrete slice implementation must prove. -/

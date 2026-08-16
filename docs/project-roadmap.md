@@ -336,7 +336,11 @@ breadth branches are:
 - stepping-out/shrinkage beyond the exact disintegration, finite integer slice,
   and bounded-interval continuous rejection implementation. A practical
   Reference/Optimized real-line stepping-out sampler is now tested; its
-  adaptive-bracket refinement to the ideal slice kernel remains;
+  formal endpoint is now generalized correctly: Lean proves invariance for
+  any height/current-state horizontal Markov update preserving the swapped
+  under-the-graph law, rather than requiring an exact conditional redraw.
+  Proving the guarded Julia stepping-out/shrinkage transition satisfies that
+  joint-preservation premise remains;
 - reversible-jump transports beyond the checked scalar and planar
   birth/death scaling clients. Product transport-density certificates now
   compose recursively and instantiate a three-dimensional scaling transport;

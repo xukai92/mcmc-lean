@@ -1,5 +1,15 @@
 # Development log
 
+- Generalized the auxiliary-Gibbs and slice foundations from exact conditional
+  redraws to within-conditional Markov updates. Lean now proves that any
+  transition on the sampled auxiliary/current-state pair which preserves the
+  auxiliary-first joint law yields a target-invariant projected sampler. The
+  concrete slice specialization states the corresponding preservation
+  obligation on the swapped under-the-graph measure. This is the correct
+  theorem boundary for stepping-out/shrinkage, whose horizontal transition
+  depends on the current point; proving that the guarded Julia transition
+  meets the premise, including its explicit failure behavior, remains open.
+
 - Added a general-state, unbounded-history adaptive-path semantics using
   mathlib's Ionescu--Tulcea construction. A measurable selector may inspect the
   complete finite history at every time, choose a parameter for a Markov-kernel
