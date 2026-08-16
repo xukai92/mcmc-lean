@@ -3104,6 +3104,40 @@ instance gaussianZigZagStationaryCycleMeasure.instIsProbabilityMeasure :
     gaussianZigZagStationaryCycleMeasure_snd
   simpa [Measure.snd_apply MeasurableSet.univ] using hmarginal
 
+/-- Read the occupied signed position and its remaining integrated hazard
+from a stationary length-biased regenerative cycle. -/
+noncomputable def gaussianZigZagStationaryCycleResidualMap
+    (sample : (ℝ × ℝ) × ℝ) : ℝ × NNReal :=
+  (sample.2,
+    gaussianZigZagCycleResidualHazard sample.2 sample.1.2)
+
+theorem measurable_gaussianZigZagStationaryCycleResidualMap :
+    Measurable gaussianZigZagStationaryCycleResidualMap := by
+  unfold gaussianZigZagStationaryCycleResidualMap
+    gaussianZigZagCycleResidualHazard
+  have henergy : Measurable (fun sample : (ℝ × ℝ) × ℝ =>
+      gaussianZigZagNegativeRayleighEnergy sample.1.2) :=
+    measurable_gaussianZigZagNegativeRayleighEnergy.comp
+      measurable_fst.snd
+  have hspent : Measurable (fun sample : (ℝ × ℝ) × ℝ =>
+      Real.toNNReal ((max 0 sample.2) ^ 2 / 2)) := by
+    fun_prop
+  exact measurable_snd.prodMk (henergy.sub hspent)
+
+/-- Position/residual-hazard Palm pushforward of the stationary cycle law. -/
+noncomputable def gaussianZigZagStationaryPositionResidualMeasure :
+    Measure (ℝ × NNReal) :=
+  gaussianZigZagStationaryCycleMeasure.map
+    gaussianZigZagStationaryCycleResidualMap
+
+instance gaussianZigZagStationaryPositionResidualMeasure.instIsProbabilityMeasure :
+    IsProbabilityMeasure gaussianZigZagStationaryPositionResidualMeasure := by
+  constructor
+  unfold gaussianZigZagStationaryPositionResidualMeasure
+  rw [Measure.map_apply
+    measurable_gaussianZigZagStationaryCycleResidualMap
+    MeasurableSet.univ, Set.preimage_univ, measure_univ]
+
 /-- Regenerative event-epoch law: negative-Rayleigh signed position and an
 independent uniform velocity label. -/
 noncomputable def gaussianZigZagSignedEventTarget : Measure ZigZagState :=

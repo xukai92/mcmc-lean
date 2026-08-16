@@ -7,7 +7,9 @@
   positive-half energy already spent. Lean proves the resulting measure is
   exactly `exp(-s²/2)` times a fresh unit-exponential law. This supplies the
   fiberwise conditional-independence theorem needed for the full stationary
-  cycle pushforward; the next step is Tonelli integration over `s` to obtain
+  cycle pushforward. That pushforward is now defined concretely as a
+  probability measure mapping the normalized length-biased cycle to its
+  occupied position and remaining hazard; the next step is Tonelli integration over `s` to obtain
   the Gaussian-position × exponential-residual product law.
 
 - Began the Palm/disintegration bridge from stationary cycle occupation to
