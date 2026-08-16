@@ -370,6 +370,12 @@ breadth branches are:
   this from separate invariance of every flow segment and the uniformized
   event. This sigma-finite example does not discharge the state-dependent
   spatial-flux or convergence obligations for Zig-Zag/BPS.
+  Separately, the unbounded-rate standard-Gaussian Zig-Zag now has a genuine
+  event kernel based on the closed-form inverse integrated hazard. Its unit
+  exponential draw is positive almost surely, the inversion equation is
+  machine checked almost surely, and fixed-event iterates are Markov. Turning
+  those event iterates into a finite-horizon process still requires a
+  nonexplosion theorem.
 
 Sequence-parallel evaluation is an execution-refinement project downstream of
 exact seeded trace semantics. Full solver convergence may refine a sequential

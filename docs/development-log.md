@@ -1,5 +1,15 @@
 # Development log
 
+- Added an exact unbounded-rate event construction for the one-dimensional
+  standard-Gaussian Zig-Zag process. A normalized unit-exponential hazard draw
+  is mapped through the already-certified closed-form inverse integrated
+  clock, followed by exact linear flow and velocity flip. Lean proves the
+  hazard is positive almost surely, the integrated-rate inversion equation
+  holds almost surely under the actual draw law, the event kernel is Markov,
+  and every fixed-event iterate is Markov and composes by addition. This avoids
+  incorrectly imposing a global thinning bound on the Gaussian rate;
+  finite-horizon nonexplosion, stationarity, and convergence remain separate.
+
 - Proved a fixed-padded-schedule correspondence for the bounded PDMP executor:
   augmented execution retains the supplied schedule and its state marginal is
   the explicit state-only composition of flow and uniformized-event kernels.

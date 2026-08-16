@@ -167,6 +167,13 @@ schedules can now be executed as general-state Markov kernels by alternating
 the semiflow with jumps; schedule concatenation and conditional invariance are
 proved. Concrete one-dimensional Zig-Zag and finite-dimensional BPS clients
 instantiate the linear flows, event kernels, rates, and scheduled execution.
+For the standard-Gaussian Zig-Zag client, Lean additionally constructs an
+exact genuine-event kernel: it draws a unit exponential hazard, applies the
+closed-form inverse integrated clock, flows, and flips velocity. The draw law
+is normalized, zero hazard has measure zero, and the integrated-hazard equation
+holds almost surely; every fixed genuine-event iterate is Markov. This bypasses
+a nonexistent global bound on the Gaussian rate, but does not yet prove
+finite-horizon nonexplosion or stationary path laws.
 An additional constant-rate telegraph client gives a nontrivial flow-driven
 stationarity instance. Lean proves that every linear flow and rate-matched
 velocity flip preserves equal velocity mass times Lebesgue position, lifts

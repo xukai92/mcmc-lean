@@ -112,4 +112,140 @@ noncomputable def zigZagThinnedSimulator
   clock := clock
   rate_le_clock := hbound
 
+/-! ### Exact standard-Gaussian event clock -/
+
+/-- Unit exponential hazard law, represented on nonnegative reals. -/
+noncomputable def gaussianZigZagHazardMeasure : Measure NNReal :=
+  (HomogeneousClock.mk 1 zero_lt_one).waitMeasure
+
+instance gaussianZigZagHazardMeasure.instIsProbabilityMeasure :
+    IsProbabilityMeasure gaussianZigZagHazardMeasure := by
+  unfold gaussianZigZagHazardMeasure
+  infer_instance
+
+/-- Nonnegative inverse-hazard waiting time for the standard-Gaussian
+Zig-Zag process. -/
+noncomputable def gaussianZigZagWaitingNNReal
+    (state : ZigZagState) (hazard : NNReal) : NNReal :=
+  Real.toNNReal
+    (gaussianZigZagWaitingTime state.1 state.2 (hazard : ℝ))
+
+theorem measurable_gaussianZigZagWaitingNNReal :
+    Measurable (fun input : ZigZagState × NNReal =>
+      gaussianZigZagWaitingNNReal input.1 input.2) := by
+  unfold gaussianZigZagWaitingNNReal gaussianZigZagWaitingTime
+  apply measurable_real_toNNReal.comp
+  let a : ZigZagState × NNReal → ℝ := fun input =>
+    zigZagVelocity input.1.2 * input.1.1
+  have ha : Measurable a := by
+    unfold a zigZagVelocity
+    fun_prop
+  apply Measurable.ite (measurableSet_le measurable_const ha)
+  · exact (((ha.pow_const 2).add
+      (measurable_const.mul (measurable_coe_nnreal_real.comp measurable_snd))).sqrt).sub ha
+  · exact ha.neg.add
+      ((measurable_const.mul
+        (measurable_coe_nnreal_real.comp measurable_snd)).sqrt)
+
+/-- One exact standard-Gaussian Zig-Zag event: draw unit exponential hazard,
+invert the integrated rate, flow to that time, and flip velocity. -/
+noncomputable def gaussianZigZagEventKernel :
+    Kernel ZigZagState ZigZagState :=
+  Kernel.map
+    (Kernel.prod Kernel.id
+      (Kernel.const ZigZagState gaussianZigZagHazardMeasure))
+    (fun input => zigZagFlip (zigZagFlow
+      (gaussianZigZagWaitingNNReal input.1 input.2) input.1))
+
+instance gaussianZigZagEventKernel.instIsMarkovKernel :
+    IsMarkovKernel gaussianZigZagEventKernel := by
+  unfold gaussianZigZagEventKernel
+  apply Kernel.IsMarkovKernel.map
+  have hwait : Measurable (fun input : ZigZagState × NNReal =>
+      gaussianZigZagWaitingNNReal input.1 input.2) :=
+    measurable_gaussianZigZagWaitingNNReal
+  have hvelocity : Measurable (fun input : ZigZagState × NNReal =>
+      zigZagVelocity input.1.2) := by
+    unfold zigZagVelocity
+    fun_prop
+  unfold zigZagFlip zigZagFlow
+  exact ((measurable_fst.comp measurable_fst).add
+    (hwait.coe_nnreal_real.mul hvelocity)).prodMk (by fun_prop)
+
+/-- The nonnegative representation of the inverse clock does not alter the
+closed-form waiting time. -/
+theorem coe_gaussianZigZagWaitingNNReal
+    (state : ZigZagState) (hazard : NNReal) :
+    (gaussianZigZagWaitingNNReal state hazard : ℝ) =
+      gaussianZigZagWaitingTime state.1 state.2 (hazard : ℝ) := by
+  unfold gaussianZigZagWaitingNNReal
+  rw [Real.coe_toNNReal _
+    (gaussianZigZagWaitingTime_nonneg state.1 state.2 hazard.coe_nonneg)]
+
+/-- Every positive hazard draw is inverted exactly by the event kernel's
+waiting-time calculation. -/
+theorem gaussianZigZagIntegratedRate_waitingNNReal
+    (state : ZigZagState) {hazard : NNReal} (hhazard : 0 < hazard) :
+    gaussianZigZagIntegratedRate state.1 state.2
+      (gaussianZigZagWaitingNNReal state hazard : ℝ) = (hazard : ℝ) := by
+  rw [coe_gaussianZigZagWaitingNNReal]
+  exact gaussianZigZagIntegratedRate_waitingTime state.1 state.2
+    (by exact_mod_cast hhazard)
+
+theorem gaussianZigZagHazardMeasure_singleton_zero :
+    gaussianZigZagHazardMeasure {0} = 0 := by
+  unfold gaussianZigZagHazardMeasure HomogeneousClock.waitMeasure
+  rw [Measure.map_apply measurable_real_toNNReal
+    (MeasurableSet.singleton 0)]
+  have hpre : Real.toNNReal ⁻¹' ({0} : Set NNReal) = Set.Iic 0 := by
+    ext x
+    simp [Real.toNNReal_eq_zero]
+  rw [hpre]
+  letI : IsProbabilityMeasure (expMeasure (1 : ℝ)) :=
+    isProbabilityMeasure_expMeasure zero_lt_one
+  have hcdf := cdf_expMeasure_eq (r := (1 : ℝ)) zero_lt_one 0
+  rw [cdf_eq_real] at hcdf
+  norm_num at hcdf
+  rcases (ENNReal.toReal_eq_zero_iff _).mp hcdf with hzero | htop
+  · exact hzero
+  · exact (measure_ne_top (expMeasure (1 : ℝ)) (Set.Iic 0) htop).elim
+
+theorem gaussianZigZagHazardMeasure_positive_ae :
+    ∀ᵐ hazard ∂gaussianZigZagHazardMeasure, 0 < hazard := by
+  have hne : ∀ᵐ hazard ∂gaussianZigZagHazardMeasure, hazard ≠ 0 := by
+    rw [ae_iff]
+    rw [show {hazard : NNReal | ¬hazard ≠ 0} = {0} by
+      ext hazard
+      simp]
+    exact gaussianZigZagHazardMeasure_singleton_zero
+  filter_upwards [hne] with hazard hhazard
+  exact bot_lt_iff_ne_bot.mpr hhazard
+
+/-- Under the event kernel's actual exponential-hazard law, inverse-clock
+execution satisfies the integrated-hazard equation almost surely. -/
+theorem gaussianZigZagIntegratedRate_waitingNNReal_ae
+    (state : ZigZagState) :
+    ∀ᵐ hazard ∂gaussianZigZagHazardMeasure,
+      gaussianZigZagIntegratedRate state.1 state.2
+        (gaussianZigZagWaitingNNReal state hazard : ℝ) = (hazard : ℝ) := by
+  filter_upwards [gaussianZigZagHazardMeasure_positive_ae] with hazard hhazard
+  exact gaussianZigZagIntegratedRate_waitingNNReal state hhazard
+
+/-- Exact standard-Gaussian Zig-Zag state after a fixed number of genuine
+events. Fixed-event iteration is well defined even though proving finite-time
+nonexplosion requires an additional pathwise argument. -/
+noncomputable def gaussianZigZagEventIterate (eventCount : ℕ) :
+    Kernel ZigZagState ZigZagState :=
+  gaussianZigZagEventKernel ^ eventCount
+
+instance gaussianZigZagEventIterate.instIsMarkovKernel (eventCount : ℕ) :
+    IsMarkovKernel (gaussianZigZagEventIterate eventCount) := by
+  unfold gaussianZigZagEventIterate
+  infer_instance
+
+theorem gaussianZigZagEventIterate_add (m n : ℕ) :
+    gaussianZigZagEventIterate (m + n) =
+      gaussianZigZagEventIterate m ∘ₖ gaussianZigZagEventIterate n := by
+  exact Kernel.pow_add gaussianZigZagEventKernel m n
+
 end Mcmc.PDMP
