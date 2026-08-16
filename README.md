@@ -56,7 +56,10 @@ supported paths; composing it with terminal-index refresh gives stationary
 finite particle Gibbs. Under primitive finite full support and every fixed
 `N ≥ 2`, Lean now constructs an explicit forced-lineage minorization
 coefficient and geometric total-variation bound; obtaining one sharp
-count-uniform coefficient from primitive model constants remains separate.
+count-uniform aggregate-history coefficient from primitive model constants
+remains separate. Lean already identifies the required aggregate exactly as
+the conditional expected fraction of terminal indices carrying the proposed
+genealogy.
 Julia exposes the matching exact-integer finite-HMM
 particle-Gibbs runner with Reference/Optimized trace-replay tests. Corrected
 Xu--Ge execution is available directly for

@@ -369,6 +369,128 @@ theorem scheduledPotentialParticleGibbs_totalVariation_tendsto_zero
   exact particleGibbsScheduleCoefficient_pos certificate.extra_pos
     certificate.penalties_pos
 
+/-- Total conditional-SMC/terminal-refresh mass of all extended histories
+connecting two trajectories. This aggregate, rather than any one history,
+is the correct quantitative object for bounds uniform in particle count. -/
+noncomputable def aggregatedForcedLineageMass
+    (initial : Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : 0 < normalizingConstant initial steps) (extra : ℕ)
+    (current proposed : Trajectory steps) : ℝ :=
+  ∑ liftCurrent : History (Particle := Fin (extra + 1)) steps × Fin (extra + 1),
+    (Mcmc.Finite.Conditional.conditionalRow
+      (selectedParticleTarget (Particle := Fin (extra + 1))
+        initial steps hnormalizer)
+      (selectedTrajectoryVector steps) current).mass liftCurrent *
+      ∑ liftProposed,
+        (selectedIndexRefreshKernel (Particle := Fin (extra + 1)) steps).prob
+            liftCurrent liftProposed *
+          (if proposed = selectedTrajectoryVector steps liftProposed
+            then 1 else 0)
+
+/-- Fraction of terminal particle indices in one history whose genealogy is
+the proposed trajectory. -/
+noncomputable def proposedTrajectoryFraction
+    (steps : List (FeynmanKacStep Sample)) (extra : ℕ)
+    (history : History (Particle := Fin (extra + 1)) steps)
+    (proposed : Trajectory steps) : ℝ :=
+  (∑ j : Fin (extra + 1),
+      if proposed = selectedTrajectoryVector steps (history, j)
+        then 1 else 0) / Fintype.card (Fin (extra + 1))
+
+/-- Uniform terminal-index refresh turns the compatible-index count in a
+fixed history into exactly its proposed-trajectory fraction. -/
+theorem selectedIndexRefresh_aggregate_eq_proposedTrajectoryFraction
+    (steps : List (FeynmanKacStep Sample)) (extra : ℕ)
+    (history : History (Particle := Fin (extra + 1)) steps)
+    (currentIndex : Fin (extra + 1)) (proposed : Trajectory steps) :
+    (∑ liftProposed,
+        (selectedIndexRefreshKernel (Particle := Fin (extra + 1)) steps).prob
+            (history, currentIndex) liftProposed *
+          (if proposed = selectedTrajectoryVector steps liftProposed
+            then 1 else 0)) =
+      proposedTrajectoryFraction steps extra history proposed := by
+  rw [Fintype.sum_prod_type]
+  simp only [selectedIndexRefreshKernel, MarkovKernel.liftSnd,
+    uniformIndexKernel]
+  rw [Finset.sum_eq_single history]
+  · simp only [if_true]
+    rw [← Finset.mul_sum]
+    simp [proposedTrajectoryFraction, div_eq_mul_inv, mul_comm]
+  · intro otherHistory _hmem hne
+    simp [Ne.symm hne]
+  · simp
+
+/-- The aggregate edge mass is the conditional expectation of the fraction
+of terminal genealogies equal to the proposed trajectory. This is the
+finite-history quantity used in sharp particle-Gibbs analyses. -/
+theorem aggregatedForcedLineageMass_eq_sum_fraction
+    (initial : Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : 0 < normalizingConstant initial steps) (extra : ℕ)
+    (current proposed : Trajectory steps) :
+    aggregatedForcedLineageMass initial steps hnormalizer extra
+        current proposed =
+      ∑ liftCurrent :
+          History (Particle := Fin (extra + 1)) steps × Fin (extra + 1),
+        (Mcmc.Finite.Conditional.conditionalRow
+          (selectedParticleTarget (Particle := Fin (extra + 1))
+            initial steps hnormalizer)
+          (selectedTrajectoryVector steps) current).mass liftCurrent *
+          proposedTrajectoryFraction steps extra liftCurrent.1 proposed := by
+  unfold aggregatedForcedLineageMass
+  apply Finset.sum_congr rfl
+  intro liftCurrent _hmem
+  rcases liftCurrent with ⟨history, currentIndex⟩
+  rw [selectedIndexRefresh_aggregate_eq_proposedTrajectoryFraction]
+
+/-- The aggregated forced-lineage mass is exactly the trajectory particle-
+Gibbs transition entry. This is an expansion theorem, not a minorization
+assumption, and exposes the sum to which primitive Feynman--Kac estimates must
+be applied. -/
+theorem aggregatedForcedLineageMass_eq_kernel_prob
+    (initial : Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : 0 < normalizingConstant initial steps) (extra : ℕ)
+    (current proposed : Trajectory steps) :
+    aggregatedForcedLineageMass initial steps hnormalizer extra
+        current proposed =
+      (countedTrajectoryParticleGibbsKernel
+        initial steps hnormalizer extra).prob current proposed := by
+  exact (Mcmc.Finite.Conditional.collapsedKernel_prob_eq_aggregate
+    (selectedParticleTarget (Particle := Fin (extra + 1))
+      initial steps hnormalizer)
+    (selectedTrajectoryVector steps)
+    (selectedIndexRefreshKernel (Particle := Fin (extra + 1)) steps)
+    current proposed).symm
+
+/-- Aggregate-history form of the displayed particle-Gibbs minorization.
+This deliberately supersedes the one-history witness when a coefficient must
+remain uniform as the particle count grows. -/
+structure AggregatedForcedLineageParticleGibbsBound
+    (initial : Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : 0 < normalizingConstant initial steps) (extra : ℕ)
+    (bound : ℝ) where
+  minorization : ∀ current proposed,
+    particleGibbsCountCoefficient extra bound (steps.length + 1) *
+        (countedTrajectoryTarget initial steps hnormalizer extra).mass proposed ≤
+      aggregatedForcedLineageMass initial steps hnormalizer extra
+        current proposed
+
+/-- An aggregate-history certificate yields the existing pointwise
+minorization API without losing any compatible-history mass. -/
+def AggregatedForcedLineageParticleGibbsBound.toMinorization
+    {initial : Distribution Sample} {steps : List (FeynmanKacStep Sample)}
+    {hnormalizer : 0 < normalizingConstant initial steps} {extra : ℕ}
+    {bound : ℝ} (hextra : 0 < extra) (hbound : 0 < bound)
+    (certificate : AggregatedForcedLineageParticleGibbsBound
+      initial steps hnormalizer extra bound) :
+    BoundedPotentialParticleGibbsMinorization
+      initial steps hnormalizer extra where
+  bound := bound
+  extra_pos := hextra
+  bound_pos := hbound
+  minorization current proposed := by
+    rw [← aggregatedForcedLineageMass_eq_kernel_prob]
+    exact certificate.minorization current proposed
+
 /-- A model-facing forced-lineage certificate for the displayed PG
 minorization.  Unlike a bound on the already-collapsed kernel, its inequality
 is stated on one shared particle history: conditional-SMC selects the history

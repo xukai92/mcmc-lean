@@ -135,6 +135,33 @@ noncomputable def collapsedKernel (target : Distribution Extended)
     Distribution.map ((conditionalRow target statistic s).evolve evolve)
       statistic
 
+omit [DecidableEq Extended] in
+/-- Exact aggregate expansion of a collapsed transition. Unlike a single-edge
+lower bound, this retains the complete mass of every compatible extended
+history and is therefore the appropriate interface for particle-count-uniform
+conditional-SMC estimates. -/
+theorem collapsedKernel_prob_eq_aggregate
+    (target : Distribution Extended) (statistic : Extended → Statistic)
+    (evolve : MarkovKernel Extended) (current proposed : Statistic) :
+    (collapsedKernel target statistic evolve).prob current proposed =
+      ∑ liftCurrent,
+        (conditionalRow target statistic current).mass liftCurrent *
+          ∑ liftProposed, evolve.prob liftCurrent liftProposed *
+            (if proposed = statistic liftProposed then 1 else 0) := by
+  unfold collapsedKernel kernelOfRows Distribution.map
+  change (∑ liftProposed, (∑ liftCurrent,
+      (conditionalRow target statistic current).mass liftCurrent *
+        evolve.prob liftCurrent liftProposed) *
+      (if proposed = statistic liftProposed then 1 else 0)) = _
+  simp only [Finset.mul_sum]
+  rw [Finset.sum_comm]
+  apply Finset.sum_congr rfl
+  intro liftProposed _hproposed
+  rw [Finset.sum_mul]
+  apply Finset.sum_congr rfl
+  intro liftCurrent _hcurrent
+  ring
+
 /-- A positive extended-state edge between the current and proposed fibers
 gives a positive edge of the collapsed kernel. This witness form is useful
 when the extended evolution is sparse, as in particle Gibbs. -/

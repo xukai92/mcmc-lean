@@ -204,8 +204,11 @@ The pre-Xu dependency order is:
    Finite compactness now also constructs a count-specific positive uniform
    floor over the explicit shared-history edges, converts it to the displayed
    coefficient shape, and yields its geometric TV theorem. Only a sharper
-   count-uniform history-density comparison from primitive model constants
-   remains. A parallel
+   count-uniform aggregate-history comparison from primitive model constants
+   remains. The exact aggregation identity is now proved: the transition entry
+   is the conditional expectation of the fraction of terminal indices whose
+   genealogy equals the proposed trajectory. This replaces the inadequate
+   single-history route for particle-count asymptotics. A parallel
    scheduled certificate now retains distinct per-time penalties, proves its
    product coefficient is in `(0,1)`, and supplies the refresh decomposition,
    geometric TV estimate, and convergence theorem without a worst-case
@@ -459,8 +462,8 @@ by paper date:
    lift to every unthinned time index. Length zero and zero step size remain
    exact identity obstructions, so this result is deliberately not stated for
    arbitrary parameters;
-3. derive a count-uniform sharp positive-horizon particle-Gibbs history-density
-   comparison from primitive Feynman--Kac bounds. Primitive full support now
+3. derive a count-uniform sharp positive-horizon particle-Gibbs aggregate-
+   history comparison from primitive Feynman--Kac bounds. Primitive full support now
    constructs a count-specific forced-lineage coefficient and geometric TV
    theorem; the coefficient algebra and fixed-iteration large-particle
    asymptotics are complete once one common model bound is supplied; and

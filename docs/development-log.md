@@ -10,6 +10,14 @@
   forced-lineage certificate feeds the existing minorization and geometric TV
   theorem. This bound may depend on `N`; deriving one common sharp bound from
   primitive Feynman--Kac constants remains the particle-count asymptotic gap.
+  The sharp-bound interface is now corrected accordingly: Lean expands every
+  collapsed trajectory transition as the aggregate mass of all compatible
+  extended histories, simplifies uniform terminal-index refresh to the
+  fraction of indices whose genealogy is the proposed path, and identifies
+  the kernel entry with the conditional expectation of that fraction. A
+  single-history witness generally loses exponentially much mass as `N`
+  grows, so it is retained for fixed-count support but no longer presented as
+  the route to a count-uniform coefficient.
 
 - Completed the compact-minorization and faithful-coupling foundation for the
   actual bare one-dimensional Gaussian SoftAbs multinomial kernel at
