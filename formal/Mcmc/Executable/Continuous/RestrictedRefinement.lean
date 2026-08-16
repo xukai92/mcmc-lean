@@ -23,13 +23,6 @@ theorem Approximates.trans {computed middle ideal firstError secondError : ℝ}
     _ ≤ |computed - middle| + |middle - ideal| := abs_add_le _ _
     _ ≤ firstError + secondError := add_le_add hfirst hsecond
 
-theorem Approximates.neg {computed ideal error : ℝ}
-    (h : Approximates computed ideal error) :
-    Approximates (-computed) (-ideal) error := by
-  rw [Approximates] at h ⊢
-  rw [show -computed - -ideal = -(computed - ideal) by ring, abs_neg]
-  exact h
-
 /-- On an explicitly bounded-above domain, the ideal exponential transports
 an input error with Lipschitz factor `exp upper`. This discharges the analytic
 part of a backend `exp` certificate; only the backend's local libm error at the

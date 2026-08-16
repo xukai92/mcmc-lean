@@ -145,25 +145,6 @@ theorem RestrictedExpr.differentiable (expression : RestrictedExpr) :
 theorem RestrictedExpr.measurable (expression : RestrictedExpr) :
     Measurable expression.eval := expression.differentiable.continuous.measurable
 
-/-- Multiplication transports two absolute-error bounds. The asymmetric form
-uses the computed right operand and ideal left operand, which avoids requiring
-separate magnitude bounds. -/
-theorem Approximates.mul {aHat a bHat b ea eb : ℝ}
-    (ha : Approximates aHat a ea) (hb : Approximates bHat b eb) :
-    Approximates (aHat * bHat) (a * b) (ea * |bHat| + |a| * eb) := by
-  rw [Approximates]
-  have hid : aHat * bHat - a * b = (aHat - a) * bHat + a * (bHat - b) := by
-    ring
-  rw [hid]
-  calc
-    |(aHat - a) * bHat + a * (bHat - b)| ≤
-        |(aHat - a) * bHat| + |a * (bHat - b)| := abs_add_le _ _
-    _ = |aHat - a| * |bHat| + |a| * |bHat - b| := by rw [abs_mul, abs_mul]
-    _ ≤ ea * |bHat| + |a| * eb := by
-      change |aHat - a| ≤ ea at ha
-      change |bHat - b| ≤ eb at hb
-      gcongr
-
 /-- Backend-facing evidence that a value/gradient pair refines the verified
 ideal-real semantics of one restricted expression. This is intentionally a
 parallel numerical certificate, rather than an assumption hidden inside the

@@ -120,8 +120,14 @@ closed phase balls. Every computed/ideal scalar phase pair is automatically
 enclosed in a canonical origin-centered ball, so coordinate errors and backend
 Hamiltonian error produce an actual-target endpoint-energy certificate. The
 existing multinomial boundary-stability theorem consumes the resulting
-execution-specific cumulative-boundary error; platform primitive bounds remain
-explicit.
+execution-specific cumulative-boundary error. The intervening arithmetic is
+now checked end to end: a finite maximum preserves the uniform energy-error
+budget; maximum shifting doubles it; `exp` is nonexpansive on the resulting
+nonpositive arguments; cumulative and total errors grow linearly with the
+trajectory count; and multiplication of the unit draw by total weight has an
+explicit composed budget. Lean assembles these into the exact list-shaped
+`MultinomialSelectionCertificate`. Platform `exp`, multiplication, summation,
+RNG, and boundary-margin witnesses remain explicit, as intended.
 
 ### 2. Restricted callbacks, adaptation, and performance
 

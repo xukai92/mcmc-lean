@@ -25,11 +25,50 @@ theorem Approximates.nonneg {computed ideal error : ℝ}
 theorem Approximates.refl (value : ℝ) : Approximates value value 0 := by
   simp [Approximates]
 
+theorem Approximates.mono {computed ideal error larger : ℝ}
+    (h : Approximates computed ideal error) (hle : error ≤ larger) :
+    Approximates computed ideal larger := h.trans hle
+
+theorem Approximates.compose
+    {computed intermediate ideal firstError secondError : ℝ}
+    (hfirst : Approximates computed intermediate firstError)
+    (hsecond : Approximates intermediate ideal secondError) :
+    Approximates computed ideal (firstError + secondError) := by
+  unfold Approximates at hfirst hsecond ⊢
+  rw [show computed - ideal =
+      (computed - intermediate) + (intermediate - ideal) by ring]
+  exact (abs_add_le _ _).trans (add_le_add hfirst hsecond)
+
 theorem Approximates.add {aHat a bHat b ea eb : ℝ}
     (ha : Approximates aHat a ea) (hb : Approximates bHat b eb) :
     Approximates (aHat + bHat) (a + b) (ea + eb) := by
   rw [Approximates, add_sub_add_comm]
   exact (abs_add_le _ _).trans (add_le_add ha hb)
+
+theorem Approximates.neg {computed ideal error : ℝ}
+    (h : Approximates computed ideal error) :
+    Approximates (-computed) (-ideal) error := by
+  unfold Approximates at h ⊢
+  rw [show -computed - -ideal = -(computed - ideal) by ring, abs_neg]
+  exact h
+
+theorem Approximates.mul
+    {aHat a bHat b ea eb : ℝ}
+    (ha : Approximates aHat a ea) (hb : Approximates bHat b eb) :
+    Approximates (aHat * bHat) (a * b)
+      (ea * |bHat| + |a| * eb) := by
+  unfold Approximates at ha hb ⊢
+  rw [show aHat * bHat - a * b =
+      (aHat - a) * bHat + a * (bHat - b) by ring]
+  calc
+    _ ≤ |(aHat - a) * bHat| + |a * (bHat - b)| :=
+      abs_add_le _ _
+    _ = |aHat - a| * |bHat| + |a| * |bHat - b| := by
+      rw [abs_mul, abs_mul]
+    _ ≤ ea * |bHat| + |a| * eb := by
+      exact add_le_add
+        (mul_le_mul_of_nonneg_right ha (abs_nonneg _))
+        (mul_le_mul_of_nonneg_left hb (abs_nonneg _))
 
 /-- Componentwise absolute-error bounds add over a finite sum. -/
 theorem Approximates.sum {ι : Type*} (s : Finset ι)
@@ -242,6 +281,20 @@ theorem threshold_approximates_of_exp_error
   rw [hid]
   exact (abs_add_le _ _).trans
     (add_le_add hexp (expClamped_approximates _hratio))
+
+/-- Backend exponential transport for arguments already known to be
+nonpositive, as in maximum-shifted multinomial weights. -/
+theorem expNonpositive_approximates_of_exp_error
+    {computedExp computedArg idealArg argError expError : ℝ}
+    (hcomputed : computedArg ≤ 0) (hideal : idealArg ≤ 0)
+    (harg : Approximates computedArg idealArg argError)
+    (hexp : Approximates computedExp (Real.exp computedArg) expError) :
+    Approximates computedExp (Real.exp idealArg) (expError + argError) := by
+  have hexp' : Approximates computedExp
+      (Real.exp (min 0 computedArg)) expError := by
+    simpa [min_eq_right hcomputed] using hexp
+  have h := threshold_approximates_of_exp_error harg hexp'
+  simpa [min_eq_right hideal] using h
 
 /-- End-to-end bounded refinement to the exact command interpreter for one
 valid ideal trace. It guarantees the identical accept/reject branch away from

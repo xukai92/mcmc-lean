@@ -2241,3 +2241,15 @@ coordinate errors in the product metric and transports them to endpoint-energy
 error. The final discontinuous multinomial choice remains conditional only on
 the explicit runtime boundary-margin certificate and backend primitive-error
 witnesses.
+
+Completed the remaining multinomial arithmetic composition. A uniform family
+of endpoint-energy certificates now propagates through negation, the finite
+maximum used for log-sum-exp stabilization, shifted nonpositive exponentials,
+total and cumulative weight sums, and the scaled uniform draw. The checked
+boundary budget is
+`trajectoryCount * (expError + 2 * energyError)`; the draw budget additionally
+records backend multiplication, RNG, and total-weight errors. A constructor
+packages these facts into the existing list-based selection certificate, whose
+stable-margin theorem proves the computed and ideal trajectory indices equal.
+This closes the backend-independent Xu--Ge refinement chain without pretending
+to prove universal Julia/libm/RNG bounds.

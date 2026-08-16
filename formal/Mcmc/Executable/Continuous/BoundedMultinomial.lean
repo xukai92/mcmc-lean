@@ -18,6 +18,195 @@ noncomputable def selectCumulative (draw : ℝ) : List ℝ → Nat
   | boundary :: rest =>
       if draw < boundary then 0 else 1 + selectCumulative draw rest
 
+/-- Exact cumulative weight through an indexed boundary. -/
+noncomputable def cumulativeWeight {n : ℕ}
+    (weights : Fin n → ℝ) (i : Fin n) : ℝ :=
+  ∑ j ∈ Finset.Iic i, weights j
+
+/-- Maximum of a nonempty finite family, used by stabilized log weights. -/
+noncomputable def finiteMaximum {n : ℕ} [Nonempty (Fin n)]
+    (values : Fin n → ℝ) : ℝ :=
+  Finset.univ.sup' Finset.univ_nonempty values
+
+/-- Taking a finite maximum does not amplify a uniform absolute error. -/
+theorem finiteMaximum_approximates
+    {n : ℕ} [Nonempty (Fin n)] (computed ideal : Fin n → ℝ)
+    (error : ℝ) (h : ∀ i, Approximates (computed i) (ideal i) error) :
+    Approximates (finiteMaximum computed) (finiteMaximum ideal) error := by
+  have hcomputed : finiteMaximum computed ≤ finiteMaximum ideal + error := by
+    unfold finiteMaximum
+    apply Finset.sup'_le
+    intro i hi
+    have hiIdeal := Finset.le_sup' ideal hi
+    have hiError := h i
+    unfold Approximates at hiError
+    have hle : computed i ≤ ideal i + error := by
+      linarith [le_abs_self (computed i - ideal i)]
+    linarith
+  have hideal : finiteMaximum ideal ≤ finiteMaximum computed + error := by
+    unfold finiteMaximum
+    apply Finset.sup'_le
+    intro i hi
+    have hiComputed := Finset.le_sup' computed hi
+    have hiError := h i
+    unfold Approximates at hiError
+    have hle : ideal i ≤ computed i + error := by
+      linarith [neg_le_abs (computed i - ideal i)]
+    linarith
+  unfold Approximates
+  rw [abs_le]
+  constructor <;> linarith
+
+/-- Per-weight absolute errors add over a cumulative boundary. -/
+theorem cumulativeWeight_approximates
+    {n : ℕ} (computed ideal : Fin n → ℝ) (error : ℝ)
+    (h : ∀ j, Approximates (computed j) (ideal j) error)
+    (i : Fin n) :
+    Approximates (cumulativeWeight computed i) (cumulativeWeight ideal i)
+      ((i.val + 1 : ℕ) * error) := by
+  unfold cumulativeWeight
+  have hsum := Approximates.sum (Finset.Iic i) computed ideal
+    (fun _ => error) (fun j _ => h j)
+  simpa using hsum
+
+/-- A single conservative error `n * error` bounds every cumulative boundary
+of an `n`-weight trajectory. -/
+theorem cumulativeWeight_approximates_uniform
+    {n : ℕ} (computed ideal : Fin n → ℝ) (error : ℝ)
+    (herror : 0 ≤ error)
+    (h : ∀ j, Approximates (computed j) (ideal j) error)
+    (i : Fin n) :
+    Approximates (cumulativeWeight computed i) (cumulativeWeight ideal i)
+      (n * error) := by
+  apply (cumulativeWeight_approximates computed ideal error h i).mono
+  have hi : i.val + 1 ≤ n := i.isLt
+  exact mul_le_mul_of_nonneg_right (by exact_mod_cast hi) herror
+
+/-- Energy and maximum-log-weight errors add when forming a stabilized
+log weight `-energy - maxLogWeight`. -/
+theorem stabilizedLogWeight_approximates
+    {computedEnergy idealEnergy computedMaximum idealMaximum error : ℝ}
+    (henergy : Approximates computedEnergy idealEnergy error)
+    (hmaximum : Approximates computedMaximum idealMaximum error) :
+    Approximates (-computedEnergy - computedMaximum)
+      (-idealEnergy - idealMaximum) (error + error) :=
+  henergy.neg.sub hmaximum
+
+/-- A backend exponential error plus the two stabilized-log inputs bounds one
+computed multinomial weight. -/
+theorem stabilizedWeight_approximates
+    {computedEnergy idealEnergy computedMaximum idealMaximum
+      computedWeight energyError expError : ℝ}
+    (hcomputedArg : -computedEnergy - computedMaximum ≤ 0)
+    (hidealArg : -idealEnergy - idealMaximum ≤ 0)
+    (henergy : Approximates computedEnergy idealEnergy energyError)
+    (hmaximum : Approximates computedMaximum idealMaximum energyError)
+    (hexp : Approximates computedWeight
+      (Real.exp (-computedEnergy - computedMaximum)) expError) :
+    Approximates computedWeight (Real.exp (-idealEnergy - idealMaximum))
+      (expError + (energyError + energyError)) := by
+  exact expNonpositive_approximates_of_exp_error hcomputedArg hidealArg
+    (stabilizedLogWeight_approximates henergy hmaximum) hexp
+
+/-- Ideal maximum-shifted Boltzmann weight for a finite energy family. -/
+noncomputable def stabilizedBoltzmannWeight
+    {n : ℕ} [Nonempty (Fin n)] (energies : Fin n → ℝ) (i : Fin n) : ℝ :=
+  Real.exp (-energies i - finiteMaximum (fun j => -energies j))
+
+theorem stabilizedBoltzmannWeight_approximates
+    {n : ℕ} [Nonempty (Fin n)]
+    (computedEnergy idealEnergy computedWeight : Fin n → ℝ)
+    (energyError expError : ℝ)
+    (henergy : ∀ i, Approximates (computedEnergy i) (idealEnergy i)
+      energyError)
+    (hexp : ∀ i, Approximates (computedWeight i)
+      (stabilizedBoltzmannWeight computedEnergy i) expError)
+    (i : Fin n) :
+    Approximates (computedWeight i)
+      (stabilizedBoltzmannWeight idealEnergy i)
+      (expError + (energyError + energyError)) := by
+  have hmaximum : Approximates
+      (finiteMaximum (fun j => -computedEnergy j))
+      (finiteMaximum (fun j => -idealEnergy j)) energyError :=
+    finiteMaximum_approximates _ _ energyError (fun j => (henergy j).neg)
+  have hcomputedArg : -computedEnergy i -
+      finiteMaximum (fun j => -computedEnergy j) ≤ 0 := by
+    have hi := Finset.le_sup' (fun j => -computedEnergy j)
+      (Finset.mem_univ i)
+    unfold finiteMaximum
+    linarith
+  have hidealArg : -idealEnergy i -
+      finiteMaximum (fun j => -idealEnergy j) ≤ 0 := by
+    have hi := Finset.le_sup' (fun j => -idealEnergy j)
+      (Finset.mem_univ i)
+    unfold finiteMaximum
+    linarith
+  unfold stabilizedBoltzmannWeight at hexp ⊢
+  exact stabilizedWeight_approximates hcomputedArg hidealArg
+    (henergy i) hmaximum (hexp i)
+
+/-- End-to-end cumulative-boundary budget from endpoint-energy and backend
+exponential errors for maximum-shifted multinomial weights. -/
+theorem stabilizedCumulativeWeight_approximates_uniform
+    {n : ℕ} [Nonempty (Fin n)]
+    (computedEnergy idealEnergy computedWeight : Fin n → ℝ)
+    (energyError expError : ℝ)
+    (henergyError : 0 ≤ energyError) (hexpError : 0 ≤ expError)
+    (henergy : ∀ i, Approximates (computedEnergy i) (idealEnergy i)
+      energyError)
+    (hexp : ∀ i, Approximates (computedWeight i)
+      (stabilizedBoltzmannWeight computedEnergy i) expError)
+    (i : Fin n) :
+    Approximates (cumulativeWeight computedWeight i)
+      (cumulativeWeight (stabilizedBoltzmannWeight idealEnergy) i)
+      (n * (expError + (energyError + energyError))) := by
+  apply cumulativeWeight_approximates_uniform
+    computedWeight (stabilizedBoltzmannWeight idealEnergy)
+    (expError + (energyError + energyError))
+  · positivity
+  · intro j
+    exact stabilizedBoltzmannWeight_approximates
+      computedEnergy idealEnergy computedWeight energyError expError
+      henergy hexp j
+
+/-- Error propagation for the runtime draw `uniform * totalWeight`, including
+an explicit backend multiplication error. -/
+theorem scaledMultinomialDraw_approximates
+    {computedDraw computedUniform idealUniform computedTotal idealTotal
+      multiplicationError uniformError totalError : ℝ}
+    (hmul : Approximates computedDraw
+      (computedUniform * computedTotal) multiplicationError)
+    (huniform : Approximates computedUniform idealUniform uniformError)
+    (htotal : Approximates computedTotal idealTotal totalError) :
+    Approximates computedDraw (idealUniform * idealTotal)
+      (multiplicationError +
+        (uniformError * |computedTotal| + |idealUniform| * totalError)) := by
+  exact hmul.compose (huniform.mul htotal)
+
+noncomputable def totalWeight {n : ℕ} (weights : Fin n → ℝ) : ℝ :=
+  ∑ i, weights i
+
+theorem stabilizedTotalWeight_approximates
+    {n : ℕ} [Nonempty (Fin n)]
+    (computedEnergy idealEnergy computedWeight : Fin n → ℝ)
+    (energyError expError : ℝ)
+    (henergy : ∀ i, Approximates (computedEnergy i) (idealEnergy i)
+      energyError)
+    (hexp : ∀ i, Approximates (computedWeight i)
+      (stabilizedBoltzmannWeight computedEnergy i) expError) :
+    Approximates (totalWeight computedWeight)
+      (totalWeight (stabilizedBoltzmannWeight idealEnergy))
+      (n * (expError + (energyError + energyError))) := by
+  unfold totalWeight
+  have hsum := Approximates.sum Finset.univ computedWeight
+    (stabilizedBoltzmannWeight idealEnergy)
+    (fun _ => expError + (energyError + energyError)) (fun i _ =>
+      stabilizedBoltzmannWeight_approximates computedEnergy idealEnergy
+        computedWeight energyError expError henergy hexp i)
+  convert hsum using 1
+  simp only [Finset.sum_const, Finset.card_univ, Fintype.card_fin,
+    nsmul_eq_mul]
+
 /-- Common absolute error bounds for one multinomial selection. -/
 structure MultinomialSelectionCertificate where
   computedBoundaries : List ℝ
@@ -31,6 +220,45 @@ structure MultinomialSelectionCertificate where
       (hi : i < idealBoundaries.length),
     Approximates computedBoundaries[i] idealBoundaries[i] boundaryError
   uniform_bound : Approximates computedUniform idealUniform uniformError
+
+/-- Assemble the exact list-shaped certificate consumed by cumulative
+selection from energy, exponential, cumulative-sum, multiplication, and RNG
+primitive bounds. -/
+noncomputable def stabilizedMultinomialSelectionCertificate
+    {n : ℕ} [Nonempty (Fin n)]
+    (computedEnergy idealEnergy computedWeight : Fin n → ℝ)
+    (computedDraw computedUnit idealUnit : ℝ)
+    (energyError expError multiplicationError unitError : ℝ)
+    (henergyNonneg : 0 ≤ energyError) (hexpNonneg : 0 ≤ expError)
+    (henergy : ∀ i, Approximates (computedEnergy i) (idealEnergy i)
+      energyError)
+    (hexp : ∀ i, Approximates (computedWeight i)
+      (stabilizedBoltzmannWeight computedEnergy i) expError)
+    (hmul : Approximates computedDraw
+      (computedUnit * totalWeight computedWeight) multiplicationError)
+    (hunit : Approximates computedUnit idealUnit unitError) :
+    MultinomialSelectionCertificate where
+  computedBoundaries := List.ofFn (cumulativeWeight computedWeight)
+  idealBoundaries := List.ofFn
+    (cumulativeWeight (stabilizedBoltzmannWeight idealEnergy))
+  computedUniform := computedDraw
+  idealUniform := idealUnit *
+    totalWeight (stabilizedBoltzmannWeight idealEnergy)
+  boundaryError := n * (expError + (energyError + energyError))
+  uniformError := multiplicationError +
+    (unitError * |totalWeight computedWeight| + |idealUnit| *
+      (n * (expError + (energyError + energyError))))
+  lengths_eq := by simp
+  boundary_bound := by
+    intro i hc hi
+    simp only [List.getElem_ofFn]
+    exact stabilizedCumulativeWeight_approximates_uniform
+      computedEnergy idealEnergy computedWeight energyError expError
+      henergyNonneg hexpNonneg henergy hexp ⟨i, by simpa using hc⟩
+  uniform_bound := by
+    exact scaledMultinomialDraw_approximates hmul hunit
+      (stabilizedTotalWeight_approximates computedEnergy idealEnergy
+        computedWeight energyError expError henergy hexp)
 
 /-- Stability means that no ideal cumulative boundary intersects the combined
 uniform/boundary uncertainty band. -/
