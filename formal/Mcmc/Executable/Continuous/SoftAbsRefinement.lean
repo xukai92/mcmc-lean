@@ -113,6 +113,39 @@ noncomputable def SoftAbsPrimitiveBackend.metricEntryCertificate
     factor_bound := hfactor
     logDet_bound := hlog }
 
+/-- End-to-end generated-target bridge for the scalar sinusoidal SoftAbs
+client. The restricted backend evaluates the generated second derivative;
+the metric backend then transports that Hessian bound through SoftAbs and its
+derived positive-domain operations. -/
+noncomputable def restrictedSinusoidalSoftAbsMetricEntryCertificate
+    (targetBackend : RestrictedBackend)
+    (metricBackend : SoftAbsPrimitiveBackend)
+    {computedInput idealInput inputError : ℝ}
+    (hinput : Approximates computedInput idealInput inputError)
+    (heigenComputed : 0 < metricBackend.softAbs 1
+      (restrictedSinusoidalPotentialArtifact.derivative.derivative.backendEval
+        targetBackend computedInput))
+    (hsqrtComputed : 0 < metricBackend.sqrt (metricBackend.softAbs 1
+      (restrictedSinusoidalPotentialArtifact.derivative.derivative.backendEval
+        targetBackend computedInput))) :
+    SoftAbsMetricEntryCertificate 1 (1 + Real.sin idealInput) := by
+  let hessianExpression :=
+    restrictedSinusoidalPotentialArtifact.derivative.derivative
+  have hhessian : Approximates
+      (hessianExpression.backendEval targetBackend computedInput)
+      (1 + Real.sin idealInput)
+      (hessianExpression.accumulatedError targetBackend computedInput
+        idealInput inputError) := by
+    have h := hessianExpression.backendEval_approximates targetBackend hinput
+    rw [restrictedSinusoidalPotentialArtifact_secondDerivative_eval] at h
+    exact h
+  exact metricBackend.metricEntryCertificate (α := 1)
+    (computedHessian := hessianExpression.backendEval targetBackend computedInput)
+    (idealHessian := 1 + Real.sin idealInput)
+    (hessianError := hessianExpression.accumulatedError targetBackend
+      computedInput idealInput inputError)
+    (by norm_num) hhessian heigenComputed hsqrtComputed
+
 /-- Coordinatewise guarded certificates for a finite diagonal SoftAbs metric.
 The aggregate log determinant is the sum of the certified scalar entries. -/
 structure SoftAbsDiagonalMetricCertificate (ι : Type*) [Fintype ι]

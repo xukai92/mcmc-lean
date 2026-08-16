@@ -1875,6 +1875,11 @@ The ideal positivity proof discharges every exact-real domain obligation.
 The construction now lifts coordinatewise over any finite diagonal metric;
 a reusable finite-sum lemma proves that entrywise log-determinant errors add
 to a certified bound for the complete log determinant.
+For the generated sinusoidal target, Lean also proves that the second
+symbolic derivative is exactly `1 + sin(x)` and feeds its recursive backend
+error certificate directly into the SoftAbs metric-entry constructor. Julia
+now evaluates value, force, and symbolic Hessian from the same generated
+expression before exercising the guarded metric evaluator.
 
 Julia exposes the matching guarded Float64 evaluator, including the removable
 zero-Hessian branch, and tests its algebraic outputs and invalid domains. This

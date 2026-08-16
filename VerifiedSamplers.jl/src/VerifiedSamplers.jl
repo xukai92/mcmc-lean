@@ -18,7 +18,8 @@ export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, Bounded
     CertifiedRelativisticMultinomialHMC,
     RestrictedExpr, RestrictedInput, RestrictedConst, RestrictedAdd,
     RestrictedMul, RestrictedNeg, RestrictedExp, RestrictedSin, RestrictedCos,
-    restricted_value_gradient, restricted_gaussian_potential,
+    restricted_derivative, restricted_value_gradient,
+    restricted_value_gradient_hessian, restricted_gaussian_potential,
     restricted_sinusoidal_potential, RestrictedGaussianFloat64Certificate,
     certify_restricted_gaussian_float64,
     restricted_gaussian_certificate_arguments,
@@ -148,6 +149,23 @@ struct RestrictedCos <: RestrictedExpr
     value::RestrictedExpr
 end
 
+"""Construct the symbolic derivative of a restricted expression."""
+restricted_derivative(::RestrictedInput) = RestrictedConst(1.0)
+restricted_derivative(::RestrictedConst) = RestrictedConst(0.0)
+restricted_derivative(expression::RestrictedAdd) = RestrictedAdd(
+    restricted_derivative(expression.left), restricted_derivative(expression.right))
+restricted_derivative(expression::RestrictedMul) = RestrictedAdd(
+    RestrictedMul(restricted_derivative(expression.left), expression.right),
+    RestrictedMul(expression.left, restricted_derivative(expression.right)))
+restricted_derivative(expression::RestrictedNeg) =
+    RestrictedNeg(restricted_derivative(expression.value))
+restricted_derivative(expression::RestrictedExp) = RestrictedMul(
+    RestrictedExp(expression.value), restricted_derivative(expression.value))
+restricted_derivative(expression::RestrictedSin) = RestrictedMul(
+    RestrictedCos(expression.value), restricted_derivative(expression.value))
+restricted_derivative(expression::RestrictedCos) = RestrictedNeg(RestrictedMul(
+    RestrictedSin(expression.value), restricted_derivative(expression.value)))
+
 """Guarded Float64 evaluation of one diagonal SoftAbs metric entry.
 
 This record is runtime evidence, not a numerical certificate. Lean separately
@@ -230,6 +248,13 @@ end
 function restricted_value_gradient(expression::RestrictedCos, x::Real)
     inner, derivative = restricted_value_gradient(expression.value, x)
     _checked_restricted(cos(inner), -sin(inner) * derivative)
+end
+
+"""Evaluate a restricted scalar target, force, and symbolic Hessian."""
+function restricted_value_gradient_hessian(expression::RestrictedExpr, x::Real)
+    value, gradient = restricted_value_gradient(expression, x)
+    _, hessian = restricted_value_gradient(restricted_derivative(expression), x)
+    value, gradient, hessian
 end
 
 function _restricted_from_ir(raw)

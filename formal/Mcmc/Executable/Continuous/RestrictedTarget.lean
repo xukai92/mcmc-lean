@@ -219,6 +219,16 @@ theorem restrictedSinusoidalPotentialArtifact_derivative_eval (x : ℝ) :
     RestrictedExpr.derivative, RestrictedExpr.eval, restrictedGaussianArtifact]
   ring
 
+/-- Differentiating the generated force again yields the exact Hessian used
+by the nonconstant SoftAbs metric client. -/
+theorem restrictedSinusoidalPotentialArtifact_secondDerivative_eval (x : ℝ) :
+    restrictedSinusoidalPotentialArtifact.derivative.derivative.compile.eval x =
+      1 + Real.sin x := by
+  simp [restrictedSinusoidalPotentialArtifact, restrictedGaussianArtifact,
+    RestrictedArtifactExpr.derivative, RestrictedArtifactExpr.compile,
+    RestrictedExpr.eval]
+  ring
+
 /-- The Gaussian restricted target obtains an end-to-end certificate directly
 from its input bound. It is the first concrete bridge from restricted syntax to
 the existing bounded RWMH/HMC callback contracts. -/
