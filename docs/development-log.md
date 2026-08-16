@@ -1,5 +1,13 @@
 # Development log
 
+- Expanded guarded stepping-out slice conformance beyond the happy path.
+  Deterministic traces now cover a zero expansion budget and a rejected
+  proposal that shrinks the bracket before acceptance. Reference and Optimized
+  implementations agree on values and consume exactly the same events in both
+  cases. The complete Julia suite passes; these tests validate executable
+  control flow but do not identify the finite guards with the ideal
+  disintegrated Lean kernel.
+
 - Strengthened the general-dimensional Bouncy Particle foundation with the
   exact signed-flux cancellation. For every nonzero event normal, Lean proves
   `λ(v) - λ(Rv) = ⟨v,n⟩` and the paired bounce-generator identity at
