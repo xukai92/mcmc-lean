@@ -18,6 +18,86 @@ open scoped ENNReal
 
 variable {ι : Type*} [Fintype ι] [Nonempty ι] [DecidableEq ι]
 
+/-- Exponential coordinate Lyapunov weight used for the bare one-dimensional
+Gaussian SoftAbs drift argument. -/
+noncomputable def gaussianSoftAbsExpWeight (t x : ℝ) : ENNReal :=
+  ENNReal.ofReal (Real.exp (t * |x|))
+
+noncomputable def gaussianSoftAbsExpLyapunov
+    (t : ℝ) (q : Position Unit) : ENNReal :=
+  gaussianSoftAbsExpWeight t (q Unit.unit)
+
+theorem measurable_gaussianSoftAbsExpLyapunov (t : ℝ) :
+    Measurable (gaussianSoftAbsExpLyapunov t) := by
+  unfold gaussianSoftAbsExpLyapunov gaussianSoftAbsExpWeight
+  fun_prop
+
+/-- Bound a nonnegative expectation by splitting into a favorable event, the
+remainder of a containing event, and its complement. -/
+theorem lintegral_le_of_nested_event_bounds
+    {α : Type*} [MeasurableSpace α] (μ : Measure α)
+    {A B : Set α} (hA : MeasurableSet A) (hB : MeasurableSet B)
+    (hAB : A ⊆ B) (f : α → ENNReal)
+    (a b c : ENNReal)
+    (ha : ∀ x ∈ A, f x ≤ a)
+    (hb : ∀ x ∈ B \ A, f x ≤ b)
+    (hc : ∀ x ∈ Bᶜ, f x ≤ c) :
+    (∫⁻ x, f x ∂μ) ≤
+      a * μ A + b * μ (B \ A) + c * μ Bᶜ := by
+  let g : α → ENNReal := fun x =>
+    A.indicator (fun _ => a) x +
+      (B \ A).indicator (fun _ => b) x +
+        Bᶜ.indicator (fun _ => c) x
+  have hg : Measurable g := by
+    exact ((measurable_const.indicator hA).add
+      (measurable_const.indicator (hB.diff hA))).add
+      (measurable_const.indicator hB.compl)
+  have hpoint : ∀ x, f x ≤ g x := by
+    intro x
+    by_cases hxA : x ∈ A
+    · have hxB : x ∈ B := hAB hxA
+      simp [g, hxA, hxB, ha x hxA]
+    · by_cases hxB : x ∈ B
+      · have hxDiff : x ∈ B \ A := ⟨hxB, hxA⟩
+        simp [g, hxA, hxB, hxDiff, hb x hxDiff]
+      · have hxCompl : x ∈ Bᶜ := hxB
+        simp [g, hxA, hxB, hxCompl, hc x hxCompl]
+  calc
+    (∫⁻ x, f x ∂μ) ≤ ∫⁻ x, g x ∂μ := lintegral_mono hpoint
+    _ = a * μ A + b * μ (B \ A) + c * μ Bᶜ := by
+      dsimp [g]
+      calc
+        (∫⁻ x, A.indicator (fun _ => a) x +
+            (B \ A).indicator (fun _ => b) x +
+              Bᶜ.indicator (fun _ => c) x ∂μ) =
+          (∫⁻ x, A.indicator (fun _ => a) x ∂μ) +
+            (∫⁻ x, (B \ A).indicator (fun _ => b) x ∂μ) +
+              ∫⁻ x, Bᶜ.indicator (fun _ => c) x ∂μ := by
+                have houter := lintegral_add_left (μ := μ)
+                  (((measurable_const : Measurable (fun _ : α => a)).indicator hA).add
+                    ((measurable_const : Measurable (fun _ : α => b)).indicator
+                      (hB.diff hA)))
+                  (Bᶜ.indicator fun _ : α => c)
+                have hinner := lintegral_add_left (μ := μ)
+                  ((measurable_const : Measurable (fun _ : α => a)).indicator hA)
+                  ((B \ A).indicator fun _ : α => b)
+                rw [show (∫⁻ x, A.indicator (fun _ => a) x +
+                    (B \ A).indicator (fun _ => b) x +
+                      Bᶜ.indicator (fun _ => c) x ∂μ) =
+                    (∫⁻ x, A.indicator (fun _ => a) x +
+                      (B \ A).indicator (fun _ => b) x ∂μ) +
+                        ∫⁻ x, Bᶜ.indicator (fun _ => c) x ∂μ by
+                      simpa only [Pi.add_apply] using houter]
+                rw [show (∫⁻ x, A.indicator (fun _ => a) x +
+                    (B \ A).indicator (fun _ => b) x ∂μ) =
+                    (∫⁻ x, A.indicator (fun _ => a) x ∂μ) +
+                      ∫⁻ x, (B \ A).indicator (fun _ => b) x ∂μ by
+                        simpa only [Pi.add_apply] using hinner]
+        _ = a * μ A + b * μ (B \ A) + c * μ Bᶜ := by
+          rw [lintegral_indicator_const hA,
+            lintegral_indicator_const (hB.diff hA),
+            lintegral_indicator_const hB.compl]
+
 /-- The unnormalized position target of the Gaussian SoftAbs client. -/
 noncomputable abbrev gaussianSoftAbsPositionTarget : Measure (Position ι) :=
   generalRelativisticPositionTarget (gaussianSoftAbsPotential (ι := ι))
@@ -561,6 +641,121 @@ theorem gaussianSoftAbsMultinomialTransition_unit_position_support
       gaussianSoftAbsPhaseTransition_unit_position_support q p
   simp_rw [hphase]
   simp
+
+/-- Exact three-region exponential expectation bound on the positive tail.
+The three coefficients correspond to a certified inward move, a non-outward
+move, and the globally bounded outward displacement. -/
+theorem lintegral_gaussianSoftAbsExpLyapunov_le_of_pos
+    (t : ℝ) (ht : 0 ≤ t) (q : Position Unit) (hq : 2 ≤ q Unit.unit) :
+    (∫⁻ y, gaussianSoftAbsExpLyapunov t y
+        ∂gaussianSoftAbsMultinomialTransition 1 1 q) ≤
+      gaussianSoftAbsExpWeight t
+          (q Unit.unit - gaussianSoftAbsUnitMinSpeed) *
+          gaussianSoftAbsMultinomialTransition 1 1 q
+            {y | y Unit.unit ≤
+              q Unit.unit - gaussianSoftAbsUnitMinSpeed} +
+        gaussianSoftAbsExpWeight t (q Unit.unit) *
+          gaussianSoftAbsMultinomialTransition 1 1 q
+            ({y | y Unit.unit ≤ q Unit.unit} \
+              {y | y Unit.unit ≤
+                q Unit.unit - gaussianSoftAbsUnitMinSpeed}) +
+        gaussianSoftAbsExpWeight t (q Unit.unit + 1) *
+          gaussianSoftAbsMultinomialTransition 1 1 q
+            {y | y Unit.unit ≤ q Unit.unit}ᶜ := by
+  let μ := gaussianSoftAbsMultinomialTransition 1 1 q
+  let A : Set (Position Unit) :=
+    {y | y Unit.unit ≤ q Unit.unit - gaussianSoftAbsUnitMinSpeed}
+  let B : Set (Position Unit) := {y | y Unit.unit ≤ q Unit.unit}
+  let C : Set (Position Unit) := {y | |y Unit.unit - q Unit.unit| < 1}
+  let f : Position Unit → ENNReal := fun y =>
+    C.indicator (gaussianSoftAbsExpLyapunov t) y
+  have hA : MeasurableSet A :=
+    measurableSet_le (measurable_pi_apply _) measurable_const
+  have hB : MeasurableSet B :=
+    measurableSet_le (measurable_pi_apply _) measurable_const
+  have hC : MeasurableSet C := by
+    exact measurableSet_lt
+      (((measurable_pi_apply Unit.unit).sub measurable_const).abs)
+      measurable_const
+  have hAB : A ⊆ B := by
+    intro y hy
+    have hδ := gaussianSoftAbsUnitMinSpeed_pos
+    dsimp [A, B] at hy ⊢
+    linarith
+  have hCmass : μ C = 1 := by
+    exact gaussianSoftAbsMultinomialTransition_unit_position_support q
+  have hCcompl : μ Cᶜ = 0 := by
+    rw [measure_compl hC (by rw [hCmass]; norm_num), hCmass]
+    simp
+  have hCae : ∀ᵐ y ∂μ, y ∈ C := by
+    rw [ae_iff]
+    simpa [Set.compl_def] using hCcompl
+  have hIntegral :
+      (∫⁻ y, f y ∂μ) = ∫⁻ y, gaussianSoftAbsExpLyapunov t y ∂μ := by
+    apply lintegral_congr_ae
+    filter_upwards [hCae] with y hy
+    simp [f, hy]
+  have hqδ : 0 ≤ q Unit.unit - gaussianSoftAbsUnitMinSpeed := by
+    have hδ := gaussianSoftAbsUnitMinSpeed_lt_one
+    linarith
+  have ha : ∀ y ∈ A, f y ≤
+      gaussianSoftAbsExpWeight t
+        (q Unit.unit - gaussianSoftAbsUnitMinSpeed) := by
+    intro y hyA
+    by_cases hyC : y ∈ C
+    · rw [show f y = gaussianSoftAbsExpLyapunov t y by simp [f, hyC]]
+      unfold gaussianSoftAbsExpLyapunov gaussianSoftAbsExpWeight
+      apply ENNReal.ofReal_le_ofReal
+      apply Real.exp_le_exp.mpr
+      have hy0 : 0 ≤ y Unit.unit := by
+        dsimp [C] at hyC
+        rw [abs_lt] at hyC
+        linarith
+      rw [abs_of_nonneg hy0, abs_of_nonneg hqδ]
+      apply mul_le_mul_of_nonneg_left _ ht
+      exact hyA
+    · simp [f, hyC]
+  have hb : ∀ y ∈ B \ A, f y ≤
+      gaussianSoftAbsExpWeight t (q Unit.unit) := by
+    intro y hyBA
+    by_cases hyC : y ∈ C
+    · rw [show f y = gaussianSoftAbsExpLyapunov t y by simp [f, hyC]]
+      unfold gaussianSoftAbsExpLyapunov gaussianSoftAbsExpWeight
+      apply ENNReal.ofReal_le_ofReal
+      apply Real.exp_le_exp.mpr
+      have hy0 : 0 ≤ y Unit.unit := by
+        dsimp [C] at hyC
+        rw [abs_lt] at hyC
+        linarith
+      rw [abs_of_nonneg hy0, abs_of_nonneg (by linarith : 0 ≤ q Unit.unit)]
+      exact mul_le_mul_of_nonneg_left hyBA.1 ht
+    · simp [f, hyC]
+  have hc : ∀ y ∈ Bᶜ, f y ≤
+      gaussianSoftAbsExpWeight t (q Unit.unit + 1) := by
+    intro y hyB
+    by_cases hyC : y ∈ C
+    · rw [show f y = gaussianSoftAbsExpLyapunov t y by simp [f, hyC]]
+      unfold gaussianSoftAbsExpLyapunov gaussianSoftAbsExpWeight
+      apply ENNReal.ofReal_le_ofReal
+      apply Real.exp_le_exp.mpr
+      have hy0 : 0 ≤ y Unit.unit := by
+        change ¬y Unit.unit ≤ q Unit.unit at hyB
+        have hyB' : q Unit.unit < y Unit.unit := lt_of_not_ge hyB
+        linarith
+      have hyUpper : y Unit.unit ≤ q Unit.unit + 1 := by
+        dsimp [C] at hyC
+        rw [abs_lt] at hyC
+        linarith
+      rw [abs_of_nonneg hy0,
+        abs_of_nonneg (by linarith : 0 ≤ q Unit.unit + 1)]
+      exact mul_le_mul_of_nonneg_left hyUpper ht
+    · simp [f, hyC]
+  rw [← hIntegral]
+  exact lintegral_le_of_nested_event_bounds μ hA hB hAB f
+    (gaussianSoftAbsExpWeight t
+      (q Unit.unit - gaussianSoftAbsUnitMinSpeed))
+    (gaussianSoftAbsExpWeight t (q Unit.unit))
+    (gaussianSoftAbsExpWeight t (q Unit.unit + 1)) ha hb hc
 
 /-- The bare Gaussian SoftAbs transition is identity at trajectory length
 zero. Consequently any convergence theorem for the unaugmented sampler must

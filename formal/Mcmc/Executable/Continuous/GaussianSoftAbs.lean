@@ -686,6 +686,14 @@ theorem gaussianSoftAbsUnitMinSpeed_le_velocity
     (inv_pos.mpr hk) hp
   simpa only [div_eq_mul_inv, mul_assoc, mul_left_comm, mul_comm] using h
 
+theorem gaussianSoftAbsUnitMinSpeed_lt_one :
+    gaussianSoftAbsUnitMinSpeed < 1 := by
+  let p : Momentum Unit := fun _ => 1
+  have hlower := gaussianSoftAbsUnitMinSpeed_le_velocity p (by simp [p])
+  have habs := abs_gaussianSoftAbsUnitScalarVelocity_lt_one (p Unit.unit)
+  rw [← gaussianSoftAbsUnit_velocity_coordinate] at habs
+  exact lt_of_le_of_lt hlower (lt_of_le_of_lt (le_abs_self _) habs)
+
 /-- Uniform negative velocity below minus unit momentum. -/
 theorem gaussianSoftAbsUnit_velocity_le_neg_minSpeed
     (p : Momentum Unit) (hp : p Unit.unit ≤ -1) :
