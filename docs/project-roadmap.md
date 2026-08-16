@@ -357,9 +357,13 @@ breadth branches are:
   and left/right-budget mixture step. The required continuous proposal
   primitive is now concrete: Lean constructs a Markov kernel uniform on any
   measurable input-dependent strictly ordered interval and proves exact
-  normalization and bracket support. Proving each deterministic guarded Julia
+  normalization and bracket support. The corresponding width-weighted height
+  measure is now proved to factor exactly into the swapped under-graph law
+  when all superlevel intervals are strictly nonempty. Extending the horizontal
+  kernel with an arbitrary Markov fallback on zero-width heights is the next
+  step for bounded targets. Proving each deterministic guarded Julia
   expansion/shrinkage section satisfies the resulting joint-preservation
-  premise, plus its Float64 refinement, remains;
+  premise, plus its Float64 refinement, then remains;
 - reversible-jump transports beyond the checked scalar and planar
   birth/death scaling clients. Product transport-density certificates now
   compose recursively and instantiate a three-dimensional scaling transport;

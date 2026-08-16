@@ -25,6 +25,34 @@ open ProbabilityTheory
 
 variable {State : Type*} [MeasurableSpace State]
 
+/-- Swapping a product measure carrying a measurable density swaps the density
+arguments as well. This change-of-coordinate lemma is used below to rewrite
+the state--height under-graph law in height--state order. -/
+theorem map_swap_prod_withDensity
+    {Left Right : Type*} [MeasurableSpace Left] [MeasurableSpace Right]
+    (left : Measure Left) (right : Measure Right) [SFinite left] [SFinite right]
+    (density : Left × Right → ENNReal) (hdensity : Measurable density) :
+    ((left.prod right).withDensity density).map Prod.swap =
+      (right.prod left).withDensity (density ∘ Prod.swap) := by
+  ext event hevent
+  rw [Measure.map_apply measurable_swap hevent,
+    withDensity_apply _ (measurable_swap hevent),
+    withDensity_apply _ hevent,
+    ← lintegral_indicator (measurable_swap hevent),
+    ← lintegral_indicator hevent, ← Measure.prod_swap]
+  rw [MeasureTheory.lintegral_map]
+  · apply lintegral_congr
+    intro point
+    simp only [Set.indicator, Set.mem_preimage, Function.comp_apply,
+      Prod.swap_swap]
+    by_cases hp : point ∈ event
+    · rw [if_pos hp, if_pos]
+      simpa using hp
+    · rw [if_neg hp, if_neg]
+      simpa using hp
+  · exact hdensity.indicator (measurable_swap hevent)
+  · exact measurable_swap
+
 /-- Density with respect to real Lebesgue measure of a uniform height in
 `(0, weight x]`. -/
 noncomputable def sliceHeightDensity (weight : State → ℝ)
@@ -89,6 +117,22 @@ noncomputable def variableIntervalDensity {Parameter : Type*}
   if x ∈ Ioc (lower parameter) (upper parameter) then
     (ENNReal.ofReal (upper parameter - lower parameter))⁻¹
   else 0
+
+/-- Unnormalized height marginal associated with interval endpoints. -/
+noncomputable def intervalHeightDensity
+    (lower upper : ℝ → ℝ) (parameter : ℝ) : ENNReal :=
+  ENNReal.ofReal (upper parameter - lower parameter)
+
+theorem measurable_intervalHeightDensity
+    {lower upper : ℝ → ℝ}
+    (hlower : Measurable lower) (hupper : Measurable upper) :
+    Measurable (intervalHeightDensity lower upper) := by
+  exact ENNReal.measurable_ofReal.comp (hupper.sub hlower)
+
+/-- Lebesgue height measure weighted by the width of its horizontal interval. -/
+noncomputable def intervalHeightMeasure (lower upper : ℝ → ℝ) :
+    Measure ℝ :=
+  (volume : Measure ℝ).withDensity (intervalHeightDensity lower upper)
 
 theorem measurable_uncurry_variableIntervalDensity
     {Parameter : Type*} [MeasurableSpace Parameter]
@@ -194,6 +238,58 @@ theorem variableIntervalKernel_apply_event
     hordered parameter, Measure.smul_apply, Measure.restrict_apply hevent,
     smul_eq_mul]
 
+/-- Multiplying the interval-width height marginal by its normalized
+horizontal interval kernel cancels the width and leaves the indicator of the
+height--state interval region. -/
+theorem compProd_intervalHeightMeasure_variableIntervalKernel
+    (lower upper : ℝ → ℝ) (hlower : Measurable lower)
+    (hupper : Measurable upper)
+    (hordered : ∀ parameter, lower parameter < upper parameter) :
+    intervalHeightMeasure lower upper ⊗ₘ
+        variableIntervalKernel lower upper hlower hupper hordered =
+      ((volume : Measure ℝ).prod volume).withDensity (fun p : ℝ × ℝ ↦
+        if p.2 ∈ Ioc (lower p.1) (upper p.1) then 1 else 0) := by
+  let intervalDensity : ℝ × ℝ → ENNReal := fun p ↦
+    if p.2 ∈ Ioc (lower p.1) (upper p.1) then 1 else 0
+  have hintervalDensity : Measurable intervalDensity := by
+    apply Measurable.ite
+    · exact (measurableSet_lt (hlower.comp measurable_fst) measurable_snd).inter
+        (measurableSet_le measurable_snd (hupper.comp measurable_fst))
+    · exact measurable_const
+    · exact measurable_const
+  letI : IsMarkovKernel
+      (variableIntervalKernel lower upper hlower hupper hordered) :=
+    variableIntervalKernel.instIsMarkovKernel lower upper hlower hupper hordered
+  letI : IsMarkovKernel
+      ((Kernel.const ℝ (volume : Measure ℝ)).withDensity
+        (variableIntervalDensity lower upper)) := by
+    change IsMarkovKernel
+      (variableIntervalKernel lower upper hlower hupper hordered)
+    infer_instance
+  unfold variableIntervalKernel intervalHeightMeasure
+  rw [Measure.compProd_withDensity
+    (measurable_uncurry_variableIntervalDensity hlower hupper),
+    Measure.compProd_const,
+    prod_withDensity_left (measurable_intervalHeightDensity hlower hupper),
+    ← withDensity_mul]
+  · congr 1
+    funext p
+    change intervalHeightDensity lower upper p.1 *
+        variableIntervalDensity lower upper p.1 p.2 = intervalDensity p
+    by_cases hp : p.2 ∈ Ioc (lower p.1) (upper p.1)
+    · simp only [intervalHeightDensity, variableIntervalDensity, hp,
+        if_true, intervalDensity]
+      exact ENNReal.mul_inv_cancel
+        (ENNReal.ofReal_ne_zero_iff.mpr (sub_pos.mpr (hordered p.1)))
+        ENNReal.ofReal_ne_top
+    · change intervalHeightDensity lower upper p.1 *
+          (if p.2 ∈ Ioc (lower p.1) (upper p.1) then
+            (ENNReal.ofReal (upper p.1 - lower p.1))⁻¹ else 0) =
+          (if p.2 ∈ Ioc (lower p.1) (upper p.1) then 1 else 0)
+      rw [if_neg hp, if_neg hp, mul_zero]
+  · exact (measurable_intervalHeightDensity hlower hupper).comp measurable_fst
+  · exact measurable_uncurry_variableIntervalDensity hlower hupper
+
 /-- The variable-interval draw lies in its declared bracket with probability
 one. -/
 theorem variableIntervalKernel_apply_interval
@@ -239,6 +335,41 @@ weight and a base measure on states. -/
 noncomputable def sliceUnderGraph
     (base : Measure State) (weight : State → ℝ) : Measure (State × ℝ) :=
   (base.prod volume).withDensity (sliceUnderGraphDensity weight)
+
+/-- The under-graph measure in height--state order is the swapped density over
+the correspondingly swapped product base measure. -/
+theorem map_swap_sliceUnderGraph
+    (base : Measure State) [SFinite base]
+    (weight : State → ℝ) (hweight : Measurable weight) :
+    (sliceUnderGraph base weight).map Prod.swap =
+      (volume.prod base).withDensity
+        (sliceUnderGraphDensity weight ∘ Prod.swap) := by
+  unfold sliceUnderGraph
+  rw [map_swap_prod_withDensity base volume
+    (sliceUnderGraphDensity weight) (measurable_sliceUnderGraphDensity hweight)]
+
+/-- If every positive superlevel set of a real weight is exactly a measurable
+interval, the explicit width-weighted height law and uniform horizontal
+interval kernel reconstruct the swapped under-graph joint measure. -/
+theorem compProd_intervalKernel_eq_map_swap_sliceUnderGraph
+    (weight lower upper : ℝ → ℝ)
+    (hweight : Measurable weight) (hlower : Measurable lower)
+    (hupper : Measurable upper)
+    (hordered : ∀ height, lower height < upper height)
+    (hlevel : ∀ height state,
+      state ∈ Ioc (lower height) (upper height) ↔
+        height ∈ Ioc 0 (weight state)) :
+    intervalHeightMeasure lower upper ⊗ₘ
+        variableIntervalKernel lower upper hlower hupper hordered =
+      (sliceUnderGraph volume weight).map Prod.swap := by
+  rw [compProd_intervalHeightMeasure_variableIntervalKernel lower upper
+    hlower hupper hordered,
+    map_swap_sliceUnderGraph volume weight hweight]
+  congr 1
+  funext p
+  simp only [sliceUnderGraphDensity, Function.comp_apply]
+  rw [if_congr (hlevel p.1 p.2) rfl rfl]
+  rfl
 
 /-- Multiplying the weighted target by its normalized vertical conditional
 cancels the target weight and produces the under-the-graph joint measure. -/

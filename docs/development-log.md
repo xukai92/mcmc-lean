@@ -1,5 +1,15 @@
 # Development log
 
+- Proved the first explicit continuous interval-level slice factorization.
+  Swapping a measurable density over a product measure now transports the
+  density arguments exactly. Combining that lemma with the variable-interval
+  row formula shows that a height law weighted by interval width followed by
+  its normalized uniform horizontal draw reconstructs the swapped under-graph
+  measure whenever the superlevel sets are those intervals. The current
+  theorem assumes every indexed interval is strictly nonempty; bounded targets
+  still need the zero-width-height fallback kernel before this specializes to
+  their full real height space.
+
 - Added the missing continuous bracket primitive for formal stepping-out:
   `variableIntervalKernel` samples uniformly from a measurable input-dependent
   real interval. Lean proves joint density measurability, exact normalization
