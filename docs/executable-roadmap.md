@@ -104,9 +104,13 @@ Lean proves that the emitted portable tree compiles to the verified Gaussian
 expression. A backend-generic recursive theorem now composes rational,
 addition, multiplication, negation, and bounded-domain exponential certificates
 into end-to-end value and symbolic-gradient bounds for every portable tree.
-Remaining work is instantiating those operation premises for supported Float64
-platforms (especially `exp`), active
-high-dimensional tests, and benchmarking against established Julia samplers.
+For the polynomial Gaussian client, Julia serializes every finite Float64 as
+an exact rational certificate; the compiled Lean oracle checks that artifact,
+and checker soundness yields the value and derivative approximation facts.
+The remaining platform work is instantiating primitive operation premises for
+transcendental operations (especially `exp`), extending this checked path to
+the genuinely position-dependent SoftAbs client, and benchmarking against
+established Julia samplers.
 Step-size or metric adaptation must remain an explicit stateful algorithm with
 a separate specification.
 
