@@ -311,6 +311,60 @@ theorem integral_bouncyGenerator_eq_transport_sub_normalFlux'
 
 /-! ### Product-space generator balance -/
 
+/-- Reconstruct a directional derivative from its coordinate partial
+derivatives. The velocity coefficient is written explicitly so the
+multidimensional Gaussian integration-by-parts obligation can be discharged
+one coordinate at a time. -/
+noncomputable def coordinateDirectionalDerivative
+    (coordinatePartial : Position ι → ι → Position ι → ℝ)
+    (position velocity : Position ι) : ℝ :=
+  ∑ i, velocity i * coordinatePartial position i velocity
+
+/-- Finite-dimensional spatial integration by parts assembles from its
+coordinate identities. All hypotheses are genuine integrability conditions
+needed to commute the two finite sums with the iterated Bochner integrals.
+
+This lemma is measure-agnostic. For a standard-Gaussian position law, each
+`hcoordinate` premise is the corresponding one-dimensional Gaussian Stein
+identity after conditioning on the remaining coordinates. -/
+theorem coordinatewise_integrated_ibp
+    (positionLaw velocityLaw : Measure (Position ι))
+    (coordinatePartial : Position ι → ι → Position ι → ℝ)
+    (observable : Position ι → Position ι → ℝ)
+    (hpartialVelocity : ∀ position i, Integrable
+      (fun velocity => velocity i * coordinatePartial position i velocity) velocityLaw)
+    (hpartialPosition : ∀ i, Integrable (fun position =>
+      ∫ velocity, velocity i * coordinatePartial position i velocity ∂velocityLaw)
+      positionLaw)
+    (hpositionVelocity : ∀ position i, Integrable
+      (fun velocity => velocity i * position i * observable position velocity)
+      velocityLaw)
+    (hpositionPosition : ∀ i, Integrable (fun position =>
+      ∫ velocity, velocity i * position i * observable position velocity
+        ∂velocityLaw) positionLaw)
+    (hcoordinate : ∀ i,
+      (∫ position, ∫ velocity,
+        velocity i * coordinatePartial position i velocity
+          ∂velocityLaw ∂positionLaw) =
+      ∫ position, ∫ velocity,
+        velocity i * position i * observable position velocity
+          ∂velocityLaw ∂positionLaw) :
+    (∫ position, ∫ velocity,
+      coordinateDirectionalDerivative coordinatePartial position velocity
+        ∂velocityLaw ∂positionLaw) =
+      ∫ position, ∫ velocity,
+        euclideanInner velocity position * observable position velocity
+          ∂velocityLaw ∂positionLaw := by
+  simp only [coordinateDirectionalDerivative, euclideanInner]
+  simp_rw [Finset.sum_mul]
+  simp_rw [integral_finsetSum Finset.univ (fun i _ =>
+    hpartialVelocity _ i)]
+  rw [integral_finsetSum Finset.univ (fun i _ => hpartialPosition i)]
+  simp_rw [integral_finsetSum Finset.univ (fun i _ =>
+    hpositionVelocity _ i)]
+  rw [integral_finsetSum Finset.univ (fun i _ => hpositionPosition i)]
+  exact Finset.sum_congr rfl fun i _ => hcoordinate i
+
 /-- Full BPS phase-space generator with position-dependent event normal,
 directional derivative, and observable. -/
 noncomputable def bouncyPhaseGenerator
@@ -631,5 +685,113 @@ theorem integral_bouncyPhaseGenerator_standardMomentum_eq_zero
   exact integral_bouncyPhaseGenerator_l2StandardGaussian_eq_zero positionLaw
     normal directionalDerivative observable htransport hincoming houtgoing
     hreflected hphase htransportIntegrated hfluxIntegrated hibp
+
+/-- Coordinatewise Stein specialization for standard-Gaussian BPS. The target
+and velocity laws are both the canonical standard Gaussian, the event normal
+is the position, and the directional derivative is reconstructed from supplied
+coordinate partials. Consequently the only integration-by-parts hypotheses
+are one scalar identity per coordinate.
+
+This remains a generator-balance theorem; it does not infer existence or
+stationarity of an unbounded-rate BPS process. -/
+theorem integral_standardGaussian_bouncyPhaseGenerator_of_coordinatewise_eq_zero
+    (coordinatePartial : Position ι → ι → Position ι → ℝ)
+    (observable : Position ι → Position ι → ℝ)
+    (hpartialVelocity : ∀ position i, Integrable
+      (fun velocity => velocity i * coordinatePartial position i velocity)
+      Mcmc.Hamiltonian.standardMomentumMeasure)
+    (hpartialPosition : ∀ i, Integrable (fun position =>
+      ∫ velocity, velocity i * coordinatePartial position i velocity
+        ∂Mcmc.Hamiltonian.standardMomentumMeasure)
+      Mcmc.Hamiltonian.standardMomentumMeasure)
+    (hpositionVelocity : ∀ position i, Integrable
+      (fun velocity => velocity i * position i * observable position velocity)
+      Mcmc.Hamiltonian.standardMomentumMeasure)
+    (hpositionPosition : ∀ i, Integrable (fun position =>
+      ∫ velocity, velocity i * position i * observable position velocity
+        ∂Mcmc.Hamiltonian.standardMomentumMeasure)
+      Mcmc.Hamiltonian.standardMomentumMeasure)
+    (hincoming : ∀ position, Integrable (fun velocity =>
+      bouncyRate position velocity *
+        observable position (bouncyReflection position velocity))
+      Mcmc.Hamiltonian.standardMomentumMeasure)
+    (houtgoing : ∀ position, Integrable (fun velocity =>
+      bouncyRate position velocity * observable position velocity)
+      Mcmc.Hamiltonian.standardMomentumMeasure)
+    (hreflected : ∀ position, Integrable (fun velocity =>
+      bouncyRate position (bouncyReflection position velocity) *
+        observable position velocity)
+      Mcmc.Hamiltonian.standardMomentumMeasure)
+    (hphase : Integrable
+      (bouncyPhaseGenerator id
+        (coordinateDirectionalDerivative coordinatePartial) observable)
+      (Mcmc.Hamiltonian.standardMomentumMeasure.prod
+        Mcmc.Hamiltonian.standardMomentumMeasure))
+    (hcoordinate : ∀ i,
+      (∫ position, ∫ velocity,
+        velocity i * coordinatePartial position i velocity
+          ∂Mcmc.Hamiltonian.standardMomentumMeasure
+          ∂Mcmc.Hamiltonian.standardMomentumMeasure) =
+      ∫ position, ∫ velocity,
+        velocity i * position i * observable position velocity
+          ∂Mcmc.Hamiltonian.standardMomentumMeasure
+          ∂Mcmc.Hamiltonian.standardMomentumMeasure) :
+    (∫ state,
+      bouncyPhaseGenerator id
+        (coordinateDirectionalDerivative coordinatePartial) observable state
+      ∂(Mcmc.Hamiltonian.standardMomentumMeasure.prod
+        Mcmc.Hamiltonian.standardMomentumMeasure)) = 0 := by
+  have htransport : ∀ position, Integrable
+      (coordinateDirectionalDerivative coordinatePartial position)
+      Mcmc.Hamiltonian.standardMomentumMeasure := by
+    intro position
+    exact integrable_finsetSum Finset.univ fun i _ =>
+      hpartialVelocity position i
+  have htransportIntegrated : Integrable (fun position =>
+      ∫ velocity,
+        coordinateDirectionalDerivative coordinatePartial position velocity
+          ∂Mcmc.Hamiltonian.standardMomentumMeasure)
+      Mcmc.Hamiltonian.standardMomentumMeasure := by
+    have hsum := integrable_finsetSum Finset.univ fun i _ => hpartialPosition i
+    have heq : (fun position =>
+        ∫ velocity,
+          coordinateDirectionalDerivative coordinatePartial position velocity
+            ∂Mcmc.Hamiltonian.standardMomentumMeasure) =
+        fun position => ∑ i, ∫ velocity,
+          velocity i * coordinatePartial position i velocity
+            ∂Mcmc.Hamiltonian.standardMomentumMeasure := by
+      funext position
+      exact integral_finsetSum Finset.univ fun i _ =>
+        hpartialVelocity position i
+    rw [heq]
+    exact hsum
+  have hfluxIntegrated : Integrable (fun position =>
+      ∫ velocity, euclideanInner velocity position *
+        observable position velocity
+          ∂Mcmc.Hamiltonian.standardMomentumMeasure)
+      Mcmc.Hamiltonian.standardMomentumMeasure := by
+    have hsum := integrable_finsetSum Finset.univ fun i _ => hpositionPosition i
+    have heq : (fun position =>
+        ∫ velocity, euclideanInner velocity position *
+          observable position velocity
+            ∂Mcmc.Hamiltonian.standardMomentumMeasure) =
+        fun position => ∑ i, ∫ velocity,
+          velocity i * position i * observable position velocity
+            ∂Mcmc.Hamiltonian.standardMomentumMeasure := by
+      funext position
+      simp only [euclideanInner, Finset.sum_mul]
+      exact integral_finsetSum Finset.univ fun i _ =>
+        hpositionVelocity position i
+    rw [heq]
+    exact hsum
+  apply integral_bouncyPhaseGenerator_standardMomentum_eq_zero
+    Mcmc.Hamiltonian.standardMomentumMeasure id
+    (coordinateDirectionalDerivative coordinatePartial) observable htransport
+    hincoming houtgoing hreflected hphase htransportIntegrated hfluxIntegrated
+  exact coordinatewise_integrated_ibp
+    Mcmc.Hamiltonian.standardMomentumMeasure
+    Mcmc.Hamiltonian.standardMomentumMeasure coordinatePartial observable
+    hpartialVelocity hpartialPosition hpositionVelocity hpositionPosition
+    hcoordinate
 
 end Mcmc.PDMP

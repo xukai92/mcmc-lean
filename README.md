@@ -196,7 +196,12 @@ Gaussian momentum law exactly. Lean now also integrates the full
 position-dependent phase-space generator and reduces mean-zero exactly to an
 explicit multidimensional spatial integration-by-parts premise; the public
 specialization uses the same canonical `standardMomentumMeasure` as HMC, so
-clients no longer need to rewrite through the transported Gaussian law. This is
+clients no longer need to rewrite through the transported Gaussian law. A
+second specialization reconstructs directional derivatives from coordinate
+partials and proves that the spatial premise follows from one scalar
+integration-by-parts identity per coordinate, with all finite-sum integrability
+conditions checked explicitly. Deriving those scalar identities from concrete
+regularity and boundary-decay assumptions is still analytic input. This is
 infinitesimal balance, not process stationarity or convergence. For globally bounded bounce intensities, Lean now
 also constructs the exact positive-horizon Poisson/ordered-time thinning
 kernel and the practical refresh-then-bounce composition. The latter preserves

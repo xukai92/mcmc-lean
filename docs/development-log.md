@@ -34,6 +34,12 @@
   invariance internally and leaves only integrability and the multidimensional
   spatial integration-by-parts identity. Clients shared with HMC no longer
   need to expose or rewrite through the transported Gaussian construction.
+  A finite-sum assembly theorem now decomposes the remaining spatial identity
+  into one coordinatewise Stein identity per dimension. Its concrete
+  standard-Gaussian BPS consumer derives directional-derivative and normal-flux
+  integrability from component hypotheses and concludes generator balance.
+  The conditional one-dimensional analytic identities themselves, and the
+  subsequent process-level stationarity argument, remain explicit boundaries.
 
 - Connected Julia dynamic-tree certificates to executable sampling. The new
   checked selector refuses uncertified candidate-row families and otherwise

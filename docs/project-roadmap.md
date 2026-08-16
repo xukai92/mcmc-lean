@@ -515,7 +515,11 @@ by paper date:
    preserves the transported probability law. The finite-product Gaussian
    density factorization is now proved, closing equality with the canonical
    density-defined `standardMomentumMeasure` and yielding its direct reflection
-   preservation theorem. Target-specific integration by parts,
+   preservation theorem. The remaining multidimensional integration-by-parts
+   premise is now assembled from scalar coordinate identities, and the
+   standard-Gaussian BPS theorem derives the finite-sum directional and flux
+   conditions from component integrability. Proving those scalar identities
+   from target-specific differentiability and boundary decay,
    construction of the unbounded-rate process,
    weak-forward uniqueness, and ergodicity remain.
    The standard-Gaussian specialization of the product generator theorem now
