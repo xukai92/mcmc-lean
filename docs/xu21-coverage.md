@@ -130,7 +130,9 @@ The following follow-on work remains outside the completed theorem surface:
 - concrete marginal-convergence or ergodicity certificates for the
   instantiated Dirac-start Gaussian and regularized-logistic chains (the
   general and stationary higher-moment implications are proved);
-- executable or floating-point realizations of the mathematical kernels and
-  the paper's experiments; and
+- full floating-point refinement and reproduction of every reported paper
+  experiment. The generated Julia coupling already implements shared-event
+  HMC/RWMH mixture steps, checks exact-meeting faithfulness, and now exposes a
+  reproducible finite-horizon meeting-time diagnostic; and
 - an unconditional exponent-two optimal-transport contraction theorem in a
   parameter regime not ruled out by the formalized obstruction.

@@ -27,7 +27,8 @@ export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, Bounded
     SoftAbsScalarHamiltonianFloat64Evaluation,
     evaluate_softabs_metric_float64, evaluate_softabs_diagonal_float64,
     evaluate_softabs_scalar_hamiltonian_float64,
-    Xu21CoupledSampler, ScopedInferenceOperator, ComposableSampler, covers,
+    Xu21CoupledSampler, coupled_meeting_time,
+    ScopedInferenceOperator, ComposableSampler, covers,
     DynamicTreeCertificate, certify_dynamic_tree, certified_orbit_partition,
     certified_scalar_uturn_partition,
     certified_vector_uturn_partition,
@@ -656,6 +657,30 @@ end
 
 sample(sampler::Xu21CoupledSampler, initial::Tuple, count::Integer) =
     sample(Random.default_rng(), sampler, initial, count)
+
+"""First exact meeting time of the faithful Xu et al. coupled runtime.
+
+Returns `nothing` if the supplied finite diagnostic horizon is exhausted. This
+is an executable experiment helper, not a replacement for a geometric-tail
+theorem.
+"""
+function coupled_meeting_time(rng::AbstractRNG, sampler::Xu21CoupledSampler,
+        initial::Tuple{<:AbstractVector{<:Real},<:AbstractVector{<:Real}},
+        max_steps::Integer)
+    max_steps >= 0 || throw(ArgumentError("maximum meeting horizon must be nonnegative"))
+    left, right = Float64.(initial[1]), Float64.(initial[2])
+    length(left) == length(right) || throw(DimensionMismatch("coupled states"))
+    left == right && return 0
+    for iteration in 1:max_steps
+        left, right = step(rng, sampler, (left, right))
+        left == right && return iteration
+    end
+    nothing
+end
+
+coupled_meeting_time(sampler::Xu21CoupledSampler, initial::Tuple,
+    max_steps::Integer) =
+    coupled_meeting_time(Random.default_rng(), sampler, initial, max_steps)
 
 struct MultinomialHMC{F,G}
     logdensity::F

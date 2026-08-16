@@ -18,6 +18,16 @@
         @test left == right
     end
 
+    @test coupled_meeting_time(MersenneTwister(1), sampler,
+        ([0.2, -0.1], [0.2, -0.1]), 20) == 0
+    meeting = coupled_meeting_time(MersenneTwister(2022), sampler,
+        ([0.0, 0.0], [1.0, -1.0]), 2_000)
+    @test meeting !== nothing
+    @test meeting == coupled_meeting_time(MersenneTwister(2022), sampler,
+        ([0.0, 0.0], [1.0, -1.0]), 2_000)
+    @test_throws ArgumentError coupled_meeting_time(MersenneTwister(1), sampler,
+        ([0.0], [1.0]), -1)
+
     @test_throws DimensionMismatch step(MersenneTwister(1), sampler,
         ([0.0], [0.0, 1.0]))
 end

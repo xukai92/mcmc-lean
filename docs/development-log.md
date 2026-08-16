@@ -2098,6 +2098,14 @@ update is composed with the actual two-dimensional Gaussian SoftAbs
 multinomial GR-HMC transition. Lean proves invariance of the normalized
 continuous target for the complete schedule.
 
+Added a reproducible exact-meeting diagnostic for the executable Xu et al.
+coupling. `coupled_meeting_time` advances the faithful coupled mixture until
+the first bitwise-equal state or a caller-supplied finite horizon, reports
+time zero for an already met pair, and is deterministic under a fixed RNG.
+Tests include a nontrivial Gaussian pair that meets within the diagnostic
+horizon. This helper supports experiment reproduction; it is not used as
+evidence for the separate machine-checked geometric-tail theorem.
+
 ## 2026-08-16: normalized particle-error recursion
 
 Added the deterministic nonlinear bridge needed beyond the exact one-step
