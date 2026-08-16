@@ -122,16 +122,16 @@ and strict affine drift for the actual `L = 1` HMC kernel.
 `Hamiltonian/LogisticRegressionXu.lean` constructs the compact energy region,
 verifies the strict infimum/supremum geometry, assembles Xu's complete drift
 record, and proves the concrete exact lag-one geometric meeting tail.
-It also proves the analogous conditional bounded-observable estimator
-endpoint for the concrete regularized-logistic mixture.
+It also proves the analogous unconditional bounded-observable marginal-limit
+and finite-variance estimator endpoint for the concrete regularized-logistic
+mixture.
 
 The following follow-on work remains outside the completed theorem surface:
 
 - target-specific drift certificates beyond the standard Gaussian and
   regularized-logistic families;
 - normalized-Boltzmann target identification for the constructed Gaussian
-  marginal limit, and the analogous unconditional closure for the
-  regularized-logistic client;
+  and regularized-logistic marginal limits;
 - full floating-point refinement and reproduction of every reported paper
   experiment. The generated Julia coupling already implements shared-event
   HMC/RWMH mixture steps, checks exact-meeting faithfulness, and now exposes a

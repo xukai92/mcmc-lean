@@ -612,6 +612,80 @@ theorem exists_regularizedLogistic_boundedEstimator_of_marginal_convergence
       C₀ contractionRate hC₀ hrate htail
       (stickyCoupledHmcRwmhMixture_isFaithful _ _ _ _ _ _ _ _ _)
 
+/-- Unconditional bounded-observable estimator endpoint for the concrete
+regularized-logistic construction. The geometric faithful meeting theorem
+constructs the Dirac-start marginal limit and proves finite variance without
+an externally supplied convergence premise. -/
+theorem exists_regularizedLogistic_boundedEstimator
+    (feature : κ → Position ι) (label : κ → ℝ)
+    (regularization : NNReal) (hregularization : 0 < regularization)
+    (ε : ℝ) (hcancel : ε ^ 2 * (regularization : ℝ) = 2)
+    (variance : NNReal) (hvariance : variance ≠ 0)
+    (q₀ : Position ι) (observable : Position ι → ℝ)
+    (hmeasurable : Measurable observable) {B : ℝ} (hB : 0 ≤ B)
+    (hbounded : ∀ q, ‖observable q‖ ≤ B) :
+    ∃ (gamma : Set.Ioo (0 : NNReal) 1) (C₀ contractionRate : ENNReal)
+        (targetMean : ℝ),
+      C₀ ≠ ⊤ ∧ contractionRate < 1 ∧
+      let transition := hmcRwmhMixture (xuTheorem41HmcWeight gamma)
+        (regularizedLogisticPotential feature label regularization)
+        (regularizedLogisticGradient feature label regularization) ε 1
+        (contDiff_regularizedLogisticPotential feature label
+          regularization).continuous.measurable
+        (regularPotential_regularizedLogistic feature label regularization
+          hregularization).contDiff_one_gradient.continuous.measurable
+        variance hvariance
+      let coupled := stickyCoupledHmcRwmhMixture (xuTheorem41HmcWeight gamma)
+        (regularizedLogisticPotential feature label regularization)
+        (regularizedLogisticGradient feature label regularization) ε 1
+        (contDiff_regularizedLogisticPotential feature label
+          regularization).continuous.measurable
+        (regularPotential_regularizedLogistic feature label regularization
+          hregularization).contDiff_one_gradient.continuous.measurable
+        variance hvariance
+      Filter.Tendsto
+          (fun n => ∫ q, observable q
+            ∂Mcmc.Kernel.lawAtTime (Measure.dirac q₀) transition n)
+          Filter.atTop (nhds targetMean) ∧
+        (∫ path, Mcmc.Kernel.stoppedLaggedUnbiasedEstimator observable path
+          ∂Mcmc.Kernel.pathLaw
+            (Mcmc.Kernel.laggedInitialMeasure
+              ((Measure.dirac q₀).prod (Measure.dirac q₀)) transition)
+            coupled) = targetMean ∧
+          MemLp (Mcmc.Kernel.stoppedLaggedUnbiasedEstimator observable) 2
+            (Mcmc.Kernel.pathLaw
+              (Mcmc.Kernel.laggedInitialMeasure
+                ((Measure.dirac q₀).prod (Measure.dirac q₀)) transition)
+              coupled) := by
+  obtain ⟨gamma, C₀, contractionRate, hC₀, hrate, htail⟩ :=
+    exists_geometric_exactLagOneMeetingTail_regularizedLogistic feature label
+      regularization hregularization ε hcancel variance hvariance q₀
+  let transition := hmcRwmhMixture (xuTheorem41HmcWeight gamma)
+    (regularizedLogisticPotential feature label regularization)
+    (regularizedLogisticGradient feature label regularization) ε 1
+    (contDiff_regularizedLogisticPotential feature label
+      regularization).continuous.measurable
+    (regularPotential_regularizedLogistic feature label regularization
+      hregularization).contDiff_one_gradient.continuous.measurable
+    variance hvariance
+  let coupled := stickyCoupledHmcRwmhMixture (xuTheorem41HmcWeight gamma)
+    (regularizedLogisticPotential feature label regularization)
+    (regularizedLogisticGradient feature label regularization) ε 1
+    (contDiff_regularizedLogisticPotential feature label
+      regularization).continuous.measurable
+    (regularPotential_regularizedLogistic feature label regularization
+      hregularization).contDiff_one_gradient.continuous.measurable
+    variance hvariance
+  obtain ⟨targetMean, hmarginal, hend⟩ :=
+    Mcmc.Kernel.exists_limit_and_memLp_two_stoppedEstimator_of_bounded_geometric
+      ((Measure.dirac q₀).prod (Measure.dirac q₀)) (Measure.dirac q₀)
+      transition coupled (isMeasureCoupling_prod _ _)
+      (stickyCoupledHmcRwmhMixture_isCoupling _ _ _ _ _ _ _ _ _)
+      observable hmeasurable hB hbounded C₀ contractionRate hC₀ hrate
+      htail (stickyCoupledHmcRwmhMixture_isFaithful _ _ _ _ _ _ _ _ _)
+  exact ⟨gamma, C₀, contractionRate, targetMean, hC₀, hrate,
+    hmarginal, hend⟩
+
 end NonemptyDimension
 
 end Mcmc.Hamiltonian

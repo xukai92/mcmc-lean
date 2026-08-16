@@ -1342,5 +1342,44 @@ theorem tendsto_marginalExpectation_to_stoppedEstimator_of_bounded_geometric
     exact hfiniteIntegral N] at hfiniteTendsto
   exact (Filter.tendsto_add_atTop_iff_nat 1).mp hfiniteTendsto
 
+/-- Packaged consequence of the preceding convergence theorem: a bounded
+observable has a constructed limiting mean, and the stopped estimator is
+unbiased for that mean with finite variance. -/
+theorem exists_limit_and_memLp_two_stoppedEstimator_of_bounded_geometric
+    [MeasurableEq α]
+    (initialCoupling : Measure (α × α)) [IsProbabilityMeasure initialCoupling]
+    (initial : Measure α) [IsProbabilityMeasure initial]
+    (transition : Kernel α α) [IsMarkovKernel transition]
+    (coupled : Kernel (α × α) (α × α)) [IsMarkovKernel coupled]
+    (hinitial : IsMeasureCoupling initialCoupling initial initial)
+    (hcoupled : IsCoupling coupled transition transition)
+    (h : α → ℝ) (hh : Measurable h) {B : ℝ} (hB : 0 ≤ B)
+    (hhB : ∀ x, ‖h x‖ ≤ B)
+    (C rate : ENNReal) (hC : C ≠ ⊤) (hrate : rate < 1)
+    (htail : ∀ n, exactMeetingTail
+      (pathLaw (laggedInitialMeasure initialCoupling transition) coupled) n ≤
+      C * rate ^ n)
+    (hfaithful : IsFaithful coupled) :
+    ∃ targetMean : ℝ,
+      Filter.Tendsto
+        (fun n => ∫ x, h x ∂lawAtTime initial transition n)
+        Filter.atTop (nhds targetMean) ∧
+      (∫ path, stoppedLaggedUnbiasedEstimator h path
+        ∂pathLaw (laggedInitialMeasure initialCoupling transition) coupled) =
+          targetMean ∧
+      MemLp (stoppedLaggedUnbiasedEstimator h) 2
+        (pathLaw (laggedInitialMeasure initialCoupling transition) coupled) := by
+  let targetMean := ∫ path, stoppedLaggedUnbiasedEstimator h path
+    ∂pathLaw (laggedInitialMeasure initialCoupling transition) coupled
+  have hmarginal :=
+    tendsto_marginalExpectation_to_stoppedEstimator_of_bounded_geometric
+      initialCoupling initial transition coupled hinitial hcoupled h hh hhB
+      C rate hC hrate htail hfaithful
+  have hend :=
+    integral_eq_and_memLp_two_stoppedLaggedUnbiasedEstimator_of_bounded_geometric
+      initialCoupling initial transition coupled hinitial hcoupled h hh hB hhB
+      targetMean hmarginal C rate hC hrate htail hfaithful
+  exact ⟨targetMean, hmarginal, hend⟩
+
 end Kernel
 end Mcmc

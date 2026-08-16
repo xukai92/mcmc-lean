@@ -1,5 +1,13 @@
 # Development log
 
+- Extracted the convergence consequence latent in the coupled-estimator
+  argument: a faithful geometric exact-meeting tail forces every bounded
+  measurable marginal expectation sequence to converge to the stopped
+  estimator's expectation. Standard-Gaussian and regularized-logistic Xu et
+  al. clients now discharge their former Dirac-start convergence premises and
+  prove unconditional finite-variance endpoints. Identifying these constructed
+  limits with normalized Boltzmann integrals remains explicit follow-on work.
+
 Entries through the earlier 2026-08-13 work are preserved in the
 [development-log archive](development-log-archive.md).
 
