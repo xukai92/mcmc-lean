@@ -211,6 +211,85 @@ theorem gaussianSoftAbsUnit_velocity_pos_of_momentum_pos
   · exact hpos.2
   · linarith
 
+/-- Exact scalar formula for the one-dimensional Gaussian SoftAbs velocity. -/
+theorem gaussianSoftAbsUnit_velocity_eq (p : Momentum Unit) :
+    gaussianSoftAbsVelocity p Unit.unit =
+      (Real.sqrt
+        ((((Real.sqrt (softAbs 1 1))⁻¹ * p Unit.unit) ^ 2) + 1))⁻¹ *
+        ((softAbs 1 1)⁻¹ * p Unit.unit) := by
+  unfold gaussianSoftAbsVelocity riemannianRelativisticVelocity
+    generalRelativisticVelocity generalRelativisticMass relativisticMass
+    gaussianSoftAbsMetric gaussianHessianDiagonal diagonalSoftAbsMetric
+    diagonalSoftAbsFactor diagonalSoftAbsInverseMetric diagonalMomentumMap
+    diagonalSoftAbsEigenvalue squaredEuclideanNorm euclideanInner
+  simp [pow_two]
+
+/-- Elementary lower bound for a relativistic scalar ratio outside the unit
+momentum interval. -/
+theorem div_sqrt_sq_add_one_le_mul_div_sqrt_mul_sq_add_one
+    (a b r : ℝ) (hb : 0 < b) (hr : 1 ≤ r) :
+    b / Real.sqrt (a ^ 2 + 1) ≤
+      (b * r) / Real.sqrt ((a * r) ^ 2 + 1) := by
+  have hr0 : 0 ≤ r := by linarith
+  have hr2 : 1 ≤ r ^ 2 := by nlinarith
+  have hbase : 0 < a ^ 2 + 1 := by positivity
+  have hrad : 0 < (a * r) ^ 2 + 1 := by positivity
+  have hinside : (a * r) ^ 2 + 1 ≤ r ^ 2 * (a ^ 2 + 1) := by
+    nlinarith [sq_nonneg a]
+  have hsqrt : Real.sqrt ((a * r) ^ 2 + 1) ≤
+      r * Real.sqrt (a ^ 2 + 1) := by
+    calc
+      Real.sqrt ((a * r) ^ 2 + 1) ≤
+          Real.sqrt (r ^ 2 * (a ^ 2 + 1)) := Real.sqrt_le_sqrt hinside
+      _ = Real.sqrt (r ^ 2) * Real.sqrt (a ^ 2 + 1) := by
+        rw [Real.sqrt_mul (sq_nonneg r)]
+      _ = r * Real.sqrt (a ^ 2 + 1) := by
+        rw [Real.sqrt_sq_eq_abs, abs_of_nonneg hr0]
+  rw [div_le_div_iff₀ (Real.sqrt_pos.2 hbase) (Real.sqrt_pos.2 hrad)]
+  calc
+    b * Real.sqrt ((a * r) ^ 2 + 1) ≤
+        b * (r * Real.sqrt (a ^ 2 + 1)) := by gcongr
+    _ = b * r * Real.sqrt (a ^ 2 + 1) := by ring
+
+/-- Explicit positive lower speed attained once scalar momentum has magnitude
+at least one. -/
+noncomputable def gaussianSoftAbsUnitMinSpeed : ℝ :=
+  (softAbs 1 1)⁻¹ /
+    Real.sqrt (((Real.sqrt (softAbs 1 1))⁻¹) ^ 2 + 1)
+
+theorem gaussianSoftAbsUnitMinSpeed_pos :
+    0 < gaussianSoftAbsUnitMinSpeed := by
+  unfold gaussianSoftAbsUnitMinSpeed
+  have hk : 0 < softAbs 1 1 := softAbs_pos 1 (by norm_num) 1
+  positivity
+
+/-- Uniform positive velocity above unit momentum. -/
+theorem gaussianSoftAbsUnitMinSpeed_le_velocity
+    (p : Momentum Unit) (hp : 1 ≤ p Unit.unit) :
+    gaussianSoftAbsUnitMinSpeed ≤ gaussianSoftAbsVelocity p Unit.unit := by
+  rw [gaussianSoftAbsUnit_velocity_eq]
+  unfold gaussianSoftAbsUnitMinSpeed
+  have hk : 0 < softAbs 1 1 := softAbs_pos 1 (by norm_num) 1
+  have h := div_sqrt_sq_add_one_le_mul_div_sqrt_mul_sq_add_one
+    (Real.sqrt (softAbs 1 1))⁻¹ (softAbs 1 1)⁻¹ (p Unit.unit)
+    (inv_pos.mpr hk) hp
+  simpa only [div_eq_mul_inv, mul_assoc, mul_left_comm, mul_comm] using h
+
+/-- Uniform negative velocity below minus unit momentum. -/
+theorem gaussianSoftAbsUnit_velocity_le_neg_minSpeed
+    (p : Momentum Unit) (hp : p Unit.unit ≤ -1) :
+    gaussianSoftAbsVelocity p Unit.unit ≤ -gaussianSoftAbsUnitMinSpeed := by
+  let pneg : Momentum Unit := -p
+  have hpneg : 1 ≤ pneg Unit.unit := by
+    dsimp [pneg]
+    linarith
+  have h := gaussianSoftAbsUnitMinSpeed_le_velocity pneg hpneg
+  have hodd := gaussianSoftAbsVelocity_odd p
+  have hcoord := congrFun hodd Unit.unit
+  dsimp [pneg] at h hcoord
+  rw [hcoord] at h
+  linarith
+
 /-- Constant-metric package consumed by the explicit leapfrog theorem. -/
 noncomputable def gaussianSoftAbsConstantMetric : ConstantMetric ι where
   velocity := gaussianSoftAbsVelocity
@@ -314,6 +393,38 @@ theorem gaussianSoftAbsSelection_step_one_inward_of_neg
     simp only [Pi.sub_apply, Pi.smul_apply, smul_eq_mul]
     linarith
   have hvelocity := gaussianSoftAbsUnit_velocity_pos_of_momentum_pos
+    (p - ((1 : ℝ) / 2) • q) hhalf
+  simp only [Pi.add_apply, one_smul]
+  linarith
+
+/-- Quantitative inward displacement on the positive tail when refreshed
+momentum lies in the fixed central event `p ≤ 1`. -/
+theorem gaussianSoftAbsSelection_step_one_le_sub_minSpeed
+    (q : Position Unit) (p : Momentum Unit)
+    (hq : 4 ≤ q Unit.unit) (hp : p Unit.unit ≤ 1) :
+    ((gaussianSoftAbsSelection (ι := Unit)).step 1 (q, p)).1 Unit.unit ≤
+      q Unit.unit - gaussianSoftAbsUnitMinSpeed := by
+  rw [gaussianSoftAbsSelection_step_fst]
+  have hhalf : (p - ((1 : ℝ) / 2) • q) Unit.unit ≤ -1 := by
+    simp only [Pi.sub_apply, Pi.smul_apply, smul_eq_mul]
+    linarith
+  have hvelocity := gaussianSoftAbsUnit_velocity_le_neg_minSpeed
+    (p - ((1 : ℝ) / 2) • q) hhalf
+  simp only [Pi.add_apply, one_smul]
+  linarith
+
+/-- Symmetric quantitative inward displacement on the negative tail under
+the central event `-1 ≤ p`. -/
+theorem add_minSpeed_le_gaussianSoftAbsSelection_step_one
+    (q : Position Unit) (p : Momentum Unit)
+    (hq : q Unit.unit ≤ -4) (hp : -1 ≤ p Unit.unit) :
+    q Unit.unit + gaussianSoftAbsUnitMinSpeed ≤
+      ((gaussianSoftAbsSelection (ι := Unit)).step 1 (q, p)).1 Unit.unit := by
+  rw [gaussianSoftAbsSelection_step_fst]
+  have hhalf : 1 ≤ (p - ((1 : ℝ) / 2) • q) Unit.unit := by
+    simp only [Pi.sub_apply, Pi.smul_apply, smul_eq_mul]
+    linarith
+  have hvelocity := gaussianSoftAbsUnitMinSpeed_le_velocity
     (p - ((1 : ℝ) / 2) • q) hhalf
   simp only [Pi.add_apply, one_smul]
   linarith

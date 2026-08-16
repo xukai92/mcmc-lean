@@ -7,10 +7,13 @@
   has nonnegative momentum inner product in every finite dimension and the
   same strict sign as nonzero momentum in one dimension. Consequently Lean
   proves that, after the half force kick, the unit generalized-leapfrog step
-  moves strictly toward the origin on either half-line. A quantitative uniform
-  inward-distance bound and integration over the refreshed momentum law remain
-  before this yields a Foster--Lyapunov certificate for the multinomial
-  kernel.
+  moves strictly toward the origin on either half-line. The quantitative tail
+  estimate is now also closed: an exact scalar velocity formula yields an
+  explicit positive minimum speed outside unit half-momentum, and refreshed
+  momenta in `[-1,1]` move every position beyond `±4` inward by at least that
+  fixed distance. Proving the central momentum event has a common positive
+  mass and integrating the selected-index weights remain before this yields a
+  Foster--Lyapunov certificate for the multinomial kernel.
 
 - Exposed the exact one-step transition algebra for the Gaussian SoftAbs
   generalized-leapfrog client. Lean now rewrites the solver to the explicit
