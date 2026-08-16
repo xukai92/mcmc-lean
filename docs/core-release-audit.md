@@ -19,9 +19,10 @@ a backend certificate to a proof about arbitrary floating-point code.
 - Detailed balance or invariance implies stationarity, not convergence from an
   arbitrary initialization.
 - Particle Gibbs is exact for the finite extended target under the hypotheses
-  above. Quantitative mixing is proved only for the zero-horizon
-  specialization; no positive-horizon rate or particle-efficiency theorem is
-  claimed.
+  above. Primitive finite full-support models now have a conservative
+  positive-horizon geometric-TV certificate, and scheduled pointwise
+  minorization coefficients are explicit. The sharper published coefficient
+  and particle-count-uniform efficiency claim are not proved.
 - The bounded Xu--Ge position-dependent exact solver now has a machine-checked
   solver certificate. Executable Float64 paths remain conditional on their
   residual/refinement certificate; the deferred floating-point refinement
