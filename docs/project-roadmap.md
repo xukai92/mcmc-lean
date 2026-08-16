@@ -382,9 +382,12 @@ breadth branches are:
   Level-set identification may be supplied almost everywhere under planar
   Lebesgue measure, so interval endpoint conventions do not obstruct clients.
   Julia's finite shrinkage guard now has a tested identity fallback rather
-  than a partial exception. Proving that the concrete guarded stepping-out/
-  shrinkage trace map preserves the extended joint law, plus its Float64
-  refinement, remains;
+  than a partial exception. Lean now proves the exact guarded-totalization
+  rule: if the nontrivial trace reversal preserves the extended law restricted
+  to its measurable success branch, taking identity on the complementary
+  failure/exhaustion branch preserves the full law and hence the weighted
+  target. Proving that the concrete Julia stepping-out/shrinkage success map
+  satisfies this restricted premise, plus its Float64 refinement, remains;
 - reversible-jump transports beyond the checked scalar and planar
   birth/death scaling clients. Product transport-density certificates now
   compose recursively and instantiate a three-dimensional scaling transport;

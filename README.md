@@ -443,7 +443,10 @@ The repository now contains machine-checked implementations and proofs for:
   endpoint rows, and proves weighted-Lebesgue invariance. A joint trace-space
   theorem now reduces practical stepping-out/shrinkage correctness to a
   measure-preserving deterministic trace reversal, allowing the reverse run
-  to transform its random trace;
+  to transform its random trace. Its guarded form proves that a
+  measure-preserving successful reversal can be totalized by identity on a
+  measurable failure/exhaustion branch; the concrete Julia success-branch
+  reversal remains an explicit obligation;
   Julia additionally exposes a bounded-interval rejection implementation with
   Reference/Optimized trace replay and uniform moment tests, while its callback,
   Float64 RNG, and finite retry guard remain outside the ideal refinement theorem;

@@ -151,8 +151,9 @@ function stepping_out_slice_step!(source::AbstractRandomSource, logdensity,
         value >= threshold && return proposal
         proposal < x ? (left = proposal) : (right = proposal)
     end
-    # Total checked fallback: a depleted finite trace leaves the chain at its
-    # current state instead of turning the transition into a partial function.
+    # Total checked fallback: exhausting the shrinkage-attempt budget leaves
+    # the chain at its current state. Exhausting a replay source itself remains
+    # a malformed-trace error.
     x
 end
 

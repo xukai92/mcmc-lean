@@ -1,5 +1,15 @@
 # Development log
 
+- Proved the guarded trace-totalization rule required by finite practical
+  slice implementations. A measurable successful transform that preserves the
+  augmented state/trace law restricted to its success set may be extended by
+  identity on the complementary failure or budget-exhaustion set; Lean proves
+  that the resulting total map preserves the full joint law and feeds it into
+  the end-to-end weighted-target slice theorem. This does not silently supply
+  the remaining success-branch reversal proof for Julia's concrete shrink
+  loop. Runtime comments and testing documentation now distinguish algorithmic
+  budget exhaustion from a malformed depleted replay source.
+
 - Added bounded numerical refinement for the open-unit transform. Lean now
   composes input error through the affine forward argument, a certified
   `artanh` call, the affine inverse `tanh` result, the `1-tanh²` Jacobian

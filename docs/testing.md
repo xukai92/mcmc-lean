@@ -81,8 +81,12 @@ practical implementation; they do not identify Float64 callback evaluation or
 the finite retry guard with the disintegrated ideal slice kernel.
 The stepping-out suite additionally replays expansion and shrinkage traces,
 checks seeded Gaussian moments, and forces finite shrinkage exhaustion. On
-exhaustion both implementations consume the same trace and return the current
-state through the explicit total identity fallback. These tests do not replace
+exhaustion the algorithmic attempt budget returns the current state; malformed
+or genuinely depleted replay sources still fail rather than inventing random
+values. Lean separately proves that such an identity fallback preserves the
+target once the successful trace map preserves the restricted joint law. On
+exhaustion both implementations return the current state after consuming the
+same trace. These tests do not replace
 the remaining proof that the concrete joint state--trace reversal preserves
 the ideal under-graph product law.
 

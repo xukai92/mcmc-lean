@@ -95,6 +95,17 @@ end
     @test Runtime.remaining(exhausted_reference_source) == 0
     @test Runtime.remaining(exhausted_optimized_source) == 0
 
+    # A missing random event is a malformed replay trace, not the proved
+    # algorithmic identity branch.
+    depleted_events = Runtime.FloatTraceEvent[
+        Runtime.UniformEvent(0.5), Runtime.UniformEvent(0.5)]
+    @test_throws EOFError Reference.stepping_out_slice_step!(
+        Runtime.FloatTraceSource(copy(depleted_events)),
+        normal_logdensity, 1.0, 0.0, 0, 1)
+    @test_throws EOFError Optimized.stepping_out_slice_step!(
+        Runtime.FloatTraceSource(copy(depleted_events)),
+        normal_logdensity, 1.0, 0.0, 0, 1)
+
     sampler = SteppingOutSlice(normal_logdensity, 1.0; max_steps=20)
     first_chain = sample(MersenneTwister(0x51ce), sampler, 0.0, 15_000)
     second_chain = sample(MersenneTwister(0x51ce), sampler, 0.0, 15_000)

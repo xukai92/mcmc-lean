@@ -1070,6 +1070,86 @@ theorem deterministicRandomizedWithinSliceSampler_invariant_underGraph_ae
 
 /-! ### Joint trace-space reversals -/
 
+/-- Totalize a checked trace transform by taking the identity branch outside
+its measurable success set. This is the exact mathematical shape of a finite
+runtime guard: failed or exhausted traces leave the augmented state and trace
+unchanged. -/
+noncomputable def guardedTraceTransform
+    {Augmented : Type*} [MeasurableSpace Augmented]
+    (success : Set Augmented) (transform : Augmented → Augmented) :
+    Augmented → Augmented := by
+  classical
+  exact success.piecewise transform id
+
+theorem measurable_guardedTraceTransform
+    {Augmented : Type*} [MeasurableSpace Augmented]
+    {success : Set Augmented} (hsuccess : MeasurableSet success)
+    {transform : Augmented → Augmented} (htransform : Measurable transform) :
+    Measurable (guardedTraceTransform success transform) := by
+  classical
+  exact Measurable.piecewise hsuccess htransform measurable_id
+
+@[simp] theorem guardedTraceTransform_empty
+    {Augmented : Type*} [MeasurableSpace Augmented]
+    (transform : Augmented → Augmented) :
+    guardedTraceTransform (∅ : Set Augmented) transform = id := by
+  classical
+  funext value
+  simp [guardedTraceTransform]
+
+@[simp] theorem guardedTraceTransform_univ
+    {Augmented : Type*} [MeasurableSpace Augmented]
+    (transform : Augmented → Augmented) :
+    guardedTraceTransform (Set.univ : Set Augmented) transform = transform := by
+  classical
+  funext value
+  simp [guardedTraceTransform]
+
+/-- A measure-preserving successful trace reversal remains measure preserving
+after a checked identity fallback, provided preservation is proved on the
+restricted success branch. This justifies finite exhaustion guards without
+claiming that an arbitrary partial algorithm is invariant. -/
+theorem guardedTraceTransform_measurePreserving
+    {Augmented : Type*} [MeasurableSpace Augmented]
+    (joint : Measure Augmented)
+    (success : Set Augmented) (hsuccess : MeasurableSet success)
+    (transform : Augmented → Augmented) (htransform : Measurable transform)
+    (hpreserving : MeasurePreserving transform
+      (joint.restrict success) (joint.restrict success)) :
+    MeasurePreserving (guardedTraceTransform success transform) joint joint := by
+  classical
+  refine ⟨measurable_guardedTraceTransform hsuccess htransform, ?_⟩
+  have hsuccessMap :
+      (joint.restrict success).map (guardedTraceTransform success transform) =
+        (joint.restrict success).map transform := by
+    apply Measure.map_congr
+    filter_upwards [ae_restrict_mem hsuccess] with value hvalue
+    simp [guardedTraceTransform, hvalue]
+  have hfailureMap :
+      (joint.restrict successᶜ).map (guardedTraceTransform success transform) =
+        (joint.restrict successᶜ).map id := by
+    apply Measure.map_congr
+    filter_upwards [ae_restrict_mem hsuccess.compl] with value hvalue
+    have hnot : value ∉ success := hvalue
+    simp [guardedTraceTransform, hnot]
+  calc
+    joint.map (guardedTraceTransform success transform) =
+        (joint.restrict success + joint.restrict successᶜ).map
+          (guardedTraceTransform success transform) := by
+      rw [Measure.restrict_add_restrict_compl hsuccess]
+    _ = (joint.restrict success).map
+          (guardedTraceTransform success transform) +
+        (joint.restrict successᶜ).map
+          (guardedTraceTransform success transform) :=
+      Measure.map_add _ _
+        (measurable_guardedTraceTransform hsuccess htransform)
+    _ = (joint.restrict success).map transform +
+        (joint.restrict successᶜ).map id := by
+      rw [hsuccessMap, hfailureMap]
+    _ = joint.restrict success + joint.restrict successᶜ := by
+      rw [hpreserving.map_eq, Measure.map_id]
+    _ = joint := Measure.restrict_add_restrict_compl hsuccess
+
 /-- Horizontal update obtained by sampling a complete independent execution
 trace, applying a deterministic map on augmented-state--trace space, and
 discarding the transformed trace. This is the appropriate semantics when the
@@ -1138,6 +1218,39 @@ theorem traceDrivenWithinSliceSampler_invariant_underGraph
   exact traceDrivenHorizontalKernel_invariant
     ((sliceUnderGraph base weight).map Prod.swap)
     traceLaw transform htransform hpreserving
+
+/-- End-to-end guarded trace theorem. Successful stepping-out/shrinkage traces
+may use a nontrivial reversal, while exhausted or rejected traces take the
+identity branch. Exact invariance follows from preservation of the joint law
+restricted to the measurable success set. -/
+theorem guardedTraceDrivenWithinSliceSampler_invariant_underGraph
+    {Trace : Type*} [MeasurableSpace Trace]
+    (base : Measure State) [SFinite base]
+    (weight : State → ℝ) (hweight : Measurable weight)
+    [SFinite (sliceUnderGraph base weight)]
+    (hpositive : ∀ x, 0 < weight x)
+    (traceLaw : Measure Trace) [IsProbabilityMeasure traceLaw]
+    (success : Set ((ℝ × State) × Trace)) (hsuccess : MeasurableSet success)
+    (transform : ((ℝ × State) × Trace) → ((ℝ × State) × Trace))
+    (htransform : Measurable transform)
+    (hpreserving : MeasurePreserving transform
+      ((((sliceUnderGraph base weight).map Prod.swap) ⊗ₘ
+        Kernel.const (ℝ × State) traceLaw).restrict success)
+      ((((sliceUnderGraph base weight).map Prod.swap) ⊗ₘ
+        Kernel.const (ℝ × State) traceLaw).restrict success)) :
+    (withinSliceSampler weight hweight hpositive
+      (traceDrivenHorizontalKernel traceLaw
+        (guardedTraceTransform success transform)
+        (measurable_guardedTraceTransform hsuccess htransform))).Invariant
+        (base.withDensity (fun x ↦ ENNReal.ofReal (weight x))) := by
+  apply traceDrivenWithinSliceSampler_invariant_underGraph
+    base weight hweight hpositive traceLaw
+      (guardedTraceTransform success transform)
+      (measurable_guardedTraceTransform hsuccess htransform)
+  exact guardedTraceTransform_measurePreserving
+    (((sliceUnderGraph base weight).map Prod.swap) ⊗ₘ
+      Kernel.const (ℝ × State) traceLaw)
+    success hsuccess transform htransform hpreserving
 
 /-- A fully constructed exact general-state slice sampler on a standard Borel
 state space, using the conditional kernel of the finite under-the-graph
