@@ -85,11 +85,10 @@ constant-Hessian specialization as `GaussianSoftAbsGRHMC`.
 The restricted refinement now reaches a guarded scalar SoftAbs metric entry:
 Lean composes backend-local bounds through `tanh`, square root, reciprocal,
 and log-determinant evaluation, and Julia evaluates the matching guarded
-operations. Platform-specific primitive bounds and the genuinely
-position-dependent implicit solver remain. That solver must propagate bounded
-trajectory and residual errors and certify decisions away from numerical
-boundaries; a fixed iteration count alone is insufficient as a correctness
-witness.
+operations. The genuinely position-dependent implicit solver and its complete
+residual-to-selection certificate chain are described below. Platform-specific
+primitive Float64/libm/RNG bounds remain explicit inputs; a fixed iteration
+count alone is still insufficient as a correctness witness.
 
 The first solver-error link is complete: a certified computed residual and a
 contraction rate now give an explicit a posteriori distance to the exact
@@ -101,17 +100,16 @@ half momentum is compared directly with its exact next position. The coupled
 perturbation is also complete: the metric factor is proved uniformly at most
 one, hence the momentum callback is uniformly one-Lipschitz in momentum; a
 generic contracting-fixed-point perturbation theorem transports the computed
-half-momentum error into the position solve. Remaining work is to carry the
-combined state error through final momentum, trajectory energies, and
-multinomial boundaries.
+half-momentum error into the position solve. The subsequent final-momentum,
+energy, and multinomial links are now complete.
 
 The final-kick algebra is now generic and checked: given explicit momentum-
 and position-slice constants for the Hamiltonian position derivative, Lean
 propagates the half-momentum and next-position budgets to the outgoing
-momentum. For the nonconstant target the momentum-slice constant is already
-global; the position-slice and energy constants must be supplied on the
+momentum. For the nonconstant target the momentum-slice constant is global,
+while Lean constructs the required position-slice and energy constants on the
 bounded trajectory region because the quadratic target is not globally
-Lipschitz. The generic bounded-region energy link is now checked: a
+Lipschitz. The generic bounded-region energy link is checked: a
 `LipschitzOnWith` certificate transports phase-state error into endpoint-energy
 error and adds backend evaluation error separately. A concrete compact-region
 constant is now constructed for both the actual SoftAbs Hamiltonian and its

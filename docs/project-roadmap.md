@@ -114,10 +114,14 @@ solve differentiable. The symmetric construction proves the position inverse
 differentiable; all four determinant factors are computed and cancel by mixed-
 partial equality. Linear conjugacy transfers determinant one to
 `PhaseSpace Unit`, and the Haar theorem proves exact phase-volume preservation.
-The remaining B2 work is numerical solver refinement. Guarded operation-local
-SoftAbs certificates now compose Hessian error through the positive
-eigenvalue, square root, inverse factor, and log determinant, but the
-finite-precision Julia iterations must still be related to an exact selection.
+The restricted B2 numerical solver refinement is now complete as a
+certificate-parametric theorem. Guarded operation-local SoftAbs certificates
+compose Hessian error through the positive eigenvalue, square root, inverse
+factor, and log determinant; residual/contraction bounds then propagate the
+finite loops through position, final momentum, endpoint energy, stabilized
+weights, cumulative boundaries, and multinomial selection. Instantiating the
+remaining primitive Float64/libm/arithmetic/RNG error premises for a particular
+Julia platform is deliberately separate from this real-valued certificate.
 For the paper-style nonconstant metric, in addition to the removable-zero sinusoidal client, Lean
 now has the nondegenerate target `U(q)=q²-sin(q)`, whose actual Hessian lies in
 `[1,3]`. Its potential, force/Hessian relationship, measurability, Equation
@@ -129,7 +133,9 @@ concrete nonzero-step exact solve with its negative-step inverse. The exact
 target-specific theorem is now complete: the generic Banach construction
 satisfies the same generalized-leapfrog equations, uniqueness identifies it
 with the certified Hamiltonian solver, and its unit Jacobian yields exact
-phase-volume preservation. The separate finite-precision refinement remains.
+phase-volume preservation. The restricted finite-precision refinement chain is
+complete conditionally on its explicit platform-operation and boundary-margin
+witnesses.
 The generic triangular-shear
 derivative matrices, determinant formulas, and mixed-partial pairing are now
 extracted from the earlier bounded client, and the SoftAbs callbacks satisfy

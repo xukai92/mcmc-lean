@@ -95,11 +95,12 @@ only the solver certificate remains as the numerical premise.
 The diagonal SoftAbs metric now has the same endpoint and multinomial
 position-invariance theorems. Coordinatewise measurable Hessian-diagonal data
 discharges Hamiltonian measurability, normalized momentum refresh, factor
-volume, and target compatibility. A concrete executable instance still needs
-a valid exact or corrected implicit solver. SoftAbs differentiability through
-zero is now proved by a second-order little-o argument, so coordinatewise
-differentiable Hessian data supplies Equation (12) without a nonzero-entry
-restriction.
+volume, and target compatibility. An arbitrary executable target still needs
+a valid exact or corrected implicit solver; the concrete nondegenerate scalar
+target `U(q)=q²-sin(q)` now supplies one, including reversal and phase-volume
+preservation. SoftAbs differentiability through zero is proved by a
+second-order little-o argument, so coordinatewise differentiable Hessian data
+supplies Equation (12) without a nonzero-entry restriction.
 
 Thus the remaining boundary is intentionally algorithmic rather than a gap in
 the GR-HMC correctness proof: the paper's fixed six-iteration implementation

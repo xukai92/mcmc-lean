@@ -164,22 +164,22 @@ of an unstated ergodicity hypothesis onto the paper.
 
 The main paper-level validity result is formalized, and the bounded
 nonconstant metric supplies a fully valid exact generalized-leapfrog client.
-The paper's genuinely position-dependent diagonal SoftAbs implementation still requires
-additional target hypotheses or an exact/corrected implicit solver satisfying
-`GeneralizedLeapfrogSelection.IsValid`; the natural finite implementation is
-defined, contraction certificates give convergence and quantitative
-iteration-error bounds, `FiniteFixedPointIsValid` gives the corrected exact
-interface, and six iterations are proved insufficient in general. Given a
-coordinatewise differentiable and measurable Hessian diagonal, all remaining
-SoftAbs obligations are therefore solver-specific rather than metric or
-kernel-measure obligations.
+For arbitrary position-dependent diagonal SoftAbs targets, clients must still
+supply target-specific derivative/contraction data and an exact or corrected
+implicit solver satisfying `GeneralizedLeapfrogSelection.IsValid`; six fixed
+iterations are insufficient in general. For the concrete nondegenerate scalar
+target `U(q)=q²-sin(q)`, those exact solver, reversal, differentiability,
+unit-Jacobian, and phase-volume obligations are complete. Its finite-loop
+refinement is also propagated from measured residuals through endpoint energy
+and multinomial selection, conditional on explicit primitive platform-error
+and boundary-margin witnesses.
 
 The solver-specific contraction premise now has a reusable concrete shape:
 global slice-Lipschitz constants and sufficiently small half steps construct
 the exact Banach-selected generalized-leapfrog solver.  This route is
-machine-checked on the genuinely nonconstant bounded scalar metric.  The
-sinusoidal Hessian SoftAbs target still needs its target-specific constants
-and phase-volume proof. Its metric side now has exact global ellipticity:
+machine-checked on the genuinely nonconstant bounded scalar metric. The
+nondegenerate shifted-sinusoidal target now has its target-specific constants
+and phase-volume proof. Its metric side has exact global ellipticity:
 Lean proves a strictly positive attained eigenvalue lower bound, a finite
 upper bound, and a uniform factor-operator bound across the removable zero
 branch. The unresolved constants are specifically the mixed Hamiltonian
