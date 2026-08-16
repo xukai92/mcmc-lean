@@ -151,6 +151,7 @@ import Mcmc.Relativistic.Riemannian
 import Mcmc.Relativistic.Hamiltonian
 import Mcmc.Relativistic.Derivatives
 import Mcmc.Relativistic.SoftAbs
+import Mcmc.Relativistic.SinusoidalSoftAbs
 import Mcmc.Relativistic.SoftAbsKernel
 import Mcmc.Relativistic.ScalarMetric
 import Mcmc.Relativistic.GeneralizedLeapfrog

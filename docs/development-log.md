@@ -1566,6 +1566,15 @@ qualitative positive-horizon/count result no longer depends on a
 client-supplied minorization certificate; only the sharper closed-form
 bounded-potential rate does.
 
+Added the concrete position-dependent target for the remaining practical
+SoftAbs solver milestone. In one dimension
+`U(q)=q²/2-sin(q)` has checked force `q-cos(q)` and actual Hessian diagonal
+`1+sin(q)`. Lean proves measurability, coordinate Fréchet-derivative
+agreement, nonnegativity, the removable zero-Hessian case at `-π/2`, and a
+different SoftAbs eigenvalue at zero. The resulting metric is genuinely
+position dependent and supplies the full Equation (12) derivative certificate.
+A nonzero-step contraction/volume solver for this target remains open.
+
 Extended the separate continuous-time branch with finite bounded-rate
 uniformization. `FiniteRateGenerator.uniformizedKernel` converts a rate matrix
 with off-diagonal exit rate bounded by `Λ` into the exact embedded Markov

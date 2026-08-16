@@ -320,7 +320,9 @@ The repository now contains machine-checked implementations and proofs for:
   target invariance;
 - corrected relativistic and Riemannian momentum measures, the diagonal
   SoftAbs Hamiltonian and its derivatives, and endpoint and multinomial
-  GR-HMC target-invariance theorems;
+  GR-HMC target-invariance theorems; a Gaussian-plus-sinusoidal potential now
+  supplies an actual nonconstant SoftAbs Hessian, including its removable zero
+  branch and complete Equation (12) certificate;
 - maximal and optimal-transport trajectory-index couplings, with exact HMC
   marginals;
 - a measurable finite optimal-transport selector with proved optimality;

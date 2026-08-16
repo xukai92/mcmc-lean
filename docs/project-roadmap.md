@@ -116,8 +116,10 @@ partial equality. Linear conjugacy transfers determinant one to
 `PhaseSpace Unit`, and the Haar theorem proves exact phase-volume preservation.
 The remaining B2 work is refinement rather than sampler construction:
 finite-precision Julia iterations must be related to an exact selection, and
-the paper's practical diagonal SoftAbs target class still needs its own
-solver certificate.
+the new nonconstant sinusoidal SoftAbs target still needs its own nonzero-step
+solver certificate. Its potential, actual force/Hessian relationship,
+measurability, Equation (12) derivative data, removable zero-Hessian branch,
+and genuine metric position dependence are now machine checked.
 
 ## Track C: later breadth branches
 
