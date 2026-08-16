@@ -1,5 +1,15 @@
 # Development log
 
+- Extended the exact general-state slice interface to randomized horizontal
+  updates. A measurable family of height/current-state kernels can now be
+  mixed against an independent parameter law, and Lean proves weighted-target
+  invariance when every fixed parameter section preserves the swapped
+  under-graph law. An almost-everywhere version supports continuous bracket
+  offsets with null endpoint exceptions. This discharges the probability-
+  mixture step used by randomized stepping-out; the remaining algorithmic
+  proof is preservation by each deterministic expansion/shrinkage section and
+  its bounded Float64 refinement.
+
 - Added an end-to-end checked root-dependent first-stop HMC experiment. For
   each transition Julia constructs the randomized-origin complete leapfrog
   orbit, builds endpoint-U-turn stopped rows from every possible root, and

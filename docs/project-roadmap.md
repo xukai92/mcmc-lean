@@ -351,8 +351,12 @@ breadth branches are:
   formal endpoint is now generalized correctly: Lean proves invariance for
   any height/current-state horizontal Markov update preserving the swapped
   under-the-graph law, rather than requiring an exact conditional redraw.
-  Proving the guarded Julia stepping-out/shrinkage transition satisfies that
-  joint-preservation premise remains;
+  Independent randomized horizontal families are now included: fixed-section
+  preservation, even only almost everywhere under a continuous parameter law,
+  lifts to exact weighted-target invariance. This covers the bracket-offset
+  and left/right-budget mixture step. Proving each deterministic guarded Julia
+  expansion/shrinkage section satisfies that joint-preservation premise, plus
+  its Float64 refinement, remains;
 - reversible-jump transports beyond the checked scalar and planar
   birth/death scaling clients. Product transport-density certificates now
   compose recursively and instantiate a three-dimensional scaling transport;

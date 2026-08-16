@@ -1,5 +1,6 @@
 import Mcmc.Kernel.AuxiliaryGibbs
 import Mcmc.Kernel.MetropolisHastings
+import Mcmc.Kernel.ParameterMixture
 import Mathlib.MeasureTheory.Measure.Lebesgue.Basic
 import Mathlib.Probability.Kernel.CompProdEqIff
 import Mathlib.Probability.Kernel.Disintegration.StandardBorel
@@ -261,6 +262,89 @@ theorem withinSliceSampler_invariant_underGraph
   apply auxiliaryInvariantUpdate_invariant
   rw [auxiliaryFirstJoint_sliceHeightKernel base weight hweight hpositive]
   exact hhorizontal
+
+/-! ### Randomized horizontal updates -/
+
+/-- Independently randomize a family of height/current-state horizontal
+updates, then project through the usual vertical slice augmentation.  This is
+the exact kernel shape of stepping-out algorithms whose bracket offset and
+left/right expansion allocation are sampled independently of the current
+augmented state. -/
+noncomputable def randomizedWithinSliceSampler
+    {Parameter : Type*} [MeasurableSpace Parameter]
+    (weight : State → ℝ) (hweight : Measurable weight)
+    (hpositive : ∀ x, 0 < weight x)
+    (horizontalFamily : Kernel ((ℝ × State) × Parameter) (ℝ × State))
+    (parameterLaw : Measure Parameter) : Kernel State State :=
+  withinSliceSampler weight hweight hpositive
+    (independentParameterMixture horizontalFamily parameterLaw)
+
+instance randomizedWithinSliceSampler.instIsMarkovKernel
+    {Parameter : Type*} [MeasurableSpace Parameter]
+    (weight : State → ℝ) (hweight : Measurable weight)
+    (hpositive : ∀ x, 0 < weight x)
+    (horizontalFamily : Kernel ((ℝ × State) × Parameter) (ℝ × State))
+    [IsMarkovKernel horizontalFamily]
+    (parameterLaw : Measure Parameter) [IsProbabilityMeasure parameterLaw] :
+    IsMarkovKernel (randomizedWithinSliceSampler weight hweight hpositive
+      horizontalFamily parameterLaw) := by
+  letI : IsMarkovKernel (sliceHeightKernel weight hweight hpositive) :=
+    sliceHeightKernel.instIsMarkovKernel weight hweight hpositive
+  letI : IsMarkovKernel
+      (independentParameterMixture horizontalFamily parameterLaw) := by
+    infer_instance
+  unfold randomizedWithinSliceSampler withinSliceSampler
+  infer_instance
+
+/-- Randomized stepping-out/shrinkage preserves the weighted target once
+every fixed randomization section preserves the swapped under-graph joint
+law. This reduces correctness of bracket randomization to a deterministic
+section theorem and prevents independent runtime randomness from becoming an
+untracked assumption. -/
+theorem randomizedWithinSliceSampler_invariant_underGraph
+    {Parameter : Type*} [MeasurableSpace Parameter]
+    (base : Measure State) [SFinite base]
+    (weight : State → ℝ) (hweight : Measurable weight)
+    [SFinite (sliceUnderGraph base weight)]
+    (hpositive : ∀ x, 0 < weight x)
+    (horizontalFamily : Kernel ((ℝ × State) × Parameter) (ℝ × State))
+    [IsMarkovKernel horizontalFamily]
+    (parameterLaw : Measure Parameter) [IsProbabilityMeasure parameterLaw]
+    (hsection : ∀ parameter,
+      (Kernel.comap horizontalFamily
+        (fun state : ℝ × State ↦ (state, parameter))
+        (measurable_id.prodMk measurable_const)).Invariant
+          ((sliceUnderGraph base weight).map Prod.swap)) :
+    (randomizedWithinSliceSampler weight hweight hpositive horizontalFamily
+      parameterLaw).Invariant
+        (base.withDensity (fun x ↦ ENNReal.ofReal (weight x))) := by
+  apply withinSliceSampler_invariant_underGraph base weight hweight hpositive
+  exact independentParameterMixture_invariant horizontalFamily
+    ((sliceUnderGraph base weight).map Prod.swap) parameterLaw hsection
+
+/-- Almost-everywhere fixed-randomization preservation is sufficient. This is
+the natural interface for continuous uniform bracket offsets, whose endpoint
+exceptions have zero parameter-law mass. -/
+theorem randomizedWithinSliceSampler_invariant_underGraph_ae
+    {Parameter : Type*} [MeasurableSpace Parameter]
+    (base : Measure State) [SFinite base]
+    (weight : State → ℝ) (hweight : Measurable weight)
+    [SFinite (sliceUnderGraph base weight)]
+    (hpositive : ∀ x, 0 < weight x)
+    (horizontalFamily : Kernel ((ℝ × State) × Parameter) (ℝ × State))
+    [IsMarkovKernel horizontalFamily]
+    (parameterLaw : Measure Parameter) [IsProbabilityMeasure parameterLaw]
+    (hsection : ∀ᵐ parameter ∂parameterLaw,
+      (Kernel.comap horizontalFamily
+        (fun state : ℝ × State ↦ (state, parameter))
+        (measurable_id.prodMk measurable_const)).Invariant
+          ((sliceUnderGraph base weight).map Prod.swap)) :
+    (randomizedWithinSliceSampler weight hweight hpositive horizontalFamily
+      parameterLaw).Invariant
+        (base.withDensity (fun x ↦ ENNReal.ofReal (weight x))) := by
+  apply withinSliceSampler_invariant_underGraph base weight hweight hpositive
+  exact independentParameterMixture_invariant_ae horizontalFamily
+    ((sliceUnderGraph base weight).map Prod.swap) parameterLaw hsection
 
 /-- A fully constructed exact general-state slice sampler on a standard Borel
 state space, using the conditional kernel of the finite under-the-graph
