@@ -134,6 +134,7 @@ import Mcmc.PDMP.EventExecution
 import Mcmc.PDMP.EventSimulation
 import Mcmc.PDMP.PoissonSchedule
 import Mcmc.PDMP.ScheduledExecutionKernel
+import Mcmc.PDMP.StationarySuspension
 import Mcmc.PDMP.SemigroupStationarity
 import Mcmc.PDMP.ZigZag
 import Mcmc.PDMP.ZigZagProcess

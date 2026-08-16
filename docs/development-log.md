@@ -3602,3 +3602,17 @@ After adjoining the independent uniform velocity label and flipping it at
 each event, the phase-environment shift is also proved measure preserving.
 Thus the remaining work is precisely the special-flow/suspension theorem that
 lifts this invariant base map and positive roof to arbitrary real-time shifts.
+
+## 2026-08-16: reusable stationary-suspension occupation layer
+
+Added `Mcmc.PDMP.StationarySuspension` as the general renewal layer. It defines
+the measurable fundamental domain below a roof, its unnormalized and
+normalized occupation measures, and proves the exact total-mass/mean-roof
+identity. For every nonnegative horizon, Lean partitions roof occupation into
+the no-boundary survivor segment and the boundary-crossing segment. The
+survivor branch is already complete: fiberwise Lebesgue translation maps it
+exactly onto the terminal segment of each roof. The Gaussian Zig-Zag event
+environment, invariant phase base, positive roof, and concrete suspension
+occupation are instantiated against this API. What remains in this layer is
+the countable crossing reduction, using nonexplosion to exhaust all event
+counts.

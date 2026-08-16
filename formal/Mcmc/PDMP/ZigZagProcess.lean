@@ -1,5 +1,6 @@
 import Mcmc.PDMP.EventSimulation
 import Mcmc.PDMP.SemigroupStationarity
+import Mcmc.PDMP.StationarySuspension
 import Mcmc.PDMP.ZigZag
 import Mathlib.Geometry.Manifold.SmoothApprox
 import Mathlib.Probability.BorelCantelli
@@ -3921,6 +3922,42 @@ theorem gaussianZigZagCyclePhaseEnvironmentShift_map :
     measurable_gaussianZigZagCycleEnvironmentShift (by fun_prop),
     gaussianZigZagCycleEnvironmentShift_map,
     zigZagVelocityProbability_map_not]
+
+/-- Invariant event-epoch base law including the alternating velocity label. -/
+noncomputable def gaussianZigZagCyclePhaseEnvironmentMeasure :
+    Measure (((ℝ × ℝ) × (ℕ → NNReal)) × Bool) :=
+  gaussianZigZagCycleEnvironmentMeasure.prod zigZagVelocityProbability
+
+instance gaussianZigZagCyclePhaseEnvironmentMeasure.instIsProbabilityMeasure :
+    IsProbabilityMeasure gaussianZigZagCyclePhaseEnvironmentMeasure := by
+  unfold gaussianZigZagCyclePhaseEnvironmentMeasure
+  infer_instance
+
+/-- Roof function on the phase-environment base. -/
+noncomputable def gaussianZigZagCyclePhaseEnvironmentRoof
+    (input : ((ℝ × ℝ) × (ℕ → NNReal)) × Bool) : ℝ :=
+  gaussianZigZagCycleEnvironmentRoof input.1
+
+theorem measurable_gaussianZigZagCyclePhaseEnvironmentRoof :
+    Measurable gaussianZigZagCyclePhaseEnvironmentRoof :=
+  (measurable_gaussianZigZagCycleEnvironmentRoof.comp
+    measurable_fst).coe_nnreal_real
+
+theorem gaussianZigZagCyclePhaseEnvironmentRoof_pos_ae :
+    ∀ᵐ input ∂gaussianZigZagCyclePhaseEnvironmentMeasure,
+      0 < gaussianZigZagCyclePhaseEnvironmentRoof input := by
+  unfold gaussianZigZagCyclePhaseEnvironmentMeasure
+  exact (Measure.quasiMeasurePreserving_fst
+    (μ := gaussianZigZagCycleEnvironmentMeasure)
+    (ν := zigZagVelocityProbability)).ae
+      gaussianZigZagCycleEnvironmentRoof_pos_ae
+
+/-- The concrete unnormalized stationary suspension occupation law for the
+Gaussian Zig-Zag regenerative environment. -/
+noncomputable def gaussianZigZagSuspensionOccupationMeasure :
+    Measure ((((ℝ × ℝ) × (ℕ → NNReal)) × Bool) × ℝ) :=
+  suspensionOccupationMeasure gaussianZigZagCyclePhaseEnvironmentMeasure
+    gaussianZigZagCyclePhaseEnvironmentRoof
 
 /-- Regenerative event-epoch law: negative-Rayleigh signed position and an
 independent uniform velocity label. -/
