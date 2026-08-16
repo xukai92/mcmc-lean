@@ -408,12 +408,282 @@ theorem forcedIndependentPopulation_particleAverage_expectation_ge
   · simp [hi, hvalue]
   · simpa [hi] using hlower i hi
 
+omit [Nonempty Particle] in
+/-- The explicit unforced-coordinate sum is exactly `N - 1` copies of its
+common contribution. This is the cardinal arithmetic behind the numerator in
+conditional-SMC aggregate bounds. -/
+theorem sum_unforced_constant (retained : Particle) (value : ℝ) :
+    (∑ i : Particle, if i = retained then 0 else value) =
+      (Fintype.card Particle - 1 : ℕ) * value := by
+  classical
+  letI : Nonempty Particle := ⟨retained⟩
+  have hcard : 1 ≤ Fintype.card Particle :=
+    Nat.one_le_iff_ne_zero.mpr Fintype.card_ne_zero
+  calc
+    (∑ i : Particle, if i = retained then 0 else value) =
+        ∑ i : Particle, (value - if i = retained then value else 0) := by
+      apply Finset.sum_congr rfl
+      intro i _
+      by_cases hi : i = retained <;> simp [hi]
+    _ = (Fintype.card Particle : ℝ) * value - value := by
+      rw [Finset.sum_sub_distrib]
+      simp
+    _ = (Fintype.card Particle - 1 : ℕ) * value := by
+      rw [Nat.cast_sub hcard]
+      push_cast
+      ring
+
+omit [Nonempty Particle] in
+/-- Cardinal form of the common-marginal forced-cloud lower bound. -/
+theorem forcedIndependentPopulation_particleAverage_expectation_ge_card
+    (law : Particle → Distribution Sample) (retained : Particle)
+    (value : Sample) (score : Sample → ℝ) (lower : ℝ)
+    (hvalue : 0 ≤ score value)
+    (hlower : ∀ i, i ≠ retained →
+      lower ≤ ∑ s, (law i).mass s * score s) :
+    ((Fintype.card Particle - 1 : ℕ) * lower) /
+        Fintype.card Particle ≤
+      ∑ samples,
+        (forcedIndependentPopulation law retained value).mass samples *
+          particleAverage score samples := by
+  rw [← sum_unforced_constant retained lower]
+  exact forcedIndependentPopulation_particleAverage_expectation_ge
+    law retained value score lower hvalue hlower
+
+/-- Coordinate-dependent empirical average. Conditional genealogy arguments
+need this variant because whether a child extends the proposed path depends on
+its own sampled ancestor. -/
+noncomputable def indexedParticleAverage (score : Particle → Sample → ℝ)
+    (samples : Particle → Sample) : ℝ :=
+  (∑ i, score i (samples i)) / Fintype.card Particle
+
+omit [Nonempty Particle] in
+/-- Exact expectation of a coordinate-dependent empirical average under a
+cloud with one forced coordinate. -/
+theorem forcedIndependentPopulation_indexedParticleAverage_expectation
+    (law : Particle → Distribution Sample) (retained : Particle)
+    (value : Sample) (score : Particle → Sample → ℝ) :
+    ∑ samples, (forcedIndependentPopulation law retained value).mass samples *
+        indexedParticleAverage score samples =
+      (∑ i, if i = retained then score i value
+        else ∑ s, (law i).mass s * score i s) / Fintype.card Particle := by
+  classical
+  unfold indexedParticleAverage
+  calc
+    ∑ samples : Particle → Sample,
+          (forcedIndependentPopulation law retained value).mass samples *
+            ((∑ i, score i (samples i)) / Fintype.card Particle) =
+        (∑ i, ∑ samples : Particle → Sample,
+          (forcedIndependentPopulation law retained value).mass samples *
+            score i (samples i)) / Fintype.card Particle := by
+      simp_rw [div_eq_mul_inv, ← mul_assoc, Finset.mul_sum]
+      rw [← Finset.sum_mul]
+      congr 1
+      rw [Finset.sum_comm]
+    _ = (∑ i, if i = retained then score i value
+          else ∑ s, (law i).mass s * score i s) /
+            Fintype.card Particle := by
+      congr 1
+      apply Finset.sum_congr rfl
+      intro i _
+      rw [forcedIndependentPopulation_coordinate_expectation]
+
+omit [Nonempty Particle] in
+/-- Lower-bound form of the indexed forced-cloud expectation. -/
+theorem forcedIndependentPopulation_indexedParticleAverage_expectation_ge
+    (law : Particle → Distribution Sample) (retained : Particle)
+    (value : Sample) (score : Particle → Sample → ℝ)
+    (lower : Particle → ℝ)
+    (hvalue : 0 ≤ score retained value)
+    (hlower : ∀ i, i ≠ retained →
+      lower i ≤ ∑ s, (law i).mass s * score i s) :
+    (∑ i : Particle, if i = retained then 0 else lower i) /
+        Fintype.card Particle ≤
+      ∑ samples,
+        (forcedIndependentPopulation law retained value).mass samples *
+          indexedParticleAverage score samples := by
+  rw [forcedIndependentPopulation_indexedParticleAverage_expectation]
+  apply div_le_div_of_nonneg_right _ (by positivity)
+  apply Finset.sum_le_sum
+  intro i _
+  by_cases hi : i = retained
+  · subst i
+    simp [hvalue]
+  · simpa [hi] using hlower i hi
+
 /-- A row of a finite Markov kernel as a finite distribution. -/
 def rowDistribution (transition : MarkovKernel Sample) (x : Sample) :
     Distribution Sample where
   mass y := transition.prob x y
   nonneg y := transition.nonneg x y
   sum_mass := transition.sum_prob x
+
+/-- Fraction of children that both descend from a marked parent and land at a
+prescribed next state. Iterating this observable tracks how many complete
+genealogies realize a proposed trajectory. -/
+noncomputable def lineageExtensionFraction (marked : Particle → Prop)
+    [DecidablePred marked] (desired : Sample) (ancestors : Particle → Particle)
+    (next : Particle → Sample) : ℝ :=
+  indexedParticleAverage
+    (fun i y => if marked (ancestors i) ∧ y = desired then 1 else 0) next
+
+omit [Nonempty Particle] in
+/-- Exact conditional expectation of the extended-lineage fraction after
+propagation with one forced child. -/
+theorem forcedPropagation_lineageExtensionFraction_expectation
+    (transition : MarkovKernel Sample) (particles : Particle → Sample)
+    (ancestors : Particle → Particle) (nextRetained : Particle)
+    (nextState desired : Sample) (marked : Particle → Prop)
+    [DecidablePred marked] :
+    ∑ next,
+      (forcedIndependentPopulation
+        (fun i => rowDistribution transition (particles (ancestors i)))
+        nextRetained nextState).mass next *
+          lineageExtensionFraction marked desired ancestors next =
+      (∑ i, if i = nextRetained then
+          (if marked (ancestors i) ∧ nextState = desired then 1 else 0)
+        else if marked (ancestors i) then
+          transition.prob (particles (ancestors i)) desired else 0) /
+        Fintype.card Particle := by
+  unfold lineageExtensionFraction
+  rw [forcedIndependentPopulation_indexedParticleAverage_expectation]
+  congr 1
+  apply Finset.sum_congr rfl
+  intro i _
+  by_cases hi : i = nextRetained
+  · simp [hi]
+  · simp only [hi, if_false]
+    by_cases hmarked : marked (ancestors i)
+    · simp [hmarked, rowDistribution]
+    · simp [hmarked]
+
+/-- Contribution of only the unforced children to the conditional expected
+extended-lineage fraction. -/
+noncomputable def unforcedLineageExtensionFraction
+    (transition : MarkovKernel Sample) (particles : Particle → Sample)
+    (marked : Particle → Prop) [DecidablePred marked] (desired : Sample)
+    (nextRetained : Particle) (ancestors : Particle → Particle) : ℝ :=
+  (∑ i, if i = nextRetained then 0
+    else if marked (ancestors i) then
+      transition.prob (particles (ancestors i)) desired else 0) /
+    Fintype.card Particle
+
+omit [Nonempty Particle] in
+/-- Dropping the single forced child's nonnegative contribution leaves a
+valid lower bound on the conditional propagation expectation. This is the
+one-step inequality that can safely be integrated over forced resampling. -/
+theorem forcedPropagation_lineageExtensionFraction_ge_unforced
+    (transition : MarkovKernel Sample) (particles : Particle → Sample)
+    (ancestors : Particle → Particle) (nextRetained : Particle)
+    (nextState desired : Sample) (marked : Particle → Prop)
+    [DecidablePred marked] :
+    unforcedLineageExtensionFraction transition particles marked desired
+        nextRetained ancestors ≤
+      ∑ next,
+        (forcedIndependentPopulation
+          (fun i => rowDistribution transition (particles (ancestors i)))
+          nextRetained nextState).mass next *
+            lineageExtensionFraction marked desired ancestors next := by
+  rw [forcedPropagation_lineageExtensionFraction_expectation]
+  unfold unforcedLineageExtensionFraction
+  apply div_le_div_of_nonneg_right _ (by positivity)
+  apply Finset.sum_le_sum
+  intro i _
+  by_cases hi : i = nextRetained
+  · subst i
+    simp only [if_true]
+    split <;> norm_num
+  · simp [hi]
+
+omit [DecidableEq Sample] [Nonempty Particle] in
+/-- Forced multinomial resampling integrates the unforced contribution
+exactly. Every one of the `N - 1` ordinary children sees the same weighted
+parental extension probability. -/
+theorem forcedResampling_unforcedLineageExtensionFraction_expectation
+    (weights : Distribution Particle) (transition : MarkovKernel Sample)
+    (particles : Particle → Sample) (retained nextRetained : Particle)
+    (marked : Particle → Prop) [DecidablePred marked] (desired : Sample) :
+    ∑ ancestors,
+      (forcedIndependentPopulation (fun _ : Particle => weights)
+        nextRetained retained).mass ancestors *
+          unforcedLineageExtensionFraction transition particles marked desired
+            nextRetained ancestors =
+      ((Fintype.card Particle - 1 : ℕ) *
+        (∑ parent, weights.mass parent *
+          (if marked parent then
+            transition.prob (particles parent) desired else 0))) /
+        Fintype.card Particle := by
+  let score : Particle → Particle → ℝ := fun i parent =>
+    if i = nextRetained then 0
+    else if marked parent then transition.prob (particles parent) desired else 0
+  have h := forcedIndependentPopulation_indexedParticleAverage_expectation
+    (law := fun _ : Particle => weights) nextRetained retained score
+  calc
+    ∑ ancestors,
+        (forcedIndependentPopulation (fun _ : Particle => weights)
+          nextRetained retained).mass ancestors *
+            unforcedLineageExtensionFraction transition particles marked desired
+              nextRetained ancestors =
+        ∑ ancestors,
+          (forcedIndependentPopulation (fun _ : Particle => weights)
+            nextRetained retained).mass ancestors *
+              indexedParticleAverage score ancestors := by rfl
+    _ = (∑ i, if i = nextRetained then score i retained
+          else ∑ s, weights.mass s * score i s) /
+            Fintype.card Particle := h
+    _ = ((Fintype.card Particle - 1 : ℕ) *
+          (∑ parent, weights.mass parent *
+            (if marked parent then
+              transition.prob (particles parent) desired else 0))) /
+          Fintype.card Particle := by
+      congr 1
+      let extensionMass := ∑ parent, weights.mass parent *
+        (if marked parent then
+          transition.prob (particles parent) desired else 0)
+      have hsum :
+          (∑ i, if i = nextRetained then score i retained
+            else ∑ s, weights.mass s * score i s) =
+          ∑ i : Particle, if i = nextRetained then 0 else extensionMass := by
+        apply Finset.sum_congr rfl
+        intro i _
+        by_cases hi : i = nextRetained
+        · simp [hi, score]
+        · simp [hi, score, extensionMass]
+      rw [hsum]
+      exact sum_unforced_constant nextRetained extensionMass
+
+omit [Nonempty Particle] in
+/-- One complete forced resample--propagate stage preserves at least the
+`(N - 1) / N` share of the weighted probability of extending a marked
+genealogy. This is an aggregate expectation theorem, not a single-history
+bound, and its count factor tends to one. -/
+theorem forcedResamplePropagate_lineageExtensionFraction_ge
+    (weights : Distribution Particle) (transition : MarkovKernel Sample)
+    (particles : Particle → Sample) (retained nextRetained : Particle)
+    (nextState desired : Sample) (marked : Particle → Prop)
+    [DecidablePred marked] :
+    ((Fintype.card Particle - 1 : ℕ) *
+        (∑ parent, weights.mass parent *
+          (if marked parent then
+            transition.prob (particles parent) desired else 0))) /
+        Fintype.card Particle ≤
+      ∑ ancestors,
+        (forcedIndependentPopulation (fun _ : Particle => weights)
+          nextRetained retained).mass ancestors *
+          ∑ next,
+            (forcedIndependentPopulation
+              (fun i => rowDistribution transition (particles (ancestors i)))
+              nextRetained nextState).mass next *
+                lineageExtensionFraction marked desired ancestors next := by
+  rw [← forcedResampling_unforcedLineageExtensionFraction_expectation
+    weights transition particles retained nextRetained marked desired]
+  apply Finset.sum_le_sum
+  intro ancestors _
+  apply mul_le_mul_of_nonneg_left
+  · exact forcedPropagation_lineageExtensionFraction_ge_unforced
+      transition particles ancestors nextRetained nextState desired marked
+  · exact (forcedIndependentPopulation (fun _ : Particle => weights)
+      nextRetained retained).nonneg ancestors
 
 /-- Conditional propagation law after a vector of ancestor indices has been
 drawn. -/

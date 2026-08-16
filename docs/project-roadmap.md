@@ -213,7 +213,11 @@ The pre-Xu dependency order is:
    oscillation penalties and the resampling estimate `wᵢ ≥ 1/(N B)`; the
    aggregate has also been identified exactly with an expectation under the
    concrete recursive forced-lineage generator. The remaining step is the
-   induction that propagates those local bounds through that generator. A parallel
+   induction that propagates those local bounds through that generator. Its
+   base and one-step population algebra are now machine checked: initialization
+   loses only the retained slot, and a forced resample--propagate stage carries
+   the aggregate marked-lineage mass with the exact `(N-1)/N` child-count
+   factor. A parallel
    scheduled certificate now retains distinct per-time penalties, proves its
    product coefficient is in `(0,1)`, and supplies the refresh decomposition,
    geometric TV estimate, and convergence theorem without a worst-case

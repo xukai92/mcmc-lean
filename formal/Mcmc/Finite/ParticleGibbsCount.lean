@@ -395,6 +395,33 @@ theorem scheduledPotentialParticleGibbs_totalVariation_tendsto_zero
   exact particleGibbsScheduleCoefficient_pos certificate.extra_pos
     certificate.penalties_pos
 
+/-- Fraction of an initial particle cloud equal to one prescribed trajectory
+start. This is the base case of the aggregate genealogy recursion. -/
+noncomputable def initialStateFraction (extra : ℕ)
+    (particles : Fin (extra + 1) → Sample) (proposed : Sample) : ℝ :=
+  particleAverage (fun x => if x = proposed then 1 else 0) particles
+
+/-- At initialization, every unforced particle independently starts at the
+proposed state with its target initial probability. Consequently the expected
+matching fraction loses only the single retained slot. Unlike a one-history
+witness, this factor tends to one with the particle count. -/
+theorem forcedInitialPopulation_initialStateFraction_ge
+    (initial : Distribution Sample) (extra : ℕ)
+    (retained : Fin (extra + 1)) (current proposed : Sample) :
+    (extra : ℝ) / (extra + 1) * initial.mass proposed ≤
+      ∑ particles,
+        (forcedIndependentPopulation (fun _ : Fin (extra + 1) => initial)
+          retained current).mass particles *
+            initialStateFraction extra particles proposed := by
+  have h := forcedIndependentPopulation_particleAverage_expectation_ge_card
+    (law := fun _ : Fin (extra + 1) => initial)
+    retained current (fun x => if x = proposed then 1 else 0)
+    (initial.mass proposed) (by positivity) (by
+      intro i _hi
+      simp)
+  simpa [initialStateFraction, div_eq_mul_inv, mul_assoc, mul_left_comm,
+    mul_comm] using h
+
 /-- Total conditional-SMC/terminal-refresh mass of all extended histories
 connecting two trajectories. This aggregate, rather than any one history,
 is the correct quantitative object for bounds uniform in particle count. -/

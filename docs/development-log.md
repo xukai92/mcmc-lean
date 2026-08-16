@@ -44,7 +44,13 @@
   the expected empirical average, and derives a reusable lower bound from
   common lower bounds on all unforced marginals. This isolates the retained
   coordinate's contribution instead of discarding the aggregate population
-  mass.
+  mass. The recursion has now been pushed through one full conditional-SMC
+  stage. Lean defines the marked-parent/desired-child lineage fraction, proves
+  its exact expectation under forced propagation, integrates the unforced
+  contribution exactly under forced multinomial resampling, and obtains the
+  aggregate one-stage lower bound
+  `(N-1)/N · Σᵢ wᵢ 1{marked i} K(xᵢ,y)`. Its count factor tends to
+  one; no pointwise `1/B` loss or selected-history witness is introduced.
 
 - Completed the compact-minorization and faithful-coupling foundation for the
   actual bare one-dimensional Gaussian SoftAbs multinomial kernel at
