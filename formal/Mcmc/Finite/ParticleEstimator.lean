@@ -1080,20 +1080,22 @@ theorem one_le_finitePotentialOscillationConstant
   have hx := hpotential x
   nlinarith
 
-/-- Safe primitive particle-Gibbs penalty for one potential slice. Besides the
+/-- Conservative candidate particle-Gibbs penalty for one potential slice.
+Besides the
 retained-particle denominator cost, the second copy of the oscillation bound
 accounts for comparison of the self-normalized ordinary cloud with the exact
-normalized Feynman--Kac target. -/
-noncomputable def finitePotentialParticleGibbsPenalty
+normalized Feynman--Kac target. Positivity is proved below; establishing the
+full recursive minorization with this candidate remains a separate theorem. -/
+noncomputable def finitePotentialParticleGibbsCandidatePenalty
     (potential : Sample → ℝ) : ℝ :=
   2 * finitePotentialOscillationConstant potential - 1
 
 omit [DecidableEq Sample] [DecidableEq Particle] in
-theorem finitePotentialParticleGibbsPenalty_pos
+theorem finitePotentialParticleGibbsCandidatePenalty_pos
     [Nonempty Sample] (potential : Sample → ℝ)
     (hpotential : ∀ x, 0 < potential x) :
-    0 < finitePotentialParticleGibbsPenalty potential := by
-  unfold finitePotentialParticleGibbsPenalty
+    0 < finitePotentialParticleGibbsCandidatePenalty potential := by
+  unfold finitePotentialParticleGibbsCandidatePenalty
   linarith [one_le_finitePotentialOscillationConstant potential hpotential]
 
 omit [Fintype Sample] [DecidableEq Sample] [DecidableEq Particle] in

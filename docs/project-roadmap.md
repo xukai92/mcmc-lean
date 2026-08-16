@@ -219,9 +219,9 @@ The pre-Xu dependency order is:
    the aggregate marked-lineage mass with the exact `(N-1)/N` child-count
    factor. The zero-step kernel-level aggregate certificate is complete with
    exact coefficient `(N-1)/N`; positive horizons now require only the
-   normalizer-telescoping induction. The primitive schedule has been corrected
+   normalizer-telescoping induction. The primitive candidate schedule has been corrected
    after the one-step audit: a raw potential oscillation constant `B` incurs
-   the safe penalty `2B-1`, hence factor `(N-1)/(N-2+2B)`, because comparing
+   the conservative penalty `2B-1`, hence factor `(N-1)/(N-2+2B)`, because comparing
    the self-normalized ordinary cloud with the exact target is a second cost
    beyond the retained-particle denominator. A parallel
    scheduled certificate now retains distinct per-time penalties, proves its

@@ -53,8 +53,8 @@
   finite sample space, Lean defines a count-independent oscillation constant,
   proves its multiplicative comparison inequality, and derives the uniform
   normalized-resampling bound `wᵢ ≥ 1/(N B)`. The corresponding
-  Feynman--Kac penalty list has exactly `T+1` positive entries (one neutral
-  terminal-index factor and one corrected `2B-1` oscillation penalty per
+  Feynman--Kac candidate-penalty list has exactly `T+1` positive entries (one neutral
+  terminal-index factor and one conservative `2B-1` oscillation candidate per
   step). Lifting these
   local bounds through the recursive conditional-SMC aggregate is the
   remaining sharp-coefficient proof.
@@ -107,10 +107,11 @@
   self-normalization cost: the raw oscillation constant `B` cannot in general
   be used directly as the displayed PG penalty. A skewed finite model with
   distinct high-weight current and proposed states violates that proposed
-  bound. The primitive schedule is therefore
-  corrected to the standard safe penalty `2B−1`, giving the slice factor
+  bound. The primitive candidate schedule is therefore
+  corrected to the conservative penalty `2B−1`, giving the slice factor
   `(N−1)/(N−2+2B)`. Lean proves `B ≥ 1`, hence positivity of every
-  corrected penalty. Abstract certificate theorems with an arbitrary supplied
+  candidate penalty. The full recursive certificate for it remains the open
+  induction; abstract certificate theorems with an arbitrary supplied
   penalty are unchanged, and no previously proved convergence claim relied on
   the obstructed primitive instantiation.
 
