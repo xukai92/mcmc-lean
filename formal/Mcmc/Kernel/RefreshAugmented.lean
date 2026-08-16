@@ -133,4 +133,38 @@ theorem refreshAugmented_rate_tendsto_zero
       Filter.atTop (nhds 0) := by
   exact ENNReal.tendsto_pow_atTop_nhds_zero_of_lt_one (by exact_mod_cast hp)
 
+/-- With positive weights on both branches, the refresh-augmented chain
+converges setwise to its invariant target from every initial probability law.
+This is the direct convergence statement corresponding to the two eventwise
+geometric bounds above. -/
+theorem refreshAugmented_lawAtTime_apply_tendsto
+    (p : Set.Icc (0 : NNReal) 1) (hp0 : 0 < p.1) (hp1 : p.1 < 1)
+    (transition : Kernel α α) [IsMarkovKernel transition]
+    (target initial : Measure α) [IsProbabilityMeasure target]
+    [IsProbabilityMeasure initial] (hinvariant : transition.Invariant target)
+    {s : Set α} (hs : MeasurableSet s) :
+    Filter.Tendsto
+      (fun n => lawAtTime initial
+        (refreshAugmented p transition target) n s)
+      Filter.atTop (nhds (target s)) := by
+  let remainder : ℕ → ENNReal := fun n => (((p.1 : NNReal) : ENNReal) ^ n)
+  have hremainder : Filter.Tendsto remainder Filter.atTop (nhds 0) := by
+    exact refreshAugmented_rate_tendsto_zero p hp1
+  have hlower : Filter.Tendsto (fun n => target s - remainder n)
+      Filter.atTop (nhds (target s)) := by
+    have h := ENNReal.Tendsto.sub tendsto_const_nhds hremainder
+      (Or.inl (measure_ne_top target s))
+    simpa only [tsub_zero] using h
+  have hupper : Filter.Tendsto (fun n => target s + remainder n)
+      Filter.atTop (nhds (target s)) := by
+    simpa only [add_zero] using tendsto_const_nhds.add hremainder
+  apply tendsto_of_tendsto_of_tendsto_of_le_of_le hlower hupper
+  · intro n
+    rw [tsub_le_iff_right]
+    exact refreshAugmented_target_apply_le_lawAtTime p hp0 transition
+      target initial hinvariant n hs
+  · intro n
+    exact refreshAugmented_lawAtTime_apply_le p hp0 transition target initial
+      hinvariant n hs
+
 end Mcmc.Kernel

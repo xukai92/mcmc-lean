@@ -181,4 +181,28 @@ theorem gaussianSoftAbsRefreshAugmented_rate_tendsto_zero
       Filter.atTop (nhds 0) :=
   Mcmc.Kernel.refreshAugmented_rate_tendsto_zero p hp
 
+/-- The refresh-augmented Gaussian SoftAbs GR-HMC chain converges setwise to
+its normalized position target from every initial probability law. The
+assumptions `0 < p < 1` keep both the GR-HMC and exact-refresh branches active;
+this theorem does not make a convergence claim for bare GR-HMC (`p = 1`). -/
+theorem gaussianSoftAbsRefreshAugmented_lawAtTime_apply_tendsto
+    (p : Set.Icc (0 : NNReal) 1) (hp0 : 0 < p.1) (hp1 : p.1 < 1)
+    (ε : ℝ) (L : ℕ) (initial : Measure (Position ι))
+    [IsProbabilityMeasure initial] {s : Set (Position ι)}
+    (hs : MeasurableSet s) :
+    Filter.Tendsto
+      (fun n => Mcmc.Kernel.lawAtTime initial
+        (gaussianSoftAbsRefreshAugmented (ι := ι) p ε L) n s)
+      Filter.atTop
+      (nhds (Mcmc.Kernel.finiteNormalize
+        (gaussianSoftAbsPositionTarget (ι := ι)) s)) := by
+  apply Mcmc.Kernel.refreshAugmented_lawAtTime_apply_tendsto
+    p hp0 hp1 (gaussianSoftAbsMultinomialTransition (ι := ι) ε L)
+    (Mcmc.Kernel.finiteNormalize
+      (gaussianSoftAbsPositionTarget (ι := ι))) initial
+  · apply Mcmc.Kernel.invariant_finiteNormalize _ _
+      gaussianSoftAbsPositionTarget_ne_zero
+    exact gaussianSoftAbs_multinomialGRHMC_invariant ε L
+  · exact hs
+
 end Mcmc.Executable.Continuous

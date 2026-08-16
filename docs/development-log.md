@@ -2370,3 +2370,14 @@ That packaging is now complete: one selected mixture supplies both tails, so
 bounded point-started expectations converge to the normalized posterior
 integral and the stopped lag-one estimator is unbiased for exactly that
 integral with finite variance.
+
+## 2026-08-16: direct setwise convergence for refreshed GR-HMC
+
+Upgraded the reusable refresh-augmentation layer from two geometric event
+bounds plus a vanishing remainder to a direct setwise convergence theorem.
+For `0 < p < 1`, every initial probability law converges on every measurable
+event to the invariant target; the proof sandwiches the evolving event mass
+between `target - p^n` and `target + p^n`. The concrete Gaussian diagonal-
+SoftAbs multinomial GR-HMC client instantiates this theorem. The result remains
+explicitly about the target-refresh-augmented chain and makes no convergence
+claim for bare GR-HMC.

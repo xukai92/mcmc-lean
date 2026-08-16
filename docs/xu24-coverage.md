@@ -156,7 +156,8 @@ no convergence claim for the unaugmented paper kernel. The separate
 target refresh to the proved Gaussian SoftAbs multinomial transition. Lean
 proves the concrete Gaussian target has finite, nonzero mass, then proves
 two-sided eventwise error at most `p^n` and that this remainder tends to zero
-for `p < 1`. This is a
+for `p < 1`. These bounds are now packaged into direct setwise convergence
+from every initial probability measure for every measurable event. This is a
 convergence theorem for the visibly refresh-augmented algorithm, not a retrofit
 of an unstated ergodicity hypothesis onto the paper.
 

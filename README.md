@@ -342,7 +342,9 @@ The repository now contains machine-checked implementations and proofs for:
   SoftAbs Hamiltonian and its derivatives, and endpoint and multinomial
   GR-HMC target-invariance theorems; a Gaussian-plus-sinusoidal potential now
   supplies an actual nonconstant SoftAbs Hessian, including its removable zero
-  branch and complete Equation (12) certificate;
+  branch and complete Equation (12) certificate; a separate explicitly
+  refresh-augmented Gaussian SoftAbs client has geometric eventwise bounds and
+  setwise convergence from every initial probability law;
 - maximal and optimal-transport trajectory-index couplings, with exact HMC
   marginals;
 - a measurable finite optimal-transport selector with proved optimality;
