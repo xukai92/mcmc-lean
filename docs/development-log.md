@@ -2655,3 +2655,17 @@ event moves each Gaussian tail inward by a uniform positive distance; the
 next obligation is an energy comparison giving that inward trajectory a
 uniform multinomial-selection probability.  No bare-kernel convergence claim
 is made yet.
+
+## 2026-08-16: corrected Gaussian SoftAbs endpoint selection
+
+Closed the exact energy-comparison obligation for the concrete
+one-dimensional `ε=1`, `L=1` Gaussian SoftAbs client.  Lean proves the
+SoftAbs eigenvalue lies between one and two, derives uniform square-root
+bounds, and shows that on `q ≥ 6, p ∈ [0,1]` the actual generalized-leapfrog
+endpoint moves inward and has nonpositive complete-Hamiltonian defect.  A
+negation-equivariance proof supplies the symmetric `q ≤ -6, p ∈ [-1,0]`
+case.  Consequently, when the current phase point is rooted at index zero,
+the inward endpoint has at least one half of the two-point multinomial
+selection probability.  Remaining work for bare-kernel convergence is to
+integrate this pointwise floor through random-origin selection and momentum
+refresh, then turn it into a Lyapunov drift/minorization certificate.

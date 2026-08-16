@@ -1,5 +1,6 @@
 import Mcmc.Executable.Continuous.SeparableGeneralizedLeapfrog
 import Mcmc.Relativistic.SoftAbsKernel
+import Mathlib.Analysis.Complex.ExponentialBounds
 
 /-!
 # Executable Gaussian diagonal-SoftAbs GR-HMC client
@@ -13,7 +14,8 @@ reversibility, and exact phase-volume preservation are already certified.
 
 namespace Mcmc.Executable.Continuous
 
-open Mcmc.Hamiltonian Mcmc.Relativistic MeasureTheory ProbabilityTheory
+open Mcmc.Hamiltonian Mcmc.Kernel Mcmc.Relativistic MeasureTheory
+  ProbabilityTheory
 
 variable {ι : Type*} [Fintype ι] [Nonempty ι] [DecidableEq ι]
 
@@ -45,6 +47,23 @@ theorem gaussianSoftAbsEigenvalue_gt_one (q : Position ι) (i : ι) :
   simp only [softAbs, one_ne_zero, if_false, one_mul, one_div]
   rw [one_lt_inv₀ (real_tanh_pos (by norm_num))]
   exact Real.tanh_lt_one 1
+
+/-- A simple rational upper bound for the concrete SoftAbs eigenvalue. -/
+theorem softAbs_one_one_lt_two : softAbs 1 1 < 2 := by
+  have he : 2 < Real.exp 1 := Real.exp_one_gt_two
+  have he0 : 0 < Real.exp 1 := Real.exp_pos 1
+  have he2 : 3 < (Real.exp 1) ^ 2 := by nlinarith
+  have hinv : 3 * (Real.exp 1)⁻¹ < Real.exp 1 := by
+    rw [← div_eq_mul_inv, div_lt_iff₀ he0]
+    nlinarith
+  have htanh : (1 / 2 : ℝ) < Real.tanh 1 := by
+    rw [Real.tanh_eq, Real.exp_neg]
+    rw [lt_div_iff₀]
+    · linarith
+    · positivity
+  simp only [softAbs, one_ne_zero, if_false, one_mul, one_div]
+  rw [inv_lt_iff_one_lt_mul₀ (real_tanh_pos (by norm_num))]
+  linarith
 
 /-- Relativistic velocity for the constant Gaussian SoftAbs metric. -/
 noncomputable def gaussianSoftAbsVelocity (p : Momentum ι) : Position ι :=
@@ -254,6 +273,14 @@ theorem gaussianSoftAbsUnitScalarVelocity_eq (x : ℝ) :
   rw [hinside]
   ring
 
+@[simp]
+theorem gaussianSoftAbsUnitScalarVelocity_neg (x : ℝ) :
+    gaussianSoftAbsUnitScalarVelocity (-x) =
+      -gaussianSoftAbsUnitScalarVelocity x := by
+  rw [gaussianSoftAbsUnitScalarVelocity_eq,
+    gaussianSoftAbsUnitScalarVelocity_eq]
+  ring_nf
+
 /-- Exact scalar GR Hamiltonian for the one-dimensional Gaussian SoftAbs
 client. The additive log-determinant term will cancel in every energy defect. -/
 theorem gaussianSoftAbsUnit_hamiltonian_eq (q : Position Unit)
@@ -311,6 +338,275 @@ theorem div_sqrt_sq_add_one_le_mul_div_sqrt_mul_sq_add_one
     b * Real.sqrt ((a * r) ^ 2 + 1) ≤
         b * (r * Real.sqrt (a ^ 2 + 1)) := by gcongr
     _ = b * r * Real.sqrt (a ^ 2 + 1) := by ring
+
+/-- Elementary upper tangent bound for `sqrt (t² + 1)` on the positive
+half-line. -/
+theorem sqrt_sq_add_one_le_add_inv_two_mul (t : ℝ) (ht : 0 < t) :
+    Real.sqrt (t ^ 2 + 1) ≤ t + 1 / (2 * t) := by
+  rw [Real.sqrt_le_left]
+  · field_simp [ht.ne']
+    nlinarith [sq_nonneg t]
+  · positivity
+
+/-- Algebraic core of the one-step tail-energy comparison.  The hypotheses
+are the upper and lower square-root estimates used by the concrete SoftAbs
+client below. -/
+theorem mul_sub_half_le_mul_add_of_sqrt_bounds
+    (r A p d s sNext sCurrent : ℝ)
+    (hr : 0 < r) (hAr : r ≤ A) (hp : 0 ≤ p) (hd : 0 ≤ d)
+    (hfactor : 0 ≤ 2 * A - d / 2)
+    (hs : s ≤ A / r + r / (2 * A))
+    (hnext : (2 * A + p - d / 2) / r ≤ sNext)
+    (hcurrent : 1 ≤ sCurrent) :
+    s * (2 * A - d / 2) ≤ A * (sNext + sCurrent) := by
+  have hA : 0 < A := lt_of_lt_of_le hr hAr
+  have hmain :
+      (A / r + r / (2 * A)) * (2 * A - d / 2) ≤
+        A * ((2 * A + p - d / 2) / r + 1) := by
+    have hid :
+        A * ((2 * A + p - d / 2) / r + 1) -
+            (A / r + r / (2 * A)) * (2 * A - d / 2) =
+          A * p / r + (A - r) + r * d / (4 * A) := by
+      field_simp [hr.ne', hA.ne']
+      ring
+    have hnonneg : 0 ≤ A * p / r + (A - r) + r * d / (4 * A) := by
+      positivity
+    linarith
+  calc
+    s * (2 * A - d / 2) ≤
+        (A / r + r / (2 * A)) * (2 * A - d / 2) := by gcongr
+    _ ≤ A * ((2 * A + p - d / 2) / r + 1) := hmain
+    _ ≤ A * (sNext + sCurrent) := by gcongr
+
+/-- The square-root comparison that controls the kinetic-energy increment on
+the positive Gaussian tail.  Restricting refreshed momentum to `[0,1]` leaves
+a positive-probability event and makes the estimate uniform. -/
+theorem gaussianSoftAbsUnit_tail_sqrt_comparison
+    (q p : ℝ) (hq : 6 ≤ q) (hp0 : 0 ≤ p) (hp1 : p ≤ 1) :
+    let k := softAbs 1 1
+    let A := q / 2 - p
+    let s := Real.sqrt (A ^ 2 / k + 1)
+    let d := A / k / s
+    s * (2 * A - d / 2) ≤
+      A * (Real.sqrt ((2 * A + p - d / 2) ^ 2 / k + 1) +
+        Real.sqrt (p ^ 2 / k + 1)) := by
+  dsimp only
+  let k := softAbs 1 1
+  let r := Real.sqrt k
+  let A := q / 2 - p
+  let s := Real.sqrt (A ^ 2 / k + 1)
+  let d := A / k / s
+  have hk : 0 < k := softAbs_pos 1 (by norm_num) 1
+  have hk1 : 1 < k := by
+    exact gaussianSoftAbsEigenvalue_gt_one (ι := Unit) 0 Unit.unit
+  have hk2 : k < 2 := softAbs_one_one_lt_two
+  have hr : 0 < r := Real.sqrt_pos.2 hk
+  have hr1 : 1 < r := by
+    rw [← Real.sqrt_one]
+    exact Real.sqrt_lt_sqrt (by norm_num) hk1
+  have hrlt : r < 3 / 2 :=
+    lt_trans (Real.sqrt_lt_sqrt hk.le hk2) Real.sqrt_two_lt_three_halves
+  have hr2 : r ^ 2 = k := Real.sq_sqrt hk.le
+  have hA : 2 ≤ A := by
+    dsimp [A]
+    linarith
+  have hAr : r ≤ A := by linarith
+  have hAratio : 0 < A / r := div_pos (lt_of_lt_of_le (by norm_num) hA) hr
+  have hrewrite (x : ℝ) : x ^ 2 / k = (x / r) ^ 2 := by
+    rw [← hr2]
+    field_simp [hr.ne']
+  have hs_eq : s = Real.sqrt ((A / r) ^ 2 + 1) := by
+    dsimp [s]
+    rw [hrewrite]
+  have hspos : 0 < s := by
+    dsimp [s]
+    positivity
+  have hs_gt : A / r < s := by
+    rw [hs_eq]
+    calc
+      A / r = Real.sqrt ((A / r) ^ 2) := by
+        rw [Real.sqrt_sq hAratio.le]
+      _ < Real.sqrt ((A / r) ^ 2 + 1) :=
+        Real.sqrt_lt_sqrt (sq_nonneg _) (by linarith)
+  have hd0 : 0 ≤ d := by
+    dsimp [d]
+    positivity
+  have hdlt : d < 1 := by
+    have hrs : A < r * s := by
+      have := mul_lt_mul_of_pos_left hs_gt hr
+      field_simp [hr.ne'] at this
+      simpa [mul_comm] using this
+    have hdinv : d < 1 / r := by
+      dsimp [d]
+      rw [div_div, div_lt_div_iff₀ (mul_pos hk hspos) hr]
+      rw [← hr2]
+      nlinarith
+    have hinvlt : 1 / r < 1 := by
+      rw [div_lt_one hr]
+      exact hr1
+    exact lt_trans hdinv hinvlt
+  have hfactor : 0 ≤ 2 * A - d / 2 := by linarith
+  have hsupper : s ≤ A / r + r / (2 * A) := by
+    rw [hs_eq]
+    have h := sqrt_sq_add_one_le_add_inv_two_mul (A / r) hAratio
+    calc
+      Real.sqrt ((A / r) ^ 2 + 1) ≤
+          A / r + 1 / (2 * (A / r)) := h
+      _ = A / r + r / (2 * A) := by
+        have hA0 : A ≠ 0 := (lt_of_lt_of_le (by norm_num) hA).ne'
+        field_simp [hr.ne', hA0]
+  have hx : 0 ≤ 2 * A + p - d / 2 := by linarith
+  have hnext :
+      (2 * A + p - d / 2) / r ≤
+        Real.sqrt ((2 * A + p - d / 2) ^ 2 / k + 1) := by
+    rw [hrewrite]
+    calc
+      (2 * A + p - d / 2) / r =
+          Real.sqrt (((2 * A + p - d / 2) / r) ^ 2) := by
+            rw [Real.sqrt_sq (div_nonneg hx hr.le)]
+      _ ≤ Real.sqrt (((2 * A + p - d / 2) / r) ^ 2 + 1) :=
+        Real.sqrt_le_sqrt (by linarith)
+  have hcurrent : 1 ≤ Real.sqrt (p ^ 2 / k + 1) := by
+    rw [← Real.sqrt_one]
+    apply Real.sqrt_le_sqrt
+    have hdiv : 0 ≤ p ^ 2 / k := div_nonneg (sq_nonneg p) hk.le
+    simpa using (show 1 ≤ p ^ 2 / k + 1 by linarith)
+  exact mul_sub_half_le_mul_add_of_sqrt_bounds r A p d s
+    (Real.sqrt ((2 * A + p - d / 2) ^ 2 / k + 1))
+    (Real.sqrt (p ^ 2 / k + 1)) hr hAr hp0 hd0 hfactor hsupper hnext hcurrent
+
+/-- A unit leapfrog step does not increase the scalar Gaussian SoftAbs
+Hamiltonian on the positive tail when refreshed momentum is in `[0,1]`. -/
+theorem gaussianSoftAbsUnit_scalar_energy_decrease
+    (q p : ℝ) (hq : 6 ≤ q) (hp0 : 0 ≤ p) (hp1 : p ≤ 1) :
+    let k := softAbs 1 1
+    let A := q / 2 - p
+    let s := Real.sqrt (A ^ 2 / k + 1)
+    let d := A / k / s
+    (q - d) ^ 2 / 2 +
+        Real.sqrt ((p - q + d / 2) ^ 2 / k + 1) ≤
+      q ^ 2 / 2 + Real.sqrt (p ^ 2 / k + 1) := by
+  dsimp only
+  let k := softAbs 1 1
+  let A := q / 2 - p
+  let s := Real.sqrt (A ^ 2 / k + 1)
+  let d := A / k / s
+  let x := 2 * A + p - d / 2
+  let sNext := Real.sqrt (x ^ 2 / k + 1)
+  let sCurrent := Real.sqrt (p ^ 2 / k + 1)
+  let B := q - d / 2
+  have hk : 0 < k := softAbs_pos 1 (by norm_num) 1
+  have hA : 2 ≤ A := by
+    dsimp [A]
+    linarith
+  have hspos : 0 < s := by
+    dsimp [s]
+    positivity
+  have hd0 : 0 ≤ d := by
+    dsimp [d]
+    positivity
+  have hdlt : d < 1 := by
+    let r := Real.sqrt k
+    have hr : 0 < r := Real.sqrt_pos.2 hk
+    have hr1 : 1 < r := by
+      rw [← Real.sqrt_one]
+      exact Real.sqrt_lt_sqrt (by norm_num)
+        (show 1 < k from gaussianSoftAbsEigenvalue_gt_one
+          (ι := Unit) 0 Unit.unit)
+    have hr2 : r ^ 2 = k := Real.sq_sqrt hk.le
+    have hAratio : 0 < A / r := div_pos (lt_of_lt_of_le (by norm_num) hA) hr
+    have hs_eq : s = Real.sqrt ((A / r) ^ 2 + 1) := by
+      dsimp [s]
+      congr 2
+      rw [← hr2]
+      field_simp [hr.ne']
+    have hs_gt : A / r < s := by
+      rw [hs_eq]
+      calc
+        A / r = Real.sqrt ((A / r) ^ 2) := by
+          rw [Real.sqrt_sq hAratio.le]
+        _ < Real.sqrt ((A / r) ^ 2 + 1) :=
+          Real.sqrt_lt_sqrt (sq_nonneg _) (by linarith)
+    have hrs : A < r * s := by
+      have := mul_lt_mul_of_pos_left hs_gt hr
+      field_simp [hr.ne'] at this
+      simpa [mul_comm] using this
+    have hdinv : d < 1 / r := by
+      dsimp [d]
+      rw [div_div, div_lt_div_iff₀ (mul_pos hk hspos) hr]
+      rw [← hr2]
+      nlinarith
+    have hinvlt : 1 / r < 1 := by
+      rw [div_lt_one hr]
+      exact hr1
+    exact lt_trans hdinv hinvlt
+  have hB : 0 < B := by
+    dsimp [B]
+    linarith
+  have hsNext : 0 < sNext := by
+    dsimp [sNext]
+    positivity
+  have hsCurrent : 0 < sCurrent := by
+    dsimp [sCurrent]
+    positivity
+  have hcomparison := gaussianSoftAbsUnit_tail_sqrt_comparison q p hq hp0 hp1
+  change s * (2 * A - d / 2) ≤ A * (sNext + sCurrent) at hcomparison
+  have hAds : A = k * d * s := by
+    dsimp [d]
+    field_simp [hk.ne', hspos.ne']
+  have hcore : 2 * A - d / 2 ≤ k * d * (sNext + sCurrent) := by
+    have hdiv : 2 * A - d / 2 ≤
+        (A * (sNext + sCurrent)) / s := by
+      rw [le_div_iff₀ hspos]
+      simpa [mul_comm] using hcomparison
+    calc
+      2 * A - d / 2 ≤ (A * (sNext + sCurrent)) / s := hdiv
+      _ = k * d * (sNext + sCurrent) := by
+        rw [hAds]
+        field_simp [hspos.ne']
+  have hproduct :
+      B * (2 * A - d / 2) / k ≤ d * B * (sNext + sCurrent) := by
+    rw [div_le_iff₀ hk]
+    nlinarith
+  have hsNextSq : sNext ^ 2 = x ^ 2 / k + 1 := by
+    dsimp [sNext]
+    rw [Real.sq_sqrt]
+    positivity
+  have hsCurrentSq : sCurrent ^ 2 = p ^ 2 / k + 1 := by
+    dsimp [sCurrent]
+    rw [Real.sq_sqrt]
+    positivity
+  have hx : x = B - p := by
+    dsimp [x, B, A]
+    ring
+  have hdiffProduct :
+      (sNext - sCurrent) * (sNext + sCurrent) =
+        B * (2 * A - d / 2) / k := by
+    calc
+      (sNext - sCurrent) * (sNext + sCurrent) =
+          sNext ^ 2 - sCurrent ^ 2 := by ring
+      _ = (x ^ 2 / k + 1) - (p ^ 2 / k + 1) := by
+        rw [hsNextSq, hsCurrentSq]
+      _ = B * (2 * A - d / 2) / k := by
+        rw [hx]
+        dsimp [B, A]
+        ring
+  have hkinetic : sNext - sCurrent ≤ d * B := by
+    have hsum : 0 < sNext + sCurrent := add_pos hsNext hsCurrent
+    apply le_of_mul_le_mul_right _ hsum
+    rw [hdiffProduct]
+    exact hproduct
+  have hsNextTarget :
+      Real.sqrt ((p - q + d / 2) ^ 2 / k + 1) = sNext := by
+    dsimp [sNext, x, A]
+    congr 2
+    ring
+  change (q - d) ^ 2 / 2 +
+      Real.sqrt ((p - q + d / 2) ^ 2 / k + 1) ≤
+    q ^ 2 / 2 + sCurrent
+  rw [hsNextTarget]
+  dsimp [B] at hkinetic
+  nlinarith
 
 /-- Explicit positive lower speed attained once scalar momentum has magnitude
 at least one. -/
@@ -459,6 +755,153 @@ theorem gaussianSoftAbsSelection_step_one_coordinates
   · rw [hhalf]
   · rw [hhalf]
     ring
+
+/-- The actual selected Gaussian SoftAbs unit step has nonpositive complete
+Hamiltonian defect on the positive tail and central one-sided momentum event.
+-/
+theorem gaussianSoftAbsSelection_step_one_hamiltonian_le_of_pos
+    (q : Position Unit) (p : Momentum Unit)
+    (hq : 6 ≤ q Unit.unit) (hp0 : 0 ≤ p Unit.unit)
+    (hp1 : p Unit.unit ≤ 1) :
+    generalRelativisticHamiltonian gaussianSoftAbsPotential
+        gaussianSoftAbsMetric 1 1
+        ((gaussianSoftAbsSelection (ι := Unit)).step 1 (q, p)) ≤
+      generalRelativisticHamiltonian gaussianSoftAbsPotential
+        gaussianSoftAbsMetric 1 1 (q, p) := by
+  let q0 := q Unit.unit
+  let p0 := p Unit.unit
+  let k := softAbs 1 1
+  let A := q0 / 2 - p0
+  let s := Real.sqrt (A ^ 2 / k + 1)
+  let d := A / k / s
+  have henergy := gaussianSoftAbsUnit_scalar_energy_decrease
+    q0 p0 hq hp0 hp1
+  change (q0 - d) ^ 2 / 2 +
+      Real.sqrt ((p0 - q0 + d / 2) ^ 2 / k + 1) ≤
+    q0 ^ 2 / 2 + Real.sqrt (p0 ^ 2 / k + 1) at henergy
+  have hhalf : p0 - q0 / 2 = -A := by
+    dsimp [A]
+    ring
+  have hvelocity : gaussianSoftAbsUnitScalarVelocity (p0 - q0 / 2) = -d := by
+    rw [hhalf, gaussianSoftAbsUnitScalarVelocity_neg,
+      gaussianSoftAbsUnitScalarVelocity_eq]
+  have hcoordinates := gaussianSoftAbsSelection_step_one_coordinates q p
+  change
+    (((gaussianSoftAbsSelection (ι := Unit)).step 1 (q, p)).1 Unit.unit,
+      ((gaussianSoftAbsSelection (ι := Unit)).step 1 (q, p)).2 Unit.unit) =
+      (q0 + gaussianSoftAbsUnitScalarVelocity (p0 - q0 / 2),
+        p0 - q0 / 2 -
+          (q0 + gaussianSoftAbsUnitScalarVelocity (p0 - q0 / 2)) / 2)
+    at hcoordinates
+  rw [hvelocity] at hcoordinates
+  have hqcoord := congrArg Prod.fst hcoordinates
+  have hpcoord := congrArg Prod.snd hcoordinates
+  simp only at hqcoord hpcoord
+  rw [gaussianSoftAbsUnit_hamiltonian_eq,
+    gaussianSoftAbsUnit_hamiltonian_eq]
+  rw [hqcoord, hpcoord]
+  have hqalg : q0 + -d = q0 - d := by ring
+  have hpalg : p0 - q0 / 2 - (q0 - d) / 2 =
+      p0 - q0 + d / 2 := by ring
+  rw [hqalg, hpalg]
+  dsimp [q0, p0, k] at henergy ⊢
+  linarith
+
+@[simp]
+theorem gaussianSoftAbsUnit_hamiltonian_neg (z : PhaseSpace Unit) :
+    generalRelativisticHamiltonian gaussianSoftAbsPotential
+        gaussianSoftAbsMetric 1 1 (-z) =
+      generalRelativisticHamiltonian gaussianSoftAbsPotential
+        gaussianSoftAbsMetric 1 1 z := by
+  rw [gaussianSoftAbsUnit_hamiltonian_eq,
+    gaussianSoftAbsUnit_hamiltonian_eq]
+  simp only [Prod.fst_neg, Prod.snd_neg, Pi.neg_apply, neg_sq]
+
+@[simp]
+theorem gaussianSoftAbsSelection_step_one_neg (z : PhaseSpace Unit) :
+    (gaussianSoftAbsSelection (ι := Unit)).step 1 (-z) =
+      -((gaussianSoftAbsSelection (ι := Unit)).step 1 z) := by
+  rw [gaussianSoftAbsSelection_step_eq,
+    gaussianSoftAbsSelection_step_eq]
+  simp only [Prod.fst_neg, Prod.snd_neg, one_div, one_smul]
+  rw [show -z.2 - (2 : ℝ)⁻¹ • -z.1 =
+      -(z.2 - (2 : ℝ)⁻¹ • z.1) by module]
+  rw [gaussianSoftAbsVelocity_odd]
+  apply Prod.ext <;>
+    simp only [Prod.fst_neg, Prod.snd_neg] <;>
+    module
+
+/-- Symmetric nonpositive Hamiltonian defect on the negative tail, using the
+positive-probability momentum event `[-1,0]`. -/
+theorem gaussianSoftAbsSelection_step_one_hamiltonian_le_of_neg
+    (q : Position Unit) (p : Momentum Unit)
+    (hq : q Unit.unit ≤ -6) (hp0 : p Unit.unit ≤ 0)
+    (hp1 : -1 ≤ p Unit.unit) :
+    generalRelativisticHamiltonian gaussianSoftAbsPotential
+        gaussianSoftAbsMetric 1 1
+        ((gaussianSoftAbsSelection (ι := Unit)).step 1 (q, p)) ≤
+      generalRelativisticHamiltonian gaussianSoftAbsPotential
+        gaussianSoftAbsMetric 1 1 (q, p) := by
+  have hpos := gaussianSoftAbsSelection_step_one_hamiltonian_le_of_pos
+    (-q) (-p) (by simpa using neg_le_neg hq)
+      (by simpa using neg_nonneg.mpr hp0) (by simpa using neg_le_neg hp1)
+  rw [show ((-q, -p) : PhaseSpace Unit) = -(q, p) by rfl,
+    gaussianSoftAbsSelection_step_one_neg,
+    gaussianSoftAbsUnit_hamiltonian_neg,
+    gaussianSoftAbsUnit_hamiltonian_neg] at hpos
+  exact hpos
+
+/-- With the current state rooted at index zero, the inward forward endpoint
+on the positive tail receives at least half of the two-point multinomial
+selection mass. -/
+theorem half_le_gaussianSoftAbs_forward_indexProbability_of_pos
+    (q : Position Unit) (p : Momentum Unit)
+    (hq : 6 ≤ q Unit.unit) (hp0 : 0 ≤ p Unit.unit)
+    (hp1 : p Unit.unit ≤ 1) :
+    (2 : ENNReal)⁻¹ ≤
+      orbitIndexProbability
+        (generalRelativisticBoltzmannWeight gaussianSoftAbsPotential
+          gaussianSoftAbsMetric 1 1)
+        (generalizedLeapfrogPerm gaussianSoftAbsSelection
+          gaussianSoftAbsSelection_valid.unique 1)
+        (0 : Fin 2) (1 : Fin 2) (q, p) := by
+  have hbound :=
+    inv_card_exp_le_multinomialGRHMCPhase_indexProbability
+      gaussianSoftAbsPotential gaussianSoftAbsMetric 1 1
+      gaussianSoftAbsSelection gaussianSoftAbsSelection_valid
+      1 (0 : Fin 2) (1 : Fin 2) (q, p) 0 (by
+        intro i
+        fin_cases i
+        · simpa [orbitPoint] using
+            gaussianSoftAbsSelection_step_one_hamiltonian_le_of_pos
+              q p hq hp0 hp1
+        · simp [orbitPoint])
+  simpa using hbound
+
+/-- Symmetric two-point multinomial selection floor on the negative tail. -/
+theorem half_le_gaussianSoftAbs_forward_indexProbability_of_neg
+    (q : Position Unit) (p : Momentum Unit)
+    (hq : q Unit.unit ≤ -6) (hp0 : p Unit.unit ≤ 0)
+    (hp1 : -1 ≤ p Unit.unit) :
+    (2 : ENNReal)⁻¹ ≤
+      orbitIndexProbability
+        (generalRelativisticBoltzmannWeight gaussianSoftAbsPotential
+          gaussianSoftAbsMetric 1 1)
+        (generalizedLeapfrogPerm gaussianSoftAbsSelection
+          gaussianSoftAbsSelection_valid.unique 1)
+        (0 : Fin 2) (1 : Fin 2) (q, p) := by
+  have hbound :=
+    inv_card_exp_le_multinomialGRHMCPhase_indexProbability
+      gaussianSoftAbsPotential gaussianSoftAbsMetric 1 1
+      gaussianSoftAbsSelection gaussianSoftAbsSelection_valid
+      1 (0 : Fin 2) (1 : Fin 2) (q, p) 0 (by
+        intro i
+        fin_cases i
+        · simpa [orbitPoint] using
+            gaussianSoftAbsSelection_step_one_hamiltonian_le_of_neg
+              q p hq hp0 hp1
+        · simp [orbitPoint])
+  simpa using hbound
 
 /-- Symmetric inward movement on the negative half-line. -/
 theorem gaussianSoftAbsSelection_step_one_inward_of_neg
