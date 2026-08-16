@@ -1,13 +1,22 @@
 # Development log
 
+- Closed the bounded interval-level slice factorization. Lean proves that
+  invalid or degenerate interval rows are null under the width-weighted height
+  marginal, that the total interval kernel reconstructs the swapped
+  under-graph law, and that the concrete vertical height marginal equals that
+  width-weighted law. `intervalLevelSliceSampler` is therefore a fully
+  explicit one-dimensional general-state kernel, with a machine-checked proof
+  that it preserves the weighted Lebesgue target. This is an invariance result,
+  not a convergence or mixing theorem. Practical stepping-out/shrinkage still
+  needs a deterministic trace-reversal proof and bounded Float64 refinement.
+
 - Made the variable-interval slice proposal total on the whole real height
   space. `totalVariableIntervalKernel` uses the normalized Lebesgue interval
   row at positive width and an explicit identity fallback otherwise. Lean
   proves the full kernel is Markov by cases and proves exact agreement with
   the normalized restriction on every valid row. Thus bounded targets no
-  longer lack a defined horizontal transition above their maximal height; the
-  remaining factorization step is to show those fallback rows are null under
-  the width-weighted height marginal.
+  longer lack a defined horizontal transition above their maximal height. The
+  null-fallback factorization is now discharged by the newer result above.
 
 - Proved the first explicit continuous interval-level slice factorization.
   Swapping a measurable density over a product measure now transports the
@@ -16,8 +25,7 @@
   its normalized uniform horizontal draw reconstructs the swapped under-graph
   measure whenever the superlevel sets are those intervals. The current
   initial factorization theorem assumes every indexed interval is strictly
-  nonempty; the newly constructed total fallback kernel is the endpoint needed
-  to remove that restriction.
+  nonempty; the total fallback theorem above removes that restriction.
 
 - Added the missing continuous bracket primitive for formal stepping-out:
   `variableIntervalKernel` samples uniformly from a measurable input-dependent

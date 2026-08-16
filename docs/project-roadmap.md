@@ -156,7 +156,10 @@ The pre-Xu dependency order is:
    complete;
 4. measurable uniform-under-the-graph and level-set kernels for a concrete
    exact slice sampler -- complete for finite under-graph measures on nonempty
-   standard Borel state spaces via the disintegrated horizontal conditional;
+   standard Borel state spaces via the disintegrated horizontal conditional,
+   and complete constructively on the real line when all superlevel sets are
+   measurable nonnegative-width intervals (including null empty-level
+   fallback rows);
 5. tagged disjoint-union reference measures and transport-density certificates
    for reversible-jump MH -- complete at the abstract level and instantiated
    by a zero-to-one-dimensional Euclidean birth/death move with a checked
@@ -358,14 +361,14 @@ breadth branches are:
   primitive is now concrete: Lean constructs a Markov kernel uniform on any
   measurable input-dependent strictly ordered interval and proves exact
   normalization and bracket support. The corresponding width-weighted height
-  measure is now proved to factor exactly into the swapped under-graph law
-  when all superlevel intervals are strictly nonempty. The horizontal kernel
-  is now total as well: zero/negative-width heights use an identity fallback,
-  while every valid row is proved equal to normalized restricted Lebesgue
-  measure. Showing the fallback region has zero width-weighted height mass is
-  the remaining step for bounded targets. Proving each deterministic guarded Julia
-  expansion/shrinkage section satisfies the resulting joint-preservation
-  premise, plus its Float64 refinement, then remains;
+  measure is proved to factor exactly into the swapped under-graph law. The
+  horizontal kernel is total: zero/negative-width heights use an identity
+  fallback, every valid row is normalized restricted Lebesgue measure, and
+  fallback rows are proved null under every nonnegative-width height law.
+  Lean now combines this with the concrete vertical kernel to construct an
+  explicit invariant interval-level sampler for bounded real targets. Proving
+  each deterministic guarded Julia expansion/shrinkage section satisfies the
+  resulting joint-preservation premise, plus its Float64 refinement, remains;
 - reversible-jump transports beyond the checked scalar and planar
   birth/death scaling clients. Product transport-density certificates now
   compose recursively and instantiate a three-dimensional scaling transport;

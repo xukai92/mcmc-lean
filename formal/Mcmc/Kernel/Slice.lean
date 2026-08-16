@@ -383,6 +383,135 @@ theorem totalVariableIntervalKernel_apply_of_lt
       simp [variableIntervalDensity, hx],
     withDensity_indicator measurableSet_Ioc, withDensity_const]
 
+/-- Zero-width fallback parameters are null under the interval-width height
+measure, provided endpoint order never reverses. -/
+theorem intervalHeightMeasure_invalid_zero
+    (lower upper : ℝ → ℝ) (hlower : Measurable lower)
+    (hupper : Measurable upper) (hle : ∀ parameter, lower parameter ≤ upper parameter) :
+    intervalHeightMeasure lower upper
+        (validVariableIntervalSet lower upper)ᶜ = 0 := by
+  rw [intervalHeightMeasure,
+    withDensity_apply _
+      (measurableSet_validVariableIntervalSet hlower hupper).compl]
+  rw [← lintegral_indicator
+    (measurableSet_validVariableIntervalSet hlower hupper).compl]
+  have hzero :
+      (validVariableIntervalSet lower upper)ᶜ.indicator
+          (intervalHeightDensity lower upper) = 0 := by
+    funext parameter
+    by_cases hvalid : parameter ∈ validVariableIntervalSet lower upper
+    · simp [Set.indicator, hvalid]
+    · have heq : upper parameter - lower parameter = 0 := by
+        have hnotlt : ¬ lower parameter < upper parameter := hvalid
+        linarith [hle parameter]
+      simp [Set.indicator, hvalid, intervalHeightDensity, heq]
+  rw [hzero]
+  simp
+
+/-- Under the width-weighted height law, the total fallback kernel agrees
+almost everywhere with the raw interval-density kernel. -/
+theorem totalVariableIntervalKernel_ae_eq_withDensity
+    (lower upper : ℝ → ℝ) (hlower : Measurable lower)
+    (hupper : Measurable upper) (hle : ∀ parameter, lower parameter ≤ upper parameter) :
+    totalVariableIntervalKernel lower upper hlower hupper =ᵐ[
+      intervalHeightMeasure lower upper]
+      (Kernel.const ℝ (volume : Measure ℝ)).withDensity
+        (variableIntervalDensity lower upper) := by
+  classical
+  show ∀ᵐ parameter ∂intervalHeightMeasure lower upper,
+    totalVariableIntervalKernel lower upper hlower hupper parameter =
+      ((Kernel.const ℝ (volume : Measure ℝ)).withDensity
+        (variableIntervalDensity lower upper)) parameter
+  rw [ae_iff]
+  apply measure_mono_null
+    (t := (validVariableIntervalSet lower upper)ᶜ)
+  · intro parameter hne
+    by_contra hnotInvalid
+    have hvalid : parameter ∈ validVariableIntervalSet lower upper := by
+      simpa using hnotInvalid
+    apply hne
+    rw [totalVariableIntervalKernel, Kernel.piecewise_apply, if_pos hvalid]
+  · exact intervalHeightMeasure_invalid_zero lower upper hlower hupper hle
+
+/-- With nonnegative widths, the raw interval-density kernel is s-finite even
+though its zero-width rows need not be probability measures. -/
+theorem variableIntervalDensity_ne_top
+    (lower upper : ℝ → ℝ) :
+    ∀ parameter state, variableIntervalDensity lower upper parameter state ≠ ∞ := by
+  intro parameter state
+  by_cases hmem : state ∈ Ioc (lower parameter) (upper parameter)
+  · simp only [variableIntervalDensity, hmem, if_true]
+    rw [ENNReal.inv_ne_top]
+    exact ENNReal.ofReal_ne_zero_iff.mpr
+      (sub_pos.mpr (lt_of_lt_of_le hmem.1 hmem.2))
+  · simp [variableIntervalDensity, hmem]
+
+/-- Width cancellation remains valid for merely nonnegative interval widths
+when the raw density kernel is used. Empty rows contribute zero mass. -/
+theorem compProd_intervalHeightMeasure_withDensity
+    (lower upper : ℝ → ℝ) (hlower : Measurable lower)
+    (hupper : Measurable upper) :
+    intervalHeightMeasure lower upper ⊗ₘ
+        ((Kernel.const ℝ (volume : Measure ℝ)).withDensity
+          (variableIntervalDensity lower upper)) =
+      ((volume : Measure ℝ).prod volume).withDensity (fun p : ℝ × ℝ ↦
+        if p.2 ∈ Ioc (lower p.1) (upper p.1) then 1 else 0) := by
+  let raw := (Kernel.const ℝ (volume : Measure ℝ)).withDensity
+    (variableIntervalDensity lower upper)
+  letI : IsSFiniteKernel raw :=
+    Kernel.IsSFiniteKernel.withDensity (Kernel.const ℝ (volume : Measure ℝ))
+      (variableIntervalDensity_ne_top lower upper)
+  let intervalDensity : ℝ × ℝ → ENNReal := fun p ↦
+    if p.2 ∈ Ioc (lower p.1) (upper p.1) then 1 else 0
+  unfold intervalHeightMeasure
+  change (volume.withDensity (intervalHeightDensity lower upper)) ⊗ₘ raw = _
+  rw [Measure.compProd_withDensity
+    (measurable_uncurry_variableIntervalDensity hlower hupper),
+    Measure.compProd_const,
+    prod_withDensity_left (measurable_intervalHeightDensity hlower hupper),
+    ← withDensity_mul]
+  · congr 1
+    funext p
+    change intervalHeightDensity lower upper p.1 *
+        variableIntervalDensity lower upper p.1 p.2 = intervalDensity p
+    by_cases hp : p.2 ∈ Ioc (lower p.1) (upper p.1)
+    · have hlt : lower p.1 < upper p.1 := lt_of_lt_of_le hp.1 hp.2
+      simp only [intervalHeightDensity, variableIntervalDensity, hp,
+        if_true, intervalDensity]
+      exact ENNReal.mul_inv_cancel
+        (ENNReal.ofReal_ne_zero_iff.mpr (sub_pos.mpr hlt))
+        ENNReal.ofReal_ne_top
+    · change intervalHeightDensity lower upper p.1 *
+          (if p.2 ∈ Ioc (lower p.1) (upper p.1) then
+            (ENNReal.ofReal (upper p.1 - lower p.1))⁻¹ else 0) =
+          (if p.2 ∈ Ioc (lower p.1) (upper p.1) then 1 else 0)
+      rw [if_neg hp, if_neg hp, mul_zero]
+  · exact (measurable_intervalHeightDensity hlower hupper).comp measurable_fst
+  · exact measurable_uncurry_variableIntervalDensity hlower hupper
+
+/-- The total fallback kernel has the same width-cancellation factorization:
+fallback rows occur only on a null set of the height marginal. -/
+theorem compProd_intervalHeightMeasure_totalVariableIntervalKernel
+    (lower upper : ℝ → ℝ) (hlower : Measurable lower)
+    (hupper : Measurable upper)
+    (hle : ∀ parameter, lower parameter ≤ upper parameter) :
+    intervalHeightMeasure lower upper ⊗ₘ
+        totalVariableIntervalKernel lower upper hlower hupper =
+      ((volume : Measure ℝ).prod volume).withDensity (fun p : ℝ × ℝ ↦
+        if p.2 ∈ Ioc (lower p.1) (upper p.1) then 1 else 0) := by
+  let raw := (Kernel.const ℝ (volume : Measure ℝ)).withDensity
+    (variableIntervalDensity lower upper)
+  letI : IsSFiniteKernel raw :=
+    Kernel.IsSFiniteKernel.withDensity (Kernel.const ℝ (volume : Measure ℝ))
+      (variableIntervalDensity_ne_top lower upper)
+  calc
+    _ = intervalHeightMeasure lower upper ⊗ₘ raw :=
+      Measure.compProd_congr
+        (totalVariableIntervalKernel_ae_eq_withDensity
+          lower upper hlower hupper hle)
+    _ = _ := compProd_intervalHeightMeasure_withDensity
+      lower upper hlower hupper
+
 /-- Indicator density of the region under the graph of `weight`, in
 state--height coordinate order. -/
 noncomputable def sliceUnderGraphDensity (weight : State → ℝ)
@@ -431,6 +560,29 @@ theorem compProd_intervalKernel_eq_map_swap_sliceUnderGraph
         variableIntervalKernel lower upper hlower hupper hordered =
       (sliceUnderGraph volume weight).map Prod.swap := by
   rw [compProd_intervalHeightMeasure_variableIntervalKernel lower upper
+    hlower hupper hordered,
+    map_swap_sliceUnderGraph volume weight hweight]
+  congr 1
+  funext p
+  simp only [sliceUnderGraphDensity, Function.comp_apply]
+  rw [if_congr (hlevel p.1 p.2) rfl rfl]
+  rfl
+
+/-- Nonnegative-width interval level sets reconstruct the swapped under-graph
+measure using the total interval kernel. Degenerate rows use the identity
+fallback, but have zero mass under the height marginal. -/
+theorem compProd_totalIntervalKernel_eq_map_swap_sliceUnderGraph
+    (weight lower upper : ℝ → ℝ)
+    (hweight : Measurable weight) (hlower : Measurable lower)
+    (hupper : Measurable upper)
+    (hordered : ∀ height, lower height ≤ upper height)
+    (hlevel : ∀ height state,
+      state ∈ Ioc (lower height) (upper height) ↔
+        height ∈ Ioc 0 (weight state)) :
+    intervalHeightMeasure lower upper ⊗ₘ
+        totalVariableIntervalKernel lower upper hlower hupper =
+      (sliceUnderGraph volume weight).map Prod.swap := by
+  rw [compProd_intervalHeightMeasure_totalVariableIntervalKernel lower upper
     hlower hupper hordered,
     map_swap_sliceUnderGraph volume weight hweight]
   congr 1
@@ -488,6 +640,33 @@ theorem auxiliaryFirstJoint_sliceHeightKernel
       (sliceUnderGraph base weight).map Prod.swap := by
   rw [auxiliaryFirstJoint,
     compProd_sliceHeightKernel_eq_sliceUnderGraph base weight hweight hpositive]
+
+/-- For interval superlevel sets, the vertical slice-height marginal is the
+explicit width-weighted height measure. -/
+theorem sliceHeightKernel_comp_weightedVolume_eq_intervalHeightMeasure
+    (weight lower upper : ℝ → ℝ)
+    (hweight : Measurable weight) (hlower : Measurable lower)
+    (hupper : Measurable upper) (hpositive : ∀ x, 0 < weight x)
+    (hordered : ∀ height, lower height ≤ upper height)
+    (hlevel : ∀ height state,
+      state ∈ Ioc (lower height) (upper height) ↔
+        height ∈ Ioc 0 (weight state)) :
+    sliceHeightKernel weight hweight hpositive ∘ₘ
+        (volume : Measure ℝ).withDensity
+          (fun x => ENNReal.ofReal (weight x)) =
+      intervalHeightMeasure lower upper := by
+  letI : SFinite (intervalHeightMeasure lower upper) := by
+    unfold intervalHeightMeasure
+    infer_instance
+  have hvertical := congrArg Measure.snd
+    (compProd_sliceHeightKernel_eq_sliceUnderGraph
+      (volume : Measure ℝ) weight hweight hpositive)
+  rw [Measure.snd_compProd] at hvertical
+  have hhorizontal := congrArg Measure.fst
+    (compProd_totalIntervalKernel_eq_map_swap_sliceUnderGraph
+      weight lower upper hweight hlower hupper hordered hlevel)
+  rw [Measure.fst_compProd, Measure.fst_map_swap] at hhorizontal
+  exact hvertical.trans hhorizontal.symm
 
 /-- The measurable horizontal level-set update obtained by disintegrating the
 finite under-the-graph measure in height--state order.  On heights with
@@ -573,6 +752,40 @@ theorem exactSliceSampler_invariant_underGraph
       weight hweight hpositive horizontal
   rw [auxiliaryFirstJoint_sliceHeightKernel base weight hweight hpositive]
   exact hhorizontal
+
+/-- Fully explicit exact slice sampler for a one-dimensional target whose
+superlevel sets are measurable intervals. Empty level sets use the total
+kernel's identity fallback; those rows have zero height-marginal mass. -/
+noncomputable def intervalLevelSliceSampler
+    (weight lower upper : ℝ → ℝ)
+    (hweight : Measurable weight) (hlower : Measurable lower)
+    (hupper : Measurable upper) (hpositive : ∀ x, 0 < weight x) :
+    Kernel ℝ ℝ :=
+  exactSliceSampler weight hweight hpositive
+    (totalVariableIntervalKernel lower upper hlower hupper)
+
+/-- The explicit interval-level slice sampler preserves the unnormalized
+weighted Lebesgue target. This is stationarity only; it does not assert
+irreducibility, convergence, or a mixing rate. -/
+theorem intervalLevelSliceSampler_invariant
+    (weight lower upper : ℝ → ℝ)
+    (hweight : Measurable weight) (hlower : Measurable lower)
+    (hupper : Measurable upper) (hpositive : ∀ x, 0 < weight x)
+    (hordered : ∀ height, lower height ≤ upper height)
+    (hlevel : ∀ height state,
+      state ∈ Ioc (lower height) (upper height) ↔
+        height ∈ Ioc 0 (weight state)) :
+    (intervalLevelSliceSampler weight lower upper hweight hlower hupper
+      hpositive).Invariant
+        ((volume : Measure ℝ).withDensity
+          (fun x => ENNReal.ofReal (weight x))) := by
+  apply exactSliceSampler_invariant_underGraph
+    (volume : Measure ℝ) weight hweight hpositive
+      (totalVariableIntervalKernel lower upper hlower hupper)
+  rw [sliceHeightKernel_comp_weightedVolume_eq_intervalHeightMeasure
+    weight lower upper hweight hlower hupper hpositive hordered hlevel]
+  exact (compProd_totalIntervalKernel_eq_map_swap_sliceUnderGraph
+    weight lower upper hweight hlower hupper hordered hlevel).symm
 
 /-- Slice update whose horizontal transition may depend on both the sampled
 height and current state. This is the appropriate exact-kernel interface for

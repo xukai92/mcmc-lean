@@ -396,9 +396,12 @@ joint measure. The measurable uniform vertical-height kernel and its exact
 Lebesgue-under-the-graph joint identity are also machine checked. For a finite
 under-graph measure on a nonempty standard Borel state space, mathlib
 disintegration now supplies a measurable horizontal conditional and Lean
-proves invariance of the resulting exact slice sampler. Stepping-out/shrinkage
-and doubling are subsequent trace-reversal
-targets. Crumb, reflective, and multivariate variants can wait. This completed
+proves invariance of the resulting exact slice sampler. On the real line,
+measurable interval endpoints for all superlevel sets now give a fully explicit
+total uniform horizontal kernel; null empty-level rows are handled without a
+strict-width assumption, and Lean proves invariance of the resulting weighted-
+Lebesgue sampler. Stepping-out/shrinkage and doubling are subsequent trace-
+reversal targets. Crumb, reflective, and multivariate variants can wait. This completed
 invariance interface does not by itself imply slice-chain convergence.
 
 ### Geyer (1991): Metropolis-coupled MCMC / parallel tempering -- P1
