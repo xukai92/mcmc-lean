@@ -106,6 +106,237 @@ noncomputable abbrev gaussianSoftAbsMultinomialTransition (ε : ℝ) (L : ℕ) :
       (by norm_num) (by norm_num)
       (measurable_gaussianHessianDiagonal (ι := ι))) ε L
 
+/-- Common refreshed-momentum probability of the one-sided interval `(0,1)`
+used by the positive Gaussian tail certificate. -/
+noncomputable def gaussianSoftAbsPositiveMomentumMass : ENNReal :=
+  (riemannianRelativisticMomentumProbability
+    (gaussianSoftAbsMetric (ι := Unit)) 1 1 (by norm_num) (by norm_num) 0 :
+      Measure (Momentum Unit))
+    {p | 0 < p Unit.unit ∧ p Unit.unit < 1}
+
+theorem gaussianSoftAbsPositiveMomentumMass_pos :
+    0 < gaussianSoftAbsPositiveMomentumMass := by
+  exact gaussianSoftAbsMomentumProbability_unit_Ioo_pos (by norm_num)
+
+/-- Common refreshed-momentum probability of the symmetric one-sided
+interval `(-1,0)`. -/
+noncomputable def gaussianSoftAbsNegativeMomentumMass : ENNReal :=
+  (riemannianRelativisticMomentumProbability
+    (gaussianSoftAbsMetric (ι := Unit)) 1 1 (by norm_num) (by norm_num) 0 :
+      Measure (Momentum Unit))
+    {p | -1 < p Unit.unit ∧ p Unit.unit < 0}
+
+theorem gaussianSoftAbsNegativeMomentumMass_pos :
+    0 < gaussianSoftAbsNegativeMomentumMass := by
+  exact gaussianSoftAbsMomentumProbability_unit_Ioo_pos (by norm_num)
+
+/-- The actual refreshed, random-origin, two-point position transition has a
+uniform positive probability of moving inward by the certified distance on
+the positive Gaussian tail. -/
+theorem gaussianSoftAbsPositiveMomentumMass_mul_quarter_le_inward
+    (q : Position Unit) (hq : 6 ≤ q Unit.unit) :
+    gaussianSoftAbsPositiveMomentumMass * (4 : ENNReal)⁻¹ ≤
+      gaussianSoftAbsMultinomialTransition 1 1 q
+        {y | y Unit.unit ≤
+          q Unit.unit - gaussianSoftAbsUnitMinSpeed} := by
+  let momentumSet : Set (Momentum Unit) :=
+    {p | 0 < p Unit.unit ∧ p Unit.unit < 1}
+  let inward : Set (Position Unit) :=
+    {y | y Unit.unit ≤ q Unit.unit - gaussianSoftAbsUnitMinSpeed}
+  let momentumKernel := riemannianMomentumKernel
+    (gaussianSoftAbsMetric (ι := Unit)) 1 1 (by norm_num) (by norm_num)
+    (diagonalSoftAbs_isMeasurableRiemannianMomentumFamily
+      1 (by norm_num) (gaussianHessianDiagonal (ι := Unit)) 1 1
+      (by norm_num) (by norm_num)
+      (measurable_gaussianHessianDiagonal (ι := Unit)))
+  have hmomentumSet : MeasurableSet momentumSet :=
+    (measurableSet_lt measurable_const (measurable_pi_apply _)).inter
+      (measurableSet_lt (measurable_pi_apply _) measurable_const)
+  have hinward : MeasurableSet inward :=
+    measurableSet_le (measurable_pi_apply _) measurable_const
+  have hmomentum : momentumKernel q momentumSet =
+      gaussianSoftAbsPositiveMomentumMass := by
+    dsimp [momentumKernel, gaussianSoftAbsPositiveMomentumMass,
+      riemannianMomentumKernel]
+    rw [gaussianSoftAbsMomentumProbability_eq_zero]
+  rw [← lintegral_indicator_one hinward]
+  change gaussianSoftAbsPositiveMomentumMass * (4 : ENNReal)⁻¹ ≤
+    ∫⁻ y, inward.indicator (fun _ => (1 : ENNReal)) y
+      ∂positionMultinomialGRHMC gaussianSoftAbsPotential
+        gaussianSoftAbsMetric 1 1 (by norm_num) (by norm_num)
+        gaussianSoftAbsSelection gaussianSoftAbsSelection_valid
+        (measurable_diagonalSoftAbs_generalRelativisticHamiltonian
+          gaussianSoftAbsPotential measurable_gaussianSoftAbsPotential
+          1 (by norm_num) gaussianHessianDiagonal
+          measurable_gaussianHessianDiagonal 1 1)
+        (diagonalSoftAbs_isMeasurableRiemannianMomentumFamily
+          1 (by norm_num) gaussianHessianDiagonal 1 1
+          (by norm_num) (by norm_num) measurable_gaussianHessianDiagonal)
+        1 1 q
+  rw [lintegral_positionMultinomialGRHMC
+    gaussianSoftAbsPotential gaussianSoftAbsMetric 1 1
+    (by norm_num) (by norm_num) gaussianSoftAbsSelection
+    gaussianSoftAbsSelection_valid
+    (measurable_diagonalSoftAbs_generalRelativisticHamiltonian
+      gaussianSoftAbsPotential measurable_gaussianSoftAbsPotential
+      1 (by norm_num) gaussianHessianDiagonal
+      measurable_gaussianHessianDiagonal 1 1)
+    (diagonalSoftAbs_isMeasurableRiemannianMomentumFamily
+      1 (by norm_num) gaussianHessianDiagonal 1 1
+      (by norm_num) (by norm_num) measurable_gaussianHessianDiagonal)
+    1 1 (inward.indicator fun _ => (1 : ENNReal))
+    (measurable_const.indicator hinward) q]
+  change gaussianSoftAbsPositiveMomentumMass * (4 : ENNReal)⁻¹ ≤
+    ∫⁻ p, ∫⁻ z, inward.indicator (fun _ => (1 : ENNReal)) z.1
+      ∂gaussianSoftAbsPhaseTransition 1 1 (q, p) ∂momentumKernel q
+  calc
+    gaussianSoftAbsPositiveMomentumMass * (4 : ENNReal)⁻¹ =
+        ∫⁻ p, momentumSet.indicator (fun _ => (4 : ENNReal)⁻¹) p
+          ∂momentumKernel q := by
+      rw [lintegral_indicator_const hmomentumSet, hmomentum]
+      ac_rfl
+    _ ≤ _ := by
+      apply lintegral_mono
+      intro p
+      by_cases hp : p ∈ momentumSet
+      · rw [Set.indicator_of_mem hp]
+        change (4 : ENNReal)⁻¹ ≤
+          ∫⁻ z, (Prod.fst ⁻¹' inward).indicator
+            (1 : PhaseSpace Unit → ENNReal) z
+            ∂gaussianSoftAbsPhaseTransition 1 1 (q, p)
+        rw [lintegral_indicator_one (measurable_fst hinward)]
+        exact quarter_le_gaussianSoftAbsPhaseTransition_inward_of_pos
+          q p hq hp.1.le hp.2.le
+      · simp [Set.indicator, hp]
+
+/-- Symmetric refreshed position-transition inward probability on the
+negative Gaussian tail. -/
+theorem gaussianSoftAbsNegativeMomentumMass_mul_quarter_le_inward
+    (q : Position Unit) (hq : q Unit.unit ≤ -6) :
+    gaussianSoftAbsNegativeMomentumMass * (4 : ENNReal)⁻¹ ≤
+      gaussianSoftAbsMultinomialTransition 1 1 q
+        {y | q Unit.unit + gaussianSoftAbsUnitMinSpeed ≤ y Unit.unit} := by
+  let momentumSet : Set (Momentum Unit) :=
+    {p | -1 < p Unit.unit ∧ p Unit.unit < 0}
+  let inward : Set (Position Unit) :=
+    {y | q Unit.unit + gaussianSoftAbsUnitMinSpeed ≤ y Unit.unit}
+  let momentumKernel := riemannianMomentumKernel
+    (gaussianSoftAbsMetric (ι := Unit)) 1 1 (by norm_num) (by norm_num)
+    (diagonalSoftAbs_isMeasurableRiemannianMomentumFamily
+      1 (by norm_num) (gaussianHessianDiagonal (ι := Unit)) 1 1
+      (by norm_num) (by norm_num)
+      (measurable_gaussianHessianDiagonal (ι := Unit)))
+  have hmomentumSet : MeasurableSet momentumSet :=
+    (measurableSet_lt measurable_const (measurable_pi_apply _)).inter
+      (measurableSet_lt (measurable_pi_apply _) measurable_const)
+  have hinward : MeasurableSet inward :=
+    measurableSet_le measurable_const (measurable_pi_apply _)
+  have hmomentum : momentumKernel q momentumSet =
+      gaussianSoftAbsNegativeMomentumMass := by
+    dsimp [momentumKernel, gaussianSoftAbsNegativeMomentumMass,
+      riemannianMomentumKernel]
+    rw [gaussianSoftAbsMomentumProbability_eq_zero]
+  rw [← lintegral_indicator_one hinward]
+  change gaussianSoftAbsNegativeMomentumMass * (4 : ENNReal)⁻¹ ≤
+    ∫⁻ y, inward.indicator (fun _ => (1 : ENNReal)) y
+      ∂positionMultinomialGRHMC gaussianSoftAbsPotential
+        gaussianSoftAbsMetric 1 1 (by norm_num) (by norm_num)
+        gaussianSoftAbsSelection gaussianSoftAbsSelection_valid
+        (measurable_diagonalSoftAbs_generalRelativisticHamiltonian
+          gaussianSoftAbsPotential measurable_gaussianSoftAbsPotential
+          1 (by norm_num) gaussianHessianDiagonal
+          measurable_gaussianHessianDiagonal 1 1)
+        (diagonalSoftAbs_isMeasurableRiemannianMomentumFamily
+          1 (by norm_num) gaussianHessianDiagonal 1 1
+          (by norm_num) (by norm_num) measurable_gaussianHessianDiagonal)
+        1 1 q
+  rw [lintegral_positionMultinomialGRHMC
+    gaussianSoftAbsPotential gaussianSoftAbsMetric 1 1
+    (by norm_num) (by norm_num) gaussianSoftAbsSelection
+    gaussianSoftAbsSelection_valid
+    (measurable_diagonalSoftAbs_generalRelativisticHamiltonian
+      gaussianSoftAbsPotential measurable_gaussianSoftAbsPotential
+      1 (by norm_num) gaussianHessianDiagonal
+      measurable_gaussianHessianDiagonal 1 1)
+    (diagonalSoftAbs_isMeasurableRiemannianMomentumFamily
+      1 (by norm_num) gaussianHessianDiagonal 1 1
+      (by norm_num) (by norm_num) measurable_gaussianHessianDiagonal)
+    1 1 (inward.indicator fun _ => (1 : ENNReal))
+    (measurable_const.indicator hinward) q]
+  change gaussianSoftAbsNegativeMomentumMass * (4 : ENNReal)⁻¹ ≤
+    ∫⁻ p, ∫⁻ z, inward.indicator (fun _ => (1 : ENNReal)) z.1
+      ∂gaussianSoftAbsPhaseTransition 1 1 (q, p) ∂momentumKernel q
+  calc
+    gaussianSoftAbsNegativeMomentumMass * (4 : ENNReal)⁻¹ =
+        ∫⁻ p, momentumSet.indicator (fun _ => (4 : ENNReal)⁻¹) p
+          ∂momentumKernel q := by
+      rw [lintegral_indicator_const hmomentumSet, hmomentum]
+      ac_rfl
+    _ ≤ _ := by
+      apply lintegral_mono
+      intro p
+      by_cases hp : p ∈ momentumSet
+      · rw [Set.indicator_of_mem hp]
+        change (4 : ENNReal)⁻¹ ≤
+          ∫⁻ z, (Prod.fst ⁻¹' inward).indicator
+            (1 : PhaseSpace Unit → ENNReal) z
+            ∂gaussianSoftAbsPhaseTransition 1 1 (q, p)
+        rw [lintegral_indicator_one (measurable_fst hinward)]
+        exact quarter_le_gaussianSoftAbsPhaseTransition_inward_of_neg
+          q p hq hp.2.le hp.1.le
+      · simp [Set.indicator, hp]
+
+/-- Momentum refresh and multinomial selection preserve the relativistic
+finite-speed support bound: the user-facing position kernel moves by less
+than one almost surely. -/
+theorem gaussianSoftAbsMultinomialTransition_unit_position_support
+    (q : Position Unit) :
+    gaussianSoftAbsMultinomialTransition 1 1 q
+      {y | |y Unit.unit - q Unit.unit| < 1} = 1 := by
+  let support : Set (Position Unit) :=
+    {y | |y Unit.unit - q Unit.unit| < 1}
+  have hsupport : MeasurableSet support := by
+    exact measurableSet_lt
+      (((measurable_pi_apply Unit.unit).sub measurable_const).abs)
+      measurable_const
+  rw [← lintegral_indicator_one hsupport]
+  change (∫⁻ y, support.indicator (fun _ => (1 : ENNReal)) y
+      ∂positionMultinomialGRHMC gaussianSoftAbsPotential
+        gaussianSoftAbsMetric 1 1 (by norm_num) (by norm_num)
+        gaussianSoftAbsSelection gaussianSoftAbsSelection_valid
+        (measurable_diagonalSoftAbs_generalRelativisticHamiltonian
+          gaussianSoftAbsPotential measurable_gaussianSoftAbsPotential
+          1 (by norm_num) gaussianHessianDiagonal
+          measurable_gaussianHessianDiagonal 1 1)
+        (diagonalSoftAbs_isMeasurableRiemannianMomentumFamily
+          1 (by norm_num) gaussianHessianDiagonal 1 1
+          (by norm_num) (by norm_num) measurable_gaussianHessianDiagonal)
+        1 1 q) = 1
+  rw [lintegral_positionMultinomialGRHMC
+    gaussianSoftAbsPotential gaussianSoftAbsMetric 1 1
+    (by norm_num) (by norm_num) gaussianSoftAbsSelection
+    gaussianSoftAbsSelection_valid
+    (measurable_diagonalSoftAbs_generalRelativisticHamiltonian
+      gaussianSoftAbsPotential measurable_gaussianSoftAbsPotential
+      1 (by norm_num) gaussianHessianDiagonal
+      measurable_gaussianHessianDiagonal 1 1)
+    (diagonalSoftAbs_isMeasurableRiemannianMomentumFamily
+      1 (by norm_num) gaussianHessianDiagonal 1 1
+      (by norm_num) (by norm_num) measurable_gaussianHessianDiagonal)
+    1 1 (support.indicator fun _ => (1 : ENNReal))
+    (measurable_const.indicator hsupport) q]
+  simp_rw [show (fun z : PhaseSpace Unit =>
+      support.indicator (fun _ => (1 : ENNReal)) z.1) =
+      (Prod.fst ⁻¹' support).indicator (1 : PhaseSpace Unit → ENNReal) by rfl]
+  simp_rw [lintegral_indicator_one (measurable_fst hsupport)]
+  have hphase (p : Momentum Unit) :
+      gaussianSoftAbsPhaseTransition 1 1 (q, p)
+        (Prod.fst ⁻¹' support) = 1 := by
+    simpa [support] using
+      gaussianSoftAbsPhaseTransition_unit_position_support q p
+  simp_rw [hphase]
+  simp
+
 /-- The bare Gaussian SoftAbs transition is identity at trajectory length
 zero. Consequently any convergence theorem for the unaugmented sampler must
 assume a genuinely positive, nondegenerate trajectory regime. -/

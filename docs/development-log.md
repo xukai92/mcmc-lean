@@ -2669,3 +2669,18 @@ the inward endpoint has at least one half of the two-point multinomial
 selection probability.  Remaining work for bare-kernel convergence is to
 integrate this pointwise floor through random-origin selection and momentum
 refresh, then turn it into a Lyapunov drift/minorization certificate.
+
+## 2026-08-16: bare Gaussian SoftAbs kernel tail events
+
+Propagated the endpoint correction through the actual algorithmic kernels.
+A reusable orbit lemma lower-bounds the full random-origin kernel by any one
+origin/selection branch, and another proves probability one for events
+containing every orbit point.  A new nested-integral theorem exposes the exact
+momentum-refresh semantics of position-space multinomial GR-HMC.  Using these
+bridges, Lean proves that the concrete `ε=1`, `L=1` position sampler has a
+strictly positive, position-uniform probability of moving inward by the
+certified SoftAbs distance on each tail.  It also proves the relativistic
+finite-speed fact that every output lies within one position unit of its
+input almost surely.  The remaining bare-kernel convergence obligation is an
+asymptotic drift/minorization argument; the current results do not yet claim
+ergodicity by themselves.

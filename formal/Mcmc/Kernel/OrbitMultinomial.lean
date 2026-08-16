@@ -246,6 +246,103 @@ theorem orbitMultinomialKernel_apply_set
   simp only [Measure.smul_apply, Measure.dirac_apply' _ hs, smul_eq_mul]
   congr 1
 
+/-- Any one ordered origin/selection branch gives a pointwise lower bound on
+the full random-origin orbit kernel whenever its endpoint lies in the event.
+-/
+theorem uniform_mul_indexProbability_le_orbitMultinomialKernel_apply
+    (weight : α → ENNReal) (T : Equiv.Perm α) {L : ℕ}
+    (hweight0 : ∀ z, weight z ≠ 0) (hweightTop : ∀ z, weight z ≠ ∞)
+    (hweight : Measurable weight) (hT : Measurable T)
+    (hTinv : Measurable T.symm) (origin selected : Fin (L + 1))
+    (z : α) {s : Set α} (hs : MeasurableSet s)
+    (hmem : orbitPoint T origin z selected ∈ s) :
+    PMF.uniformOfFintype (Fin (L + 1)) origin *
+        orbitIndexProbability weight T origin selected z ≤
+      orbitMultinomialKernel weight T L hweight0 hweightTop hweight hT hTinv
+        z s := by
+  rw [orbitMultinomialKernel_apply_set weight T L hweight0 hweightTop
+    hweight hT hTinv z s hs]
+  have hselected :
+      orbitIndexProbability weight T origin selected z ≤
+        ∑ i : Fin (L + 1),
+          orbitIndexProbability weight T origin i z *
+            s.indicator (fun _ : α => (1 : ENNReal))
+              (orbitPoint T origin z i) := by
+    have hsingle := Finset.single_le_sum
+      (s := Finset.univ)
+      (f := fun i : Fin (L + 1) =>
+        orbitIndexProbability weight T origin i z *
+          s.indicator (fun _ : α => (1 : ENNReal))
+            (orbitPoint T origin z i))
+      (fun _ _ => bot_le) (Finset.mem_univ selected)
+    simpa [Set.indicator_of_mem hmem] using hsingle
+  calc
+    PMF.uniformOfFintype (Fin (L + 1)) origin *
+        orbitIndexProbability weight T origin selected z ≤
+      PMF.uniformOfFintype (Fin (L + 1)) origin *
+        ∑ i : Fin (L + 1),
+          orbitIndexProbability weight T origin i z *
+            s.indicator (fun _ : α => (1 : ENNReal))
+              (orbitPoint T origin z i) := by gcongr
+    _ ≤ _ := Finset.single_le_sum
+      (s := Finset.univ)
+      (f := fun o : Fin (L + 1) =>
+        PMF.uniformOfFintype (Fin (L + 1)) o *
+          ∑ i : Fin (L + 1),
+            orbitIndexProbability weight T o i z *
+              s.indicator (fun _ : α => (1 : ENNReal))
+                (orbitPoint T o z i))
+      (fun _ _ => bot_le) (Finset.mem_univ origin)
+
+/-- If every point in the finite orbit belongs to an event, the orbit kernel
+assigns that event probability one. -/
+theorem orbitMultinomialKernel_apply_eq_one_of_forall_mem
+    (weight : α → ENNReal) (T : Equiv.Perm α) (L : ℕ)
+    (hweight0 : ∀ z, weight z ≠ 0) (hweightTop : ∀ z, weight z ≠ ∞)
+    (hweight : Measurable weight) (hT : Measurable T)
+    (hTinv : Measurable T.symm) (z : α) {s : Set α}
+    (hs : MeasurableSet s)
+    (hmem : ∀ origin selected : Fin (L + 1),
+      orbitPoint T origin z selected ∈ s) :
+    orbitMultinomialKernel weight T L hweight0 hweightTop hweight hT hTinv
+      z s = 1 := by
+  rw [orbitMultinomialKernel_apply_set weight T L hweight0 hweightTop
+    hweight hT hTinv z s hs]
+  have hselected (origin : Fin (L + 1)) :
+      ∑ selected : Fin (L + 1),
+          orbitIndexProbability weight T origin selected z *
+            s.indicator (fun _ : α => (1 : ENNReal))
+              (orbitPoint T origin z selected) = 1 := by
+    calc
+      (∑ selected : Fin (L + 1),
+          orbitIndexProbability weight T origin selected z *
+            s.indicator (fun _ : α => (1 : ENNReal))
+              (orbitPoint T origin z selected)) =
+        ∑ selected : Fin (L + 1),
+          orbitIndexProbability weight T origin selected z := by
+            apply Finset.sum_congr rfl
+            intro selected _hselected
+            rw [Set.indicator_of_mem (hmem origin selected), mul_one]
+      _ = 1 := by
+        unfold orbitIndexProbability orbitNormalizer
+        rw [← Finset.sum_mul]
+        exact ENNReal.mul_inv_cancel
+          (orbitNormalizer_ne_zero hweight0 T origin z)
+          (orbitNormalizer_ne_top hweightTop T origin z)
+  calc
+    (∑ origin : Fin (L + 1),
+        PMF.uniformOfFintype (Fin (L + 1)) origin *
+          ∑ selected : Fin (L + 1),
+            orbitIndexProbability weight T origin selected z *
+              s.indicator (fun _ : α => (1 : ENNReal))
+                (orbitPoint T origin z selected)) =
+      ∑ origin : Fin (L + 1),
+        PMF.uniformOfFintype (Fin (L + 1)) origin := by
+          apply Finset.sum_congr rfl
+          intro origin _horigin
+          rw [hselected, mul_one]
+    _ = 1 := (tsum_fintype _).symm.trans (PMF.tsum_coe _)
+
 /-- A zero-length orbit contains only the current state, so multinomial
 selection is exactly the identity kernel.  This boundary is important for
 convergence claims: invariance still holds, but no movement is possible. -/

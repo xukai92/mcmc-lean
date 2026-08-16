@@ -250,6 +250,43 @@ instance positionMultinomialGRHMC_isMarkovKernel
   unfold positionMultinomialGRHMC
   exact Kernel.IsMarkovKernel.map _ measurable_fst
 
+/-- Exact nested-integral semantics of the user-facing position-space
+multinomial GR-HMC transition. -/
+theorem lintegral_positionMultinomialGRHMC
+    [Nonempty ι] [DecidableEq ι]
+    {positionDerivative momentumDerivative : PhaseSpace ι → Position ι}
+    (potential : Position ι → ℝ)
+    (metric : FactoredRiemannianMetric ι) (m c : ℝ)
+    (hm : 0 < m) (hc : 0 < c)
+    (selection : GeneralizedLeapfrogSelection
+      positionDerivative momentumDerivative)
+    (hvalid : selection.IsValid)
+    (hH : Measurable
+      (generalRelativisticHamiltonian potential metric m c))
+    (hmeasurableMomentum :
+      IsMeasurableRiemannianMomentumFamily metric m c hm hc)
+    (ε : ℝ) (L : ℕ) (f : Position ι → ENNReal) (hf : Measurable f)
+    (q : Position ι) :
+    (∫⁻ y, f y ∂positionMultinomialGRHMC potential metric m c hm hc
+      selection hvalid hH hmeasurableMomentum ε L q) =
+      ∫⁻ p, ∫⁻ z, f z.1
+          ∂multinomialGRHMCPhase potential metric m c selection hvalid hH ε L
+            (q, p)
+        ∂riemannianMomentumKernel metric m c hm hc hmeasurableMomentum q := by
+  let g : PhaseSpace ι → ENNReal := fun z => f z.1
+  have hg : Measurable g := hf.comp measurable_fst
+  rw [positionMultinomialGRHMC,
+    Kernel.lintegral_map _ measurable_fst _ hf,
+    Kernel.lintegral_comp _ _ _ hg]
+  unfold riemannianPositionMomentumLift
+  rw [Kernel.prod_apply, Kernel.id_apply]
+  change (∫⁻ z, ∫⁻ w, g w
+      ∂multinomialGRHMCPhase potential metric m c selection hvalid hH ε L z
+      ∂(Measure.dirac q).prod
+        (riemannianMomentumKernel metric m c hm hc hmeasurableMomentum q)) = _
+  rw [MeasureTheory.lintegral_prod _ hg.lintegral_kernel.aemeasurable,
+    lintegral_dirac' q hg.lintegral_kernel.lintegral_prod_right]
+
 /-- Momentum refresh cannot create position movement when the multinomial
 orbit has length zero: the user-facing position transition is identity. -/
 theorem positionMultinomialGRHMC_zero
