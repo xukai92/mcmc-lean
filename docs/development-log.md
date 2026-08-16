@@ -2018,6 +2018,15 @@ real coefficients.  This replaces two isolated checks by their full
 two-dimensional linear span, while retaining the explicit boundary: generator
 balance on this class is not yet an invariant-semigroup theorem.
 
+Added an executable Gaussian Zig-Zag clock.  Along the linear flow the
+switching rate is `max(0,vq+t)`; Lean defines its integrated hazard, proves the
+closed-form inverse waiting time nonnegative, and proves exact inversion for
+every positive exponential draw.  Julia mirrors that formula in a
+fixed-observation-horizon simulator and tests the hazard identity,
+reproducibility, velocity domain, and standard-Gaussian moments.  The
+Float64 square-root/exponential-draw layer remains numerical evidence, while
+the algebraic clock identity is machine checked over the reals.
+
 ## 2026-08-16: practical stepping-out slice runtime
 
 Added a public `SteppingOutSlice` sampler on the real line with randomized

@@ -691,6 +691,27 @@ end
         @test_throws ArgumentError PositiveTransformedRWMH(identity, 0.0)
         @test_throws ArgumentError step(MersenneTwister(1), sampler, 0.0)
     end
+    @testset "Gaussian Zig-Zag exact clock and moments" begin
+        for (q, velocity, e) in ((1.2, 1, 0.7), (-1.2, 1, 0.7),
+                (0.4, -1, 1.3))
+            wait = gaussian_zigzag_waiting_time(q, velocity, e)
+            a = velocity * q
+            integrated = a >= 0 ? a * wait + wait^2 / 2 :
+                (wait <= -a ? 0.0 : (a + wait)^2 / 2)
+            @test integrated ≈ e atol=2e-14
+        end
+        sampler = GaussianZigZag(0.5)
+        first = sample(MersenneTwister(0x2192), sampler, (0.0, 1), 40_000)
+        second = sample(MersenneTwister(0x2192), sampler, (0.0, 1), 40_000)
+        @test first.positions == second.positions
+        @test first.velocities == second.velocities
+        @test all(v -> v in (-1, 1), first.velocities)
+        retained = first.positions[2001:end]
+        @test abs(mean(retained)) < 0.06
+        @test abs(var(retained) - 1) < 0.10
+        @test_throws ArgumentError GaussianZigZag(0.0)
+        @test_throws ArgumentError gaussian_zigzag_waiting_time(0.0, 0, 1.0)
+    end
     @testset "ESS and gradient-count benchmarks" begin
         function autocorrelation_ess(values; max_lag=min(1_000, length(values) ÷ 4))
             centered = values .- mean(values)

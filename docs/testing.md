@@ -82,6 +82,12 @@ and asymmetric-reroot outputs. They also cover no barriers, all barriers, and
 mixed canonical orbit partitions. This validates certificate and partition
 transport logic, not the geometry of a future floating-point U-turn detector.
 
+The Gaussian Zig-Zag suite checks the Lean-proved closed-form integrated-
+hazard inversion at representative phase states, deterministic seeded event
+simulation, velocity validity, and stationary Gaussian moments. The exact
+clock algebra is formalized over `ℝ`; the moment test remains a runtime
+diagnostic for the Float64 scheduler.
+
 Position-dependent generalized leapfrog now has Reference-versus-Optimized
 fixed-point tests using nonseparable derivatives, direct checks of both
 implicit residuals, public-API validation, and a check that approximate

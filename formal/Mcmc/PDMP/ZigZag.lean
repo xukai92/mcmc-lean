@@ -235,4 +235,74 @@ theorem gaussian_zigZagGenerator_affineVelocity_mean_zero (a b : ℝ) :
       rw [hconst, hlinearIntegral, hsquareIntegral]
       ring
 
+/-! ### Exact Gaussian event clock -/
+
+/-- Integrated switching rate along the linear Gaussian Zig-Zag flow.  With
+`a = vq`, the rate is `max 0 (a+t)`. -/
+noncomputable def gaussianZigZagIntegratedRate
+    (q : ℝ) (v : Bool) (t : ℝ) : ℝ :=
+  let a := zigZagVelocity v * q
+  if 0 ≤ a then a * t + t ^ 2 / 2
+  else if t ≤ -a then 0 else (a + t) ^ 2 / 2
+
+/-- Closed-form inverse clock for a positive exponential hazard draw. -/
+noncomputable def gaussianZigZagWaitingTime
+    (q : ℝ) (v : Bool) (exponentialDraw : ℝ) : ℝ :=
+  let a := zigZagVelocity v * q
+  if 0 ≤ a then Real.sqrt (a ^ 2 + 2 * exponentialDraw) - a
+  else -a + Real.sqrt (2 * exponentialDraw)
+
+theorem gaussianZigZagWaitingTime_nonneg
+    (q : ℝ) (v : Bool) {exponentialDraw : ℝ}
+    (hdraw : 0 ≤ exponentialDraw) :
+    0 ≤ gaussianZigZagWaitingTime q v exponentialDraw := by
+  let a := zigZagVelocity v * q
+  change 0 ≤ if 0 ≤ a then Real.sqrt (a ^ 2 + 2 * exponentialDraw) - a
+    else -a + Real.sqrt (2 * exponentialDraw)
+  split_ifs with ha
+  · have hsquare : a ^ 2 ≤ a ^ 2 + 2 * exponentialDraw := by linarith
+    have ha' : 0 ≤ a := ha
+    have hsqrtA : Real.sqrt (a ^ 2) = a := Real.sqrt_sq ha'
+    linarith [Real.sqrt_le_sqrt hsquare]
+  · exact add_nonneg (neg_nonneg.mpr (le_of_not_ge ha)) (Real.sqrt_nonneg _)
+
+/-- The closed-form waiting time inverts the integrated Gaussian Zig-Zag
+hazard exactly. -/
+theorem gaussianZigZagIntegratedRate_waitingTime
+    (q : ℝ) (v : Bool) {exponentialDraw : ℝ}
+    (hdraw : 0 < exponentialDraw) :
+    gaussianZigZagIntegratedRate q v
+      (gaussianZigZagWaitingTime q v exponentialDraw) = exponentialDraw := by
+  let a := zigZagVelocity v * q
+  by_cases ha : 0 ≤ a
+  · change (if 0 ≤ a then
+        a * (if 0 ≤ a then Real.sqrt (a ^ 2 + 2 * exponentialDraw) - a
+          else -a + Real.sqrt (2 * exponentialDraw)) +
+          (if 0 ≤ a then Real.sqrt (a ^ 2 + 2 * exponentialDraw) - a
+            else -a + Real.sqrt (2 * exponentialDraw)) ^ 2 / 2
+      else if (if 0 ≤ a then Real.sqrt (a ^ 2 + 2 * exponentialDraw) - a
+          else -a + Real.sqrt (2 * exponentialDraw)) ≤ -a then 0
+      else (a + (if 0 ≤ a then Real.sqrt (a ^ 2 + 2 * exponentialDraw) - a
+        else -a + Real.sqrt (2 * exponentialDraw))) ^ 2 / 2) = exponentialDraw
+    simp only [ha, if_true]
+    have hrad : 0 ≤ a ^ 2 + 2 * exponentialDraw := by positivity
+    have hsqrt := Real.sq_sqrt hrad
+    nlinarith
+  · have hsqrtPos : 0 < Real.sqrt (2 * exponentialDraw) :=
+      Real.sqrt_pos.2 (by positivity)
+    have hwait : ¬(-a + Real.sqrt (2 * exponentialDraw) ≤ -a) := by linarith
+    change (if 0 ≤ a then
+        a * (if 0 ≤ a then Real.sqrt (a ^ 2 + 2 * exponentialDraw) - a
+          else -a + Real.sqrt (2 * exponentialDraw)) +
+          (if 0 ≤ a then Real.sqrt (a ^ 2 + 2 * exponentialDraw) - a
+            else -a + Real.sqrt (2 * exponentialDraw)) ^ 2 / 2
+      else if (if 0 ≤ a then Real.sqrt (a ^ 2 + 2 * exponentialDraw) - a
+          else -a + Real.sqrt (2 * exponentialDraw)) ≤ -a then 0
+      else (a + (if 0 ≤ a then Real.sqrt (a ^ 2 + 2 * exponentialDraw) - a
+        else -a + Real.sqrt (2 * exponentialDraw))) ^ 2 / 2) = exponentialDraw
+    simp only [ha, if_false, hwait]
+    have hrad : 0 ≤ 2 * exponentialDraw := by positivity
+    have hsqrt := Real.sq_sqrt hrad
+    nlinarith
+
 end Mcmc.PDMP
