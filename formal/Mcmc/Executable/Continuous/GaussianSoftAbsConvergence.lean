@@ -571,6 +571,52 @@ def gaussianSoftAbsCorridorSection
     (centers : ℕ → ℝ) (r : ℝ) (i : ℕ) : Set ℝ :=
   Set.Icc (centers i - r) (centers i + r)
 
+/-- Linear interpolation from `x` at index zero to zero at index `n`. -/
+noncomputable def gaussianSoftAbsLinearCorridorCenter
+    (x : ℝ) (n i : ℕ) : ℝ :=
+  (1 - (i : ℝ) / (n : ℝ)) * x
+
+theorem gaussianSoftAbsLinearCorridorCenter_zero
+    (x : ℝ) (n : ℕ) :
+    gaussianSoftAbsLinearCorridorCenter x n 0 = x := by
+  simp [gaussianSoftAbsLinearCorridorCenter]
+
+theorem gaussianSoftAbsLinearCorridorCenter_self
+    (x : ℝ) {n : ℕ} (hn : 0 < n) :
+    gaussianSoftAbsLinearCorridorCenter x n n = 0 := by
+  unfold gaussianSoftAbsLinearCorridorCenter
+  have hnReal : (n : ℝ) ≠ 0 := by exact_mod_cast (Nat.ne_of_gt hn)
+  field_simp [hnReal]
+  ring
+
+theorem abs_gaussianSoftAbsLinearCorridorCenter_le
+    (x : ℝ) {n i : ℕ} (hn : 0 < n) (hi : i ≤ n) :
+    |gaussianSoftAbsLinearCorridorCenter x n i| ≤ |x| := by
+  have hnReal : 0 < (n : ℝ) := by exact_mod_cast hn
+  have hiReal : (i : ℝ) ≤ (n : ℝ) := by exact_mod_cast hi
+  have hfactor0 : 0 ≤ 1 - (i : ℝ) / (n : ℝ) := by
+    rw [sub_nonneg, div_le_one hnReal]
+    exact hiReal
+  have hfactor1 : 1 - (i : ℝ) / (n : ℝ) ≤ 1 := by
+    exact sub_le_self 1 (by positivity)
+  rw [gaussianSoftAbsLinearCorridorCenter, abs_mul,
+    abs_of_nonneg hfactor0]
+  exact mul_le_of_le_one_left (abs_nonneg x) hfactor1
+
+theorem abs_gaussianSoftAbsLinearCorridorCenter_step
+    (x : ℝ) {n : ℕ} (hn : 0 < n) (i : ℕ) :
+    |gaussianSoftAbsLinearCorridorCenter x n (i + 1) -
+        gaussianSoftAbsLinearCorridorCenter x n i| =
+      |x| / (n : ℝ) := by
+  have hnReal : (n : ℝ) ≠ 0 := by exact_mod_cast (Nat.ne_of_gt hn)
+  unfold gaussianSoftAbsLinearCorridorCenter
+  rw [show (i + 1 : ℕ) = i + 1 by rfl, Nat.cast_add, Nat.cast_one]
+  rw [show (1 - ((i : ℝ) + 1) / (n : ℝ)) * x -
+      (1 - (i : ℝ) / (n : ℝ)) * x = -x / (n : ℝ) by
+        field_simp [hnReal]
+        ring]
+  rw [abs_div, abs_neg, abs_of_pos (by positivity : 0 < (n : ℝ))]
+
 /-- Numeric center and radius conditions imply all measurable-corridor
 obligations. This is the real-arithmetic interface used to build an evenly
 spaced path from an arbitrary bounded starting coordinate to a common
@@ -610,6 +656,312 @@ theorem exists_pos_gaussianSoftAbs_centeredInterval_corridor_lower_bound
     · have habs : centers (i + 1) - centers i ≤
           |centers (i + 1) - centers i| := le_abs_self _
       linarith [hy.1, hz.2]
+
+/-- A sufficiently long evenly spaced corridor sends every point of a
+bounded band to one common central interval with a uniform positive
+probability. This is the finite-step compact accessibility result required
+by the bare-chain minorization argument. -/
+theorem exists_pos_gaussianSoftAbs_power_centralInterval_lower_bound_of_steps
+    (Q : ℝ) (hQ : 0 ≤ Q) (n : ℕ) (hn : 0 < n)
+    (hsteps : 4 * Q ≤ (n : ℝ) *
+      gaussianSoftAbsUnitScalarVelocity 1) :
+    ∃ bound : ENNReal, 0 < bound ∧
+      ∀ q : Position Unit, q Unit.unit ∈ Set.Icc (-Q) Q →
+      bound ≤ (gaussianSoftAbsMultinomialTransition 1 1 ^ n) q
+        {y | y Unit.unit ∈ Set.Icc
+          (-(gaussianSoftAbsUnitScalarVelocity 1 / 8))
+          (gaussianSoftAbsUnitScalarVelocity 1 / 8)} := by
+  let a := gaussianSoftAbsUnitScalarVelocity 1
+  let r := a / 8
+  have ha : 0 < a := gaussianSoftAbsUnitScalarVelocity_one_pos
+  have hr : 0 < r := by dsimp [r]; positivity
+  obtain ⟨floor, hfloorPos, hfloor⟩ :=
+    exists_pos_gaussianSoftAbs_localInterval_volume_floor_on_box
+      (Q + r) (by positivity)
+  let mass : ENNReal := ENNReal.ofReal (2 * r)
+  let bound := (floor * mass) ^ n
+  have hmassPos : 0 < mass := ENNReal.ofReal_pos.mpr (by positivity)
+  have hboundPos : 0 < bound := by
+    exact ENNReal.pow_pos
+      (ENNReal.mul_pos hfloorPos.ne' hmassPos.ne') n
+  refine ⟨bound, hboundPos, ?_⟩
+  intro q hq
+  let centers : ℕ → ℝ :=
+    gaussianSoftAbsLinearCorridorCenter (q Unit.unit) n
+  let scalarSections : ℕ → Set ℝ :=
+    gaussianSoftAbsCorridorSection centers r
+  let positionSections : ℕ → Set (Position Unit) := fun i =>
+    {y | y Unit.unit ∈ scalarSections i}
+  have hsections : ∀ i, MeasurableSet (positionSections i) := by
+    intro i
+    exact isClosed_Icc.measurableSet.preimage
+      (measurable_pi_apply Unit.unit)
+  have hq0 : q ∈ positionSections 0 := by
+    change q Unit.unit ∈ Set.Icc (centers 0 - r) (centers 0 + r)
+    rw [show centers 0 = q Unit.unit by
+      exact gaussianSoftAbsLinearCorridorCenter_zero _ _]
+    constructor <;> linarith
+  have hcorridor :=
+    Mcmc.Kernel.bound_pow_le_apply_of_measurable_corridor
+      (gaussianSoftAbsMultinomialTransition 1 1)
+      positionSections hsections (floor * mass) q hq0 n (by
+        intro i hi y hy
+        have hiN : i ≤ n := (Nat.le_of_lt hi).trans (Nat.le_refl n)
+        have hcenterAbs : |centers i| ≤ |q Unit.unit| :=
+          abs_gaussianSoftAbsLinearCorridorCenter_le
+            (q Unit.unit) hn hiN
+        have hqAbs : |q Unit.unit| ≤ Q := abs_le.mpr hq
+        have hcenter : -Q ≤ centers i ∧ centers i ≤ Q :=
+          abs_le.mp (hcenterAbs.trans hqAbs)
+        have hyBand : y Unit.unit ∈ Set.Icc (-(Q + r)) (Q + r) := by
+          change centers i - r ≤ y Unit.unit ∧
+            y Unit.unit ≤ centers i + r at hy
+          constructor <;> linarith
+        calc
+          floor * mass ≤ floor * volume (scalarSections (i + 1)) := by
+            have hmassEq : mass = volume (scalarSections (i + 1)) := by
+              dsimp [mass, scalarSections, gaussianSoftAbsCorridorSection]
+              rw [Real.volume_Icc]
+              congr 1
+              ring
+            rw [hmassEq]
+          _ ≤ gaussianSoftAbsMultinomialTransition 1 1 y
+              {z | z Unit.unit ∈ scalarSections (i + 1)} := by
+            apply hfloor y hyBand (scalarSections (i + 1))
+              isClosed_Icc.measurableSet
+            intro z hz
+            have hnReal : 0 < (n : ℝ) := by exact_mod_cast hn
+            have hqAbs : |q Unit.unit| ≤ Q := abs_le.mpr hq
+            have hmove : |centers (i + 1) - centers i| ≤ a / 4 := by
+              rw [abs_gaussianSoftAbsLinearCorridorCenter_step
+                (q Unit.unit) hn i]
+              rw [div_le_iff₀ hnReal]
+              nlinarith [hsteps]
+            change centers (i + 1) - r ≤ z ∧
+              z ≤ centers (i + 1) + r at hz
+            change y Unit.unit - a ≤ z ∧ z ≤ y Unit.unit + a
+            have hdiffUpper : centers (i + 1) - centers i ≤ a / 4 :=
+              (le_abs_self _).trans hmove
+            have hdiffLower : -(a / 4) ≤
+                centers (i + 1) - centers i :=
+              (neg_le_neg hmove).trans (neg_abs_le _)
+            change centers i - r ≤ y Unit.unit ∧
+              y Unit.unit ≤ centers i + r at hy
+            dsimp [r] at *
+            constructor <;> linarith)
+  rw [show positionSections n =
+      {y : Position Unit | y Unit.unit ∈ Set.Icc (-r) r} by
+    ext y
+    change y Unit.unit ∈ Set.Icc (centers n - r) (centers n + r) ↔ _
+    rw [show centers n = 0 by
+      exact gaussianSoftAbsLinearCorridorCenter_self _ hn]
+    simp] at hcorridor
+  simpa [bound, mass, r] using hcorridor
+
+/-- Every bounded coordinate band admits some positive skeleton length and a
+strictly positive uniform probability of reaching the same central interval.
+-/
+theorem exists_gaussianSoftAbs_power_centralInterval_lower_bound
+    (Q : ℝ) (hQ : 0 ≤ Q) :
+    ∃ n : ℕ, 0 < n ∧ ∃ bound : ENNReal, 0 < bound ∧
+      ∀ q : Position Unit, q Unit.unit ∈ Set.Icc (-Q) Q →
+      bound ≤ (gaussianSoftAbsMultinomialTransition 1 1 ^ n) q
+        {y | y Unit.unit ∈ Set.Icc
+          (-(gaussianSoftAbsUnitScalarVelocity 1 / 8))
+          (gaussianSoftAbsUnitScalarVelocity 1 / 8)} := by
+  let a := gaussianSoftAbsUnitScalarVelocity 1
+  have ha : 0 < a := gaussianSoftAbsUnitScalarVelocity_one_pos
+  obtain ⟨n, hnLarge⟩ := exists_nat_gt (4 * Q / a)
+  have hnReal : 0 < (n : ℝ) := by
+    exact lt_of_le_of_lt (div_nonneg (mul_nonneg (by norm_num) hQ) ha.le)
+      hnLarge
+  have hn : 0 < n := by exact_mod_cast hnReal
+  have hsteps : 4 * Q ≤ (n : ℝ) * a := by
+    exact (div_lt_iff₀ ha).mp hnLarge |>.le
+  obtain ⟨bound, hboundPos, hbound⟩ :=
+    exists_pos_gaussianSoftAbs_power_centralInterval_lower_bound_of_steps
+      Q hQ n hn (by simpa [a] using hsteps)
+  exact ⟨n, hn, bound, hboundPos, hbound⟩
+
+/-- Appending one local-density step to compact corridor accessibility gives
+a genuine finite-step Lebesgue density minorization on the common central
+interval. -/
+theorem exists_pos_gaussianSoftAbs_power_coordinate_density_minorization
+    (Q : ℝ) (hQ : 0 ≤ Q) :
+    ∃ steps : ℕ, 0 < steps ∧ ∃ floor : ENNReal, 0 < floor ∧
+      ∀ q : Position Unit, q Unit.unit ∈ Set.Icc (-Q) Q →
+      ∀ S : Set ℝ, MeasurableSet S →
+      S ⊆ Set.Icc
+        (-(gaussianSoftAbsUnitScalarVelocity 1 / 8))
+        (gaussianSoftAbsUnitScalarVelocity 1 / 8) →
+      floor * volume S ≤
+        (gaussianSoftAbsMultinomialTransition 1 1 ^ steps) q
+          {y | y Unit.unit ∈ S} := by
+  let r := gaussianSoftAbsUnitScalarVelocity 1 / 8
+  have hr : 0 < r := by
+    dsimp [r]
+    positivity [gaussianSoftAbsUnitScalarVelocity_one_pos]
+  obtain ⟨n, hn, access, haccessPos, haccess⟩ :=
+    exists_gaussianSoftAbs_power_centralInterval_lower_bound Q hQ
+  obtain ⟨localFloor, hlocalFloorPos, hlocalFloor⟩ :=
+    exists_pos_gaussianSoftAbs_localInterval_volume_floor_on_box r hr.le
+  let floor := localFloor * access
+  have hfloorPos : 0 < floor :=
+    ENNReal.mul_pos hlocalFloorPos.ne' haccessPos.ne'
+  refine ⟨n + 1, Nat.succ_pos n, floor, hfloorPos, ?_⟩
+  intro q hq S hS hSA
+  let A : Set (Position Unit) :=
+    {y | y Unit.unit ∈ Set.Icc (-r) r}
+  have hA : MeasurableSet A :=
+    isClosed_Icc.measurableSet.preimage (measurable_pi_apply Unit.unit)
+  have htarget : MeasurableSet {y : Position Unit | y Unit.unit ∈ S} :=
+    hS.preimage (measurable_pi_apply Unit.unit)
+  rw [Kernel.pow_succ_apply_eq_lintegral
+    (gaussianSoftAbsMultinomialTransition 1 1) n q htarget]
+  calc
+    floor * volume S =
+        (localFloor * volume S) * access := by
+      dsimp [floor]
+      ac_rfl
+    _ ≤ (localFloor * volume S) *
+        (gaussianSoftAbsMultinomialTransition 1 1 ^ n) q A := by
+      gcongr
+      simpa [A, r] using haccess q hq
+    _ = ∫⁻ _y in A, localFloor * volume S
+          ∂((gaussianSoftAbsMultinomialTransition 1 1 ^ n) q) := by
+      rw [setLIntegral_const]
+    _ ≤ ∫⁻ y in A, gaussianSoftAbsMultinomialTransition 1 1 y
+          {z | z Unit.unit ∈ S}
+          ∂((gaussianSoftAbsMultinomialTransition 1 1 ^ n) q) := by
+      apply setLIntegral_mono' hA
+      intro y hy
+      apply hlocalFloor y hy S hS
+      intro z hz
+      have hyBounds : -r ≤ y Unit.unit ∧ y Unit.unit ≤ r := hy
+      have hzBounds : -r ≤ z ∧ z ≤ r := hSA hz
+      change y Unit.unit - gaussianSoftAbsUnitScalarVelocity 1 ≤ z ∧
+        z ≤ y Unit.unit + gaussianSoftAbsUnitScalarVelocity 1
+      dsimp [r] at hyBounds hzBounds
+      have ha := gaussianSoftAbsUnitScalarVelocity_one_pos
+      constructor <;> linarith
+    _ ≤ ∫⁻ y, gaussianSoftAbsMultinomialTransition 1 1 y
+          {z | z Unit.unit ∈ S}
+          ∂((gaussianSoftAbsMultinomialTransition 1 1 ^ n) q) :=
+      setLIntegral_le_lintegral A _
+
+/-- Lebesgue measure transported to the one-dimensional position function
+space. -/
+noncomputable def gaussianSoftAbsUnitPositionLebesgue :
+    Measure (Position Unit) :=
+  Measure.map (fun x : ℝ => fun _ : Unit => x) volume
+
+theorem measurableEmbedding_gaussianSoftAbsUnitPosition :
+    MeasurableEmbedding (fun x : ℝ => fun _ : Unit => x) := by
+  apply Continuous.measurableEmbedding
+  · fun_prop
+  · intro x y hxy
+    simpa using congrFun hxy Unit.unit
+
+/-- Common central position interval used as the skeleton reference region.
+-/
+def gaussianSoftAbsCentralPositionSet : Set (Position Unit) :=
+  {q | q Unit.unit ∈ Set.Icc
+    (-(gaussianSoftAbsUnitScalarVelocity 1 / 8))
+    (gaussianSoftAbsUnitScalarVelocity 1 / 8)}
+
+theorem measurableSet_gaussianSoftAbsCentralPositionSet :
+    MeasurableSet gaussianSoftAbsCentralPositionSet :=
+  isClosed_Icc.measurableSet.preimage (measurable_pi_apply Unit.unit)
+
+theorem gaussianSoftAbsUnitPositionLebesgue_central_eq :
+    gaussianSoftAbsUnitPositionLebesgue gaussianSoftAbsCentralPositionSet =
+      volume (Set.Icc
+        (-(gaussianSoftAbsUnitScalarVelocity 1 / 8))
+        (gaussianSoftAbsUnitScalarVelocity 1 / 8)) := by
+  rw [gaussianSoftAbsUnitPositionLebesgue,
+    Measure.map_apply measurableEmbedding_gaussianSoftAbsUnitPosition.measurable
+      measurableSet_gaussianSoftAbsCentralPositionSet]
+  congr 1
+
+theorem gaussianSoftAbsUnitPositionLebesgue_central_pos :
+    0 < gaussianSoftAbsUnitPositionLebesgue
+      gaussianSoftAbsCentralPositionSet := by
+  rw [gaussianSoftAbsUnitPositionLebesgue_central_eq, Real.volume_Icc]
+  apply ENNReal.ofReal_pos.mpr
+  have ha := gaussianSoftAbsUnitScalarVelocity_one_pos
+  linarith
+
+theorem gaussianSoftAbsUnitPositionLebesgue_central_ne_top :
+    gaussianSoftAbsUnitPositionLebesgue
+      gaussianSoftAbsCentralPositionSet ≠ ∞ := by
+  rw [gaussianSoftAbsUnitPositionLebesgue_central_eq, Real.volume_Icc]
+  exact ENNReal.ofReal_ne_top
+
+/-- The actual bare Gaussian SoftAbs skeleton locally minorizes one normalized
+central Lebesgue restriction uniformly over every bounded coordinate band.
+-/
+theorem exists_gaussianSoftAbs_power_locallyMinorizes_on_box
+    (Q : ℝ) (hQ : 0 ≤ Q) :
+    ∃ steps : ℕ, 0 < steps ∧ ∃ ε : ENNReal, 0 < ε ∧
+      Mcmc.Kernel.LocallyMinorizes
+        (gaussianSoftAbsMultinomialTransition 1 1 ^ steps)
+        {q : Position Unit | q Unit.unit ∈ Set.Icc (-Q) Q} ε
+        (Mcmc.Kernel.normalizedRestriction
+          gaussianSoftAbsUnitPositionLebesgue
+          gaussianSoftAbsCentralPositionSet) := by
+  obtain ⟨steps, hsteps, floor, hfloorPos, hfloor⟩ :=
+    exists_pos_gaussianSoftAbs_power_coordinate_density_minorization Q hQ
+  let centralMass := gaussianSoftAbsUnitPositionLebesgue
+    gaussianSoftAbsCentralPositionSet
+  let ε := floor * centralMass
+  have hcentralMassPos : 0 < centralMass :=
+    gaussianSoftAbsUnitPositionLebesgue_central_pos
+  have hεPos : 0 < ε :=
+    ENNReal.mul_pos hfloorPos.ne' hcentralMassPos.ne'
+  refine ⟨steps, hsteps, ε, hεPos, ?_⟩
+  apply Mcmc.Kernel.locallyMinorizes_normalizedRestriction_of_densityFloor
+    (gaussianSoftAbsMultinomialTransition 1 1 ^ steps)
+    {q : Position Unit | q Unit.unit ∈ Set.Icc (-Q) Q}
+    gaussianSoftAbsUnitPositionLebesgue
+    gaussianSoftAbsUnitPositionLebesgue_central_pos
+    gaussianSoftAbsUnitPositionLebesgue_central_ne_top floor
+  intro q hq s hs
+  let scalarSet : Set ℝ :=
+    (fun x : ℝ => fun _ : Unit => x) ⁻¹'
+      (s ∩ gaussianSoftAbsCentralPositionSet)
+  have hscalarSet : MeasurableSet scalarSet :=
+    (hs.inter measurableSet_gaussianSoftAbsCentralPositionSet).preimage
+      measurableEmbedding_gaussianSoftAbsUnitPosition.measurable
+  have hscalarCentral : scalarSet ⊆ Set.Icc
+      (-(gaussianSoftAbsUnitScalarVelocity 1 / 8))
+      (gaussianSoftAbsUnitScalarVelocity 1 / 8) := by
+    intro x hx
+    exact hx.2
+  have hevent : {y : Position Unit | y Unit.unit ∈ scalarSet} =
+      s ∩ gaussianSoftAbsCentralPositionSet := by
+    ext y
+    have hyEq : (fun _ : Unit => y Unit.unit) = y := by
+      funext i
+      cases i
+      rfl
+    constructor
+    · intro hy
+      change (fun _ : Unit => y Unit.unit) ∈
+        s ∩ gaussianSoftAbsCentralPositionSet at hy
+      rwa [hyEq] at hy
+    · intro hy
+      change (fun _ : Unit => y Unit.unit) ∈
+        s ∩ gaussianSoftAbsCentralPositionSet
+      rwa [hyEq]
+  have hmeasure : gaussianSoftAbsUnitPositionLebesgue
+      (s ∩ gaussianSoftAbsCentralPositionSet) = volume scalarSet := by
+    rw [gaussianSoftAbsUnitPositionLebesgue,
+      Measure.map_apply measurableEmbedding_gaussianSoftAbsUnitPosition.measurable
+        (hs.inter measurableSet_gaussianSoftAbsCentralPositionSet)]
+  rw [hmeasure]
+  have hminor := hfloor q hq scalarSet hscalarSet hscalarCentral
+  rw [hevent] at hminor
+  exact hminor.trans (measure_mono (Set.inter_subset_left))
 
 /-- Exponential coordinate Lyapunov weight used for the bare one-dimensional
 Gaussian SoftAbs drift argument. -/
