@@ -414,6 +414,20 @@ instance l2StandardGaussianPosition.instIsProbabilityMeasure :
     (MeasurableEquiv.toLp 2 (Position ι)).symm.measurable MeasurableSet.univ]
   simp
 
+/-- Transporting the Euclidean standard Gaussian back to coordinates recovers
+the independent product of one-dimensional standard Gaussians exactly. -/
+theorem l2StandardGaussianPosition_eq_pi :
+    l2StandardGaussianPosition (ι := ι) =
+      Measure.pi (fun _ : ι => ProbabilityTheory.gaussianReal 0 1) := by
+  rw [l2StandardGaussianPosition,
+    ← ProbabilityTheory.map_pi_eq_stdGaussian]
+  rw [Measure.map_map]
+  · convert Measure.map_id
+    funext x
+    exact (MeasurableEquiv.toLp 2 (Position ι)).symm_apply_apply x
+  · exact (MeasurableEquiv.toLp 2 (Position ι)).symm.measurable
+  · exact (MeasurableEquiv.toLp 2 (Position ι)).measurable
+
 /-- Conjugate a Euclidean reflection back to the coordinate `Position` space. -/
 noncomputable def conjugatedEuclideanReflection
     (subspace : Submodule ℝ (EuclideanSpace ℝ ι)) : Position ι → Position ι :=

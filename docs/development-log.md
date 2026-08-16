@@ -25,6 +25,9 @@
   hyperplane reflection, and obtains its exact measure-preservation theorem on
   `Position`. Identifying this transported Gaussian with the independently
   density-defined `standardMomentumMeasure` remains a compatibility lemma.
+  Lean now simplifies the transported law exactly to the finite product
+  `Measure.pi (gaussianReal 0 1)`, reducing that compatibility lemma to the
+  product-density factorization used by `isotropicGaussianPDF`.
   The full product-space generator theorem now consumes this result directly:
   for transported standard-Gaussian velocities, reflection invariance is no
   longer a client premise, leaving only integrability and the multidimensional
