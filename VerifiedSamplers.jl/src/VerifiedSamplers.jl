@@ -30,7 +30,7 @@ export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, Bounded
     Xu21CoupledSampler, coupled_meeting_time,
     ScopedInferenceOperator, ComposableSampler, covers,
     DynamicTreeCertificate, certify_dynamic_tree, certified_orbit_partition,
-    certified_dynamic_select!,
+    certified_dynamic_select!, certified_dynamic_select,
     RecursiveBarrierTree, RecursiveBarrierLeaf, RecursiveBarrierNode,
     recursive_barriers, certified_recursive_partition,
     certified_scalar_uturn_partition,
@@ -1473,6 +1473,17 @@ function certified_dynamic_select!(source::Runtime.AbstractRandomSource,
     selected = Reference.categorical_index!(source, local_weights)
     candidates[selected + 1]
 end
+
+certified_dynamic_select(rng::AbstractRNG,
+        certificate::DynamicTreeCertificate,
+        target_weights::AbstractVector{<:Integer}, current::Integer) =
+    certified_dynamic_select!(Runtime.RNGSource(rng), certificate,
+        target_weights, current)
+
+certified_dynamic_select(certificate::DynamicTreeCertificate,
+        target_weights::AbstractVector{<:Integer}, current::Integer) =
+    certified_dynamic_select(Random.default_rng(), certificate,
+        target_weights, current)
 
 """Partition a canonical finite orbit at declared barrier edges.
 

@@ -25,6 +25,8 @@
     end
     @test certified_dynamic_select!(Runtime.TraceSource([0]), weighted,
         [1, 3, 2], 3) == 3
+    @test certified_dynamic_select(MersenneTwister(44), weighted, [1, 3, 2], 1) ==
+        certified_dynamic_select(MersenneTwister(44), weighted, [1, 3, 2], 1)
     @test_throws ArgumentError certified_dynamic_select!(Runtime.TraceSource([0]),
         asymmetric_reroot, [1, 1], 1)
     @test_throws DimensionMismatch certified_dynamic_select!(
