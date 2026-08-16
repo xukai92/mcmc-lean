@@ -326,4 +326,68 @@ theorem vectorAdjacentUTurnKernel_stationary
       htarget).Stationary target :=
   lineBarrierKernel_stationary _ target htarget
 
+/-- A split is blocked when any endpoint pair spanning it satisfies the
+finite-dimensional U-turn test.  This aggregates turns over every trajectory
+scale, unlike the adjacent-only detector. -/
+noncomputable def vectorSpanningUTurn {ι : Type*} [Fintype ι]
+    (left right : List ((ι → ℝ) × (ι → ℝ))) : Bool :=
+  left.any fun x => right.any fun y => vectorAdjacentUTurn x y
+
+/-- Accumulator for the canonical all-scales split detector. -/
+noncomputable def vectorSpanningUTurnBarriersAux {ι : Type*} [Fintype ι] :
+    List ((ι → ℝ) × (ι → ℝ)) →
+      List ((ι → ℝ) × (ι → ℝ)) → List Bool
+  | _seen, [] => []
+  | seen, right :: rest =>
+      vectorSpanningUTurn seen (right :: rest) ::
+        vectorSpanningUTurnBarriersAux (seen ++ [right]) rest
+
+@[simp] theorem length_vectorSpanningUTurnBarriersAux
+    {ι : Type*} [Fintype ι]
+    (seen suffix : List ((ι → ℝ) × (ι → ℝ))) :
+    (vectorSpanningUTurnBarriersAux seen suffix).length = suffix.length := by
+  induction suffix generalizing seen with
+  | nil => rfl
+  | cons right rest ih =>
+      simp [vectorSpanningUTurnBarriersAux, ih]
+
+/-- Root-independent all-scales U-turn barriers.  At the split after state
+`i`, all endpoint pairs with left endpoint at or before `i` and right endpoint
+after `i` are inspected.  Cutting every such turning split is conservative,
+but produces completed components rather than root-dependent partial trees. -/
+noncomputable def vectorSpanningUTurnBarriers {ι : Type*} [Fintype ι] :
+    List ((ι → ℝ) × (ι → ℝ)) → List Bool
+  | [] => []
+  | first :: rest => vectorSpanningUTurnBarriersAux [first] rest
+
+@[simp] theorem length_vectorSpanningUTurnBarriers
+    {ι : Type*} [Fintype ι]
+    (trajectory : List ((ι → ℝ) × (ι → ℝ))) :
+    (vectorSpanningUTurnBarriers trajectory).length = trajectory.length - 1 := by
+  cases trajectory with
+  | nil => rfl
+  | cons first rest =>
+      simp [vectorSpanningUTurnBarriers]
+
+@[simp] theorem check_vectorSpanningUTurnCandidates
+    {ι : Type*} [Fintype ι]
+    (trajectory : List ((ι → ℝ) × (ι → ℝ))) :
+    CertifiedDynamicTree.check
+      (lineBarrierCandidates (vectorSpanningUTurnBarriers trajectory)) = true :=
+  check_lineBarrierCandidates _
+
+/-- Target-weighted selection inside the conservative all-scales U-turn
+partition is stationary. -/
+theorem vectorSpanningUTurnKernel_stationary
+    {ι : Type*} [Fintype ι]
+    (trajectory : List ((ι → ℝ) × (ι → ℝ)))
+    (target : Distribution
+      (Fin ((vectorSpanningUTurnBarriers trajectory).length + 1)))
+    (htarget : ∀ state, 0 < target.mass state) :
+    (dynamicCandidateKernel target
+      ((lineBarrierTree
+        (vectorSpanningUTurnBarriers trajectory)).toCandidateSet target)
+      htarget).Stationary target :=
+  lineBarrierKernel_stationary _ target htarget
+
 end Mcmc.Finite.MarkovKernel

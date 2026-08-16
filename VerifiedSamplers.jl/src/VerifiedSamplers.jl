@@ -29,6 +29,7 @@ export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, Bounded
     DynamicTreeCertificate, certify_dynamic_tree, certified_orbit_partition,
     certified_scalar_uturn_partition,
     certified_vector_uturn_partition,
+    certified_spanning_uturn_partition,
     generated_schedule,
     ObservationCursor, observation_cursor, resume_observation, run_observations,
     FiniteHMMParticleGibbs,
@@ -1290,6 +1291,39 @@ function certified_vector_uturn_partition(
         displacement = q[i + 1] .- q[i]
         barriers[i] = dot(displacement, p[i]) < 0 ||
             dot(displacement, p[i + 1]) < 0
+    end
+    certified_orbit_partition(barriers)
+end
+
+"""Conservative all-scales finite-dimensional U-turn partition.
+
+For every split, inspect all endpoint pairs that span that split and cut when
+any pair makes a U-turn. This mirrors Lean's root-independent completed-orbit
+construction. It is deliberately more conservative than first-stop NUTS.
+"""
+function certified_spanning_uturn_partition(
+        positions::AbstractVector{<:AbstractVector{<:Real}},
+        momenta::AbstractVector{<:AbstractVector{<:Real}})
+    length(positions) == length(momenta) ||
+        throw(DimensionMismatch("position and momentum trajectories must match"))
+    isempty(positions) && throw(ArgumentError("trajectory cannot be empty"))
+    dimension = length(first(positions))
+    dimension > 0 || throw(ArgumentError("phase-space dimension cannot be zero"))
+    all(q -> length(q) == dimension, positions) &&
+        all(p -> length(p) == dimension, momenta) ||
+        throw(DimensionMismatch("all phase points must have the same dimension"))
+    q = [Float64.(point) for point in positions]
+    p = [Float64.(point) for point in momenta]
+    all(point -> all(isfinite, point), q) &&
+        all(point -> all(isfinite, point), p) ||
+        throw(DomainError((positions, momenta), "trajectory must be finite"))
+    barriers = falses(length(q) - 1)
+    for split in eachindex(barriers), left in 1:split, right in split+1:length(q)
+        displacement = q[right] .- q[left]
+        if dot(displacement, p[left]) < 0 || dot(displacement, p[right]) < 0
+            barriers[split] = true
+            break
+        end
     end
     certified_orbit_partition(barriers)
 end

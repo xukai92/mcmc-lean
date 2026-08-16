@@ -1957,6 +1957,15 @@ stationarity. Julia mirrors the vector detector with dimension and finiteness
 validation. The scalar client remains the one-coordinate specialization in
 spirit; no floating-point equivalence theorem is inferred from the tests.
 
+Added a conservative all-scales variant.  For every split of the completed
+canonical orbit it inspects every endpoint pair spanning that split and cuts
+the orbit if any pair satisfies the vector U-turn condition.  Lean proves the
+barrier count, reroot certificate, and stationarity of target-weighted
+selection; Julia mirrors the construction and is differentially guarded by
+the same completed-partition checker.  This incorporates recursive-scale
+subtree information while deliberately remaining distinct from root-dependent
+first-U-turn NUTS.
+
 ## 2026-08-16: product-compositional reversible-jump transports
 
 Added a reusable product constructor for reversible-jump transport-density

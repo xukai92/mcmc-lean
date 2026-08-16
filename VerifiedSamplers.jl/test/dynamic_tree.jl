@@ -37,10 +37,17 @@
     @test vector_uturn.valid
     @test vector_uturn.candidates ==
         [[1, 2, 3], [1, 2, 3], [1, 2, 3], [4]]
+    spanning_uturn = certified_spanning_uturn_partition(
+        [[0.0], [1.0], [2.0]], [[1.0], [1.0], [-1.0]])
+    @test spanning_uturn.valid
+    @test spanning_uturn.candidates == [[1], [2], [3]]
+    @test certified_spanning_uturn_partition([[0.0]], [[1.0]]).candidates == [[1]]
     @test_throws DimensionMismatch certified_vector_uturn_partition(
         [[0.0]], [[1.0], [2.0]])
     @test_throws DimensionMismatch certified_vector_uturn_partition(
         [[0.0], [1.0, 2.0]], [[1.0], [1.0]])
     @test_throws ArgumentError certified_vector_uturn_partition(
         Vector{Vector{Float64}}(), Vector{Vector{Float64}}())
+    @test_throws DomainError certified_spanning_uturn_partition(
+        [[0.0], [Inf]], [[1.0], [1.0]])
 end
