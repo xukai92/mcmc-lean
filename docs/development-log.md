@@ -11,9 +11,14 @@
   estimate is now also closed: an exact scalar velocity formula yields an
   explicit positive minimum speed outside unit half-momentum, and refreshed
   momenta in `[-1,1]` move every position beyond `±4` inward by at least that
-  fixed distance. Proving the central momentum event has a common positive
-  mass and integrating the selected-index weights remain before this yields a
-  Foster--Lyapunov certificate for the multinomial kernel.
+  fixed distance. The probabilistic central event is now discharged too:
+  every nonempty one-dimensional interval has positive unnormalized
+  relativistic density mass, normalization preserves positivity, and
+  inverse-factor transport gives the actual Gaussian SoftAbs momentum row
+  strictly positive mass on `(-1,1)`. Because the metric is constant, Lean
+  proves this mass is identical at every position. Bounding and integrating
+  the multinomial selected-index weight on this event remains before this
+  yields a Foster--Lyapunov certificate for the multinomial kernel.
 
 - Exposed the exact one-step transition algebra for the Gaussian SoftAbs
   generalized-leapfrog client. Lean now rewrites the solver to the explicit

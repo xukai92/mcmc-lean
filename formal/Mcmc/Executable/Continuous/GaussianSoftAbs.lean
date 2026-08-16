@@ -429,6 +429,171 @@ theorem add_minSpeed_le_gaussianSoftAbsSelection_step_one
   simp only [Pi.add_apply, one_smul]
   linarith
 
+/-- Coordinate description of an open interval agrees with the order
+interval on one-dimensional momentum functions. -/
+theorem unitMomentum_coordinate_Ioo_eq (a b : ℝ) :
+    {p : Momentum Unit | a < p Unit.unit ∧ p Unit.unit < b} =
+      Set.Ioo (fun _ : Unit => a) (fun _ : Unit => b) := by
+  ext p
+  change (a < p Unit.unit ∧ p Unit.unit < b) ↔
+    ((fun _ : Unit => a) < p ∧ p < fun _ : Unit => b)
+  constructor
+  · rintro ⟨ha, hb⟩
+    constructor
+    · apply Pi.lt_def.2
+      exact ⟨fun i => by simpa [Subsingleton.elim i Unit.unit] using ha.le,
+        ⟨Unit.unit, ha⟩⟩
+    · apply Pi.lt_def.2
+      exact ⟨fun i => by simpa [Subsingleton.elim i Unit.unit] using hb.le,
+        ⟨Unit.unit, hb⟩⟩
+  · rintro ⟨ha, hb⟩
+    rcases Pi.lt_def.1 ha with ⟨_hale, i, hai⟩
+    rcases Pi.lt_def.1 hb with ⟨_hble, j, hjb⟩
+    exact ⟨by simpa [Subsingleton.elim i Unit.unit] using hai,
+      by simpa [Subsingleton.elim j Unit.unit] using hjb⟩
+
+/-- The unnormalized one-dimensional Euclidean relativistic law gives
+positive mass to every nonempty open coordinate interval. -/
+theorem euclideanRelativisticMomentumMeasure_unit_Ioo_pos
+    {a b : ℝ} (hab : a < b) :
+    0 < euclideanRelativisticMomentumMeasure Unit 1 1
+      (Set.Ioo (fun _ : Unit => a) (fun _ : Unit => b)) := by
+  let s : Set (Momentum Unit) :=
+    {p | a < p Unit.unit ∧ p Unit.unit < b}
+  have hs : MeasurableSet s := by
+    exact (measurableSet_lt measurable_const (measurable_pi_apply _)).inter
+      (measurableSet_lt (measurable_pi_apply _) measurable_const)
+  have hseq : s = Set.Ioo (fun _ : Unit => a) (fun _ : Unit => b) :=
+    unitMomentum_coordinate_Ioo_eq a b
+  have hdensity : Measurable (fun p : Momentum Unit =>
+      relativisticBoltzmannWeight 1 1 (euclideanNorm p)) :=
+    (continuous_relativisticBoltzmannWeight 1 1).measurable.comp
+      continuous_euclideanNorm.measurable
+  rw [← hseq]
+  rw [euclideanRelativisticMomentumMeasure,
+    withDensity_apply _ hs]
+  rw [setLIntegral_pos_iff hdensity]
+  have hsupport : Function.support (fun p : Momentum Unit =>
+      relativisticBoltzmannWeight 1 1 (euclideanNorm p)) = Set.univ := by
+    ext p
+    simp [Function.mem_support,
+      (relativisticBoltzmannWeight_pos 1 1 (euclideanNorm p)).ne']
+  rw [hsupport, Set.univ_inter]
+  have hbox : s =
+      Set.pi Set.univ (fun _ : Unit => Set.Ioo a b) := by
+    ext p
+    change (a < p Unit.unit ∧ p Unit.unit < b) ↔
+      ∀ i, i ∈ Set.univ → a < p i ∧ p i < b
+    constructor
+    · rintro hp i _hi
+      simpa [Subsingleton.elim i Unit.unit] using hp
+    · intro hp
+      exact hp Unit.unit (Set.mem_univ _)
+  rw [hbox, Real.volume_pi_Ioo]
+  simp only [Finset.prod_const, Finset.card_univ, Fintype.card_unit, pow_one]
+  exact ENNReal.ofReal_pos.mpr (sub_pos.mpr hab)
+
+/-- Normalization preserves positivity of nonempty open momentum intervals. -/
+theorem euclideanRelativisticMomentumProbability_unit_Ioo_pos
+    {a b : ℝ} (hab : a < b) :
+    0 < (euclideanRelativisticMomentumProbability Unit 1 1
+      (by norm_num) (by norm_num) : Measure (Momentum Unit))
+      (Set.Ioo (fun _ : Unit => a) (fun _ : Unit => b)) := by
+  rw [euclideanRelativisticMomentumProbability_toMeasure]
+  rw [Measure.coe_nnreal_smul_apply]
+  have hpartition : 0 < euclideanRelativisticMomentumPartition Unit 1 1
+      (by norm_num) (by norm_num) :=
+    bot_lt_iff_ne_bot.mpr
+      (euclideanRelativisticMomentumPartition_ne_zero Unit 1 1
+        (by norm_num) (by norm_num))
+  exact ENNReal.mul_pos
+    (ENNReal.coe_pos.mpr (inv_pos.mpr hpartition)).ne'
+    (euclideanRelativisticMomentumMeasure_unit_Ioo_pos hab).ne'
+
+/-- The actual inverse-factor-transported Gaussian SoftAbs momentum refresh
+assigns positive probability to the central interval `(-1,1)`. The metric is
+constant, so this probability is common to every position. -/
+theorem gaussianSoftAbsMomentumProbability_central_pos :
+    0 < (riemannianRelativisticMomentumProbability
+      (gaussianSoftAbsMetric (ι := Unit)) 1 1 (by norm_num) (by norm_num) 0 :
+        Measure (Momentum Unit))
+      {p | -1 < p Unit.unit ∧ p Unit.unit < 1} := by
+  let k := softAbs 1 1
+  let d := (Real.sqrt k)⁻¹
+  let source : Set (Momentum Unit) :=
+    {r | -d < r Unit.unit ∧ r Unit.unit < d}
+  let central : Set (Momentum Unit) :=
+    {p | -1 < p Unit.unit ∧ p Unit.unit < 1}
+  have hk : 0 < k := softAbs_pos 1 (by norm_num) 1
+  have hsqrt : 0 < Real.sqrt k := Real.sqrt_pos.2 hk
+  have hd : 0 < d := inv_pos.mpr hsqrt
+  have hsource : 0 <
+      (euclideanRelativisticMomentumProbability Unit 1 1
+        (by norm_num) (by norm_num) : Measure (Momentum Unit)) source := by
+    change 0 <
+      (euclideanRelativisticMomentumProbability Unit 1 1
+        (by norm_num) (by norm_num) : Measure (Momentum Unit))
+        {r | -d < r Unit.unit ∧ r Unit.unit < d}
+    rw [unitMomentum_coordinate_Ioo_eq]
+    exact euclideanRelativisticMomentumProbability_unit_Ioo_pos
+      (neg_lt_self hd)
+  have hcentral : MeasurableSet central := by
+    exact (measurableSet_lt measurable_const (measurable_pi_apply _)).inter
+      (measurableSet_lt (measurable_pi_apply _) measurable_const)
+  change 0 < Measure.map
+      ((gaussianSoftAbsMetric (ι := Unit)).factor 0).symm
+      (euclideanRelativisticMomentumProbability Unit 1 1
+        (by norm_num) (by norm_num) : Measure (Momentum Unit)) central
+  rw [Measure.map_apply
+    ((gaussianSoftAbsMetric (ι := Unit)).factor 0).symm.continuous.measurable
+    hcentral]
+  apply lt_of_lt_of_le hsource
+  apply measure_mono
+  intro r hr
+  change -1 <
+      ((gaussianSoftAbsMetric (ι := Unit)).factor 0).symm r Unit.unit ∧
+    ((gaussianSoftAbsMetric (ι := Unit)).factor 0).symm r Unit.unit < 1
+  change -1 <
+      (diagonalSoftAbsFactor 1 (by norm_num) gaussianHessianDiagonal 0).symm
+        r Unit.unit ∧
+    (diagonalSoftAbsFactor 1 (by norm_num) gaussianHessianDiagonal 0).symm
+        r Unit.unit < 1
+  rw [diagonalSoftAbsFactor_symm_apply]
+  change -1 < Real.sqrt k * r Unit.unit ∧
+    Real.sqrt k * r Unit.unit < 1
+  have hleft := mul_lt_mul_of_pos_left hr.1 hsqrt
+  have hright := mul_lt_mul_of_pos_left hr.2 hsqrt
+  dsimp [d] at hleft hright
+  rw [mul_neg, mul_inv_cancel₀ hsqrt.ne'] at hleft
+  rw [mul_inv_cancel₀ hsqrt.ne'] at hright
+  exact ⟨hleft, hright⟩
+
+/-- The conditional momentum law is position-independent for the constant
+Gaussian Hessian/SoftAbs metric. -/
+theorem gaussianSoftAbsMomentumProbability_eq_zero
+    (q : Position ι) :
+    riemannianRelativisticMomentumProbability
+        (gaussianSoftAbsMetric (ι := ι)) 1 1 (by norm_num) (by norm_num) q =
+      riemannianRelativisticMomentumProbability
+        (gaussianSoftAbsMetric (ι := ι)) 1 1 (by norm_num) (by norm_num) 0 := by
+  rfl
+
+/-- Every one-dimensional Gaussian SoftAbs momentum-refresh row assigns the
+same strictly positive mass to the central interval. -/
+theorem gaussianSoftAbsMomentumKernel_central_pos (q : Position Unit) :
+    0 < riemannianMomentumKernel (gaussianSoftAbsMetric (ι := Unit)) 1 1
+      (by norm_num) (by norm_num)
+      (diagonalSoftAbs_isMeasurableRiemannianMomentumFamily
+        1 (by norm_num) (gaussianHessianDiagonal (ι := Unit)) 1 1
+        (by norm_num) (by norm_num)
+        (measurable_gaussianHessianDiagonal (ι := Unit))) q
+      {p | -1 < p Unit.unit ∧ p Unit.unit < 1} := by
+  change 0 < (riemannianRelativisticMomentumProbability
+    (gaussianSoftAbsMetric (ι := Unit)) 1 1 (by norm_num) (by norm_num) q :
+      Measure (Momentum Unit)) {p | -1 < p Unit.unit ∧ p Unit.unit < 1}
+  rw [gaussianSoftAbsMomentumProbability_eq_zero]
+  exact gaussianSoftAbsMomentumProbability_central_pos
+
 /-- End-to-end exact position invariance for endpoint-Metropolis GR-HMC on
 the Gaussian target with its actual diagonal SoftAbs Hessian metric. -/
 theorem gaussianSoftAbs_endpointGRHMC_invariant (ε : ℝ) :
