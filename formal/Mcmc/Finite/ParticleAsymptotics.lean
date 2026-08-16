@@ -32,6 +32,14 @@ noncomputable def finiteVariance (law : Distribution Sample)
   ∑ x, law.mass x * (score x - finiteExpectation law score) ^ 2
 
 omit [DecidableEq Sample] [Nonempty Particle] in
+theorem finiteVariance_nonneg (law : Distribution Sample)
+    (score : Sample → ℝ) : 0 ≤ finiteVariance law score := by
+  unfold finiteVariance
+  apply Finset.sum_nonneg
+  intro x _
+  exact mul_nonneg (law.nonneg x) (sq_nonneg _)
+
+omit [DecidableEq Sample] [Nonempty Particle] in
 /-- Distinct coordinates of the iid product law factorize. -/
 theorem iidPopulation_two_coordinate_expectation
     (law : Distribution Sample) (first second : Sample → ℝ)
@@ -244,5 +252,92 @@ theorem iidParticleAverageMSEByExtra_tendsto_zero
   apply hratio.congr'
   filter_upwards [] with extra
   rw [iidParticleAverageMSEByExtra_eq]
+
+/-- Exact finite probability that the iid particle average deviates from its
+expectation by at least `tolerance`. -/
+noncomputable def iidParticleDeviationProbability
+    (law : Distribution Sample) (score : Sample → ℝ)
+    (extra : ℕ) (tolerance : ℝ) : ℝ :=
+  ∑ samples : Fin (extra + 1) → Sample,
+    (iidPopulation law).mass samples *
+      if tolerance ≤
+          |particleAverage score samples - finiteExpectation law score|
+      then 1 else 0
+
+omit [DecidableEq Sample] [Nonempty Particle] in
+theorem iidParticleDeviationProbability_nonneg
+    (law : Distribution Sample) (score : Sample → ℝ)
+    (extra : ℕ) (tolerance : ℝ) :
+    0 ≤ iidParticleDeviationProbability law score extra tolerance := by
+  unfold iidParticleDeviationProbability
+  apply Finset.sum_nonneg
+  intro samples _
+  split
+  · simpa using (iidPopulation law).nonneg samples
+  · simp
+
+omit [DecidableEq Sample] [Nonempty Particle] in
+/-- Finite Chebyshev bound derived from the exact particle-average MSE. -/
+theorem iidParticleDeviationProbability_le
+    (law : Distribution Sample) (score : Sample → ℝ)
+    (extra : ℕ) {tolerance : ℝ} (htolerance : 0 < tolerance) :
+    iidParticleDeviationProbability law score extra tolerance ≤
+      finiteVariance law score / ((extra + 1 : ℕ) : ℝ) /
+        tolerance ^ 2 := by
+  unfold iidParticleDeviationProbability
+  calc
+    _ ≤ ∑ samples : Fin (extra + 1) → Sample,
+        (iidPopulation law).mass samples *
+          (particleAverage score samples - finiteExpectation law score) ^ 2 /
+            tolerance ^ 2 := by
+      apply Finset.sum_le_sum
+      intro samples _
+      by_cases hbad : tolerance ≤
+          |particleAverage score samples - finiteExpectation law score|
+      · simp only [hbad, if_true]
+        have hsquare : tolerance ^ 2 ≤
+            (particleAverage score samples - finiteExpectation law score) ^ 2 := by
+          nlinarith [sq_nonneg
+            (|particleAverage score samples - finiteExpectation law score| -
+              tolerance), sq_abs
+            (particleAverage score samples - finiteExpectation law score)]
+        have hmass := (iidPopulation law).nonneg samples
+        rw [le_div_iff₀ (sq_pos_of_pos htolerance)]
+        nlinarith
+      · simp only [hbad, if_false, mul_zero]
+        exact div_nonneg
+          (mul_nonneg ((iidPopulation law).nonneg samples) (sq_nonneg _))
+          (sq_nonneg _)
+    _ = iidParticleAverageMSEByExtra law score extra / tolerance ^ 2 := by
+      unfold iidParticleAverageMSEByExtra
+      rw [Finset.sum_div]
+    _ = _ := by
+      rw [iidParticleAverageMSEByExtra_eq]
+      norm_num
+
+omit [DecidableEq Sample] [Nonempty Particle] in
+/-- Count-indexed convergence in probability of the finite iid particle
+average. -/
+theorem iidParticleDeviationProbability_tendsto_zero
+    (law : Distribution Sample) (score : Sample → ℝ)
+    {tolerance : ℝ} (htolerance : 0 < tolerance) :
+    Filter.Tendsto
+      (fun extra => iidParticleDeviationProbability law score extra tolerance)
+      Filter.atTop (nhds 0) := by
+  have hupper : Filter.Tendsto
+      (fun extra => iidParticleAverageMSEByExtra law score extra / tolerance ^ 2)
+      Filter.atTop (nhds 0) := by
+    simpa using (iidParticleAverageMSEByExtra_tendsto_zero law score).div_const
+      (tolerance ^ 2)
+  apply squeeze_zero
+    (g := fun extra => iidParticleAverageMSEByExtra law score extra /
+      tolerance ^ 2)
+  · exact fun extra =>
+      iidParticleDeviationProbability_nonneg law score extra tolerance
+  · intro extra
+    convert iidParticleDeviationProbability_le law score extra htolerance using 1
+    rw [iidParticleAverageMSEByExtra_eq]
+    norm_num
+  · exact hupper
 
 end Mcmc.Finite.ParticleEstimator

@@ -265,8 +265,9 @@ The repository now contains machine-checked implementations and proofs for:
 - finite iid particle clouds whose average nonnegative importance weight is
   proved unbiased, with exact distinct-coordinate factorization and the
   finite identity `MSE(average) = variance / particle-count`, together with
-  mean-square consistency as the explicit count tends to infinity and the
-  resulting pseudo-marginal MH extended stationarity and exact target marginal;
+  a finite Chebyshev deviation bound, mean-square and in-probability
+  consistency as the explicit count tends to infinity, and the resulting
+  pseudo-marginal MH extended stationarity and exact target marginal;
 - unbiased multinomial ancestor resampling, heterogeneous propagation, and a
   one-step bootstrap resample--propagate expectation identity, lifted to an
   arbitrary finite-horizon homogeneous Feynman--Kac expectation theorem for
