@@ -130,6 +130,13 @@ genuinely nonlinear version shears that output to
 Reference/Optimized traces, curved-strip checks, moment diagnostics, and
 seeded reproducibility tests.
 
+Completed dynamic-trajectory candidate sets now also have a recursive binary
+barrier-tree representation. Lean proves their reroot certificate and
+target-weighted stationarity; Julia mirrors the aggregation and exposes a
+checked target-weighted selector that refuses invalid row families. This is a
+usable conservative dynamic-tree transition, not yet an equivalence proof for
+a root-dependent standard NUTS builder.
+
 Continuous-time samplers now begin in a separate `Mcmc.PDMP` namespace.
 Generator invariance, rate-biased jump-flux balance, and finite reversible-rate
 generator balance are formalized, with a symmetric two-velocity switching
@@ -181,7 +188,10 @@ jump-generator form, isolating the exact pointwise cancellation used after a
 reflection-invariant velocity change of variables. Reflection is packaged as
 a measurable involutive equivalence, and a measure-level theorem proves that
 any velocity law preserved by it turns the integrated bounce term into minus
-the normal transport-flux term. For globally bounded bounce intensities, Lean now
+the normal transport-flux term. Lean now also integrates the full
+position-dependent phase-space generator and reduces mean-zero exactly to an
+explicit multidimensional spatial integration-by-parts premise. This is
+infinitesimal balance, not process stationarity or convergence. For globally bounded bounce intensities, Lean now
 also constructs the exact positive-horizon Poisson/ordered-time thinning
 kernel and the practical refresh-then-bounce composition. The latter preserves
 a product target conditional on the still-explicit bounce-horizon spatial-flux
@@ -330,7 +340,9 @@ rows and immediately checks the reroot condition consumed by the verified
 finite-orbit selection theorem. Certified traces may use that theorem;
 rejected traces remain useful diagnostics but carry no stationarity claim.
 The root-independent adjacent and all-scales partitions remain the
-conservative always-certified alternatives.
+conservative always-certified alternatives. Recursive completed-tree barriers
+and `certified_dynamic_select` make accepted certificates directly executable
+with target-weighted selection.
 
 The Julia layer also exposes bounded warmup-only tuning for Gaussian RWMH.
 `WarmupGaussianRWMH` uses diminishing `1/√n` Robbins--Monro log-scale updates,
@@ -375,7 +387,9 @@ The repository now contains machine-checked implementations and proofs for:
   Markov but not target-exact and MALA proved reversible and target-invariant;
 - general-state two-block auxiliary Gibbs/data augmentation, including a
   slice-sampling interface whose correctness is reduced to an explicit
-  vertical/horizontal joint-factorization equation;
+  vertical/horizontal joint-factorization equation, plus a within-conditional
+  theorem for current-state-dependent horizontal updates that preserve the
+  auxiliary-first under-graph joint law;
 - a concrete measurable vertical slice-height Markov kernel and proof that
   its lifted weighted target is exactly Lebesgue measure under the target
   graph, plus a measurable horizontal conditional obtained by standard-Borel
@@ -440,6 +454,11 @@ The repository now contains machine-checked implementations and proofs for:
 - the finite Roberts--Rosenthal adaptive-MCMC theorem: Diminishing Adaptation
   plus Containment implies total-variation convergence of the deterministic
   state-marginal laws, without an almost-sure or rate claim;
+- general-state Ionescu--Tulcea semantics for adaptive selectors that inspect
+  the entire finite history, with infinite path laws, finite coordinate
+  marginals, and exact reduction to homogeneous kernel powers under constant
+  parameter selection; general-state adaptive convergence over this semantics
+  remains open;
 - two-temperature parallel tempering with an MH-corrected swap, product-target
   stationarity, and an exact cold-marginal theorem;
 - finite pseudo-marginal MH with a nonnegative unbiased estimator, including
