@@ -111,8 +111,11 @@ propagates the half-momentum and next-position budgets to the outgoing
 momentum. For the nonconstant target the momentum-slice constant is already
 global; the position-slice and energy constants must be supplied on the
 bounded trajectory region because the quadratic target is not globally
-Lipschitz. This bounded-region certificate, followed by the existing
-multinomial boundary-stability theorem, is the next link.
+Lipschitz. The generic bounded-region energy link is now checked: a
+`LipschitzOnWith` certificate transports phase-state error into endpoint-energy
+error and adds backend evaluation error separately. A concrete compact-region
+constant for the SoftAbs trajectory, followed by the existing multinomial
+boundary-stability theorem, is the next link.
 
 ### 2. Restricted callbacks, adaptation, and performance
 

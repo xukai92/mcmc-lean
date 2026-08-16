@@ -125,6 +125,38 @@ theorem energyDifference_approximates
       (currentError + nextError) :=
   hcurrent.sub hnext
 
+/-- A bounded-region Lipschitz certificate transports phase-state error into
+an endpoint-energy error. Backend evaluation error remains an independent
+additive term. -/
+theorem endpointEnergy_approximates_of_lipschitzOn
+    {α : Type*} [PseudoMetricSpace α]
+    (energy : α → ℝ) (region : Set α) (L : NNReal)
+    (hlip : LipschitzOnWith L energy region)
+    {computedState idealState : α}
+    (hcomputedRegion : computedState ∈ region)
+    (hidealRegion : idealState ∈ region)
+    {computedEnergy evaluationError stateError : ℝ}
+    (hevaluation : Approximates computedEnergy
+      (energy computedState) evaluationError)
+    (hstate : dist computedState idealState ≤ stateError) :
+    Approximates computedEnergy (energy idealState)
+      (evaluationError + L * stateError) := by
+  unfold Approximates at hevaluation ⊢
+  calc
+    |computedEnergy - energy idealState| ≤
+        |computedEnergy - energy computedState| +
+          |energy computedState - energy idealState| := by
+      rw [show computedEnergy - energy idealState =
+          (computedEnergy - energy computedState) +
+            (energy computedState - energy idealState) by ring]
+      exact abs_add_le _ _
+    _ ≤ evaluationError + L * dist computedState idealState :=
+      add_le_add hevaluation (by
+        simpa [Real.dist_eq] using
+          hlip.dist_le_mul computedState hcomputedRegion idealState hidealRegion)
+    _ ≤ evaluationError + L * stateError := by
+      gcongr
+
 /-- Exponentiation plus clamping turns an energy-difference certificate into
 an acceptance-threshold certificate, conditional on a concrete exp bound. -/
 theorem hmcThreshold_approximates

@@ -2221,3 +2221,11 @@ every finite-dimensional phase space. The target's global `P` is already
 available; `Q` must be certified on the bounded numerical trajectory region,
 as must the endpoint-energy Lipschitz constant, rather than falsely asserting
 a global bound for the quadratic potential.
+
+Added the matching bounded-region energy bridge. For any phase Hamiltonian
+that is Lipschitz on a certified region containing both the computed and ideal
+states, Lean now turns a state-distance budget plus a backend energy-evaluation
+budget into an endpoint-energy approximation. The pre-existing endpoint
+difference and stable HMC/multinomial decision theorems can consume this result.
+This preserves the correct local nature of the quadratic SoftAbs target rather
+than smuggling in a false global Lipschitz premise.
