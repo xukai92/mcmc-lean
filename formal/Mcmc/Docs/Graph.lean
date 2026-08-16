@@ -59,10 +59,11 @@ def formalizationGraph : Graph where
     ⟨"finite", "Finite probability and transport"⟩,
     ⟨"smc", "Finite Feynman--Kac and explicit SMC histories"⟩,
     ⟨"pmcmc", "PIMH, PMMH, conditional SMC, and particle Gibbs"⟩,
-    ⟨"pgRate", "Zero-horizon PG exact N-dependent rate"⟩,
+    ⟨"pgRate", "Positive-horizon PG convergence and count-indexed rates"⟩,
     ⟨"trace", "Finite assume/observe posterior semantics"⟩,
     ⟨"composable", "Scoped composable inference operators"⟩,
     ⟨"ge18", "Ge et al. 2018 Turing core"⟩,
+    ⟨"transform", "Constrained-coordinate measure equivalences"⟩,
     ⟨"mh", "General-state Metropolis--Hastings"⟩,
     ⟨"rwmh", "Gaussian RWMH and coupling"⟩,
     ⟨"dynamics", "Hamiltonian dynamics and leapfrog"⟩,
@@ -78,7 +79,7 @@ def formalizationGraph : Graph where
     ⟨"finite", "hmc", some "trajectory-index laws", false⟩,
     ⟨"finite", "smc", none, false⟩,
     ⟨"smc", "pmcmc", some "selected-path extended target", false⟩,
-    ⟨"pmcmc", "pgRate", some "zero-horizon specialization", false⟩,
+    ⟨"pmcmc", "pgRate", some "full support or explicit minorization", false⟩,
     ⟨"finite", "trace", some "normalized factor semantics", false⟩,
     ⟨"trace", "composable", some "common posterior target", false⟩,
     ⟨"pmcmc", "composable", some "PG component", false⟩,
@@ -87,6 +88,8 @@ def formalizationGraph : Graph where
     ⟨"kernel", "hmc", none, false⟩,
     ⟨"hmc", "composable", some "HMC component", false⟩,
     ⟨"composable", "ge18", some "scheduled stationarity", false⟩,
+    ⟨"kernel", "transform", some "kernel conjugation", false⟩,
+    ⟨"transform", "ge18", some "positive-real runtime convention", false⟩,
     ⟨"rwmh", "meeting", none, false⟩,
     ⟨"hmc", "meeting", none, false⟩,
     ⟨"meeting", "xu21", none, false⟩,
@@ -104,18 +107,22 @@ def executableGraph : Graph where
   nodes := [
     ⟨"ideal", "Ideal real-valued sampler semantics"⟩,
     ⟨"typed", "Typed sampler IR in Lean"⟩,
+    ⟨"oracle", "Exact Lean IR interpreter oracle"⟩,
     ⟨"serialized", "Versioned serialized IR"⟩,
     ⟨"reference", "Julia Reference interpreter"⟩,
     ⟨"optimized", "Julia Optimized implementation"⟩,
+    ⟨"bounds", "Backend-independent error and margin certificates"⟩,
     ⟨"float", "Floating-point execution"⟩]
   edges := [
     ⟨"ideal", "typed", some "proved refinement", false⟩,
+    ⟨"typed", "oracle", some "exact interpreter theorem", false⟩,
     ⟨"typed", "serialized", some "Lean generator", false⟩,
     ⟨"serialized", "reference", some "direct interpretation", false⟩,
     ⟨"reference", "optimized", some "differential tests", false⟩,
-    ⟨"ideal", "float", some "numerical refinement", true⟩,
+    ⟨"ideal", "bounds", some "proved bounded refinement", false⟩,
+    ⟨"bounds", "float", some "platform-local operation bounds", true⟩,
     ⟨"optimized", "float", some "executes as", false⟩]
-  note := "Solid arrows are implemented generation, proved refinement, or tested conformance links as labeled. The dashed numerical-refinement arrow is an explicit deferred proof obligation, not a theorem."
+  note := "Solid arrows are implemented generation, proved refinement, or tested conformance links as labeled. The exact Lean interpreter satisfies its refinement contract. The dashed arrow isolates the remaining platform-specific libm, rounding, and RNG evidence needed to instantiate the proved bounded certificates for Float64."
 
 /-- Complete generated Markdown page for the documentation site. -/
 def renderGraphs : String :=

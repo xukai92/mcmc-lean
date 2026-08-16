@@ -13,10 +13,11 @@ flowchart TB
   finite["Finite probability and transport"]
   smc["Finite Feynman--Kac and explicit SMC histories"]
   pmcmc["PIMH, PMMH, conditional SMC, and particle Gibbs"]
-  pgRate["Zero-horizon PG exact N-dependent rate"]
+  pgRate["Positive-horizon PG convergence and count-indexed rates"]
   trace["Finite assume/observe posterior semantics"]
   composable["Scoped composable inference operators"]
   ge18["Ge et al. 2018 Turing core"]
+  transform["Constrained-coordinate measure equivalences"]
   mh["General-state Metropolis--Hastings"]
   rwmh["Gaussian RWMH and coupling"]
   dynamics["Hamiltonian dynamics and leapfrog"]
@@ -31,7 +32,7 @@ flowchart TB
   finite -->|trajectory-index laws| hmc
   finite --> smc
   smc -->|selected-path extended target| pmcmc
-  pmcmc -->|zero-horizon specialization| pgRate
+  pmcmc -->|full support or explicit minorization| pgRate
   finite -->|normalized factor semantics| trace
   trace -->|common posterior target| composable
   pmcmc -->|PG component| composable
@@ -40,6 +41,8 @@ flowchart TB
   kernel --> hmc
   hmc -->|HMC component| composable
   composable -->|scheduled stationarity| ge18
+  kernel -->|kernel conjugation| transform
+  transform -->|positive-real runtime convention| ge18
   rwmh --> meeting
   hmc --> meeting
   meeting --> xu21
@@ -58,16 +61,20 @@ Arrows show definition or theorem dependencies. The finite layer remains useful 
 flowchart LR
   ideal["Ideal real-valued sampler semantics"]
   typed["Typed sampler IR in Lean"]
+  oracle["Exact Lean IR interpreter oracle"]
   serialized["Versioned serialized IR"]
   reference["Julia Reference interpreter"]
   optimized["Julia Optimized implementation"]
+  bounds["Backend-independent error and margin certificates"]
   float["Floating-point execution"]
   ideal -->|proved refinement| typed
+  typed -->|exact interpreter theorem| oracle
   typed -->|Lean generator| serialized
   serialized -->|direct interpretation| reference
   reference -->|differential tests| optimized
-  ideal -.->|numerical refinement| float
+  ideal -->|proved bounded refinement| bounds
+  bounds -.->|platform-local operation bounds| float
   optimized -->|executes as| float
 ```
 
-Solid arrows are implemented generation, proved refinement, or tested conformance links as labeled. The dashed numerical-refinement arrow is an explicit deferred proof obligation, not a theorem.
+Solid arrows are implemented generation, proved refinement, or tested conformance links as labeled. The exact Lean interpreter satisfies its refinement contract. The dashed arrow isolates the remaining platform-specific libm, rounding, and RNG evidence needed to instantiate the proved bounded certificates for Float64.
