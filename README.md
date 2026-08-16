@@ -196,9 +196,12 @@ has a complete positive-horizon transition kernel driven by the exact
 homogeneous Poisson schedule. This proves construction and Markov validity,
 not stationary-target preservation or convergence for BPS/Zig-Zag. Lean
 proves its exact transported-law decomposition into Poisson-weighted,
-fixed-count, ordered-time averages. Thus the future generator argument may
-cancel adjacent count strata; neither deterministic schedules nor individual
-count components are incorrectly assumed invariant.
+fixed-count, ordered-time averages. An adjacent-count flux certificate now
+formalizes the required cancellation: each transported and target count
+stratum shares a core while residual flux shifts by one count, and equality of
+the total flux proves horizon invariance. Concrete Zig-Zag/BPS clients must
+still construct that certificate; neither deterministic schedules nor
+individual count components are incorrectly assumed invariant.
 
 For positive-horizon particle Gibbs, the finite library now proves a concrete
 arbitrary-horizon result: with any finite particle index type containing at

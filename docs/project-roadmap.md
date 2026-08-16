@@ -263,7 +263,9 @@ breadth branches are:
   finite continuous-time schedule/càdlàg foundations. General-state
   Poissonization of an arbitrary embedded mathlib Markov kernel is complete,
   including Markov validity, invariant-target preservation, and finite-count
-  nonexplosion for the bounded homogeneous clock. General bounded
+  nonexplosion for the bounded homogeneous clock. The all-count horizon
+  executor also has an adjacent-count flux cancellation theorem; concrete
+  Zig-Zag/BPS clients still need to derive its flux certificate. General bounded
   state-dependent pure-jump mechanisms now have a thinned embedded kernel and
   real-time transition, with rate-biased balanced flux transported through
   accepted/rejected clock decomposition to real-time invariance. Deterministic

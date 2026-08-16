@@ -152,6 +152,15 @@ time-averaged components. This exposes the correct generator-proof boundary:
 cancellation may occur between adjacent count strata. Proving that total
 cancellation for Zig-Zag and BPS remains the analytic step.
 
+The cross-count boundary is now a reusable theorem rather than prose alone.
+`AdjacentCountFluxBalance` decomposes each weighted transported stratum and
+weighted target stratum into a common core plus residual flux shifted by one
+event count. If the summed shifted and unshifted flux measures agree, Lean
+proves the entire count mixture equals the target. Instantiating this
+certificate with the exact Poisson schedule decomposition proves bounded
+horizon-kernel invariance. Concrete Zig-Zag/BPS generator calculations must
+still supply the core and flux measures; no fixed count is assumed invariant.
+
 ## 2026-08-15: categorical discontinuous-HMC vertical slice
 
 Added the Laplace-momentum crossing/reflection algebra from Nishimura, Dunson,

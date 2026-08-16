@@ -20,6 +20,51 @@ namespace Mcmc.PDMP
 
 variable {State : Type*} [MeasurableSpace State]
 
+/-- Adjacent-count flux certificate for a count mixture. Each transported
+count stratum and the corresponding weighted target stratum share a core;
+their remaining flux is shifted by one count. The explicit sum identity is
+the nonnegative-measure form of cross-count cancellation. -/
+structure AdjacentCountFluxBalance
+    (weights : ℕ → ENNReal) (target : Measure State)
+    (transported : ℕ → Measure State) where
+  core : ℕ → Measure State
+  flux : ℕ → Measure State
+  transported_eq : ∀ count,
+    transported count = core count + flux (count + 1)
+  target_eq : ∀ count,
+    weights count • target = core count + flux count
+  flux_shift : Measure.sum (fun count => flux (count + 1)) = Measure.sum flux
+
+/-- Adjacent-count flux balance turns normalized count weights into exact
+mixture invariance. -/
+theorem AdjacentCountFluxBalance.sum_transported_eq_target
+    {weights : ℕ → ENNReal} {target : Measure State}
+    {transported : ℕ → Measure State}
+    (balance : AdjacentCountFluxBalance weights target transported)
+    (hweights : ∑' count, weights count = 1) :
+    Measure.sum transported = target := by
+  have htransport : Measure.sum transported =
+      Measure.sum balance.core +
+        Measure.sum (fun count => balance.flux (count + 1)) := by
+    ext s hs
+    rw [Measure.sum_apply _ hs, Measure.add_apply,
+      Measure.sum_apply _ hs, Measure.sum_apply _ hs]
+    simp_rw [balance.transported_eq, Measure.add_apply]
+    exact ENNReal.tsum_add
+  have htarget : Measure.sum (fun count => weights count • target) =
+      Measure.sum balance.core + Measure.sum balance.flux := by
+    ext s hs
+    rw [Measure.sum_apply _ hs, Measure.add_apply,
+      Measure.sum_apply _ hs, Measure.sum_apply _ hs]
+    simp_rw [balance.target_eq, Measure.add_apply]
+    exact ENNReal.tsum_add
+  have hweighted : Measure.sum (fun count => weights count • target) = target := by
+    ext s hs
+    rw [Measure.sum_apply _ hs]
+    simp_rw [Measure.smul_apply, smul_eq_mul]
+    rw [ENNReal.tsum_mul_right, hweights, one_mul]
+  rw [htransport, balance.flux_shift, ← htarget, hweighted]
+
 /-- Deterministically flow to the timestamp while retaining it. -/
 noncomputable def ThinnedFlowSimulator.flowToTimestamp
     (simulator : ThinnedFlowSimulator State) :
@@ -379,6 +424,32 @@ theorem ThinnedFlowSimulator.horizonKernel_comp_eq_sum_count_mixtures
       (simulator.clock.rate * horizon.duration) {count})
     (fun count : ℕ =>
       horizon.fixedScheduleMeasure (timestampOrdering count))
+
+/-- Weighted transported target measure in one Poisson count stratum. -/
+noncomputable def ThinnedFlowSimulator.countTransportedTarget
+    (simulator : ThinnedFlowSimulator State) (horizon : PositiveHorizon)
+    (target : Measure State) (count : ℕ) : Measure State :=
+  poissonMeasure (simulator.clock.rate * horizon.duration) {count} •
+    (Mcmc.Kernel.independentParameterMixture
+      (simulator.executeScheduled horizon.duration)
+      (horizon.fixedScheduleMeasure (timestampOrdering count)) ∘ₘ target)
+
+/-- Cross-count flux cancellation is sufficient for exact fixed-horizon PDMP
+stationarity. Unlike countwise stationarity, this permits the zero-event flow
+stratum to exchange mass with adjacent event-count strata. -/
+theorem ThinnedFlowSimulator.horizonKernel_invariant_of_adjacentCountFlux
+    (simulator : ThinnedFlowSimulator State) (horizon : PositiveHorizon)
+    (target : Measure State) [SFinite target]
+    (balance : AdjacentCountFluxBalance
+      (fun count => poissonMeasure
+        (simulator.clock.rate * horizon.duration) {count})
+      target (simulator.countTransportedTarget horizon target)) :
+    (simulator.horizonKernel horizon).Invariant target := by
+  rw [ProbabilityTheory.Kernel.Invariant]
+  rw [simulator.horizonKernel_comp_eq_sum_count_mixtures horizon target]
+  exact balance.sum_transported_eq_target
+    (tsum_poisson_singletons
+      (simulator.clock.rate * horizon.duration))
 
 /-- It suffices to prove invariance of the executor selected by each schedule's
 stored count. -/
