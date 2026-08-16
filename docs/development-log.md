@@ -4,8 +4,9 @@
   convergence. A finite initial Lyapunov moment now proves finiteness of the
   time-zero weighted off-diagonal mass, and the new endpoint combines this
   with a faithful coupling, positive exact-meeting set, and invariant target
-  to prove convergence of every bounded measurable expectation. Sampler
-  clients such as bare Gaussian GR-HMC therefore only need to supply their
+  to prove both setwise convergence and convergence of every bounded
+  measurable expectation. Sampler clients such as bare Gaussian GR-HMC
+  therefore only need to supply their
   target-specific drift, local meeting, faithfulness, and moment witnesses;
   no separate probabilistic tail-to-convergence argument remains.
 

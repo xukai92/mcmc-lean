@@ -336,6 +336,118 @@ theorem lawAtTime_apply_le_invariant_add_exactMeetingTail
     lawAtTime_left_apply_le_right_add_exactMeetingTail initialCoupling
       leftInitial target transition coupled hinitial hcoupled hfaithful n hs
 
+/-- The symmetric stationary-target eventwise coupling bound. -/
+theorem invariant_apply_le_lawAtTime_add_exactMeetingTail
+    [MeasurableEq α]
+    (initialCoupling : Measure (α × α)) [IsProbabilityMeasure initialCoupling]
+    (leftInitial target : Measure α)
+    (transition : Kernel α α) [IsMarkovKernel transition]
+    (coupled : Kernel (α × α) (α × α)) [IsMarkovKernel coupled]
+    (hinitial : IsMeasureCoupling initialCoupling leftInitial target)
+    (hcoupled : IsCoupling coupled transition transition)
+    (hfaithful : IsFaithful coupled) (hinvariant : transition.Invariant target)
+    (n : ℕ) {s : Set α} (hs : MeasurableSet s) :
+    target s ≤ lawAtTime leftInitial transition n s +
+      exactMeetingTail (pathLaw initialCoupling coupled) n := by
+  simpa only [lawAtTime_eq_of_invariant target transition hinvariant n] using
+    lawAtTime_right_apply_le_left_add_exactMeetingTail initialCoupling
+      leftInitial target transition coupled hinitial hcoupled hfaithful n hs
+
+/-- A geometric faithful meeting tail implies setwise convergence to an
+invariant target. -/
+theorem lawAtTime_apply_tendsto_of_invariant_geometricMeeting
+    [MeasurableEq α]
+    (initialCoupling : Measure (α × α)) [IsProbabilityMeasure initialCoupling]
+    (leftInitial target : Measure α) [IsProbabilityMeasure target]
+    (transition : Kernel α α) [IsMarkovKernel transition]
+    (coupled : Kernel (α × α) (α × α)) [IsMarkovKernel coupled]
+    (hinitial : IsMeasureCoupling initialCoupling leftInitial target)
+    (hcoupled : IsCoupling coupled transition transition)
+    (hfaithful : IsFaithful coupled) (hinvariant : transition.Invariant target)
+    (C rate : ENNReal) (hC : C ≠ ∞) (hrate : rate < 1)
+    (htail : ∀ n, exactMeetingTail (pathLaw initialCoupling coupled) n ≤
+      C * rate ^ n) {s : Set α} (hs : MeasurableSet s) :
+    Filter.Tendsto (fun n => lawAtTime leftInitial transition n s)
+      Filter.atTop (nhds (target s)) := by
+  let remainder : ℕ → ENNReal := fun n => C * rate ^ n
+  have hpow : Filter.Tendsto (fun n : ℕ => rate ^ n)
+      Filter.atTop (nhds 0) :=
+    ENNReal.tendsto_pow_atTop_nhds_zero_of_lt_one hrate
+  have hremainder : Filter.Tendsto remainder Filter.atTop (nhds 0) := by
+    simpa only [remainder, mul_zero] using
+      ENNReal.Tendsto.const_mul hpow (.inr hC)
+  have hlower : Filter.Tendsto (fun n => target s - remainder n)
+      Filter.atTop (nhds (target s)) := by
+    have h := ENNReal.Tendsto.sub tendsto_const_nhds hremainder
+      (Or.inl (measure_ne_top target s))
+    simpa only [tsub_zero] using h
+  have hupper : Filter.Tendsto (fun n => target s + remainder n)
+      Filter.atTop (nhds (target s)) := by
+    simpa only [add_zero] using tendsto_const_nhds.add hremainder
+  apply tendsto_of_tendsto_of_tendsto_of_le_of_le hlower hupper
+  · intro n
+    rw [tsub_le_iff_right]
+    calc
+      target s ≤ lawAtTime leftInitial transition n s +
+          exactMeetingTail (pathLaw initialCoupling coupled) n :=
+        invariant_apply_le_lawAtTime_add_exactMeetingTail
+          initialCoupling leftInitial target transition coupled hinitial hcoupled
+          hfaithful hinvariant n hs
+      _ ≤ lawAtTime leftInitial transition n s + remainder n := by
+        gcongr
+        exact htail n
+  · intro n
+    calc
+      lawAtTime leftInitial transition n s ≤ target s +
+          exactMeetingTail (pathLaw initialCoupling coupled) n :=
+        lawAtTime_apply_le_invariant_add_exactMeetingTail
+          initialCoupling leftInitial target transition coupled hinitial hcoupled
+          hfaithful hinvariant n hs
+      _ ≤ target s + remainder n := by
+        gcongr
+        exact htail n
+
+/-- Drift, a positive exact-meeting small set, and a finite initial Lyapunov
+moment imply setwise convergence to an invariant target. -/
+theorem HasGeometricDrift.lawAtTime_apply_tendsto_of_invariant
+    [MeasurableEq α]
+    (initialCoupling : Measure (α × α))
+    [IsProbabilityMeasure initialCoupling]
+    (leftInitial target : Measure α) [IsProbabilityMeasure target]
+    (transition : Kernel α α) [IsMarkovKernel transition]
+    (coupled : Kernel (α × α) (α × α)) [IsMarkovKernel coupled]
+    (hinitial : IsMeasureCoupling initialCoupling leftInitial target)
+    (hcoupled : IsCoupling coupled transition transition)
+    (hfaithful : IsFaithful coupled) (hinvariant : transition.Invariant target)
+    {V : (α × α) → ENNReal}
+    {driftRate allowance meetingBound threshold : ENNReal}
+    (hdrift : HasGeometricDrift coupled V (lyapunovSublevel V threshold)
+      driftRate allowance)
+    (hmeeting : IsExactMeetingSmallSet coupled
+      (lyapunovSublevel V threshold) meetingBound)
+    (hdriftRate : driftRate < 1)
+    (hmeetingPos : 0 < meetingBound) (hmeetingBound : meetingBound ≤ 1)
+    (hthreshold0 : threshold ≠ 0) (hthresholdTop : threshold ≠ ∞)
+    (hdriftBudgetTop : driftRate * threshold + allowance ≠ ∞)
+    (hVmoment : (∫⁻ x, V x ∂initialCoupling) ≠ ∞)
+    {s : Set α} (hs : MeasurableSet s) :
+    Filter.Tendsto (fun n => lawAtTime leftInitial transition n s)
+      Filter.atTop (nhds (target s)) := by
+  obtain ⟨scale, rate, _hscale0, hscaleTop, hrate, htail⟩ :=
+    hdrift.exists_scale_rate_exactMeetingTail_pathLaw_le initialCoupling
+      coupled hmeeting hfaithful hdriftRate hmeetingPos hmeetingBound
+      hthreshold0 hthresholdTop hdriftBudgetTop
+  let C := weightedOffDiagonalMassAtTime initialCoupling coupled V scale 0
+  have hC : C ≠ ∞ :=
+    weightedOffDiagonalMassAtTime_zero_ne_top_of_lintegral_ne_top
+      initialCoupling coupled hdrift.1 scale hscaleTop hVmoment
+  apply lawAtTime_apply_tendsto_of_invariant_geometricMeeting
+    initialCoupling leftInitial target transition coupled hinitial hcoupled
+    hfaithful hinvariant C rate hC hrate (s := s)
+  · intro n
+    simpa only [C, mul_comm] using htail n
+  · exact hs
+
 /-- A kernel uniformly minorizes a measure with coefficient `ε`. -/
 def UniformlyMinorizes (transition : Kernel α α) (ε : ENNReal)
     (target : Measure α) : Prop :=
