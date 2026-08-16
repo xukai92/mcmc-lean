@@ -1,4 +1,5 @@
 import Mcmc.Executable.Continuous.RestrictedTarget
+import Mathlib.Analysis.Calculus.MeanValue
 
 /-!
 # Recursive numerical refinement for restricted targets
@@ -27,6 +28,43 @@ theorem Approximates.neg {computed ideal error : ℝ}
   rw [Approximates] at h ⊢
   rw [show -computed - -ideal = -(computed - ideal) by ring, abs_neg]
   exact h
+
+/-- On an explicitly bounded-above domain, the ideal exponential transports
+an input error with Lipschitz factor `exp upper`. This discharges the analytic
+part of a backend `exp` certificate; only the backend's local libm error at the
+computed argument remains implementation-specific. -/
+theorem exp_approximates_exp_of_le
+    {computed ideal error upper : ℝ}
+    (hinput : Approximates computed ideal error)
+    (hcomputed : computed ≤ upper) (hideal : ideal ≤ upper) :
+    Approximates (Real.exp computed) (Real.exp ideal)
+      (Real.exp upper * error) := by
+  rw [Approximates] at hinput ⊢
+  have hlipschitz :
+      |Real.exp computed - Real.exp ideal| ≤
+        Real.exp upper * |computed - ideal| := by
+    have hmean := Convex.norm_image_sub_le_of_norm_deriv_le
+      (s := Set.Iic upper) (f := Real.exp)
+      (fun x _ => Real.differentiableAt_exp)
+      (fun x hx => by
+        rw [Real.deriv_exp, Real.norm_eq_abs,
+          abs_of_pos (Real.exp_pos x)]
+        exact Real.exp_le_exp.mpr hx)
+      (convex_Iic upper) hideal hcomputed
+    simpa [Real.norm_eq_abs, abs_sub_comm] using hmean
+  exact hlipschitz.trans
+    (mul_le_mul_of_nonneg_left hinput (Real.exp_nonneg upper))
+
+/-- Compose a backend's local `exp`/libm error with transport of an already
+approximate, bounded argument. -/
+theorem exp_backend_approximates_of_le
+    {computedExp computed ideal localError inputError upper : ℝ}
+    (hlocal : Approximates computedExp (Real.exp computed) localError)
+    (hinput : Approximates computed ideal inputError)
+    (hcomputed : computed ≤ upper) (hideal : ideal ≤ upper) :
+    Approximates computedExp (Real.exp ideal)
+      (localError + Real.exp upper * inputError) :=
+  hlocal.trans (exp_approximates_exp_of_le hinput hcomputed hideal)
 
 /-- A scalar backend plus explicit local error evidence. `expTransportError`
 includes both the backend's local `exp` error and transport from an already
@@ -57,6 +95,58 @@ structure RestrictedBackend where
     Approximates computed ideal error →
       Approximates (exp computed) (Real.exp ideal)
         (expTransportError computed ideal error)
+
+/-- Easier concrete-backend contract. Arithmetic operations retain their
+local rounding bounds, while `exp_local_bound` concerns only the backend
+result versus the ideal exponential at the same computed argument. Lean then
+adds argument transport itself. -/
+structure RestrictedPrimitiveBackend where
+  rational : Int → Nat → ℝ
+  add : ℝ → ℝ → ℝ
+  mul : ℝ → ℝ → ℝ
+  neg : ℝ → ℝ
+  exp : ℝ → ℝ
+  rationalError : Int → Nat → ℝ
+  addError : ℝ → ℝ → ℝ
+  mulError : ℝ → ℝ → ℝ
+  negError : ℝ → ℝ
+  expLocalError : ℝ → ℝ
+  rational_bound : ∀ numerator denominator,
+    Approximates (rational numerator denominator)
+      ((numerator : ℝ) / (denominator : ℝ))
+      (rationalError numerator denominator)
+  add_bound : ∀ left right,
+    Approximates (add left right) (left + right) (addError left right)
+  mul_bound : ∀ left right,
+    Approximates (mul left right) (left * right) (mulError left right)
+  neg_bound : ∀ value,
+    Approximates (neg value) (-value) (negError value)
+  exp_local_bound : ∀ value,
+    Approximates (exp value) (Real.exp value) (expLocalError value)
+
+/-- Upgrade local primitive bounds to the recursive restricted-expression
+backend. The exponential transport factor is finite and selected separately
+at every expression node. -/
+noncomputable def RestrictedPrimitiveBackend.toRestrictedBackend
+    (backend : RestrictedPrimitiveBackend) : RestrictedBackend where
+  rational := backend.rational
+  add := backend.add
+  mul := backend.mul
+  neg := backend.neg
+  exp := backend.exp
+  rationalError := backend.rationalError
+  addError := backend.addError
+  mulError := backend.mulError
+  negError := backend.negError
+  expTransportError computed ideal error :=
+    backend.expLocalError computed + Real.exp (max computed ideal) * error
+  rational_bound := backend.rational_bound
+  add_bound := backend.add_bound
+  mul_bound := backend.mul_bound
+  neg_bound := backend.neg_bound
+  exp_transport_bound computed ideal _error hinput :=
+    exp_backend_approximates_of_le (backend.exp_local_bound computed) hinput
+      (le_max_left computed ideal) (le_max_right computed ideal)
 
 /-- Numeric interpretation supplied by a certified backend. -/
 def RestrictedArtifactExpr.backendEval (backend : RestrictedBackend) :

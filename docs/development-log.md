@@ -1686,7 +1686,13 @@ a portable symbolic derivative, proved to compile to the derivative of their
 ideal-real expression. A backend supplies certified rational, arithmetic,
 negation, and exponential operations; Lean composes their local errors through
 both trees and constructs the value/gradient certificate consumed downstream.
-The `exp` transport premise remains domain- and backend-specific by design.
+The exponential boundary is now smaller: Lean proves, by the mean-value
+theorem, that argument error transports with factor
+`exp(max(computed, ideal))`. A primitive backend therefore supplies only its
+local libm error at the computed argument; the recursive backend and complete
+value/gradient errors are derived automatically. A universal claim about a
+particular platform's Float64/libm implementation is still deliberately not
+made.
 
 Made positive-horizon particle count explicit. The trajectory kernel is now
 instantiated with labels `Fin N`; a bounded-potential minorization certificate

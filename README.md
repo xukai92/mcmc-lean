@@ -527,6 +527,11 @@ Julia exposes matching per-run checked witnesses through
 supplied ideal values and primitive bounds are valid and the comparison lies
 outside their uncertainty band; they are not a universal proof of arbitrary
 Julia callbacks or platform `libm` behavior.
+For generated restricted target expressions, Lean additionally propagates
+primitive rounding errors through the complete value and symbolic-gradient
+trees. A proved mean-value bound derives exponential argument transport from
+only the backend's local libm error, using the finite adaptive factor
+`exp(max(computed, ideal))`.
 
 Executable randomized-origin multinomial HMC is available separately from
 endpoint-corrected HMC:
