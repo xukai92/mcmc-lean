@@ -19,7 +19,7 @@ floating-point code.
 | Reversible jump | Complete for scalar, planar, dimension-generic product, three-dimensional executable, and nonlinear cubic triangular-shear clients. A compiler for arbitrary nonlinear diffeomorphisms is optional breadth. |
 | Xu et al. 2021 | Complete for the corrected theorem surface and fully instantiated Gaussian and regularized-logistic meeting, marginal/target convergence, unbiasedness, and finite variance. The obstructed exponent-two statement is not asserted; more targets and full floating-point experiment reproduction remain extensions. |
 | Concrete GR-HMC convergence | Complete for the bare one-dimensional Gaussian SoftAbs epsilon=1, L=1 chain, including drift, compact minorization, skeleton meeting, residue lift, and setwise convergence. No general ergodicity claim follows. |
-| Adaptation | Predetermined schedules, finite freeze, proxy/containment closure, counterexamples, and warmup-only RWMH tests are complete. Concrete certificates for genuinely state/history-dependent indefinite rules remain open. |
+| Adaptation | Predetermined schedules, finite freeze, proxy/containment closure, counterexamples, and warmup-only RWMH tests are complete. A concrete state-selected Bool rule changes forever, has a common one-half Doeblin component after substitution, and has machine-checked setwise convergence; its matching Julia diagnostic is active. Constructing proxy certificates for realistic continuous, genuinely history-dependent rules remains open. |
 | PDMP foundations | General infrastructure and the stationary-suspension theorem are present. Exact Gaussian Zig-Zag nonexplosion/stationarity and unit-speed one-dimensional Gaussian BPS stationarity are complete. Semigroup, convergence, and general-dimensional unbounded-rate BPS remain open. |
 | Diagnostics | All registered Julia suites are active and passing. Statistical and finite-difference tests are diagnostics, not replacements for formal or refinement theorems. |
 
@@ -41,7 +41,9 @@ byte-for-byte, and runs every Julia testset.
    existing bounded comparison-refinement certificate.
 2. Certify a production-style randomized NUTS recursion or prove a precisely
    scoped equivalence to the conservative dynamic-tree interface.
-3. Construct concrete indefinite general-state adaptation certificates.
+3. Extend the concrete indefinitely state-selected finite certificate to a
+   realistic continuous and genuinely history-dependent rule through the
+   existing diminishing-adaptation/containment proxy interface.
 4. Add uniform-in-time particle stability and stronger particle-MCMC
    asymptotics.
 5. Construct general-dimensional unbounded-rate BPS and prove stationarity,

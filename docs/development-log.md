@@ -1,5 +1,14 @@
 # Development log
 
+- Added the first concrete genuinely state-selected, indefinitely changing
+  adaptive client. At time `n`, the current Bool selects one of two opposite
+  biases of size `1/(4(n+1))`. Lean proves every substituted transition
+  reversible with respect to the uniform target, proves a common one-half
+  Doeblin minorization, connects the transitions to the actual history-family
+  marginals, derives setwise convergence, and proves that the selector cannot
+  freeze after any finite burn-in. A seeded Julia diagnostic exercises the
+  same rule; it is explicitly not claimed as a Float64 refinement theorem.
+
 - Activated randomized recursive-doubling dynamic HMC at the checked theorem
   boundary. Lean now mixes arbitrary finite direction traces
   state-independently, proving stationarity because each trace either passes

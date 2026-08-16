@@ -123,6 +123,7 @@ import Mcmc.Kernel.Langevin
 import Mcmc.Kernel.Slice
 import Mcmc.Kernel.PracticalSlice
 import Mcmc.Examples.BoundedUniformSlice
+import Mcmc.Examples.IndefiniteAdaptiveBool
 import Mcmc.PDMP.Generator
 import Mcmc.PDMP.Uniformization
 import Mcmc.PDMP.Poissonization

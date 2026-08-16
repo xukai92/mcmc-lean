@@ -683,6 +683,13 @@ end
             target_accept=1.0)
         @test_throws ArgumentError WarmupGaussianRWMH(identity, 1.0, 10;
             min_scale=2.0, max_scale=1.0)
+
+        adaptive = IndefiniteAdaptiveBool()
+        adaptive_first = sample(MersenneTwister(0x1def), adaptive, false, 40_000)
+        adaptive_second = sample(MersenneTwister(0x1def), adaptive, false, 40_000)
+        @test adaptive_first == adaptive_second
+        @test abs(mean(adaptive_first[end-9_999:end]) - 0.5) < 0.025
+        @test_throws ArgumentError sample(MersenneTwister(1), adaptive, false, -1)
     end
     @testset "positive constrained transform" begin
         sampler = PositiveTransformedRWMH(x -> -x, 0.8)

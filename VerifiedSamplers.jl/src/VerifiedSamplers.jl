@@ -10,7 +10,7 @@ include("Reference/Reference.jl")
 include("Optimized/Optimized.jl")
 
 export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, BoundedRejectionSlice, SteppingOutSlice, ShearedBirthDeathRJ, SpatialBirthDeathRJ, sheared_birth_unshear, TwoStateMH, GaussianRWMH, PositiveTransformedRWMH, OpenUnitTransformedRWMH,
-    WarmupGaussianRWMH, GaussianRWMHWarmupResult, warmup,
+    WarmupGaussianRWMH, GaussianRWMHWarmupResult, IndefiniteAdaptiveBool, warmup,
     ScalarHMC, VectorHMC, MultinomialHMC, CertifiedDynamicHMC,
     CheckedFirstStopDynamicHMC, CheckedRecursiveDynamicHMC,
     MetricMultinomialHMC,
@@ -1294,6 +1294,33 @@ end
 
 sample(config::WarmupGaussianRWMH, initial::Real, count::Integer) =
     sample(Random.default_rng(), config, initial, count)
+
+"""Executable diagnostic for the proved indefinitely adaptive Bool chain.
+
+At zero-based iteration `n`, the next-state probability is `1/2 ± 1/(4(n+1))`,
+with the sign selected by the current state. Lean proves setwise convergence
+of the ideal-real chain via a common Doeblin component. This Float64 client is
+a conformance diagnostic, not an instantiation of a floating-point refinement
+certificate.
+"""
+struct IndefiniteAdaptiveBool end
+
+function sample(rng::AbstractRNG, ::IndefiniteAdaptiveBool,
+        initial::Bool, count::Integer)
+    count >= 0 || throw(ArgumentError("sample count must be nonnegative"))
+    states = BitVector(undef, count)
+    current = initial
+    for index in eachindex(states)
+        bias = 1 / (4 * index)
+        probability_true = 0.5 + (current ? bias : -bias)
+        current = rand(rng) < probability_true
+        states[index] = current
+    end
+    states
+end
+
+sample(sampler::IndefiniteAdaptiveBool, initial::Bool, count::Integer) =
+    sample(Random.default_rng(), sampler, initial, count)
 
 struct FiniteWeights
     weights::Vector{BigInt}
