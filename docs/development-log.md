@@ -9,6 +9,9 @@
   that it preserves the weighted Lebesgue target. This is an invariance result,
   not a convergence or mixing theorem. Practical stepping-out/shrinkage still
   needs a deterministic trace-reversal proof and bounded Float64 refinement.
+  The public theorem also has an almost-everywhere level-set form, so differing
+  open/closed endpoint conventions are correctly treated as Lebesgue-null
+  rather than imposed as pointwise assumptions on continuous targets.
 
 - Made the variable-interval slice proposal total on the whole real height
   space. `totalVariableIntervalKernel` uses the normalized Lebesgue interval

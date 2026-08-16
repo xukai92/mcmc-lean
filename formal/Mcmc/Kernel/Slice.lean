@@ -591,6 +591,29 @@ theorem compProd_totalIntervalKernel_eq_map_swap_sliceUnderGraph
   rw [if_congr (hlevel p.1 p.2) rfl rfl]
   rfl
 
+/-- Almost-everywhere form of the total interval factorization. This is the
+natural interface for continuous level sets: changing interval endpoints does
+not change their Lebesgue law, even though it changes literal membership. -/
+theorem compProd_totalIntervalKernel_eq_map_swap_sliceUnderGraph_ae
+    (weight lower upper : ℝ → ℝ)
+    (hweight : Measurable weight) (hlower : Measurable lower)
+    (hupper : Measurable upper)
+    (hordered : ∀ height, lower height ≤ upper height)
+    (hlevel : ∀ᵐ p : ℝ × ℝ ∂(volume : Measure ℝ).prod volume,
+      (p.2 ∈ Ioc (lower p.1) (upper p.1) ↔
+        p.1 ∈ Ioc 0 (weight p.2))) :
+    intervalHeightMeasure lower upper ⊗ₘ
+        totalVariableIntervalKernel lower upper hlower hupper =
+      (sliceUnderGraph volume weight).map Prod.swap := by
+  rw [compProd_intervalHeightMeasure_totalVariableIntervalKernel lower upper
+    hlower hupper hordered,
+    map_swap_sliceUnderGraph volume weight hweight]
+  apply withDensity_congr_ae
+  filter_upwards [hlevel] with p hp
+  simp only [sliceUnderGraphDensity, Function.comp_apply]
+  rw [if_congr hp rfl rfl]
+  simp [Prod.swap]
+
 /-- Multiplying the weighted target by its normalized vertical conditional
 cancels the target weight and produces the under-the-graph joint measure. -/
 theorem compProd_sliceHeightKernel_eq_sliceUnderGraph
@@ -664,6 +687,34 @@ theorem sliceHeightKernel_comp_weightedVolume_eq_intervalHeightMeasure
   rw [Measure.snd_compProd] at hvertical
   have hhorizontal := congrArg Measure.fst
     (compProd_totalIntervalKernel_eq_map_swap_sliceUnderGraph
+      weight lower upper hweight hlower hupper hordered hlevel)
+  rw [Measure.fst_compProd, Measure.fst_map_swap] at hhorizontal
+  exact hvertical.trans hhorizontal.symm
+
+/-- Almost-everywhere level-set identification is sufficient to identify the
+vertical height marginal. In particular, open/closed endpoint conventions do
+not become artificial sampler assumptions. -/
+theorem sliceHeightKernel_comp_weightedVolume_eq_intervalHeightMeasure_ae
+    (weight lower upper : ℝ → ℝ)
+    (hweight : Measurable weight) (hlower : Measurable lower)
+    (hupper : Measurable upper) (hpositive : ∀ x, 0 < weight x)
+    (hordered : ∀ height, lower height ≤ upper height)
+    (hlevel : ∀ᵐ p : ℝ × ℝ ∂(volume : Measure ℝ).prod volume,
+      (p.2 ∈ Ioc (lower p.1) (upper p.1) ↔
+        p.1 ∈ Ioc 0 (weight p.2))) :
+    sliceHeightKernel weight hweight hpositive ∘ₘ
+        (volume : Measure ℝ).withDensity
+          (fun x => ENNReal.ofReal (weight x)) =
+      intervalHeightMeasure lower upper := by
+  letI : SFinite (intervalHeightMeasure lower upper) := by
+    unfold intervalHeightMeasure
+    infer_instance
+  have hvertical := congrArg Measure.snd
+    (compProd_sliceHeightKernel_eq_sliceUnderGraph
+      (volume : Measure ℝ) weight hweight hpositive)
+  rw [Measure.snd_compProd] at hvertical
+  have hhorizontal := congrArg Measure.fst
+    (compProd_totalIntervalKernel_eq_map_swap_sliceUnderGraph_ae
       weight lower upper hweight hlower hupper hordered hlevel)
   rw [Measure.fst_compProd, Measure.fst_map_swap] at hhorizontal
   exact hvertical.trans hhorizontal.symm
@@ -785,6 +836,29 @@ theorem intervalLevelSliceSampler_invariant
   rw [sliceHeightKernel_comp_weightedVolume_eq_intervalHeightMeasure
     weight lower upper hweight hlower hupper hpositive hordered hlevel]
   exact (compProd_totalIntervalKernel_eq_map_swap_sliceUnderGraph
+    weight lower upper hweight hlower hupper hordered hlevel).symm
+
+/-- Endpoint-insensitive version of explicit interval-level slice invariance.
+Level-set equality is required only almost everywhere under planar Lebesgue
+measure. -/
+theorem intervalLevelSliceSampler_invariant_ae
+    (weight lower upper : ℝ → ℝ)
+    (hweight : Measurable weight) (hlower : Measurable lower)
+    (hupper : Measurable upper) (hpositive : ∀ x, 0 < weight x)
+    (hordered : ∀ height, lower height ≤ upper height)
+    (hlevel : ∀ᵐ p : ℝ × ℝ ∂(volume : Measure ℝ).prod volume,
+      (p.2 ∈ Ioc (lower p.1) (upper p.1) ↔
+        p.1 ∈ Ioc 0 (weight p.2))) :
+    (intervalLevelSliceSampler weight lower upper hweight hlower hupper
+      hpositive).Invariant
+        ((volume : Measure ℝ).withDensity
+          (fun x => ENNReal.ofReal (weight x))) := by
+  apply exactSliceSampler_invariant_underGraph
+    (volume : Measure ℝ) weight hweight hpositive
+      (totalVariableIntervalKernel lower upper hlower hupper)
+  rw [sliceHeightKernel_comp_weightedVolume_eq_intervalHeightMeasure_ae
+    weight lower upper hweight hlower hupper hpositive hordered hlevel]
+  exact (compProd_totalIntervalKernel_eq_map_swap_sliceUnderGraph_ae
     weight lower upper hweight hlower hupper hordered hlevel).symm
 
 /-- Slice update whose horizontal transition may depend on both the sampled

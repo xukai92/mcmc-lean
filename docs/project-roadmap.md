@@ -366,8 +366,10 @@ breadth branches are:
   fallback, every valid row is normalized restricted Lebesgue measure, and
   fallback rows are proved null under every nonnegative-width height law.
   Lean now combines this with the concrete vertical kernel to construct an
-  explicit invariant interval-level sampler for bounded real targets. Proving
-  each deterministic guarded Julia expansion/shrinkage section satisfies the
+  explicit invariant interval-level sampler for bounded real targets.
+  Level-set identification may be supplied almost everywhere under planar
+  Lebesgue measure, so interval endpoint conventions do not obstruct clients.
+  Proving each deterministic guarded Julia expansion/shrinkage section satisfies the
   resulting joint-preservation premise, plus its Float64 refinement, remains;
 - reversible-jump transports beyond the checked scalar and planar
   birth/death scaling clients. Product transport-density certificates now
