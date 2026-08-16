@@ -74,6 +74,20 @@ end
     @test_throws ArgumentError GaussianSoftAbsGRHMC(2, 0.1; smoothing=0.0)
 end
 
+@testset "guarded SoftAbs metric evaluation" begin
+    zero_entry = evaluate_softabs_metric_float64(0.0; smoothing=2.0)
+    @test zero_entry.eigenvalue == 0.5
+    @test zero_entry.factor == inv(sqrt(0.5))
+    @test zero_entry.logdet == log(0.5)
+
+    entry = evaluate_softabs_metric_float64(1.0)
+    @test entry.eigenvalue == 1 / tanh(1.0)
+    @test entry.sqrt_eigenvalue^2 ≈ entry.eigenvalue
+    @test entry.factor * entry.sqrt_eigenvalue ≈ 1.0
+    @test_throws DomainError evaluate_softabs_metric_float64(Inf)
+    @test_throws DomainError evaluate_softabs_metric_float64(1.0; smoothing=0.0)
+end
+
 @testset "restricted target expressions" begin
     for x in (-3.0, -0.25, 0.0, 1.5)
         value, derivative = restricted_value_gradient(

@@ -22,6 +22,7 @@ export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, Bounded
     restricted_sinusoidal_potential, RestrictedGaussianFloat64Certificate,
     certify_restricted_gaussian_float64,
     restricted_gaussian_certificate_arguments,
+    SoftAbsMetricFloat64Evaluation, evaluate_softabs_metric_float64,
     Xu21CoupledSampler, ScopedInferenceOperator, ComposableSampler, covers,
     DynamicTreeCertificate, certify_dynamic_tree, certified_orbit_partition,
     generated_schedule,
@@ -145,6 +146,39 @@ struct RestrictedSin <: RestrictedExpr
 end
 struct RestrictedCos <: RestrictedExpr
     value::RestrictedExpr
+end
+
+"""Guarded Float64 evaluation of one diagonal SoftAbs metric entry.
+
+This record is runtime evidence, not a numerical certificate. Lean separately
+composes operation-local error bounds for `tanh`, `sqrt`, reciprocal, and
+`log`; a platform refinement must supply those bounds before this execution
+can be connected to the ideal-real SoftAbs theorem.
+"""
+struct SoftAbsMetricFloat64Evaluation
+    hessian::Float64
+    eigenvalue::Float64
+    sqrt_eigenvalue::Float64
+    factor::Float64
+    logdet::Float64
+end
+
+"""Evaluate a scalar SoftAbs eigenvalue and its derived metric quantities."""
+function evaluate_softabs_metric_float64(hessian::Real; smoothing::Real=1.0)
+    h = Float64(hessian)
+    α = Float64(smoothing)
+    isfinite(h) || throw(DomainError(hessian, "SoftAbs Hessian must be finite"))
+    isfinite(α) && α > 0 || throw(DomainError(smoothing,
+        "SoftAbs smoothing must be finite and positive"))
+    eigenvalue = iszero(h) ? inv(α) : h / tanh(α * h)
+    isfinite(eigenvalue) && eigenvalue > 0 || throw(DomainError(eigenvalue,
+        "SoftAbs eigenvalue must be finite and positive"))
+    sqrt_eigenvalue = sqrt(eigenvalue)
+    factor = inv(sqrt_eigenvalue)
+    logdet = log(eigenvalue)
+    all(isfinite, (sqrt_eigenvalue, factor, logdet)) ||
+        throw(DomainError(eigenvalue, "derived SoftAbs quantities must be finite"))
+    SoftAbsMetricFloat64Evaluation(h, eigenvalue, sqrt_eigenvalue, factor, logdet)
 end
 
 function _checked_restricted(value::Float64, derivative::Float64)

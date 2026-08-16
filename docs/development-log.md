@@ -1864,3 +1864,18 @@ Julia decodes the generated tree, evaluates its value and symbolic force, and
 tests both at representative inputs. This closes generated target/force
 transport, not the later `tanh`/square-root/log metric evaluation or the
 nonzero-step implicit-solver validity certificate.
+
+## 2026-08-16: guarded SoftAbs metric refinement
+
+Added an operation-local numerical contract for one diagonal SoftAbs metric
+entry. Given a Hessian approximation and backend error bounds, Lean now
+composes guarded approximations for the positive SoftAbs eigenvalue, its
+square root, inverse-square-root factor, and log-determinant contribution.
+The ideal positivity proof discharges every exact-real domain obligation.
+
+Julia exposes the matching guarded Float64 evaluator, including the removable
+zero-Hessian branch, and tests its algebraic outputs and invalid domains. This
+is deliberately runtime evidence rather than a platform certificate: error
+bounds for `tanh`, `sqrt`, reciprocal, and `log` remain explicit backend
+premises, and the position-dependent implicit solver remains the next
+separate refinement obligation.

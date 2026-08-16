@@ -82,10 +82,14 @@ explicit separable generalized leapfrog satisfies every validity obligation;
 endpoint and multinomial position invariance follow. Julia exposes the same
 constant-Hessian specialization as `GaussianSoftAbsGRHMC`.
 
-The remaining work is the genuinely position-dependent paper-style SoftAbs
-client and its restricted Float64 refinement: propagate bounded trajectory and
-residual errors and certify decisions away from numerical boundaries. A fixed
-iteration count alone remains insufficient as a correctness witness.
+The restricted refinement now reaches a guarded scalar SoftAbs metric entry:
+Lean composes backend-local bounds through `tanh`, square root, reciprocal,
+and log-determinant evaluation, and Julia evaluates the matching guarded
+operations. Platform-specific primitive bounds and the genuinely
+position-dependent implicit solver remain. That solver must propagate bounded
+trajectory and residual errors and certify decisions away from numerical
+boundaries; a fixed iteration count alone is insufficient as a correctness
+witness.
 
 ### 2. Restricted callbacks, adaptation, and performance
 
