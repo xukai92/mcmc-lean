@@ -1,5 +1,17 @@
 # Development log
 
+- Established the one-dimensional Jacobian foundation for the Gaussian
+  SoftAbs moved branch. The exact scalar relativistic velocity derivative is
+  proved positive everywhere and uniformly bounded above by the reciprocal
+  SoftAbs eigenvalue. Consequently the velocity and every position-shifted
+  unit-step moved-position map are continuous strictly monotone measurable
+  embeddings. Mathlib's one-dimensional change-of-variables theorem then
+  yields a uniform Lebesgue-volume image bound, and the moved map is proved
+  equal to the actual forward generalized-leapfrog candidate coordinate.
+  This supplies the deterministic Jacobian half of the pending compact
+  transition-density minorization; refreshed-momentum and multinomial-index
+  density floors remain to be combined with it.
+
 - Added the reusable local-minorization coupling bridge. A minorization that
   holds only on a measurable set is globalized by replacing irrelevant rows,
   decomposed into a common reference component and normalized residual, and

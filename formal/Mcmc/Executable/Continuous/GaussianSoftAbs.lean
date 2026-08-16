@@ -273,6 +273,171 @@ theorem gaussianSoftAbsUnitScalarVelocity_eq (x : ℝ) :
   rw [hinside]
   ring
 
+/-- Exact positive derivative of the scalar SoftAbs velocity. This is the
+Jacobian input for expressing a moved-position branch as a density. -/
+theorem hasDerivAt_gaussianSoftAbsUnitScalarVelocity (x : ℝ) :
+    HasDerivAt gaussianSoftAbsUnitScalarVelocity
+      ((softAbs 1 1)⁻¹ *
+        (Real.sqrt (x ^ 2 / softAbs 1 1 + 1))⁻¹ ^ 3) x := by
+  let k := softAbs 1 1
+  have hk : 0 < k := softAbs_pos 1 (by norm_num) 1
+  have hu : 0 < x ^ 2 / k + 1 := by positivity
+  have hs : Real.sqrt (x ^ 2 / k + 1) ≠ 0 :=
+    ne_of_gt (Real.sqrt_pos.2 hu)
+  have hn : HasDerivAt (fun y : ℝ => y / k) (1 / k) x :=
+    (hasDerivAt_id x).div_const k
+  have hsq0 := (((hasDerivAt_id x).pow 2).div_const k).add_const 1
+  have hsq : HasDerivAt (fun y : ℝ => y ^ 2 / k + 1)
+      (2 * x / k) x := by
+    simpa [Function.id_def, Pi.pow_apply, div_eq_mul_inv, mul_comm,
+      mul_left_comm] using hsq0
+  have hd := hn.div (hsq.sqrt hu.ne') hs
+  have heq : gaussianSoftAbsUnitScalarVelocity =ᶠ[nhds x]
+      (fun y => (y / k) / Real.sqrt (y ^ 2 / k + 1)) :=
+    Filter.Eventually.of_forall (fun y => by
+      simpa [k] using gaussianSoftAbsUnitScalarVelocity_eq y)
+  apply (hd.congr_of_eventuallyEq heq).congr_deriv
+  dsimp only [k] at *
+  set s := Real.sqrt (x ^ 2 / softAbs 1 1 + 1)
+  have hsquare : s ^ 2 = x ^ 2 / softAbs 1 1 + 1 :=
+    Real.sq_sqrt hu.le
+  have hsquare' := congrArg (fun z : ℝ => softAbs 1 1 * z) hsquare
+  field_simp [hk.ne'] at hsquare'
+  field_simp [hk.ne', hs]
+  nlinarith [hsquare']
+
+theorem deriv_gaussianSoftAbsUnitScalarVelocity_pos (x : ℝ) :
+    0 < deriv gaussianSoftAbsUnitScalarVelocity x := by
+  rw [(hasDerivAt_gaussianSoftAbsUnitScalarVelocity x).deriv]
+  have hk : 0 < softAbs 1 1 := softAbs_pos 1 (by norm_num) 1
+  have hu : 0 < x ^ 2 / softAbs 1 1 + 1 := by positivity
+  have hsqrt : 0 < Real.sqrt (x ^ 2 / softAbs 1 1 + 1) :=
+    Real.sqrt_pos.2 hu
+  positivity
+
+theorem deriv_gaussianSoftAbsUnitScalarVelocity_le (x : ℝ) :
+    deriv gaussianSoftAbsUnitScalarVelocity x ≤ (softAbs 1 1)⁻¹ := by
+  rw [(hasDerivAt_gaussianSoftAbsUnitScalarVelocity x).deriv]
+  have hk : 0 < softAbs 1 1 := softAbs_pos 1 (by norm_num) 1
+  have hu : 1 ≤ x ^ 2 / softAbs 1 1 + 1 := by
+    have hdiv := div_nonneg (sq_nonneg x) hk.le
+    linarith
+  have hs : 1 ≤ Real.sqrt (x ^ 2 / softAbs 1 1 + 1) :=
+    Real.one_le_sqrt.mpr hu
+  have hi : (Real.sqrt (x ^ 2 / softAbs 1 1 + 1))⁻¹ ≤ 1 :=
+    (inv_le_one₀ (by positivity)).2 hs
+  have hi0 : 0 ≤ (Real.sqrt (x ^ 2 / softAbs 1 1 + 1))⁻¹ := by
+    positivity
+  have hc : (Real.sqrt (x ^ 2 / softAbs 1 1 + 1))⁻¹ ^ 3 ≤ 1 := by
+    nlinarith [sq_nonneg
+      ((Real.sqrt (x ^ 2 / softAbs 1 1 + 1))⁻¹),
+      mul_self_le_mul_self hi0 hi]
+  exact mul_le_of_le_one_right (inv_nonneg.mpr hk.le) hc
+
+/-- The one-dimensional relativistic velocity is globally strictly
+increasing, hence injective and suitable for one-dimensional substitution. -/
+theorem strictMono_gaussianSoftAbsUnitScalarVelocity :
+    StrictMono gaussianSoftAbsUnitScalarVelocity :=
+  strictMono_of_deriv_pos deriv_gaussianSoftAbsUnitScalarVelocity_pos
+
+theorem continuous_gaussianSoftAbsUnitScalarVelocity :
+    Continuous gaussianSoftAbsUnitScalarVelocity := by
+  rw [continuous_iff_continuousAt]
+  intro x
+  exact (hasDerivAt_gaussianSoftAbsUnitScalarVelocity x).continuousAt
+
+/-- Measurable embedding needed by mathlib's one-dimensional Jacobian
+theorem. -/
+theorem measurableEmbedding_gaussianSoftAbsUnitScalarVelocity :
+    MeasurableEmbedding gaussianSoftAbsUnitScalarVelocity :=
+  continuous_gaussianSoftAbsUnitScalarVelocity.measurableEmbedding
+    strictMono_gaussianSoftAbsUnitScalarVelocity.injective
+
+/-- The scalar velocity does not expand Lebesgue volume by more than the
+reciprocal SoftAbs eigenvalue. This turns a momentum-density floor into an
+output-density floor without requiring an explicit inverse formula. -/
+theorem volume_image_gaussianSoftAbsUnitScalarVelocity_le
+    (s : Set ℝ) (hs : MeasurableSet s) :
+    volume (gaussianSoftAbsUnitScalarVelocity '' s) ≤
+      ENNReal.ofReal ((softAbs 1 1)⁻¹) * volume s := by
+  have hchange := lintegral_image_eq_lintegral_abs_deriv_mul hs
+    (fun x _ =>
+      (hasDerivAt_gaussianSoftAbsUnitScalarVelocity x).hasDerivWithinAt)
+    strictMono_gaussianSoftAbsUnitScalarVelocity.injective.injOn
+    (fun _ => (1 : ENNReal))
+  simp only [setLIntegral_one, mul_one] at hchange
+  rw [hchange]
+  calc
+    (∫⁻ x in s, ENNReal.ofReal
+        |(softAbs 1 1)⁻¹ *
+          (Real.sqrt (x ^ 2 / softAbs 1 1 + 1))⁻¹ ^ 3|) ≤
+        ∫⁻ _x in s, ENNReal.ofReal ((softAbs 1 1)⁻¹) := by
+      apply setLIntegral_mono' hs
+      intro x _hx
+      apply ENNReal.ofReal_le_ofReal
+      rw [← (hasDerivAt_gaussianSoftAbsUnitScalarVelocity x).deriv,
+        abs_of_pos (deriv_gaussianSoftAbsUnitScalarVelocity_pos x)]
+      exact deriv_gaussianSoftAbsUnitScalarVelocity_le x
+    _ = _ := setLIntegral_const s _
+
+/-- Scalar position reached by the forward unit generalized-leapfrog branch
+from current coordinate `q` and refreshed momentum coordinate `p`. -/
+noncomputable def gaussianSoftAbsUnitMovedPosition (q p : ℝ) : ℝ :=
+  q + gaussianSoftAbsUnitScalarVelocity (p - q / 2)
+
+theorem hasDerivAt_gaussianSoftAbsUnitMovedPosition (q p : ℝ) :
+    HasDerivAt (gaussianSoftAbsUnitMovedPosition q)
+      ((softAbs 1 1)⁻¹ *
+        (Real.sqrt ((p - q / 2) ^ 2 / softAbs 1 1 + 1))⁻¹ ^ 3) p := by
+  unfold gaussianSoftAbsUnitMovedPosition
+  simpa only [Function.comp_apply, Function.id_def, mul_one] using
+    ((hasDerivAt_gaussianSoftAbsUnitScalarVelocity (p - q / 2)).comp p
+      ((hasDerivAt_id p).sub_const (q / 2))).const_add q
+
+theorem strictMono_gaussianSoftAbsUnitMovedPosition (q : ℝ) :
+    StrictMono (gaussianSoftAbsUnitMovedPosition q) := by
+  intro p₁ p₂ hp
+  unfold gaussianSoftAbsUnitMovedPosition
+  simpa [add_comm] using add_lt_add_left
+    (strictMono_gaussianSoftAbsUnitScalarVelocity
+      (sub_lt_sub_right hp (q / 2))) q
+
+theorem measurableEmbedding_gaussianSoftAbsUnitMovedPosition (q : ℝ) :
+    MeasurableEmbedding (gaussianSoftAbsUnitMovedPosition q) := by
+  apply Continuous.measurableEmbedding
+  · rw [continuous_iff_continuousAt]
+    intro p
+    exact (hasDerivAt_gaussianSoftAbsUnitMovedPosition q p).continuousAt
+  · exact (strictMono_gaussianSoftAbsUnitMovedPosition q).injective
+
+/-- The moved-position branch obeys the same uniform one-dimensional
+Jacobian bound as velocity itself, uniformly in the current position. -/
+theorem volume_image_gaussianSoftAbsUnitMovedPosition_le
+    (q : ℝ) (s : Set ℝ) (hs : MeasurableSet s) :
+    volume (gaussianSoftAbsUnitMovedPosition q '' s) ≤
+      ENNReal.ofReal ((softAbs 1 1)⁻¹) * volume s := by
+  have hchange := lintegral_image_eq_lintegral_abs_deriv_mul hs
+    (fun p _ =>
+      (hasDerivAt_gaussianSoftAbsUnitMovedPosition q p).hasDerivWithinAt)
+    (strictMono_gaussianSoftAbsUnitMovedPosition q).injective.injOn
+    (fun _ => (1 : ENNReal))
+  simp only [setLIntegral_one, mul_one] at hchange
+  rw [hchange]
+  calc
+    (∫⁻ p in s, ENNReal.ofReal
+        |(softAbs 1 1)⁻¹ *
+          (Real.sqrt ((p - q / 2) ^ 2 / softAbs 1 1 + 1))⁻¹ ^ 3|) ≤
+        ∫⁻ _p in s, ENNReal.ofReal ((softAbs 1 1)⁻¹) := by
+      apply setLIntegral_mono' hs
+      intro p _hp
+      apply ENNReal.ofReal_le_ofReal
+      rw [← (hasDerivAt_gaussianSoftAbsUnitScalarVelocity
+        (p - q / 2)).deriv,
+        abs_of_pos
+          (deriv_gaussianSoftAbsUnitScalarVelocity_pos (p - q / 2))]
+      exact deriv_gaussianSoftAbsUnitScalarVelocity_le (p - q / 2)
+    _ = _ := setLIntegral_const s _
+
 @[simp]
 theorem gaussianSoftAbsUnitScalarVelocity_neg (x : ℝ) :
     gaussianSoftAbsUnitScalarVelocity (-x) =
@@ -806,6 +971,17 @@ theorem abs_gaussianSoftAbsSelection_step_one_fst_sub_lt_one
   simp only [Pi.add_apply, one_smul, add_sub_cancel_left]
   rw [gaussianSoftAbsUnit_velocity_coordinate]
   exact abs_gaussianSoftAbsUnitScalarVelocity_lt_one _
+
+@[simp]
+theorem gaussianSoftAbsSelection_step_one_fst_eq_movedPosition
+    (q : Position Unit) (p : Momentum Unit) :
+    ((gaussianSoftAbsSelection (ι := Unit)).step 1 (q, p)).1 Unit.unit =
+      gaussianSoftAbsUnitMovedPosition (q Unit.unit) (p Unit.unit) := by
+  rw [gaussianSoftAbsSelection_step_fst]
+  simp [gaussianSoftAbsUnitMovedPosition,
+    gaussianSoftAbsUnit_velocity_coordinate]
+  congr 1
+  ring
 
 /-- The same finite-speed bound for every step size of magnitude at most one.
 -/
