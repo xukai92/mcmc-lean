@@ -1,5 +1,5 @@
 import Mcmc.Relativistic.SoftAbs
-import Mcmc.Relativistic.ScalarSliceBounds
+import Mcmc.Relativistic.ScalarJacobian
 
 /-!
 # A nondegenerate nonconstant diagonal-SoftAbs target
@@ -282,17 +282,17 @@ noncomputable def softAbsOneInverseSqrtAway (x : ℝ) : ℝ :=
   (Real.sqrt (x / Real.tanh x))⁻¹
 
 theorem contDiffOn_softAbsOneInverseSqrtAway_Ioi :
-    ContDiffOn ℝ 1 softAbsOneInverseSqrtAway (Set.Ioi 0) := by
-  have htanh : ContDiff ℝ 1 Real.tanh := by
+    ContDiffOn ℝ ⊤ softAbsOneInverseSqrtAway (Set.Ioi 0) := by
+  have htanh : ContDiff ℝ ⊤ Real.tanh := by
     rw [show Real.tanh = fun x => Real.sinh x / Real.cosh x by
       funext x; rw [Real.tanh_eq_sinh_div_cosh]]
     exact Real.contDiff_sinh.div Real.contDiff_cosh
       (fun x => ne_of_gt (Real.cosh_pos x))
-  have hquot : ContDiffOn ℝ 1 (fun x : ℝ => x / Real.tanh x)
+  have hquot : ContDiffOn ℝ ⊤ (fun x : ℝ => x / Real.tanh x)
       (Set.Ioi 0) := by
     exact contDiffOn_id.div htanh.contDiffOn
       (fun x hx => (real_tanh_pos hx).ne')
-  have hsqrt : ContDiffOn ℝ 1 (fun x : ℝ =>
+  have hsqrt : ContDiffOn ℝ ⊤ (fun x : ℝ =>
       Real.sqrt (x / Real.tanh x)) (Set.Ioi 0) := by
     exact hquot.sqrt (fun x hx => ne_of_gt
       (div_pos hx (real_tanh_pos hx)))
@@ -304,6 +304,23 @@ theorem softAbsOneInverseSqrtAway_eq (x : ℝ) (hx : 0 < x) :
     softAbsOneInverseSqrtAway x = (Real.sqrt (softAbs 1 x))⁻¹ := by
   simp [softAbsOneInverseSqrtAway, softAbs, hx.ne']
 
+theorem contDiff_shiftedSinusoidalSoftAbsScaleReal :
+    ContDiff ℝ ⊤ shiftedSinusoidalSoftAbsScaleReal := by
+  have hsin : ContDiff ℝ ⊤ Real.sin := Real.contDiff_sin
+  have hinner : ContDiff ℝ ⊤ (fun x : ℝ => 2 + Real.sin x) :=
+    (contDiff_const.add hsin)
+  have hmaps : Set.MapsTo (fun x : ℝ => 2 + Real.sin x) Set.univ
+      (Set.Ioi 0) := by
+    intro x _
+    exact (show 0 < 2 + Real.sin x by
+      linarith [Real.neg_one_le_sin x])
+  have hcompOn := contDiffOn_softAbsOneInverseSqrtAway_Ioi.comp
+    hinner.contDiffOn hmaps
+  apply contDiffOn_univ.mp
+  apply hcompOn.congr
+  intro x _
+  exact (softAbsOneInverseSqrtAway_eq _ (hmaps trivial)).symm
+
 /-- The inverse-square-root outer transform is Lipschitz on the actual
 positive Hessian range. -/
 theorem exists_lipschitzOn_softAbsOneInverseSqrtAway_Icc :
@@ -312,7 +329,7 @@ theorem exists_lipschitzOn_softAbsOneInverseSqrtAway_Icc :
   have hcontinuous : ContinuousOn (fun x =>
       |deriv softAbsOneInverseSqrtAway x|) (Set.Icc (1 : ℝ) 3) :=
     ((contDiffOn_softAbsOneInverseSqrtAway_Ioi.continuousOn_deriv_of_isOpen
-      isOpen_Ioi (by norm_num)).mono (fun x hx => by
+      isOpen_Ioi (by simp)).mono (fun x hx => by
         exact lt_of_lt_of_le (by norm_num) hx.1)).abs
   obtain ⟨xmax, hxmax, hmax⟩ := isCompact_Icc.exists_isMaxOn
     (Set.nonempty_Icc.2 (by norm_num : (1 : ℝ) ≤ 3)) hcontinuous
@@ -321,7 +338,7 @@ theorem exists_lipschitzOn_softAbsOneInverseSqrtAway_Icc :
     (convex_Icc (1 : ℝ) 3)⟩
   · intro x hx
     exact (contDiffOn_softAbsOneInverseSqrtAway_Ioi.differentiableOn
-      (by norm_num)).differentiableAt
+      (by simp)).differentiableAt
         (Ioi_mem_nhds (lt_of_lt_of_le (by norm_num) hx.1))
   · intro x hx
     change ‖deriv softAbsOneInverseSqrtAway x‖ ≤
@@ -373,6 +390,9 @@ noncomputable def shiftedSinusoidalSoftAbsBaseReal (x : ℝ) : ℝ :=
   x ^ 2 - Real.sin x +
     (1 / 2 : ℝ) * Real.log (softAbs 1 (2 + Real.sin x))
 
+noncomputable def shiftedSinusoidalSoftAbsBaseDerivativeReal (x : ℝ) : ℝ :=
+  deriv shiftedSinusoidalSoftAbsBaseReal x
+
 theorem differentiable_shiftedSinusoidalSoftAbsBaseReal :
     Differentiable ℝ shiftedSinusoidalSoftAbsBaseReal := by
   intro x
@@ -387,6 +407,27 @@ theorem differentiable_shiftedSinusoidalSoftAbsBaseReal :
   exact ((by fun_prop : DifferentiableAt ℝ
     (fun y : ℝ => y ^ 2 - Real.sin y) x)).add
       ((heigen.log (softAbs_pos 1 (by norm_num) _).ne').const_mul (1 / 2))
+
+theorem shiftedSinusoidalSoftAbsBaseReal_eq_smooth (x : ℝ) :
+    shiftedSinusoidalSoftAbsBaseReal x =
+      x ^ 2 - Real.sin x - Real.log
+        (shiftedSinusoidalSoftAbsScaleReal x) := by
+  unfold shiftedSinusoidalSoftAbsBaseReal shiftedSinusoidalSoftAbsScaleReal
+  rw [Real.log_inv, Real.log_sqrt (softAbs_pos 1 (by norm_num) _).le]
+  ring
+
+theorem contDiff_shiftedSinusoidalSoftAbsBaseReal :
+    ContDiff ℝ ⊤ shiftedSinusoidalSoftAbsBaseReal := by
+  have hpoly : ContDiff ℝ ⊤ (fun x : ℝ => x ^ 2 - Real.sin x) := by
+    fun_prop
+  have hlog : ContDiff ℝ ⊤
+      (fun x => Real.log (shiftedSinusoidalSoftAbsScaleReal x)) :=
+    contDiff_shiftedSinusoidalSoftAbsScaleReal.log
+      (fun x => (shiftedSinusoidalSoftAbsScaleReal_pos x).ne')
+  apply contDiffOn_univ.mp
+  apply (hpoly.sub hlog).contDiffOn.congr
+  intro x _
+  exact shiftedSinusoidalSoftAbsBaseReal_eq_smooth x
 
 theorem generalRelativisticHamiltonian_shiftedSinusoidalSoftAbs_eq_real
     (q p : ℝ) :
@@ -409,13 +450,65 @@ theorem generalRelativisticHamiltonian_shiftedSinusoidalSoftAbs_eq_real
 noncomputable def shiftedSinusoidalSoftAbsPositionDerivative :
     PhaseSpace Unit → Position Unit :=
   scalarGRPositionCallbackUnit
-    (deriv shiftedSinusoidalSoftAbsBaseReal)
+    shiftedSinusoidalSoftAbsBaseDerivativeReal
     shiftedSinusoidalSoftAbsScaleReal
     shiftedSinusoidalSoftAbsScaleDerivativeReal
 
 noncomputable def shiftedSinusoidalSoftAbsMomentumDerivative :
     PhaseSpace Unit → Momentum Unit :=
   scalarGRMomentumCallbackUnit shiftedSinusoidalSoftAbsScaleReal
+
+noncomputable def shiftedSinusoidalSoftAbsPositionCallbackReal :
+    ℝ × ℝ → ℝ :=
+  scalarGRPositionCallback
+    shiftedSinusoidalSoftAbsBaseDerivativeReal
+    shiftedSinusoidalSoftAbsScaleReal
+    shiftedSinusoidalSoftAbsScaleDerivativeReal
+
+noncomputable def shiftedSinusoidalSoftAbsMomentumCallbackReal :
+    ℝ × ℝ → ℝ :=
+  scalarGRMomentumCallback shiftedSinusoidalSoftAbsScaleReal
+
+theorem differentiable_deriv_shiftedSinusoidalSoftAbsBaseReal :
+    Differentiable ℝ (deriv shiftedSinusoidalSoftAbsBaseReal) :=
+  (contDiff_shiftedSinusoidalSoftAbsBaseReal.of_le
+    (by norm_num : (2 : WithTop ℕ∞) ≤ ⊤)).differentiable_deriv_two
+
+theorem differentiable_deriv_shiftedSinusoidalSoftAbsScaleReal :
+    Differentiable ℝ (deriv shiftedSinusoidalSoftAbsScaleReal) :=
+  (contDiff_shiftedSinusoidalSoftAbsScaleReal.of_le
+    (by norm_num : (2 : WithTop ℕ∞) ≤ ⊤)).differentiable_deriv_two
+
+theorem differentiable_shiftedSinusoidalSoftAbsBaseDerivativeReal :
+    Differentiable ℝ shiftedSinusoidalSoftAbsBaseDerivativeReal := by
+  change Differentiable ℝ (deriv shiftedSinusoidalSoftAbsBaseReal)
+  exact differentiable_deriv_shiftedSinusoidalSoftAbsBaseReal
+
+theorem differentiable_shiftedSinusoidalSoftAbsScaleDerivativeReal :
+    Differentiable ℝ shiftedSinusoidalSoftAbsScaleDerivativeReal := by
+  change Differentiable ℝ (deriv shiftedSinusoidalSoftAbsScaleReal)
+  exact differentiable_deriv_shiftedSinusoidalSoftAbsScaleReal
+
+attribute [fun_prop]
+  differentiable_shiftedSinusoidalSoftAbsScaleReal
+  differentiable_shiftedSinusoidalSoftAbsBaseDerivativeReal
+  differentiable_shiftedSinusoidalSoftAbsScaleDerivativeReal
+  differentiable_scalarPositionProfile
+  differentiable_scalarVelocityProfile
+
+theorem shiftedSinusoidalSoftAbsCallbacks_mixed_derivatives_eq
+    (q p : ℝ) :
+    deriv (fun r => shiftedSinusoidalSoftAbsPositionCallbackReal (q, r)) p =
+    deriv (fun r => shiftedSinusoidalSoftAbsMomentumCallbackReal (r, p)) q := by
+  unfold shiftedSinusoidalSoftAbsPositionCallbackReal
+    shiftedSinusoidalSoftAbsMomentumCallbackReal
+    shiftedSinusoidalSoftAbsBaseDerivativeReal
+    shiftedSinusoidalSoftAbsScaleDerivativeReal
+  exact scalarGRCallbacks_mixed_derivatives_eq
+    (deriv shiftedSinusoidalSoftAbsBaseReal)
+    shiftedSinusoidalSoftAbsScaleReal
+    differentiable_shiftedSinusoidalSoftAbsScaleReal
+    shiftedSinusoidalSoftAbsScaleReal_pos q p
 
 /-- The callbacks passed to the implicit solver are the actual two coordinate
 derivatives of the complete nonconstant SoftAbs Hamiltonian. -/

@@ -2144,3 +2144,15 @@ constructs an explicit nonzero admissible step, its exact Banach-selected
 generalized-leapfrog solver, and the certified negative-step inverse. Exact
 phase-volume preservation is still a distinct Jacobian theorem and is not
 inferred from invertibility alone.
+
+The phase-volume proof has now been factored at its lowest reusable layer.
+`ScalarJacobian` defines generic vertical and horizontal triangular shears for
+arbitrary differentiable scalar callbacks, proves their actual `2×2` Fréchet
+derivative matrices and determinant formulas, and proves that equality of the
+Hamiltonian mixed partials pairs the incoming/right and left/outgoing
+determinants. A separate generic calculation proves that the scalar
+relativistic position and momentum callbacks have equal mixed slice
+derivatives for every differentiable positive factor; the nonconstant SoftAbs
+client instantiates that identity. Remaining is the global inverse-stage
+composition that turns these paired factors into determinant one for the
+Banach-selected step.

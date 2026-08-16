@@ -127,7 +127,11 @@ checked. The slice transfer and solver are also complete: reusable scalar callba
 coordinate derivatives, yield global contraction constants, and construct a
 concrete nonzero-step exact solve with its negative-step inverse. The remaining
 target-specific B2 theorem is phase-volume preservation for this solve, followed
-by the separate finite-precision refinement.
+by the separate finite-precision refinement. The generic triangular-shear
+derivative matrices, determinant formulas, and mixed-partial pairing are now
+extracted from the earlier bounded client, and the SoftAbs callbacks satisfy
+the required scalar mixed identity. The remaining volume step is the inverse-
+stage differentiability and determinant composition for the Banach selection.
 
 ## Track C: later breadth branches
 
