@@ -15,6 +15,8 @@ inductive RestrictedArtifactExpr where
   | mul (left right : RestrictedArtifactExpr)
   | neg (value : RestrictedArtifactExpr)
   | exp (value : RestrictedArtifactExpr)
+  | sin (value : RestrictedArtifactExpr)
+  | cos (value : RestrictedArtifactExpr)
 deriving DecidableEq, Repr
 
 /-- Canonical generated representation of the Gaussian restricted target. -/
@@ -31,5 +33,11 @@ def RestrictedArtifactExpr.derivative :
       .add (.mul left.derivative right) (.mul left right.derivative)
   | .neg value => .neg value.derivative
   | .exp value => .mul (.exp value) value.derivative
+  | .sin value => .mul (.cos value) value.derivative
+  | .cos value => .neg (.mul (.sin value) value.derivative)
+
+/-- Generated sinusoidally perturbed Gaussian potential `x²/2 - sin x`. -/
+def restrictedSinusoidalPotentialArtifact : RestrictedArtifactExpr :=
+  .add restrictedGaussianArtifact (.neg (.sin .input))
 
 end Mcmc.Executable.Continuous

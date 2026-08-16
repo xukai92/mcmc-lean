@@ -1,5 +1,6 @@
 import Mcmc.Executable.Continuous.RestrictedTarget
 import Mathlib.Analysis.Calculus.MeanValue
+import Mathlib.Analysis.SpecialFunctions.Trigonometric.Bounds
 
 /-!
 # Recursive numerical refinement for restricted targets
@@ -66,6 +67,24 @@ theorem exp_backend_approximates_of_le
       (localError + Real.exp upper * inputError) :=
   hlocal.trans (exp_approximates_exp_of_le hinput hcomputed hideal)
 
+theorem sin_approximates {computed ideal error : ℝ}
+    (hinput : Approximates computed ideal error) :
+    Approximates (Real.sin computed) (Real.sin ideal) error := by
+  rw [Approximates] at hinput ⊢
+  have hlip : |Real.sin computed - Real.sin ideal| ≤ |computed - ideal| := by
+    simpa [Real.dist_eq] using
+      Real.lipschitzWith_sin.dist_le_mul computed ideal
+  exact hlip.trans hinput
+
+theorem cos_approximates {computed ideal error : ℝ}
+    (hinput : Approximates computed ideal error) :
+    Approximates (Real.cos computed) (Real.cos ideal) error := by
+  rw [Approximates] at hinput ⊢
+  have hlip : |Real.cos computed - Real.cos ideal| ≤ |computed - ideal| := by
+    simpa [Real.dist_eq] using
+      Real.lipschitzWith_cos.dist_le_mul computed ideal
+  exact hlip.trans hinput
+
 /-- A scalar backend plus explicit local error evidence. `expTransportError`
 includes both the backend's local `exp` error and transport from an already
 approximate argument; a client may establish it on a bounded admitted domain.
@@ -76,11 +95,15 @@ structure RestrictedBackend where
   mul : ℝ → ℝ → ℝ
   neg : ℝ → ℝ
   exp : ℝ → ℝ
+  sin : ℝ → ℝ
+  cos : ℝ → ℝ
   rationalError : Int → Nat → ℝ
   addError : ℝ → ℝ → ℝ
   mulError : ℝ → ℝ → ℝ
   negError : ℝ → ℝ
   expTransportError : ℝ → ℝ → ℝ → ℝ
+  sinTransportError : ℝ → ℝ → ℝ → ℝ
+  cosTransportError : ℝ → ℝ → ℝ → ℝ
   rational_bound : ∀ numerator denominator,
     Approximates (rational numerator denominator)
       ((numerator : ℝ) / (denominator : ℝ))
@@ -95,6 +118,14 @@ structure RestrictedBackend where
     Approximates computed ideal error →
       Approximates (exp computed) (Real.exp ideal)
         (expTransportError computed ideal error)
+  sin_transport_bound : ∀ computed ideal error,
+    Approximates computed ideal error →
+      Approximates (sin computed) (Real.sin ideal)
+        (sinTransportError computed ideal error)
+  cos_transport_bound : ∀ computed ideal error,
+    Approximates computed ideal error →
+      Approximates (cos computed) (Real.cos ideal)
+        (cosTransportError computed ideal error)
 
 /-- Easier concrete-backend contract. Arithmetic operations retain their
 local rounding bounds, while `exp_local_bound` concerns only the backend
@@ -106,11 +137,15 @@ structure RestrictedPrimitiveBackend where
   mul : ℝ → ℝ → ℝ
   neg : ℝ → ℝ
   exp : ℝ → ℝ
+  sin : ℝ → ℝ
+  cos : ℝ → ℝ
   rationalError : Int → Nat → ℝ
   addError : ℝ → ℝ → ℝ
   mulError : ℝ → ℝ → ℝ
   negError : ℝ → ℝ
   expLocalError : ℝ → ℝ
+  sinLocalError : ℝ → ℝ
+  cosLocalError : ℝ → ℝ
   rational_bound : ∀ numerator denominator,
     Approximates (rational numerator denominator)
       ((numerator : ℝ) / (denominator : ℝ))
@@ -123,6 +158,10 @@ structure RestrictedPrimitiveBackend where
     Approximates (neg value) (-value) (negError value)
   exp_local_bound : ∀ value,
     Approximates (exp value) (Real.exp value) (expLocalError value)
+  sin_local_bound : ∀ value,
+    Approximates (sin value) (Real.sin value) (sinLocalError value)
+  cos_local_bound : ∀ value,
+    Approximates (cos value) (Real.cos value) (cosLocalError value)
 
 /-- Upgrade local primitive bounds to the recursive restricted-expression
 backend. The exponential transport factor is finite and selected separately
@@ -134,12 +173,16 @@ noncomputable def RestrictedPrimitiveBackend.toRestrictedBackend
   mul := backend.mul
   neg := backend.neg
   exp := backend.exp
+  sin := backend.sin
+  cos := backend.cos
   rationalError := backend.rationalError
   addError := backend.addError
   mulError := backend.mulError
   negError := backend.negError
   expTransportError computed ideal error :=
     backend.expLocalError computed + Real.exp (max computed ideal) * error
+  sinTransportError computed _ideal error := backend.sinLocalError computed + error
+  cosTransportError computed _ideal error := backend.cosLocalError computed + error
   rational_bound := backend.rational_bound
   add_bound := backend.add_bound
   mul_bound := backend.mul_bound
@@ -147,6 +190,10 @@ noncomputable def RestrictedPrimitiveBackend.toRestrictedBackend
   exp_transport_bound computed ideal _error hinput :=
     exp_backend_approximates_of_le (backend.exp_local_bound computed) hinput
       (le_max_left computed ideal) (le_max_right computed ideal)
+  sin_transport_bound computed _ideal _error hinput :=
+    (backend.sin_local_bound computed).trans (sin_approximates hinput)
+  cos_transport_bound computed _ideal _error hinput :=
+    (backend.cos_local_bound computed).trans (cos_approximates hinput)
 
 /-- Numeric interpretation supplied by a certified backend. -/
 def RestrictedArtifactExpr.backendEval (backend : RestrictedBackend) :
@@ -159,6 +206,8 @@ def RestrictedArtifactExpr.backendEval (backend : RestrictedBackend) :
       (right.backendEval backend x)
   | .neg value, x => backend.neg (value.backendEval backend x)
   | .exp value, x => backend.exp (value.backendEval backend x)
+  | .sin value, x => backend.sin (value.backendEval backend x)
+  | .cos value, x => backend.cos (value.backendEval backend x)
 
 /-- Error accumulated structurally from the backend certificates. -/
 noncomputable def RestrictedArtifactExpr.accumulatedError
@@ -186,6 +235,14 @@ noncomputable def RestrictedArtifactExpr.accumulatedError
       backend.expTransportError (value.backendEval backend computedInput)
         (value.compile.eval idealInput)
         (value.accumulatedError backend computedInput idealInput inputError)
+  | .sin value =>
+      backend.sinTransportError (value.backendEval backend computedInput)
+        (value.compile.eval idealInput)
+        (value.accumulatedError backend computedInput idealInput inputError)
+  | .cos value =>
+      backend.cosTransportError (value.backendEval backend computedInput)
+        (value.compile.eval idealInput)
+        (value.accumulatedError backend computedInput idealInput inputError)
 
 /-- Recursive end-to-end refinement theorem. No arithmetic or transcendental
 operation is silently assumed exact: all such facts come from `backend`. -/
@@ -206,7 +263,11 @@ theorem RestrictedArtifactExpr.backendEval_approximates
   | neg value hvalue =>
       exact (backend.neg_bound _).trans hvalue.neg
   | exp value hvalue =>
-      exact backend.exp_transport_bound _ _ _ hvalue
+    exact backend.exp_transport_bound _ _ _ hvalue
+  | sin value hvalue =>
+    exact backend.sin_transport_bound _ _ _ hvalue
+  | cos value hvalue =>
+    exact backend.cos_transport_bound _ _ _ hvalue
 
 /-- Turn operation-level backend evidence into the value/gradient certificate
 consumed by the bounded sampler layers. Both expressions are evaluated by the

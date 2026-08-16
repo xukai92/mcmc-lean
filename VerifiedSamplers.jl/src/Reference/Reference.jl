@@ -14,7 +14,7 @@ export categorical_index!, integer_slice_step!, bounded_slice_step!, finite_mh_s
     coupled_multinomial_hmc_step!, coupled_gaussian_rwmh_step!, xu21_coupled_step!,
     IR_FORMAT_VERSION
 
-const IR_FORMAT_VERSION = 12
+const IR_FORMAT_VERSION = 13
 
 """Reference coordinate-wise DHMC update for a categorical law on a cycle.
 

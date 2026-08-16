@@ -22,6 +22,8 @@ inductive RestrictedExpr where
   | mul (left right : RestrictedExpr)
   | neg (value : RestrictedExpr)
   | exp (value : RestrictedExpr)
+  | sin (value : RestrictedExpr)
+  | cos (value : RestrictedExpr)
 
 /-- Compile portable rational syntax into the verified ideal-real language. -/
 noncomputable def RestrictedArtifactExpr.compile :
@@ -33,6 +35,8 @@ noncomputable def RestrictedArtifactExpr.compile :
   | .mul left right => .mul left.compile right.compile
   | .neg value => .neg value.compile
   | .exp value => .exp value.compile
+  | .sin value => .sin value.compile
+  | .cos value => .cos value.compile
 
 /-- Ideal-real interpretation. -/
 noncomputable def RestrictedExpr.eval : RestrictedExpr → ℝ → ℝ
@@ -42,6 +46,8 @@ noncomputable def RestrictedExpr.eval : RestrictedExpr → ℝ → ℝ
   | .mul left right, x => left.eval x * right.eval x
   | .neg value, x => -value.eval x
   | .exp value, x => Real.exp (value.eval x)
+  | .sin value, x => Real.sin (value.eval x)
+  | .cos value, x => Real.cos (value.eval x)
 
 /-- Symbolic first derivative in the same expression language. -/
 def RestrictedExpr.derivative : RestrictedExpr → RestrictedExpr
@@ -52,6 +58,8 @@ def RestrictedExpr.derivative : RestrictedExpr → RestrictedExpr
       .add (.mul left.derivative right) (.mul left right.derivative)
   | .neg value => .neg value.derivative
   | .exp value => .mul (.exp value) value.derivative
+  | .sin value => .mul (.cos value) value.derivative
+  | .cos value => .neg (.mul (.sin value) value.derivative)
 
 theorem RestrictedArtifactExpr.compile_derivative
     (expression : RestrictedArtifactExpr) :
@@ -75,6 +83,14 @@ theorem RestrictedArtifactExpr.compile_derivative
         RestrictedArtifactExpr.compile, RestrictedExpr.derivative]
       rw [hvalue]
   | exp value hvalue =>
+      simp only [RestrictedArtifactExpr.derivative,
+        RestrictedArtifactExpr.compile, RestrictedExpr.derivative]
+      rw [hvalue]
+  | sin value hvalue =>
+      simp only [RestrictedArtifactExpr.derivative,
+        RestrictedArtifactExpr.compile, RestrictedExpr.derivative]
+      rw [hvalue]
+  | cos value hvalue =>
       simp only [RestrictedArtifactExpr.derivative,
         RestrictedArtifactExpr.compile, RestrictedExpr.derivative]
       rw [hvalue]
@@ -107,6 +123,16 @@ theorem RestrictedExpr.hasDerivAt_eval (expression : RestrictedExpr) (x : ℝ) :
       change HasDerivAt (fun y => Real.exp (value.eval y))
         (Real.exp (value.eval x) * value.derivative.eval x) x
       simpa [mul_comm] using hvalue.exp
+  | sin value hvalue =>
+      change HasDerivAt (fun y => Real.sin (value.eval y))
+        (Real.cos (value.eval x) * value.derivative.eval x) x
+      convert Real.hasDerivAt_sin (value.eval x) |>.comp x hvalue using 1
+      all_goals first | exact Subsingleton.elim _ _ | rfl
+  | cos value hvalue =>
+      change HasDerivAt (fun y => Real.cos (value.eval y))
+        (-(Real.sin (value.eval x) * value.derivative.eval x)) x
+      convert Real.hasDerivAt_cos (value.eval x) |>.comp x hvalue using 1
+      all_goals first | exact Subsingleton.elim _ _ | rfl | ring
 
 theorem RestrictedExpr.deriv_eval (expression : RestrictedExpr) (x : ℝ) :
     deriv expression.eval x = expression.derivative.eval x :=
@@ -173,6 +199,24 @@ theorem restrictedGaussianArtifact_compile :
     restrictedGaussianPotential.derivative.eval x = x := by
   simp [restrictedGaussianPotential, RestrictedExpr.derivative,
     RestrictedExpr.eval]
+  ring
+
+/-- Verified ideal value semantics of the generated nonconstant SoftAbs
+potential artifact. -/
+theorem restrictedSinusoidalPotentialArtifact_eval (x : ℝ) :
+    restrictedSinusoidalPotentialArtifact.compile.eval x =
+      x ^ 2 / 2 - Real.sin x := by
+  simp [restrictedSinusoidalPotentialArtifact, RestrictedArtifactExpr.compile,
+    RestrictedExpr.eval, restrictedGaussianArtifact]
+  ring
+
+/-- Its generated symbolic derivative is the exact force `x - cos x`. -/
+theorem restrictedSinusoidalPotentialArtifact_derivative_eval (x : ℝ) :
+    restrictedSinusoidalPotentialArtifact.derivative.compile.eval x =
+      x - Real.cos x := by
+  rw [RestrictedArtifactExpr.compile_derivative]
+  simp [restrictedSinusoidalPotentialArtifact, RestrictedArtifactExpr.compile,
+    RestrictedExpr.derivative, RestrictedExpr.eval, restrictedGaussianArtifact]
   ring
 
 /-- The Gaussian restricted target obtains an end-to-end certificate directly

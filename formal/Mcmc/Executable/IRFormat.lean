@@ -18,7 +18,7 @@ namespace Mcmc.Executable.IRFormat
 
 open Finite.CompilerIR
 
-def version : Nat := 12
+def version : Nat := 13
 
 private def quote (value : String) : String :=
   let escapedBackslash := value.replace "\\" "\\\\"
@@ -183,6 +183,8 @@ private def restrictedExprRender :
       list ["mul", restrictedExprRender left, restrictedExprRender right]
   | .neg value => list ["neg", restrictedExprRender value]
   | .exp value => list ["exp", restrictedExprRender value]
+  | .sin value => list ["sin", restrictedExprRender value]
+  | .cos value => list ["cos", restrictedExprRender value]
 
 private def restrictedTargetRender (name : String)
     (expression : Mcmc.Executable.Continuous.RestrictedArtifactExpr) : String :=
@@ -220,6 +222,8 @@ def render : String :=
     Continuous.RelativisticCompilerIR.certifiedPositionDependentProgram.render,
     restrictedTargetRender "restricted-gaussian-potential"
       Mcmc.Executable.Continuous.restrictedGaussianArtifact,
+    restrictedTargetRender "restricted-sinusoidal-potential"
+      Mcmc.Executable.Continuous.restrictedSinusoidalPotentialArtifact,
     scheduleDescriptorRender ComposableIR.gePgHmcSchedule] ++
     Continuous.CoupledXu21.renderedPrograms) ++ "\n"
 

@@ -89,6 +89,13 @@ end
     @test_throws DomainError restricted_value_gradient(
         RestrictedExp(RestrictedConst(1000.0)), 0.0)
 
+    for x in (-2.0, -0.25, 0.0, 1.75)
+        value, derivative = restricted_value_gradient(
+            restricted_sinusoidal_potential, x)
+        @test value ≈ x^2 / 2 - sin(x)
+        @test derivative ≈ x - cos(x)
+    end
+
     exact = certify_restricted_gaussian_float64(0.5)
     @test exact.ideal_value == 1 // 8
     @test iszero(exact.value_error)

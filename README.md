@@ -553,6 +553,11 @@ primitive rounding errors through the complete value and symbolic-gradient
 trees. A proved mean-value bound derives exponential argument transport from
 only the backend's local libm error, using the finite adaptive factor
 `exp(max(computed, ideal))`.
+IR version 13 adds portable sine and cosine nodes. Lean proves their symbolic
+derivatives and uses the global one-Lipschitz bounds for `sin` and `cos` to
+compose backend-local libm errors with input error. The generated
+`x²/2-sin(x)` artifact is proved to denote the nonconstant SoftAbs client's
+potential and force, and Julia decodes and evaluates that generated tree.
 For the generated polynomial Gaussian target, Julia now also emits an exact
 dyadic execution certificate: finite Float64 inputs and outputs are converted
 to mathematical `Rational{BigInt}` values, so the value and derivative errors

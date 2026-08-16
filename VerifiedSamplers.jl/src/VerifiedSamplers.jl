@@ -17,8 +17,9 @@ export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, Bounded
     GaussianSoftAbsGRHMC,
     CertifiedRelativisticMultinomialHMC,
     RestrictedExpr, RestrictedInput, RestrictedConst, RestrictedAdd,
-    RestrictedMul, RestrictedNeg, RestrictedExp, restricted_value_gradient,
-    restricted_gaussian_potential, RestrictedGaussianFloat64Certificate,
+    RestrictedMul, RestrictedNeg, RestrictedExp, RestrictedSin, RestrictedCos,
+    restricted_value_gradient, restricted_gaussian_potential,
+    restricted_sinusoidal_potential, RestrictedGaussianFloat64Certificate,
     certify_restricted_gaussian_float64,
     restricted_gaussian_certificate_arguments,
     Xu21CoupledSampler, ScopedInferenceOperator, ComposableSampler, covers,
@@ -139,6 +140,12 @@ end
 struct RestrictedExp <: RestrictedExpr
     value::RestrictedExpr
 end
+struct RestrictedSin <: RestrictedExpr
+    value::RestrictedExpr
+end
+struct RestrictedCos <: RestrictedExpr
+    value::RestrictedExpr
+end
 
 function _checked_restricted(value::Float64, derivative::Float64)
     isfinite(value) || throw(DomainError(value,
@@ -181,6 +188,16 @@ function restricted_value_gradient(expression::RestrictedExp, x::Real)
     _checked_restricted(value, value * derivative)
 end
 
+function restricted_value_gradient(expression::RestrictedSin, x::Real)
+    inner, derivative = restricted_value_gradient(expression.value, x)
+    _checked_restricted(sin(inner), cos(inner) * derivative)
+end
+
+function restricted_value_gradient(expression::RestrictedCos, x::Real)
+    inner, derivative = restricted_value_gradient(expression.value, x)
+    _checked_restricted(cos(inner), -sin(inner) * derivative)
+end
+
 function _restricted_from_ir(raw)
     node = Reference.items(Reference.aslist(raw))
     tag = Reference.atom(node[1])
@@ -198,12 +215,18 @@ function _restricted_from_ir(raw)
         return RestrictedNeg(_restricted_from_ir(node[2]))
     elseif tag == "exp" && length(node) == 2
         return RestrictedExp(_restricted_from_ir(node[2]))
+    elseif tag == "sin" && length(node) == 2
+        return RestrictedSin(_restricted_from_ir(node[2]))
+    elseif tag == "cos" && length(node) == 2
+        return RestrictedCos(_restricted_from_ir(node[2]))
     end
     error("invalid restricted target expression")
 end
 
 const restricted_gaussian_potential = _restricted_from_ir(
     Reference.TARGETS["restricted-gaussian-potential"])
+const restricted_sinusoidal_potential = _restricted_from_ir(
+    Reference.TARGETS["restricted-sinusoidal-potential"])
 
 """Exact dyadic post-execution certificate for the generated Gaussian target.
 

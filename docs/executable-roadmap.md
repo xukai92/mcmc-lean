@@ -98,18 +98,23 @@ and rejects non-finite intermediate results. A backend-facing certificate keeps
 Float64 value/gradient error explicit; the Gaussian expression has a derived
 end-to-end bound from an input bound.
 
-The portable rational-literal subset is now serialized in generated IR version
-11. The public Julia Gaussian expression is decoded from that artifact, and
+The portable rational-literal subset is serialized in generated IR. The public
+Julia Gaussian expression is decoded from that artifact, and
 Lean proves that the emitted portable tree compiles to the verified Gaussian
 expression. A backend-generic recursive theorem now composes rational,
 addition, multiplication, negation, and bounded-domain exponential certificates
 into end-to-end value and symbolic-gradient bounds for every portable tree.
+Version 13 extends that surface with sine and cosine. Lean proves their
+symbolic differentiation rules and global one-Lipschitz argument transport,
+while backend-local libm errors remain explicit. The generated sinusoidally
+perturbed Gaussian tree is exactly the nonconstant SoftAbs potential and force.
 For the polynomial Gaussian client, Julia serializes every finite Float64 as
 an exact rational certificate; the compiled Lean oracle checks that artifact,
 and checker soundness yields the value and derivative approximation facts.
 The remaining platform work is instantiating primitive operation premises for
-transcendental operations (especially `exp`), extending this checked path to
-the genuinely position-dependent SoftAbs client, and benchmarking against
+transcendental operations (`exp`, `sin`, and `cos`), extending the checked path
+from target/force evaluation through the genuinely position-dependent SoftAbs
+metric and solver, and benchmarking against
 established Julia samplers.
 Step-size or metric adaptation must remain an explicit stateful algorithm with
 a separate specification.

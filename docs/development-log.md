@@ -1849,3 +1849,18 @@ continuous example instantiates it for the uniform probability law on
 `(-2,2]` and proves exact invariance. This is the ideal mathematical client
 behind the runtime's flat-density test, while cross-language numerical
 refinement remains explicitly separate.
+
+## 2026-08-16: generated sinusoidal target refinement
+
+Extended restricted artifact IR to version 13 with portable sine and cosine
+nodes. Lean proves the new symbolic derivative cases, differentiability, and
+recursive backend refinement. Argument transport uses the global
+one-Lipschitz bounds of sine and cosine; only backend-local libm errors remain
+primitive obligations. The generated `x²/2-sin(x)` artifact is proved to have
+ideal value `x²/2-sin(x)` and force `x-cos(x)`, matching the genuinely
+position-dependent SoftAbs foundation.
+
+Julia decodes the generated tree, evaluates its value and symbolic force, and
+tests both at representative inputs. This closes generated target/force
+transport, not the later `tanh`/square-root/log metric evaluation or the
+nonzero-step implicit-solver validity certificate.

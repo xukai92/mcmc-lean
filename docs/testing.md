@@ -64,6 +64,10 @@ When the Lean oracle binary is available, the suite serializes that exact
 record to Lean, checks that it is accepted, and checks that a mutated
 derivative error is rejected. Lean's checker theorem turns acceptance into the
 corresponding approximation facts.
+They also decode the generated sinusoidal potential and compare its value and
+symbolic force against `x²/2-sin(x)` and `x-cos(x)` at representative inputs.
+These are execution regressions; Lean's recursive backend theorem carries the
+explicit local `sin`/`cos` error premises needed for numerical refinement.
 
 The continuous slice suite compares Reference and Optimized bounded rejection
 updates on identical uniform traces, including a forced rejection/retry path.
