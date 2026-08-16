@@ -206,6 +206,44 @@ structure CompactTestExpectationDetermining
     (∀ test, (∫ state, observe test state ∂left) =
       ∫ state, observe test state ∂right) → left = right
 
+/-- The natural measure-determination notion for the locally compact
+weak-forward setting: compactly supported continuous functions determine
+regular measures. Unlike `CompactTestExpectationDetermining`, this does not
+make an unnecessarily global claim about nonregular measures. -/
+structure CompactTestRegularExpectationDetermining
+    {Test : Type*} (observe : Test → State → ℝ) : Prop where
+  eq_of_expectations : ∀ (left right : Measure State),
+    left.Regular → right.Regular →
+    (∀ test, (∫ state, observe test state ∂left) =
+      ∫ state, observe test state ∂right) → left = right
+
+/-- A test family is determining for regular measures whenever it represents
+every compactly supported continuous real function. This discharges the
+measure-theoretic half of weak-forward uniqueness; proving scalar uniqueness
+for the represented generator domain remains separate. -/
+theorem compactTestRegularExpectationDetermining_of_represents_compactlySupported
+    {Test : Type*} (observe : Test → State → ℝ)
+    (represent : ∀ function : C_c(State, ℝ), ∃ test,
+      observe test = fun state => function state) :
+    CompactTestRegularExpectationDetermining observe where
+  eq_of_expectations left right hleft hright heq := by
+    letI : left.Regular := hleft
+    letI : right.Regular := hright
+    apply Measure.ext_of_integral_eq_on_compactlySupported
+    intro function
+    obtain ⟨test, htest⟩ := represent function
+    simpa [htest] using heq test
+
+omit [BorelSpace State] [LocallyCompactSpace State] [T2Space State] in
+/-- The older all-measures determination certificate implies the natural
+regular-measure certificate. -/
+theorem CompactTestExpectationDetermining.toRegular
+    {Test : Type*} (observe : Test → State → ℝ)
+    (determining : CompactTestExpectationDetermining observe) :
+    CompactTestRegularExpectationDetermining observe where
+  eq_of_expectations left right _ _ :=
+    determining.eq_of_expectations left right
+
 /-- Scalar-expectation form of weak-forward uniqueness. It asks that every
 weak solution agree with the constructed transition curve on the supplied
 test family, but does not by itself identify the measures. -/
@@ -263,6 +301,29 @@ theorem CompactTestTargetWeakExpectationUniqueness.toTargetWeakForwardUniqueness
       transition observe generator target where
   unique curve solution time :=
     determining.eq_of_expectations (curve time) ((transition time) ∘ₘ target)
+      (fun test => scalar.unique_expectation curve solution time test)
+
+omit [BorelSpace State] [LocallyCompactSpace State] [T2Space State] in
+/-- Regular-measure version of the target-started scalar-to-measure upgrade.
+It avoids the stronger requirement that the test family determine arbitrary
+nonregular measures. The two regularity premises expose exactly what is needed
+for the candidate weak solution and the constructed transition curve. -/
+theorem CompactTestTargetWeakExpectationUniqueness.toTargetWeakForwardUniqueness_of_regular
+    {Test : Type*}
+    (transition : NNReal → Kernel State State)
+    (observe generator : Test → State → ℝ) (target : Measure State)
+    (scalar : CompactTestTargetWeakExpectationUniqueness
+      transition observe generator target)
+    (determining : CompactTestRegularExpectationDetermining observe)
+    (hcurve : ∀ (curve : NNReal → Measure State),
+      CompactTestWeakForwardSolution observe generator target curve →
+      ∀ time, (curve time).Regular)
+    (htransport : ∀ time, ((transition time) ∘ₘ target).Regular) :
+    CompactTestTargetWeakForwardUniqueness
+      transition observe generator target where
+  unique curve solution time :=
+    determining.eq_of_expectations (curve time) ((transition time) ∘ₘ target)
+      (hcurve curve solution time) (htransport time)
       (fun test => scalar.unique_expectation curve solution time test)
 
 omit [TopologicalSpace State] [BorelSpace State]

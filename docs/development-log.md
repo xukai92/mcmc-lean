@@ -83,6 +83,16 @@
   tests that could previously satisfy the integrated cancellation interface
   without representing the path generator. Weak-forward uniqueness and
   measure determination remain open, now for the semantically correct domain.
+  The determination interface is no longer needlessly restricted to a
+  certificate covering arbitrary nonregular measures. Lean now proves that
+  any test family representing all compactly supported continuous functions
+  determines regular measures by the Riesz theorem, and provides a
+  target-started scalar-uniqueness upgrade with explicit regularity of the
+  candidate and transported curves. Gaussian Zig-Zag and its exact unit-speed
+  BPS representation expose direct stationarity consumers for this weaker,
+  natural route. Representing the full compact test family with the selected
+  smooth generator core and proving scalar weak-forward uniqueness remain
+  open.
 
 - Added the full finite-dimensional Bouncy Particle generator at a fixed
   position and proved its velocity-integrated reduction to transport minus

@@ -259,6 +259,13 @@ integrability, and Lean proves zero generator expectation under the actual
 Gaussian×equal-velocity target. A generic theorem shows that weak-forward
 uniqueness for this test domain implies exact stationarity. Proving that
 uniqueness theorem for the constructed stopped path remains open.
+For the measure-determination half, the API now uses the mathematically
+minimal regular-measure notion: a general Riesz bridge automatically proves
+determination whenever the generator test family represents every compactly
+supported continuous function. Target-started Gaussian Zig-Zag and unit-speed
+BPS stationarity consumers use this weaker route with explicit regularity of
+candidate and transported curves. The smooth-core representation/density
+argument itself is not yet proved.
 The normalized Gaussian-position/equal-velocity target is now explicit and
 proved a probability measure, and the stopped horizon family is proved exactly
 the identity kernel at time zero; these parts no longer remain premises of the

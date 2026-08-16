@@ -1154,6 +1154,12 @@ abbrev GaussianZigZagTargetWeakExpectationUniqueness :=
 abbrev GaussianZigZagSmoothTestDetermining :=
   CompactTestExpectationDetermining GaussianZigZagSmoothTest.observe
 
+/-- Natural regular-measure version of smooth-test determination. This is the
+appropriate obligation for finite Borel laws on the locally compact Zig-Zag
+state space. -/
+abbrev GaussianZigZagSmoothTestRegularDetermining :=
+  CompactTestRegularExpectationDetermining GaussianZigZagSmoothTest.observe
+
 theorem GaussianZigZagForwardEquation.toSetwiseCertificate
     (forward : GaussianZigZagForwardEquation) :
     SetwiseForwardStationarityCertificate
@@ -1239,6 +1245,27 @@ theorem gaussianZigZagHorizonKernel_invariant_of_targetWeakExpectationUniqueness
     (scalar.toTargetWeakForwardUniqueness gaussianZigZagHorizonKernel
       GaussianZigZagSmoothTest.observe GaussianZigZagSmoothTest.generator
       gaussianZigZagTarget determining)
+    horizon
+
+/-- Regular-measure version of the minimal split stationarity theorem. It
+requires smooth-test scalar uniqueness, determination only among regular
+measures, and explicit regularity of the candidate and transported curves. -/
+theorem gaussianZigZagHorizonKernel_invariant_of_targetWeakExpectationUniqueness_regular
+    (scalar : GaussianZigZagTargetWeakExpectationUniqueness)
+    (determining : GaussianZigZagSmoothTestRegularDetermining)
+    (hcurve : ∀ (curve : NNReal → Measure ZigZagState),
+      CompactTestWeakForwardSolution GaussianZigZagSmoothTest.observe
+        GaussianZigZagSmoothTest.generator gaussianZigZagTarget curve →
+      ∀ time, (curve time).Regular)
+    (htransport : ∀ time,
+      ((gaussianZigZagHorizonKernel time) ∘ₘ gaussianZigZagTarget).Regular)
+    (horizon : NNReal) :
+    (gaussianZigZagHorizonKernel horizon).Invariant gaussianZigZagTarget :=
+  gaussianZigZagHorizonKernel_invariant_of_targetWeakForwardUniqueness
+    (scalar.toTargetWeakForwardUniqueness_of_regular
+      gaussianZigZagHorizonKernel GaussianZigZagSmoothTest.observe
+      GaussianZigZagSmoothTest.generator gaussianZigZagTarget determining
+      hcurve htransport)
     horizon
 
 /-- Under the event kernel's actual exponential-hazard law, inverse-clock
