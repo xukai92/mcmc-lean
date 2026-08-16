@@ -1,5 +1,12 @@
 # Development log
 
+- Added bounded numerical refinement for the open-unit transform. Lean now
+  composes input error through the affine forward argument, a certified
+  `artanh` call, the affine inverse `tanh` result, the `1-tanh²` Jacobian
+  argument, a positive lower-guarded logarithm, and subtraction of `log 2`.
+  Concrete platform errors for `atanh`, `tanh`, and `log` remain explicit
+  backend premises rather than unproved identifications with exact reals.
+
 - Added an exact open-unit-interval constrained transform. Lean constructs the
   measurable equivalence `x -> artanh(2x-1)` with inverse
   `(tanh(y)+1)/2` and specializes the transformed-kernel invariance theorem.

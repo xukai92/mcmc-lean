@@ -281,7 +281,7 @@ Backend certificates must account for each of the following separately:
 | Ideal unit uniform to runtime RNG | `rand` has the documented support/distribution and endpoint convention. |
 | Real arithmetic to `Float64` | Overflow, underflow, `NaN`, infinities, rounding, and transcendental error are either excluded by preconditions or bounded. |
 | Target expression to Julia callback | The callback implements the same log weight on the admitted domain, up to the stated numeric error. |
-| Ideal continuous IR to Julia | The maintained interpreter mirrors primitive order and control flow and is differentially tested; a machine-checked cross-language/numerical refinement remains future work. |
+| Ideal continuous IR to Julia | The maintained interpreter mirrors primitive order and control flow and is differentially tested. Bounded-error composition covers positive-log and open-unit-artanh transforms, while primitive platform libm/RNG certificates and a complete cross-language theorem remain future work. |
 
 `BackendRwmhCertificate` and `BackendHmcCertificate` now compose these
 operation-level claims into the exact Lean decision-stability certificates.

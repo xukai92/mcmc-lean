@@ -102,7 +102,10 @@ Jacobian metadata.
 IR 16 adds the open-unit artanh-affine equivalence and its full inverse-
 Jacobian convention. `OpenUnitTransformedRWMH` consumes that convention and
 has deterministic uniform-target diagnostics; Float64 `atanh`, `tanh`, and
-`log1p` remain an explicit numerical-refinement boundary.
+`log1p` remain primitive backend obligations. Lean now composes certified
+affine preprocessing, `artanh` transport, inverse `tanh` transport,
+`1-tanh²`, guarded logarithm, and the `-log 2` correction into explicit error
+bounds; it does not assume platform libm accuracy.
 
 ## Remaining milestones
 
