@@ -94,9 +94,13 @@ witness.
 The first solver-error link is complete: a certified computed residual and a
 contraction rate now give an explicit a posteriori distance to the exact
 Banach-selected solve for each implicit loop, with a matching checked Julia
-calculation. Remaining work is to derive the contraction and primitive-error
-premises for the concrete sinusoidal SoftAbs callbacks and propagate these
-state errors through trajectory energies and multinomial boundaries.
+calculation. This bound is now specialized to the nonconstant actual-Hessian
+SoftAbs client: the finite half-momentum loop is compared directly with the
+certified solver's half momentum, and the finite position loop at that exact
+half momentum is compared directly with its exact next position. Remaining
+work is to propagate the computed half-momentum error into the position loop,
+then carry the combined state error through trajectory energies and multinomial
+boundaries.
 
 ### 2. Restricted callbacks, adaptation, and performance
 

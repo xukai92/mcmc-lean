@@ -1,5 +1,6 @@
 import Mcmc.Executable.Continuous.BoundedRWMH
 import Mcmc.Relativistic.FixedPointIteration
+import Mcmc.Relativistic.ShiftedSinusoidalSoftAbs
 
 /-!
 # Backend residual certificates for implicit GR-HMC solves
@@ -77,6 +78,71 @@ theorem dist_finiteNextPosition_fixedPoint_le_of_computedResidual
           (positionFixedPointUpdate momentumDerivative ε q pHalf)) ≤
       (|computedResidual| + residualError) / (1 - K) :=
   dist_fixedPoint_le_of_computedResidual hcontract _ hresidual
+
+/-- A reported residual for a finite half-momentum loop on the concrete
+nonconstant actual-Hessian SoftAbs target bounds its distance to the exact
+certified solver's half momentum. -/
+theorem shiftedSinusoidalSoftAbs_finiteHalfMomentum_error_le
+    (iterations : ℕ) (z : PhaseSpace Unit)
+    {computedResidual residualError : ℝ}
+    (hresidual : Approximates computedResidual
+      (dist
+        (finiteHalfMomentum shiftedSinusoidalSoftAbsPositionDerivative
+          iterations shiftedSinusoidalSoftAbsCertifiedStep z)
+        (halfMomentumFixedPointUpdate
+          shiftedSinusoidalSoftAbsPositionDerivative
+          shiftedSinusoidalSoftAbsCertifiedStep z
+          (finiteHalfMomentum shiftedSinusoidalSoftAbsPositionDerivative
+            iterations shiftedSinusoidalSoftAbsCertifiedStep z)))
+      residualError) :
+    dist
+        (finiteHalfMomentum shiftedSinusoidalSoftAbsPositionDerivative
+          iterations shiftedSinusoidalSoftAbsCertifiedStep z)
+        (shiftedSinusoidalSoftAbsCertifiedSolver.halfMomentum z) ≤
+      (|computedResidual| + residualError) /
+        (1 - shiftedSinusoidalSoftAbsCertifiedSolver.halfRate z) := by
+  exact dist_finiteHalfMomentum_fixedPoint_le_of_computedResidual
+    shiftedSinusoidalSoftAbsPositionDerivative
+    (shiftedSinusoidalSoftAbsCertifiedSolver.halfRate z)
+    iterations shiftedSinusoidalSoftAbsCertifiedStep z
+    (shiftedSinusoidalSoftAbsCertifiedSolver.halfContracting z) hresidual
+
+/-- With the exact half momentum fixed, a reported finite position-loop
+residual bounds distance to the exact next position of the same certified
+SoftAbs solver. The separate perturbation from an approximate half momentum
+remains visible rather than being hidden in this theorem. -/
+theorem shiftedSinusoidalSoftAbs_finiteNextPosition_error_le
+    (iterations : ℕ) (z : PhaseSpace Unit)
+    {computedResidual residualError : ℝ}
+    (hresidual : Approximates computedResidual
+      (dist
+        (finiteNextPosition shiftedSinusoidalSoftAbsMomentumDerivative
+          iterations shiftedSinusoidalSoftAbsCertifiedStep z.1
+          (shiftedSinusoidalSoftAbsCertifiedSolver.halfMomentum z))
+        (positionFixedPointUpdate
+          shiftedSinusoidalSoftAbsMomentumDerivative
+          shiftedSinusoidalSoftAbsCertifiedStep z.1
+          (shiftedSinusoidalSoftAbsCertifiedSolver.halfMomentum z)
+          (finiteNextPosition shiftedSinusoidalSoftAbsMomentumDerivative
+            iterations shiftedSinusoidalSoftAbsCertifiedStep z.1
+            (shiftedSinusoidalSoftAbsCertifiedSolver.halfMomentum z))))
+      residualError) :
+    dist
+        (finiteNextPosition shiftedSinusoidalSoftAbsMomentumDerivative
+          iterations shiftedSinusoidalSoftAbsCertifiedStep z.1
+          (shiftedSinusoidalSoftAbsCertifiedSolver.halfMomentum z))
+        (shiftedSinusoidalSoftAbsCertifiedSolver.nextPosition z) ≤
+      (|computedResidual| + residualError) /
+        (1 - shiftedSinusoidalSoftAbsCertifiedSolver.positionRate z.1
+          (shiftedSinusoidalSoftAbsCertifiedSolver.halfMomentum z)) := by
+  exact dist_finiteNextPosition_fixedPoint_le_of_computedResidual
+    shiftedSinusoidalSoftAbsMomentumDerivative
+    (shiftedSinusoidalSoftAbsCertifiedSolver.positionRate z.1
+      (shiftedSinusoidalSoftAbsCertifiedSolver.halfMomentum z))
+    iterations shiftedSinusoidalSoftAbsCertifiedStep z.1
+    (shiftedSinusoidalSoftAbsCertifiedSolver.halfMomentum z)
+    (shiftedSinusoidalSoftAbsCertifiedSolver.positionContracting z.1
+      (shiftedSinusoidalSoftAbsCertifiedSolver.halfMomentum z)) hresidual
 
 /-- Backend-facing bounds for the two implicit fixed-point residual norms. -/
 structure BackendImplicitResidualCertificate where

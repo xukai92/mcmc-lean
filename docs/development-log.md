@@ -2190,3 +2190,14 @@ nonconstant SoftAbs Hamiltonian step are pointwise equal. The step is bijective,
 differentiable, has determinant one everywhere, and exactly preserves phase
 volume. The remaining boundary for this client is the deliberately separate
 bounded Float64 refinement of the Julia implicit iterations.
+
+The first target-specific numerical bridge now reuses that exact solver.
+`RelativisticCertificates` specializes the generic computed-residual theorem
+to the nonconstant actual-Hessian SoftAbs callbacks. A finite half-momentum
+loop is bounded against the certified solver's exact half momentum, and a
+finite position loop at that exact half momentum is bounded against its exact
+next position, both with the a posteriori budget
+`(|reportedResidual| + residualError) / (1 - contractionRate)`. The remaining
+coupled numerical step is explicit: transport the approximate half-momentum
+error into the position solve and final momentum, then into energy and
+multinomial-selection certificates.
