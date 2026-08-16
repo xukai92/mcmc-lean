@@ -1,4 +1,4 @@
-import Mcmc.Kernel.CoupledChain
+import Mcmc.Kernel.MeetingDrift
 import Mathlib.MeasureTheory.Measure.Sub
 
 /-!
@@ -75,6 +75,68 @@ end IsMeasureCoupling
 namespace Kernel
 
 open ProbabilityTheory
+
+/-- A faithful path-law meeting tail controls the eventwise discrepancy of
+two marginal chains, even when their initial laws differ. -/
+theorem lawAtTime_left_apply_le_right_add_exactMeetingTail
+    [MeasurableEq α]
+    (initialCoupling : Measure (α × α)) [IsProbabilityMeasure initialCoupling]
+    (leftInitial rightInitial : Measure α)
+    (transition : Kernel α α) [IsMarkovKernel transition]
+    (coupled : Kernel (α × α) (α × α)) [IsMarkovKernel coupled]
+    (hinitial : IsMeasureCoupling initialCoupling leftInitial rightInitial)
+    (hcoupled : IsCoupling coupled transition transition)
+    (hfaithful : IsFaithful coupled) (n : ℕ)
+    {s : Set α} (hs : MeasurableSet s) :
+    lawAtTime leftInitial transition n s ≤
+      lawAtTime rightInitial transition n s +
+        exactMeetingTail (pathLaw initialCoupling coupled) n := by
+  have hmarginals := lawAtTime_isMeasureCoupling initialCoupling
+    leftInitial rightInitial coupled transition transition hinitial hcoupled n
+  have hcoupling := hmarginals.fst_apply_le_snd_apply_add_compl_diagonal hs
+  rw [← offDiagonalMassAtTime_eq_exactMeetingTail_pathLaw_of_faithful
+    initialCoupling coupled hfaithful n]
+  exact hcoupling
+
+/-- Symmetric eventwise form of the heterogeneous-initialization meeting-tail
+bound. -/
+theorem lawAtTime_right_apply_le_left_add_exactMeetingTail
+    [MeasurableEq α]
+    (initialCoupling : Measure (α × α)) [IsProbabilityMeasure initialCoupling]
+    (leftInitial rightInitial : Measure α)
+    (transition : Kernel α α) [IsMarkovKernel transition]
+    (coupled : Kernel (α × α) (α × α)) [IsMarkovKernel coupled]
+    (hinitial : IsMeasureCoupling initialCoupling leftInitial rightInitial)
+    (hcoupled : IsCoupling coupled transition transition)
+    (hfaithful : IsFaithful coupled) (n : ℕ)
+    {s : Set α} (hs : MeasurableSet s) :
+    lawAtTime rightInitial transition n s ≤
+      lawAtTime leftInitial transition n s +
+        exactMeetingTail (pathLaw initialCoupling coupled) n := by
+  have hmarginals := lawAtTime_isMeasureCoupling initialCoupling
+    leftInitial rightInitial coupled transition transition hinitial hcoupled n
+  have hcoupling := hmarginals.snd_apply_le_fst_apply_add_compl_diagonal hs
+  rw [← offDiagonalMassAtTime_eq_exactMeetingTail_pathLaw_of_faithful
+    initialCoupling coupled hfaithful n]
+  exact hcoupling
+
+/-- If the right marginal starts stationary, the coupling tail directly
+controls eventwise convergence of the left chain. -/
+theorem lawAtTime_apply_le_invariant_add_exactMeetingTail
+    [MeasurableEq α]
+    (initialCoupling : Measure (α × α)) [IsProbabilityMeasure initialCoupling]
+    (leftInitial target : Measure α)
+    (transition : Kernel α α) [IsMarkovKernel transition]
+    (coupled : Kernel (α × α) (α × α)) [IsMarkovKernel coupled]
+    (hinitial : IsMeasureCoupling initialCoupling leftInitial target)
+    (hcoupled : IsCoupling coupled transition transition)
+    (hfaithful : IsFaithful coupled) (hinvariant : transition.Invariant target)
+    (n : ℕ) {s : Set α} (hs : MeasurableSet s) :
+    lawAtTime leftInitial transition n s ≤
+      target s + exactMeetingTail (pathLaw initialCoupling coupled) n := by
+  simpa only [lawAtTime_eq_of_invariant target transition hinvariant n] using
+    lawAtTime_left_apply_le_right_add_exactMeetingTail initialCoupling
+      leftInitial target transition coupled hinitial hcoupled hfaithful n hs
 
 /-- A kernel uniformly minorizes a measure with coefficient `ε`. -/
 def UniformlyMinorizes (transition : Kernel α α) (ε : ENNReal)

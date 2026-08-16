@@ -1,5 +1,13 @@
 # Development log
 
+- Added the heterogeneous-initialization form of the Xu drift closure and the
+  faithful path-law identity equating meeting tails with finite-time
+  off-diagonal mass. The standard quadratic client now defines its normalized
+  Gaussian position target, proves exact scaling from the unnormalized
+  Boltzmann measure and target invariance, constructs a geometric coupling
+  from a Dirac start to a stationary start, and proves two-sided eventwise
+  geometric convergence.
+
 - Extracted the convergence consequence latent in the coupled-estimator
   argument: a faithful geometric exact-meeting tail forces every bounded
   measurable marginal expectation sequence to converge to the stopped

@@ -1361,6 +1361,104 @@ theorem XuTheorem41DriftAssumptions.exists_geometric_exactLagOneMeetingTail_init
   intro n
   simpa only [C₀, laggedInitial, transition, mul_comm] using htail n
 
+/-- Same-time heterogeneous-initialization form of the Xu drift closure.
+Unlike the lag-one estimator theorem, the paired initial measure may couple
+different marginal laws. A finite paired Lyapunov moment is therefore stated
+directly. This is the form used to couple a point-started chain to a stationary
+target-started chain. -/
+theorem XuTheorem41DriftAssumptions.exists_geometric_exactMeetingTail_pairInitial
+    {gamma : Set.Ioo (0 : NNReal) 1}
+    {hmc rwmh : Kernel (Position ι) (Position ι)}
+    [IsMarkovKernel hmc] [IsMarkovKernel rwmh]
+    {initial : Measure (Position ι)} {potential : Position ι → ℝ}
+    {S : Set (Position ι)}
+    (h : XuTheorem41DriftAssumptions gamma hmc rwmh initial potential S)
+    (pairInitial : Measure (Position ι × Position ι))
+    [IsProbabilityMeasure pairInitial]
+    (coupled : Kernel (Position ι × Position ι)
+      (Position ι × Position ι)) [IsMarkovKernel coupled]
+    (hcoupled : Mcmc.Kernel.IsCoupling coupled
+      (Mcmc.Kernel.mixture (xuTheorem41HmcWeight gamma) hmc rwmh)
+      (Mcmc.Kernel.mixture (xuTheorem41HmcWeight gamma) hmc rwmh))
+    {meetingBound : ENNReal} (hmeetingPos : 0 < meetingBound)
+    (hmeeting : Mcmc.Kernel.IsExactMeetingSmallSet coupled
+      (Mcmc.Kernel.lyapunovSublevel
+        (Mcmc.Kernel.IsCoupling.pairedAdd h.V) (1 + h.ell1)) meetingBound)
+    (hfaithful : Mcmc.Kernel.IsFaithful coupled)
+    (hsubNonempty : (Mcmc.Kernel.lyapunovSublevel
+      (Mcmc.Kernel.IsCoupling.pairedAdd h.V) (1 + h.ell1)).Nonempty)
+    (hpairMoment : (∫⁻ q, Mcmc.Kernel.IsCoupling.pairedAdd h.V q
+      ∂pairInitial) ≠ ⊤) :
+    ∃ C₀ contractionRate : ENNReal,
+      C₀ ≠ ⊤ ∧ contractionRate < 1 ∧
+        ∀ n : ℕ, Mcmc.Kernel.exactMeetingTail
+          (Mcmc.Kernel.pathLaw pairInitial coupled) n ≤
+            C₀ * contractionRate ^ n := by
+  let transition := Mcmc.Kernel.mixture
+    (xuTheorem41HmcWeight gamma) hmc rwmh
+  let Vpair := Mcmc.Kernel.IsCoupling.pairedAdd h.V
+  let driftRate := xuTheorem41PairedRate gamma h.driftCoefficient
+    h.driftAllowance h.growthCoefficient h.ell1
+  let allowance := xuTheorem41DriftAllowance gamma h.driftAllowance
+    h.growthCoefficient +
+      xuTheorem41DriftAllowance gamma h.driftAllowance h.growthCoefficient
+  let threshold := 1 + h.ell1
+  have hcoupled' : Mcmc.Kernel.IsCoupling coupled transition transition := by
+    simpa only [transition] using hcoupled
+  have hdrift : Mcmc.Kernel.HasGeometricDrift coupled Vpair
+      (Mcmc.Kernel.lyapunovSublevel Vpair threshold)
+      driftRate allowance := by
+    simpa only [transition, Vpair, driftRate, allowance, threshold]
+      using h.coupling_hasGeometricDrift coupled hcoupled'
+  have hmeeting' : Mcmc.Kernel.IsExactMeetingSmallSet coupled
+      (Mcmc.Kernel.lyapunovSublevel Vpair threshold) meetingBound := by
+    simpa only [Vpair, threshold] using hmeeting
+  have hmeetingLe : meetingBound ≤ 1 := by
+    obtain ⟨q, hq⟩ := hsubNonempty
+    calc
+      meetingBound ≤ coupled q (Set.diagonal (Position ι)) :=
+        hmeeting' q (by simpa only [Vpair, threshold] using hq)
+      _ ≤ coupled q Set.univ := measure_mono (Set.subset_univ _)
+      _ = 1 := measure_univ
+  have hthreshold0 : threshold ≠ 0 := by
+    dsimp only [threshold]
+    exact ne_of_gt (zero_lt_one.trans_le (le_add_right le_rfl))
+  have hthresholdTop : threshold ≠ ⊤ := by
+    dsimp only [threshold]
+    exact ENNReal.add_ne_top.2 ⟨ENNReal.one_ne_top, h.ell1_ne_top⟩
+  have hdriftRate : driftRate < 1 := by
+    dsimp only [driftRate]
+    exact h.scalar_condition
+  have hallowanceTop : allowance ≠ ⊤ := by
+    dsimp only [allowance]
+    exact ENNReal.add_ne_top.2
+      ⟨h.mixtureAllowance_ne_top, h.mixtureAllowance_ne_top⟩
+  have hdriftBudgetTop : driftRate * threshold + allowance ≠ ⊤ :=
+    ENNReal.add_ne_top.2
+      ⟨ENNReal.mul_ne_top (ne_top_of_le_ne_top ENNReal.one_ne_top
+          hdriftRate.le) hthresholdTop, hallowanceTop⟩
+  obtain ⟨scale, contractionRate, _hscale0, hscaleTop, hrate, htail⟩ :=
+    hdrift.exists_scale_rate_exactMeetingTail_pathLaw_le
+      pairInitial coupled hmeeting' hfaithful hdriftRate hmeetingPos
+      hmeetingLe hthreshold0 hthresholdTop hdriftBudgetTop
+  let C₀ := Mcmc.Kernel.weightedOffDiagonalMassAtTime
+    pairInitial coupled Vpair scale 0
+  have hfullWeightTop : (∫⁻ q, Mcmc.Kernel.meetingWeight Vpair scale q
+      ∂pairInitial) ≠ ⊤ := by
+    change (∫⁻ q, 1 + scale * Vpair q ∂pairInitial) ≠ ⊤
+    rw [lintegral_add_left measurable_const, lintegral_const, measure_univ,
+      one_mul, lintegral_const_mul _ hdrift.1]
+    exact ENNReal.add_ne_top.2
+      ⟨ENNReal.one_ne_top, ENNReal.mul_ne_top hscaleTop hpairMoment⟩
+  have hC₀Top : C₀ ≠ ⊤ := by
+    dsimp only [C₀, Mcmc.Kernel.weightedOffDiagonalMassAtTime]
+    rw [Mcmc.Kernel.lawAtTime_zero]
+    apply ne_top_of_le_ne_top hfullWeightTop
+    exact setLIntegral_le_lintegral _ _
+  refine ⟨C₀, contractionRate, hC₀Top, hrate, ?_⟩
+  intro n
+  simpa only [C₀, mul_comm] using htail n
+
 /-- A convex combination of two strict subunit drift rates is strict
 subunit, including endpoint mixture weights. -/
 theorem hmcRwmhDriftRate_lt_one

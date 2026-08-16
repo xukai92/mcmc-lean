@@ -99,8 +99,12 @@ proves a geometric exact lag-one meeting tail for that actual algorithm at
 For bounded measurable observables, geometric faithful meeting now proves
 that the Dirac-start marginal expectations converge. The module packages the
 actual mixture into an unconditional finite-variance estimator theorem whose
-expectation is this constructed limit. Identifying the limit with an
-independently normalized Gaussian Boltzmann integral remains separate.
+expectation is this constructed limit. The standard-Gaussian target is now
+also normalized explicitly, proved invariant, and coupled to the Dirac-start
+chain with a geometric same-time meeting tail. This yields two-sided
+eventwise geometric convergence to the normalized target. Transporting that
+eventwise bound to arbitrary bounded-observable integrals is the remaining
+target-identification step.
 
 The general-target endpoint is a composition theorem: regularity and local
 strong convexity establish local HMC accessibility, while a supplied
@@ -130,8 +134,9 @@ The following follow-on work remains outside the completed theorem surface:
 
 - target-specific drift certificates beyond the standard Gaussian and
   regularized-logistic families;
-- normalized-Boltzmann target identification for the constructed Gaussian
-  and regularized-logistic marginal limits;
+- bounded-integral target identification from the completed Gaussian
+  eventwise convergence theorem, plus normalized-Boltzmann construction and
+  the analogous identification for regularized logistic regression;
 - full floating-point refinement and reproduction of every reported paper
   experiment. The generated Julia coupling already implements shared-event
   HMC/RWMH mixture steps, checks exact-meeting faithfulness, and now exposes a

@@ -1,5 +1,6 @@
 import Mcmc.Hamiltonian.CoupledMixture
 import Mcmc.Hamiltonian.QuadraticGaussian
+import Mcmc.Kernel.GeneralConvergence
 import Mcmc.Kernel.UnbiasedEstimator
 
 /-!
@@ -20,6 +21,123 @@ namespace Mcmc.Hamiltonian
 open ProbabilityTheory
 
 variable {ι : Type*} [Fintype ι]
+
+/-- The normalized standard Gaussian law on position space. -/
+noncomputable def standardGaussianPositionMeasure : Measure (Position ι) :=
+  Mcmc.Kernel.densityTarget volume
+    (Mcmc.Kernel.isotropicGaussianPDF (ι := ι) 1)
+
+instance standardGaussianPositionMeasure_isProbabilityMeasure :
+    IsProbabilityMeasure (standardGaussianPositionMeasure (ι := ι)) :=
+  Mcmc.Kernel.densityTarget_isProbability volume
+    (Mcmc.Kernel.isotropicGaussianPDF (ι := ι) 1)
+    (Mcmc.Kernel.lintegral_isotropicGaussianPDF_eq_one 1 (by norm_num))
+
+/-- The normalized Gaussian density is the finite-dimensional normalizing
+constant times the quadratic Boltzmann weight. -/
+theorem isotropicGaussianPDF_one_eq_prefactor_mul_standardQuadraticWeight
+    (q : Position ι) :
+    Mcmc.Kernel.isotropicGaussianPDF (ι := ι) 1 q =
+      standardMomentumPrefactor (ι := ι) *
+        positionBoltzmannWeight standardQuadraticPotential q := by
+  simpa [standardQuadraticPotential, positionBoltzmannWeight,
+    kineticBoltzmannWeight] using
+    (isotropicGaussianPDF_one_eq_prefactor_mul_kinetic (ι := ι) q)
+
+/-- The named probability target is exactly a scalar multiple of the
+unnormalized measure used by the generic balance proof. -/
+theorem standardGaussianPositionMeasure_eq_smul_boltzmann :
+    standardGaussianPositionMeasure (ι := ι) =
+      standardMomentumPrefactor (ι := ι) •
+        positionBoltzmannTarget standardQuadraticPotential := by
+  unfold standardGaussianPositionMeasure Mcmc.Kernel.densityTarget
+    positionBoltzmannTarget
+  rw [show Mcmc.Kernel.isotropicGaussianPDF (ι := ι) 1 =
+      standardMomentumPrefactor (ι := ι) •
+        positionBoltzmannWeight standardQuadraticPotential by
+    funext q
+    simp only [Pi.smul_apply, smul_eq_mul]
+    exact isotropicGaussianPDF_one_eq_prefactor_mul_standardQuadraticWeight q]
+  exact withDensity_smul _
+    (measurable_positionBoltzmannWeight
+      contDiff_standardQuadraticPotential.continuous.measurable)
+
+/-- Every verified standard-quadratic HMC/RWMH mixture preserves the actual
+normalized standard Gaussian probability target. -/
+theorem hmcRwmhMixture_invariant_standardGaussian
+    (p : Set.Icc (0 : NNReal) 1) (ε : ℝ) (L : ℕ)
+    (variance : NNReal) (hvariance : variance ≠ 0) :
+    (hmcRwmhMixture p standardQuadraticPotential standardQuadraticGradient
+      ε L contDiff_standardQuadraticPotential.continuous.measurable
+      measurable_standardQuadraticGradient variance hvariance).Invariant
+        (standardGaussianPositionMeasure (ι := ι)) := by
+  rw [standardGaussianPositionMeasure_eq_smul_boltzmann]
+  apply Kernel.Invariant.smul
+  exact (coupledHmcRwmhMixture_isCoupling_and_invariant p
+    standardQuadraticPotential standardQuadraticGradient ε L
+    contDiff_standardQuadraticPotential.continuous.measurable
+    measurable_standardQuadraticGradient variance hvariance).2
+
+/-- The normalized standard Gaussian has the finite Lyapunov moment required
+by the Xu drift/meeting construction. -/
+theorem lintegral_standardDistanceLyapunov_standardGaussian_ne_top :
+    (∫⁻ q : Position ι, standardDistanceLyapunov q
+      ∂standardGaussianPositionMeasure) ≠ ⊤ := by
+  have hnorm : (∫⁻ q : Position ι, ENNReal.ofReal ‖q‖
+      ∂standardGaussianPositionMeasure) ≠ ⊤ := by
+    simpa only [standardGaussianPositionMeasure, standardMomentumMeasure] using
+      (lintegral_norm_standardMomentumMeasure_ne_top (ι := ι))
+  apply ne_top_of_le_ne_top (ENNReal.add_ne_top.2 ⟨ENNReal.one_ne_top, hnorm⟩)
+  calc
+    (∫⁻ q : Position ι, standardDistanceLyapunov q
+        ∂standardGaussianPositionMeasure) ≤
+        ∫⁻ q : Position ι, (1 + ENNReal.ofReal ‖q‖)
+          ∂standardGaussianPositionMeasure := by
+      apply lintegral_mono
+      intro q
+      unfold standardDistanceLyapunov
+      rw [dist_zero_right, ENNReal.ofReal_add (by norm_num) (norm_nonneg q)]
+      simp
+    _ = 1 + ∫⁻ q : Position ι, ENNReal.ofReal ‖q‖
+          ∂standardGaussianPositionMeasure := by
+      rw [lintegral_add_left measurable_const]
+      simp
+
+/-- A point mass paired with a stationary standard Gaussian has finite
+additive Lyapunov moment. -/
+theorem lintegral_pairedStandardDistance_dirac_standardGaussian_ne_top
+    (q₀ : Position ι) :
+    (∫⁻ z : Position ι × Position ι,
+      Mcmc.Kernel.IsCoupling.pairedAdd standardDistanceLyapunov z
+      ∂(Measure.dirac q₀).prod
+        (standardGaussianPositionMeasure (ι := ι))) ≠ ⊤ := by
+  change (∫⁻ z : Position ι × Position ι,
+    standardDistanceLyapunov z.1 + standardDistanceLyapunov z.2
+      ∂(Measure.dirac q₀).prod
+        (standardGaussianPositionMeasure (ι := ι))) ≠ ⊤
+  have hprod := lintegral_prod
+    (μ := Measure.dirac q₀)
+    (ν := standardGaussianPositionMeasure (ι := ι))
+    (fun z : Position ι × Position ι =>
+      standardDistanceLyapunov z.1 + standardDistanceLyapunov z.2)
+    ((measurable_standardDistanceLyapunov.comp measurable_fst).add
+      (measurable_standardDistanceLyapunov.comp measurable_snd)).aemeasurable
+  rw [hprod]
+  have hinner : ∀ x : Position ι,
+      (∫⁻ y : Position ι, standardDistanceLyapunov x +
+        standardDistanceLyapunov y
+        ∂standardGaussianPositionMeasure (ι := ι)) =
+      standardDistanceLyapunov x +
+        ∫⁻ y : Position ι, standardDistanceLyapunov y
+          ∂standardGaussianPositionMeasure (ι := ι) := by
+    intro x
+    rw [lintegral_add_left measurable_const, lintegral_const, measure_univ,
+      mul_one]
+  simp_rw [hinner]
+  rw [lintegral_dirac q₀]
+  exact ENNReal.add_ne_top.2
+    ⟨standardDistanceLyapunov_ne_top q₀,
+      lintegral_standardDistanceLyapunov_standardGaussian_ne_top⟩
 
 /-- One-dimensional quadratic-potential sublevel used as Xu's local region. -/
 def standardQuadraticEnergyRegion (E : ℝ) : Set (Position Unit) :=
@@ -331,7 +449,8 @@ noncomputable def standardQuadratic_xuTheorem41DriftAssumptions_of_hmc
         contDiff_standardQuadraticPotential.continuous.measurable
         measurable_standardQuadraticGradient)
       (Mcmc.Kernel.euclideanGaussianRandomWalkMetropolisHastings
-        (positionBoltzmannWeight standardQuadraticPotential)
+        (positionBoltzmannWeight
+          (standardQuadraticPotential : Position ι → ℝ))
         variance hvariance)
       (Measure.dirac q₀) standardQuadraticPotential S := by
   refine
@@ -639,6 +758,141 @@ theorem exists_geometric_exactLagOneMeetingTail_standardQuadratic_finite_sqrtTwo
       ((Measure.dirac q₀).prod (Measure.dirac q₀)) hinitial
       hcompact hnonempty hAcompact hAnonempty hAmeas hAvolume
   exact ⟨γ, C₀, contractionRate, hC₀, hrate, htail⟩
+
+/-- Same-time geometric meeting between a point-started standard-Gaussian
+chain and a chain started from its stationary Gaussian target. -/
+theorem exists_geometric_exactMeetingTail_standardQuadratic_to_stationary
+    [Nonempty ι] (variance : NNReal) (hvariance : variance ≠ 0)
+    (q₀ : Position ι) :
+    ∃ (gamma : Set.Ioo (0 : NNReal) 1) (C₀ contractionRate : ENNReal),
+      C₀ ≠ ⊤ ∧ contractionRate < 1 ∧
+        ∀ n : ℕ, Mcmc.Kernel.exactMeetingTail
+          (Mcmc.Kernel.pathLaw
+            ((Measure.dirac q₀).prod
+              (standardGaussianPositionMeasure (ι := ι)))
+            (stickyCoupledHmcRwmhMixture (xuTheorem41HmcWeight gamma)
+              standardQuadraticPotential standardQuadraticGradient
+              (Real.sqrt 2) 1
+              contDiff_standardQuadraticPotential.continuous.measurable
+              measurable_standardQuadraticGradient variance hvariance)) n ≤
+          C₀ * contractionRate ^ n := by
+  letI : IsMarkovKernel
+      (Mcmc.Kernel.euclideanGaussianRandomWalkMetropolisHastings
+        (positionBoltzmannWeight
+          (standardQuadraticPotential : Position ι → ℝ))
+        variance hvariance) :=
+    Mcmc.Kernel.euclideanGaussianRandomWalkMetropolisHastings_isMarkov
+      _ variance hvariance
+      (measurable_positionBoltzmannWeight
+        contDiff_standardQuadraticPotential.continuous.measurable)
+  obtain ⟨gamma, ell1, ⟨hspecial⟩⟩ :=
+    exists_standardQuadratic_finite_xuTheorem41DriftAssumptions_sqrtTwo
+      (ι := ι) variance hvariance q₀
+  let h := hspecial.1
+  have hV : h.V = standardDistanceLyapunov := hspecial.2
+  have hcompact := h.isCompact_pairedSublevel_of_V_eq_standardDistance hV
+  have hnonempty := h.nonempty_pairedSublevel_of_V_eq_standardDistance hV
+  let A : Set (Position ι) := Metric.closedBall 0 1
+  have hAcompact : IsCompact A := by
+    dsimp only [A]
+    exact isCompact_closedBall 0 1
+  have hAnonempty : A.Nonempty := ⟨0, by simp [A]⟩
+  have hAmeas : MeasurableSet A := hAcompact.measurableSet
+  have hAvolume : 0 < volume A := by
+    dsimp only [A]
+    exact Metric.measure_closedBall_pos volume 0 (by norm_num)
+  have hp : (xuTheorem41HmcWeight gamma).1 < 1 := by
+    dsimp only [xuTheorem41HmcWeight]
+    exact tsub_lt_self zero_lt_one gamma.property.1
+  obtain ⟨meetingBound, hmeetingPos, hmeeting⟩ :=
+    exists_pos_stickyCoupledHmcRwmhMixture_exactMeetingSmallSet_on_compact
+      (xuTheorem41HmcWeight gamma) hp standardQuadraticPotential
+      standardQuadraticGradient (Real.sqrt 2) 1
+      contDiff_standardQuadraticPotential.continuous
+      measurable_standardQuadraticGradient variance hvariance
+      hcompact hnonempty hAcompact hAnonempty hAmeas hAvolume
+  have hpairMoment : (∫⁻ z,
+      Mcmc.Kernel.IsCoupling.pairedAdd h.V z
+        ∂(Measure.dirac q₀).prod
+          (standardGaussianPositionMeasure (ι := ι))) ≠ ⊤ := by
+    simpa only [hV] using
+      lintegral_pairedStandardDistance_dirac_standardGaussian_ne_top q₀
+  obtain ⟨C₀, contractionRate, hC₀, hrate, htail⟩ :=
+    h.exists_geometric_exactMeetingTail_pairInitial
+      ((Measure.dirac q₀).prod
+        (standardGaussianPositionMeasure (ι := ι)))
+      (stickyCoupledHmcRwmhMixture (xuTheorem41HmcWeight gamma)
+        standardQuadraticPotential standardQuadraticGradient (Real.sqrt 2) 1
+        contDiff_standardQuadraticPotential.continuous.measurable
+        measurable_standardQuadraticGradient variance hvariance)
+      (stickyCoupledHmcRwmhMixture_isCoupling _ _ _ _ _ _ _ _ _)
+      hmeetingPos hmeeting
+      (stickyCoupledHmcRwmhMixture_isFaithful _ _ _ _ _ _ _ _ _)
+      hnonempty hpairMoment
+  exact ⟨gamma, C₀, contractionRate, hC₀, hrate, htail⟩
+
+/-- Quantitative eventwise convergence of the concrete point-started
+standard-Gaussian HMC/RWMH mixture to its normalized invariant target. -/
+theorem exists_geometric_eventwise_convergence_standardQuadratic
+    [Nonempty ι] (variance : NNReal) (hvariance : variance ≠ 0)
+    (q₀ : Position ι) :
+    ∃ (gamma : Set.Ioo (0 : NNReal) 1) (C₀ contractionRate : ENNReal),
+      C₀ ≠ ⊤ ∧ contractionRate < 1 ∧
+      let transition := hmcRwmhMixture (xuTheorem41HmcWeight gamma)
+        standardQuadraticPotential standardQuadraticGradient
+        (Real.sqrt 2) 1
+        contDiff_standardQuadraticPotential.continuous.measurable
+        measurable_standardQuadraticGradient variance hvariance
+      ∀ n : ℕ, ∀ s : Set (Position ι), MeasurableSet s →
+        Mcmc.Kernel.lawAtTime (Measure.dirac q₀) transition n s ≤
+          standardGaussianPositionMeasure s + C₀ * contractionRate ^ n ∧
+        standardGaussianPositionMeasure s ≤
+          Mcmc.Kernel.lawAtTime (Measure.dirac q₀) transition n s +
+            C₀ * contractionRate ^ n := by
+  obtain ⟨gamma, C₀, contractionRate, hC₀, hrate, htail⟩ :=
+    exists_geometric_exactMeetingTail_standardQuadratic_to_stationary
+      variance hvariance q₀
+  refine ⟨gamma, C₀, contractionRate, hC₀, hrate, ?_⟩
+  dsimp only
+  intro n s hs
+  let transition := hmcRwmhMixture (xuTheorem41HmcWeight gamma)
+    (standardQuadraticPotential : Position ι → ℝ)
+    standardQuadraticGradient (Real.sqrt 2) 1
+    contDiff_standardQuadraticPotential.continuous.measurable
+    measurable_standardQuadraticGradient variance hvariance
+  let coupled := stickyCoupledHmcRwmhMixture (xuTheorem41HmcWeight gamma)
+    (standardQuadraticPotential : Position ι → ℝ)
+    standardQuadraticGradient (Real.sqrt 2) 1
+    contDiff_standardQuadraticPotential.continuous.measurable
+    measurable_standardQuadraticGradient variance hvariance
+  have hinvariant : transition.Invariant
+      (standardGaussianPositionMeasure (ι := ι)) := by
+    exact hmcRwmhMixture_invariant_standardGaussian
+      (xuTheorem41HmcWeight gamma) (Real.sqrt 2) 1 variance hvariance
+  have hleft := Mcmc.Kernel.lawAtTime_apply_le_invariant_add_exactMeetingTail
+    ((Measure.dirac q₀).prod (standardGaussianPositionMeasure (ι := ι)))
+    (Measure.dirac q₀) (standardGaussianPositionMeasure (ι := ι))
+    transition coupled (isMeasureCoupling_prod _ _)
+    (stickyCoupledHmcRwmhMixture_isCoupling _ _ _ _ _ _ _ _ _)
+    (stickyCoupledHmcRwmhMixture_isFaithful _ _ _ _ _ _ _ _ _)
+    hinvariant n hs
+  have hright := Mcmc.Kernel.lawAtTime_right_apply_le_left_add_exactMeetingTail
+    ((Measure.dirac q₀).prod (standardGaussianPositionMeasure (ι := ι)))
+    (Measure.dirac q₀) (standardGaussianPositionMeasure (ι := ι))
+    transition coupled (isMeasureCoupling_prod _ _)
+    (stickyCoupledHmcRwmhMixture_isCoupling _ _ _ _ _ _ _ _ _)
+    (stickyCoupledHmcRwmhMixture_isFaithful _ _ _ _ _ _ _ _ _) n hs
+  rw [Mcmc.Kernel.lawAtTime_eq_of_invariant _ _ hinvariant n] at hright
+  have htail' : Mcmc.Kernel.exactMeetingTail
+      (Mcmc.Kernel.pathLaw
+        ((Measure.dirac q₀).prod (standardGaussianPositionMeasure (ι := ι)))
+        coupled) n ≤ C₀ * contractionRate ^ n := by
+    simpa only [coupled] using htail n
+  constructor
+  · simpa only [transition] using
+      hleft.trans (add_le_add_right htail' _)
+  · simpa only [transition] using
+      hright.trans (add_le_add_right htail' _)
 
 /-- Concrete standard-Gaussian bounded-observable estimator endpoint. All
 algorithmic and meeting hypotheses are discharged; marginal expectation

@@ -2213,6 +2213,26 @@ theorem exactMeetingTail_pathLaw_le_offDiagonalMassAtTime
   rw [pathLaw_map_atTime]
   rfl
 
+/-- For a faithful coupled kernel, the finite-time off-diagonal mass is
+exactly the meeting-time tail. The reverse inequality to
+`exactMeetingTail_pathLaw_le_offDiagonalMassAtTime` uses the fact that a
+faithful path cannot leave the diagonal after meeting. -/
+theorem offDiagonalMassAtTime_eq_exactMeetingTail_pathLaw_of_faithful
+    [MeasurableEq α]
+    (initial : Measure (α × α)) [IsProbabilityMeasure initial]
+    (coupled : Kernel (α × α) (α × α)) [IsMarkovKernel coupled]
+    (hfaithful : IsFaithful coupled) (n : ℕ) :
+    offDiagonalMassAtTime initial coupled n =
+      exactMeetingTail (pathLaw initial coupled) n := by
+  rw [offDiagonalMassAtTime, ← pathLaw_map_atTime,
+    Measure.map_apply (measurable_pi_apply n) measurableSet_diagonal.compl,
+    exactMeetingTail]
+  apply measure_congr
+  filter_upwards [hfaithful.ae_isFaithfulPath initial coupled] with path hpath
+  change ((path n).1 ≠ (path n).2) =
+    (path ∈ exactMeetingFailureEvent n)
+  exact propext (hpath.mem_exactMeetingFailureEvent_iff n).symm
+
 section RelaxedPathLaw
 
 variable [PseudoMetricSpace α] [BorelSpace α] [SecondCountableTopology α]
