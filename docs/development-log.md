@@ -1,5 +1,16 @@
 # Development log
 
+- Strengthened primitive positive-horizon particle-Gibbs convergence from an
+  opaque finite-matrix refresh rate to the explicit forced-lineage interface.
+  For every finite full-support model and every fixed count `N ≥ 2`, Lean
+  constructs the shared two-lineage history, proves all relevant density
+  ratios positive, obtains one positive uniform floor over the finite pair
+  space, and selects a positive `bound` whose displayed
+  `((N-1)/(N-1+bound))^(T+1)` coefficient lies below that floor. The resulting
+  forced-lineage certificate feeds the existing minorization and geometric TV
+  theorem. This bound may depend on `N`; deriving one common sharp bound from
+  primitive Feynman--Kac constants remains the particle-count asymptotic gap.
+
 - Completed the compact-minorization and faithful-coupling foundation for the
   actual bare one-dimensional Gaussian SoftAbs multinomial kernel at
   `ε = 1`, `L = 1`. The refreshed scalar momentum law is proved to have a

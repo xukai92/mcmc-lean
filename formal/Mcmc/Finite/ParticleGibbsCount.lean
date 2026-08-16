@@ -19,6 +19,49 @@ open Mcmc.Finite.ParticleEstimator Mcmc.Finite.SequentialMonteCarlo
 
 variable {Sample : Type*} [Fintype Sample] [DecidableEq Sample]
 
+/-- A strictly positive real family over a nonempty finite type has one
+strictly positive uniform lower bound. The product-of-truncations construction
+keeps this lemma computationally explicit enough for finite model clients. -/
+theorem exists_uniformPositiveFloor
+    {A : Type*} [Fintype A] [Nonempty A]
+    (f : A → ℝ) (hf : ∀ a, 0 < f a) :
+    ∃ floor : ℝ, 0 < floor ∧ floor ≤ 1 ∧
+      ∀ a, floor ≤ f a := by
+  classical
+  let truncated : A → ℝ := fun a => min 1 (f a)
+  let floor := ∏ a, truncated a
+  refine ⟨floor, ?_, ?_, ?_⟩
+  · apply Finset.prod_pos
+    intro a _ha
+    exact lt_min zero_lt_one (hf a)
+  · apply Finset.prod_le_one
+    · intro a _ha
+      exact (lt_min zero_lt_one (hf a)).le
+    · intro a _ha
+      exact min_le_left _ _
+  · intro a
+    have ha : a ∈ (Finset.univ : Finset A) := Finset.mem_univ a
+    have herase : 0 ≤
+        (∏ b ∈ (Finset.univ.erase a), truncated b) := by
+      apply Finset.prod_nonneg
+      intro b _hb
+      exact (lt_min zero_lt_one (hf b)).le
+    have heraseOne :
+        (∏ b ∈ (Finset.univ.erase a), truncated b) ≤ 1 := by
+      apply Finset.prod_le_one
+      · intro b _hb
+        exact (lt_min zero_lt_one (hf b)).le
+      · intro b _hb
+        exact min_le_left _ _
+    calc
+      floor = (∏ b ∈ (Finset.univ.erase a), truncated b) *
+          truncated a := by
+        rw [Finset.prod_erase_mul _ _ ha]
+      _ ≤ truncated a := by
+        nlinarith [show 0 ≤ truncated a from
+          (lt_min zero_lt_one (hf a)).le]
+      _ ≤ f a := min_le_right _ _
+
 /-- Particle Gibbs with exactly `extra + 1` particles. The `+1` particle is
 the retained conditional trajectory. -/
 noncomputable def countedTrajectoryParticleGibbsKernel
@@ -106,6 +149,34 @@ theorem particleGibbsCountCoefficient_lt_one
     rw [div_lt_one hdenom]
     linarith
   exact pow_lt_one₀ hbase0 hbase1 hhorizon.ne'
+
+/-- Any positive floor can be represented conservatively by the displayed
+particle-Gibbs coefficient shape at a fixed positive count and horizon. -/
+theorem exists_particleGibbsCountBound_le_floor
+    {extra horizon : ℕ} {floor : ℝ}
+    (hextra : 0 < extra) (hhorizon : 0 < horizon)
+    (hfloor : 0 < floor) :
+    ∃ bound : ℝ, 0 < bound ∧
+      particleGibbsCountCoefficient extra bound horizon ≤ floor := by
+  let bound : ℝ := (extra : ℝ) / floor
+  have hbound : 0 < bound := by
+    unfold bound
+    positivity
+  have hbase0 : 0 ≤
+      (extra : ℝ) / ((extra : ℝ) + bound) := by positivity
+  have hbaseOne :
+      (extra : ℝ) / ((extra : ℝ) + bound) ≤ 1 := by
+    rw [div_le_one (by positivity)]
+    exact le_add_of_nonneg_right hbound.le
+  have hbaseFloor :
+      (extra : ℝ) / ((extra : ℝ) + bound) ≤ floor := by
+    rw [div_le_iff₀ (by positivity)]
+    unfold bound
+    field_simp
+    nlinarith
+  refine ⟨bound, hbound, ?_⟩
+  unfold particleGibbsCountCoefficient
+  exact (pow_le_of_le_one hbase0 hbaseOne hhorizon.ne').trans hbaseFloor
 
 /-- At fixed model bound and horizon, the certified refresh coefficient is
 monotone in the number of non-retained particles. -/
@@ -355,6 +426,131 @@ theorem countedTrajectoryTarget_mass_pos_of_fullSupport
   rw [Mcmc.Finite.Conditional.statisticMarginal_mass]
   exact hfiber
 
+/-- Primitive full support gives one count-specific positive lower bound for
+the explicit shared-history edge used by forced-lineage particle Gibbs. This
+is the finite-model quantitative compactness step; the subsequent theorem
+compares the displayed count coefficient with this floor. -/
+theorem exists_forcedLineageRatio_floor_of_fullSupport
+    [Nonempty Sample]
+    (initial : Distribution Sample) (hinitial : ∀ x, 0 < initial.mass x)
+    (steps : List (FeynmanKacStep Sample))
+    (hsupport : FeynmanKacFullSupport steps)
+    (hnormalizer : 0 < normalizingConstant initial steps)
+    (extra : ℕ) (hextra : 0 < extra) :
+    ∃ floor : ℝ, 0 < floor ∧ floor ≤ 1 ∧ ∀ current proposed,
+      ∃ history : History (Particle := Fin (extra + 1)) steps,
+      ∃ currentIndex proposedIndex : Fin (extra + 1),
+        selectedTrajectoryVector steps (history, currentIndex) = current ∧
+        selectedTrajectoryVector steps (history, proposedIndex) = proposed ∧
+        floor *
+            (countedTrajectoryTarget initial steps hnormalizer extra).mass
+              proposed ≤
+          (selectedParticleTarget (Particle := Fin (extra + 1))
+              initial steps hnormalizer).mass (history, currentIndex) /
+            (countedTrajectoryTarget initial steps hnormalizer extra).mass
+              current /
+            Fintype.card (Fin (extra + 1)) := by
+  classical
+  letI : Nonempty (Trajectory steps) :=
+    ⟨⟨List.replicate (steps.length + 1)
+      (Classical.choice ‹Nonempty Sample›), by simp⟩⟩
+  let currentIndex : Fin (extra + 1) := ⟨0, by omega⟩
+  let proposedIndex : Fin (extra + 1) := ⟨extra, by omega⟩
+  have hindices : currentIndex ≠ proposedIndex := by
+    intro h
+    have := congrArg Fin.val h
+    simp [currentIndex, proposedIndex] at this
+    omega
+  let historyFor := fun current proposed : Trajectory steps =>
+    pairedHistoryAt proposedIndex steps current proposed
+  let edgeRatio := fun pair : Trajectory steps × Trajectory steps =>
+    ((selectedParticleTarget (Particle := Fin (extra + 1))
+          initial steps hnormalizer).mass
+        (historyFor pair.1 pair.2, currentIndex) /
+      (countedTrajectoryTarget initial steps hnormalizer extra).mass pair.1 /
+      Fintype.card (Fin (extra + 1))) /
+      (countedTrajectoryTarget initial steps hnormalizer extra).mass pair.2
+  have hedgeRatio : ∀ pair, 0 < edgeRatio pair := by
+    intro pair
+    unfold edgeRatio
+    have hextended := selectedParticleTarget_mass_pos
+      (Particle := Fin (extra + 1)) initial hinitial steps hsupport
+      hnormalizer (historyFor pair.1 pair.2, currentIndex)
+    have hcurrent := countedTrajectoryTarget_mass_pos_of_fullSupport
+      initial hinitial steps hsupport hnormalizer extra pair.1
+    have hproposed := countedTrajectoryTarget_mass_pos_of_fullSupport
+      initial hinitial steps hsupport hnormalizer extra pair.2
+    positivity
+  obtain ⟨floor, hfloor, hfloorOne, hfloorLe⟩ :=
+    exists_uniformPositiveFloor edgeRatio hedgeRatio
+  refine ⟨floor, hfloor, hfloorOne, ?_⟩
+  intro current proposed
+  refine ⟨historyFor current proposed, currentIndex, proposedIndex,
+    selectedTrajectoryVector_pairedHistoryAt_current
+      currentIndex proposedIndex hindices steps current proposed,
+    selectedTrajectoryVector_pairedHistoryAt_proposed
+      proposedIndex steps current proposed, ?_⟩
+  have htarget := countedTrajectoryTarget_mass_pos_of_fullSupport
+    initial hinitial steps hsupport hnormalizer extra proposed
+  let raw :=
+    (selectedParticleTarget (Particle := Fin (extra + 1))
+        initial steps hnormalizer).mass
+      (historyFor current proposed, currentIndex) /
+      (countedTrajectoryTarget initial steps hnormalizer extra).mass current /
+      Fintype.card (Fin (extra + 1))
+  have hle := hfloorLe (current, proposed)
+  unfold edgeRatio at hle
+  change floor ≤ raw /
+    (countedTrajectoryTarget initial steps hnormalizer extra).mass proposed at hle
+  calc
+    floor *
+        (countedTrajectoryTarget initial steps hnormalizer extra).mass
+          proposed ≤
+      (raw /
+        (countedTrajectoryTarget initial steps hnormalizer extra).mass proposed) *
+        (countedTrajectoryTarget initial steps hnormalizer extra).mass
+          proposed :=
+      mul_le_mul_of_nonneg_right hle htarget.le
+    _ = raw := div_mul_cancel₀ raw htarget.ne'
+    _ = (selectedParticleTarget (Particle := Fin (extra + 1))
+          initial steps hnormalizer).mass
+        (historyFor current proposed, currentIndex) /
+      (countedTrajectoryTarget initial steps hnormalizer extra).mass current /
+      Fintype.card (Fin (extra + 1)) := rfl
+
+/-- Primitive finite full support constructs an actual count-specific
+forced-lineage certificate. The resulting bound is conservative and may
+depend on the count; sharper count-uniform Feynman--Kac estimates can replace
+this finite minimum without changing the downstream convergence API. -/
+theorem exists_forcedLineageParticleGibbsBound_of_fullSupport
+    [Nonempty Sample]
+    (initial : Distribution Sample) (hinitial : ∀ x, 0 < initial.mass x)
+    (steps : List (FeynmanKacStep Sample))
+    (hsupport : FeynmanKacFullSupport steps)
+    (hnormalizer : 0 < normalizingConstant initial steps)
+    (extra : ℕ) (hextra : 0 < extra) :
+    ∃ bound : ℝ, 0 < bound ∧
+      ForcedLineageParticleGibbsBound
+        initial steps hnormalizer extra bound := by
+  obtain ⟨floor, hfloor, _hfloorOne, hfloorWitness⟩ :=
+    exists_forcedLineageRatio_floor_of_fullSupport
+      initial hinitial steps hsupport hnormalizer extra hextra
+  obtain ⟨bound, hbound, hcoefficient⟩ :=
+    exists_particleGibbsCountBound_le_floor
+      hextra (by omega : 0 < steps.length + 1) hfloor
+  refine ⟨bound, hbound, ?_⟩
+  refine
+    { currentFiber_pos := countedTrajectoryTarget_mass_pos_of_fullSupport
+        initial hinitial steps hsupport hnormalizer extra
+      witness := ?_ }
+  intro current proposed
+  obtain ⟨history, currentIndex, proposedIndex, hcurrent, hproposed,
+    hedge⟩ := hfloorWitness current proposed
+  refine ⟨history, currentIndex, proposedIndex, hcurrent, hproposed, ?_⟩
+  exact (mul_le_mul_of_nonneg_right hcoefficient
+    ((countedTrajectoryTarget initial steps hnormalizer extra).nonneg proposed)).trans
+      hedge
+
 /-- A forced-lineage density bound implies the pointwise minorization needed
 by the count-indexed convergence theorem. -/
 noncomputable def ForcedLineageParticleGibbsBound.toMinorization
@@ -451,6 +647,35 @@ theorem boundedPotentialParticleGibbs_totalVariation_le
       (1 - particleGibbsCountCoefficient extra certificate.bound
         (steps.length + 1)) ^ iterations := by
   exact certificate.toRefresh.iterateLaw_totalVariation_le initialLaw iterations
+
+/-- Primitive full support therefore yields a displayed count/horizon
+geometric TV bound, rather than only an opaque strictly-positive-matrix rate.
+The selected `bound` is count-specific; a count-uniform primitive estimate is
+still required for the large-particle limit theorem below. -/
+theorem exists_countedFullSupportParticleGibbs_coefficient_bound
+    [Nonempty Sample]
+    (initial : Distribution Sample) (hinitial : ∀ x, 0 < initial.mass x)
+    (steps : List (FeynmanKacStep Sample))
+    (hsupport : FeynmanKacFullSupport steps)
+    (hnormalizer : 0 < normalizingConstant initial steps)
+    (extra : ℕ) (hextra : 0 < extra) :
+    ∃ bound : ℝ, 0 < bound ∧
+      ∀ (initialLaw : Distribution (Trajectory steps)) (iterations : ℕ),
+        Nonhomogeneous.distributionTotalVariation
+          (Nonhomogeneous.iterateLaw initialLaw
+            (countedTrajectoryParticleGibbsKernel
+              initial steps hnormalizer extra) iterations)
+          (countedTrajectoryTarget initial steps hnormalizer extra) ≤
+            (1 - particleGibbsCountCoefficient extra bound
+              (steps.length + 1)) ^ iterations := by
+  obtain ⟨bound, hbound, certificate⟩ :=
+    exists_forcedLineageParticleGibbsBound_of_fullSupport
+      initial hinitial steps hsupport hnormalizer extra hextra
+  let minorization := certificate.toMinorization hextra hbound
+  refine ⟨bound, hbound, ?_⟩
+  intro initialLaw iterations
+  exact boundedPotentialParticleGibbs_totalVariation_le
+    minorization initialLaw iterations
 
 /-- For every `N ≥ 2` satisfying the displayed minorization, positive-horizon
 particle Gibbs converges in total variation from every initial trajectory law. -/

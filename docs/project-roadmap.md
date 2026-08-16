@@ -200,8 +200,12 @@ The pre-Xu dependency order is:
    `ForcedLineageParticleGibbsBound` asks for one shared-history density bound,
    and its `toMinorization` constructor transports that bound through exact
    conditional lift, uniform terminal-index refresh, and trajectory projection.
-   Primitive full support separately proves every trajectory fiber positive,
-   so only the quantitative history-density comparison remains. A parallel
+   Primitive full support separately proves every trajectory fiber positive.
+   Finite compactness now also constructs a count-specific positive uniform
+   floor over the explicit shared-history edges, converts it to the displayed
+   coefficient shape, and yields its geometric TV theorem. Only a sharper
+   count-uniform history-density comparison from primitive model constants
+   remains. A parallel
    scheduled certificate now retains distinct per-time penalties, proves its
    product coefficient is in `(0,1)`, and supplies the refresh decomposition,
    geometric TV estimate, and convergence theorem without a worst-case
@@ -455,9 +459,11 @@ by paper date:
    lift to every unthinned time index. Length zero and zero step size remain
    exact identity obstructions, so this result is deliberately not stated for
    arbitrary parameters;
-3. derive the sharp positive-horizon particle-Gibbs history-density comparison
-   from primitive Feynman--Kac bounds. Its coefficient and fixed-iteration
-   large-particle asymptotics are already complete; and
+3. derive a count-uniform sharp positive-horizon particle-Gibbs history-density
+   comparison from primitive Feynman--Kac bounds. Primitive full support now
+   constructs a count-specific forced-lineage coefficient and geometric TV
+   theorem; the coefficient algebra and fixed-iteration large-particle
+   asymptotics are complete once one common model bound is supplied; and
 4. finish the optional breadth clients: standard dynamic-NUTS tree recursion,
    ideal refinement of stepping-out slice sampling, nonlinear RJ transports,
    unbounded-history adaptation, and general-dimensional PDMP

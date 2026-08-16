@@ -53,7 +53,11 @@ transition kernel depend on the parameter at a common finite horizon. Finite
 conditional SMC is implemented by a recursive forced-lineage sampler and
 proved equal to the exact conditional selected-particle law on positive
 supported paths; composing it with terminal-index refresh gives stationary
-finite particle Gibbs. Julia exposes the matching exact-integer finite-HMM
+finite particle Gibbs. Under primitive finite full support and every fixed
+`N ≥ 2`, Lean now constructs an explicit forced-lineage minorization
+coefficient and geometric total-variation bound; obtaining one sharp
+count-uniform coefficient from primitive model constants remains separate.
+Julia exposes the matching exact-integer finite-HMM
 particle-Gibbs runner with Reference/Optimized trace-replay tests. Corrected
 Xu--Ge execution is available directly for
 constant diagonal metrics and through an explicit certificate-gated
