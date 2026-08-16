@@ -1,7 +1,9 @@
 import Mcmc.PDMP.BouncyParticle
 import Mcmc.PDMP.EventSimulation
+import Mcmc.PDMP.InverseHazard
 import Mcmc.PDMP.ScheduledExecutionKernel
 import Mcmc.Hamiltonian.MomentumRefresh
+import Mathlib.MeasureTheory.Integral.IntervalIntegral.Basic
 import Mathlib.Tactic
 
 /-!
@@ -243,5 +245,71 @@ theorem BouncyParticleBounceData.refreshedHorizonKernel_invariant
       horizon).Invariant (positionTarget.prod velocityTarget) := by
   exact hbounce.comp
     (bouncyParticleVelocityRefresh_invariant positionTarget velocityTarget)
+
+/-! ### Exact unbounded-rate inverse clocks -/
+
+/-- Target-specific exact inverse of the integrated BPS rate. This is the
+proof boundary needed when no finite homogeneous thinning bound exists. The
+integral is tied directly to the canonical BPS rate along linear motion, so an
+arbitrary waiting-time oracle cannot masquerade as the BPS clock. -/
+structure BouncyParticleInverseHazardData (ι : Type*) [Fintype ι] where
+  bounce : BouncyParticleBounceData ι
+  waitingTime : BouncyParticleState ι → NNReal → NNReal
+  measurable_waitingTime : Measurable
+    (fun input : BouncyParticleState ι × NNReal =>
+      waitingTime input.1 input.2)
+  waitingTime_pos : ∀ state {hazard}, 0 < hazard →
+    0 < waitingTime state hazard
+  inverse : ∀ state {hazard}, 0 < hazard →
+    (∫ time in (0 : ℝ)..(waitingTime state hazard : ℝ),
+      bounce.stateRate (bouncyParticleFlow (Real.toNNReal time) state)) =
+        (hazard : ℝ)
+
+/-- The general inverse-hazard interface instantiated by exact BPS clock
+data. -/
+noncomputable def BouncyParticleInverseHazardData.clock
+    (data : BouncyParticleInverseHazardData ι) :
+    InverseHazardClock (BouncyParticleState ι) where
+  semiflow := bouncyParticleJointlyMeasurableSemiflow
+  accumulated state time :=
+    ∫ elapsed in (0 : ℝ)..(time : ℝ),
+      data.bounce.stateRate
+        (bouncyParticleFlow (Real.toNNReal elapsed) state)
+  waitingTime := data.waitingTime
+  measurable_waitingTime := data.measurable_waitingTime
+  waitingTime_pos := data.waitingTime_pos
+  inverse := data.inverse
+
+/-- One exact event of a possibly unbounded-rate finite-dimensional BPS. -/
+noncomputable def BouncyParticleInverseHazardData.eventKernel
+    (data : BouncyParticleInverseHazardData ι) :
+    Kernel (BouncyParticleState ι) (BouncyParticleState ι) :=
+  data.clock.eventKernel data.bounce.jumpKernel
+
+instance BouncyParticleInverseHazardData.eventKernel.instIsMarkovKernel
+    (data : BouncyParticleInverseHazardData ι) :
+    IsMarkovKernel data.eventKernel := by
+  unfold BouncyParticleInverseHazardData.eventKernel
+  infer_instance
+
+/-- Exact finite event skeleton for an unbounded-rate BPS. A stopped
+finite-horizon process additionally requires nonexplosion and residual-time
+execution; neither is inferred from existence of the inverse clock. -/
+noncomputable def BouncyParticleInverseHazardData.eventIterate
+    (data : BouncyParticleInverseHazardData ι) (events : ℕ) :
+    Kernel (BouncyParticleState ι) (BouncyParticleState ι) :=
+  data.clock.eventIterate data.bounce.jumpKernel events
+
+instance BouncyParticleInverseHazardData.eventIterate.instIsMarkovKernel
+    (data : BouncyParticleInverseHazardData ι) (events : ℕ) :
+    IsMarkovKernel (data.eventIterate events) := by
+  unfold BouncyParticleInverseHazardData.eventIterate
+  infer_instance
+
+theorem BouncyParticleInverseHazardData.eventIterate_add
+    (data : BouncyParticleInverseHazardData ι) (first second : ℕ) :
+    data.eventIterate (first + second) =
+      data.eventIterate first ∘ₖ data.eventIterate second :=
+  data.clock.eventIterate_add data.bounce.jumpKernel first second
 
 end Mcmc.PDMP

@@ -1,5 +1,16 @@
 # Development log
 
+- Added the general event-skeleton construction for unbounded PDMP rates.
+  `InverseHazardClock` draws a unit-exponential hazard, uses a jointly
+  measurable exact inverse of accumulated rate along a semiflow, and composes
+  the resulting event location with an arbitrary Markov jump kernel. Its event
+  kernel and all finite event iterates are Markov and compose exactly. The BPS
+  adapter requires the supplied accumulated hazard to equal the interval
+  integral of the canonical position-dependent bounce rate along linear flow,
+  preventing an unrelated waiting-time oracle from satisfying the interface.
+  Concrete multidimensional inversion, the zero-velocity no-event case,
+  nonexplosive horizon stopping, and stationarity remain explicit next steps.
+
 - Instantiated a concrete time-uniform finite Feynman--Kac particle model.
   Its potential may be any strictly positive state function and therefore its
   multinomial resampling is genuinely population dependent, but mutation

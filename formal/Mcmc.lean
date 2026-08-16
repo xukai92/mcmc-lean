@@ -137,6 +137,7 @@ import Mcmc.PDMP.GeneralUniformization
 import Mcmc.PDMP.Flow
 import Mcmc.PDMP.EventExecution
 import Mcmc.PDMP.EventSimulation
+import Mcmc.PDMP.InverseHazard
 import Mcmc.PDMP.PoissonSchedule
 import Mcmc.PDMP.ScheduledExecutionKernel
 import Mcmc.PDMP.StationarySuspension
