@@ -469,6 +469,57 @@ theorem generalRelativisticHamiltonian_shiftedSinusoidalSoftAbs_eq_real
     shiftedSinusoidalHessianDiagonal]
   ring_nf
 
+/-- Every closed bounded scalar phase region admits a finite Lipschitz
+constant for the actual nonconstant SoftAbs Hamiltonian. The constant is
+constructed from the maximum Fréchet-derivative norm on the compact ball. -/
+theorem exists_lipschitzOn_shiftedSinusoidalSoftAbsHamiltonian_closedBall
+    (center : ℝ × ℝ) (radius : ℝ) (hradius : 0 ≤ radius) :
+    ∃ L : NNReal, LipschitzOnWith L
+      (scalarGRHamiltonianReal shiftedSinusoidalSoftAbsBaseReal
+        shiftedSinusoidalSoftAbsScaleReal)
+      (Metric.closedBall center radius) := by
+  let H := scalarGRHamiltonianReal shiftedSinusoidalSoftAbsBaseReal
+    shiftedSinusoidalSoftAbsScaleReal
+  have htop : ContDiff ℝ ⊤ H := contDiff_scalarGRHamiltonianReal
+    shiftedSinusoidalSoftAbsBaseReal shiftedSinusoidalSoftAbsScaleReal
+    contDiff_shiftedSinusoidalSoftAbsBaseReal
+    contDiff_shiftedSinusoidalSoftAbsScaleReal
+  have hone : ContDiff ℝ 1 H := htop.of_le le_top
+  have hcontinuous : Continuous (fun z => ‖fderiv ℝ H z‖) :=
+    continuous_norm.comp (hone.continuous_fderiv (by norm_num))
+  have hcompact : IsCompact (Metric.closedBall center radius) :=
+    isCompact_closedBall center radius
+  obtain ⟨zmax, hzmax, hmax⟩ := hcompact.exists_isMaxOn
+    (Metric.nonempty_closedBall.mpr hradius) hcontinuous.continuousOn
+  let L : NNReal := ⟨‖fderiv ℝ H zmax‖, norm_nonneg _⟩
+  refine ⟨L, Convex.lipschitzOnWith_of_nnnorm_hasFDerivWithin_le
+    (𝕜 := ℝ) (f := H) (f' := fun z => fderiv ℝ H z)
+    (s := Metric.closedBall center radius) (C := L)
+    ?_ ?_ (convex_closedBall center radius)⟩
+  · intro z hz
+    exact (hone.differentiable (by norm_num) z).hasFDerivAt.hasFDerivWithinAt
+  · intro z hz
+    change ‖fderiv ℝ H z‖ ≤ ‖fderiv ℝ H zmax‖
+    exact hmax hz
+
+noncomputable def shiftedSinusoidalSoftAbsHamiltonianLipschitzConstant
+    (center : ℝ × ℝ) (radius : ℝ) (hradius : 0 ≤ radius) : NNReal :=
+  Classical.choose
+    (exists_lipschitzOn_shiftedSinusoidalSoftAbsHamiltonian_closedBall
+      center radius hradius)
+
+theorem shiftedSinusoidalSoftAbsHamiltonian_lipschitzOn_closedBall
+    (center : ℝ × ℝ) (radius : ℝ) (hradius : 0 ≤ radius) :
+    LipschitzOnWith
+      (shiftedSinusoidalSoftAbsHamiltonianLipschitzConstant
+        center radius hradius)
+      (scalarGRHamiltonianReal shiftedSinusoidalSoftAbsBaseReal
+        shiftedSinusoidalSoftAbsScaleReal)
+      (Metric.closedBall center radius) :=
+  Classical.choose_spec
+    (exists_lipschitzOn_shiftedSinusoidalSoftAbsHamiltonian_closedBall
+      center radius hradius)
+
 noncomputable def shiftedSinusoidalSoftAbsPositionDerivative :
     PhaseSpace Unit → Position Unit :=
   scalarGRPositionCallbackUnit
@@ -528,6 +579,84 @@ theorem shiftedSinusoidalSoftAbsPositionCallbackReal_eq :
   funext z
   simp only [shiftedSinusoidalSoftAbsPositionCallbackReal,
     scalarGRPositionCallback, div_eq_mul_inv]
+
+theorem contDiff_shiftedSinusoidalSoftAbsPositionCallbackReal :
+    ContDiff ℝ 1 shiftedSinusoidalSoftAbsPositionCallbackReal := by
+  let H := scalarGRHamiltonianReal shiftedSinusoidalSoftAbsBaseReal
+    shiftedSinusoidalSoftAbsScaleReal
+  have hH : ContDiff ℝ ⊤ H := contDiff_scalarGRHamiltonianReal
+    shiftedSinusoidalSoftAbsBaseReal shiftedSinusoidalSoftAbsScaleReal
+    contDiff_shiftedSinusoidalSoftAbsBaseReal
+    contDiff_shiftedSinusoidalSoftAbsScaleReal
+  have hHinf : ContDiff ℝ (↑(⊤ : ℕ∞) : WithTop ℕ∞) H :=
+    hH.of_le le_top
+  have hfderivInf : ContDiff ℝ (↑(⊤ : ℕ∞) : WithTop ℕ∞)
+      (fderiv ℝ H) :=
+    (contDiff_infty_iff_fderiv.mp hHinf).2
+  have hfderiv : ContDiff ℝ 1 (fderiv ℝ H) :=
+    hfderivInf.of_le (by simp)
+  have happly : ContDiff ℝ 1 (fun z => fderiv ℝ H z (1, 0)) :=
+    hfderiv.clm_apply contDiff_const
+  rw [show shiftedSinusoidalSoftAbsPositionCallbackReal =
+      (fun z => fderiv ℝ H z (1, 0)) by
+    funext z
+    rw [fderiv_scalarGRHamiltonianReal_fst
+      shiftedSinusoidalSoftAbsBaseReal shiftedSinusoidalSoftAbsScaleReal
+      contDiff_shiftedSinusoidalSoftAbsBaseReal
+      contDiff_shiftedSinusoidalSoftAbsScaleReal
+      shiftedSinusoidalSoftAbsScaleReal_pos]
+    change shiftedSinusoidalSoftAbsPositionCallbackReal z =
+      scalarGRPositionCallback shiftedSinusoidalSoftAbsBaseDerivativeReal
+        shiftedSinusoidalSoftAbsScaleReal
+        shiftedSinusoidalSoftAbsScaleDerivativeReal z
+    rw [← shiftedSinusoidalSoftAbsPositionCallbackReal_eq]]
+  exact happly
+
+theorem exists_lipschitzOn_shiftedSinusoidalSoftAbsPositionCallback_closedBall
+    (center : ℝ × ℝ) (radius : ℝ) (hradius : 0 ≤ radius) :
+    ∃ Q : NNReal, LipschitzOnWith Q
+      shiftedSinusoidalSoftAbsPositionCallbackReal
+      (Metric.closedBall center radius) := by
+  have hcontinuous : Continuous (fun z =>
+      ‖fderiv ℝ shiftedSinusoidalSoftAbsPositionCallbackReal z‖) :=
+    continuous_norm.comp
+      (contDiff_shiftedSinusoidalSoftAbsPositionCallbackReal.continuous_fderiv
+        (by norm_num))
+  have hcompact : IsCompact (Metric.closedBall center radius) :=
+    isCompact_closedBall center radius
+  obtain ⟨zmax, hzmax, hmax⟩ := hcompact.exists_isMaxOn
+    (Metric.nonempty_closedBall.mpr hradius) hcontinuous.continuousOn
+  let Q : NNReal := ⟨‖fderiv ℝ
+    shiftedSinusoidalSoftAbsPositionCallbackReal zmax‖, norm_nonneg _⟩
+  refine ⟨Q, Convex.lipschitzOnWith_of_nnnorm_hasFDerivWithin_le
+    (𝕜 := ℝ) (f := shiftedSinusoidalSoftAbsPositionCallbackReal)
+    (f' := fun z => fderiv ℝ shiftedSinusoidalSoftAbsPositionCallbackReal z)
+    (s := Metric.closedBall center radius) (C := Q)
+    ?_ ?_ (convex_closedBall center radius)⟩
+  · intro z hz
+    exact (contDiff_shiftedSinusoidalSoftAbsPositionCallbackReal.differentiable
+      (by norm_num) z).hasFDerivAt.hasFDerivWithinAt
+  · intro z hz
+    change ‖fderiv ℝ shiftedSinusoidalSoftAbsPositionCallbackReal z‖ ≤
+      ‖fderiv ℝ shiftedSinusoidalSoftAbsPositionCallbackReal zmax‖
+    exact hmax hz
+
+noncomputable def shiftedSinusoidalSoftAbsPositionCallbackLipschitzConstant
+    (center : ℝ × ℝ) (radius : ℝ) (hradius : 0 ≤ radius) : NNReal :=
+  Classical.choose
+    (exists_lipschitzOn_shiftedSinusoidalSoftAbsPositionCallback_closedBall
+      center radius hradius)
+
+theorem shiftedSinusoidalSoftAbsPositionCallback_lipschitzOn_closedBall
+    (center : ℝ × ℝ) (radius : ℝ) (hradius : 0 ≤ radius) :
+    LipschitzOnWith
+      (shiftedSinusoidalSoftAbsPositionCallbackLipschitzConstant
+        center radius hradius)
+      shiftedSinusoidalSoftAbsPositionCallbackReal
+      (Metric.closedBall center radius) :=
+  Classical.choose_spec
+    (exists_lipschitzOn_shiftedSinusoidalSoftAbsPositionCallback_closedBall
+      center radius hradius)
 
 theorem shiftedSinusoidalSoftAbsMomentumCallbackReal_eq :
     shiftedSinusoidalSoftAbsMomentumCallbackReal =

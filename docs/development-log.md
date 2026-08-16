@@ -2229,3 +2229,15 @@ budget into an endpoint-energy approximation. The pre-existing endpoint
 difference and stable HMC/multinomial decision theorems can consume this result.
 This preserves the correct local nature of the quadratic SoftAbs target rather
 than smuggling in a false global Lipschitz premise.
+
+Closed the compact-region existence obligation for the actual target. The
+scalar SoftAbs Hamiltonian is proved smooth, as is its position callback via
+identification with the first coordinate of the Hamiltonian Fréchet
+derivative. On every closed phase ball, compactness and continuity attain a
+maximum derivative norm; the mean-value theorem turns that maximum into a
+checked `LipschitzOnWith` constant. Canonical radii automatically enclose each
+computed/ideal phase pair. Lean now combines position and outgoing-momentum
+coordinate errors in the product metric and transports them to endpoint-energy
+error. The final discontinuous multinomial choice remains conditional only on
+the explicit runtime boundary-margin certificate and backend primitive-error
+witnesses.

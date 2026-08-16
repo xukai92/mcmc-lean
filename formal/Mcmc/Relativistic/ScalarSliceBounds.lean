@@ -1,4 +1,5 @@
 import Mcmc.Relativistic.BoundedScalarSolver
+import Mathlib.Analysis.Calculus.MeanValue
 
 /-!
 # Reusable scalar GR-Hamiltonian slice bounds
@@ -32,6 +33,16 @@ noncomputable def scalarGRHamiltonianReal
     (base scale : ℝ → ℝ) (z : ℝ × ℝ) : ℝ :=
   base z.1 + Real.sqrt (1 + (scale z.1 * z.2) ^ 2)
 
+theorem contDiff_scalarGRHamiltonianReal
+    (base scale : ℝ → ℝ)
+    (hbase : ContDiff ℝ ⊤ base) (hscale : ContDiff ℝ ⊤ scale) :
+    ContDiff ℝ ⊤ (scalarGRHamiltonianReal base scale) := by
+  unfold scalarGRHamiltonianReal
+  have hscaled : ContDiff ℝ ⊤ (fun z : ℝ × ℝ => scale z.1 * z.2) :=
+    (hscale.comp contDiff_fst).mul contDiff_snd
+  exact (hbase.comp contDiff_fst).add
+    ((contDiff_const.add (hscaled.pow 2)).sqrt (fun z => by positivity))
+
 theorem deriv_scalarGRHamiltonianReal_fst
     (base scale : ℝ → ℝ) (hbase : Differentiable ℝ base)
     (hscale : Differentiable ℝ scale) (hscalePos : ∀ x, 0 < scale x)
@@ -59,6 +70,28 @@ theorem deriv_scalarGRHamiltonianReal_fst
   have hsqrt : Real.sqrt (1 + (scale q * p) ^ 2) ≠ 0 := by positivity
   field_simp [hs, hsqrt]
   ring
+
+theorem fderiv_scalarGRHamiltonianReal_fst
+    (base scale : ℝ → ℝ) (hbase : ContDiff ℝ ⊤ base)
+    (hscale : ContDiff ℝ ⊤ scale) (hscalePos : ∀ x, 0 < scale x)
+    (q p : ℝ) :
+    fderiv ℝ (scalarGRHamiltonianReal base scale) (q, p) (1, 0) =
+      scalarGRPositionCallback (deriv base) scale (deriv scale) (q, p) := by
+  have hH : Differentiable ℝ (scalarGRHamiltonianReal base scale) :=
+    (contDiff_scalarGRHamiltonianReal base scale hbase hscale).differentiable
+      (by norm_num)
+  have hline : HasFDerivAt (fun x : ℝ => (x, p))
+      ((ContinuousLinearMap.id ℝ ℝ).prod
+        (0 : ℝ →L[ℝ] ℝ)) q := by
+    exact HasFDerivAt.prodMk (hasFDerivAt_id q) (hasFDerivAt_const p q)
+  have hcomp := (hH (q, p)).hasFDerivAt.comp q hline
+  have heval := congrArg (fun L : ℝ →L[ℝ] ℝ => L 1) hcomp.fderiv
+  change deriv (fun x => scalarGRHamiltonianReal base scale (x, p)) q = _
+    at heval
+  rw [deriv_scalarGRHamiltonianReal_fst base scale
+      (hbase.differentiable (by simp)) (hscale.differentiable (by simp))
+      hscalePos q p] at heval
+  simpa using heval.symm
 
 theorem deriv_scalarGRHamiltonianReal_snd
     (base scale : ℝ → ℝ) (q p : ℝ) :

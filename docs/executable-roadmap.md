@@ -114,8 +114,14 @@ bounded trajectory region because the quadratic target is not globally
 Lipschitz. The generic bounded-region energy link is now checked: a
 `LipschitzOnWith` certificate transports phase-state error into endpoint-energy
 error and adds backend evaluation error separately. A concrete compact-region
-constant for the SoftAbs trajectory, followed by the existing multinomial
-boundary-stability theorem, is the next link.
+constant is now constructed for both the actual SoftAbs Hamiltonian and its
+position callback: their continuous Fréchet-derivative norms attain maxima on
+closed phase balls. Every computed/ideal scalar phase pair is automatically
+enclosed in a canonical origin-centered ball, so coordinate errors and backend
+Hamiltonian error produce an actual-target endpoint-energy certificate. The
+existing multinomial boundary-stability theorem consumes the resulting
+execution-specific cumulative-boundary error; platform primitive bounds remain
+explicit.
 
 ### 2. Restricted callbacks, adaptation, and performance
 

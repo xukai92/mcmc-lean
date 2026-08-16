@@ -1,4 +1,5 @@
 import Mcmc.Executable.Continuous.BoundedRWMH
+import Mcmc.Executable.Continuous.BoundedHMC
 import Mcmc.Relativistic.FixedPointIteration
 import Mcmc.Relativistic.ShiftedSinusoidalSoftAbs
 
@@ -288,6 +289,182 @@ theorem generalizedLeapfrogFinalMomentum_error_le
       gcongr
     _ = (1 + |ε / 2| * P) * ‖pApprox - pExact‖ +
         |ε / 2| * Q * ‖qApprox - qExact‖ := by ring
+
+/-- Scalar final-kick propagation from a compact-region Lipschitz certificate
+on the complete position callback. -/
+theorem scalarGeneralizedLeapfrogFinalMomentum_error_le_of_lipschitzOn
+    (positionCallback : ℝ × ℝ → ℝ) (region : Set (ℝ × ℝ))
+    (Q : NNReal) (hlip : LipschitzOnWith Q positionCallback region)
+    (ε pApprox pExact : ℝ) (zApprox zExact : ℝ × ℝ)
+    (hzApprox : zApprox ∈ region) (hzExact : zExact ∈ region)
+    {momentumError phaseError : ℝ}
+    (hmomentum : |pApprox - pExact| ≤ momentumError)
+    (hphase : dist zApprox zExact ≤ phaseError) :
+    |(pApprox - (ε / 2) * positionCallback zApprox) -
+        (pExact - (ε / 2) * positionCallback zExact)| ≤
+      momentumError + |ε / 2| * Q * phaseError := by
+  have hcallback := hlip.dist_le_mul zApprox hzApprox zExact hzExact
+  rw [Real.dist_eq] at hcallback
+  rw [show (pApprox - (ε / 2) * positionCallback zApprox) -
+        (pExact - (ε / 2) * positionCallback zExact) =
+      (pApprox - pExact) - (ε / 2) *
+        (positionCallback zApprox - positionCallback zExact) by ring]
+  calc
+    _ ≤ |pApprox - pExact| +
+        |(ε / 2) * (positionCallback zApprox - positionCallback zExact)| :=
+      abs_sub _ _
+    _ = |pApprox - pExact| + |ε / 2| *
+        |positionCallback zApprox - positionCallback zExact| := by
+      rw [abs_mul]
+    _ ≤ momentumError + |ε / 2| * (Q * dist zApprox zExact) := by
+      exact add_le_add hmomentum
+        (mul_le_mul_of_nonneg_left hcallback (abs_nonneg _))
+    _ ≤ momentumError + |ε / 2| * Q * phaseError := by
+      have hcoef : 0 ≤ |ε / 2| * (Q : ℝ) := mul_nonneg (abs_nonneg _) NNReal.zero_le_coe
+      have hmul := mul_le_mul_of_nonneg_left hphase hcoef
+      simpa only [mul_assoc, add_comm] using
+        add_le_add_left hmul momentumError
+
+/-- Target-specific endpoint-energy transport on a certified compact scalar
+phase ball. This is the direct input to `energyDifference_approximates` and
+the existing HMC/multinomial stable-decision certificates. -/
+theorem shiftedSinusoidalSoftAbs_endpointEnergy_approximates
+    (center : ℝ × ℝ) (radius : ℝ) (hradius : 0 ≤ radius)
+    {computedState idealState : ℝ × ℝ}
+    (hcomputedRegion : computedState ∈ Metric.closedBall center radius)
+    (hidealRegion : idealState ∈ Metric.closedBall center radius)
+    {computedEnergy evaluationError stateError : ℝ}
+    (hevaluation : Approximates computedEnergy
+      (scalarGRHamiltonianReal shiftedSinusoidalSoftAbsBaseReal
+        shiftedSinusoidalSoftAbsScaleReal computedState) evaluationError)
+    (hstate : dist computedState idealState ≤ stateError) :
+    Approximates computedEnergy
+      (scalarGRHamiltonianReal shiftedSinusoidalSoftAbsBaseReal
+        shiftedSinusoidalSoftAbsScaleReal idealState)
+      (evaluationError +
+        shiftedSinusoidalSoftAbsHamiltonianLipschitzConstant
+          center radius hradius * stateError) := by
+  exact endpointEnergy_approximates_of_lipschitzOn
+    (scalarGRHamiltonianReal shiftedSinusoidalSoftAbsBaseReal
+      shiftedSinusoidalSoftAbsScaleReal)
+    (Metric.closedBall center radius)
+    (shiftedSinusoidalSoftAbsHamiltonianLipschitzConstant
+      center radius hradius)
+    (shiftedSinusoidalSoftAbsHamiltonian_lipschitzOn_closedBall
+      center radius hradius)
+    hcomputedRegion hidealRegion hevaluation hstate
+
+/-- A canonical compact ball containing a computed/ideal scalar phase pair. -/
+def scalarPhasePairRadius (computed ideal : ℝ × ℝ) : ℝ :=
+  max ‖computed‖ ‖ideal‖
+
+theorem scalarPhasePairRadius_nonneg (computed ideal : ℝ × ℝ) :
+    0 ≤ scalarPhasePairRadius computed ideal := by
+  exact (norm_nonneg computed).trans (le_max_left _ _)
+
+theorem mem_closedBall_zero_scalarPhasePairRadius_left
+    (computed ideal : ℝ × ℝ) :
+    computed ∈ Metric.closedBall (0 : ℝ × ℝ)
+      (scalarPhasePairRadius computed ideal) := by
+  rw [Metric.mem_closedBall, dist_zero_right]
+  exact le_max_left _ _
+
+theorem mem_closedBall_zero_scalarPhasePairRadius_right
+    (computed ideal : ℝ × ℝ) :
+    ideal ∈ Metric.closedBall (0 : ℝ × ℝ)
+      (scalarPhasePairRadius computed ideal) := by
+  rw [Metric.mem_closedBall, dist_zero_right]
+  exact le_max_right _ _
+
+/-- Automatic compact-region final-kick certificate for the actual SoftAbs
+callback at a concrete approximate/ideal phase pair. -/
+theorem shiftedSinusoidalSoftAbs_finalMomentum_error_le_pair
+    (ε pApprox pExact qApprox qExact : ℝ)
+    {momentumError phaseError : ℝ}
+    (hmomentum : |pApprox - pExact| ≤ momentumError)
+    (hphase : dist (qApprox, pApprox) (qExact, pExact) ≤ phaseError) :
+    |(pApprox - (ε / 2) * shiftedSinusoidalSoftAbsPositionCallbackReal
+          (qApprox, pApprox)) -
+        (pExact - (ε / 2) * shiftedSinusoidalSoftAbsPositionCallbackReal
+          (qExact, pExact))| ≤
+      momentumError + |ε / 2| *
+        shiftedSinusoidalSoftAbsPositionCallbackLipschitzConstant 0
+          (scalarPhasePairRadius (qApprox, pApprox) (qExact, pExact))
+          (scalarPhasePairRadius_nonneg (qApprox, pApprox) (qExact, pExact)) *
+        phaseError := by
+  exact scalarGeneralizedLeapfrogFinalMomentum_error_le_of_lipschitzOn
+    shiftedSinusoidalSoftAbsPositionCallbackReal
+    (Metric.closedBall (0 : ℝ × ℝ)
+      (scalarPhasePairRadius (qApprox, pApprox) (qExact, pExact)))
+    (shiftedSinusoidalSoftAbsPositionCallbackLipschitzConstant 0
+      (scalarPhasePairRadius (qApprox, pApprox) (qExact, pExact))
+      (scalarPhasePairRadius_nonneg (qApprox, pApprox) (qExact, pExact)))
+    (shiftedSinusoidalSoftAbsPositionCallback_lipschitzOn_closedBall 0
+      (scalarPhasePairRadius (qApprox, pApprox) (qExact, pExact))
+      (scalarPhasePairRadius_nonneg (qApprox, pApprox) (qExact, pExact)))
+    ε pApprox pExact (qApprox, pApprox) (qExact, pExact)
+    (mem_closedBall_zero_scalarPhasePairRadius_left
+      (qApprox, pApprox) (qExact, pExact))
+    (mem_closedBall_zero_scalarPhasePairRadius_right
+      (qApprox, pApprox) (qExact, pExact))
+    hmomentum hphase
+
+/-- Every concrete computed/ideal endpoint pair therefore receives an
+automatic compact-region SoftAbs energy certificate; callers need only bound
+their state distance and backend energy evaluation. -/
+theorem shiftedSinusoidalSoftAbs_endpointEnergy_approximates_pair
+    {computedState idealState : ℝ × ℝ}
+    {computedEnergy evaluationError stateError : ℝ}
+    (hevaluation : Approximates computedEnergy
+      (scalarGRHamiltonianReal shiftedSinusoidalSoftAbsBaseReal
+        shiftedSinusoidalSoftAbsScaleReal computedState) evaluationError)
+    (hstate : dist computedState idealState ≤ stateError) :
+    Approximates computedEnergy
+      (scalarGRHamiltonianReal shiftedSinusoidalSoftAbsBaseReal
+        shiftedSinusoidalSoftAbsScaleReal idealState)
+      (evaluationError +
+        shiftedSinusoidalSoftAbsHamiltonianLipschitzConstant 0
+          (scalarPhasePairRadius computedState idealState)
+          (scalarPhasePairRadius_nonneg computedState idealState) *
+            stateError) := by
+  exact shiftedSinusoidalSoftAbs_endpointEnergy_approximates 0
+    (scalarPhasePairRadius computedState idealState)
+    (scalarPhasePairRadius_nonneg computedState idealState)
+    (mem_closedBall_zero_scalarPhasePairRadius_left computedState idealState)
+    (mem_closedBall_zero_scalarPhasePairRadius_right computedState idealState)
+    hevaluation hstate
+
+/-- Coordinate budgets combine into the product-metric phase budget used by
+the endpoint-energy certificate. -/
+theorem scalarPhase_dist_le_max
+    {qApprox qExact pApprox pExact qError pError : ℝ}
+    (hq : dist qApprox qExact ≤ qError)
+    (hp : dist pApprox pExact ≤ pError) :
+    dist (qApprox, pApprox) (qExact, pExact) ≤ max qError pError := by
+  rw [Prod.dist_eq, max_le_iff]
+  exact ⟨hq.trans (le_max_left _ _), hp.trans (le_max_right _ _)⟩
+
+/-- Final scalar phase-coordinate errors plus a backend Hamiltonian evaluation
+bound produce the complete actual-target endpoint-energy certificate. -/
+theorem shiftedSinusoidalSoftAbs_endpointEnergy_approximates_of_coordinateErrors
+    {qApprox qExact pApprox pExact : ℝ}
+    {qError pError computedEnergy evaluationError : ℝ}
+    (hq : dist qApprox qExact ≤ qError)
+    (hp : dist pApprox pExact ≤ pError)
+    (hevaluation : Approximates computedEnergy
+      (scalarGRHamiltonianReal shiftedSinusoidalSoftAbsBaseReal
+        shiftedSinusoidalSoftAbsScaleReal (qApprox, pApprox))
+      evaluationError) :
+    Approximates computedEnergy
+      (scalarGRHamiltonianReal shiftedSinusoidalSoftAbsBaseReal
+        shiftedSinusoidalSoftAbsScaleReal (qExact, pExact))
+      (evaluationError +
+        shiftedSinusoidalSoftAbsHamiltonianLipschitzConstant 0
+          (scalarPhasePairRadius (qApprox, pApprox) (qExact, pExact))
+          (scalarPhasePairRadius_nonneg (qApprox, pApprox) (qExact, pExact)) *
+            max qError pError) := by
+  exact shiftedSinusoidalSoftAbs_endpointEnergy_approximates_pair hevaluation
+    (scalarPhase_dist_le_max hq hp)
 
 /-- Backend-facing bounds for the two implicit fixed-point residual norms. -/
 structure BackendImplicitResidualCertificate where
