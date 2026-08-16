@@ -68,6 +68,14 @@ theorem squaredEuclideanNorm_bouncyReflection
 noncomputable def bouncyRate (normal velocity : Position ι) : ℝ :=
   max 0 (euclideanInner velocity normal)
 
+@[simp] theorem bouncyReflection_zero (velocity : Position ι) :
+    bouncyReflection (0 : Position ι) velocity = velocity := by
+  simp [bouncyReflection, squaredEuclideanNorm, euclideanInner]
+
+@[simp] theorem bouncyRate_zero (velocity : Position ι) :
+    bouncyRate (0 : Position ι) velocity = 0 := by
+  simp [bouncyRate, euclideanInner]
+
 theorem bouncyRate_nonneg (normal velocity : Position ι) :
     0 ≤ bouncyRate normal velocity :=
   le_max_left _ _
@@ -213,5 +221,89 @@ theorem integral_bouncyJump_eq_neg_integral_normalFlux
         _ = -(euclideanInner velocity normal * test velocity) := by ring
     _ = -∫ velocity, euclideanInner velocity normal * test velocity
           ∂velocityLaw := by rw [integral_neg]
+
+/-- Finite-dimensional BPS generator at a fixed position, with the spatial
+directional derivative supplied by the caller. -/
+noncomputable def bouncyGenerator (normal : Position ι)
+    (directionalDerivative observable : Position ι → ℝ)
+    (velocity : Position ι) : ℝ :=
+  directionalDerivative velocity +
+    bouncyRate normal velocity *
+      (observable (bouncyReflection normal velocity) - observable velocity)
+
+/-- After integrating over a reflection-invariant velocity law, the bounce
+part of the BPS generator is exactly the negative normal transport flux. This
+is the pointwise-in-position algebra needed before spatial integration by
+parts. -/
+theorem integral_bouncyGenerator_eq_transport_sub_normalFlux
+    (normal : Position ι) (hnormal : normal ≠ 0)
+    (velocityLaw : Measure (Position ι))
+    (directionalDerivative observable : Position ι → ℝ)
+    (hpreserve : MeasurePreserving
+      (bouncyReflectionMeasurableEquiv normal hnormal) velocityLaw velocityLaw)
+    (htransport : Integrable directionalDerivative velocityLaw)
+    (hincoming : Integrable (fun velocity =>
+      bouncyRate normal velocity *
+        observable (bouncyReflection normal velocity)) velocityLaw)
+    (houtgoing : Integrable (fun velocity =>
+      bouncyRate normal velocity * observable velocity) velocityLaw)
+    (hreflected : Integrable (fun velocity =>
+      bouncyRate normal (bouncyReflection normal velocity) *
+        observable velocity) velocityLaw) :
+    (∫ velocity,
+      bouncyGenerator normal directionalDerivative observable velocity
+        ∂velocityLaw) =
+      (∫ velocity, directionalDerivative velocity ∂velocityLaw) -
+        ∫ velocity, euclideanInner velocity normal * observable velocity
+          ∂velocityLaw := by
+  have hjump : Integrable (fun velocity =>
+      bouncyRate normal velocity *
+        (observable (bouncyReflection normal velocity) - observable velocity))
+      velocityLaw := by
+    convert hincoming.sub houtgoing using 1
+    funext velocity
+    simp only [Pi.sub_apply]
+    ring
+  rw [show (fun velocity =>
+      bouncyGenerator normal directionalDerivative observable velocity) =
+      fun velocity => directionalDerivative velocity +
+        bouncyRate normal velocity *
+          (observable (bouncyReflection normal velocity) - observable velocity)
+      by rfl]
+  rw [integral_add htransport hjump,
+    integral_bouncyJump_eq_neg_integral_normalFlux normal hnormal velocityLaw
+      observable hpreserve hincoming houtgoing hreflected]
+  ring
+
+/-- Zero-gradient positions are covered as well: the reflection is the
+identity and the bounce rate vanishes. The preservation premise is therefore
+needed only for nonzero normals. -/
+theorem integral_bouncyGenerator_eq_transport_sub_normalFlux'
+    (normal : Position ι)
+    (velocityLaw : Measure (Position ι))
+    (directionalDerivative observable : Position ι → ℝ)
+    (hpreserve : ∀ hnormal : normal ≠ 0, MeasurePreserving
+      (bouncyReflectionMeasurableEquiv normal hnormal) velocityLaw velocityLaw)
+    (htransport : Integrable directionalDerivative velocityLaw)
+    (hincoming : Integrable (fun velocity =>
+      bouncyRate normal velocity *
+        observable (bouncyReflection normal velocity)) velocityLaw)
+    (houtgoing : Integrable (fun velocity =>
+      bouncyRate normal velocity * observable velocity) velocityLaw)
+    (hreflected : Integrable (fun velocity =>
+      bouncyRate normal (bouncyReflection normal velocity) *
+        observable velocity) velocityLaw) :
+    (∫ velocity,
+      bouncyGenerator normal directionalDerivative observable velocity
+        ∂velocityLaw) =
+      (∫ velocity, directionalDerivative velocity ∂velocityLaw) -
+        ∫ velocity, euclideanInner velocity normal * observable velocity
+          ∂velocityLaw := by
+  by_cases hnormal : normal = 0
+  · subst normal
+    simp [bouncyGenerator]
+  · exact integral_bouncyGenerator_eq_transport_sub_normalFlux normal hnormal
+      velocityLaw directionalDerivative observable (hpreserve hnormal)
+      htransport hincoming houtgoing hreflected
 
 end Mcmc.PDMP

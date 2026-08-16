@@ -491,6 +491,11 @@ by paper date:
    adaptation, and general-dimensional PDMP
    stationarity/convergence.
 
+   The general-dimensional BPS generator and its velocity-integrated
+   transport-minus-normal-flux identity are now checked, including the
+   zero-gradient case. Spatial integration by parts, construction of the
+   unbounded-rate process, weak-forward uniqueness, and ergodicity remain.
+
    The nonlinear reversible-jump branch is complete at the exact theorem and
    executable-client levels; only the shared Float64 primitive boundary
    remains, as for the other generated/runtime samplers.

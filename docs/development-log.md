@@ -1,5 +1,14 @@
 # Development log
 
+- Added the full finite-dimensional Bouncy Particle generator at a fixed
+  position and proved its velocity-integrated reduction to transport minus
+  signed normal flux under a reflection-invariant velocity law. The theorem
+  now covers zero target-gradient positions directly, where reflection is the
+  identity and the event rate vanishes. This closes the algebraic bridge from
+  the existing reflection change-of-variables theorem to spatial integration
+  by parts; process construction, multidimensional integration by parts,
+  semigroup uniqueness, and convergence remain separate obligations.
+
 - Added a proof-bearing recursive representation for completed dynamic
   trajectory trees. Internal joins recursively concatenate their subtree
   barriers, the resulting candidate rows pass the executable reroot checker,
