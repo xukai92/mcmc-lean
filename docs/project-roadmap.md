@@ -118,10 +118,15 @@ The remaining B2 work is primarily solver refinement. Guarded operation-local
 SoftAbs certificates now compose Hessian error through the positive
 eigenvalue, square root, inverse factor, and log determinant, but the
 finite-precision Julia iterations must still be related to an exact selection,
-and the nonconstant sinusoidal SoftAbs target still needs its own nonzero-step
-solver certificate. Its potential, actual force/Hessian relationship,
-measurability, Equation (12) derivative data, removable zero-Hessian branch,
-and genuine metric position dependence are now machine checked.
+and a paper-style nonconstant SoftAbs target still needs its own nonzero-step
+solver certificate. In addition to the removable-zero sinusoidal client, Lean
+now has the nondegenerate target `U(q)=q²-sin(q)`, whose actual Hessian lies in
+`[1,3]`. Its potential, force/Hessian relationship, measurability, Equation
+(12) data, uniform ellipticity, a uniform SoftAbs derivative bound, and global
+Lipschitz continuity of the resulting scalar metric eigenvalue are machine
+checked. What remains for this client is to transfer these metric bounds to
+the two complete-Hamiltonian slice derivatives and then reuse the generic
+contractive solver and phase-volume machinery.
 
 ## Track C: later breadth branches
 

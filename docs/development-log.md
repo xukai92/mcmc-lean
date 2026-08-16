@@ -2117,3 +2117,17 @@ recurrence.  Together these isolate the assumptions needed to propagate
 `O(1/N)` error through finitely many normalized Feynman--Kac stages.  A
 uniform-in-time theorem still requires a strict stability estimate and is not
 inferred from these local bounds.
+
+## 2026-08-16: nondegenerate nonconstant SoftAbs bounds
+
+Added a second actual-Hessian SoftAbs client designed for the implicit-solver
+path. For `U(q)=q²-sin(q)`, Lean proves `U''(q)=2+sin(q) ∈ [1,3]`, constructs
+the diagonal SoftAbs metric and its Equation (12) certificate, and proves
+measurability and uniform positive lower and finite upper eigenvalue bounds.
+An explicit derivative calculation for `x/tanh(x)` on the positive branch,
+compactness of `[1,3]`, and the mean-value theorem give a finite uniform
+derivative bound and a Lipschitz certificate. Composition with the actual
+Hessian proves that the target's scalar metric eigenvalue is globally
+Lipschitz. This is the metric-level analytic input; the complete Hamiltonian's
+two slice-Lipschitz estimates and the consequent nonzero-step solver and
+phase-volume theorem remain separate obligations.
