@@ -1,5 +1,14 @@
 # Development log
 
+- Factored the stopped stepping-out obligation into checked grid arithmetic.
+  Lean now proves that any finite prefix of aligned grid endpoints certified
+  strictly inside the sampled slice can be removed from a leftward or
+  rightward expansion without changing its stopped endpoint. Shifted starts
+  with correspondingly shifted budgets therefore agree. The remaining trace
+  assembly must instantiate these lemmas in the two signs of Neal's integer
+  allocation shift; it no longer needs to reason directly about the recursive
+  expansion functions.
+
 - Added the first concrete genuinely state-selected, indefinitely changing
   adaptive client. At time `n`, the current Bool selects one of two opposite
   biases of size `1/(4(n+1))`. Lean proves every substituted transition

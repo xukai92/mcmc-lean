@@ -229,6 +229,90 @@ noncomputable def expandRight (logDensity : ℝ → ℝ) (threshold width : ℝ)
       if logDensity right ≤ threshold then right
       else expandRight logDensity threshold width steps (right + width)
 
+/-- A consumed of grid points known to lie strictly inside the slice can be
+discarded from a leftward stepping-out scan. This is the recursion lemma used
+when rerooting an aligned bracket at another accepted slice point. -/
+theorem expandLeft_add_consumed (logDensity : ℝ → ℝ) (threshold width left : ℝ)
+    (consumed steps : ℕ)
+    (hinside : ∀ index < consumed,
+      threshold < logDensity (left - (index : ℝ) * width)) :
+    expandLeft logDensity threshold width (consumed + steps) left =
+      expandLeft logDensity threshold width steps
+        (left - (consumed : ℝ) * width) := by
+  induction consumed generalizing left with
+  | zero => simp
+  | succ consumed ih =>
+      rw [Nat.succ_add]
+      simp only [expandLeft]
+      rw [if_neg (not_le.mpr (by simpa using hinside 0 (Nat.zero_lt_succ _)))]
+      have htail : ∀ index < consumed,
+          threshold < logDensity
+            ((left - width) - (index : ℝ) * width) := by
+        intro index hindex
+        convert hinside (index + 1) (Nat.succ_lt_succ hindex) using 1
+        push_cast
+        ring_nf
+      convert ih (left := left - width) htail using 1
+      push_cast
+      ring_nf
+
+/-- Rightward counterpart of `expandLeft_add_consumed`. -/
+theorem expandRight_add_consumed (logDensity : ℝ → ℝ) (threshold width right : ℝ)
+    (consumed steps : ℕ)
+    (hinside : ∀ index < consumed,
+      threshold < logDensity (right + (index : ℝ) * width)) :
+    expandRight logDensity threshold width (consumed + steps) right =
+      expandRight logDensity threshold width steps
+        (right + (consumed : ℝ) * width) := by
+  induction consumed generalizing right with
+  | zero => simp
+  | succ consumed ih =>
+      rw [Nat.succ_add]
+      simp only [expandRight]
+      rw [if_neg (not_le.mpr (by simpa using hinside 0 (Nat.zero_lt_succ _)))]
+      have htail : ∀ index < consumed,
+          threshold < logDensity
+            ((right + width) + (index : ℝ) * width) := by
+        intro index hindex
+        convert hinside (index + 1) (Nat.succ_lt_succ hindex) using 1
+        push_cast
+        ring_nf
+      convert ih (right := right + width) htail using 1
+      push_cast
+      ring_nf
+
+/-- Two left expansions with shifted aligned starts and correspondingly
+shifted budgets stop at the same endpoint once the extra intervening grid
+points are certified inside the slice. -/
+theorem expandLeft_eq_of_aligned_shift
+    (logDensity : ℝ → ℝ) (threshold width oldLeft newLeft : ℝ)
+    (extra oldSteps newSteps : ℕ)
+    (hstart : newLeft = oldLeft - (extra : ℝ) * width)
+    (hsteps : oldSteps = extra + newSteps)
+    (hinside : ∀ index < extra,
+      threshold < logDensity (oldLeft - (index : ℝ) * width)) :
+    expandLeft logDensity threshold width oldSteps oldLeft =
+      expandLeft logDensity threshold width newSteps newLeft := by
+  subst oldSteps
+  subst newLeft
+  exact expandLeft_add_consumed logDensity threshold width oldLeft
+    extra newSteps hinside
+
+/-- Right-expansion counterpart of `expandLeft_eq_of_aligned_shift`. -/
+theorem expandRight_eq_of_aligned_shift
+    (logDensity : ℝ → ℝ) (threshold width oldRight newRight : ℝ)
+    (extra oldSteps newSteps : ℕ)
+    (hstart : newRight = oldRight + (extra : ℝ) * width)
+    (hsteps : oldSteps = extra + newSteps)
+    (hinside : ∀ index < extra,
+      threshold < logDensity (oldRight + (index : ℝ) * width)) :
+    expandRight logDensity threshold width oldSteps oldRight =
+      expandRight logDensity threshold width newSteps newRight := by
+  subst oldSteps
+  subst newRight
+  exact expandRight_add_consumed logDensity threshold width oldRight
+    extra newSteps hinside
+
 /-- Bounded shrinkage driven by uniform fractions. An empty list before the
 budget is exhausted denotes a malformed trace; consuming the whole attempt
 budget without acceptance is the checked identity fallback. -/
