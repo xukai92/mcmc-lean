@@ -15,6 +15,10 @@
   hyperplane reflection, and obtains its exact measure-preservation theorem on
   `Position`. Identifying this transported Gaussian with the independently
   density-defined `standardMomentumMeasure` remains a compatibility lemma.
+  The full product-space generator theorem now consumes this result directly:
+  for transported standard-Gaussian velocities, reflection invariance is no
+  longer a client premise, leaving only integrability and the multidimensional
+  spatial integration-by-parts identity.
 
 - Connected Julia dynamic-tree certificates to executable sampling. The new
   checked selector refuses uncertified candidate-row families and otherwise

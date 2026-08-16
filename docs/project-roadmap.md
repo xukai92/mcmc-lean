@@ -515,6 +515,8 @@ by paper date:
    density-defined standard momentum law, target-specific integration by parts,
    construction of the unbounded-rate process,
    weak-forward uniqueness, and ergodicity remain.
+   The standard-Gaussian specialization of the product generator theorem now
+   discharges reflection invariance internally.
 
    The nonlinear reversible-jump branch is complete at the exact theorem and
    executable-client levels; only the shared Float64 primitive boundary

@@ -491,4 +491,62 @@ theorem bouncyReflection_l2StandardGaussian_measurePreserving
   exact l2StandardGaussianPosition_reflection_measurePreserving
     ((ℝ ∙ (MeasurableEquiv.toLp 2 (Position ι) normal))ᗮ)
 
+/-- Standard-Gaussian velocity specialization of the product-space BPS
+generator theorem. Reflection invariance is discharged internally; clients
+provide only the analytic integrability and spatial integration-by-parts
+premises. -/
+theorem integral_bouncyPhaseGenerator_l2StandardGaussian_eq_zero
+    (positionLaw : Measure (Position ι)) [SFinite positionLaw]
+    (normal : Position ι → Position ι)
+    (directionalDerivative observable : Position ι → Position ι → ℝ)
+    (htransport : ∀ position,
+      Integrable (directionalDerivative position)
+        (l2StandardGaussianPosition (ι := ι)))
+    (hincoming : ∀ position, Integrable (fun velocity =>
+      bouncyRate (normal position) velocity *
+        observable position
+          (bouncyReflection (normal position) velocity))
+        (l2StandardGaussianPosition (ι := ι)))
+    (houtgoing : ∀ position, Integrable (fun velocity =>
+      bouncyRate (normal position) velocity * observable position velocity)
+        (l2StandardGaussianPosition (ι := ι)))
+    (hreflected : ∀ position, Integrable (fun velocity =>
+      bouncyRate (normal position)
+          (bouncyReflection (normal position) velocity) *
+        observable position velocity)
+        (l2StandardGaussianPosition (ι := ι)))
+    (hphase : Integrable
+      (bouncyPhaseGenerator normal directionalDerivative observable)
+      (positionLaw.prod (l2StandardGaussianPosition (ι := ι))))
+    (htransportIntegrated : Integrable (fun position =>
+      ∫ velocity, directionalDerivative position velocity
+        ∂l2StandardGaussianPosition) positionLaw)
+    (hfluxIntegrated : Integrable (fun position =>
+      ∫ velocity, euclideanInner velocity (normal position) *
+        observable position velocity ∂l2StandardGaussianPosition) positionLaw)
+    (hibp :
+      (∫ position, ∫ velocity, directionalDerivative position velocity
+          ∂l2StandardGaussianPosition ∂positionLaw) =
+        ∫ position, ∫ velocity,
+          euclideanInner velocity (normal position) *
+            observable position velocity
+          ∂l2StandardGaussianPosition ∂positionLaw) :
+    (∫ state,
+      bouncyPhaseGenerator normal directionalDerivative observable state
+        ∂(positionLaw.prod (l2StandardGaussianPosition (ι := ι)))) = 0 := by
+  apply integral_bouncyPhaseGenerator_eq_zero positionLaw
+    (l2StandardGaussianPosition (ι := ι)) normal directionalDerivative
+    observable
+  · intro position hnormal
+    exact bouncyReflection_l2StandardGaussian_measurePreserving
+      (normal position) hnormal
+  · exact htransport
+  · exact hincoming
+  · exact houtgoing
+  · exact hreflected
+  · exact hphase
+  · exact htransportIntegrated
+  · exact hfluxIntegrated
+  · exact hibp
+
 end Mcmc.PDMP
