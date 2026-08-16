@@ -1,5 +1,17 @@
 # Development log
 
+- Added the correct extended-trace endpoint for practical stepping-out and
+  shrinkage. Lean now samples an independent complete trace, evolves the joint
+  `(height,state,trace)` space by a deterministic measurable map, projects the
+  trace away, and proves exact target invariance whenever that joint map is
+  measure preserving. This is strictly more appropriate than freezing all
+  uniforms: reverse shrinkage generally uses a transformed trace. Per-section
+  preservation remains available for algorithms where it really holds.
+  Julia's finite `max_shrink` path is now total in both Reference and Optimized
+  implementations, with identity fallback and differential exhaustion tests.
+  The remaining practical theorem is the concrete stepping-out trace
+  reversal, followed by its bounded Float64 refinement.
+
 - Closed the bounded interval-level slice factorization. Lean proves that
   invalid or degenerate interval rows are null under the width-weighted height
   marginal, that the total interval kernel reconstructs the swapped

@@ -356,8 +356,11 @@ breadth branches are:
   under-the-graph law, rather than requiring an exact conditional redraw.
   Independent randomized horizontal families are now included: fixed-section
   preservation, even only almost everywhere under a continuous parameter law,
-  lifts to exact weighted-target invariance. This covers the bracket-offset
-  and left/right-budget mixture step. The required continuous proposal
+  lifts to exact weighted-target invariance. More generally, Lean now gives
+  the trace-reversal interface actually needed by shrinkage: sample a complete
+  trace, apply a measure-preserving map jointly to under-graph state and trace,
+  then discard the transformed trace. This permits forward and reverse runs
+  to use different traces. The required continuous proposal
   primitive is now concrete: Lean constructs a Markov kernel uniform on any
   measurable input-dependent strictly ordered interval and proves exact
   normalization and bracket support. The corresponding width-weighted height
@@ -369,8 +372,10 @@ breadth branches are:
   explicit invariant interval-level sampler for bounded real targets.
   Level-set identification may be supplied almost everywhere under planar
   Lebesgue measure, so interval endpoint conventions do not obstruct clients.
-  Proving each deterministic guarded Julia expansion/shrinkage section satisfies the
-  resulting joint-preservation premise, plus its Float64 refinement, remains;
+  Julia's finite shrinkage guard now has a tested identity fallback rather
+  than a partial exception. Proving that the concrete guarded stepping-out/
+  shrinkage trace map preserves the extended joint law, plus its Float64
+  refinement, remains;
 - reversible-jump transports beyond the checked scalar and planar
   birth/death scaling clients. Product transport-density certificates now
   compose recursively and instantiate a three-dimensional scaling transport;

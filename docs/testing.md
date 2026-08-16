@@ -75,6 +75,12 @@ It checks deterministic seeded replay, interval containment, and the known
 mean and variance of a bounded uniform target. These tests exercise the
 practical implementation; they do not identify Float64 callback evaluation or
 the finite retry guard with the disintegrated ideal slice kernel.
+The stepping-out suite additionally replays expansion and shrinkage traces,
+checks seeded Gaussian moments, and forces finite shrinkage exhaustion. On
+exhaustion both implementations consume the same trace and return the current
+state through the explicit total identity fallback. These tests do not replace
+the remaining proof that the concrete joint state--trace reversal preserves
+the ideal under-graph product law.
 
 Dynamic-tree tests exercise the runtime form of Lean's completed-tree checker:
 they accept components with different candidate counts and reject missing-root

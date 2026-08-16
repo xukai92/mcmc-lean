@@ -82,6 +82,19 @@ end
     @test Runtime.remaining(shrink_reference_source) == 0
     @test Runtime.remaining(shrink_optimized_source) == 0
 
+    # Finite shrinkage exhaustion is a total identity fallback in both paths.
+    exhausted_events = Runtime.FloatTraceEvent[
+        Runtime.UniformEvent(0.99), Runtime.UniformEvent(0.5),
+        Runtime.UniformEvent(0.2), Runtime.UniformEvent(0.9)]
+    exhausted_reference_source = Runtime.FloatTraceSource(copy(exhausted_events))
+    exhausted_optimized_source = Runtime.FloatTraceSource(copy(exhausted_events))
+    @test Reference.stepping_out_slice_step!(exhausted_reference_source,
+        normal_logdensity, 1.0, 0.0, 0, 1) == 0.0
+    @test Optimized.stepping_out_slice_step!(exhausted_optimized_source,
+        normal_logdensity, 1.0, 0.0, 0, 1) == 0.0
+    @test Runtime.remaining(exhausted_reference_source) == 0
+    @test Runtime.remaining(exhausted_optimized_source) == 0
+
     sampler = SteppingOutSlice(normal_logdensity, 1.0; max_steps=20)
     first_chain = sample(MersenneTwister(0x51ce), sampler, 0.0, 15_000)
     second_chain = sample(MersenneTwister(0x51ce), sampler, 0.0, 15_000)

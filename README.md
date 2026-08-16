@@ -438,6 +438,12 @@ The repository now contains machine-checked implementations and proofs for:
   graph, plus a measurable horizontal conditional obtained by standard-Borel
   disintegration and an exact target-invariance theorem for the resulting
   general-state slice sampler, instantiated for the uniform law on `(-2,2]`;
+  on real-valued targets with measurable interval superlevel sets, Lean also
+  constructs the horizontal kernel explicitly, handles null empty-level and
+  endpoint rows, and proves weighted-Lebesgue invariance. A joint trace-space
+  theorem now reduces practical stepping-out/shrinkage correctness to a
+  measure-preserving deterministic trace reversal, allowing the reverse run
+  to transform its random trace;
   Julia additionally exposes a bounded-interval rejection implementation with
   Reference/Optimized trace replay and uniform moment tests, while its callback,
   Float64 RNG, and finite retry guard remain outside the ideal refinement theorem;

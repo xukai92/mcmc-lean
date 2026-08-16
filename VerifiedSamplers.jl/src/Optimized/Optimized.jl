@@ -167,7 +167,8 @@ function stepping_out_slice_step!(source::AbstractRandomSource, logdensity,
         end
         attempts += 1
     end
-    throw(ErrorException("slice shrinkage exceeded max_shrink"))
+    # Match the total Reference semantics on finite-trace exhaustion.
+    x
 end
 
 """Low-allocation nonlinear reversible-jump birth/death update."""

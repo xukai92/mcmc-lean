@@ -151,7 +151,9 @@ function stepping_out_slice_step!(source::AbstractRandomSource, logdensity,
         value >= threshold && return proposal
         proposal < x ? (left = proposal) : (right = proposal)
     end
-    throw(ErrorException("slice shrinkage exceeded max_shrink"))
+    # Total checked fallback: a depleted finite trace leaves the chain at its
+    # current state instead of turning the transition into a partial function.
+    x
 end
 
 """Reference nonlinear reversible-jump birth/death update.

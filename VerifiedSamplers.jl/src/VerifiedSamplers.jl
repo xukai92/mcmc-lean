@@ -1339,9 +1339,11 @@ sample(sampler::BoundedRejectionSlice, initial::Real, count::Integer) =
 
 """Practical real-line slice sampler with stepping out and shrinkage.
 
-The finite `max_steps` and `max_shrink` guards are runtime controls. This
-implementation is differentially tested, but its adaptive bracket is not yet
-connected to the ideal Lean disintegration theorem.
+The finite `max_steps` and `max_shrink` guards are runtime controls. Exhausting
+the shrinkage budget gives an explicit identity fallback, so the transition is
+total. Reference/Optimized execution is differentially tested; exact
+stationarity still requires instantiating Lean's joint trace-reversal premise
+for this concrete bracket algorithm.
 """
 struct SteppingOutSlice{F}
     logdensity::F

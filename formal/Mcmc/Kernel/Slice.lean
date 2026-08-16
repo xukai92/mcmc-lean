@@ -971,6 +971,174 @@ theorem randomizedWithinSliceSampler_invariant_underGraph_ae
   exact independentParameterMixture_invariant_ae horizontalFamily
     ((sliceUnderGraph base weight).map Prod.swap) parameterLaw hsection
 
+/-! ### Deterministic trace-reversal sections -/
+
+/-- A jointly measurable fixed-trace update, interpreted as a deterministic
+horizontal-kernel family. `Parameter` contains all random choices used by one
+execution trace; mixing over its law happens only after each deterministic
+section has been verified. -/
+noncomputable def deterministicHorizontalFamily
+    {Parameter : Type*} [MeasurableSpace Parameter]
+    (transform : ((ℝ × State) × Parameter) → (ℝ × State))
+    (htransform : Measurable transform) :
+    Kernel ((ℝ × State) × Parameter) (ℝ × State) :=
+  Kernel.deterministic transform htransform
+
+instance deterministicHorizontalFamily.instIsMarkovKernel
+    {Parameter : Type*} [MeasurableSpace Parameter]
+    (transform : ((ℝ × State) × Parameter) → (ℝ × State))
+    (htransform : Measurable transform) :
+    IsMarkovKernel (deterministicHorizontalFamily transform htransform) := by
+  unfold deterministicHorizontalFamily
+  infer_instance
+
+/-- Fixing the trace parameter in a deterministic horizontal family gives the
+deterministic kernel of the corresponding section. -/
+theorem comap_deterministicHorizontalFamily
+    {Parameter : Type*} [MeasurableSpace Parameter]
+    (transform : ((ℝ × State) × Parameter) → (ℝ × State))
+    (htransform : Measurable transform) (parameter : Parameter) :
+    Kernel.comap (deterministicHorizontalFamily transform htransform)
+        (fun state : ℝ × State ↦ (state, parameter))
+        (measurable_id.prodMk measurable_const) =
+      Kernel.deterministic (fun state ↦ transform (state, parameter))
+        (htransform.comp (measurable_id.prodMk measurable_const)) := by
+  ext state event hevent
+  simp [deterministicHorizontalFamily, Kernel.comap_apply,
+    Kernel.deterministic_apply, hevent]
+
+/-- Trace-reversal endpoint for practical slice updates. If every fixed trace
+acts by a measurable measure-preserving map on the swapped under-graph law,
+then independently sampling the trace and applying that deterministic section
+preserves the weighted target exactly. This theorem isolates the remaining
+algorithm proof: construct the trace reversal and prove its preservation. -/
+theorem deterministicRandomizedWithinSliceSampler_invariant_underGraph
+    {Parameter : Type*} [MeasurableSpace Parameter]
+    (base : Measure State) [SFinite base]
+    (weight : State → ℝ) (hweight : Measurable weight)
+    [SFinite (sliceUnderGraph base weight)]
+    (hpositive : ∀ x, 0 < weight x)
+    (transform : ((ℝ × State) × Parameter) → (ℝ × State))
+    (htransform : Measurable transform)
+    (parameterLaw : Measure Parameter) [IsProbabilityMeasure parameterLaw]
+    (hpreserving : ∀ parameter, MeasurePreserving
+      (fun state ↦ transform (state, parameter))
+      ((sliceUnderGraph base weight).map Prod.swap)
+      ((sliceUnderGraph base weight).map Prod.swap)) :
+    (randomizedWithinSliceSampler weight hweight hpositive
+      (deterministicHorizontalFamily transform htransform)
+      parameterLaw).Invariant
+        (base.withDensity (fun x ↦ ENNReal.ofReal (weight x))) := by
+  apply randomizedWithinSliceSampler_invariant_underGraph
+    base weight hweight hpositive
+      (deterministicHorizontalFamily transform htransform) parameterLaw
+  intro parameter
+  rw [comap_deterministicHorizontalFamily transform htransform parameter]
+  exact deterministic_invariant_of_measurePreserving
+    ((sliceUnderGraph base weight).map Prod.swap)
+    (htransform.comp (measurable_id.prodMk measurable_const))
+    (hpreserving parameter)
+
+/-- Continuous traces need only be measure preserving almost surely under the
+trace law. This admits null boundary traces created by uniforms equal to an
+endpoint without turning them into global algorithm assumptions. -/
+theorem deterministicRandomizedWithinSliceSampler_invariant_underGraph_ae
+    {Parameter : Type*} [MeasurableSpace Parameter]
+    (base : Measure State) [SFinite base]
+    (weight : State → ℝ) (hweight : Measurable weight)
+    [SFinite (sliceUnderGraph base weight)]
+    (hpositive : ∀ x, 0 < weight x)
+    (transform : ((ℝ × State) × Parameter) → (ℝ × State))
+    (htransform : Measurable transform)
+    (parameterLaw : Measure Parameter) [IsProbabilityMeasure parameterLaw]
+    (hpreserving : ∀ᵐ parameter ∂parameterLaw, MeasurePreserving
+      (fun state ↦ transform (state, parameter))
+      ((sliceUnderGraph base weight).map Prod.swap)
+      ((sliceUnderGraph base weight).map Prod.swap)) :
+    (randomizedWithinSliceSampler weight hweight hpositive
+      (deterministicHorizontalFamily transform htransform)
+      parameterLaw).Invariant
+        (base.withDensity (fun x ↦ ENNReal.ofReal (weight x))) := by
+  apply randomizedWithinSliceSampler_invariant_underGraph_ae
+    base weight hweight hpositive
+      (deterministicHorizontalFamily transform htransform) parameterLaw
+  filter_upwards [hpreserving] with parameter hp
+  rw [comap_deterministicHorizontalFamily transform htransform parameter]
+  exact deterministic_invariant_of_measurePreserving
+    ((sliceUnderGraph base weight).map Prod.swap)
+    (htransform.comp (measurable_id.prodMk measurable_const)) hp
+
+/-! ### Joint trace-space reversals -/
+
+/-- Horizontal update obtained by sampling a complete independent execution
+trace, applying a deterministic map on augmented-state--trace space, and
+discarding the transformed trace. This is the appropriate semantics when the
+reverse execution uses a different trace from the forward execution. -/
+noncomputable def traceDrivenHorizontalKernel
+    {Trace : Type*} [MeasurableSpace Trace]
+    (traceLaw : Measure Trace)
+    (transform : ((ℝ × State) × Trace) → ((ℝ × State) × Trace))
+    (htransform : Measurable transform) : Kernel (ℝ × State) (ℝ × State) :=
+  liftEvolveProject
+    (Kernel.id ×ₖ Kernel.const (ℝ × State) traceLaw)
+    (Kernel.deterministic transform htransform)
+    Prod.fst measurable_fst
+
+instance traceDrivenHorizontalKernel.instIsMarkovKernel
+    {Trace : Type*} [MeasurableSpace Trace]
+    (traceLaw : Measure Trace) [IsProbabilityMeasure traceLaw]
+    (transform : ((ℝ × State) × Trace) → ((ℝ × State) × Trace))
+    (htransform : Measurable transform) :
+    IsMarkovKernel (traceDrivenHorizontalKernel traceLaw transform htransform) := by
+  unfold traceDrivenHorizontalKernel
+  infer_instance
+
+/-- A measure-preserving deterministic trace reversal makes the induced
+horizontal update invariant. Unlike fixed-section preservation, this permits
+the inverse execution to transform the random trace. -/
+theorem traceDrivenHorizontalKernel_invariant
+    {Trace : Type*} [MeasurableSpace Trace]
+    (joint : Measure (ℝ × State)) [SFinite joint]
+    (traceLaw : Measure Trace) [IsProbabilityMeasure traceLaw]
+    (transform : ((ℝ × State) × Trace) → ((ℝ × State) × Trace))
+    (htransform : Measurable transform)
+    (hpreserving : MeasurePreserving transform
+      (joint ⊗ₘ Kernel.const (ℝ × State) traceLaw)
+      (joint ⊗ₘ Kernel.const (ℝ × State) traceLaw)) :
+    (traceDrivenHorizontalKernel traceLaw transform htransform).Invariant
+      joint := by
+  unfold traceDrivenHorizontalKernel
+  apply compProdEvolveFst_invariant joint
+    (Kernel.const (ℝ × State) traceLaw)
+  exact deterministic_invariant_of_measurePreserving
+    (joint ⊗ₘ Kernel.const (ℝ × State) traceLaw) htransform hpreserving
+
+/-- End-to-end trace-reversal theorem for practical slice sampling. A
+measure-preserving map on under-graph-state--trace space induces an exact
+weighted-target invariant sampler after trace sampling and projection. -/
+theorem traceDrivenWithinSliceSampler_invariant_underGraph
+    {Trace : Type*} [MeasurableSpace Trace]
+    (base : Measure State) [SFinite base]
+    (weight : State → ℝ) (hweight : Measurable weight)
+    [SFinite (sliceUnderGraph base weight)]
+    (hpositive : ∀ x, 0 < weight x)
+    (traceLaw : Measure Trace) [IsProbabilityMeasure traceLaw]
+    (transform : ((ℝ × State) × Trace) → ((ℝ × State) × Trace))
+    (htransform : Measurable transform)
+    (hpreserving : MeasurePreserving transform
+      (((sliceUnderGraph base weight).map Prod.swap) ⊗ₘ
+        Kernel.const (ℝ × State) traceLaw)
+      (((sliceUnderGraph base weight).map Prod.swap) ⊗ₘ
+        Kernel.const (ℝ × State) traceLaw)) :
+    (withinSliceSampler weight hweight hpositive
+      (traceDrivenHorizontalKernel traceLaw transform htransform)).Invariant
+        (base.withDensity (fun x ↦ ENNReal.ofReal (weight x))) := by
+  apply withinSliceSampler_invariant_underGraph
+    base weight hweight hpositive
+  exact traceDrivenHorizontalKernel_invariant
+    ((sliceUnderGraph base weight).map Prod.swap)
+    traceLaw transform htransform hpreserving
+
 /-- A fully constructed exact general-state slice sampler on a standard Borel
 state space, using the conditional kernel of the finite under-the-graph
 measure for its horizontal update. -/
