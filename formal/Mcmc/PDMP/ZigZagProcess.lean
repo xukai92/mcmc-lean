@@ -3722,6 +3722,206 @@ theorem gaussianZigZagStationaryCycleStreamMap_map :
       rw [Measure.map_id,
         gaussianZigZagHazardMeasure_prod_sequence_map_cons]
 
+/-- Base environment for the regenerative suspension: two consecutive reset
+positions and the iid hazard tail generating all later resets. -/
+noncomputable def gaussianZigZagCycleEnvironmentMeasure :
+    Measure ((ℝ × ℝ) × (ℕ → NNReal)) :=
+  (gaussianZigZagNegativeRayleighMeasure.prod
+    gaussianZigZagNegativeRayleighMeasure).prod
+      gaussianZigZagHazardSequenceMeasure
+
+instance gaussianZigZagCycleEnvironmentMeasure.instIsProbabilityMeasure :
+    IsProbabilityMeasure gaussianZigZagCycleEnvironmentMeasure := by
+  unfold gaussianZigZagCycleEnvironmentMeasure
+  infer_instance
+
+/-- Event shift of the regenerative environment. The consumed left reset is
+dropped, the old right reset becomes the new left reset, and the tail head
+generates the new right reset. -/
+noncomputable def gaussianZigZagCycleEnvironmentShift
+    (environment : (ℝ × ℝ) × (ℕ → NNReal)) :
+    (ℝ × ℝ) × (ℕ → NNReal) :=
+  ((environment.1.2,
+      gaussianZigZagNegativeRayleighReset (environment.2 0)),
+    fun index => environment.2 (index + 1))
+
+theorem measurable_gaussianZigZagCycleEnvironmentShift :
+    Measurable gaussianZigZagCycleEnvironmentShift := by
+  unfold gaussianZigZagCycleEnvironmentShift
+  exact (measurable_fst.snd.prodMk
+    (measurable_gaussianZigZagNegativeRayleighReset.comp
+      ((measurable_pi_apply 0).comp measurable_snd))).prodMk
+        (by fun_prop)
+
+/-- The iid reset/hazard base law is invariant under one regenerative event
+shift. This is the base-map invariance required by the stationary suspension. -/
+theorem gaussianZigZagCycleEnvironmentShift_map :
+    Measure.map gaussianZigZagCycleEnvironmentShift
+        gaussianZigZagCycleEnvironmentMeasure =
+      gaussianZigZagCycleEnvironmentMeasure := by
+  let resetLaw := gaussianZigZagNegativeRayleighMeasure
+  let tailLaw := gaussianZigZagHazardSequenceMeasure
+  let dropLeft : ((ℝ × ℝ) × (ℕ → NNReal)) →
+      (ℝ × (ℕ → NNReal)) := fun input => (input.1.2, input.2)
+  let splitTail : (ℝ × (ℕ → NNReal)) →
+      (ℝ × (NNReal × (ℕ → NNReal))) :=
+    Prod.map id gaussianZigZagHazardHeadTail
+  let reassoc : (ℝ × (NNReal × (ℕ → NNReal))) →
+      ((ℝ × NNReal) × (ℕ → NNReal)) := MeasurableEquiv.prodAssoc.symm
+  let resetHead : ((ℝ × NNReal) × (ℕ → NNReal)) →
+      ((ℝ × ℝ) × (ℕ → NNReal)) :=
+    Prod.map (Prod.map id gaussianZigZagNegativeRayleighReset) id
+  have hdropLeft : Measurable dropLeft := by
+    unfold dropLeft
+    fun_prop
+  have hsplitTail : Measurable splitTail :=
+    measurable_id.prodMap measurable_gaussianZigZagHazardHeadTail
+  have hreassoc : Measurable reassoc :=
+    MeasurableEquiv.prodAssoc.symm.measurable
+  have hresetHead : Measurable resetHead :=
+    (measurable_id.prodMap
+      measurable_gaussianZigZagNegativeRayleighReset).prodMap measurable_id
+  have hdropLaw : Measure.map dropLeft
+      ((resetLaw.prod resetLaw).prod tailLaw) = resetLaw.prod tailLaw := by
+    let assoc : ((ℝ × ℝ) × (ℕ → NNReal)) ≃ᵐ
+        (ℝ × (ℝ × (ℕ → NNReal))) := MeasurableEquiv.prodAssoc
+    have hfactor : dropLeft = Prod.snd ∘ assoc := rfl
+    rw [hfactor]
+    calc
+      Measure.map (Prod.snd ∘ assoc)
+          ((resetLaw.prod resetLaw).prod tailLaw) =
+        Measure.map Prod.snd (Measure.map assoc
+          ((resetLaw.prod resetLaw).prod tailLaw)) := by
+          rw [Measure.map_map measurable_snd assoc.measurable]
+      _ = Measure.map Prod.snd
+          (resetLaw.prod (resetLaw.prod tailLaw)) := by
+        rw [(MeasureTheory.measurePreserving_prodAssoc
+          resetLaw resetLaw tailLaw).map_eq]
+      _ = resetLaw.prod tailLaw := by
+        rw [Measure.map_snd_prod, measure_univ, one_smul]
+  have hsplitLaw : Measure.map splitTail (resetLaw.prod tailLaw) =
+      resetLaw.prod
+        (gaussianZigZagHazardMeasure.prod tailLaw) := by
+    unfold splitTail
+    rw [← Measure.map_prod_map resetLaw tailLaw measurable_id
+      measurable_gaussianZigZagHazardHeadTail,
+      Measure.map_id,
+      gaussianZigZagHazardSequenceMeasure_map_headTail]
+  have hreassocLaw : Measure.map reassoc
+      (resetLaw.prod (gaussianZigZagHazardMeasure.prod tailLaw)) =
+      (resetLaw.prod gaussianZigZagHazardMeasure).prod tailLaw :=
+    (MeasureTheory.measurePreserving_prodAssoc resetLaw
+      gaussianZigZagHazardMeasure tailLaw).symm.map_eq
+  have hresetLaw : Measure.map resetHead
+      ((resetLaw.prod gaussianZigZagHazardMeasure).prod tailLaw) =
+      (resetLaw.prod resetLaw).prod tailLaw := by
+    unfold resetHead
+    rw [← Measure.map_prod_map
+      (resetLaw.prod gaussianZigZagHazardMeasure) tailLaw
+      (measurable_id.prodMap
+        measurable_gaussianZigZagNegativeRayleighReset) measurable_id,
+      ← Measure.map_prod_map resetLaw gaussianZigZagHazardMeasure
+        measurable_id measurable_gaussianZigZagNegativeRayleighReset,
+      Measure.map_id, Measure.map_id]
+    rfl
+  have hfactor : gaussianZigZagCycleEnvironmentShift =
+      resetHead ∘ reassoc ∘ splitTail ∘ dropLeft := rfl
+  unfold gaussianZigZagCycleEnvironmentMeasure
+  change Measure.map gaussianZigZagCycleEnvironmentShift
+      ((resetLaw.prod resetLaw).prod tailLaw) = _
+  rw [hfactor]
+  calc
+    Measure.map (resetHead ∘ reassoc ∘ splitTail ∘ dropLeft)
+        ((resetLaw.prod resetLaw).prod tailLaw) =
+      Measure.map resetHead (Measure.map reassoc
+        (Measure.map splitTail (Measure.map dropLeft
+          ((resetLaw.prod resetLaw).prod tailLaw)))) := by
+        rw [Measure.map_map hresetHead hreassoc,
+          Measure.map_map (hresetHead.comp hreassoc) hsplitTail,
+          Measure.map_map ((hresetHead.comp hreassoc).comp hsplitTail)
+            hdropLeft]
+        rfl
+    _ = Measure.map resetHead (Measure.map reassoc
+        (Measure.map splitTail (resetLaw.prod tailLaw))) := by rw [hdropLaw]
+    _ = Measure.map resetHead (Measure.map reassoc
+        (resetLaw.prod
+          (gaussianZigZagHazardMeasure.prod tailLaw))) := by rw [hsplitLaw]
+    _ = Measure.map resetHead
+        ((resetLaw.prod gaussianZigZagHazardMeasure).prod tailLaw) := by
+      rw [hreassocLaw]
+    _ = (resetLaw.prod resetLaw).prod tailLaw := hresetLaw
+
+/-- Duration of the current regenerative signed interval. -/
+noncomputable def gaussianZigZagCycleEnvironmentRoof
+    (environment : (ℝ × ℝ) × (ℕ → NNReal)) : NNReal :=
+  Real.toNNReal (-environment.1.2 - environment.1.1)
+
+theorem measurable_gaussianZigZagCycleEnvironmentRoof :
+    Measurable gaussianZigZagCycleEnvironmentRoof := by
+  unfold gaussianZigZagCycleEnvironmentRoof
+  fun_prop
+
+theorem gaussianZigZagCycleEnvironment_resets_negative_ae :
+    ∀ᵐ environment ∂gaussianZigZagCycleEnvironmentMeasure,
+      environment.1.1 < 0 ∧ environment.1.2 < 0 := by
+  have hpairFst := (Measure.quasiMeasurePreserving_fst
+    (μ := gaussianZigZagNegativeRayleighMeasure)
+    (ν := gaussianZigZagNegativeRayleighMeasure)).ae
+      gaussianZigZagNegativeRayleighMeasure_negative_ae
+  have hpairSnd := (Measure.quasiMeasurePreserving_snd
+    (μ := gaussianZigZagNegativeRayleighMeasure)
+    (ν := gaussianZigZagNegativeRayleighMeasure)).ae
+      gaussianZigZagNegativeRayleighMeasure_negative_ae
+  have hpair : ∀ᵐ resets ∂
+      gaussianZigZagNegativeRayleighMeasure.prod
+        gaussianZigZagNegativeRayleighMeasure,
+      resets.1 < 0 ∧ resets.2 < 0 := by
+    filter_upwards [hpairFst, hpairSnd] with resets hleft hright
+    exact ⟨hleft, hright⟩
+  unfold gaussianZigZagCycleEnvironmentMeasure
+  exact (Measure.quasiMeasurePreserving_fst
+    (μ := gaussianZigZagNegativeRayleighMeasure.prod
+      gaussianZigZagNegativeRayleighMeasure)
+    (ν := gaussianZigZagHazardSequenceMeasure)).ae hpair
+
+theorem gaussianZigZagCycleEnvironmentRoof_pos_ae :
+    ∀ᵐ environment ∂gaussianZigZagCycleEnvironmentMeasure,
+      0 < gaussianZigZagCycleEnvironmentRoof environment := by
+  filter_upwards [gaussianZigZagCycleEnvironment_resets_negative_ae]
+    with environment hnegative
+  rw [← NNReal.coe_pos]
+  unfold gaussianZigZagCycleEnvironmentRoof
+  rw [Real.coe_toNNReal]
+  · linarith
+  · linarith
+
+/-- Add the alternating velocity label to the regenerative base shift. -/
+noncomputable def gaussianZigZagCyclePhaseEnvironmentShift
+    (input : ((ℝ × ℝ) × (ℕ → NNReal)) × Bool) :
+    ((ℝ × ℝ) × (ℕ → NNReal)) × Bool :=
+  (gaussianZigZagCycleEnvironmentShift input.1, !input.2)
+
+theorem measurable_gaussianZigZagCyclePhaseEnvironmentShift :
+    Measurable gaussianZigZagCyclePhaseEnvironmentShift :=
+  measurable_gaussianZigZagCycleEnvironmentShift.prodMap (by fun_prop)
+
+theorem gaussianZigZagCyclePhaseEnvironmentShift_map :
+    Measure.map gaussianZigZagCyclePhaseEnvironmentShift
+        (gaussianZigZagCycleEnvironmentMeasure.prod
+          zigZagVelocityProbability) =
+      gaussianZigZagCycleEnvironmentMeasure.prod
+        zigZagVelocityProbability := by
+  unfold gaussianZigZagCyclePhaseEnvironmentShift
+  change Measure.map
+      (Prod.map gaussianZigZagCycleEnvironmentShift Bool.not)
+      (gaussianZigZagCycleEnvironmentMeasure.prod
+        zigZagVelocityProbability) = _
+  rw [← Measure.map_prod_map gaussianZigZagCycleEnvironmentMeasure
+    zigZagVelocityProbability
+    measurable_gaussianZigZagCycleEnvironmentShift (by fun_prop),
+    gaussianZigZagCycleEnvironmentShift_map,
+    zigZagVelocityProbability_map_not]
+
 /-- Regenerative event-epoch law: negative-Rayleigh signed position and an
 independent uniform velocity label. -/
 noncomputable def gaussianZigZagSignedEventTarget : Measure ZigZagState :=

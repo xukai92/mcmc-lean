@@ -3589,3 +3589,16 @@ of stationary cycle occupation, velocity, and future tail through the actual
 stopped executor. The remaining theorem is purely the measure-preserving
 stationary renewal shift; there is no longer an unproved conditional-law,
 coordinate, or executor-identification step around it.
+
+## 2026-08-16: regenerative suspension base invariance
+
+Constructed the base environment underlying the remaining stationary renewal
+shift: two consecutive negative-Rayleigh resets plus the iid future hazard
+tail. Its event shift discards the consumed left reset, promotes the old right
+reset, generates the new right reset from the tail head, and advances the
+tail. Lean proves this transformation preserves the full environment law.
+The current interval roof is measurable and strictly positive almost surely.
+After adjoining the independent uniform velocity label and flipping it at
+each event, the phase-environment shift is also proved measure preserving.
+Thus the remaining work is precisely the special-flow/suspension theorem that
+lifts this invariant base map and positive roof to arbitrary real-time shifts.
