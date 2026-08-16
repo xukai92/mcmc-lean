@@ -1779,3 +1779,18 @@ start with the invariant target itself and bounds the off-diagonal mass by
 generic marginal-convergence route while documenting why the target-specific
 Xu lagged-meeting theorems do not automatically satisfy its stronger uniform
 premise.
+
+## 2026-08-16: exact finite-particle variance identity
+
+Added the first particle-count asymptotic foundation beyond unbiasedness.
+For an arbitrary finite iid particle cloud, Lean proves factorization of
+distinct-coordinate expectations, zero expectation of the centered score,
+and the exact second-moment identity for the centered particle sum. It then
+derives
+
+`E[(particleAverage - expectation)²] = variance / particle-count`
+
+for every positive finite count. This is an exact finite theorem and supplies
+the quantitative `1/N` mean-square scaling used by particle consistency
+arguments; it is not a central-limit theorem and does not yet establish the
+sequential particle-filter asymptotics.

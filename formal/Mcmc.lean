@@ -18,6 +18,7 @@ import Mcmc.Finite.CertifiedDynamicTree
 import Mcmc.Finite.ParallelTempering
 import Mcmc.Finite.PseudoMarginal
 import Mcmc.Finite.ParticleEstimator
+import Mcmc.Finite.ParticleAsymptotics
 import Mcmc.Finite.SequentialMonteCarlo
 import Mcmc.Finite.ParticleMCMC
 import Mcmc.Finite.ParticleGibbsConvergence

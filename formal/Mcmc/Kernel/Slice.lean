@@ -7,11 +7,12 @@ import Mathlib.Probability.Kernel.Disintegration.StandardBorel
 /-!
 # General-state slice-height kernels
 
-This module begins the concrete slice-sampling client of `AuxiliaryGibbs`.
+This module supplies the concrete slice-sampling client of `AuxiliaryGibbs`.
 For a strictly positive measurable real weight `w`, it constructs the Markov
-kernel that draws a height uniformly from `(0, w x]`.  The horizontal
-level-set conditional remains a separate kernel and must satisfy the explicit
-joint-factorization equation from `sliceSampler_invariant`.
+kernel that draws a height uniformly from `(0, w x]`, obtains the horizontal
+conditional by standard-Borel disintegration, and proves that the resulting
+general-state kernel preserves the weighted target. It does not infer
+irreducibility, convergence, or a rate from invariance.
 -/
 
 open MeasureTheory Set

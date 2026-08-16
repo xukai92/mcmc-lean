@@ -263,8 +263,10 @@ The repository now contains machine-checked implementations and proofs for:
   Euclidean birth/death client whose `y = 2u` transport has a checked
   inverse-Jacobian density;
 - finite iid particle clouds whose average nonnegative importance weight is
-  proved unbiased, together with the resulting pseudo-marginal MH extended
-  stationarity and exact target marginal;
+  proved unbiased, with exact distinct-coordinate factorization and the
+  finite identity `MSE(average) = variance / particle-count`, together with
+  the resulting pseudo-marginal MH extended stationarity and exact target
+  marginal;
 - unbiased multinomial ancestor resampling, heterogeneous propagation, and a
   one-step bootstrap resample--propagate expectation identity, lifted to an
   arbitrary finite-horizon homogeneous Feynman--Kac expectation theorem for
