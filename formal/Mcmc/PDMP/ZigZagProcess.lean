@@ -1122,6 +1122,13 @@ abbrev GaussianZigZagWeakExpectationUniqueness :=
   CompactTestWeakExpectationUniqueness gaussianZigZagHorizonKernel
     GaussianZigZagSmoothTest.observe GaussianZigZagSmoothTest.generator
 
+/-- Target-started scalar-expectation uniqueness, the minimal scalar ODE
+premise for Gaussian stationarity. -/
+abbrev GaussianZigZagTargetWeakExpectationUniqueness :=
+  CompactTestTargetWeakExpectationUniqueness gaussianZigZagHorizonKernel
+    GaussianZigZagSmoothTest.observe GaussianZigZagSmoothTest.generator
+    gaussianZigZagTarget
+
 /-- Measure-determination part of the Gaussian smooth-core obligation. -/
 abbrev GaussianZigZagSmoothTestDetermining :=
   CompactTestExpectationDetermining GaussianZigZagSmoothTest.observe
@@ -1198,6 +1205,19 @@ theorem gaussianZigZagHorizonKernel_invariant_of_weakExpectationUniqueness
     (scalar.toWeakForwardUniqueness gaussianZigZagHorizonKernel
       GaussianZigZagSmoothTest.observe GaussianZigZagSmoothTest.generator
       determining)
+    horizon
+
+/-- The minimal split premises—target-started scalar uniqueness and measure
+determination—yield exact Gaussian Zig-Zag stationarity. -/
+theorem gaussianZigZagHorizonKernel_invariant_of_targetWeakExpectationUniqueness
+    (scalar : GaussianZigZagTargetWeakExpectationUniqueness)
+    (determining : GaussianZigZagSmoothTestDetermining)
+    (horizon : NNReal) :
+    (gaussianZigZagHorizonKernel horizon).Invariant gaussianZigZagTarget :=
+  gaussianZigZagHorizonKernel_invariant_of_targetWeakForwardUniqueness
+    (scalar.toTargetWeakForwardUniqueness gaussianZigZagHorizonKernel
+      GaussianZigZagSmoothTest.observe GaussianZigZagSmoothTest.generator
+      gaussianZigZagTarget determining)
     horizon
 
 /-- Under the event kernel's actual exponential-hazard law, inverse-clock

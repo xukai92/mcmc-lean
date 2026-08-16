@@ -220,6 +220,19 @@ structure CompactTestWeakExpectationUniqueness
         (∫ state, observe test state ∂curve time) =
           ∫ state, observe test state ∂((transition time) ∘ₘ initial)
 
+/-- Target-started scalar-expectation uniqueness. This is the scalar ODE
+obligation actually needed by a stationarity proof. -/
+structure CompactTestTargetWeakExpectationUniqueness
+    {Test : Type*}
+    (transition : NNReal → Kernel State State)
+    (observe generator : Test → State → ℝ) (target : Measure State) : Prop where
+  unique_expectation :
+    ∀ (curve : NNReal → Measure State),
+      CompactTestWeakForwardSolution observe generator target curve →
+      ∀ time test,
+        (∫ state, observe test state ∂curve time) =
+          ∫ state, observe test state ∂((transition time) ∘ₘ target)
+
 omit [TopologicalSpace State] [BorelSpace State]
     [LocallyCompactSpace State] [T2Space State] in
 /-- Scalar weak-equation uniqueness plus a measure-determining test family
@@ -234,6 +247,37 @@ theorem CompactTestWeakExpectationUniqueness.toWeakForwardUniqueness
   unique initial curve solution time :=
     determining.eq_of_expectations (curve time) ((transition time) ∘ₘ initial)
       (fun test => scalar.unique_expectation initial curve solution time test)
+
+omit [TopologicalSpace State] [BorelSpace State]
+    [LocallyCompactSpace State] [T2Space State] in
+/-- Target-started scalar expectation uniqueness plus measure determination
+yields the minimal target-specific weak-forward uniqueness theorem. -/
+theorem CompactTestTargetWeakExpectationUniqueness.toTargetWeakForwardUniqueness
+    {Test : Type*}
+    (transition : NNReal → Kernel State State)
+    (observe generator : Test → State → ℝ) (target : Measure State)
+    (scalar : CompactTestTargetWeakExpectationUniqueness
+      transition observe generator target)
+    (determining : CompactTestExpectationDetermining observe) :
+    CompactTestTargetWeakForwardUniqueness
+      transition observe generator target where
+  unique curve solution time :=
+    determining.eq_of_expectations (curve time) ((transition time) ∘ₘ target)
+      (fun test => scalar.unique_expectation curve solution time test)
+
+omit [TopologicalSpace State] [BorelSpace State]
+    [LocallyCompactSpace State] [T2Space State] in
+/-- Global scalar uniqueness implies target-started scalar uniqueness. -/
+theorem CompactTestWeakExpectationUniqueness.forTarget
+    {Test : Type*}
+    (transition : NNReal → Kernel State State)
+    (observe generator : Test → State → ℝ)
+    (scalar : CompactTestWeakExpectationUniqueness transition observe generator)
+    (target : Measure State) :
+    CompactTestTargetWeakExpectationUniqueness
+      transition observe generator target where
+  unique_expectation curve solution time test :=
+    scalar.unique_expectation target curve solution time test
 
 omit [TopologicalSpace State] [BorelSpace State]
   [LocallyCompactSpace State] [T2Space State] in

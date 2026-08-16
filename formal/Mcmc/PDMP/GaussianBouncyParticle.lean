@@ -154,6 +154,9 @@ abbrev GaussianUnitBouncyTargetWeakForwardUniqueness :=
 abbrev GaussianUnitBouncyWeakExpectationUniqueness :=
   GaussianZigZagWeakExpectationUniqueness
 
+abbrev GaussianUnitBouncyTargetWeakExpectationUniqueness :=
+  GaussianZigZagTargetWeakExpectationUniqueness
+
 /-- A proof of the shared forward equation yields target preservation for the
 exact unit-speed Gaussian BPS horizon kernel. -/
 theorem gaussianUnitBouncyHorizonKernel_invariant_of_forwardEquation
@@ -182,5 +185,16 @@ theorem gaussianUnitBouncyHorizonKernel_invariant_of_targetWeakForwardUniqueness
       gaussianUnitBouncyTarget :=
   gaussianZigZagHorizonKernel_invariant_of_targetWeakForwardUniqueness
     uniqueness horizon
+
+/-- The minimal split target-started premises also yield exact unit-speed
+Gaussian BPS stationarity. -/
+theorem gaussianUnitBouncyHorizonKernel_invariant_of_targetWeakExpectationUniqueness
+    (scalar : GaussianUnitBouncyTargetWeakExpectationUniqueness)
+    (determining : GaussianZigZagSmoothTestDetermining)
+    (horizon : NNReal) :
+    (gaussianUnitBouncyHorizonKernel horizon).Invariant
+      gaussianUnitBouncyTarget :=
+  gaussianZigZagHorizonKernel_invariant_of_targetWeakExpectationUniqueness
+    scalar determining horizon
 
 end Mcmc.PDMP

@@ -7,7 +7,10 @@
   family identifies measures; Lean proves that together they imply the
   existing full weak-forward uniqueness interface. Gaussian Zig-Zag and its
   proved one-dimensional unit-speed BPS representation now expose these split
-  aliases and direct stationarity consumers. Neither analytic premise is
+  aliases and direct stationarity consumers. The target-started scalar
+  uniqueness premise and measure-determination premise also have direct
+  Gaussian Zig-Zag and BPS stationarity consumers, so clients need not first
+  construct a stronger global uniqueness certificate. Neither analytic premise is
   silently assumed, so process stationarity remains open until both are
   supplied for the constructed stopped path. The stationarity interface is
   also weakened to the mathematically minimal target-started uniqueness

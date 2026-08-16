@@ -471,7 +471,9 @@ by paper date:
    test family; Lean proves that these two statements reconstruct the full
    uniqueness interface. A separate target-started interface records the
    strictly weaker premise actually sufficient for stationarity, avoiding an
-   unnecessary global well-posedness theorem;
+   unnecessary global well-posedness theorem. The target-started scalar
+   uniqueness and measure-determination pair now feeds Gaussian Zig-Zag and
+   unit-speed Gaussian BPS stationarity directly;
 2. bare Gaussian SoftAbs GR-HMC convergence -- complete for the concrete
    one-dimensional `ε = 1`, `L = 1` chain. Lean proves affine drift, compact
    skeleton minorization, faithful geometric meeting, the normalized target's
