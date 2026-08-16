@@ -201,10 +201,12 @@ stationarity layer. `Mcmc.Kernel.ComposableInference` supplies scoped
 operators, arbitrary finite schedules, a named PG--HMC composition, and an
 instantiation whose PG side is discharged by the exact auxiliary-variable
 factorization theorem. `Examples.GeneralStatePgHmc` now closes a concrete
-mixed Boolean/Gaussian client using the actual Gaussian SoftAbs multinomial
-GR-HMC transition. Portable schedule descriptors can also be bound to their
-exact scoped kernels and invariance proofs; foreign callback equality remains
-a language-semantics obligation.
+dependent Boolean/Gaussian client: the Boolean records the position's sign,
+its reverse half-line conditional is constructed by standard-Borel
+disintegration, and the actual Gaussian SoftAbs multinomial GR-HMC transition
+supplies the continuous update. Portable schedule descriptors can also be
+bound to their exact scoped kernels and invariance proofs; foreign callback
+equality remains a language-semantics obligation.
 
 That quantitative obligation now has a checked target interface. A finite
 refresh decomposition yields an exact regenerative law and a uniform

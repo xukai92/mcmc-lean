@@ -1,4 +1,5 @@
 import Mcmc.Kernel.LiftEvolveProject
+import Mathlib.Probability.Kernel.Disintegration.StandardBorel
 
 /-!
 # General-state auxiliary-variable Gibbs transitions
@@ -86,6 +87,13 @@ noncomputable def auxiliaryFirstJoint
     Measure (Aux × State) :=
   (target ⊗ₘ forward).map Prod.swap
 
+instance auxiliaryFirstJoint.instIsFiniteMeasure
+    (target : Measure State) [IsFiniteMeasure target]
+    (forward : Kernel State Aux) [IsMarkovKernel forward] :
+    IsFiniteMeasure (auxiliaryFirstJoint target forward) := by
+  unfold auxiliaryFirstJoint
+  infer_instance
+
 /-- The lifted target law is exactly the auxiliary-first joint law. -/
 theorem auxiliaryFirstLift_comp
     (target : Measure State) [SFinite target]
@@ -106,6 +114,47 @@ theorem auxiliaryFirstJoint_map_snd
   change (target ⊗ₘ forward).fst = target
   exact Measure.fst_compProd target forward
 
+/-- The first marginal of the auxiliary-first joint is the law produced by
+the forward augmentation kernel. -/
+theorem auxiliaryFirstJoint_fst
+    (target : Measure State) [SFinite target]
+    (forward : Kernel State Aux) [IsMarkovKernel forward] :
+    (auxiliaryFirstJoint target forward).fst = forward ∘ₘ target := by
+  rw [auxiliaryFirstJoint, Measure.fst_map_swap]
+  exact Measure.snd_compProd target forward
+
+/-- On a standard Borel state space, disintegration constructs the exact
+reverse conditional for any finite target and Markov forward augmentation.
+This turns the Bayes factorization from client-supplied data into a theorem. -/
+noncomputable def disintegratedAuxiliaryReverse
+    (target : Measure State) [IsFiniteMeasure target]
+    (forward : Kernel State Aux) [IsMarkovKernel forward]
+    [StandardBorelSpace State] [Nonempty State] : Kernel Aux State :=
+  (auxiliaryFirstJoint target forward).condKernel
+
+instance disintegratedAuxiliaryReverse.instIsMarkovKernel
+    (target : Measure State) [IsFiniteMeasure target]
+    (forward : Kernel State Aux) [IsMarkovKernel forward]
+    [StandardBorelSpace State] [Nonempty State] :
+    IsMarkovKernel (disintegratedAuxiliaryReverse target forward) := by
+  unfold disintegratedAuxiliaryReverse
+  infer_instance
+
+/-- The disintegrated reverse kernel reconstructs exactly the same joint law
+as the forward augmentation. -/
+theorem auxiliaryFirstJoint_eq_compProd_disintegratedAuxiliaryReverse
+    (target : Measure State) [IsFiniteMeasure target]
+    (forward : Kernel State Aux) [IsMarkovKernel forward]
+    [StandardBorelSpace State] [Nonempty State] :
+    auxiliaryFirstJoint target forward =
+      (forward ∘ₘ target) ⊗ₘ
+        disintegratedAuxiliaryReverse target forward := by
+  rw [← auxiliaryFirstJoint_fst target forward]
+  unfold disintegratedAuxiliaryReverse
+  exact (MeasureTheory.Measure.disintegrate
+    (auxiliaryFirstJoint target forward)
+    (auxiliaryFirstJoint target forward).condKernel).symm
+
 /-- General-state two-block Gibbs/data-augmentation correctness.  The reverse
 kernel must factor the same joint law using the auxiliary marginal. -/
 theorem twoBlockConditional_invariant
@@ -122,6 +171,19 @@ theorem twoBlockConditional_invariant
   · rw [hfactor]
     exact refreshSndGivenFst_invariant (forward ∘ₘ target) reverse
   · exact auxiliaryFirstJoint_map_snd target forward
+
+/-- Every finite standard-Borel auxiliary augmentation therefore induces an
+exact target-invariant two-block update. -/
+theorem twoBlockConditional_disintegrated_invariant
+    (target : Measure State) [IsFiniteMeasure target]
+    (forward : Kernel State Aux) [IsMarkovKernel forward]
+    [StandardBorelSpace State] [Nonempty State] :
+    (twoBlockConditional forward
+      (disintegratedAuxiliaryReverse target forward)).Invariant target := by
+  exact twoBlockConditional_invariant target forward
+    (disintegratedAuxiliaryReverse target forward)
+    (auxiliaryFirstJoint_eq_compProd_disintegratedAuxiliaryReverse
+      target forward)
 
 /-- Slice sampling is the two-block construction with a vertical height
 kernel and a horizontal level-set kernel.  This named wrapper records the

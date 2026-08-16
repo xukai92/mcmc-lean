@@ -218,12 +218,12 @@ Julia now mirrors the finite coroutine semantics with an explicit immutable
 tested. The implementation intentionally avoids copying Julia `Task` stacks:
 all semantically relevant suspension state is visible copyable data.
 
-Added a compiled mixed discrete/continuous client. A uniform Boolean auxiliary
-is paired with the normalized Gaussian SoftAbs target; Lean proves the exact
-forward/reverse factorization and then composes its two-block update with the
-actual multinomial Gaussian SoftAbs GR-HMC kernel. This model is independent
-across the auxiliary boundary, but it closes the end-to-end general-state
-PG--HMC instantiation without disguising a callback as a theorem.
+Added a compiled mixed discrete/continuous client. The current version uses a
+dependent Boolean sign-region auxiliary for the normalized Gaussian SoftAbs
+target. Standard-Borel disintegration constructs its exact reverse
+conditional, and Lean composes the resulting two-block update with the actual
+multinomial Gaussian SoftAbs GR-HMC kernel. This closes an end-to-end dependent
+general-state PG--HMC instantiation without disguising a callback as a theorem.
 
 Added the operational finite dynamic-tree boundary needed by NUTS-style
 selection. `CertifiedDynamicTree` records the candidate `Finset` at every root,
@@ -1653,13 +1653,11 @@ dimension and parameter validation, and finite outputs.
   positive coefficient from the product of all matrix entries and proves TV
   convergence from every initial trajectory law.
 
-1. Instantiate the general-state PG--HMC theorem with a substantive mixed
-   discrete/continuous model.
-2. Discharge the positive-horizon particle-Gibbs refresh certificate for
+1. Discharge the positive-horizon particle-Gibbs refresh certificate for
    bounded-potential model classes and sharpen its particle-count dependence.
-3. Certify a practical diagonal SoftAbs solver and restricted Float64/Julia
+2. Certify a practical diagonal SoftAbs solver and restricted Float64/Julia
    refinement.
-4. Extend the Ge, Xu, GR-HMC convergence, dynamic-NUTS, slice, reversible-
+3. Extend the Ge, Xu, GR-HMC convergence, dynamic-NUTS, slice, reversible-
    jump, adaptation, particle-asymptotic, and PDMP branches tracked in the
    overall roadmap.
 
