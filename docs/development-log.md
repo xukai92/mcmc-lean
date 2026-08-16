@@ -2131,3 +2131,16 @@ Hessian proves that the target's scalar metric eigenvalue is globally
 Lipschitz. This is the metric-level analytic input; the complete Hamiltonian's
 two slice-Lipschitz estimates and the consequent nonzero-step solver and
 phase-volume theorem remain separate obligations.
+
+Extracted the reusable scalar slice calculation and applied it to that client.
+For an arbitrary positive scalar factor, Lean now proves the momentum-slice
+bound for the complete position derivative and the position-slice bound for
+the momentum derivative; every position-only force term cancels in the former.
+The generic scalar Hamiltonian derivative formulas connect these callbacks to
+the complete Hamiltonian rather than merely to a synthetic fixed-point model.
+For the nondegenerate SoftAbs client, compact smoothness gives a global
+inverse-square-root-factor Lipschitz constant and derivative bound. Lean then
+constructs an explicit nonzero admissible step, its exact Banach-selected
+generalized-leapfrog solver, and the certified negative-step inverse. Exact
+phase-volume preservation is still a distinct Jacobian theorem and is not
+inferred from invertibility alone.

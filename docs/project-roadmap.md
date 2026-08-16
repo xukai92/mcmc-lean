@@ -117,16 +117,17 @@ partial equality. Linear conjugacy transfers determinant one to
 The remaining B2 work is primarily solver refinement. Guarded operation-local
 SoftAbs certificates now compose Hessian error through the positive
 eigenvalue, square root, inverse factor, and log determinant, but the
-finite-precision Julia iterations must still be related to an exact selection,
-and a paper-style nonconstant SoftAbs target still needs its own nonzero-step
-solver certificate. In addition to the removable-zero sinusoidal client, Lean
+finite-precision Julia iterations must still be related to an exact selection.
+For the paper-style nonconstant metric, in addition to the removable-zero sinusoidal client, Lean
 now has the nondegenerate target `U(q)=q²-sin(q)`, whose actual Hessian lies in
 `[1,3]`. Its potential, force/Hessian relationship, measurability, Equation
 (12) data, uniform ellipticity, a uniform SoftAbs derivative bound, and global
 Lipschitz continuity of the resulting scalar metric eigenvalue are machine
-checked. What remains for this client is to transfer these metric bounds to
-the two complete-Hamiltonian slice derivatives and then reuse the generic
-contractive solver and phase-volume machinery.
+checked. The slice transfer and solver are also complete: reusable scalar callback theorems identify both
+coordinate derivatives, yield global contraction constants, and construct a
+concrete nonzero-step exact solve with its negative-step inverse. The remaining
+target-specific B2 theorem is phase-volume preservation for this solve, followed
+by the separate finite-precision refinement.
 
 ## Track C: later breadth branches
 
