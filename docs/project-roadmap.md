@@ -552,10 +552,13 @@ by paper date:
   tail recursions; preservation of the iid hazard law by the tail map; and the
   exact no-event endpoint branch. The unit-exponential residual-clock theorem
   is now proved directly on the actual `NNReal` hazard measure, in both scaled
-  restricted-measure and normalized conditional-law forms. The next dependency
-  is the first-coordinate/tail product-law calculation and integration of the
-  two endpoint branches. This is essential because splitting a horizon between
-  events is not a pointwise semigroup identity;
+  restricted-measure and normalized conditional-law forms. The
+  first-coordinate/tail product law is also now checked by explicitly
+  reindexing and currying the infinite product, and cumulative crossing plus
+  the first-crossing index have exact restarted-tail recursions. The next
+  dependency is the endpoint recursion and integration of its two branches.
+  This is essential because splitting a horizon between events is not a
+  pointwise semigroup identity;
 2. bare Gaussian SoftAbs GR-HMC convergence -- complete for the concrete
    one-dimensional `ε = 1`, `L = 1` chain. Lean proves affine drift, compact
    skeleton minorization, faithful geometric meeting, the normalized target's

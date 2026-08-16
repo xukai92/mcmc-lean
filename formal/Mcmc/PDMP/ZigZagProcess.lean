@@ -962,6 +962,143 @@ theorem gaussianZigZagHazardSequenceMeasure_preserving_tail :
   measurable := by fun_prop
   map_eq := gaussianZigZagHazardSequenceMeasure_map_tail
 
+/-- Two-block index used to split an infinite hazard stream into its head and
+tail coordinates. -/
+abbrev GaussianZigZagHeadTailIndex : Bool → Type
+  | false => PUnit
+  | true => ℕ
+
+private def gaussianZigZagHeadTailIndexToNat :
+    (block : Bool) → GaussianZigZagHeadTailIndex block → ℕ
+  | false, _ => 0
+  | true, index => index + 1
+
+/-- The head block represents index zero and the tail block represents the
+strictly positive natural indices. -/
+def gaussianZigZagHeadTailIndexEquiv :
+    (Σ block, GaussianZigZagHeadTailIndex block) ≃ ℕ where
+  toFun value := gaussianZigZagHeadTailIndexToNat value.1 value.2
+  invFun
+    | 0 => ⟨false, PUnit.unit⟩
+    | index + 1 => ⟨true, index⟩
+  left_inv value := by
+    rcases value with ⟨block, index⟩
+    cases block
+    · change (⟨false, PUnit.unit⟩ :
+        Σ block, GaussianZigZagHeadTailIndex block) = ⟨false, index⟩
+      cases index
+      rfl
+    · simp [gaussianZigZagHeadTailIndexToNat]
+  right_inv index := by
+    cases index <;> simp [gaussianZigZagHeadTailIndexToNat]
+
+/-- Measurable head/tail coordinate map for the iid hazard stream. -/
+def gaussianZigZagHazardHeadTail
+    (hazards : ℕ → NNReal) : NNReal × (ℕ → NNReal) :=
+  (hazards 0, fun index => hazards (index + 1))
+
+theorem measurable_gaussianZigZagHazardHeadTail :
+    Measurable gaussianZigZagHazardHeadTail := by
+  unfold gaussianZigZagHazardHeadTail
+  fun_prop
+
+/-- Reindexing and currying group the iid hazard product into its singleton
+head block and infinite tail block. -/
+theorem gaussianZigZagHazardSequenceMeasure_map_grouped :
+    gaussianZigZagHazardSequenceMeasure.map
+        (fun hazards block index => hazards
+          (gaussianZigZagHeadTailIndexEquiv ⟨block, index⟩)) =
+      Measure.infinitePi (fun block : Bool =>
+        Measure.infinitePi (fun _ : GaussianZigZagHeadTailIndex block =>
+          gaussianZigZagHazardMeasure)) := by
+  let reindex := MeasurableEquiv.piCongrLeft
+    (fun _ : (Σ block, GaussianZigZagHeadTailIndex block) => NNReal)
+    gaussianZigZagHeadTailIndexEquiv.symm
+  let regroup := MeasurableEquiv.piCurry
+    (fun block (index : GaussianZigZagHeadTailIndex block) => NNReal)
+  rw [show (fun hazards block index => hazards
+      (gaussianZigZagHeadTailIndexEquiv ⟨block, index⟩)) =
+      regroup ∘ reindex by
+    funext hazards block index
+    have h := MeasurableEquiv.piCongrLeft_apply_apply
+      (β := fun _ : (Σ block, GaussianZigZagHeadTailIndex block) => NNReal)
+      gaussianZigZagHeadTailIndexEquiv.symm hazards
+      (gaussianZigZagHeadTailIndexEquiv ⟨block, index⟩)
+    change hazards (gaussianZigZagHeadTailIndexEquiv ⟨block, index⟩) =
+      reindex hazards ⟨block, index⟩
+    simpa [reindex] using h.symm]
+  rw [← Measure.map_map regroup.measurable reindex.measurable]
+  unfold gaussianZigZagHazardSequenceMeasure
+  dsimp [reindex]
+  rw [Measure.infinitePi_map_piCongrLeft
+    (μ := fun _ : (Σ block, GaussianZigZagHeadTailIndex block) =>
+      gaussianZigZagHazardMeasure)
+    gaussianZigZagHeadTailIndexEquiv.symm]
+  dsimp [regroup]
+  convert Measure.infinitePi_map_piCurry
+    (fun block (index : GaussianZigZagHeadTailIndex block) =>
+      gaussianZigZagHazardMeasure) using 1
+
+/-- The first hazard and the remaining hazard stream have the exact product
+law. This is the measure-level independence statement needed by first-event
+recursion. -/
+theorem gaussianZigZagHazardSequenceMeasure_map_headTail :
+    gaussianZigZagHazardSequenceMeasure.map
+        gaussianZigZagHazardHeadTail =
+      gaussianZigZagHazardMeasure.prod
+        gaussianZigZagHazardSequenceMeasure := by
+  let groupedMeasure := Measure.infinitePi (fun block : Bool =>
+    Measure.infinitePi (fun _ : GaussianZigZagHeadTailIndex block =>
+      gaussianZigZagHazardMeasure))
+  let ungroup := fun grouped :
+      (block : Bool) → GaussianZigZagHeadTailIndex block → NNReal =>
+    (grouped false PUnit.unit, grouped true)
+  have hungroup : Measurable ungroup := by
+    unfold ungroup
+    fun_prop
+  have hfactor : Measure.map ungroup groupedMeasure =
+      gaussianZigZagHazardMeasure.prod
+        gaussianZigZagHazardSequenceMeasure := by
+    symm
+    apply Measure.prod_eq
+    intro headSet tailSet hhead htail
+    rw [Measure.map_apply hungroup (hhead.prod htail)]
+    let coordinateSet : (block : Bool) →
+        Set (GaussianZigZagHeadTailIndex block → NNReal)
+      | false => (fun head => head PUnit.unit) ⁻¹' headSet
+      | true => tailSet
+    have hpre : ungroup ⁻¹' (headSet ×ˢ tailSet) =
+        Set.pi (↑(Finset.univ : Finset Bool)) coordinateSet := by
+      ext grouped
+      simp [ungroup, coordinateSet, and_comm]
+    rw [hpre]
+    have hcoordinate : ∀ block, MeasurableSet (coordinateSet block) := by
+      intro block
+      cases block
+      · exact hhead.preimage (measurable_pi_apply PUnit.unit)
+      · exact htail
+    rw [Measure.infinitePi_pi _ (fun block _ => hcoordinate block)]
+    have hheadMeasure :
+        Measure.infinitePi (fun _ : PUnit => gaussianZigZagHazardMeasure)
+            ((fun head => head PUnit.unit) ⁻¹' headSet) =
+          gaussianZigZagHazardMeasure headSet := by
+      rw [← Measure.map_apply (measurable_pi_apply PUnit.unit) hhead,
+        Measure.infinitePi_map_eval]
+    rw [Fintype.prod_bool]
+    change gaussianZigZagHazardSequenceMeasure tailSet *
+        Measure.infinitePi (fun _ : PUnit => gaussianZigZagHazardMeasure)
+          ((fun head => head PUnit.unit) ⁻¹' headSet) = _
+    rw [hheadMeasure]
+    ac_rfl
+  rw [show gaussianZigZagHazardHeadTail = ungroup ∘
+      (fun hazards block index => hazards
+        (gaussianZigZagHeadTailIndexEquiv ⟨block, index⟩)) by
+    funext hazards
+    rfl]
+  rw [← Measure.map_map hungroup (by fun_prop),
+    gaussianZigZagHazardSequenceMeasure_map_grouped]
+  exact hfactor
+
 def gaussianZigZagLargeHazardEvent (index : ℕ) : Set (ℕ → NNReal) :=
   (fun hazards => hazards index) ⁻¹' Set.Ioi (1 : NNReal)
 
@@ -1303,6 +1440,27 @@ def gaussianZigZagEventCrossed
   (horizon : ENNReal) <
     gaussianZigZagEventElapsed initial hazards eventCount
 
+/-- After the first event wait has elapsed, cumulative-time crossing is
+exactly crossing by the restarted tail process over the residual horizon. -/
+theorem gaussianZigZagEventCrossed_succ_iff_tail
+    (initial : ZigZagState) (horizon : NNReal) (hazards : ℕ → NNReal)
+    (hwait : gaussianZigZagEventWait initial hazards 0 ≤ horizon)
+    (eventCount : ℕ) :
+    gaussianZigZagEventCrossed initial horizon hazards (eventCount + 1) ↔
+      gaussianZigZagEventCrossed
+        (gaussianZigZagEventUpdate initial (hazards 0))
+        (horizon - gaussianZigZagEventWait initial hazards 0)
+        (fun index => hazards (index + 1)) eventCount := by
+  unfold gaussianZigZagEventCrossed
+  rw [gaussianZigZagEventElapsed_succ_eq_first_add_tail]
+  unfold gaussianZigZagEventWaitTerm
+  rw [ENNReal.ofReal_coe_nnreal]
+  rw [ENNReal.coe_sub]
+  have hwait' :
+      (gaussianZigZagEventWait initial hazards 0 : ENNReal) ≤
+        (horizon : ENNReal) := by exact_mod_cast hwait
+  exact (ENNReal.sub_lt_iff_lt_left ENNReal.coe_ne_top hwait').symm
+
 theorem measurableSet_gaussianZigZagEventCrossed
     (initial : ZigZagState) (horizon : NNReal)
     (eventCount : ℕ) :
@@ -1403,6 +1561,77 @@ theorem gaussianZigZagCrossingIndex_crossed
   rcases hspec with hcrossed | ⟨_, hnone⟩
   · exact hcrossed
   · exact (hnone hexists).elim
+
+theorem gaussianZigZagCrossingIndex_not_crossed_of_lt
+    (initial : ZigZagState) (horizon : NNReal) (hazards : ℕ → NNReal)
+    {eventCount : ℕ}
+    (hlt : eventCount <
+      gaussianZigZagCrossingIndex initial horizon hazards) :
+    ¬gaussianZigZagEventCrossed initial horizon hazards eventCount := by
+  classical
+  intro hcrossed
+  unfold gaussianZigZagCrossingIndex at hlt
+  exact Nat.find_min
+    (gaussianZigZagCrossingSearchPredicate_exists initial horizon hazards)
+    hlt (Or.inl hcrossed)
+
+/-- Once the first wait is completed, the first-crossing index is one plus
+the crossing index of the restarted tail process. -/
+theorem gaussianZigZagCrossingIndex_eq_tail_add_one
+    (initial : ZigZagState) (horizon : NNReal) (hazards : ℕ → NNReal)
+    (hwait : gaussianZigZagEventWait initial hazards 0 ≤ horizon)
+    (htailExists : ∃ eventCount, gaussianZigZagEventCrossed
+      (gaussianZigZagEventUpdate initial (hazards 0))
+      (horizon - gaussianZigZagEventWait initial hazards 0)
+      (fun index => hazards (index + 1)) eventCount) :
+    gaussianZigZagCrossingIndex initial horizon hazards =
+      gaussianZigZagCrossingIndex
+        (gaussianZigZagEventUpdate initial (hazards 0))
+        (horizon - gaussianZigZagEventWait initial hazards 0)
+        (fun index => hazards (index + 1)) + 1 := by
+  classical
+  let restarted := gaussianZigZagEventUpdate initial (hazards 0)
+  let residual := horizon - gaussianZigZagEventWait initial hazards 0
+  let tail := fun index => hazards (index + 1)
+  let tailIndex := gaussianZigZagCrossingIndex restarted residual tail
+  have htailCrossed :
+      gaussianZigZagEventCrossed restarted residual tail tailIndex :=
+    gaussianZigZagCrossingIndex_crossed restarted residual tail htailExists
+  have horiginalCrossed : gaussianZigZagEventCrossed initial horizon hazards
+      (tailIndex + 1) :=
+    (gaussianZigZagEventCrossed_succ_iff_tail initial horizon hazards hwait
+      tailIndex).mpr htailCrossed
+  have horiginalExists : ∃ eventCount,
+      gaussianZigZagEventCrossed initial horizon hazards eventCount :=
+    ⟨tailIndex + 1, horiginalCrossed⟩
+  change Nat.find
+      (gaussianZigZagCrossingSearchPredicate_exists initial horizon hazards) =
+    tailIndex + 1
+  apply (Nat.find_eq_iff
+    (gaussianZigZagCrossingSearchPredicate_exists initial horizon hazards)).2
+  constructor
+  · exact Or.inl horiginalCrossed
+  · intro eventCount hlt
+    simp only [gaussianZigZagCrossingSearchPredicate]
+    push Not
+    constructor
+    · cases eventCount with
+      | zero =>
+          unfold gaussianZigZagEventCrossed gaussianZigZagEventElapsed
+          simp
+      | succ eventCount =>
+          apply (gaussianZigZagEventCrossed_succ_iff_tail
+            initial horizon hazards hwait eventCount).not.mpr
+          apply gaussianZigZagCrossingIndex_not_crossed_of_lt
+          have heq : gaussianZigZagCrossingIndex
+              (gaussianZigZagEventUpdate initial (hazards 0))
+              (horizon - gaussianZigZagEventWait initial hazards 0)
+              (fun index => hazards (index + 1)) = tailIndex := by
+            simp only [tailIndex, restarted, residual, tail]
+          rw [heq]
+          omega
+    · intro _
+      exact horiginalExists
 
 theorem gaussianZigZagCrossingIndex_crossed_ae
     (initial : ZigZagState) (horizon : NNReal) :

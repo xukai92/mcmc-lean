@@ -20,6 +20,16 @@
   the first coordinate from the infinite iid tail and integration of the two
   stopped-endpoint branches.
 
+- Closed the first-coordinate/tail independence calculation. A checked
+  reindexing-and-currying argument proves that the head/tail map sends the
+  infinite iid hazard law exactly to the product of one hazard and a fresh iid
+  tail; no finite-cylinder independence premise is left to clients. Lean also
+  proves that, once the first wait has elapsed, cumulative crossing is exactly
+  crossing of the restarted tail over the residual horizon, and the selected
+  crossing index shifts by one. The next local step is the resulting endpoint
+  recursion, after which these identities can be integrated into the
+  first-event law.
+
 - Reconciled the Julia diagnostic inventory. Every registered property,
   Geweke, continuous/mixed-state, robustness, ESS, and callback-count test is
   active; there are no skipped or broken testsets. The formerly historical
