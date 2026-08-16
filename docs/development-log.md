@@ -66,7 +66,11 @@
   resulting ratio inequality and instantiates it for marked transition mass,
   yielding the desired `(N−1)/(N−1+B)` resampling comparison before the
   remaining recursion bookkeeping. This replaces the earlier crude
-  pointwise-weight route that would have left a permanent `1/B` loss.
+  pointwise-weight route that would have left a permanent `1/B` loss. The
+  normalizer comparison is now composed with the forced resample--propagate
+  expectation in one checked theorem, leaving only the telescoping of the
+  successive unforced-cloud normalizers against the existing unbiased
+  Feynman--Kac history identity.
 
 - Completed the compact-minorization and faithful-coupling foundation for the
   actual bare one-dimensional Gaussian SoftAbs multinomial kernel at

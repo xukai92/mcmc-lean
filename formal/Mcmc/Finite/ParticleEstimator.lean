@@ -975,6 +975,58 @@ theorem normalizedPotentialWeights_markedTransition_ge_unforced
       intro parent _
       ring
 
+/-- Combined sharp one-stage conditional-SMC comparison. The first factor is
+the ordinary-child share and the second is the retained-normalizer penalty;
+later path-label recursion cancels the intermediate ordinary-cloud
+normalization rather than accumulating a crude `1 / bound` loss. -/
+theorem forcedResamplePropagate_lineageExtensionFraction_ge_sharpUnforced
+    (potential : Sample → ℝ) (hpotential : ∀ x, 0 < potential x)
+    (transition : MarkovKernel Sample) (bound : ℝ)
+    (certificate : PotentialOscillationBound potential bound)
+    (extra : ℕ) (hextra : 0 < extra)
+    (particles : Fin (extra + 1) → Sample)
+    (retained nextRetained : Fin (extra + 1))
+    (nextState desired : Sample)
+    (marked : Fin (extra + 1) → Prop) [DecidablePred marked] :
+    (extra : ℝ) / (extra + 1) *
+        ((extra : ℝ) / ((extra : ℝ) + bound) *
+          (unforcedPotentialTransitionMass potential transition particles
+              retained marked desired /
+            unforcedPotentialSum potential particles retained)) ≤
+      ∑ ancestors,
+        (forcedIndependentPopulation
+          (fun _ : Fin (extra + 1) =>
+            normalizedPotentialWeights potential hpotential particles)
+          nextRetained retained).mass ancestors *
+          ∑ next,
+            (forcedIndependentPopulation
+              (fun i => rowDistribution transition (particles (ancestors i)))
+              nextRetained nextState).mass next *
+                lineageExtensionFraction marked desired ancestors next := by
+  let weightedExtension := ∑ parent,
+    (normalizedPotentialWeights potential hpotential particles).mass parent *
+      (if marked parent then transition.prob (particles parent) desired else 0)
+  have hsharp := normalizedPotentialWeights_markedTransition_ge_unforced
+    potential hpotential transition bound certificate extra hextra particles
+      retained marked desired
+  have hstage := forcedResamplePropagate_lineageExtensionFraction_ge
+    (normalizedPotentialWeights potential hpotential particles)
+    transition particles retained nextRetained nextState desired marked
+  calc
+    (extra : ℝ) / (extra + 1) *
+          ((extra : ℝ) / ((extra : ℝ) + bound) *
+            (unforcedPotentialTransitionMass potential transition particles
+                retained marked desired /
+              unforcedPotentialSum potential particles retained)) ≤
+        (extra : ℝ) / (extra + 1) * weightedExtension := by
+      apply mul_le_mul_of_nonneg_left hsharp
+      positivity
+    _ = ((Fintype.card (Fin (extra + 1)) - 1 : ℕ) * weightedExtension) /
+          Fintype.card (Fin (extra + 1)) := by
+      simp [weightedExtension]
+      ring
+    _ ≤ _ := hstage
+
 /-- Explicit finite oscillation constant, chosen as the sum of every ordered
 potential ratio. It is conservative but depends only on the model, never on
 the particle count. -/
