@@ -12,7 +12,7 @@ include("Optimized/Optimized.jl")
 export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, BoundedRejectionSlice, SteppingOutSlice, ShearedBirthDeathRJ, SpatialBirthDeathRJ, sheared_birth_unshear, TwoStateMH, GaussianRWMH, PositiveTransformedRWMH, OpenUnitTransformedRWMH,
     WarmupGaussianRWMH, GaussianRWMHWarmupResult, warmup,
     ScalarHMC, VectorHMC, MultinomialHMC, CertifiedDynamicHMC,
-    CheckedFirstStopDynamicHMC,
+    CheckedFirstStopDynamicHMC, CheckedRecursiveDynamicHMC,
     MetricMultinomialHMC,
     CategoricalDHMC,
     DiagonalMetric, DenseMetric, MetricHMC, RelativisticMultinomialHMC,
@@ -2036,6 +2036,95 @@ function sample(rng::AbstractRNG, sampler::CheckedFirstStopDynamicHMC,
 end
 
 sample(sampler::CheckedFirstStopDynamicHMC,
+        initial::AbstractVector{<:Real}, count::Integer) =
+    sample(Random.default_rng(), sampler, initial, count)
+
+"""Checked randomized recursive-doubling dynamic HMC.
+
+Each iteration samples a state-independent Boolean direction trace, executes
+the Lean-generated recursive-doubling/endpoint-U-turn descriptor on a complete
+randomized-origin orbit, and globally checks every rerooted candidate row.
+Certified traces use multinomial selection; failed traces return the current
+state without consuming a selector draw. This implements the proved randomized
+checked-or-identity mixture, not an unconditional equivalence to standard NUTS.
+"""
+struct CheckedRecursiveDynamicHMC{F,G}
+    logdensity::F
+    gradient::G
+    step_size::Float64
+    steps::Int
+    function CheckedRecursiveDynamicHMC(logdensity::F, gradient::G,
+            step_size::Real, steps::Integer=15) where {F,G}
+        converted = Float64(step_size)
+        isfinite(converted) && converted > 0 ||
+            throw(ArgumentError("step size must be finite and positive"))
+        steps > 0 || throw(ArgumentError("trajectory length must be positive"))
+        new{F,G}(logdensity, gradient, converted, Int(steps))
+    end
+end
+
+function _checked_recursive_dynamic_hmc_step!(
+        source::Runtime.AbstractRandomSource, selector,
+        sampler::CheckedRecursiveDynamicHMC,
+        current::AbstractVector{<:Real})
+    initial = Float64.(current)
+    isempty(initial) && throw(ArgumentError("position cannot be empty"))
+    all(isfinite, initial) || throw(ArgumentError("position must be finite"))
+    q = copy(initial)
+    p = [Runtime.standard_normal!(source) for _ in eachindex(q)]
+    count = sampler.steps + 1
+    origin = Int(Runtime.draw_below!(source, count))
+    for _ in 1:origin
+        q, p = Optimized.vector_leapfrog(sampler.gradient,
+            -sampler.step_size, q, p)
+    end
+    positions = Vector{Vector{Float64}}(undef, count)
+    momenta = similar(positions)
+    positions[1], momenta[1] = copy(q), copy(p)
+    for index in 2:count
+        q, p = Optimized.vector_leapfrog(sampler.gradient,
+            sampler.step_size, q, p)
+        positions[index], momenta[index] = copy(q), copy(p)
+    end
+    depth = floor(Int, log2(count))
+    directions = [Runtime.draw_below!(source, 2) == 1 for _ in 1:depth]
+    certificate = generated_dynamic_tree("checked-recursive-doubling",
+        positions, momenta, directions)
+    certificate.valid || return initial
+    candidates = certificate.candidates[origin + 1]
+    logweights = [begin
+        value = Float64(sampler.logdensity(positions[index])) -
+            sum(abs2, momenta[index]) / 2
+        isfinite(value) || throw(DomainError(value,
+            "dynamic trajectory log weight must be finite"))
+        value
+    end for index in candidates]
+    copy(positions[selector(source, candidates, logweights)])
+end
+
+function step(rng::AbstractRNG, sampler::CheckedRecursiveDynamicHMC,
+        current::AbstractVector{<:Real})
+    _checked_recursive_dynamic_hmc_step!(Runtime.RNGSource(rng),
+        Reference.dynamic_select_float!, sampler, current)
+end
+
+step(sampler::CheckedRecursiveDynamicHMC,
+        current::AbstractVector{<:Real}) =
+    step(Random.default_rng(), sampler, current)
+
+function sample(rng::AbstractRNG, sampler::CheckedRecursiveDynamicHMC,
+        initial::AbstractVector{<:Real}, count::Integer)
+    count >= 0 || throw(ArgumentError("sample count must be nonnegative"))
+    current = Float64.(initial)
+    samples = Matrix{Float64}(undef, length(current), count)
+    for index in axes(samples, 2)
+        current = step(rng, sampler, current)
+        samples[:, index] = current
+    end
+    samples
+end
+
+sample(sampler::CheckedRecursiveDynamicHMC,
         initial::AbstractVector{<:Real}, count::Integer) =
     sample(Random.default_rng(), sampler, initial, count)
 

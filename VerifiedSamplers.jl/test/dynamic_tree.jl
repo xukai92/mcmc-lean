@@ -228,3 +228,36 @@ end
     @test_throws ArgumentError CheckedFirstStopDynamicHMC(
         flat_logdensity, zero_gradient, 0.5, 0)
 end
+
+@testset "checked randomized recursive dynamic HMC" begin
+    flat_logdensity(q) = 0.0
+    zero_gradient(q) = zero(q)
+    sampler = CheckedRecursiveDynamicHMC(flat_logdensity, zero_gradient, 0.5, 3)
+
+    # A sampled two-bit direction trace produces boundary-dependent rooted
+    # rows on this monotone orbit. Global certification rejects it, so the
+    # proved randomized checked-or-identity policy consumes no selector draw.
+    events = Runtime.FloatTraceEvent[
+        Runtime.NormalEvent(1.0), Runtime.IndexEvent(0),
+        Runtime.IndexEvent(1), Runtime.IndexEvent(0),
+        Runtime.UniformEvent(0.25)]
+    reference_source = Runtime.FloatTraceSource(copy(events))
+    optimized_source = Runtime.FloatTraceSource(copy(events))
+    reference = VerifiedSamplers._checked_recursive_dynamic_hmc_step!(
+        reference_source, Reference.dynamic_select_float!, sampler, [0.0])
+    optimized = VerifiedSamplers._checked_recursive_dynamic_hmc_step!(
+        optimized_source, Optimized.dynamic_select_float!, sampler, [0.0])
+    @test reference == optimized == [0.0]
+    @test Runtime.remaining(reference_source) == 1
+    @test Runtime.remaining(optimized_source) == 1
+
+    first_chain = sample(MersenneTwister(0xdecaf), sampler, [0.0], 20)
+    second_chain = sample(MersenneTwister(0xdecaf), sampler, [0.0], 20)
+    @test first_chain == second_chain
+    @test size(first_chain) == (1, 20)
+    @test_throws ArgumentError CheckedRecursiveDynamicHMC(
+        flat_logdensity, zero_gradient, 0.0, 3)
+    @test_throws ArgumentError CheckedRecursiveDynamicHMC(
+        flat_logdensity, zero_gradient, 0.5, 0)
+    @test_throws ArgumentError step(MersenneTwister(1), sampler, Float64[])
+end

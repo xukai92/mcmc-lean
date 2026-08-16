@@ -1,5 +1,6 @@
 import Mcmc.Finite.DynamicCandidate
 import Mcmc.Finite.Combinators
+import Mcmc.Finite.CandidateMixture
 
 /-!
 # Certified finite dynamic trees
@@ -146,6 +147,32 @@ theorem CertifiedDynamicTree.checkedOrIdentityKernel_stationary
     exact checkedKernel_stationary target candidates hcheck htarget
   · rw [checkedOrIdentityKernel, dif_neg hcheck]
     exact identity_stationary target
+
+/-- State-independent randomization over completed dynamic-tree traces. Each
+trace is checked separately; invalid traces contribute an identity kernel. -/
+noncomputable def CertifiedDynamicTree.randomizedCheckedOrIdentityKernel
+    {Trace : Type*} [Fintype Trace]
+    (traceLaw : Distribution Trace)
+    (target : Distribution State)
+    (candidates : Trace → State → Finset State)
+    (htarget : ∀ state, 0 < target.mass state) : MarkovKernel State :=
+  candidateMixture traceLaw fun trace =>
+    checkedOrIdentityKernel target (candidates trace) htarget
+
+/-- Randomized recursive builders preserve the target without assuming that
+every direction trace certifies: the checked traces use reversible weighted
+selection and all other traces make an explicit no-move transition. -/
+theorem CertifiedDynamicTree.randomizedCheckedOrIdentityKernel_stationary
+    {Trace : Type*} [Fintype Trace]
+    (traceLaw : Distribution Trace)
+    (target : Distribution State)
+    (candidates : Trace → State → Finset State)
+    (htarget : ∀ state, 0 < target.mass state) :
+    (randomizedCheckedOrIdentityKernel traceLaw target candidates htarget).Stationary
+      target := by
+  apply candidateMixture_stationary
+  intro trace
+  exact checkedOrIdentityKernel_stationary target (candidates trace) htarget
 
 /-- A leaf of a stopped doubling tree. `depth` may vary between tree
 components, while a completed component contains `2^depth` leaf offsets. -/

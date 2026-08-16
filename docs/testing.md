@@ -119,6 +119,14 @@ finite trace to agree with ideal-real execution. The supplied ideal values and
 platform error bounds remain certificate inputs, and this test is not evidence
 for the separate restricted joint trace-preservation theorem.
 
+The randomized recursive dynamic-HMC suite replays momentum, origin, Boolean
+doubling directions, and selection events. It checks Reference/Optimized
+agreement, deterministic seeded sampling, and the proved failure policy: a
+direction trace whose complete rooted row family fails reroot certification
+returns the current state without consuming a selector draw. This exercises
+the stationary checked-mixture boundary; it does not assert equivalence to an
+unchecked production NUTS recursion.
+
 Position-dependent generalized leapfrog now has Reference-versus-Optimized
 fixed-point tests using nonseparable derivatives, direct checks of both
 implicit residuals, public-API validation, and a check that approximate

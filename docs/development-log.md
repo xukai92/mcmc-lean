@@ -1,5 +1,15 @@
 # Development log
 
+- Activated randomized recursive-doubling dynamic HMC at the checked theorem
+  boundary. Lean now mixes arbitrary finite direction traces
+  state-independently, proving stationarity because each trace either passes
+  global reroot certification or is exactly the identity kernel. Julia exposes
+  `CheckedRecursiveDynamicHMC`, samples Boolean direction traces, executes the
+  Lean-generated recursive-exclusion descriptor, and preserves selector events
+  on failed certification. Differential replay, seeded reproducibility, and
+  validation tests are active. This is production-shaped checked execution,
+  not a proof that ordinary unchecked standard NUTS always certifies.
+
 - Packaged the complete finite shrinkage likelihood in point coordinates.
   Every rejected point contributes the checked reciprocal width of its current
   bracket and must be inside that bracket but below the sampled level; the
