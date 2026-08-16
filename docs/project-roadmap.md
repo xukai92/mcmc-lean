@@ -360,6 +360,8 @@ breadth branches are:
 - reversible-jump transports beyond the checked scalar and planar
   birth/death scaling clients. Product transport-density certificates now
   compose recursively and instantiate a three-dimensional scaling transport;
+  its complete Lean MH client is now mirrored by the executable
+  `SpatialBirthDeathRJ` Reference/Optimized transition and diagnostics;
   a genuinely nonlinear non-product cubic triangular shear now has an explicit
   curved-strip pushforward density and a complete tagged MH invariance theorem.
   Broader nonlinear diffeomorphism families remain a further extension;

@@ -6,7 +6,7 @@ using ..Runtime: AbstractRandomSource, draw_below!, standard_normal!, uniform_un
 using ..Certificates: ImplicitSolveCertificate, certify_implicit_solve,
     certifies_exact_solver
 
-export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_out_slice_step!, sheared_birth_death_step!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!, scalar_hmc_step!, vector_hmc_step!, metric_hmc_step!, multinomial_hmc_step!, metric_multinomial_hmc_step!, categorical_dhmc_step!,
+export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_out_slice_step!, sheared_birth_death_step!, spatial_birth_death_step!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!, scalar_hmc_step!, vector_hmc_step!, metric_hmc_step!, multinomial_hmc_step!, metric_multinomial_hmc_step!, categorical_dhmc_step!,
     finite_hmm_particle_gibbs_step!,
     relativistic_multinomial_hmc_step!,
     fixed_point_generalized_leapfrog,
@@ -168,6 +168,15 @@ function sheared_birth_death_step!(source::AbstractRandomSource, current)
     u1 = 2.0 * uniform_unit!(source) - 1.0
     u2 = 2.0 * uniform_unit!(source) - 1.0
     (2.0 * u1 + 8.0 * u2^3, 2.0 * u2)
+end
+
+"""Reference three-dimensional product-scaled birth/death update."""
+function spatial_birth_death_step!(source::AbstractRandomSource, current)
+    current === nothing ||
+        (current isa Tuple && length(current) == 3 && all(x -> x isa Real, current)) ||
+        throw(ArgumentError("spatial RJ state must be nothing or three reals"))
+    current === nothing || return nothing
+    ntuple(_ -> 4.0 * uniform_unit!(source) - 2.0, 3)
 end
 
 struct SList

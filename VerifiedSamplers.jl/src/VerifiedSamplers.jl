@@ -9,7 +9,7 @@ include("Certificates/Certificates.jl")
 include("Reference/Reference.jl")
 include("Optimized/Optimized.jl")
 
-export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, BoundedRejectionSlice, SteppingOutSlice, ShearedBirthDeathRJ, sheared_birth_unshear, TwoStateMH, GaussianRWMH, PositiveTransformedRWMH,
+export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, BoundedRejectionSlice, SteppingOutSlice, ShearedBirthDeathRJ, SpatialBirthDeathRJ, sheared_birth_unshear, TwoStateMH, GaussianRWMH, PositiveTransformedRWMH,
     WarmupGaussianRWMH, GaussianRWMHWarmupResult, warmup,
     ScalarHMC, VectorHMC, MultinomialHMC, CertifiedDynamicHMC,
     CheckedFirstStopDynamicHMC,
@@ -1416,6 +1416,31 @@ function sample(rng::AbstractRNG, sampler::ShearedBirthDeathRJ,
 end
 
 sample(sampler::ShearedBirthDeathRJ, initial, count::Integer) =
+    sample(Random.default_rng(), sampler, initial, count)
+
+"""Executable client of the proved three-dimensional product RJ transport."""
+struct SpatialBirthDeathRJ end
+
+function step(rng::AbstractRNG, ::SpatialBirthDeathRJ, current)
+    Reference.spatial_birth_death_step!(Runtime.RNGSource(rng), current)
+end
+
+step(sampler::SpatialBirthDeathRJ, current) =
+    step(Random.default_rng(), sampler, current)
+
+function sample(rng::AbstractRNG, sampler::SpatialBirthDeathRJ,
+        initial, count::Integer)
+    count >= 0 || throw(ArgumentError("sample count must be nonnegative"))
+    states = Vector{Union{Nothing,NTuple{3,Float64}}}(undef, count)
+    current = initial
+    for index in eachindex(states)
+        current = step(rng, sampler, current)
+        states[index] = current
+    end
+    states
+end
+
+sample(sampler::SpatialBirthDeathRJ, initial, count::Integer) =
     sample(Random.default_rng(), sampler, initial, count)
 
 """Per-output certificate for a finite dynamic trajectory builder.

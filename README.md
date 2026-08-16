@@ -128,7 +128,11 @@ determinant factor and yields a complete tagged-target invariance theorem. A
 genuinely nonlinear version shears that output to
 `(2u₁+8u₂³,2u₂)`; Julia exposes it as `ShearedBirthDeathRJ`, with matching
 Reference/Optimized traces, curved-strip checks, moment diagnostics, and
-seeded reproducibility tests.
+seeded reproducibility tests. The recursively composed three-dimensional
+product transport is executable as `SpatialBirthDeathRJ`; its independent
+Reference/Optimized implementations, exact trace behavior, coordinate support
+and moments, deterministic death, and reproducibility are tested against the
+corresponding complete Lean invariance client.
 
 Completed dynamic-trajectory candidate sets now also have a recursive binary
 barrier-tree representation. Lean proves their reroot certificate and

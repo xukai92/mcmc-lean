@@ -1,5 +1,14 @@
 # Development log
 
+- Connected the complete three-dimensional product reversible-jump theorem to
+  an executable `SpatialBirthDeathRJ` client. Birth applies the formally
+  certified coordinatewise scaling transport to three independent uniform
+  auxiliaries; death is deterministic. Independent Reference and Optimized
+  implementations agree under exact traces, while support, all three means
+  and variances, alternating model mass, reproducibility, and validation are
+  active tests. This closes the runtime gap for the existing product-composed
+  three-dimensional Lean client.
+
 - Extended the exact general-state slice interface to randomized horizontal
   updates. A measurable family of height/current-state kernels can now be
   mixed against an independent parameter law, and Lean proves weighted-target
