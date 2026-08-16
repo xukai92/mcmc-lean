@@ -11,7 +11,8 @@ include("Optimized/Optimized.jl")
 
 export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, BoundedRejectionSlice, SteppingOutSlice, ShearedBirthDeathRJ, sheared_birth_unshear, TwoStateMH, GaussianRWMH, PositiveTransformedRWMH,
     WarmupGaussianRWMH, GaussianRWMHWarmupResult, warmup,
-    ScalarHMC, VectorHMC, MultinomialHMC, MetricMultinomialHMC,
+    ScalarHMC, VectorHMC, MultinomialHMC, CertifiedDynamicHMC,
+    MetricMultinomialHMC,
     CategoricalDHMC,
     DiagonalMetric, DenseMetric, MetricHMC, RelativisticMultinomialHMC,
     GaussianSoftAbsGRHMC,
@@ -1692,6 +1693,89 @@ first_stop_endpoint_uturn_candidates(
         positions::AbstractVector{<:Real}, momenta::AbstractVector{<:Real}) =
     first_stop_endpoint_uturn_candidates([[Float64(q)] for q in positions],
         [[Float64(p)] for p in momenta])
+
+"""Certified conservative dynamic-trajectory HMC.
+
+Each transition refreshes Gaussian momentum, chooses a randomized origin in a
+fixed complete leapfrog orbit, constructs Lean-mirrored all-scales U-turn
+barriers on that complete orbit, and samples by Boltzmann weight within the
+certified reroot-invariant component containing the origin. This is an
+executable client of the checked dynamic-tree theorem. It is intentionally
+more conservative than root-dependent first-stop NUTS and is not claimed to
+be equivalent to standard NUTS.
+"""
+struct CertifiedDynamicHMC{F,G}
+    logdensity::F
+    gradient::G
+    step_size::Float64
+    steps::Int
+    function CertifiedDynamicHMC(logdensity::F, gradient::G, step_size::Real,
+            steps::Integer=15) where {F,G}
+        converted = Float64(step_size)
+        isfinite(converted) && converted > 0 ||
+            throw(ArgumentError("step size must be finite and positive"))
+        steps > 0 || throw(ArgumentError("trajectory length must be positive"))
+        new{F,G}(logdensity, gradient, converted, Int(steps))
+    end
+end
+
+function _certified_dynamic_hmc_step!(source::Runtime.AbstractRandomSource,
+        selector, sampler::CertifiedDynamicHMC,
+        current::AbstractVector{<:Real})
+    q = Float64.(current)
+    isempty(q) && throw(ArgumentError("position cannot be empty"))
+    all(isfinite, q) || throw(ArgumentError("position must be finite"))
+    p = [Runtime.standard_normal!(source) for _ in eachindex(q)]
+    origin = Int(Runtime.draw_below!(source, sampler.steps + 1))
+    for _ in 1:origin
+        q, p = Optimized.vector_leapfrog(sampler.gradient,
+            -sampler.step_size, q, p)
+    end
+    positions = Vector{Vector{Float64}}(undef, sampler.steps + 1)
+    momenta = similar(positions)
+    positions[1], momenta[1] = copy(q), copy(p)
+    for index in 2:(sampler.steps + 1)
+        q, p = Optimized.vector_leapfrog(sampler.gradient,
+            sampler.step_size, q, p)
+        positions[index], momenta[index] = copy(q), copy(p)
+    end
+    certificate = certified_spanning_uturn_partition(positions, momenta)
+    current_index = origin + 1
+    candidates = certificate.candidates[current_index]
+    logweights = [begin
+        value = Float64(sampler.logdensity(positions[index])) -
+            sum(abs2, momenta[index]) / 2
+        isfinite(value) || throw(DomainError(value,
+            "dynamic trajectory log weight must be finite"))
+        value
+    end for index in candidates]
+    selected = selector(source, candidates, logweights)
+    copy(positions[selected])
+end
+
+function step(rng::AbstractRNG, sampler::CertifiedDynamicHMC,
+        current::AbstractVector{<:Real})
+    _certified_dynamic_hmc_step!(Runtime.RNGSource(rng),
+        Reference.dynamic_select_float!, sampler, current)
+end
+
+step(sampler::CertifiedDynamicHMC, current::AbstractVector{<:Real}) =
+    step(Random.default_rng(), sampler, current)
+
+function sample(rng::AbstractRNG, sampler::CertifiedDynamicHMC,
+        initial::AbstractVector{<:Real}, count::Integer)
+    count >= 0 || throw(ArgumentError("sample count must be nonnegative"))
+    current = Float64.(initial)
+    samples = Matrix{Float64}(undef, length(current), count)
+    for index in axes(samples, 2)
+        current = step(rng, sampler, current)
+        samples[:, index] = current
+    end
+    samples
+end
+
+sample(sampler::CertifiedDynamicHMC, initial::AbstractVector{<:Real},
+        count::Integer) = sample(Random.default_rng(), sampler, initial, count)
 
 struct FiniteKernelWeights
     rows::Vector{Vector{BigInt}}

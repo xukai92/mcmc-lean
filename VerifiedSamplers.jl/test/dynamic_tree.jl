@@ -113,3 +113,45 @@
     @test_throws ArgumentError first_stop_endpoint_uturn_candidates(
         Vector{Vector{Float64}}(), Vector{Vector{Float64}}())
 end
+
+@testset "certified conservative dynamic HMC" begin
+    candidates = [1, 3, 4]
+    logweights = log.([1.0, 3.0, 2.0])
+    for draw in (0.0, 0.15, 0.65, prevfloat(1.0))
+        reference_source = Runtime.FloatTraceSource(
+            Runtime.FloatTraceEvent[Runtime.UniformEvent(draw)])
+        optimized_source = Runtime.FloatTraceSource(
+            Runtime.FloatTraceEvent[Runtime.UniformEvent(draw)])
+        @test Reference.dynamic_select_float!(reference_source,
+            candidates, logweights) ==
+            Optimized.dynamic_select_float!(optimized_source,
+                candidates, logweights)
+        @test Runtime.remaining(reference_source) == 0
+        @test Runtime.remaining(optimized_source) == 0
+    end
+    @test_throws DimensionMismatch Reference.dynamic_select_float!(
+        Runtime.FloatTraceSource(Runtime.FloatTraceEvent[]), [1], [0.0, 1.0])
+    @test_throws DomainError Optimized.dynamic_select_float!(
+        Runtime.FloatTraceSource(Runtime.FloatTraceEvent[]), [1], [Inf])
+
+    logdensity(q) = -sum(abs2, q) / 2
+    gradient(q) = q
+    sampler = CertifiedDynamicHMC(logdensity, gradient, 0.12, 8)
+    first_chain = sample(MersenneTwister(0xd1a), sampler, [0.2, -0.4], 20)
+    second_chain = sample(MersenneTwister(0xd1a), sampler, [0.2, -0.4], 20)
+    @test first_chain == second_chain
+    @test size(first_chain) == (2, 20)
+    @test all(isfinite, first_chain)
+
+    reference_source = Runtime.RNGSource(MersenneTwister(0x51ec7))
+    optimized_source = Runtime.RNGSource(MersenneTwister(0x51ec7))
+    reference = VerifiedSamplers._certified_dynamic_hmc_step!(reference_source,
+        Reference.dynamic_select_float!, sampler, [0.2, -0.4])
+    optimized = VerifiedSamplers._certified_dynamic_hmc_step!(optimized_source,
+        Optimized.dynamic_select_float!, sampler, [0.2, -0.4])
+    @test reference == optimized
+
+    @test_throws ArgumentError CertifiedDynamicHMC(logdensity, gradient, 0.0, 8)
+    @test_throws ArgumentError CertifiedDynamicHMC(logdensity, gradient, 0.1, 0)
+    @test_throws ArgumentError step(MersenneTwister(1), sampler, Float64[])
+end

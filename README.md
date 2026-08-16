@@ -135,9 +135,19 @@ barrier-tree representation. Lean proves their reroot certificate and
 target-weighted stationarity; Julia mirrors the aggregation and exposes a
 checked target-weighted selector that refuses invalid row families. A total
 safe wrapper instead falls back to the identity transition, which Lean also
-proves stationary for arbitrary rows. This is a
-usable conservative dynamic-tree transition, not yet an equivalence proof for
-a root-dependent standard NUTS builder.
+proves stationary for arbitrary rows. Julia's `CertifiedDynamicHMC` now makes
+this branch end-to-end executable: it constructs a randomized-origin leapfrog
+orbit, applies the Lean-mirrored all-scales U-turn barriers, and performs stable
+Boltzmann selection inside the certified component. Reference/Optimized
+selectors have exact trace conformance and the public sampler has seeded
+reproducibility coverage. This is a usable conservative dynamic-tree HMC
+transition, not yet an equivalence proof for a root-dependent standard NUTS
+builder. For example:
+
+```julia
+sampler = CertifiedDynamicHMC(q -> -sum(abs2, q) / 2, q -> q, 0.12, 8)
+draws = sample(MersenneTwister(42), sampler, zeros(2), 1_000)
+```
 
 Continuous-time samplers now begin in a separate `Mcmc.PDMP` namespace.
 Generator invariance, rate-biased jump-flux balance, and finite reversible-rate

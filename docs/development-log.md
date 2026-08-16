@@ -1,5 +1,15 @@
 # Development log
 
+- Added an end-to-end conservative dynamic-trajectory HMC client. Julia now
+  refreshes Gaussian momentum, constructs the complete randomized-origin
+  leapfrog orbit, computes the Lean-mirrored all-scales U-turn partition, and
+  samples by stable Boltzmann weights within the certified component containing
+  the origin. The floating selector has independent Reference and Optimized
+  implementations with deterministic trace conformance; the public
+  `CertifiedDynamicHMC` API has RNG dispatch, seeded reproducibility, and input
+  validation tests. This executes the proved reroot-invariant design and is
+  still deliberately distinct from root-dependent first-stop standard NUTS.
+
 - Made certified dynamic-tree execution total. For arbitrary completed
   candidate rows, Lean defines a checked wrapper that performs the proved
   target-weighted transition when reroot certification succeeds and otherwise

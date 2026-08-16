@@ -13,7 +13,35 @@ export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_ou
     relativistic_multinomial_hmc_step!,
     fixed_point_generalized_leapfrog,
     certified_relativistic_multinomial_hmc_step!,
+    dynamic_select_float!,
     categorical_dhmc_step!, leapfrog, vector_leapfrog
+
+"""Low-allocation counterpart of reference dynamic target-weighted selection."""
+function dynamic_select_float!(source::AbstractRandomSource,
+        candidates::AbstractVector{<:Integer},
+        logweights::AbstractVector{<:Real})
+    isempty(candidates) && throw(ArgumentError("candidate set cannot be empty"))
+    length(candidates) == length(logweights) ||
+        throw(DimensionMismatch("candidate indices and weights must match"))
+    offset = -Inf
+    for value in logweights
+        converted = Float64(value)
+        isfinite(converted) || throw(DomainError(logweights,
+            "dynamic target log weights must be finite"))
+        offset = max(offset, converted)
+    end
+    total = 0.0
+    for value in logweights
+        total += exp(Float64(value) - offset)
+    end
+    target = uniform_unit!(source) * total
+    cumulative = 0.0
+    for index in eachindex(logweights)
+        cumulative += exp(Float64(logweights[index]) - offset)
+        target < cumulative && return Int(candidates[index])
+    end
+    Int(last(candidates))
+end
 
 """Allocation-free categorical DHMC update, independent of the reference path."""
 function categorical_dhmc_step!(source::AbstractRandomSource,

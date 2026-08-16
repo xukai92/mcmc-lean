@@ -11,10 +11,35 @@ export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_ou
     relativistic_multinomial_hmc_step!,
     fixed_point_generalized_leapfrog,
     certified_relativistic_multinomial_hmc_step!,
+    dynamic_select_float!,
     coupled_multinomial_hmc_step!, coupled_gaussian_rwmh_step!, xu21_coupled_step!,
     IR_FORMAT_VERSION
 
 const IR_FORMAT_VERSION = 14
+
+"""Stable target-weighted selection from a supplied candidate index set.
+
+The surrounding checked-tree layer is responsible for reroot certification.
+"""
+function dynamic_select_float!(source::AbstractRandomSource,
+        candidates::AbstractVector{<:Integer},
+        logweights::AbstractVector{<:Real})
+    isempty(candidates) && throw(ArgumentError("candidate set cannot be empty"))
+    length(candidates) == length(logweights) ||
+        throw(DimensionMismatch("candidate indices and weights must match"))
+    values = Float64.(logweights)
+    all(isfinite, values) || throw(DomainError(logweights,
+        "dynamic target log weights must be finite"))
+    offset = maximum(values)
+    weights = exp.(values .- offset)
+    target = uniform_unit!(source) * sum(weights)
+    cumulative = 0.0
+    for index in eachindex(weights)
+        cumulative += weights[index]
+        target < cumulative && return Int(candidates[index])
+    end
+    Int(last(candidates))
+end
 
 """Reference coordinate-wise DHMC update for a categorical law on a cycle.
 
