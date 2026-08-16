@@ -55,6 +55,12 @@ moments, correlated and ill-conditioned Gaussian metrics, multinomial event
 ordering, and public sampling APIs. RWMH and HMC also have per-run bounded
 decision-certificate unit tests.
 
+Restricted-target tests decode the Lean-generated Gaussian expression, check
+its value and symbolic derivative, and reject non-finite exponential results.
+They now also construct exact dyadic Float64 certificates for `x²/2`: tests
+compare the stored ideal values and observed errors as `Rational{BigInt}`, so
+this polynomial check uses neither approximate BigFloat references nor libm.
+
 Position-dependent generalized leapfrog now has Reference-versus-Optimized
 fixed-point tests using nonseparable derivatives, direct checks of both
 implicit residuals, public-API validation, and a check that approximate

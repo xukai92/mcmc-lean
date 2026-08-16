@@ -88,6 +88,20 @@ end
     @test derivative == -exp(-0.7)
     @test_throws DomainError restricted_value_gradient(
         RestrictedExp(RestrictedConst(1000.0)), 0.0)
+
+    exact = certify_restricted_gaussian_float64(0.5)
+    @test exact.ideal_value == 1 // 8
+    @test iszero(exact.value_error)
+    @test iszero(exact.derivative_error)
+
+    rounded = certify_restricted_gaussian_float64(0.1)
+    x = Rational{BigInt}(0.1)
+    @test rounded.ideal_value == x^2 / 2
+    @test rounded.ideal_derivative == x
+    @test rounded.value_error ==
+        abs(Rational{BigInt}(rounded.computed_value) - x^2 / 2)
+    @test iszero(rounded.derivative_error)
+    @test_throws ArgumentError certify_restricted_gaussian_float64(Inf)
 end
 
 @testset "certified position-dependent relativistic interface" begin

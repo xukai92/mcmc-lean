@@ -18,7 +18,8 @@ export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, TwoStat
     CertifiedRelativisticMultinomialHMC,
     RestrictedExpr, RestrictedInput, RestrictedConst, RestrictedAdd,
     RestrictedMul, RestrictedNeg, RestrictedExp, restricted_value_gradient,
-    restricted_gaussian_potential,
+    restricted_gaussian_potential, RestrictedGaussianFloat64Certificate,
+    certify_restricted_gaussian_float64,
     Xu21CoupledSampler, ScopedInferenceOperator, ComposableSampler, covers,
     generated_schedule,
     ObservationCursor, observation_cursor, resume_observation, run_observations,
@@ -201,6 +202,40 @@ end
 
 const restricted_gaussian_potential = _restricted_from_ir(
     Reference.TARGETS["restricted-gaussian-potential"])
+
+"""Exact dyadic post-execution certificate for the generated Gaussian target.
+
+Every finite `Float64` is converted to its exact rational value. The ideal
+value `x²/2` and derivative `x` are therefore mathematical rationals, and the
+stored errors are exact rational differences from the Float64 execution. This
+uses no BigFloat approximation and no libm call. The Lean theorem identifying
+the generated artifact with `x²/2` supplies the formal semantic endpoint;
+transporting this Julia record into Lean remains an artifact-checking step.
+"""
+struct RestrictedGaussianFloat64Certificate
+    input::Float64
+    computed_value::Float64
+    computed_derivative::Float64
+    ideal_value::Rational{BigInt}
+    ideal_derivative::Rational{BigInt}
+    value_error::Rational{BigInt}
+    derivative_error::Rational{BigInt}
+end
+
+function certify_restricted_gaussian_float64(input::Real)
+    x = Float64(input)
+    isfinite(x) || throw(ArgumentError("input must be finite"))
+    value, derivative = restricted_value_gradient(restricted_gaussian_potential, x)
+    exact_input = Rational{BigInt}(x)
+    exact_value = exact_input^2 / 2
+    exact_derivative = exact_input
+    computed_value = Rational{BigInt}(value)
+    computed_derivative = Rational{BigInt}(derivative)
+    RestrictedGaussianFloat64Certificate(x, value, derivative,
+        exact_value, exact_derivative,
+        abs(computed_value - exact_value),
+        abs(computed_derivative - exact_derivative))
+end
 
 """A full-state transition annotated with the variables it may update.
 

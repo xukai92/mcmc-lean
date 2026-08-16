@@ -537,6 +537,12 @@ primitive rounding errors through the complete value and symbolic-gradient
 trees. A proved mean-value bound derives exponential argument transport from
 only the backend's local libm error, using the finite adaptive factor
 `exp(max(computed, ideal))`.
+For the generated polynomial Gaussian target, Julia now also emits an exact
+dyadic execution certificate: finite Float64 inputs and outputs are converted
+to mathematical `Rational{BigInt}` values, so the value and derivative errors
+against `x²/2` and `x` are exact and require neither BigFloat nor libm. Lean
+already proves that the generated target denotes those formulas; checking the
+Julia certificate artifact inside Lean remains a separate transport step.
 
 Executable randomized-origin multinomial HMC is available separately from
 endpoint-corrected HMC:

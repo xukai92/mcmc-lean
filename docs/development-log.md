@@ -1575,6 +1575,15 @@ different SoftAbs eigenvalue at zero. The resulting metric is genuinely
 position dependent and supplies the full Equation (12) derivative certificate.
 A nonzero-step contraction/volume solver for this target remains open.
 
+Closed the first executable polynomial Float64 certificate. The generated
+restricted Gaussian target can now be evaluated by Julia together with an
+exact dyadic record: `Rational{BigInt}` conversions preserve the precise
+Float64 input and outputs, and exact rational subtraction computes the value
+and derivative errors against `x²/2` and `x`. Tests cover exactly represented
+and rounded cases plus non-finite rejection. This avoids any BigFloat or libm
+trust for the polynomial client; importing/checking that record as a Lean
+artifact is still explicit future work.
+
 Extended the separate continuous-time branch with finite bounded-rate
 uniformization. `FiniteRateGenerator.uniformizedKernel` converts a rate matrix
 with off-diagonal exit rate bounded by `Λ` into the exact embedded Markov
