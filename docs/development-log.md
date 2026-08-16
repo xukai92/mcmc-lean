@@ -1,5 +1,16 @@
 # Development log
 
+- Closed the stopped-bracket rerooting calculation for practical slice
+  sampling. Valid integer allocations now have checked natural left/right
+  budgets; Lean handles positive and negative Neal grid displacements
+  separately, proves the rerooted initial endpoints and budgets absorb exactly
+  the certified in-slice prefixes, and obtains equality of both actually
+  stopped endpoints. Combining that equality with the finite rejected-point
+  recursion proves end-to-end forward/reverse successful-trace likelihood
+  symmetry. The remaining measure-level packaging is the countable
+  allocation/rejected-length stratification, not another algorithmic reversal
+  identity.
+
 - Added the stability implication missing from the fixed-horizon particle
   asymptotics. A nonnegative affine error recurrence with rate strictly below
   one is now bounded uniformly over every horizon by the initial error plus

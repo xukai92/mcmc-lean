@@ -214,6 +214,83 @@ def reverseAllocation (intervals : ℕ) (shift : ℤ) :
     apply Subtype.ext
     simp
 
+/-- Runtime natural-number representation of a valid integer allocation. -/
+def allocationSteps {intervals : ℕ} {shift : ℤ}
+    (allocation : ValidAllocation intervals shift) : ℕ :=
+  allocation.1.toNat
+
+theorem intCast_allocationSteps {intervals : ℕ} {shift : ℤ}
+    (allocation : ValidAllocation intervals shift) :
+    (allocationSteps allocation : ℤ) = allocation.1 := by
+  exact Int.toNat_of_nonneg allocation.2.1
+
+/-- For a nonnegative grid displacement, rerooting adds that many left
+expansion steps. -/
+theorem allocationSteps_reverse_of_nonneg
+    {intervals : ℕ} {shift : ℤ} (hshift : 0 ≤ shift)
+    (allocation : ValidAllocation intervals shift) :
+    allocationSteps (reverseAllocation intervals shift allocation) =
+      allocationSteps allocation + shift.toNat := by
+  apply Int.ofNat_injective
+  change (allocationSteps (reverseAllocation intervals shift allocation) : ℤ) =
+    (allocationSteps allocation : ℤ) + (shift.toNat : ℤ)
+  rw [intCast_allocationSteps, intCast_allocationSteps,
+    Int.toNat_of_nonneg hshift]
+  rfl
+
+/-- For a nonpositive displacement, the forward allocation has the extra
+left expansion steps relative to its rerooting. -/
+theorem allocationSteps_eq_reverse_add_of_nonpos
+    {intervals : ℕ} {shift : ℤ} (hshift : shift ≤ 0)
+    (allocation : ValidAllocation intervals shift) :
+    allocationSteps allocation =
+      allocationSteps (reverseAllocation intervals shift allocation) +
+        (-shift).toNat := by
+  apply Int.ofNat_injective
+  change (allocationSteps allocation : ℤ) =
+    (allocationSteps (reverseAllocation intervals shift allocation) : ℤ) +
+      ((-shift).toNat : ℤ)
+  rw [intCast_allocationSteps, intCast_allocationSteps,
+    Int.toNat_of_nonneg (neg_nonneg.mpr hshift)]
+  simp [reverseAllocation]
+
+theorem allocationSteps_lt {intervals : ℕ} {shift : ℤ}
+    (allocation : ValidAllocation intervals shift) :
+    allocationSteps allocation < intervals := by
+  have hcast := intCast_allocationSteps allocation
+  have hbound := allocation.2.2.1
+  omega
+
+/-- Remaining right-expansion budget when `intervals` possible allocations
+split a total budget of `intervals - 1`. -/
+def allocationRightSteps {intervals : ℕ} {shift : ℤ}
+    (allocation : ValidAllocation intervals shift) : ℕ :=
+  intervals - 1 - allocationSteps allocation
+
+theorem allocationRightSteps_eq_reverse_add_of_nonneg
+    {intervals : ℕ} {shift : ℤ} (hshift : 0 ≤ shift)
+    (allocation : ValidAllocation intervals shift) :
+    allocationRightSteps allocation = shift.toNat +
+      allocationRightSteps (reverseAllocation intervals shift allocation) := by
+  have hleft := allocationSteps_reverse_of_nonneg hshift allocation
+  have hold := allocationSteps_lt allocation
+  have hnew := allocationSteps_lt
+    (reverseAllocation intervals shift allocation)
+  unfold allocationRightSteps
+  omega
+
+theorem allocationRightSteps_reverse_eq_add_of_nonpos
+    {intervals : ℕ} {shift : ℤ} (hshift : shift ≤ 0)
+    (allocation : ValidAllocation intervals shift) :
+    allocationRightSteps (reverseAllocation intervals shift allocation) =
+      (-shift).toNat + allocationRightSteps allocation := by
+  have hleft := allocationSteps_eq_reverse_add_of_nonpos hshift allocation
+  have hold := allocationSteps_lt allocation
+  have hnew := allocationSteps_lt
+    (reverseAllocation intervals shift allocation)
+  unfold allocationRightSteps
+  omega
+
 /-- Expand the left endpoint by at most `steps` widths, stopping once the
 endpoint is outside the strict superlevel set. -/
 noncomputable def expandLeft (logDensity : ℝ → ℝ) (threshold width : ℝ) : ℕ → ℝ → ℝ
@@ -229,7 +306,7 @@ noncomputable def expandRight (logDensity : ℝ → ℝ) (threshold width : ℝ)
       if logDensity right ≤ threshold then right
       else expandRight logDensity threshold width steps (right + width)
 
-/-- A consumed of grid points known to lie strictly inside the slice can be
+/-- A prefix of grid points known to lie strictly inside the slice can be
 discarded from a leftward stepping-out scan. This is the recursion lemma used
 when rerooting an aligned bracket at another accepted slice point. -/
 theorem expandLeft_add_consumed (logDensity : ℝ → ℝ) (threshold width left : ℝ)
@@ -312,6 +389,190 @@ theorem expandRight_eq_of_aligned_shift
   subst newRight
   exact expandRight_add_consumed logDensity threshold width oldRight
     extra newSteps hinside
+
+/-! ### Stopped stepping-out under allocation rerooting -/
+
+/-- Left endpoint of the initial width-sized aligned bracket. -/
+noncomputable def initialLeft (width current offset : ℝ) : ℝ :=
+  current - width * offset
+
+/-- Right endpoint of the initial width-sized aligned bracket. -/
+noncomputable def initialRight (width current offset : ℝ) : ℝ :=
+  initialLeft width current offset + width
+
+/-- Rerooting translates the initial left endpoint by exactly the integer grid
+shift encoded by Neal's fractional offset reversal. -/
+theorem initialLeft_reverseOffset
+    {width old new offset : ℝ} (hwidth : width ≠ 0) :
+    initialLeft width new (reverseOffset width old new offset) =
+      initialLeft width old offset +
+        width * alignmentShift width old new offset := by
+  have hmax := maximalLeftEndpoint_reverse
+    (width := width) (old := old) (new := new) (offset := offset)
+    (allocation := 0) hwidth
+  simp only [initialLeft]
+  linarith
+
+theorem initialRight_reverseOffset
+    {width old new offset : ℝ} (hwidth : width ≠ 0) :
+    initialRight width new (reverseOffset width old new offset) =
+      initialRight width old offset +
+        width * alignmentShift width old new offset := by
+  rw [initialRight, initialRight, initialLeft_reverseOffset hwidth]
+  ring
+
+/-- The actually stopped left endpoint is unchanged by rerooting a valid
+allocation. The two hypotheses are the exact interior-grid obligations for
+the two possible signs of the integer displacement. -/
+theorem expandLeft_reverseAllocation
+    (logDensity : ℝ → ℝ) (threshold : ℝ)
+    {width old new offset : ℝ} (hwidth : width ≠ 0)
+    {intervals : ℕ} {shift : ℤ}
+    (hshift : shift = ⌊offset + (new - old) / width⌋)
+    (allocation : ValidAllocation intervals shift)
+    (hinsideNonneg : 0 ≤ shift → ∀ index < shift.toNat,
+      threshold < logDensity
+        (initialLeft width new (reverseOffset width old new offset) -
+          (index : ℝ) * width))
+    (hinsideNonpos : shift ≤ 0 → ∀ index < (-shift).toNat,
+      threshold < logDensity
+        (initialLeft width old offset - (index : ℝ) * width)) :
+    expandLeft logDensity threshold width (allocationSteps allocation)
+        (initialLeft width old offset) =
+      expandLeft logDensity threshold width
+        (allocationSteps (reverseAllocation intervals shift allocation))
+        (initialLeft width new (reverseOffset width old new offset)) := by
+  have hshiftReal : (shift : ℝ) = alignmentShift width old new offset := by
+    rw [alignmentShift_eq_floor hwidth, hshift]
+  have hstart := initialLeft_reverseOffset
+    (width := width) (old := old) (new := new) (offset := offset) hwidth
+  by_cases hsign : 0 ≤ shift
+  · symm
+    apply expandLeft_eq_of_aligned_shift logDensity threshold width
+      (initialLeft width new (reverseOffset width old new offset))
+      (initialLeft width old offset) shift.toNat
+      (allocationSteps (reverseAllocation intervals shift allocation))
+      (allocationSteps allocation)
+    · rw [hstart, ← hshiftReal]
+      have hshiftNat : (shift.toNat : ℝ) = (shift : ℝ) := by
+        exact_mod_cast Int.toNat_of_nonneg hsign
+      rw [hshiftNat]
+      ring
+    · rw [allocationSteps_reverse_of_nonneg hsign]
+      omega
+    · exact hinsideNonneg hsign
+  · have hsign' : shift ≤ 0 := le_of_not_ge hsign
+    apply expandLeft_eq_of_aligned_shift logDensity threshold width
+      (initialLeft width old offset)
+      (initialLeft width new (reverseOffset width old new offset))
+      (-shift).toNat (allocationSteps allocation)
+      (allocationSteps (reverseAllocation intervals shift allocation))
+    · rw [hstart, ← hshiftReal]
+      have hshiftNat : ((-shift).toNat : ℝ) = ((-shift : ℤ) : ℝ) := by
+        exact_mod_cast Int.toNat_of_nonneg (neg_nonneg.mpr hsign')
+      rw [hshiftNat]
+      push_cast
+      ring
+    · simpa [add_comm] using
+        allocationSteps_eq_reverse_add_of_nonpos hsign' allocation
+    · exact hinsideNonpos hsign'
+
+/-- The actually stopped right endpoint is likewise unchanged. Its budget
+changes oppositely because the valid allocation splits one fixed total number
+of expansion steps between the two bracket sides. -/
+theorem expandRight_reverseAllocation
+    (logDensity : ℝ → ℝ) (threshold : ℝ)
+    {width old new offset : ℝ} (hwidth : width ≠ 0)
+    {intervals : ℕ} {shift : ℤ}
+    (hshift : shift = ⌊offset + (new - old) / width⌋)
+    (allocation : ValidAllocation intervals shift)
+    (hinsideNonneg : 0 ≤ shift → ∀ index < shift.toNat,
+      threshold < logDensity
+        (initialRight width old offset + (index : ℝ) * width))
+    (hinsideNonpos : shift ≤ 0 → ∀ index < (-shift).toNat,
+      threshold < logDensity
+        (initialRight width new (reverseOffset width old new offset) +
+          (index : ℝ) * width)) :
+    expandRight logDensity threshold width
+        (allocationRightSteps allocation) (initialRight width old offset) =
+      expandRight logDensity threshold width
+        (allocationRightSteps (reverseAllocation intervals shift allocation))
+        (initialRight width new (reverseOffset width old new offset)) := by
+  have hshiftReal : (shift : ℝ) = alignmentShift width old new offset := by
+    rw [alignmentShift_eq_floor hwidth, hshift]
+  have hstart := initialRight_reverseOffset
+    (width := width) (old := old) (new := new) (offset := offset) hwidth
+  by_cases hsign : 0 ≤ shift
+  · apply expandRight_eq_of_aligned_shift logDensity threshold width
+      (initialRight width old offset)
+      (initialRight width new (reverseOffset width old new offset))
+      shift.toNat (allocationRightSteps allocation)
+      (allocationRightSteps (reverseAllocation intervals shift allocation))
+    · rw [hstart, ← hshiftReal]
+      have hshiftNat : (shift.toNat : ℝ) = (shift : ℝ) := by
+        exact_mod_cast Int.toNat_of_nonneg hsign
+      rw [hshiftNat]
+      ring
+    · exact allocationRightSteps_eq_reverse_add_of_nonneg hsign allocation
+    · exact hinsideNonneg hsign
+  · have hsign' : shift ≤ 0 := le_of_not_ge hsign
+    symm
+    apply expandRight_eq_of_aligned_shift logDensity threshold width
+      (initialRight width new (reverseOffset width old new offset))
+      (initialRight width old offset) (-shift).toNat
+      (allocationRightSteps (reverseAllocation intervals shift allocation))
+      (allocationRightSteps allocation)
+    · rw [hstart, ← hshiftReal]
+      have hshiftNat : ((-shift).toNat : ℝ) = ((-shift : ℤ) : ℝ) := by
+        exact_mod_cast Int.toNat_of_nonneg (neg_nonneg.mpr hsign')
+      rw [hshiftNat]
+      push_cast
+      ring
+    · exact allocationRightSteps_reverse_eq_add_of_nonpos hsign' allocation
+    · exact hinsideNonpos hsign'
+
+/-- The complete stopped stepping-out bracket for a valid allocation. -/
+noncomputable def steppedBracket (logDensity : ℝ → ℝ) (threshold width current offset : ℝ)
+    {intervals : ℕ} {shift : ℤ} (allocation : ValidAllocation intervals shift) :
+    ℝ × ℝ :=
+  (expandLeft logDensity threshold width (allocationSteps allocation)
+      (initialLeft width current offset),
+    expandRight logDensity threshold width (allocationRightSteps allocation)
+      (initialRight width current offset))
+
+/-- Neal's offset/allocation rerooting produces exactly the same actually
+stopped bracket, provided the finite intervening aligned endpoints are inside
+the sampled slice. This closes the recursive stepping-out equality itself;
+the hypotheses are subsequently packaged into the successful-trace set. -/
+theorem steppedBracket_reverseAllocation
+    (logDensity : ℝ → ℝ) (threshold : ℝ)
+    {width old new offset : ℝ} (hwidth : width ≠ 0)
+    {intervals : ℕ} {shift : ℤ}
+    (hshift : shift = ⌊offset + (new - old) / width⌋)
+    (allocation : ValidAllocation intervals shift)
+    (hleftNonneg : 0 ≤ shift → ∀ index < shift.toNat,
+      threshold < logDensity
+        (initialLeft width new (reverseOffset width old new offset) -
+          (index : ℝ) * width))
+    (hleftNonpos : shift ≤ 0 → ∀ index < (-shift).toNat,
+      threshold < logDensity
+        (initialLeft width old offset - (index : ℝ) * width))
+    (hrightNonneg : 0 ≤ shift → ∀ index < shift.toNat,
+      threshold < logDensity
+        (initialRight width old offset + (index : ℝ) * width))
+    (hrightNonpos : shift ≤ 0 → ∀ index < (-shift).toNat,
+      threshold < logDensity
+        (initialRight width new (reverseOffset width old new offset) +
+          (index : ℝ) * width)) :
+    steppedBracket logDensity threshold width old offset allocation =
+      steppedBracket logDensity threshold width new
+        (reverseOffset width old new offset)
+        (reverseAllocation intervals shift allocation) := by
+  apply Prod.ext
+  · exact expandLeft_reverseAllocation logDensity threshold hwidth hshift
+      allocation hleftNonneg hleftNonpos
+  · exact expandRight_reverseAllocation logDensity threshold hwidth hshift
+      allocation hrightNonneg hrightNonpos
 
 /-- Bounded shrinkage driven by uniform fractions. An empty list before the
 budget is exhausted denotes a malformed trace; consuming the whole attempt
@@ -455,6 +716,55 @@ theorem shrinkTraceWeight_symmetric
   unfold shrinkTraceWeight acceptedPointWeight
   rw [hweight, ← hbracket]
   simp [hold, hnew]
+
+/-- End-to-end pointwise likelihood symmetry for a successful bounded
+stepping-out/shrinkage trace. The stopped-bracket theorem discharges the only
+algorithmic mismatch between the two rerootings; the rejected and accepted
+point densities then agree exactly. -/
+theorem successfulSteppingShrinkTraceWeight_symmetric
+    (logDensity : ℝ → ℝ) (threshold : ℝ)
+    {width old new offset : ℝ} (hwidth : width ≠ 0)
+    {intervals : ℕ} {shift : ℤ}
+    (hshift : shift = ⌊offset + (new - old) / width⌋)
+    (allocation : ValidAllocation intervals shift)
+    (hleftNonneg : 0 ≤ shift → ∀ index < shift.toNat,
+      threshold < logDensity
+        (initialLeft width new (reverseOffset width old new offset) -
+          (index : ℝ) * width))
+    (hleftNonpos : shift ≤ 0 → ∀ index < (-shift).toNat,
+      threshold < logDensity
+        (initialLeft width old offset - (index : ℝ) * width))
+    (hrightNonneg : 0 ≤ shift → ∀ index < shift.toNat,
+      threshold < logDensity
+        (initialRight width old offset + (index : ℝ) * width))
+    (hrightNonpos : shift ≤ 0 → ∀ index < (-shift).toNat,
+      threshold < logDensity
+        (initialRight width new (reverseOffset width old new offset) +
+          (index : ℝ) * width))
+    {rejected : List ℝ}
+    (hsame : ∀ point ∈ rejected, (point < old) = (point < new))
+    (hold : old ∈ Set.Ico
+        (shrinkRejectedPoints old rejected
+          (steppedBracket logDensity threshold width old offset allocation)).1
+        (shrinkRejectedPoints old rejected
+          (steppedBracket logDensity threshold width old offset allocation)).2 ∧
+      threshold ≤ logDensity old)
+    (hnew : new ∈ Set.Ico
+        (shrinkRejectedPoints old rejected
+          (steppedBracket logDensity threshold width old offset allocation)).1
+        (shrinkRejectedPoints old rejected
+          (steppedBracket logDensity threshold width old offset allocation)).2 ∧
+      threshold ≤ logDensity new) :
+    shrinkTraceWeight logDensity threshold old rejected new
+        (steppedBracket logDensity threshold width old offset allocation) =
+      shrinkTraceWeight logDensity threshold new rejected old
+        (steppedBracket logDensity threshold width new
+          (reverseOffset width old new offset)
+          (reverseAllocation intervals shift allocation)) := by
+  have hbracket := steppedBracket_reverseAllocation logDensity threshold
+    hwidth hshift allocation hleftNonneg hleftNonpos hrightNonneg hrightNonpos
+  rw [← hbracket]
+  exact shrinkTraceWeight_symmetric logDensity threshold hsame hold hnew
 
 /-! ### Accepted-proposal affine reversal -/
 
