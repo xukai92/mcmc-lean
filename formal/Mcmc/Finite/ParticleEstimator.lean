@@ -206,6 +206,42 @@ def independentPopulation (law : Particle → Distribution Sample) :
     rw [← Fintype.prod_sum]
     simp [Distribution.sum_mass]
 
+omit [Nonempty Particle] in
+/-- Product Fubini: independently sample parents and then conditionally
+independent children coordinatewise, or independently sample directly from
+each coordinate's bound law. -/
+theorem independentPopulation_bind_eq_independentPopulation_bind
+    {Parent Child : Type*} [Fintype Parent] [Fintype Child]
+    [DecidableEq Parent] [DecidableEq Child]
+    (parentLaw : Particle → Distribution Parent)
+    (childLaw : Particle → Parent → Distribution Child) :
+    Distribution.bind (independentPopulation parentLaw) (fun parents =>
+      independentPopulation (fun i => childLaw i (parents i))) =
+      independentPopulation (fun i =>
+        Distribution.bind (parentLaw i) (childLaw i)) := by
+  apply Distribution.ext
+  funext children
+  unfold Distribution.bind independentPopulation
+  change (∑ parents : Particle → Parent,
+      (∏ i, (parentLaw i).mass (parents i)) *
+        ∏ i, (childLaw i (parents i)).mass (children i)) =
+    ∏ i, ∑ parent,
+      (parentLaw i).mass parent * (childLaw i parent).mass (children i)
+  calc
+    (∑ parents : Particle → Parent,
+        (∏ i, (parentLaw i).mass (parents i)) *
+          ∏ i, (childLaw i (parents i)).mass (children i)) =
+      ∑ parents : Particle → Parent, ∏ i,
+        ((parentLaw i).mass (parents i) *
+          (childLaw i (parents i)).mass (children i)) := by
+        apply Finset.sum_congr rfl
+        intro parents _
+        rw [Finset.prod_mul_distrib]
+    _ = _ := (Fintype.prod_sum
+      (f := fun i : Particle => fun parent : Parent =>
+        (parentLaw i).mass parent *
+          (childLaw i parent).mass (children i))).symm
+
 omit [DecidableEq Sample] [Nonempty Particle] in
 /-- A coordinate-wise independent population has full support when every
 coordinate law does. -/
@@ -968,6 +1004,145 @@ theorem forcedResamplePropagate_lineageExtensionFraction_ge
       transition particles ancestors nextRetained nextState desired marked
   · exact (forcedIndependentPopulation (fun _ : Particle => weights)
       nextRetained retained).nonneg ancestors
+
+omit [Nonempty Particle] in
+/-- Every ordinary child of a forced resample--propagate stage has exactly the
+same joint `(updated label, state)` marginal: first draw its parent from the
+normalized weights, then propagate from that parent's state. This is the
+coordinate-level precursor of the joint-population disintegration used by the
+recursive PG induction. -/
+theorem forcedResamplePropagate_label_coordinate_expectation
+    {Label : Type*} (extend : Label → Sample → Label)
+    (weights : Distribution Particle) (transition : MarkovKernel Sample)
+    (particles : Particle → Sample) (labels : Particle → Label)
+    (retained nextRetained : Particle) (nextState : Sample)
+    (i : Particle) (hi : i ≠ nextRetained)
+    (observable : Label → Sample → ℝ) :
+    (∑ ancestors,
+      (forcedIndependentPopulation (fun _ : Particle => weights)
+        nextRetained retained).mass ancestors *
+        ∑ next,
+          (forcedIndependentPopulation
+            (fun j => rowDistribution transition (particles (ancestors j)))
+            nextRetained nextState).mass next *
+            observable (extend (labels (ancestors i)) (next i)) (next i)) =
+      ∑ parent, weights.mass parent *
+        ∑ y, transition.prob (particles parent) y *
+          observable (extend (labels parent) y) y := by
+  let childScore : Particle → ℝ := fun parent =>
+    ∑ y, transition.prob (particles parent) y *
+      observable (extend (labels parent) y) y
+  have hinner (ancestors : Particle → Particle) :
+      (∑ next,
+        (forcedIndependentPopulation
+          (fun j => rowDistribution transition (particles (ancestors j)))
+          nextRetained nextState).mass next *
+          observable (extend (labels (ancestors i)) (next i)) (next i)) =
+        childScore (ancestors i) := by
+    rw [forcedIndependentPopulation_coordinate_expectation
+      (fun j => rowDistribution transition (particles (ancestors j)))
+      nextRetained nextState
+      (fun y => observable (extend (labels (ancestors i)) y) y) i]
+    simp only [hi, if_false]
+    rfl
+  simp_rw [hinner]
+  rw [forcedIndependentPopulation_coordinate_expectation]
+  simp [hi, childScore]
+
+/-- Joint law of one ordinary labeled child after resampling and propagation. -/
+def resamplePropagateLabelDistribution {Label : Type*}
+    [Fintype Label] [DecidableEq Label]
+    (extend : Label → Sample → Label)
+    (weights : Distribution Particle) (transition : MarkovKernel Sample)
+    (particles : Particle → Sample) (labels : Particle → Label) :
+    Distribution (Label × Sample) :=
+  Distribution.bind weights fun parent =>
+    Distribution.map (rowDistribution transition (particles parent)) fun y =>
+      (extend (labels parent) y, y)
+
+/-- Joint labeled population for one forced resample--propagate stage. The
+retained child is fixed; every ordinary child independently samples a parent
+and propagated state. -/
+def forcedResamplePropagateLabelPopulation {Label : Type*}
+    [Fintype Label] [DecidableEq Label]
+    (extend : Label → Sample → Label)
+    (weights : Distribution Particle) (transition : MarkovKernel Sample)
+    (particles : Particle → Sample) (labels : Particle → Label)
+    (retained nextRetained : Particle) (nextState : Sample) :
+    Distribution (Particle → (Label × Sample)) :=
+  Distribution.bind
+    (forcedIndependentPopulation (fun _ : Particle => weights)
+      nextRetained retained) fun ancestors =>
+    independentPopulation fun i =>
+      if i = nextRetained then
+        pointDistribution (extend (labels retained) nextState, nextState)
+      else
+        Distribution.map
+          (rowDistribution transition (particles (ancestors i))) fun y =>
+            (extend (labels (ancestors i)) y, y)
+
+omit [Nonempty Particle] in
+/-- The forced joint labeled population is exactly an independent population
+with one forced coordinate and a common ordinary-child law. -/
+theorem forcedResamplePropagateLabelPopulation_eq_forcedIndependent
+    {Label : Type*} [Fintype Label] [DecidableEq Label]
+    (extend : Label → Sample → Label)
+    (weights : Distribution Particle) (transition : MarkovKernel Sample)
+    (particles : Particle → Sample) (labels : Particle → Label)
+    (retained nextRetained : Particle) (nextState : Sample) :
+    forcedResamplePropagateLabelPopulation extend weights transition particles labels
+        retained nextRetained nextState =
+      forcedIndependentPopulation
+        (fun _ : Particle =>
+          resamplePropagateLabelDistribution extend weights transition particles labels)
+        nextRetained (extend (labels retained) nextState, nextState) := by
+  unfold forcedResamplePropagateLabelPopulation
+  let parentLaw : Particle → Distribution Particle := fun i =>
+    if i = nextRetained then pointDistribution retained else weights
+  let childLaw : Particle → Particle → Distribution (Label × Sample) :=
+    fun i parent =>
+      if i = nextRetained then
+        pointDistribution (extend (labels retained) nextState, nextState)
+      else Distribution.map
+        (rowDistribution transition (particles parent)) fun y =>
+          (extend (labels parent) y, y)
+  change Distribution.bind (independentPopulation parentLaw) (fun ancestors =>
+      independentPopulation (fun i => childLaw i (ancestors i))) = _
+  rw [independentPopulation_bind_eq_independentPopulation_bind]
+  unfold forcedIndependentPopulation
+  apply Distribution.ext
+  funext children
+  unfold independentPopulation
+  apply Finset.prod_congr rfl
+  intro i _
+  by_cases hi : i = nextRetained
+  · subst i
+    simp [parentLaw, childLaw, pointDistribution]
+  · change (Distribution.bind (parentLaw i) (childLaw i)).mass (children i) = _
+    simp only [parentLaw, childLaw, hi, if_false]
+    rfl
+
+omit [DecidableEq Particle] [Nonempty Particle] in
+/-- Expectations under the joint ordinary-child law are the familiar
+resample-then-propagate double sum. -/
+theorem resamplePropagateLabelDistribution_expectation {Label : Type*}
+    [Fintype Label] [DecidableEq Label]
+    (extend : Label → Sample → Label)
+    (weights : Distribution Particle) (transition : MarkovKernel Sample)
+    (particles : Particle → Sample) (labels : Particle → Label)
+    (observable : Label → Sample → ℝ) :
+    (∑ child,
+      (resamplePropagateLabelDistribution extend weights transition particles labels).mass
+          child * observable child.1 child.2) =
+      ∑ parent, weights.mass parent *
+        ∑ y, transition.prob (particles parent) y *
+          observable (extend (labels parent) y) y := by
+  unfold resamplePropagateLabelDistribution
+  rw [Distribution.bind_expectation]
+  apply Finset.sum_congr rfl
+  intro parent _
+  rw [Distribution.map_expectation]
+  rfl
 
 /-- Conditional propagation law after a vector of ancestor indices has been
 drawn. -/

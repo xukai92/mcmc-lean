@@ -1,5 +1,16 @@
 # Development log
 
+- Lifted the forced resample--propagate stage to joint `(label,state)`
+  populations. A generic product-Fubini theorem proves that independently
+  sampled parents followed by conditionally independent children equal an
+  independent population of the coordinatewise bind laws. Lean then proves
+  that the forced labeled child cloud is exactly a common ordinary-child joint
+  law with one forced coordinate; its coordinate expectation is also reduced
+  to the explicit resample/transition double sum. This supplies the population
+  independence needed to apply the sharp self-normalization theorem inside the
+  lineage recursion. The next local bridge identifies this packaged joint law
+  with the existing separate ancestor/next-particle suffix representation.
+
 - Completed the finite forced-cloud self-normalization theorem underlying the
   candidate PG stage factor. After disintegrating at each ordinary coordinate,
   Lean applies the two-coordinate reciprocal bound and sums all `N-1`
