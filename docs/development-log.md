@@ -3,6 +3,21 @@
 Entries through the earlier 2026-08-13 work are preserved in the
 [development-log archive](development-log-archive.md).
 
+## 2026-08-16: quantitative forced-lineage PG bridge
+
+Added a quantitative lift--evolve--project theorem for finite collapsed
+conditional kernels: a single compatible extended-state edge lower-bounds the
+corresponding collapsed transition by its exact conditional mass times its
+evolution probability. The count-indexed particle-Gibbs layer now packages
+the remaining model estimate as `ForcedLineageParticleGibbsBound`, stated on
+one shared particle history, and transports it automatically to the existing
+bounded-potential minorization and geometric-TV theorems. Primitive
+full-support initial and transition laws also prove positivity of every
+trajectory-target mass, eliminating that support premise from the numerical
+task. The sharper displayed coefficient is not yet derived from pointwise
+potential/transition bounds; the remaining work is precisely the explicit
+forced-lineage history-density inequality.
+
 ## 2026-08-15: finite continuous-time event schedules
 
 Extended the Poissonized fixed-event skeleton with ordered real timestamps.

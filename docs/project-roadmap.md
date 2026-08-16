@@ -189,7 +189,13 @@ The pre-Xu dependency order is:
    construct a conservative refresh certificate and TV convergence directly
    for every explicit `N ≥ 2`. Deriving the sharper displayed minorization from
    primitive potential and transition bounds for the recursive forced-lineage
-   generator remains the next quantitative model-level obligation.
+   generator remains the next quantitative model-level obligation. The proof
+   boundary is now narrower than a collapsed-kernel assumption:
+   `ForcedLineageParticleGibbsBound` asks for one shared-history density bound,
+   and its `toMinorization` constructor transports that bound through exact
+   conditional lift, uniform terminal-index refresh, and trajectory projection.
+   Primitive full support separately proves every trajectory fiber positive,
+   so only the quantitative history-density comparison remains.
 7. adaptive-MCMC boundary -- finite state-dependent kernel selection and a
    counterexample where two frozen target-invariant kernels combine into a
    non-invariant selected kernel are complete. Predetermined nonhomogeneous law

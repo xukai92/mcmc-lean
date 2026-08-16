@@ -98,6 +98,123 @@ structure BoundedPotentialParticleGibbsMinorization
       (countedTrajectoryParticleGibbsKernel initial steps hnormalizer extra).prob
         current proposed
 
+/-- A model-facing forced-lineage certificate for the displayed PG
+minorization.  Unlike a bound on the already-collapsed kernel, its inequality
+is stated on one shared particle history: conditional-SMC selects the history
+from the current trajectory fiber, and the uniform index refresh selects the
+proposed lineage.  Primitive potential/transition estimates can therefore be
+proved directly against the explicit `historyLaw` density. -/
+structure ForcedLineageParticleGibbsBound
+    (initial : Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : 0 < normalizingConstant initial steps) (extra : ℕ)
+    (bound : ℝ) where
+  currentFiber_pos : ∀ current,
+    0 < (countedTrajectoryTarget initial steps hnormalizer extra).mass current
+  witness : ∀ current proposed,
+    ∃ history : History (Particle := Fin (extra + 1)) steps,
+      ∃ currentIndex proposedIndex : Fin (extra + 1),
+        selectedTrajectoryVector steps (history, currentIndex) = current ∧
+        selectedTrajectoryVector steps (history, proposedIndex) = proposed ∧
+        particleGibbsCountCoefficient extra bound (steps.length + 1) *
+            (countedTrajectoryTarget initial steps hnormalizer extra).mass proposed ≤
+          (selectedParticleTarget (Particle := Fin (extra + 1))
+              initial steps hnormalizer).mass (history, currentIndex) /
+            (countedTrajectoryTarget initial steps hnormalizer extra).mass current /
+            Fintype.card (Fin (extra + 1))
+
+/-- Primitive full-support assumptions make every count-indexed trajectory
+target mass positive.  Thus the support premise in a forced-lineage bound is
+not an additional quantitative hypothesis for the bounded finite models. -/
+theorem countedTrajectoryTarget_mass_pos_of_fullSupport
+    [Nonempty Sample]
+    (initial : Distribution Sample) (hinitial : ∀ x, 0 < initial.mass x)
+    (steps : List (FeynmanKacStep Sample))
+    (hsupport : FeynmanKacFullSupport steps)
+    (hnormalizer : 0 < normalizingConstant initial steps)
+    (extra : ℕ) (current : Trajectory steps) :
+    0 < (countedTrajectoryTarget initial steps hnormalizer extra).mass current := by
+  let proposedIndex : Fin (extra + 1) := ⟨0, by omega⟩
+  let history := pairedHistoryAt proposedIndex steps current current
+  have hextended : 0 <
+      (selectedParticleTarget (Particle := Fin (extra + 1))
+        initial steps hnormalizer).mass (history, proposedIndex) :=
+    selectedParticleTarget_mass_pos initial hinitial steps hsupport
+      hnormalizer (history, proposedIndex)
+  have hfiber := Mcmc.Finite.Conditional.fiberMass_pos_of_mass_pos
+    (selectedParticleTarget (Particle := Fin (extra + 1))
+      initial steps hnormalizer)
+    (selectedTrajectoryVector steps) (history, proposedIndex) hextended
+  have htrajectory :
+      selectedTrajectoryVector steps (history, proposedIndex) = current := by
+    exact selectedTrajectoryVector_pairedHistoryAt_proposed
+      proposedIndex steps current current
+  rw [htrajectory] at hfiber
+  change 0 < (Mcmc.Finite.Conditional.statisticMarginal
+    (selectedParticleTarget (Particle := Fin (extra + 1))
+      initial steps hnormalizer) (selectedTrajectoryVector steps)).mass current
+  rw [Mcmc.Finite.Conditional.statisticMarginal_mass]
+  exact hfiber
+
+/-- A forced-lineage density bound implies the pointwise minorization needed
+by the count-indexed convergence theorem. -/
+noncomputable def ForcedLineageParticleGibbsBound.toMinorization
+    {initial : Distribution Sample} {steps : List (FeynmanKacStep Sample)}
+    {hnormalizer : 0 < normalizingConstant initial steps} {extra : ℕ}
+    {bound : ℝ} (hextra : 0 < extra) (hbound : 0 < bound)
+    (certificate : ForcedLineageParticleGibbsBound
+      initial steps hnormalizer extra bound) :
+    BoundedPotentialParticleGibbsMinorization
+      initial steps hnormalizer extra where
+  bound := bound
+  extra_pos := hextra
+  bound_pos := hbound
+  minorization current proposed := by
+    obtain ⟨history, currentIndex, proposedIndex, hcurrent, hproposed, hmass⟩ :=
+      certificate.witness current proposed
+    have hfiberEq :
+        Mcmc.Finite.Conditional.fiberMass
+            (selectedParticleTarget (Particle := Fin (extra + 1))
+              initial steps hnormalizer)
+            (selectedTrajectoryVector steps) current =
+          (countedTrajectoryTarget initial steps hnormalizer extra).mass current := by
+      rw [← Mcmc.Finite.Conditional.statisticMarginal_mass]
+      rfl
+    have hfiber : 0 < Mcmc.Finite.Conditional.fiberMass
+        (selectedParticleTarget (Particle := Fin (extra + 1))
+          initial steps hnormalizer)
+        (selectedTrajectoryVector steps) current := by
+      rw [hfiberEq]
+      exact certificate.currentFiber_pos current
+    refine hmass.trans ?_
+    have hedge :=
+      Mcmc.Finite.Conditional.conditional_mass_mul_evolve_le_collapsedKernel_prob
+        (selectedParticleTarget (Particle := Fin (extra + 1))
+          initial steps hnormalizer)
+        (selectedTrajectoryVector steps)
+        (selectedIndexRefreshKernel (Particle := Fin (extra + 1)) steps)
+        current proposed (history, currentIndex) (history, proposedIndex)
+        hcurrent hproposed hfiber
+    rw [hfiberEq] at hedge
+    have hedgeEq :
+        (selectedIndexRefreshKernel (Particle := Fin (extra + 1)) steps).prob
+            (history, currentIndex) (history, proposedIndex) =
+          1 / Fintype.card (Fin (extra + 1)) := by
+      simp [selectedIndexRefreshKernel, MarkovKernel.liftSnd,
+        uniformIndexKernel]
+    rw [hedgeEq] at hedge
+    change
+      (selectedParticleTarget (Particle := Fin (extra + 1))
+            initial steps hnormalizer).mass (history, currentIndex) /
+          (countedTrajectoryTarget initial steps hnormalizer extra).mass current /
+          Fintype.card (Fin (extra + 1)) ≤
+        (Mcmc.Finite.Conditional.collapsedKernel
+          (selectedParticleTarget (Particle := Fin (extra + 1))
+            initial steps hnormalizer)
+          (selectedTrajectoryVector steps)
+          (selectedIndexRefreshKernel (Particle := Fin (extra + 1)) steps)).prob
+            current proposed
+    simpa [div_eq_mul_inv] using hedge
+
 /-- A bounded-potential minorization yields an explicit refresh decomposition
 for the count-indexed positive-horizon trajectory kernel. -/
 noncomputable def BoundedPotentialParticleGibbsMinorization.toRefresh
