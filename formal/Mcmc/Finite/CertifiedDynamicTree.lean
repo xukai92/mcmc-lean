@@ -390,4 +390,55 @@ theorem vectorSpanningUTurnKernel_stationary
       htarget).Stationary target :=
   lineBarrierKernel_stationary _ target htarget
 
+/-! ### Recursive aggregation of completed dynamic subtrees -/
+
+/-- A completed binary dynamic tree records the barrier at each join.  A
+`true` join excludes communication between its two completed subtrees; a
+`false` join admits their leaves into one candidate component.  This is a
+root-independent completed-tree representation, not a first-U-turn stopping
+procedure. -/
+inductive RecursiveBarrierTree where
+  | leaf
+  | node (left : RecursiveBarrierTree) (blocked : Bool)
+      (right : RecursiveBarrierTree)
+deriving DecidableEq
+
+/-- In-order barrier sequence obtained by recursively aggregating completed
+subtrees. -/
+def RecursiveBarrierTree.barriers : RecursiveBarrierTree → List Bool
+  | .leaf => []
+  | .node left blocked right =>
+      left.barriers ++ blocked :: right.barriers
+
+/-- Candidate components represented by a completed recursive tree. -/
+def RecursiveBarrierTree.candidates (tree : RecursiveBarrierTree)
+    (root : Fin (tree.barriers.length + 1)) :
+    Finset (Fin (tree.barriers.length + 1)) :=
+  lineBarrierCandidates tree.barriers root
+
+/-- Recursive subtree aggregation always produces a checked, reroot-invariant
+completed candidate tree. -/
+@[simp] theorem RecursiveBarrierTree.check_candidates
+    (tree : RecursiveBarrierTree) :
+    CertifiedDynamicTree.check tree.candidates = true :=
+  check_lineBarrierCandidates tree.barriers
+
+/-- The checked tree constructed from recursive subtree joins is definitionally
+the canonical barrier-partition tree. -/
+theorem RecursiveBarrierTree.ofCheck_candidates_eq (tree : RecursiveBarrierTree) :
+    (CertifiedDynamicTree.ofCheck tree.candidates tree.check_candidates).candidates =
+      lineBarrierCandidates tree.barriers := by
+  rfl
+
+/-- Target-weighted selection within recursively aggregated completed
+subtrees is stationary. -/
+theorem RecursiveBarrierTree.kernel_stationary
+    (tree : RecursiveBarrierTree)
+    (target : Distribution (Fin (tree.barriers.length + 1)))
+    (htarget : ∀ state, 0 < target.mass state) :
+    (dynamicCandidateKernel target
+      ((lineBarrierTree tree.barriers).toCandidateSet target)
+      htarget).Stationary target :=
+  lineBarrierKernel_stationary tree.barriers target htarget
+
 end Mcmc.Finite.MarkovKernel

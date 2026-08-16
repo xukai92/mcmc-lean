@@ -1,5 +1,14 @@
 # Development log
 
+- Added a proof-bearing recursive representation for completed dynamic
+  trajectory trees. Internal joins recursively concatenate their subtree
+  barriers, the resulting candidate rows pass the executable reroot checker,
+  and target-weighted selection is stationary. The Julia mirror constructs
+  and tests the same recursive barrier aggregation. This closes recursive
+  aggregation for the repository's conservative completed-tree design; it
+  deliberately does not claim equivalence with root-dependent standard NUTS
+  stopping.
+
 - Refined the remaining Gaussian Zig-Zag/BPS weak-forward obligation into two
   independently checkable statements. `CompactTestWeakExpectationUniqueness`
   records uniqueness of every scalar test expectation, while

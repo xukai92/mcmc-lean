@@ -22,6 +22,17 @@
         [collect(1:4) for _ in 1:4]
     @test certified_orbit_partition(fill(true, 3)).candidates == [[1], [2], [3], [4]]
 
+    recursive = RecursiveBarrierNode(
+        RecursiveBarrierNode(RecursiveBarrierLeaf(), false,
+            RecursiveBarrierLeaf()),
+        true,
+        RecursiveBarrierNode(RecursiveBarrierLeaf(), false,
+            RecursiveBarrierLeaf()))
+    @test recursive_barriers(recursive) == Bool[false, true, false]
+    recursive_partition = certified_recursive_partition(recursive)
+    @test recursive_partition.valid
+    @test recursive_partition.candidates == [[1, 2], [1, 2], [3, 4], [3, 4]]
+
     uturn = certified_scalar_uturn_partition(
         [0.0, 1.0, 1.5, 1.25, 0.5], [1.0, 0.8, 0.2, -0.5, -0.8])
     @test uturn.valid

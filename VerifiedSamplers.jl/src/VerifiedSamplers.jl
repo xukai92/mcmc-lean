@@ -30,6 +30,8 @@ export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, Bounded
     Xu21CoupledSampler, coupled_meeting_time,
     ScopedInferenceOperator, ComposableSampler, covers,
     DynamicTreeCertificate, certify_dynamic_tree, certified_orbit_partition,
+    RecursiveBarrierTree, RecursiveBarrierLeaf, RecursiveBarrierNode,
+    recursive_barriers, certified_recursive_partition,
     certified_scalar_uturn_partition,
     certified_vector_uturn_partition,
     certified_spanning_uturn_partition,
@@ -1471,6 +1473,32 @@ function certified_orbit_partition(barriers::AbstractVector{Bool})
     certificate.valid || error("internal orbit-partition certificate failure")
     certificate
 end
+
+"""Root-independent completed binary tree mirrored by Lean's recursive tree.
+
+Each internal node records whether the join between its completed left and
+right subtrees is blocked. It deliberately represents aggregation after tree
+completion; it is not a root-dependent first-U-turn stopping algorithm.
+"""
+abstract type RecursiveBarrierTree end
+
+struct RecursiveBarrierLeaf <: RecursiveBarrierTree end
+
+struct RecursiveBarrierNode <: RecursiveBarrierTree
+    left::RecursiveBarrierTree
+    blocked::Bool
+    right::RecursiveBarrierTree
+end
+
+recursive_barriers(::RecursiveBarrierLeaf) = Bool[]
+function recursive_barriers(tree::RecursiveBarrierNode)
+    vcat(recursive_barriers(tree.left), tree.blocked,
+        recursive_barriers(tree.right))
+end
+
+"""Certify the candidate partition obtained by recursive subtree joins."""
+certified_recursive_partition(tree::RecursiveBarrierTree) =
+    certified_orbit_partition(recursive_barriers(tree))
 
 """Build a certified scalar orbit partition from adjacent endpoint U-turns.
 
