@@ -5,10 +5,11 @@ import Mathlib.MeasureTheory.Group.Prod
 # A non-product reversible-jump transport
 
 This client postcomposes the certified planar scaling birth move with the
-volume-preserving shear `(x,y) ↦ (x+y,y)`.  The resulting triangular map
-`(u₁,u₂) ↦ (2u₁+2u₂,2u₂)` is genuinely non-product.  Its
-pushforward density is `1/16` on a parallelogram, and the certificate feeds a
-complete tagged reversible-jump Metropolis--Hastings invariance theorem.
+nonlinear volume-preserving shear `(x,y) ↦ (x+y³,y)`. The resulting triangular
+map `(u₁,u₂) ↦ (2u₁+8u₂³,2u₂)` is genuinely nonlinear and
+non-product. Its pushforward density is `1/16` on a curved strip, and the
+certificate feeds a complete tagged reversible-jump Metropolis--Hastings
+invariance theorem.
 -/
 
 open MeasureTheory Set
@@ -23,11 +24,11 @@ open Mcmc.Examples.PlanarBirthDeathReversibleJump
 abbrev Plane := ℝ × ℝ
 abbrev State := Unit ⊕ Plane
 
-/-- Unit-determinant triangular shear. -/
-def shear (y : Plane) : Plane := (y.1 + y.2, y.2)
+/-- Nonlinear unit-determinant triangular shear. -/
+def shear (y : Plane) : Plane := (y.1 + y.2 ^ 3, y.2)
 
 /-- Explicit inverse of `shear`. -/
-def unshear (y : Plane) : Plane := (y.1 - y.2, y.2)
+def unshear (y : Plane) : Plane := (y.1 - y.2 ^ 3, y.2)
 
 @[simp] theorem unshear_shear (y : Plane) : unshear (shear y) = y := by
   ext <;> simp [shear, unshear]
@@ -59,26 +60,38 @@ theorem measurable_shearedDensity :
     Measurable (Function.uncurry shearedDensity) := by
   exact measurable_shearedDensity_fixed.comp measurable_snd
 
-/-- The shear preserves two-dimensional Lebesgue measure. -/
+/-- The nonlinear shear preserves two-dimensional Lebesgue measure. -/
 theorem shear_measurePreserving :
     MeasurePreserving shear (volume.prod volume) (volume.prod volume) := by
-  change MeasurePreserving (fun z : ℝ × ℝ => (z.1 + z.2, z.2))
-    (volume.prod volume) (volume.prod volume)
-  exact measurePreserving_add_prod (volume : Measure ℝ) (volume : Measure ℝ)
+  let swap : ℝ × ℝ → ℝ × ℝ := fun z => (z.2, z.1)
+  have hswap : MeasurePreserving swap
+      (volume.prod volume) (volume.prod volume) :=
+    Measure.measurePreserving_swap
+  have hskew : MeasurePreserving (fun z : ℝ × ℝ =>
+      (z.1, z.2 + z.1 ^ 3)) (volume.prod volume) (volume.prod volume) := by
+    refine MeasurePreserving.skew_product
+      (g := fun y x : ℝ => x + y ^ 3)
+      (MeasurePreserving.id (volume : Measure ℝ)) ?_ ?_
+    · fun_prop
+    · filter_upwards [] with y
+      exact map_add_right_eq_self volume (y ^ 3)
+  change MeasurePreserving (fun z : ℝ × ℝ =>
+    (z.1 + z.2 ^ 3, z.2)) (volume.prod volume) (volume.prod volume)
+  simpa [swap, Function.comp_def] using hswap.comp (hskew.comp hswap)
 
 private def square : Set Plane := Ioc (-2) 2 ×ˢ Ioc (-2) 2
 
-private def parallelogram : Set Plane := unshear ⁻¹' square
+private def curvedStrip : Set Plane := unshear ⁻¹' square
 
 private theorem measurableSet_square : MeasurableSet square :=
   measurableSet_Ioc.prod measurableSet_Ioc
 
-private theorem measurableSet_parallelogram : MeasurableSet parallelogram :=
+private theorem measurableSet_curvedStrip : MeasurableSet curvedStrip :=
   measurableSet_square.preimage measurable_unshear
 
-private theorem shear_preimage_parallelogram : shear ⁻¹' parallelogram = square := by
+private theorem shear_preimage_curvedStrip : shear ⁻¹' curvedStrip = square := by
   ext y
-  simp only [mem_preimage, parallelogram, unshear_shear]
+  simp only [mem_preimage, curvedStrip, unshear_shear]
 
 private theorem planarDensity_eq_indicator : planarDensity () =
     square.indicator (fun _ => (16 : ENNReal)⁻¹) := by
@@ -99,15 +112,15 @@ private theorem planar_withDensity_eq :
 
 private theorem sheared_withDensity_eq :
     (volume.prod volume).withDensity (shearedDensity ()) =
-      (16 : ENNReal)⁻¹ • (volume.prod volume).restrict parallelogram := by
+      (16 : ENNReal)⁻¹ • (volume.prod volume).restrict curvedStrip := by
   have hdensity : shearedDensity () =
-      parallelogram.indicator (fun _ => (16 : ENNReal)⁻¹) := by
+      curvedStrip.indicator (fun _ => (16 : ENNReal)⁻¹) := by
     funext y
     unfold shearedDensity
     rw [planarDensity_eq_indicator]
     by_cases h : unshear y ∈ square <;>
-      simp [parallelogram, h]
-  rw [hdensity, withDensity_indicator measurableSet_parallelogram,
+      simp [curvedStrip, h]
+  rw [hdensity, withDensity_indicator measurableSet_curvedStrip,
     withDensity_const]
 
 /-- Exact non-product change-of-variables identity. -/
@@ -119,11 +132,11 @@ theorem map_planarAuxiliary_sheared :
       (planarCertificate.measurableTransport ()),
     map_planarAuxiliary, planar_withDensity_eq, Measure.map_smul]
   have hrestrict :
-      (Measure.map shear (volume.prod volume)).restrict parallelogram =
+      (Measure.map shear (volume.prod volume)).restrict curvedStrip =
         Measure.map shear
-          ((volume.prod volume).restrict (shear ⁻¹' parallelogram)) :=
-    Measure.restrict_map (measurable_shear) measurableSet_parallelogram
-  rw [shear_preimage_parallelogram] at hrestrict
+          ((volume.prod volume).restrict (shear ⁻¹' curvedStrip)) :=
+    Measure.restrict_map (measurable_shear) measurableSet_curvedStrip
+  rw [shear_preimage_curvedStrip] at hrestrict
   rw [← hrestrict, shear_measurePreserving.map_eq, sheared_withDensity_eq]
 
 /-- Machine-checked transport-density certificate for the triangular birth
@@ -143,7 +156,7 @@ instance reference.instSFinite : SFinite reference := by
   infer_instance
 
 /-- Half the target mass is on the empty model and half has the transported
-parallelogram density on the planar model. -/
+curved-strip density on the planar model. -/
 noncomputable def weight : State → ENNReal
   | Sum.inl _ => (2 : ENNReal)⁻¹
   | Sum.inr y => (2 : ENNReal)⁻¹ * shearedDensity () y

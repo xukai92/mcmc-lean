@@ -2669,10 +2669,11 @@ robustness/performance test groups.
 ## 2026-08-16: non-product reversible-jump client
 
 Added a complete triangular-shear birth/death client. The dimension-matching
-map `(u₁,u₂) ↦ (2u₁+2u₂,2u₂)` is not a product transport. Lean
-uses the additive-group shear theorem to prove its unit-determinant
-postcomposition preserves planar volume, derives the inverse-Jacobian density
-`1/16` on the sheared parallelogram, and packages the exact auxiliary
+map `(u₁,u₂) ↦ (2u₁+8u₂³,2u₂)` is nonlinear and not a product
+transport. Lean factors the cubic triangular map into swaps and a measurable
+translation skew product to prove that its unit-determinant postcomposition
+preserves planar volume, derives the inverse-Jacobian density
+`1/16` on the nonlinear sheared curved strip, and packages the exact auxiliary
 pushforward as a transport-density certificate. The resulting tagged proposal
 is normalized and its reversible-jump MH transition preserves the intended
 tagged target.
