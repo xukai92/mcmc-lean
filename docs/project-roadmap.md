@@ -339,7 +339,12 @@ breadth branches are:
   move. The root-independent all-scales construction is now exposed as the
   end-to-end Julia `CertifiedDynamicHMC` sampler with differential selector and
   reproducibility tests. Equivalence with a root-dependent standard
-  dynamic-NUTS builder remains;
+  dynamic-NUTS builder remains. A root-dependent first-endpoint-U-turn client
+  is now executable end to end as `CheckedFirstStopDynamicHMC`: it constructs
+  every rooted row, selects only when the complete family passes the proved
+  reroot condition, and otherwise takes the proved identity fallback without
+  a selection draw. Recursive random doubling and subtree exclusion remain
+  the standard-NUTS-specific gap;
 - stepping-out/shrinkage beyond the exact disintegration, finite integer slice,
   and bounded-interval continuous rejection implementation. A practical
   Reference/Optimized real-line stepping-out sampler is now tested; its

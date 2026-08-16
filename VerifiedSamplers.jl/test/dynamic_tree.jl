@@ -155,3 +155,47 @@ end
     @test_throws ArgumentError CertifiedDynamicHMC(logdensity, gradient, 0.1, 0)
     @test_throws ArgumentError step(MersenneTwister(1), sampler, Float64[])
 end
+
+@testset "checked first-stop dynamic HMC" begin
+    flat_logdensity(q) = 0.0
+    zero_gradient(q) = zero(q)
+    sampler = CheckedFirstStopDynamicHMC(flat_logdensity, zero_gradient, 0.5, 2)
+
+    # Constant positive momentum gives one common completed row from every
+    # root, so certification succeeds and consumes the selector draw.
+    events = Runtime.FloatTraceEvent[
+        Runtime.NormalEvent(1.0), Runtime.IndexEvent(1),
+        Runtime.UniformEvent(0.0)]
+    reference_source = Runtime.FloatTraceSource(copy(events))
+    optimized_source = Runtime.FloatTraceSource(copy(events))
+    reference = VerifiedSamplers._checked_first_stop_dynamic_hmc_step!(
+        reference_source, Reference.dynamic_select_float!, sampler, [0.0])
+    optimized = VerifiedSamplers._checked_first_stop_dynamic_hmc_step!(
+        optimized_source, Optimized.dynamic_select_float!, sampler, [0.0])
+    @test reference == optimized == [-0.5]
+    @test Runtime.remaining(reference_source) == 0
+    @test Runtime.remaining(optimized_source) == 0
+
+    # This harmonic orbit produces root-dependent incompatible stopped rows.
+    # The checked-or-identity boundary retains the current state and consumes
+    # no selector event.
+    normal_logdensity(q) = -sum(abs2, q) / 2
+    normal_gradient(q) = q
+    rejected = CheckedFirstStopDynamicHMC(
+        normal_logdensity, normal_gradient, 1.0, 4)
+    rejected_source = Runtime.FloatTraceSource(Runtime.FloatTraceEvent[
+        Runtime.NormalEvent(1.0), Runtime.IndexEvent(0),
+        Runtime.UniformEvent(0.2)])
+    @test VerifiedSamplers._checked_first_stop_dynamic_hmc_step!(
+        rejected_source, Reference.dynamic_select_float!, rejected, [0.0]) == [0.0]
+    @test Runtime.remaining(rejected_source) == 1
+
+    first_chain = sample(MersenneTwister(0xf1757), sampler, [0.0], 20)
+    second_chain = sample(MersenneTwister(0xf1757), sampler, [0.0], 20)
+    @test first_chain == second_chain
+    @test size(first_chain) == (1, 20)
+    @test_throws ArgumentError CheckedFirstStopDynamicHMC(
+        flat_logdensity, zero_gradient, 0.0, 2)
+    @test_throws ArgumentError CheckedFirstStopDynamicHMC(
+        flat_logdensity, zero_gradient, 0.5, 0)
+end

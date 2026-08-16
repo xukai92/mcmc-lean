@@ -141,12 +141,21 @@ orbit, applies the Lean-mirrored all-scales U-turn barriers, and performs stable
 Boltzmann selection inside the certified component. Reference/Optimized
 selectors have exact trace conformance and the public sampler has seeded
 reproducibility coverage. This is a usable conservative dynamic-tree HMC
-transition, not yet an equivalence proof for a root-dependent standard NUTS
-builder. For example:
+transition. Julia now also exposes `CheckedFirstStopDynamicHMC`: it builds
+root-dependent first-endpoint-U-turn rows on the complete orbit, runs the
+Lean-mirrored global reroot check, selects only when that certificate succeeds,
+and otherwise performs the proved-safe identity fallback without consuming a
+selection draw. This makes the standard-like first-stop boundary directly
+executable and diagnostic, but is not yet an equivalence proof for recursive
+doubling/subtree-exclusion NUTS. For example:
 
 ```julia
 sampler = CertifiedDynamicHMC(q -> -sum(abs2, q) / 2, q -> q, 0.12, 8)
 draws = sample(MersenneTwister(42), sampler, zeros(2), 1_000)
+
+checked = CheckedFirstStopDynamicHMC(
+    q -> -sum(abs2, q) / 2, q -> q, 0.12, 8)
+checked_draws = sample(MersenneTwister(42), checked, zeros(2), 1_000)
 ```
 
 Continuous-time samplers now begin in a separate `Mcmc.PDMP` namespace.

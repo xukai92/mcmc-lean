@@ -1,5 +1,16 @@
 # Development log
 
+- Added an end-to-end checked root-dependent first-stop HMC experiment. For
+  each transition Julia constructs the randomized-origin complete leapfrog
+  orbit, builds endpoint-U-turn stopped rows from every possible root, and
+  applies the same global reroot certificate consumed by Lean's
+  checked-or-identity theorem. Certified rows use stable Boltzmann selection;
+  rejected row families retain the current position and consume no selector
+  randomness. Reference/Optimized selector traces, the rejection fallback,
+  seeded reproducibility, and validation are tested. This exposes rather than
+  erases the remaining distinction from recursive doubling and subtree
+  exclusion in standard NUTS.
+
 - Added the general-state convergence closure needed by indefinitely adapting
   chains. `EventwiseWithin` expresses uniform measurable-event error without a
   finite-state sum, is symmetric, and composes by an additive triangle
