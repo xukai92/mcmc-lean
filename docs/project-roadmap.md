@@ -576,8 +576,12 @@ by paper date:
   positive-half quadratic potential along translation. The embedded signed
   event kernel is now constructed and Markov; from a negative event-start
   state it forgets the old position, resets to `-sqrt(2E)`, and flips velocity.
-  Its negative-Rayleigh event-epoch invariance and Gaussian cycle-occupation
-  identity are the next regenerative obligations. Splitting a horizon
+  Its negative-Rayleigh/uniform event-epoch law is now proved invariant. Two
+  independent consecutive resets cover signed position `s` with probability
+  `exp(-s²/2)`, so the coverage-density occupation measure is proved to be
+  `sqrt(2π)` times the standard Gaussian and its normalized phase-space form
+  is the exact target. What remains is the Tonelli identification with literal
+  cycle time occupation and the stationary-renewal shift theorem. Splitting a horizon
   between events is still correctly treated as a law-level argument rather
   than a pointwise semigroup identity;
 2. bare Gaussian SoftAbs GR-HMC convergence -- complete for the concrete

@@ -1,5 +1,19 @@
 # Development log
 
+- Closed the embedded-event invariant law and the pointwise regenerative
+  coverage calculation. The negative-Rayleigh reset measure is normalized,
+  supported on negative positions almost surely, and has exact tail
+  `exp(-r²/2)`. The concrete signed event kernel is almost surely the product
+  reset kernel under its event-epoch target, so Lean proves that target
+  invariant. For two independent consecutive resets, the probability that
+  their unit-speed cycle covers any signed position `s` is exactly
+  `exp(-s²/2)`. The resulting coverage-density occupation measure is
+  `sqrt(2π)` times the standard Gaussian, and its normalized phase-space form
+  is exactly the Gaussian/equal-velocity target. The remaining bridge to
+  horizon-kernel stationarity is the Tonelli/Fubini theorem identifying this
+  coverage-density measure with literal time occupation of the regenerative
+  path, followed by the stationary-renewal shift argument.
+
 - Began the regenerative event-epoch layer for the signed Gaussian process.
   Lean now has the actual embedded signed event kernel and proves it Markov.
   Every row is exactly the pushforward of one fresh exponential hazard; from
