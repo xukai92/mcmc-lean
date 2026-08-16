@@ -69,8 +69,12 @@ makedocs(
         prettyurls = get(ENV, "CI", "false") == "true",
         assets = ["assets/mermaid.js"],
         repolink = "https://github.com/xukai92/mcmc-lean",
-        size_threshold_warn = 275 * 2^10,
-        size_threshold = 300 * 2^10,
+        # The theorem-level development log is intentionally detailed and its
+        # rendered HTML includes Documenter's navigation metadata. Keep a
+        # modest headroom above the current page while older epochs continue
+        # to move to development-log-archive.md.
+        size_threshold_warn = 325 * 2^10,
+        size_threshold = 350 * 2^10,
         inventory_version = "dev",
     ),
     pages = pages,
