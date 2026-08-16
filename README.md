@@ -192,6 +192,9 @@ The normalized Gaussian-position/equal-velocity target is now explicit and
 proved a probability measure, and the stopped horizon family is proved exactly
 the identity kernel at time zero; these parts no longer remain premises of the
 forward-equation certificate.
+The Julia inverse clock now uses the Lean-proved cancellation-free quotient on
+the positive-signed branch, avoiding `sqrt(a²+2E)-a` underflow for large `a`;
+an extreme-scale regression test protects this executable refinement.
 An additional constant-rate telegraph client gives a nontrivial flow-driven
 stationarity instance. Lean proves that every linear flow and rate-matched
 velocity flip preserves equal velocity mass times Lebesgue position, lifts

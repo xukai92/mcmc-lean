@@ -463,7 +463,12 @@ function gaussian_zigzag_waiting_time(position::Real, velocity::Integer,
     isfinite(e) && e > 0 ||
         throw(ArgumentError("exponential hazard draw must be finite and positive"))
     a = velocity * q
-    wait = a >= 0 ? sqrt(a * a + 2 * e) - a : -a + sqrt(2 * e)
+    if a >= 0
+        root = sqrt(a * a + 2 * e)
+        wait = (2 * e) / (root + a)
+    else
+        wait = -a + sqrt(2 * e)
+    end
     isfinite(wait) && wait >= 0 ||
         throw(DomainError(wait, "Gaussian Zig-Zag waiting time must be finite"))
     wait

@@ -266,6 +266,31 @@ theorem gaussianZigZagWaitingTime_nonneg
     linarith [Real.sqrt_le_sqrt hsquare]
   · exact add_nonneg (neg_nonneg.mpr (le_of_not_ge ha)) (Real.sqrt_nonneg _)
 
+/-- Cancellation-free form of the inverse clock when the signed position is
+nonnegative. This is the algebraic identity used by the Float64 runtime for
+large positive signed positions. -/
+theorem gaussianZigZagWaitingTime_eq_stable_of_nonneg
+    (q : ℝ) (v : Bool) {exponentialDraw : ℝ}
+    (hdraw : 0 < exponentialDraw)
+    (ha : 0 ≤ zigZagVelocity v * q) :
+    gaussianZigZagWaitingTime q v exponentialDraw =
+      (2 * exponentialDraw) /
+        (Real.sqrt ((zigZagVelocity v * q) ^ 2 + 2 * exponentialDraw) +
+          zigZagVelocity v * q) := by
+  let a := zigZagVelocity v * q
+  change (if 0 ≤ a then Real.sqrt (a ^ 2 + 2 * exponentialDraw) - a
+    else -a + Real.sqrt (2 * exponentialDraw)) =
+      (2 * exponentialDraw) /
+        (Real.sqrt (a ^ 2 + 2 * exponentialDraw) + a)
+  rw [if_pos ha]
+  have hrad : 0 ≤ a ^ 2 + 2 * exponentialDraw := by positivity
+  have hsqrtPos : 0 < Real.sqrt (a ^ 2 + 2 * exponentialDraw) :=
+    Real.sqrt_pos.2 (by nlinarith [sq_nonneg a])
+  have hdenom : Real.sqrt (a ^ 2 + 2 * exponentialDraw) + a ≠ 0 := by
+    positivity
+  field_simp
+  nlinarith [Real.sq_sqrt hrad]
+
 /-- The closed-form waiting time inverts the integrated Gaussian Zig-Zag
 hazard exactly. -/
 theorem gaussianZigZagIntegratedRate_waitingTime

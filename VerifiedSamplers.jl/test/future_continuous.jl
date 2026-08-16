@@ -700,6 +700,9 @@ end
                 (wait <= -a ? 0.0 : (a + wait)^2 / 2)
             @test integrated ≈ e atol=2e-14
         end
+        extreme_wait = gaussian_zigzag_waiting_time(1e16, 1, 1.0)
+        @test extreme_wait > 0
+        @test extreme_wait ≈ 1e-16 rtol=2e-15
         sampler = GaussianZigZag(0.5)
         first = sample(MersenneTwister(0x2192), sampler, (0.0, 1), 40_000)
         second = sample(MersenneTwister(0x2192), sampler, (0.0, 1), 40_000)

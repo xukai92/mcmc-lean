@@ -38,6 +38,10 @@
   state almost surely, and yields the exact kernel identity `P₀ = id`. The
   specialized Gaussian forward-equation certificate therefore exposes only
   its genuine differentiability/zero-derivative fields.
+  The executable inverse clock also now follows a Lean-proved stable algebraic
+  form on the positive-signed branch, `2E/(sqrt(a²+2E)+a)`, instead of the
+  cancellation-prone subtraction. Julia tests include `a = 10^16`, where the
+  former expression rounds to zero but the stable wait remains positive.
 
 - Proved a fixed-padded-schedule correspondence for the bounded PDMP executor:
   augmented execution retains the supplied schedule and its state marginal is
