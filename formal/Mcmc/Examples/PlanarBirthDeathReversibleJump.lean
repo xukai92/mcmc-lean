@@ -92,6 +92,11 @@ abbrev Space3 := Plane × ℝ
 noncomputable def spatialAuxiliary : Measure Space3 :=
   planarAuxiliary.prod birthAuxiliary
 
+instance spatialAuxiliary.instIsProbabilityMeasure :
+    IsProbabilityMeasure spatialAuxiliary := by
+  unfold spatialAuxiliary
+  infer_instance
+
 def spatialTransport (_ : Unit) (u : Space3) : Space3 :=
   (planarTransport () u.1, birthTransport () u.2)
 
@@ -208,5 +213,121 @@ theorem invariant :
     (reversibleJumpMetropolisHastings reference weight spec).Invariant
       (densityTarget reference weight) :=
   reversibleJumpMetropolisHastings_invariant reference weight measurable_weight spec
+
+/-! ### Fully instantiated three-dimensional client -/
+
+abbrev SpatialState := Sum Unit Space3
+
+theorem measurable_spatialDensity_fixed : Measurable (spatialDensity ()) := by
+  unfold spatialDensity
+  exact measurable_planarDensity_fixed.comp measurable_fst |>.mul
+    (by
+      unfold birthDensity
+      exact (Measurable.ite measurableSet_Ioc measurable_const
+        measurable_const).comp measurable_snd)
+
+theorem spatialDensity_ne_top (y : Space3) : spatialDensity () y ≠ ∞ := by
+  unfold spatialDensity
+  exact ENNReal.mul_ne_top (planarDensity_ne_top y.1) (by
+    unfold birthDensity
+    split_ifs <;> simp)
+
+noncomputable def spatialReference : Measure SpatialState :=
+  twoModelReference (Measure.dirac ()) ((volume.prod volume).prod volume)
+
+instance spatialReference.instSFinite : SFinite spatialReference := by
+  unfold spatialReference
+  infer_instance
+
+noncomputable def spatialWeight : SpatialState → ENNReal
+  | Sum.inl _ => (2 : ENNReal)⁻¹
+  | Sum.inr y => (2 : ENNReal)⁻¹ * spatialDensity () y
+
+noncomputable def spatialProposalDensity : SpatialState → SpatialState → ENNReal
+  | Sum.inl _, Sum.inr y => spatialDensity () y
+  | Sum.inr _, Sum.inl _ => 1
+  | _, _ => 0
+
+theorem spatialWeight_ne_top (x : SpatialState) : spatialWeight x ≠ ∞ := by
+  cases x with
+  | inl x => simp [spatialWeight]
+  | inr x => exact ENNReal.mul_ne_top (by norm_num) (spatialDensity_ne_top x)
+
+theorem spatialProposalDensity_ne_top (x y : SpatialState) :
+    spatialProposalDensity x y ≠ ∞ := by
+  cases x <;> cases y <;> simp [spatialProposalDensity, spatialDensity_ne_top]
+
+theorem measurable_spatialWeight : Measurable spatialWeight := by
+  apply Measurable.sumElim
+  · exact measurable_const
+  · exact measurable_const.mul measurable_spatialDensity_fixed
+
+theorem measurable_uncurry_spatialProposalDensity :
+    Measurable (Function.uncurry spatialProposalDensity) := by
+  classical
+  let rightValue : SpatialState → Space3 := Sum.elim (fun _ => ((0, 0), 0)) id
+  have hrightValue : Measurable rightValue :=
+    measurable_const.sumElim measurable_id
+  have hform : Function.uncurry spatialProposalDensity = fun p =>
+      if p.1 ∈ range (Sum.inl : Unit → SpatialState) ∧
+          p.2 ∈ range (Sum.inr : Space3 → SpatialState) then
+        spatialDensity () (rightValue p.2)
+      else if p.1 ∈ range (Sum.inr : Space3 → SpatialState) ∧
+          p.2 ∈ range (Sum.inl : Unit → SpatialState) then 1 else 0 := by
+    funext p
+    rcases p with ⟨x, y⟩
+    cases x <;> cases y <;> simp [spatialProposalDensity, rightValue]
+  rw [hform]
+  apply Measurable.ite
+  · exact (measurableSet_range_inl.preimage measurable_fst).inter
+      (measurableSet_range_inr.preimage measurable_snd)
+  · exact measurable_spatialDensity_fixed.comp
+      (hrightValue.comp measurable_snd)
+  · apply Measurable.ite
+    · exact (measurableSet_range_inr.preimage measurable_fst).inter
+        (measurableSet_range_inl.preimage measurable_snd)
+    · exact measurable_const
+    · exact measurable_const
+
+theorem spatialProposalDensity_normalized (x : SpatialState) :
+    ∫⁻ y, spatialProposalDensity x y ∂spatialReference = 1 := by
+  cases x with
+  | inl x =>
+      simp only [spatialReference, twoModelReference, lintegral_add_measure]
+      have hmeas : Measurable (spatialProposalDensity (Sum.inl x)) :=
+        measurable_uncurry_spatialProposalDensity.comp
+          (measurable_const.prodMk measurable_id)
+      rw [lintegral_map hmeas measurable_inl,
+        lintegral_map hmeas measurable_inr]
+      simp only [spatialProposalDensity, lintegral_zero, zero_add]
+      exact spatialCertificate.lintegral_crossDensity_eq_one
+        (fun _ : Unit => spatialAuxiliary) ((volume.prod volume).prod volume)
+        spatialTransport spatialDensity x
+  | inr x =>
+      simp only [spatialReference, twoModelReference, lintegral_add_measure]
+      have hmeas : Measurable (spatialProposalDensity (Sum.inr x)) :=
+        measurable_uncurry_spatialProposalDensity.comp
+          (measurable_const.prodMk measurable_id)
+      rw [lintegral_map hmeas measurable_inl,
+        lintegral_map hmeas measurable_inr]
+      simp [spatialProposalDensity]
+
+noncomputable def spatialSpec :
+    ReversibleJumpSpec spatialReference spatialWeight where
+  proposalDensity := spatialProposalDensity
+  measurableProposal := measurable_uncurry_spatialProposalDensity
+  normalized := spatialProposalDensity_normalized
+  finiteFlow := by
+    intro x y
+    exact ENNReal.mul_ne_top (spatialWeight_ne_top x)
+      (spatialProposalDensity_ne_top x y)
+
+/-- Product-composed Jacobian certificates feed a complete three-dimensional
+birth/death Metropolis--Hastings transition, not merely a normalized proposal. -/
+theorem spatialInvariant :
+    (reversibleJumpMetropolisHastings spatialReference spatialWeight
+      spatialSpec).Invariant (densityTarget spatialReference spatialWeight) :=
+  reversibleJumpMetropolisHastings_invariant spatialReference spatialWeight
+    measurable_spatialWeight spatialSpec
 
 end Mcmc.Examples.PlanarBirthDeathReversibleJump

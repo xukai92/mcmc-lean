@@ -1969,7 +1969,15 @@ produces a checked three-dimensional transport.
 
 This removes the need to repeat the measure-level change-of-variables proof
 for every product dimension. A complete three-dimensional MH client is not
-claimed here; the proved artifact is its normalized transport-density core.
+claimed at this checkpoint; the proved artifact is its normalized
+transport-density core.
+
+The product certificate is now connected to a complete three-dimensional
+birth/death client.  The tagged reference measure, determinant-corrected cross
+proposal, proposal normalization, finite accepted flow, and resulting
+Metropolis--Hastings invariance theorem are all machine checked.  This closes
+the earlier gap between the compositional transport core and a usable
+reversible-jump transition in dimension three.
 
 ## 2026-08-16: concrete Gaussian Zig-Zag generator tests
 
