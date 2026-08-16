@@ -516,9 +516,13 @@ by paper date:
    history-adaptive marginal by frozen-window proxies, together with vanishing
    containment error for those proxies, implies setwise convergence. Unlike
    the finite proof, this interface does not sum row error over a finite state
-   space. The remaining adaptation milestone is to construct that proxy
-   certificate from Diminishing Adaptation and Containment for concrete
-   general-state adaptation rules.
+   space. A nontrivial indefinitely changing client is complete: predetermined
+   schedules with a common invariant target and positive Doeblin component
+   have an exact residual-schedule regeneration formula, geometric event
+   bounds, and setwise convergence, and this theorem is connected to actual
+   history-adaptive marginals. The remaining adaptation milestone is to
+   construct the proxy certificate from Diminishing Adaptation and Containment
+   for genuinely state- or history-dependent general-state adaptation rules.
 
    The general-dimensional BPS generator and its velocity-integrated
    transport-minus-normal-flux identity are now checked, including the

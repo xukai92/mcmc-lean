@@ -11,6 +11,17 @@
   measure-level limit argument; deriving the approximation certificate from a
   concrete rule's Diminishing Adaptation remains algorithm-specific.
 
+- Proved a concrete general-state chain may change kernels indefinitely and
+  still converge. For a predetermined schedule whose every transition shares
+  one invariant probability target and one positive Doeblin component, Lean
+  constructs the time-indexed residual schedule, proves an exact regenerative
+  decomposition, derives two-sided geometric measurable-event bounds, and
+  obtains setwise convergence. The theorem is connected to the actual
+  `HistoryAdaptiveFamily.stateKernel` whenever its history selector reduces to
+  that predetermined state-only schedule. This uses neither eventual freezing
+  nor a finite state space; genuinely state- or history-dependent adaptation
+  still needs the proxy approximation certificate above.
+
 - Added an end-to-end conservative dynamic-trajectory HMC client. Julia now
   refreshes Gaussian momentum, constructs the complete randomized-origin
   leapfrog orbit, computes the Lean-mirrored all-scales U-turn partition, and

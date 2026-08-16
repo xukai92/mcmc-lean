@@ -492,8 +492,13 @@ The repository now contains machine-checked implementations and proofs for:
   parameter selection gives ordinary powers of the frozen kernel applied to
   the actual burn-in marginal. A common positive Doeblin minorization and
   invariance certificate then yield two-sided geometric event bounds and
-  setwise convergence. General-state diminishing-adaptation-plus-containment
-  over an indefinitely adapting history remains open;
+  setwise convergence. For a predetermined general-state schedule that may
+  change forever, a shared positive Doeblin component and common invariant
+  target now give an exact nonhomogeneous regenerative decomposition,
+  two-sided geometric event bounds, and setwise convergence. A separate proxy
+  certificate closes the general measure-level approximation-plus-containment
+  argument for actual history-adaptive marginals. Deriving that certificate
+  from state- or history-dependent Diminishing Adaptation remains open;
 - two-temperature parallel tempering with an MH-corrected swap, product-target
   stationarity, and an exact cold-marginal theorem;
 - finite pseudo-marginal MH with a nonnegative unbiased estimator, including

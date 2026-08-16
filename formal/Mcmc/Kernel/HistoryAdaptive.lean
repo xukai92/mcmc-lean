@@ -1,4 +1,4 @@
-import Mcmc.Kernel.GeneralConvergence
+import Mcmc.Kernel.NonhomogeneousDoeblin
 
 /-!
 # General-state history-dependent adaptive paths
@@ -332,6 +332,52 @@ theorem HistoryAdaptiveFamily.stateKernel_succ_of_next_eq
   rw [hnext]
   simp only [homogeneousNext, ProbabilityTheory.Kernel.comap_apply,
     terminalHistory]
+
+/-- If every selected transition is a predetermined state-only kernel, the
+actual history-adaptive marginal is exactly the corresponding nonhomogeneous
+scheduled law. The schedule may still change at every time. -/
+theorem HistoryAdaptiveFamily.stateKernel_eq_scheduledLaw
+    (adaptive : HistoryAdaptiveFamily (State := State) (Parameter := Parameter))
+    (schedule : ℕ → ProbabilityTheory.Kernel State State)
+    [∀ n, IsMarkovKernel (schedule n)]
+    (hnext : ∀ n, adaptive.next n = homogeneousNext (schedule n) n)
+    (initial : State) (n : ℕ) :
+    adaptive.stateKernel n initial =
+      scheduledLaw (Measure.dirac initial) schedule n := by
+  induction n with
+  | zero =>
+      rw [adaptive.stateKernel_zero, scheduledLaw_zero,
+        ProbabilityTheory.Kernel.id_apply]
+  | succ n ih =>
+      rw [adaptive.stateKernel_succ_of_next_eq (schedule n) n (hnext n),
+        scheduledLaw_succ]
+      change schedule n ∘ₘ adaptive.stateKernel n initial = _
+      rw [ih]
+
+/-- A predetermined but indefinitely changing history-adaptive schedule
+converges setwise whenever all scheduled kernels preserve one probability
+target and share one positive Doeblin component. This is a concrete
+general-state indefinite-adaptation theorem; state- or history-dependent
+parameter updates require the separate proxy-certificate route. -/
+theorem HistoryAdaptiveFamily.stateKernel_apply_tendsto_of_predetermined_doeblin
+    (adaptive : HistoryAdaptiveFamily (State := State) (Parameter := Parameter))
+    (schedule : ℕ → ProbabilityTheory.Kernel State State)
+    [∀ n, IsMarkovKernel (schedule n)]
+    (hnext : ∀ n, adaptive.next n = homogeneousNext (schedule n) n)
+    (target : Measure State) [IsProbabilityMeasure target]
+    (ε : Set.Icc (0 : NNReal) 1) (hε : ε.1 < 1) (hεpos : 0 < ε.1)
+    (hminor : ∀ n, UniformlyMinorizes (schedule n) ε.1 target)
+    (hinvariant : ∀ n, (schedule n).Invariant target)
+    (initial : State) {event : Set State} (hevent : MeasurableSet event) :
+    Filter.Tendsto (fun n ↦ adaptive.stateKernel n initial event)
+      Filter.atTop (nhds (target event)) := by
+  have heq : (fun n ↦ adaptive.stateKernel n initial event) =
+      fun n ↦ scheduledLaw (Measure.dirac initial) schedule n event := by
+    funext n
+    rw [adaptive.stateKernel_eq_scheduledLaw schedule hnext initial n]
+  rw [heq]
+  exact scheduledLaw_apply_tendsto_of_uniformMinorization
+    (Measure.dirac initial) target schedule ε hε hεpos hminor hinvariant hevent
 
 /-- The finite state kernel is exactly the corresponding coordinate marginal
 of the infinite adaptive path kernel. No homogeneous Markov recurrence is
