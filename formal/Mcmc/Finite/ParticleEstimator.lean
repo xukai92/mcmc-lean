@@ -331,6 +331,83 @@ theorem independentPopulation_particleAverage_expectation
       intro i _
       rw [independentPopulation_coordinate_expectation law score i]
 
+omit [Nonempty Particle] in
+/-- A forced independent population has the supplied marginal away from the
+retained coordinate and a point mass at the retained value on that coordinate.
+This is the local expectation identity needed to analyze conditional SMC
+without selecting one particular population history. -/
+theorem forcedIndependentPopulation_coordinate_expectation
+    (law : Particle → Distribution Sample) (retained : Particle)
+    (value : Sample) (score : Sample → ℝ) (i : Particle) :
+    ∑ samples, (forcedIndependentPopulation law retained value).mass samples *
+        score (samples i) =
+      if i = retained then score value
+      else ∑ s, (law i).mass s * score s := by
+  classical
+  unfold forcedIndependentPopulation
+  rw [independentPopulation_coordinate_expectation]
+  by_cases hi : i = retained
+  · subst i
+    simp [pointDistribution]
+  · simp [hi]
+
+omit [Nonempty Particle] in
+/-- Exact expected empirical average of a conditionally independent cloud
+with one forced coordinate. The formula retains the full heterogeneous sum,
+so it applies both to conditional resampling and conditional propagation. -/
+theorem forcedIndependentPopulation_particleAverage_expectation
+    (law : Particle → Distribution Sample) (retained : Particle)
+    (value : Sample) (score : Sample → ℝ) :
+    ∑ samples, (forcedIndependentPopulation law retained value).mass samples *
+        particleAverage score samples =
+      (∑ i, if i = retained then score value
+        else ∑ s, (law i).mass s * score s) / Fintype.card Particle := by
+  classical
+  unfold particleAverage
+  calc
+    ∑ samples : Particle → Sample,
+          (forcedIndependentPopulation law retained value).mass samples *
+            ((∑ i, score (samples i)) / Fintype.card Particle) =
+        (∑ i, ∑ samples : Particle → Sample,
+          (forcedIndependentPopulation law retained value).mass samples *
+            score (samples i)) / Fintype.card Particle := by
+      simp_rw [div_eq_mul_inv, ← mul_assoc, Finset.mul_sum]
+      rw [← Finset.sum_mul]
+      congr 1
+      rw [Finset.sum_comm]
+    _ = (∑ i, if i = retained then score value
+          else ∑ s, (law i).mass s * score s) /
+            Fintype.card Particle := by
+      congr 1
+      apply Finset.sum_congr rfl
+      intro i _
+      rw [forcedIndependentPopulation_coordinate_expectation]
+
+omit [Nonempty Particle] in
+/-- A count-explicit lower bound for a forced cloud: every unforced marginal
+contributes its common lower bound, while the retained coordinate contributes
+only the assumed nonnegative forced score. Keeping the finite sum explicit
+avoids any cardinal-subtraction side condition and is convenient for recursive
+conditional-SMC estimates. -/
+theorem forcedIndependentPopulation_particleAverage_expectation_ge
+    (law : Particle → Distribution Sample) (retained : Particle)
+    (value : Sample) (score : Sample → ℝ) (lower : ℝ)
+    (hvalue : 0 ≤ score value)
+    (hlower : ∀ i, i ≠ retained →
+      lower ≤ ∑ s, (law i).mass s * score s) :
+    (∑ i : Particle, if i = retained then 0 else lower) /
+        Fintype.card Particle ≤
+      ∑ samples,
+        (forcedIndependentPopulation law retained value).mass samples *
+          particleAverage score samples := by
+  rw [forcedIndependentPopulation_particleAverage_expectation]
+  apply div_le_div_of_nonneg_right _ (by positivity)
+  apply Finset.sum_le_sum
+  intro i _
+  by_cases hi : i = retained
+  · simp [hi, hvalue]
+  · simpa [hi] using hlower i hi
+
 /-- A row of a finite Markov kernel as a finite distribution. -/
 def rowDistribution (transition : MarkovKernel Sample) (x : Sample) :
     Distribution Sample where

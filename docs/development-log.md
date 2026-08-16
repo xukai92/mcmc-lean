@@ -38,7 +38,13 @@
   existing selected-path mass, and the abstract conditional row is proved
   equal to the concrete recursive forced-lineage law. Hence the aggregate PG
   transition entry is exactly an expectation of proposed-lineage fraction
-  under the executable conditional-SMC generator.
+  under the executable conditional-SMC generator. The first recursion lemma
+  below that generator is now exact as well: for an independent population
+  with one forced coordinate, Lean identifies every coordinate marginal and
+  the expected empirical average, and derives a reusable lower bound from
+  common lower bounds on all unforced marginals. This isolates the retained
+  coordinate's contribution instead of discarding the aggregate population
+  mass.
 
 - Completed the compact-minorization and faithful-coupling foundation for the
   actual bare one-dimensional Gaussian SoftAbs multinomial kernel at
