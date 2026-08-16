@@ -83,7 +83,10 @@ work. A public `PositiveTransformedRWMH` runtime client now implements the
 standard log transform, including the required `+y` log-Jacobian, validates
 the positive domain, and has reproducible exponential-target diagnostics.
 Connecting its `Float64` `log`/`exp` calls to the exact conjugation theorem
-remains the numerical boundary.
+uses the new bounded refinement: `log` has an explicit `1/lower` transport
+bound away from zero, the Jacobian error composes additively, and `exp` has an
+explicit upper-domain transport bound. Platform-local libm errors remain the
+numerical boundary.
 
 ## Remaining milestones
 

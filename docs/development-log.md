@@ -2056,6 +2056,14 @@ term makes the measure Jacobian visible and aligns the runtime with
 `transformedKernel_invariant`; bounded `Float64` refinement of `log` and `exp`
 remains explicit rather than being inferred from the empirical test.
 
+Added the matching bounded numerical layer.  On inputs uniformly bounded
+below by a positive `lower`, Lean proves that `log` transports absolute error
+with factor `1/lower`, composes this with a backend-local libm error, adds the
+unconstrained coordinate as the exact log-Jacobian correction, and transports
+the returned coordinate through `exp` on an explicit upper-bounded region.
+This closes the backend-independent arithmetic for the positive transform;
+a concrete platform still supplies its local `log` and `exp` errors.
+
 ## 2026-08-16: normalized particle-error recursion
 
 Added the deterministic nonlinear bridge needed beyond the exact one-step
