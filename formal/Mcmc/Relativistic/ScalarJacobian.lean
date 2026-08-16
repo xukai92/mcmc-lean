@@ -57,7 +57,7 @@ theorem det_scalarVerticalShearFDeriv
   unfold scalarVerticalShearFDeriv
   simp only [LinearMap.det_toContinuousLinearMap, LinearMap.det_toLin,
     Matrix.det_fin_two_of]
-  ring
+  ring_nf
 
 /-- Horizontal triangular shear and its derivative matrix. -/
 noncomputable def scalarHorizontalShear
@@ -440,6 +440,28 @@ theorem scalarVerticalShear_leftInverse_scalarIncomingInverse
       simpa [r, scalarIncomingInverseUpdate] using hfixed.symm
     linarith
 
+theorem scalarIncomingInverse_leftInverse_scalarVerticalShear
+    (a : ℝ) (F : ℝ × ℝ → ℝ) (K : NNReal)
+    (hlip : ∀ q, LipschitzWith K (fun p => F (q, p)))
+    (hstep : |a| * K < 1) :
+    Function.LeftInverse (scalarIncomingInverse a F K hlip hstep)
+      (scalarVerticalShear a F) := by
+  intro z
+  let y := scalarVerticalShear a F z
+  let contraction := scalarIncomingInverseUpdate_contracting
+    a F K hlip hstep y
+  have hzFixed : Function.IsFixedPt
+      (scalarIncomingInverseUpdate a F y) z.2 := by
+    unfold Function.IsFixedPt scalarIncomingInverseUpdate y
+    simp [scalarVerticalShear]
+  have hr : z.2 = contraction.fixedPoint
+      (scalarIncomingInverseUpdate a F y) :=
+    contraction.fixedPoint_unique hzFixed
+  unfold scalarIncomingInverse
+  change (y.1, contraction.fixedPoint (scalarIncomingInverseUpdate a F y)) = z
+  rw [← hr]
+  simp [y, scalarVerticalShear]
+
 theorem continuous_scalarIncomingInverse
     (a : ℝ) (F : ℝ × ℝ → ℝ) (K : NNReal)
     (hF : Continuous F)
@@ -516,6 +538,28 @@ theorem scalarHorizontalShear_leftInverse_scalarLeftInverse
     linarith
   · rfl
 
+theorem scalarLeftInverse_leftInverse_scalarHorizontalShear
+    (a : ℝ) (G : ℝ × ℝ → ℝ) (K : NNReal)
+    (hlip : ∀ p, LipschitzWith K (fun q => G (q, p)))
+    (hstep : |a| * K < 1) :
+    Function.LeftInverse (scalarLeftInverse a G K hlip hstep)
+      (scalarHorizontalShear (-a) G) := by
+  intro z
+  let y := scalarHorizontalShear (-a) G z
+  let contraction := scalarLeftInverseUpdate_contracting
+    a G K hlip hstep y
+  have hzFixed : Function.IsFixedPt
+      (scalarLeftInverseUpdate a G y) z.1 := by
+    unfold Function.IsFixedPt scalarLeftInverseUpdate y
+    simp [scalarHorizontalShear]
+  have hq : z.1 = contraction.fixedPoint
+      (scalarLeftInverseUpdate a G y) :=
+    contraction.fixedPoint_unique hzFixed
+  unfold scalarLeftInverse
+  change (contraction.fixedPoint (scalarLeftInverseUpdate a G y), y.2) = z
+  rw [← hq]
+  simp [y, scalarHorizontalShear]
+
 theorem continuous_scalarLeftInverse
     (a : ℝ) (G : ℝ × ℝ → ℝ) (K : NNReal)
     (hG : Continuous G)
@@ -579,6 +623,22 @@ noncomputable def scalarBanachGeneralizedLeapfrogStep
     (scalarIncomingInverse a F KF hlipF hstepF)
     (scalarLeftInverse a G KG hlipG hstepG)
 
+theorem differentiable_scalarBanachGeneralizedLeapfrogStep
+    (a : ℝ) (F G : ℝ × ℝ → ℝ) (KF KG : NNReal)
+    (hF : Differentiable ℝ F) (hG : Differentiable ℝ G)
+    (hlipF : ∀ q, LipschitzWith KF (fun p => F (q, p)))
+    (hlipG : ∀ p, LipschitzWith KG (fun q => G (q, p)))
+    (hstepF : |a| * KF < 1) (hstepG : |a| * KG < 1) :
+    Differentiable ℝ (scalarBanachGeneralizedLeapfrogStep a F G KF KG
+      hlipF hlipG hstepF hstepG) := by
+  exact differentiable_scalarGeneralizedLeapfrogStep
+    a F G
+    (scalarIncomingInverse a F KF hlipF hstepF)
+    (scalarLeftInverse a G KG hlipG hstepG)
+    hF hG
+    (differentiable_scalarIncomingInverse a F KF hF hlipF hstepF)
+    (differentiable_scalarLeftInverse a G KG hG hlipG hstepG)
+
 /-- End-to-end determinant-one theorem for the Banach-selected scalar step. -/
 theorem det_fderiv_scalarBanachGeneralizedLeapfrogStep_eq_one
     (a : ℝ) (F G : ℝ × ℝ → ℝ) (KF KG : NNReal)
@@ -603,5 +663,101 @@ theorem det_fderiv_scalarBanachGeneralizedLeapfrogStep_eq_one
     (scalarHorizontalShear_leftInverse_scalarLeftInverse
       a G KG hlipG hstepG)
     hmixed z
+
+theorem scalarBanachGeneralizedLeapfrogStep_bijective
+    (a : ℝ) (F G : ℝ × ℝ → ℝ) (KF KG : NNReal)
+    (hlipF : ∀ q, LipschitzWith KF (fun p => F (q, p)))
+    (hlipG : ∀ p, LipschitzWith KG (fun q => G (q, p)))
+    (hstepF : |a| * KF < 1) (hstepG : |a| * KG < 1) :
+    Function.Bijective (scalarBanachGeneralizedLeapfrogStep a F G KF KG
+      hlipF hlipG hstepF hstepG) := by
+  have hstepFneg : |-a| * KF < 1 := by simpa only [abs_neg] using hstepF
+  have hstepGneg : |-a| * KG < 1 := by simpa only [abs_neg] using hstepG
+  have hincoming : Function.Bijective
+      (scalarIncomingInverse a F KF hlipF hstepF) := by
+    exact ⟨
+      (scalarVerticalShear_leftInverse_scalarIncomingInverse
+        a F KF hlipF hstepF).injective,
+      (scalarIncomingInverse_leftInverse_scalarVerticalShear
+        a F KF hlipF hstepF).surjective⟩
+  have hright : Function.Bijective (scalarHorizontalShear a G) := by
+    have hright' : Function.Bijective
+        (scalarHorizontalShear (-(-a)) G) := ⟨
+      (scalarLeftInverse_leftInverse_scalarHorizontalShear
+        (-a) G KG hlipG hstepGneg).injective,
+      (scalarHorizontalShear_leftInverse_scalarLeftInverse
+        (-a) G KG hlipG hstepGneg).surjective⟩
+    simpa only [neg_neg] using hright'
+  have hleft : Function.Bijective
+      (scalarLeftInverse a G KG hlipG hstepG) := by
+    exact ⟨
+      (scalarHorizontalShear_leftInverse_scalarLeftInverse
+        a G KG hlipG hstepG).injective,
+      (scalarLeftInverse_leftInverse_scalarHorizontalShear
+        a G KG hlipG hstepG).surjective⟩
+  have hout : Function.Bijective (scalarVerticalShear (-a) F) := by
+    exact ⟨
+      (scalarIncomingInverse_leftInverse_scalarVerticalShear
+        (-a) F KF hlipF hstepFneg).injective,
+      (scalarVerticalShear_leftInverse_scalarIncomingInverse
+        (-a) F KF hlipF hstepFneg).surjective⟩
+  unfold scalarBanachGeneralizedLeapfrogStep
+    scalarGeneralizedLeapfrogStep
+  exact hout.comp (hleft.comp (hright.comp hincoming))
+
+/-- The constructed scalar Banach step satisfies the three implicit
+generalized-leapfrog equations in coordinates. -/
+theorem scalarBanachGeneralizedLeapfrogStep_satisfies
+    (a : ℝ) (F G : ℝ × ℝ → ℝ) (KF KG : NNReal)
+    (hlipF : ∀ q, LipschitzWith KF (fun p => F (q, p)))
+    (hlipG : ∀ p, LipschitzWith KG (fun q => G (q, p)))
+    (hstepF : |a| * KF < 1) (hstepG : |a| * KG < 1)
+    (z : ℝ × ℝ) :
+    let half := scalarIncomingInverse a F KF hlipF hstepF z
+    let right := scalarHorizontalShear a G half
+    let next := scalarLeftInverse a G KG hlipG hstepG right
+    let result := scalarBanachGeneralizedLeapfrogStep a F G KF KG
+      hlipF hlipG hstepF hstepG z
+    half.1 = z.1 ∧
+      half.2 = z.2 - a * F (z.1, half.2) ∧
+      next.1 = z.1 + a * (G (z.1, half.2) + G (next.1, half.2)) ∧
+      result = (next.1, half.2 - a * F (next.1, half.2)) := by
+  dsimp only
+  let half := scalarIncomingInverse a F KF hlipF hstepF z
+  let right := scalarHorizontalShear a G half
+  let next := scalarLeftInverse a G KG hlipG hstepG right
+  have hin := scalarVerticalShear_leftInverse_scalarIncomingInverse
+    a F KF hlipF hstepF z
+  have hleft := scalarHorizontalShear_leftInverse_scalarLeftInverse
+    a G KG hlipG hstepG right
+  change scalarVerticalShear a F half = z at hin
+  change scalarHorizontalShear (-a) G next = right at hleft
+  have hhalfFirst : half.1 = z.1 := by
+    simpa [scalarVerticalShear] using congrArg Prod.fst hin
+  have hhalfSecond : half.2 = z.2 - a * F (z.1, half.2) := by
+    have h := congrArg Prod.snd hin
+    simp only [scalarVerticalShear] at h
+    have hhalf : half = (z.1, half.2) := Prod.ext hhalfFirst rfl
+    rw [hhalf] at h
+    linarith
+  have hnextSecond : next.2 = half.2 := by
+    have h := congrArg Prod.snd hleft
+    simpa [scalarHorizontalShear, right] using h
+  have hnext : next.1 = z.1 +
+      a * (G (z.1, half.2) + G (next.1, half.2)) := by
+    have h := congrArg Prod.fst hleft
+    simp only [scalarHorizontalShear, right] at h
+    have hhalf : half = (z.1, half.2) := Prod.ext hhalfFirst rfl
+    have hnextPair : next = (next.1, half.2) := Prod.ext rfl hnextSecond
+    rw [hhalf, hnextPair] at h
+    linarith
+  refine ⟨hhalfFirst, hhalfSecond, hnext, ?_⟩
+  change scalarVerticalShear (-a) F next = _
+  change scalarVerticalShear (-a) F next =
+    (next.1, half.2 - a * F (next.1, half.2))
+  simp only [scalarVerticalShear]
+  have hnextPair : next = (next.1, half.2) := Prod.ext rfl hnextSecond
+  rw [hnextPair]
+  ring_nf
 
 end Mcmc.Relativistic

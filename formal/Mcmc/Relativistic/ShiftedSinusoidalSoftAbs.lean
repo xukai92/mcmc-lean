@@ -16,7 +16,7 @@ all hyperbolic denominators live on a compact positive interval.
 
 namespace Mcmc.Relativistic
 
-open Mcmc.Hamiltonian
+open Mcmc.Hamiltonian MeasureTheory
 
 noncomputable def shiftedSinusoidalPotential (q : Position Unit) : ℝ :=
   (q Unit.unit) ^ 2 - Real.sin (q Unit.unit)
@@ -459,11 +459,12 @@ noncomputable def shiftedSinusoidalSoftAbsMomentumDerivative :
   scalarGRMomentumCallbackUnit shiftedSinusoidalSoftAbsScaleReal
 
 noncomputable def shiftedSinusoidalSoftAbsPositionCallbackReal :
-    ℝ × ℝ → ℝ :=
-  scalarGRPositionCallback
-    shiftedSinusoidalSoftAbsBaseDerivativeReal
-    shiftedSinusoidalSoftAbsScaleReal
-    shiftedSinusoidalSoftAbsScaleDerivativeReal
+    ℝ × ℝ → ℝ := fun z =>
+  shiftedSinusoidalSoftAbsBaseDerivativeReal z.1 +
+    shiftedSinusoidalSoftAbsScaleDerivativeReal z.1 *
+      (shiftedSinusoidalSoftAbsScaleReal z.1)⁻¹ *
+        scalarPositionProfile
+          (shiftedSinusoidalSoftAbsScaleReal z.1 * z.2)
 
 noncomputable def shiftedSinusoidalSoftAbsMomentumCallbackReal :
     ℝ × ℝ → ℝ :=
@@ -496,12 +497,56 @@ attribute [fun_prop]
   differentiable_scalarPositionProfile
   differentiable_scalarVelocityProfile
 
+theorem shiftedSinusoidalSoftAbsPositionCallbackReal_eq :
+    shiftedSinusoidalSoftAbsPositionCallbackReal =
+      scalarGRPositionCallback
+        shiftedSinusoidalSoftAbsBaseDerivativeReal
+        shiftedSinusoidalSoftAbsScaleReal
+        shiftedSinusoidalSoftAbsScaleDerivativeReal := by
+  funext z
+  simp only [shiftedSinusoidalSoftAbsPositionCallbackReal,
+    scalarGRPositionCallback, div_eq_mul_inv]
+
+theorem shiftedSinusoidalSoftAbsMomentumCallbackReal_eq :
+    shiftedSinusoidalSoftAbsMomentumCallbackReal =
+      scalarGRMomentumCallback shiftedSinusoidalSoftAbsScaleReal := rfl
+
+theorem differentiable_shiftedSinusoidalSoftAbsPositionCallbackReal :
+    Differentiable ℝ shiftedSinusoidalSoftAbsPositionCallbackReal := by
+  unfold shiftedSinusoidalSoftAbsPositionCallbackReal
+  have hb : Differentiable ℝ (fun z : ℝ × ℝ =>
+      shiftedSinusoidalSoftAbsBaseDerivativeReal z.1) :=
+    differentiable_shiftedSinusoidalSoftAbsBaseDerivativeReal.comp
+      differentiable_fst
+  have hsd : Differentiable ℝ (fun z : ℝ × ℝ =>
+      shiftedSinusoidalSoftAbsScaleDerivativeReal z.1) :=
+    differentiable_shiftedSinusoidalSoftAbsScaleDerivativeReal.comp
+      differentiable_fst
+  have hs : Differentiable ℝ (fun z : ℝ × ℝ =>
+      shiftedSinusoidalSoftAbsScaleReal z.1) :=
+    differentiable_shiftedSinusoidalSoftAbsScaleReal.comp differentiable_fst
+  have hinv : Differentiable ℝ (fun z : ℝ × ℝ =>
+      (shiftedSinusoidalSoftAbsScaleReal z.1)⁻¹) :=
+    hs.inv (fun z => (shiftedSinusoidalSoftAbsScaleReal_pos z.1).ne')
+  have harg : Differentiable ℝ (fun z : ℝ × ℝ =>
+      shiftedSinusoidalSoftAbsScaleReal z.1 * z.2) :=
+    hs.mul differentiable_snd
+  exact hb.add ((hsd.mul hinv).mul
+    (differentiable_scalarPositionProfile.comp harg))
+
+theorem differentiable_shiftedSinusoidalSoftAbsMomentumCallbackReal :
+    Differentiable ℝ shiftedSinusoidalSoftAbsMomentumCallbackReal := by
+  unfold shiftedSinusoidalSoftAbsMomentumCallbackReal
+    scalarGRMomentumCallback scaledVelocityProfile
+  fun_prop
+
 theorem shiftedSinusoidalSoftAbsCallbacks_mixed_derivatives_eq
     (q p : ℝ) :
     deriv (fun r => shiftedSinusoidalSoftAbsPositionCallbackReal (q, r)) p =
     deriv (fun r => shiftedSinusoidalSoftAbsMomentumCallbackReal (r, p)) q := by
-  unfold shiftedSinusoidalSoftAbsPositionCallbackReal
-    shiftedSinusoidalSoftAbsMomentumCallbackReal
+  rw [shiftedSinusoidalSoftAbsPositionCallbackReal_eq,
+    shiftedSinusoidalSoftAbsMomentumCallbackReal_eq]
+  unfold
     shiftedSinusoidalSoftAbsBaseDerivativeReal
     shiftedSinusoidalSoftAbsScaleDerivativeReal
   exact scalarGRCallbacks_mixed_derivatives_eq
@@ -509,6 +554,32 @@ theorem shiftedSinusoidalSoftAbsCallbacks_mixed_derivatives_eq
     shiftedSinusoidalSoftAbsScaleReal
     differentiable_shiftedSinusoidalSoftAbsScaleReal
     shiftedSinusoidalSoftAbsScaleReal_pos q p
+
+theorem shiftedSinusoidalSoftAbsCallbacks_fderiv_mixed_eq
+    (z : ℝ × ℝ) :
+    fderiv ℝ shiftedSinusoidalSoftAbsPositionCallbackReal z (0, 1) =
+      fderiv ℝ shiftedSinusoidalSoftAbsMomentumCallbackReal z (1, 0) := by
+  have hpositionGeneric : Differentiable ℝ
+      (scalarGRPositionCallback
+        shiftedSinusoidalSoftAbsBaseDerivativeReal
+        shiftedSinusoidalSoftAbsScaleReal
+        shiftedSinusoidalSoftAbsScaleDerivativeReal) := by
+    rw [← shiftedSinusoidalSoftAbsPositionCallbackReal_eq]
+    exact differentiable_shiftedSinusoidalSoftAbsPositionCallbackReal
+  have hmomentumGeneric : Differentiable ℝ
+      (scalarGRMomentumCallback shiftedSinusoidalSoftAbsScaleReal) := by
+    rw [← shiftedSinusoidalSoftAbsMomentumCallbackReal_eq]
+    exact differentiable_shiftedSinusoidalSoftAbsMomentumCallbackReal
+  rw [shiftedSinusoidalSoftAbsPositionCallbackReal_eq,
+    shiftedSinusoidalSoftAbsMomentumCallbackReal_eq]
+  unfold shiftedSinusoidalSoftAbsBaseDerivativeReal
+    shiftedSinusoidalSoftAbsScaleDerivativeReal
+  exact scalarGRCallbacks_fderiv_mixed_eq
+    (deriv shiftedSinusoidalSoftAbsBaseReal)
+    shiftedSinusoidalSoftAbsScaleReal
+    differentiable_shiftedSinusoidalSoftAbsScaleReal
+    shiftedSinusoidalSoftAbsScaleReal_pos
+    hpositionGeneric hmomentumGeneric z
 
 /-- The callbacks passed to the implicit solver are the actual two coordinate
 derivatives of the complete nonconstant SoftAbs Hamiltonian. -/
@@ -593,6 +664,29 @@ theorem shiftedSinusoidalSoftAbsScaleDerivativeReal_bound (x : ℝ) :
       shiftedSinusoidalSoftAbsScaleLipschitzConstant := by
   exact (Classical.choose_spec
     exists_lipschitz_shiftedSinusoidalSoftAbsScaleReal).2 x
+
+theorem shiftedSinusoidalSoftAbsPositionCallbackReal_lipschitz_snd
+    (q : ℝ) :
+    LipschitzWith (3 * shiftedSinusoidalSoftAbsScaleLipschitzConstant)
+      (fun p => shiftedSinusoidalSoftAbsPositionCallbackReal (q, p)) := by
+  rw [shiftedSinusoidalSoftAbsPositionCallbackReal_eq]
+  exact scalarGRPositionCallback_lipschitz_snd
+    shiftedSinusoidalSoftAbsBaseDerivativeReal
+    shiftedSinusoidalSoftAbsScaleReal
+    shiftedSinusoidalSoftAbsScaleDerivativeReal q
+    shiftedSinusoidalSoftAbsScaleLipschitzConstant
+    (shiftedSinusoidalSoftAbsScaleReal_pos q)
+    (shiftedSinusoidalSoftAbsScaleDerivativeReal_bound q)
+
+theorem shiftedSinusoidalSoftAbsMomentumCallbackReal_lipschitz_fst
+    (p : ℝ) :
+    LipschitzWith (2 * shiftedSinusoidalSoftAbsScaleLipschitzConstant)
+      (fun q => shiftedSinusoidalSoftAbsMomentumCallbackReal (q, p)) := by
+  rw [shiftedSinusoidalSoftAbsMomentumCallbackReal_eq]
+  exact scalarGRMomentumCallback_lipschitz_fst
+    shiftedSinusoidalSoftAbsScaleReal p
+    shiftedSinusoidalSoftAbsScaleLipschitzConstant
+    shiftedSinusoidalSoftAbsScaleReal_lipschitz
 
 /-- Exact Banach-selected generalized-leapfrog solver for the nonconstant
 SoftAbs scalar callbacks. The only remaining client choice is the
@@ -690,6 +784,248 @@ theorem shiftedSinusoidalSoftAbsCertifiedStep_momentum_bound :
       (2 * shiftedSinusoidalSoftAbsScaleLipschitzConstant) < 1 :=
   (Classical.choose_spec exists_nonzero_shiftedSinusoidalSoftAbs_step).2.2
 
+/-- Scalar-coordinate Banach construction for the certified target step. -/
+noncomputable def shiftedSinusoidalSoftAbsBanachStepReal : ℝ × ℝ → ℝ × ℝ :=
+  scalarBanachGeneralizedLeapfrogStep
+    (shiftedSinusoidalSoftAbsCertifiedStep / 2)
+    shiftedSinusoidalSoftAbsPositionCallbackReal
+    shiftedSinusoidalSoftAbsMomentumCallbackReal
+    (3 * shiftedSinusoidalSoftAbsScaleLipschitzConstant)
+    (2 * shiftedSinusoidalSoftAbsScaleLipschitzConstant)
+    shiftedSinusoidalSoftAbsPositionCallbackReal_lipschitz_snd
+    shiftedSinusoidalSoftAbsMomentumCallbackReal_lipschitz_fst
+    shiftedSinusoidalSoftAbsCertifiedStep_position_bound
+    shiftedSinusoidalSoftAbsCertifiedStep_momentum_bound
+
+theorem det_fderiv_shiftedSinusoidalSoftAbsBanachStepReal_eq_one
+    (z : ℝ × ℝ) :
+    (fderiv ℝ shiftedSinusoidalSoftAbsBanachStepReal z).det = 1 := by
+  unfold shiftedSinusoidalSoftAbsBanachStepReal
+  exact det_fderiv_scalarBanachGeneralizedLeapfrogStep_eq_one
+    (shiftedSinusoidalSoftAbsCertifiedStep / 2)
+    shiftedSinusoidalSoftAbsPositionCallbackReal
+    shiftedSinusoidalSoftAbsMomentumCallbackReal
+    (3 * shiftedSinusoidalSoftAbsScaleLipschitzConstant)
+    (2 * shiftedSinusoidalSoftAbsScaleLipschitzConstant)
+    differentiable_shiftedSinusoidalSoftAbsPositionCallbackReal
+    differentiable_shiftedSinusoidalSoftAbsMomentumCallbackReal
+    shiftedSinusoidalSoftAbsPositionCallbackReal_lipschitz_snd
+    shiftedSinusoidalSoftAbsMomentumCallbackReal_lipschitz_fst
+    shiftedSinusoidalSoftAbsCertifiedStep_position_bound
+    shiftedSinusoidalSoftAbsCertifiedStep_momentum_bound
+    shiftedSinusoidalSoftAbsCallbacks_fderiv_mixed_eq z
+
+theorem differentiable_shiftedSinusoidalSoftAbsBanachStepReal :
+    Differentiable ℝ shiftedSinusoidalSoftAbsBanachStepReal := by
+  unfold shiftedSinusoidalSoftAbsBanachStepReal
+  exact differentiable_scalarBanachGeneralizedLeapfrogStep
+    (shiftedSinusoidalSoftAbsCertifiedStep / 2)
+    shiftedSinusoidalSoftAbsPositionCallbackReal
+    shiftedSinusoidalSoftAbsMomentumCallbackReal
+    (3 * shiftedSinusoidalSoftAbsScaleLipschitzConstant)
+    (2 * shiftedSinusoidalSoftAbsScaleLipschitzConstant)
+    differentiable_shiftedSinusoidalSoftAbsPositionCallbackReal
+    differentiable_shiftedSinusoidalSoftAbsMomentumCallbackReal
+    shiftedSinusoidalSoftAbsPositionCallbackReal_lipschitz_snd
+    shiftedSinusoidalSoftAbsMomentumCallbackReal_lipschitz_fst
+    shiftedSinusoidalSoftAbsCertifiedStep_position_bound
+    shiftedSinusoidalSoftAbsCertifiedStep_momentum_bound
+
+/-- Linear conjugation of the scalar Banach construction to the project's
+`PhaseSpace Unit` representation. -/
+noncomputable def shiftedSinusoidalSoftAbsBanachStepPhase :
+    PhaseSpace Unit → PhaseSpace Unit :=
+  boundedScalarPhaseOfReal ∘ shiftedSinusoidalSoftAbsBanachStepReal ∘
+    boundedScalarRealOfPhase
+
+theorem differentiable_shiftedSinusoidalSoftAbsBanachStepPhase :
+    Differentiable ℝ shiftedSinusoidalSoftAbsBanachStepPhase := by
+  unfold shiftedSinusoidalSoftAbsBanachStepPhase
+  exact differentiable_boundedScalarPhaseOfReal.comp
+    (differentiable_shiftedSinusoidalSoftAbsBanachStepReal.comp
+      differentiable_boundedScalarRealOfPhase)
+
+theorem det_fderiv_shiftedSinusoidalSoftAbsBanachStepPhase_eq_one
+    (z : PhaseSpace Unit) :
+    (fderiv ℝ shiftedSinusoidalSoftAbsBanachStepPhase z).det = 1 := by
+  let e := boundedScalarPhaseRealContinuousLinearEquiv
+  let r := boundedScalarRealOfPhase z
+  let L := fderiv ℝ shiftedSinusoidalSoftAbsBanachStepReal r
+  have hin : HasFDerivAt (e.symm : PhaseSpace Unit → ℝ × ℝ)
+      (e.symm : PhaseSpace Unit →L[ℝ] ℝ × ℝ) z := e.symm.hasFDerivAt
+  have hmiddle : HasFDerivAt shiftedSinusoidalSoftAbsBanachStepReal L r :=
+    (differentiable_shiftedSinusoidalSoftAbsBanachStepReal r).hasFDerivAt
+  have hout : HasFDerivAt (e : ℝ × ℝ → PhaseSpace Unit)
+      (e : ℝ × ℝ →L[ℝ] PhaseSpace Unit)
+      (shiftedSinusoidalSoftAbsBanachStepReal r) := e.hasFDerivAt
+  have hcomp := hout.comp z (hmiddle.comp z hin)
+  have hactual : HasFDerivAt shiftedSinusoidalSoftAbsBanachStepPhase
+      ((e : ℝ × ℝ →L[ℝ] PhaseSpace Unit).comp
+        (L.comp (e.symm : PhaseSpace Unit →L[ℝ] ℝ × ℝ))) z := by
+    rw [show shiftedSinusoidalSoftAbsBanachStepPhase =
+      (e : ℝ × ℝ → PhaseSpace Unit) ∘
+        shiftedSinusoidalSoftAbsBanachStepReal ∘
+          (e.symm : PhaseSpace Unit → ℝ × ℝ) by rfl]
+    exact hcomp
+  rw [hactual.fderiv]
+  have hconj := LinearMap.det_conj L.toLinearMap
+    boundedScalarPhaseRealLinearEquiv
+  have heq :
+      ((e : ℝ × ℝ →L[ℝ] PhaseSpace Unit).comp
+        (L.comp (e.symm : PhaseSpace Unit →L[ℝ] ℝ × ℝ))).det = L.det := by
+    change LinearMap.det
+        ((boundedScalarPhaseRealLinearEquiv :
+          (ℝ × ℝ) →ₗ[ℝ] PhaseSpace Unit).comp
+          (L.toLinearMap.comp
+            (boundedScalarPhaseRealLinearEquiv.symm :
+              PhaseSpace Unit →ₗ[ℝ] (ℝ × ℝ)))) = LinearMap.det L.toLinearMap
+    simpa only [LinearMap.comp_assoc] using hconj
+  rw [heq]
+  exact det_fderiv_shiftedSinusoidalSoftAbsBanachStepReal_eq_one r
+
+theorem shiftedSinusoidalSoftAbsBanachStepReal_bijective :
+    Function.Bijective shiftedSinusoidalSoftAbsBanachStepReal := by
+  unfold shiftedSinusoidalSoftAbsBanachStepReal
+  exact scalarBanachGeneralizedLeapfrogStep_bijective
+    (shiftedSinusoidalSoftAbsCertifiedStep / 2)
+    shiftedSinusoidalSoftAbsPositionCallbackReal
+    shiftedSinusoidalSoftAbsMomentumCallbackReal
+    (3 * shiftedSinusoidalSoftAbsScaleLipschitzConstant)
+    (2 * shiftedSinusoidalSoftAbsScaleLipschitzConstant)
+    shiftedSinusoidalSoftAbsPositionCallbackReal_lipschitz_snd
+    shiftedSinusoidalSoftAbsMomentumCallbackReal_lipschitz_fst
+    shiftedSinusoidalSoftAbsCertifiedStep_position_bound
+    shiftedSinusoidalSoftAbsCertifiedStep_momentum_bound
+
+theorem shiftedSinusoidalSoftAbsBanachStepPhase_bijective :
+    Function.Bijective shiftedSinusoidalSoftAbsBanachStepPhase := by
+  rw [show shiftedSinusoidalSoftAbsBanachStepPhase =
+      boundedScalarPhaseOfReal ∘ shiftedSinusoidalSoftAbsBanachStepReal ∘
+        boundedScalarRealOfPhase by rfl]
+  exact boundedScalarPhaseRealContinuousLinearEquiv.bijective.comp
+    (shiftedSinusoidalSoftAbsBanachStepReal_bijective.comp
+      boundedScalarPhaseRealContinuousLinearEquiv.symm.bijective)
+
+/-- Exact phase-volume preservation for a genuinely nonconstant actual-Hessian
+SoftAbs metric at a certified nonzero step. -/
+theorem shiftedSinusoidalSoftAbsBanachStepPhase_volumePreserving :
+    MeasurePreserving shiftedSinusoidalSoftAbsBanachStepPhase
+      (phaseVolume : Measure (PhaseSpace Unit)) phaseVolume := by
+  letI : Measure.IsAddHaarMeasure
+      (phaseVolume : Measure (PhaseSpace Unit)) :=
+    Measure.prod.instIsAddHaarMeasure _ _
+  apply measurePreserving_of_bijective_differentiable_abs_det_one
+    (phaseVolume : Measure (PhaseSpace Unit))
+    shiftedSinusoidalSoftAbsBanachStepPhase
+    differentiable_shiftedSinusoidalSoftAbsBanachStepPhase
+    shiftedSinusoidalSoftAbsBanachStepPhase_bijective
+  intro z
+  rw [det_fderiv_shiftedSinusoidalSoftAbsBanachStepPhase_eq_one]
+  norm_num
+
+/-- The scalar Banach construction satisfies the project's phase-space
+generalized-leapfrog equations for the actual SoftAbs Hamiltonian callbacks. -/
+theorem shiftedSinusoidalSoftAbsBanachStepPhase_satisfies
+    (z : PhaseSpace Unit) :
+    let r := boundedScalarRealOfPhase z
+    let half := scalarIncomingInverse
+      (shiftedSinusoidalSoftAbsCertifiedStep / 2)
+      shiftedSinusoidalSoftAbsPositionCallbackReal
+      (3 * shiftedSinusoidalSoftAbsScaleLipschitzConstant)
+      shiftedSinusoidalSoftAbsPositionCallbackReal_lipschitz_snd
+      shiftedSinusoidalSoftAbsCertifiedStep_position_bound r
+    GeneralizedLeapfrogEquations
+      shiftedSinusoidalSoftAbsPositionDerivative
+      shiftedSinusoidalSoftAbsMomentumDerivative
+      shiftedSinusoidalSoftAbsCertifiedStep z (fun _ => half.2)
+      (shiftedSinusoidalSoftAbsBanachStepPhase z) := by
+  dsimp only
+  let r := boundedScalarRealOfPhase z
+  let half := scalarIncomingInverse
+    (shiftedSinusoidalSoftAbsCertifiedStep / 2)
+    shiftedSinusoidalSoftAbsPositionCallbackReal
+    (3 * shiftedSinusoidalSoftAbsScaleLipschitzConstant)
+    shiftedSinusoidalSoftAbsPositionCallbackReal_lipschitz_snd
+    shiftedSinusoidalSoftAbsCertifiedStep_position_bound r
+  have h := scalarBanachGeneralizedLeapfrogStep_satisfies
+    (shiftedSinusoidalSoftAbsCertifiedStep / 2)
+    shiftedSinusoidalSoftAbsPositionCallbackReal
+    shiftedSinusoidalSoftAbsMomentumCallbackReal
+    (3 * shiftedSinusoidalSoftAbsScaleLipschitzConstant)
+    (2 * shiftedSinusoidalSoftAbsScaleLipschitzConstant)
+    shiftedSinusoidalSoftAbsPositionCallbackReal_lipschitz_snd
+    shiftedSinusoidalSoftAbsMomentumCallbackReal_lipschitz_fst
+    shiftedSinusoidalSoftAbsCertifiedStep_position_bound
+    shiftedSinusoidalSoftAbsCertifiedStep_momentum_bound r
+  change GeneralizedLeapfrogEquations _ _ _ _ _ _
+  unfold GeneralizedLeapfrogEquations
+  rcases h with ⟨hfirst, hhalf, hnext, hout⟩
+  let result := shiftedSinusoidalSoftAbsBanachStepReal r
+  have hresultFirst : result.1 =
+      (scalarLeftInverse
+        (shiftedSinusoidalSoftAbsCertifiedStep / 2)
+        shiftedSinusoidalSoftAbsMomentumCallbackReal
+        (2 * shiftedSinusoidalSoftAbsScaleLipschitzConstant)
+        shiftedSinusoidalSoftAbsMomentumCallbackReal_lipschitz_fst
+        shiftedSinusoidalSoftAbsCertifiedStep_momentum_bound
+        (scalarHorizontalShear
+          (shiftedSinusoidalSoftAbsCertifiedStep / 2)
+          shiftedSinusoidalSoftAbsMomentumCallbackReal half)).1 := by
+    simpa [result, shiftedSinusoidalSoftAbsBanachStepReal] using
+      congrArg Prod.fst hout
+  have hF (x : ℝ × ℝ) :
+      shiftedSinusoidalSoftAbsPositionDerivative
+          (boundedScalarPhaseOfReal x) Unit.unit =
+        shiftedSinusoidalSoftAbsPositionCallbackReal x := by
+    rw [shiftedSinusoidalSoftAbsPositionCallbackReal_eq]
+    rfl
+  have hG (x : ℝ × ℝ) :
+      shiftedSinusoidalSoftAbsMomentumDerivative
+          (boundedScalarPhaseOfReal x) Unit.unit =
+        shiftedSinusoidalSoftAbsMomentumCallbackReal x := by
+    rw [shiftedSinusoidalSoftAbsMomentumCallbackReal_eq]
+    rfl
+  constructor
+  · ext i
+    cases i
+    change half.2 = _
+    rw [show z = boundedScalarPhaseOfReal r by
+      simp [r]]
+    change half.2 = r.2 - (shiftedSinusoidalSoftAbsCertifiedStep / 2) *
+      shiftedSinusoidalSoftAbsPositionDerivative
+        (boundedScalarPhaseOfReal (r.1, half.2)) Unit.unit
+    rw [hF]
+    simpa [smul_eq_mul] using hhalf
+  · constructor
+    · ext i
+      cases i
+      change result.1 = _
+      rw [show z = boundedScalarPhaseOfReal r by simp [r]]
+      change result.1 = r.1 +
+        (shiftedSinusoidalSoftAbsCertifiedStep / 2) *
+          (shiftedSinusoidalSoftAbsMomentumDerivative
+              (boundedScalarPhaseOfReal (r.1, half.2)) Unit.unit +
+            shiftedSinusoidalSoftAbsMomentumDerivative
+              (boundedScalarPhaseOfReal (result.1, half.2)) Unit.unit)
+      rw [hG, hG]
+      rw [hresultFirst]
+      simpa [smul_eq_mul] using hnext
+    · ext i
+      cases i
+      change result.2 = _
+      rw [show shiftedSinusoidalSoftAbsBanachStepPhase z =
+          boundedScalarPhaseOfReal result by
+        simp [shiftedSinusoidalSoftAbsBanachStepPhase, result, r]]
+      change result.2 = half.2 -
+        (shiftedSinusoidalSoftAbsCertifiedStep / 2) *
+          shiftedSinusoidalSoftAbsPositionDerivative
+            (boundedScalarPhaseOfReal (result.1, half.2)) Unit.unit
+      rw [hF]
+      have hsnd := congrArg Prod.snd hout
+      simp at hsnd
+      rw [← hresultFirst] at hsnd
+      simpa [result, half, shiftedSinusoidalSoftAbsBanachStepReal] using hsnd
+
 /-- A concrete nonzero-step exact solver, requiring no client-supplied
 analytic premise. -/
 noncomputable abbrev shiftedSinusoidalSoftAbsCertifiedSolver :
@@ -701,6 +1037,35 @@ noncomputable abbrev shiftedSinusoidalSoftAbsCertifiedSolver :
     shiftedSinusoidalSoftAbsCertifiedStep
     shiftedSinusoidalSoftAbsCertifiedStep_position_bound
     shiftedSinusoidalSoftAbsCertifiedStep_momentum_bound
+
+/-- The Jacobian construction is not a second solver: uniqueness identifies
+it pointwise with the exact contraction-selected Hamiltonian step. -/
+theorem shiftedSinusoidalSoftAbsBanachStepPhase_eq_certifiedSolver_step
+    (z : PhaseSpace Unit) :
+    shiftedSinusoidalSoftAbsBanachStepPhase z =
+      shiftedSinusoidalSoftAbsCertifiedSolver.step z := by
+  let r := boundedScalarRealOfPhase z
+  let half := scalarIncomingInverse
+    (shiftedSinusoidalSoftAbsCertifiedStep / 2)
+    shiftedSinusoidalSoftAbsPositionCallbackReal
+    (3 * shiftedSinusoidalSoftAbsScaleLipschitzConstant)
+    shiftedSinusoidalSoftAbsPositionCallbackReal_lipschitz_snd
+    shiftedSinusoidalSoftAbsCertifiedStep_position_bound r
+  exact (shiftedSinusoidalSoftAbsCertifiedSolver.unique z
+    (fun _ => half.2) (shiftedSinusoidalSoftAbsBanachStepPhase z)
+    (shiftedSinusoidalSoftAbsBanachStepPhase_satisfies z)).2
+
+/-- Exact phase-volume preservation for the certified nonconstant actual-Hessian
+SoftAbs Hamiltonian solver itself. -/
+theorem shiftedSinusoidalSoftAbsCertifiedSolver_volumePreserving :
+    MeasurePreserving shiftedSinusoidalSoftAbsCertifiedSolver.step
+      (phaseVolume : Measure (PhaseSpace Unit)) phaseVolume := by
+  have hstep : shiftedSinusoidalSoftAbsCertifiedSolver.step =
+      shiftedSinusoidalSoftAbsBanachStepPhase := by
+    funext z
+    exact (shiftedSinusoidalSoftAbsBanachStepPhase_eq_certifiedSolver_step z).symm
+  rw [hstep]
+  exact shiftedSinusoidalSoftAbsBanachStepPhase_volumePreserving
 
 noncomputable abbrev shiftedSinusoidalSoftAbsCertifiedBackwardSolver :
     ContractiveGeneralizedLeapfrogSolverAt

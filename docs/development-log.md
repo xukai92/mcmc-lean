@@ -2180,3 +2180,13 @@ leapfrog step. The SoftAbs client still needs a lightweight opaque callback
 binding to this generic real-coordinate theorem and conjugation back to
 `PhaseSpace Unit`; this is an elaboration/interface task rather than another
 Jacobian calculation.
+
+The target binding is now closed as well. Lean proves that the constructed
+scalar Banach step satisfies all three generalized-leapfrog coordinate
+equations, transports those equations through the scalar/`PhaseSpace Unit`
+linear equivalence, and invokes uniqueness of the existing contraction solver.
+Consequently the auxiliary Jacobian construction and the actual certified
+nonconstant SoftAbs Hamiltonian step are pointwise equal. The step is bijective,
+differentiable, has determinant one everywhere, and exactly preserves phase
+volume. The remaining boundary for this client is the deliberately separate
+bounded Float64 refinement of the Julia implicit iterations.

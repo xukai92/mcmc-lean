@@ -114,7 +114,7 @@ solve differentiable. The symmetric construction proves the position inverse
 differentiable; all four determinant factors are computed and cancel by mixed-
 partial equality. Linear conjugacy transfers determinant one to
 `PhaseSpace Unit`, and the Haar theorem proves exact phase-volume preservation.
-The remaining B2 work is primarily solver refinement. Guarded operation-local
+The remaining B2 work is numerical solver refinement. Guarded operation-local
 SoftAbs certificates now compose Hessian error through the positive
 eigenvalue, square root, inverse factor, and log determinant, but the
 finite-precision Julia iterations must still be related to an exact selection.
@@ -125,20 +125,19 @@ now has the nondegenerate target `U(q)=q²-sin(q)`, whose actual Hessian lies in
 Lipschitz continuity of the resulting scalar metric eigenvalue are machine
 checked. The slice transfer and solver are also complete: reusable scalar callback theorems identify both
 coordinate derivatives, yield global contraction constants, and construct a
-concrete nonzero-step exact solve with its negative-step inverse. The remaining
-target-specific B2 theorem is phase-volume preservation for this solve, followed
-by the separate finite-precision refinement. The generic triangular-shear
+concrete nonzero-step exact solve with its negative-step inverse. The exact
+target-specific theorem is now complete: the generic Banach construction
+satisfies the same generalized-leapfrog equations, uniqueness identifies it
+with the certified Hamiltonian solver, and its unit Jacobian yields exact
+phase-volume preservation. The separate finite-precision refinement remains.
+The generic triangular-shear
 derivative matrices, determinant formulas, and mixed-partial pairing are now
 extracted from the earlier bounded client, and the SoftAbs callbacks satisfy
-the required scalar mixed identity. The remaining volume step is the inverse-
-stage differentiability for the Banach selection. The determinant composition
-is now a generic theorem: differentiable inverse selections plus their two
-left-inverse identities and the mixed-partial condition imply determinant one.
-The contraction bounds also imply nonsingularity of both triangular maps. The
-generic Banach selections, their continuity, left-inverse identities,
-differentiability, and final determinant-one theorem are now complete. The
-remaining target binding is scalar-coordinate callback packaging and linear
-conjugation back to `PhaseSpace Unit`.
+the required scalar mixed identity. Inverse-stage differentiability,
+determinant composition, callback binding, and linear conjugation to
+`PhaseSpace Unit` are complete. The constructed step is bijective and
+differentiable with determinant one, and the Haar change-of-variables theorem
+supplies exact measure preservation.
 
 ## Track C: later breadth branches
 
