@@ -3575,3 +3575,17 @@ first-event endpoint is consequently rewritten into the literal cycle branch:
 translate within the current interval, or restart the exact horizon execution
 from the right reset with the remaining horizon. This removes the last
 coordinate-level mismatch before the stationary renewal-shift argument.
+
+## 2026-08-16: stopped-horizon stationary-cycle identification
+
+Lifted the Palm product law through velocity labels and iid future hazard
+tails. Lean proves that extracting occupied position and residual clock from
+the normalized stationary cycle, adjoining an independent velocity, and
+consing the residual clock onto a fresh iid tail gives exactly the Gaussian
+phase target times the iid hazard-stream law. The signed horizon kernel is
+also proved equal to its direct jointly measurable sampling construction.
+Consequently, target-started stopped execution is now exactly the pushforward
+of stationary cycle occupation, velocity, and future tail through the actual
+stopped executor. The remaining theorem is purely the measure-preserving
+stationary renewal shift; there is no longer an unproved conditional-law,
+coordinate, or executor-identification step around it.

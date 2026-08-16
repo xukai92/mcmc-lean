@@ -593,8 +593,10 @@ by paper date:
   residual hazard, is `exp(-s²/2)` times the exponential law. Integrating these
   fibers now proves that the stationary-cycle pushforward to occupied position
   and residual hazard is exactly standard Gaussian times an independent unit
-  exponential law. The next theorem identifies the renewal shift connecting
-  length-biased cycle occupation to the stopped horizon kernel. Splitting a horizon
+  exponential law. This Palm law is now lifted with the velocity and future
+  iid hazard tail, and Lean identifies its pushforward with the exact
+  target-started stopped-horizon executor input law. The next theorem proves
+  that the resulting stationary renewal shift preserves cycle occupation. Splitting a horizon
   between events is still correctly treated as a law-level argument rather
   than a pointwise semigroup identity;
 2. bare Gaussian SoftAbs GR-HMC convergence -- complete for the concrete

@@ -1262,6 +1262,21 @@ theorem gaussianZigZagHazardSequenceMeasure_map_headTail :
     gaussianZigZagHazardSequenceMeasure_map_grouped]
   exact hfactor
 
+/-- Reconstructing a stream from an independent head and iid tail recovers
+the iid hazard-sequence law. -/
+theorem gaussianZigZagHazardMeasure_prod_sequence_map_cons :
+    Measure.map gaussianZigZagHazardCons
+        (gaussianZigZagHazardMeasure.prod
+          gaussianZigZagHazardSequenceMeasure) =
+      gaussianZigZagHazardSequenceMeasure := by
+  rw [← gaussianZigZagHazardSequenceMeasure_map_headTail,
+    Measure.map_map measurable_gaussianZigZagHazardCons
+      measurable_gaussianZigZagHazardHeadTail]
+  rw [show gaussianZigZagHazardCons ∘ gaussianZigZagHazardHeadTail = id by
+    funext hazards
+    exact gaussianZigZagHazardCons_headTail hazards,
+    Measure.map_id]
+
 def gaussianZigZagLargeHazardEvent (index : ℕ) : Set (ℕ → NNReal) :=
   (fun hazards => hazards index) ⁻¹' Set.Ioi (1 : NNReal)
 
@@ -3463,6 +3478,250 @@ theorem gaussianZigZagStationaryPositionResidualMeasure_eq_prod :
         gaussianZigZagCycleMeanDuration_ne_zero
         gaussianZigZagCycleMeanDuration_ne_top, one_mul]
 
+/-- Reordering position, residual hazard, and velocity turns the Palm product
+law into the exact phase-target/fresh-clock product law. -/
+theorem gaussianZigZagStationaryPositionResidualVelocity_reorder :
+    Measure.map
+        (fun input : (ℝ × NNReal) × Bool =>
+          ((input.1.1, input.2), input.1.2))
+        (gaussianZigZagStationaryPositionResidualMeasure.prod
+          zigZagVelocityProbability) =
+      gaussianZigZagTarget.prod gaussianZigZagHazardMeasure := by
+  rw [gaussianZigZagStationaryPositionResidualMeasure_eq_prod]
+  let assoc₁ : ((ℝ × NNReal) × Bool) ≃ᵐ (ℝ × (NNReal × Bool)) :=
+    MeasurableEquiv.prodAssoc
+  let swap₂ : (ℝ × (NNReal × Bool)) → (ℝ × (Bool × NNReal)) :=
+    Prod.map id Prod.swap
+  let assoc₃ : (ℝ × (Bool × NNReal)) ≃ᵐ ((ℝ × Bool) × NNReal) :=
+    MeasurableEquiv.prodAssoc.symm
+  have hassoc₁ : Measure.map assoc₁
+      (((gaussianReal 0 1).prod gaussianZigZagHazardMeasure).prod
+        zigZagVelocityProbability) =
+      (gaussianReal 0 1).prod
+        (gaussianZigZagHazardMeasure.prod zigZagVelocityProbability) :=
+    (MeasureTheory.measurePreserving_prodAssoc
+      (gaussianReal 0 1) gaussianZigZagHazardMeasure
+      zigZagVelocityProbability).map_eq
+  have hswap₂ : Measure.map swap₂
+      ((gaussianReal 0 1).prod
+        (gaussianZigZagHazardMeasure.prod zigZagVelocityProbability)) =
+      (gaussianReal 0 1).prod
+        (zigZagVelocityProbability.prod gaussianZigZagHazardMeasure) := by
+    unfold swap₂
+    rw [← Measure.map_prod_map (gaussianReal 0 1)
+      (gaussianZigZagHazardMeasure.prod zigZagVelocityProbability)
+      measurable_id measurable_swap, Measure.map_id, Measure.prod_swap]
+  have hassoc₃ : Measure.map assoc₃
+      ((gaussianReal 0 1).prod
+        (zigZagVelocityProbability.prod gaussianZigZagHazardMeasure)) =
+      ((gaussianReal 0 1).prod zigZagVelocityProbability).prod
+        gaussianZigZagHazardMeasure :=
+    (MeasureTheory.measurePreserving_prodAssoc
+      (gaussianReal 0 1) zigZagVelocityProbability
+      gaussianZigZagHazardMeasure).symm.map_eq
+  have hcomposition :
+      (fun input : (ℝ × NNReal) × Bool =>
+        ((input.1.1, input.2), input.1.2)) =
+      assoc₃ ∘ swap₂ ∘ assoc₁ := rfl
+  rw [hcomposition]
+  calc
+    Measure.map (assoc₃ ∘ swap₂ ∘ assoc₁)
+        (((gaussianReal 0 1).prod gaussianZigZagHazardMeasure).prod
+          zigZagVelocityProbability) =
+      Measure.map assoc₃ (Measure.map swap₂ (Measure.map assoc₁
+        (((gaussianReal 0 1).prod gaussianZigZagHazardMeasure).prod
+          zigZagVelocityProbability))) := by
+        rw [Measure.map_map (by fun_prop) (by fun_prop),
+          Measure.map_map (by fun_prop) (by fun_prop)]
+        rfl
+    _ = Measure.map assoc₃ (Measure.map swap₂
+        ((gaussianReal 0 1).prod
+          (gaussianZigZagHazardMeasure.prod zigZagVelocityProbability))) := by
+      rw [hassoc₁]
+    _ = Measure.map assoc₃ ((gaussianReal 0 1).prod
+        (zigZagVelocityProbability.prod gaussianZigZagHazardMeasure)) := by
+      rw [hswap₂]
+    _ = ((gaussianReal 0 1).prod zigZagVelocityProbability).prod
+        gaussianZigZagHazardMeasure := hassoc₃
+    _ = gaussianZigZagTarget.prod gaussianZigZagHazardMeasure := rfl
+
+/-- Read an exact signed initial state and its residual first-event hazard
+directly from a length-biased stationary cycle and an independent velocity
+label. -/
+noncomputable def gaussianZigZagStationaryCycleClockMap
+    (input : ((ℝ × ℝ) × ℝ) × Bool) : ZigZagState × NNReal :=
+  ((input.1.2, input.2),
+    gaussianZigZagCycleResidualHazard input.1.2 input.1.1.2)
+
+theorem measurable_gaussianZigZagStationaryCycleClockMap :
+    Measurable gaussianZigZagStationaryCycleClockMap := by
+  have hresidual : Measurable (fun input : ((ℝ × ℝ) × ℝ) × Bool =>
+      gaussianZigZagStationaryCycleResidualMap input.1) :=
+    measurable_gaussianZigZagStationaryCycleResidualMap.comp
+      (measurable_fst : Measurable
+        (Prod.fst : (((ℝ × ℝ) × ℝ) × Bool) → ((ℝ × ℝ) × ℝ)))
+  unfold gaussianZigZagStationaryCycleClockMap
+  exact (hresidual.fst.prodMk measurable_snd).prodMk hresidual.snd
+
+/-- The clocked initial state extracted from stationary cycle occupation has
+exactly the Gaussian phase target and an independent fresh exponential clock. -/
+theorem gaussianZigZagStationaryCycleClockMap_map :
+    Measure.map gaussianZigZagStationaryCycleClockMap
+        (gaussianZigZagStationaryCycleMeasure.prod
+          zigZagVelocityProbability) =
+      gaussianZigZagTarget.prod gaussianZigZagHazardMeasure := by
+  let residualVelocityMap : ((ℝ × ℝ) × ℝ) × Bool →
+      (ℝ × NNReal) × Bool :=
+    Prod.map gaussianZigZagStationaryCycleResidualMap id
+  let reorder : (ℝ × NNReal) × Bool → ZigZagState × NNReal :=
+    fun input => ((input.1.1, input.2), input.1.2)
+  have hresidualVelocityMap : Measurable residualVelocityMap :=
+    measurable_gaussianZigZagStationaryCycleResidualMap.prodMap measurable_id
+  have hreorder : Measurable reorder := by
+    unfold reorder
+    fun_prop
+  have hfactor : gaussianZigZagStationaryCycleClockMap =
+      reorder ∘ residualVelocityMap := rfl
+  rw [hfactor]
+  calc
+    Measure.map (reorder ∘ residualVelocityMap)
+        (gaussianZigZagStationaryCycleMeasure.prod
+          zigZagVelocityProbability) =
+      Measure.map reorder (Measure.map residualVelocityMap
+        (gaussianZigZagStationaryCycleMeasure.prod
+          zigZagVelocityProbability)) := by
+        rw [Measure.map_map hreorder hresidualVelocityMap]
+    _ = Measure.map reorder
+        (gaussianZigZagStationaryPositionResidualMeasure.prod
+          zigZagVelocityProbability) := by
+      congr 1
+      unfold residualVelocityMap
+      rw [← Measure.map_prod_map gaussianZigZagStationaryCycleMeasure
+        zigZagVelocityProbability
+        measurable_gaussianZigZagStationaryCycleResidualMap measurable_id,
+        Measure.map_id]
+      rfl
+    _ = _ := gaussianZigZagStationaryPositionResidualVelocity_reorder
+
+/-- Add an independent future hazard tail to the stationary cycle clock and
+reassociate it into the exact first-event input shape. -/
+noncomputable def gaussianZigZagStationaryCycleHeadTailMap
+    (input : (((ℝ × ℝ) × ℝ) × Bool) × (ℕ → NNReal)) :
+    ZigZagState × (NNReal × (ℕ → NNReal)) :=
+  (gaussianZigZagStationaryCycleClockMap input.1 |>.1,
+    (gaussianZigZagStationaryCycleClockMap input.1 |>.2, input.2))
+
+theorem measurable_gaussianZigZagStationaryCycleHeadTailMap :
+    Measurable gaussianZigZagStationaryCycleHeadTailMap := by
+  unfold gaussianZigZagStationaryCycleHeadTailMap
+  have hclock := measurable_gaussianZigZagStationaryCycleClockMap.comp
+    (measurable_fst : Measurable
+      (Prod.fst : ((((ℝ × ℝ) × ℝ) × Bool) × (ℕ → NNReal)) →
+        (((ℝ × ℝ) × ℝ) × Bool)))
+  exact hclock.fst.prodMk (hclock.snd.prodMk measurable_snd)
+
+theorem gaussianZigZagStationaryCycleHeadTailMap_map :
+    Measure.map gaussianZigZagStationaryCycleHeadTailMap
+        ((gaussianZigZagStationaryCycleMeasure.prod
+          zigZagVelocityProbability).prod
+            gaussianZigZagHazardSequenceMeasure) =
+      gaussianZigZagTarget.prod
+        (gaussianZigZagHazardMeasure.prod
+          gaussianZigZagHazardSequenceMeasure) := by
+  let clockTailMap : ((((ℝ × ℝ) × ℝ) × Bool) × (ℕ → NNReal)) →
+      ((ZigZagState × NNReal) × (ℕ → NNReal)) :=
+    Prod.map gaussianZigZagStationaryCycleClockMap id
+  have hclockTailMap : Measurable clockTailMap :=
+    measurable_gaussianZigZagStationaryCycleClockMap.prodMap measurable_id
+  have hfactor : gaussianZigZagStationaryCycleHeadTailMap =
+      MeasurableEquiv.prodAssoc ∘ clockTailMap := rfl
+  rw [hfactor]
+  calc
+    Measure.map (MeasurableEquiv.prodAssoc ∘ clockTailMap)
+        ((gaussianZigZagStationaryCycleMeasure.prod
+          zigZagVelocityProbability).prod
+            gaussianZigZagHazardSequenceMeasure) =
+      Measure.map MeasurableEquiv.prodAssoc
+        (Measure.map clockTailMap
+          ((gaussianZigZagStationaryCycleMeasure.prod
+            zigZagVelocityProbability).prod
+              gaussianZigZagHazardSequenceMeasure)) := by
+        rw [Measure.map_map MeasurableEquiv.prodAssoc.measurable hclockTailMap]
+    _ = Measure.map MeasurableEquiv.prodAssoc
+        ((gaussianZigZagTarget.prod gaussianZigZagHazardMeasure).prod
+          gaussianZigZagHazardSequenceMeasure) := by
+      congr 1
+      unfold clockTailMap
+      rw [← Measure.map_prod_map
+        (gaussianZigZagStationaryCycleMeasure.prod
+          zigZagVelocityProbability)
+        gaussianZigZagHazardSequenceMeasure
+        measurable_gaussianZigZagStationaryCycleClockMap measurable_id,
+        Measure.map_id, gaussianZigZagStationaryCycleClockMap_map]
+    _ = _ := (MeasureTheory.measurePreserving_prodAssoc
+      gaussianZigZagTarget gaussianZigZagHazardMeasure
+      gaussianZigZagHazardSequenceMeasure).map_eq
+
+/-- Convert the stationary cycle's residual head and an independent future
+tail into the exact infinite hazard stream consumed by the stopped executor. -/
+noncomputable def gaussianZigZagStationaryCycleStreamMap
+    (input : (((ℝ × ℝ) × ℝ) × Bool) × (ℕ → NNReal)) :
+    ZigZagState × (ℕ → NNReal) :=
+  let clocked := gaussianZigZagStationaryCycleHeadTailMap input
+  (clocked.1, gaussianZigZagHazardCons clocked.2)
+
+theorem measurable_gaussianZigZagStationaryCycleStreamMap :
+    Measurable gaussianZigZagStationaryCycleStreamMap := by
+  unfold gaussianZigZagStationaryCycleStreamMap
+  have hclocked := measurable_gaussianZigZagStationaryCycleHeadTailMap
+  exact hclocked.fst.prodMk
+    (measurable_gaussianZigZagHazardCons.comp hclocked.snd)
+
+/-- Stationary cycle occupation, a velocity label, and a fresh future tail
+produce exactly the target-started input law of the stopped signed executor. -/
+theorem gaussianZigZagStationaryCycleStreamMap_map :
+    Measure.map gaussianZigZagStationaryCycleStreamMap
+        ((gaussianZigZagStationaryCycleMeasure.prod
+          zigZagVelocityProbability).prod
+            gaussianZigZagHazardSequenceMeasure) =
+      gaussianZigZagTarget.prod gaussianZigZagHazardSequenceMeasure := by
+  let consMap : ZigZagState × (NNReal × (ℕ → NNReal)) →
+      ZigZagState × (ℕ → NNReal) :=
+    Prod.map id gaussianZigZagHazardCons
+  have hconsMap : Measurable consMap :=
+    measurable_id.prodMap measurable_gaussianZigZagHazardCons
+  have hfactor : gaussianZigZagStationaryCycleStreamMap =
+      consMap ∘ gaussianZigZagStationaryCycleHeadTailMap := rfl
+  rw [hfactor]
+  calc
+    Measure.map (consMap ∘ gaussianZigZagStationaryCycleHeadTailMap)
+        ((gaussianZigZagStationaryCycleMeasure.prod
+          zigZagVelocityProbability).prod
+            gaussianZigZagHazardSequenceMeasure) =
+      Measure.map consMap (Measure.map
+        gaussianZigZagStationaryCycleHeadTailMap
+        ((gaussianZigZagStationaryCycleMeasure.prod
+          zigZagVelocityProbability).prod
+            gaussianZigZagHazardSequenceMeasure)) := by
+        rw [Measure.map_map hconsMap
+          measurable_gaussianZigZagStationaryCycleHeadTailMap]
+    _ = Measure.map consMap (gaussianZigZagTarget.prod
+        (gaussianZigZagHazardMeasure.prod
+          gaussianZigZagHazardSequenceMeasure)) := by
+      rw [gaussianZigZagStationaryCycleHeadTailMap_map]
+    _ = (Measure.map id gaussianZigZagTarget).prod
+        (Measure.map gaussianZigZagHazardCons
+          (gaussianZigZagHazardMeasure.prod
+            gaussianZigZagHazardSequenceMeasure)) := by
+      symm
+      exact Measure.map_prod_map gaussianZigZagTarget
+        (gaussianZigZagHazardMeasure.prod
+          gaussianZigZagHazardSequenceMeasure)
+        measurable_id measurable_gaussianZigZagHazardCons
+    _ = _ := by
+      rw [Measure.map_id,
+        gaussianZigZagHazardMeasure_prod_sequence_map_cons]
+
 /-- Regenerative event-epoch law: negative-Rayleigh signed position and an
 independent uniform velocity label. -/
 noncomputable def gaussianZigZagSignedEventTarget : Measure ZigZagState :=
@@ -3558,6 +3817,126 @@ noncomputable def gaussianZigZagSignedHorizonEndpoint
   zigZagSignedCoordinate
     (gaussianZigZagHorizonEndpoint
       (zigZagSignedCoordinate initial) horizon hazards)
+
+theorem measurable_gaussianZigZagSignedHorizonEndpoint_joint
+    (horizon : NNReal) :
+    Measurable (fun input : ZigZagState × (ℕ → NNReal) =>
+      gaussianZigZagSignedHorizonEndpoint input.1 horizon input.2) := by
+  unfold gaussianZigZagSignedHorizonEndpoint
+  exact measurable_zigZagSignedCoordinate.comp
+    (measurable_gaussianZigZagHorizonEndpoint_joint horizon |>.comp
+      ((measurable_zigZagSignedCoordinate.comp measurable_fst).prodMk
+        measurable_snd))
+
+/-- A signed horizon row is the pushforward of the iid hazard stream through
+the jointly measurable signed stopped endpoint. -/
+theorem gaussianZigZagSignedHorizonKernel_apply_endpoint
+    (horizon : NNReal) (initial : ZigZagState) :
+    gaussianZigZagSignedHorizonKernel horizon initial =
+      Measure.map (fun hazards =>
+        gaussianZigZagSignedHorizonEndpoint initial horizon hazards)
+        gaussianZigZagHazardSequenceMeasure := by
+  have hmk : Measurable
+      (Prod.mk (zigZagSignedCoordinate initial) :
+        (ℕ → NNReal) → ZigZagState × (ℕ → NNReal)) :=
+    measurable_const.prodMk measurable_id
+  have hinner : Measurable
+      ((fun input : ZigZagState × (ℕ → NNReal) =>
+        gaussianZigZagHorizonEndpoint input.1 horizon input.2) ∘
+          Prod.mk (zigZagSignedCoordinate initial)) :=
+    (measurable_gaussianZigZagHorizonEndpoint_joint horizon).comp hmk
+  rw [gaussianZigZagSignedHorizonKernel_apply]
+  unfold gaussianZigZagHorizonKernel
+  rw [Kernel.map_apply _
+      (measurable_gaussianZigZagHorizonEndpoint_joint horizon),
+    Kernel.prod_apply, Kernel.id_apply, Kernel.const_apply,
+    Measure.dirac_prod]
+  rw [Measure.map_map
+    (measurable_gaussianZigZagHorizonEndpoint_joint horizon)
+    hmk]
+  rw [Measure.map_map measurable_zigZagSignedCoordinate
+    hinner]
+  rfl
+
+/-- Sampling form of the signed horizon kernel: retain the initial state,
+draw an iid hazard stream, and evaluate the exact stopped endpoint. -/
+noncomputable def gaussianZigZagSignedHorizonSamplingKernel
+    (horizon : NNReal) : Kernel ZigZagState ZigZagState :=
+  Kernel.map
+    (Kernel.prod Kernel.id
+      (Kernel.const ZigZagState gaussianZigZagHazardSequenceMeasure))
+    (fun input =>
+      gaussianZigZagSignedHorizonEndpoint input.1 horizon input.2)
+
+instance gaussianZigZagSignedHorizonSamplingKernel.instIsMarkovKernel
+    (horizon : NNReal) :
+    IsMarkovKernel (gaussianZigZagSignedHorizonSamplingKernel horizon) := by
+  unfold gaussianZigZagSignedHorizonSamplingKernel
+  apply Kernel.IsMarkovKernel.map
+  exact measurable_gaussianZigZagSignedHorizonEndpoint_joint horizon
+
+theorem gaussianZigZagSignedHorizonSamplingKernel_eq
+    (horizon : NNReal) :
+    gaussianZigZagSignedHorizonSamplingKernel horizon =
+      gaussianZigZagSignedHorizonKernel horizon := by
+  ext initial
+  have hmk : Measurable
+      (Prod.mk initial : (ℕ → NNReal) → ZigZagState × (ℕ → NNReal)) :=
+    measurable_const.prodMk measurable_id
+  unfold gaussianZigZagSignedHorizonSamplingKernel
+  rw [Kernel.map_apply _
+      (measurable_gaussianZigZagSignedHorizonEndpoint_joint horizon),
+    Kernel.prod_apply, Kernel.id_apply, Kernel.const_apply,
+    Measure.dirac_prod]
+  rw [Measure.map_map
+    (measurable_gaussianZigZagSignedHorizonEndpoint_joint horizon)
+    hmk]
+  rw [show ((fun input : ZigZagState × (ℕ → NNReal) =>
+      gaussianZigZagSignedHorizonEndpoint input.1 horizon input.2) ∘
+        Prod.mk initial) =
+      (fun hazards =>
+        gaussianZigZagSignedHorizonEndpoint initial horizon hazards) by rfl]
+  rw [gaussianZigZagSignedHorizonKernel_apply_endpoint]
+
+/-- Target-started signed horizon execution is the joint pushforward of an
+initial target state and an independent iid hazard stream. -/
+theorem gaussianZigZagSignedHorizonKernel_comp_target_eq_map
+    (horizon : NNReal) :
+    gaussianZigZagSignedHorizonKernel horizon ∘ₘ gaussianZigZagTarget =
+      Measure.map
+        (fun input : ZigZagState × (ℕ → NNReal) =>
+          gaussianZigZagSignedHorizonEndpoint input.1 horizon input.2)
+        (gaussianZigZagTarget.prod gaussianZigZagHazardSequenceMeasure) := by
+  rw [← gaussianZigZagSignedHorizonSamplingKernel_eq horizon]
+  unfold gaussianZigZagSignedHorizonSamplingKernel
+  rw [← Measure.map_comp gaussianZigZagTarget
+    (Kernel.prod Kernel.id
+      (Kernel.const ZigZagState gaussianZigZagHazardSequenceMeasure))
+    (measurable_gaussianZigZagSignedHorizonEndpoint_joint horizon)]
+  congr 1
+  rw [← Measure.compProd_eq_comp_prod gaussianZigZagTarget
+    (Kernel.const ZigZagState gaussianZigZagHazardSequenceMeasure),
+    Measure.compProd_const]
+
+/-- Exact stopped-horizon identification: target-started execution can be
+realized from stationary length-biased cycle occupation, an independent
+velocity label, and an independent future hazard tail. -/
+theorem gaussianZigZagSignedHorizonKernel_comp_target_eq_stationaryCycle
+    (horizon : NNReal) :
+    gaussianZigZagSignedHorizonKernel horizon ∘ₘ gaussianZigZagTarget =
+      Measure.map
+        (fun input : ((((ℝ × ℝ) × ℝ) × Bool) × (ℕ → NNReal)) =>
+          let clocked := gaussianZigZagStationaryCycleStreamMap input
+          gaussianZigZagSignedHorizonEndpoint clocked.1 horizon clocked.2)
+        ((gaussianZigZagStationaryCycleMeasure.prod
+          zigZagVelocityProbability).prod
+            gaussianZigZagHazardSequenceMeasure) := by
+  rw [gaussianZigZagSignedHorizonKernel_comp_target_eq_map,
+    ← gaussianZigZagStationaryCycleStreamMap_map]
+  rw [Measure.map_map
+    (measurable_gaussianZigZagSignedHorizonEndpoint_joint horizon)
+    measurable_gaussianZigZagStationaryCycleStreamMap]
+  rfl
 
 /-- Explicit first-event renewal branch in signed coordinates. Before the
 first event the signed position translates at unit speed; after the event the
