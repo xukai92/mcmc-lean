@@ -113,6 +113,7 @@ import Mcmc.Kernel.Coupling
 import Mcmc.Kernel.AuxiliaryGibbs
 import Mcmc.Kernel.ComposableInference
 import Mcmc.Kernel.GeneralConvergence
+import Mcmc.Kernel.LocalMinorizationCoupling
 import Mcmc.Kernel.RefreshAugmented
 import Mcmc.Kernel.IndependenceMetropolis
 import Mcmc.Kernel.Langevin

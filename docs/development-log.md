@@ -1,5 +1,16 @@
 # Development log
 
+- Added the reusable local-minorization coupling bridge. A minorization that
+  holds only on a measurable set is globalized by replacing irrelevant rows,
+  decomposed into a common reference component and normalized residual, and
+  coupled by a diagonal common draw plus independent residuals. Outside the
+  local product set the construction uses the original independent kernel;
+  both marginals are therefore the original transition everywhere. Its sticky
+  wrapper is Markov, faithful, and has diagonal meeting mass at least the
+  minorization coefficient on the product set. This reduces the remaining
+  Gaussian SoftAbs convergence work to a concrete compact minorization,
+  without leaving coupling measurability as an additional assumption.
+
 - Completed the target-specific Foster--Lyapunov analysis for the actual bare
   one-dimensional Gaussian SoftAbs multinomial GR-HMC kernel at `ε = 1` and
   `L = 1`. Finite relativistic speed gives a global exponential-moment bound;
