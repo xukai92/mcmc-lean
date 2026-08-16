@@ -23,6 +23,88 @@ def LocallyMinorizes (transition : Kernel α α) (D : Set α)
     (ε : ENNReal) (reference : Measure α) : Prop :=
   ∀ x ∈ D, ∀ s, MeasurableSet s → ε * reference s ≤ transition x s
 
+/-- Uniform finite-step accessibility between two regions for an arbitrary
+single-state kernel. -/
+def SingleChainAccessibleFrom (transition : Kernel α α)
+    (start target : Set α) (steps : ℕ) (bound : ENNReal) : Prop :=
+  ∀ x ∈ start, bound ≤ (transition ^ steps) x target
+
+/-- One-step accessibility is just a row-wise event lower bound. -/
+theorem isUniformlyAccessibleFrom_one
+    (transition : Kernel α α) {start target : Set α}
+    {bound : ENNReal}
+    (h : ∀ x ∈ start, bound ≤ transition x target) :
+    SingleChainAccessibleFrom transition start target 1 bound := by
+  intro x hx
+  simpa only [pow_one] using h x hx
+
+/-- Single-chain accessibility composes by Chapman--Kolmogorov. -/
+theorem SingleChainAccessibleFrom.comp
+    (transition : Kernel α α)
+    {start middle target : Set α}
+    (hmiddle : MeasurableSet middle) (htarget : MeasurableSet target)
+    {firstSteps secondSteps : ℕ} {firstBound secondBound : ENNReal}
+    (hfirst : SingleChainAccessibleFrom transition start middle
+      firstSteps firstBound)
+    (hsecond : SingleChainAccessibleFrom transition middle target
+      secondSteps secondBound) :
+    SingleChainAccessibleFrom transition start target
+      (firstSteps + secondSteps) (secondBound * firstBound) := by
+  intro x hx
+  rw [Kernel.pow_add_apply_eq_lintegral transition firstSteps secondSteps x
+    htarget]
+  calc
+    secondBound * firstBound ≤
+        secondBound * (transition ^ firstSteps) x middle := by
+      simpa only [mul_comm] using
+        (mul_le_mul_right (hfirst x hx) secondBound)
+    _ = ∫⁻ _y in middle, secondBound
+          ∂((transition ^ firstSteps) x) := by
+      rw [setLIntegral_const]
+    _ ≤ ∫⁻ y in middle, (transition ^ secondSteps) y target
+          ∂((transition ^ firstSteps) x) := by
+      exact setLIntegral_mono' hmiddle fun y hy => hsecond y hy
+    _ ≤ ∫⁻ y, (transition ^ secondSteps) y target
+          ∂((transition ^ firstSteps) x) :=
+      setLIntegral_le_lintegral middle _
+
+/-- Iterating a uniform one-step bound along a measurable sequence of
+corridor sets yields the corresponding power bound. The sets may depend on
+the initial state; only the per-step constant is shared. -/
+theorem bound_pow_le_apply_of_measurable_corridor
+    (transition : Kernel α α) [IsMarkovKernel transition]
+    (sets : ℕ → Set α) (hmeasurable : ∀ i, MeasurableSet (sets i))
+    (bound : ENNReal) (x : α) (hx : x ∈ sets 0) (n : ℕ)
+    (hstep : ∀ i < n, ∀ y ∈ sets i,
+      bound ≤ transition y (sets (i + 1))) :
+    bound ^ n ≤ (transition ^ n) x (sets n) := by
+  induction n with
+  | zero =>
+      simp only [pow_zero]
+      have hone : (1 : Kernel α α) = Kernel.id := rfl
+      rw [hone]
+      rw [Kernel.id_apply]
+      simp [hx]
+  | succ n ih =>
+      have ih' := ih (fun i hi => hstep i (hi.trans (Nat.lt_succ_self n)))
+      rw [Kernel.pow_succ_apply_eq_lintegral transition n x
+        (hmeasurable (n + 1))]
+      calc
+        bound ^ (n + 1) = bound * bound ^ n := by
+          rw [pow_succ]
+          ac_rfl
+        _ ≤ bound * (transition ^ n) x (sets n) := by
+          gcongr
+        _ = ∫⁻ _y in sets n, bound ∂((transition ^ n) x) := by
+          rw [setLIntegral_const]
+        _ ≤ ∫⁻ y in sets n, transition y (sets (n + 1))
+              ∂((transition ^ n) x) := by
+          exact setLIntegral_mono' (hmeasurable n) fun y hy =>
+            hstep n (Nat.lt_succ_self n) y hy
+        _ ≤ ∫⁻ y, transition y (sets (n + 1))
+              ∂((transition ^ n) x) :=
+          setLIntegral_le_lintegral (sets n) _
+
 /-- Normalize a finite positive restriction of a measure. -/
 noncomputable def normalizedRestriction
     (μ : Measure α) (A : Set α) : Measure α :=

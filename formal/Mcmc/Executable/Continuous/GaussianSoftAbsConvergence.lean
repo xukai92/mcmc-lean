@@ -524,6 +524,48 @@ theorem exists_pos_gaussianSoftAbs_localInterval_volume_floor_on_box
     (gaussianSoftAbs_localInterval_subset_movedPosition_image
       Q (q Unit.unit) hq)
 
+/-- Any measurable scalar corridor whose successive sections fit inside the
+certified local intervals inherits an explicit power-kernel lower bound. This
+separates the probabilistic composition from the remaining elementary
+construction of interval centers. -/
+theorem exists_pos_gaussianSoftAbs_corridor_power_lower_bound
+    (Q : ℝ) (hQ : 0 ≤ Q) (sections : ℕ → Set ℝ)
+    (hsections : ∀ i, MeasurableSet (sections i))
+    (mass : ENNReal) (n : ℕ)
+    (hband : ∀ i < n, ∀ y ∈ sections i, y ∈ Set.Icc (-Q) Q)
+    (hmass : ∀ i < n, mass ≤ volume (sections (i + 1)))
+    (hlocal : ∀ i < n, ∀ y ∈ sections i,
+      sections (i + 1) ⊆ Set.Icc
+        (y - gaussianSoftAbsUnitScalarVelocity 1)
+        (y + gaussianSoftAbsUnitScalarVelocity 1)) :
+    ∃ floor : ENNReal, 0 < floor ∧
+      ∀ q : Position Unit, q Unit.unit ∈ sections 0 →
+      (floor * mass) ^ n ≤
+        (gaussianSoftAbsMultinomialTransition 1 1 ^ n) q
+          {y | y Unit.unit ∈ sections n} := by
+  obtain ⟨floor, hfloorPos, hfloor⟩ :=
+    exists_pos_gaussianSoftAbs_localInterval_volume_floor_on_box Q hQ
+  refine ⟨floor, hfloorPos, ?_⟩
+  intro q hq
+  let positionSections : ℕ → Set (Position Unit) := fun i =>
+    {y | y Unit.unit ∈ sections i}
+  have hpositionSections : ∀ i, MeasurableSet (positionSections i) := by
+    intro i
+    exact (hsections i).preimage (measurable_pi_apply Unit.unit)
+  apply Mcmc.Kernel.bound_pow_le_apply_of_measurable_corridor
+    (gaussianSoftAbsMultinomialTransition 1 1)
+    positionSections hpositionSections (floor * mass) q hq n
+  intro i hi y hy
+  calc
+    floor * mass ≤ floor * volume (sections (i + 1)) := by
+      gcongr
+      exact hmass i hi
+    _ ≤ gaussianSoftAbsMultinomialTransition 1 1 y
+          {z | z Unit.unit ∈ sections (i + 1)} := by
+      apply hfloor y (hband i hi (y Unit.unit) hy)
+        (sections (i + 1)) (hsections (i + 1))
+      exact hlocal i hi (y Unit.unit) hy
+
 /-- Exponential coordinate Lyapunov weight used for the bare one-dimensional
 Gaussian SoftAbs drift argument. -/
 noncomputable def gaussianSoftAbsExpWeight (t x : ℝ) : ENNReal :=
