@@ -1,6 +1,7 @@
 import Mcmc.Executable.Continuous.GaussianSoftAbs
 import Mcmc.Kernel.RefreshAugmented
 import Mcmc.Kernel.LocalMinorizationCoupling
+import Mathlib.Analysis.SpecialFunctions.Gaussian.FourierTransform
 
 /-!
 # Geometric convergence for refresh-augmented Gaussian SoftAbs GR-HMC
@@ -18,6 +19,21 @@ open Mcmc.Hamiltonian Mcmc.Kernel Mcmc.Relativistic MeasureTheory ProbabilityThe
 open scoped ENNReal
 
 variable {ι : Type*} [Fintype ι] [Nonempty ι] [DecidableEq ι]
+
+theorem lintegral_rexp_neg_quarter_sq_ne_top :
+    (∫⁻ x : ℝ, ENNReal.ofReal (Real.exp (-(1 / 4 : ℝ) * x ^ 2))) ≠ ∞ := by
+  have hcomplex :=
+    GaussianFourier.integrable_cexp_neg_mul_sq_norm_add
+      (V := ℝ) (b := ((1 / 4 : ℝ) : ℂ)) (by norm_num)
+      0 0
+  have hnorm := hcomplex.norm
+  have hreal : Integrable
+      (fun x : ℝ => Real.exp (-(1 / 4 : ℝ) * x ^ 2)) := by
+    simpa [Complex.norm_exp, Real.norm_eq_abs, abs_of_nonneg (Real.exp_nonneg _),
+      pow_two] using hnorm
+  apply ne_top_of_lt
+  simpa [Real.norm_eq_abs, abs_of_pos (Real.exp_pos _)] using
+    ((hasFiniteIntegral_iff_norm _).mp hreal.hasFiniteIntegral)
 
 /-- The concrete multinomial Gaussian SoftAbs GR-HMC transition. -/
 noncomputable abbrev gaussianSoftAbsMultinomialTransition (ε : ℝ) (L : ℕ) :=
@@ -2615,6 +2631,114 @@ theorem exists_gaussianSoftAbs_bare_power_setwise_convergence_of_targetMoment
     (gaussianSoftAbsMultinomialTransition 1 1 ^ steps) coupled
     hinitial hcoupled hfaithful hinvariant hmeeting hrate hmeetingPos
     hmeetingLe hthreshold0 hthresholdTop hdriftBudgetTop hVmoment hs
+
+/-- The unnormalized one-dimensional Gaussian SoftAbs position target has a
+finite exponential-absolute-coordinate moment at every real scale. -/
+theorem lintegral_gaussianSoftAbsExpLyapunov_positionTarget_ne_top
+    (t : ℝ) :
+    (∫⁻ q, gaussianSoftAbsExpLyapunov t q
+      ∂gaussianSoftAbsPositionTarget (ι := Unit)) ≠ ∞ := by
+  have hvolumeMap : Measure.map (fun q : Position Unit => q Unit.unit)
+      (volume : Measure (Position Unit)) = (volume : Measure ℝ) := by
+    rw [volume_pi]
+    simpa using
+      (Measure.pi_map_eval
+        (μ := fun _ : Unit => (volume : Measure ℝ)) Unit.unit)
+  have hgaussian : (∫⁻ q : Position Unit,
+      ENNReal.ofReal (Real.exp (-(1 / 4 : ℝ) * (q Unit.unit) ^ 2))) ≠ ∞ := by
+    have h := lintegral_rexp_neg_quarter_sq_ne_top
+    rw [← hvolumeMap] at h
+    rw [lintegral_map
+      (show Measurable (fun x : ℝ =>
+        ENNReal.ofReal (Real.exp (-(1 / 4 : ℝ) * x ^ 2))) by fun_prop)
+      (measurable_pi_apply Unit.unit)] at h
+    exact h
+  have hcore : (∫⁻ q : Position Unit,
+      gaussianSoftAbsExpLyapunov t q *
+        positionBoltzmannWeight gaussianSoftAbsPotential q) ≠ ∞ := by
+    apply ne_top_of_le_ne_top
+      (ENNReal.mul_ne_top ENNReal.ofReal_ne_top hgaussian)
+    calc
+      (∫⁻ q : Position Unit,
+          gaussianSoftAbsExpLyapunov t q *
+            positionBoltzmannWeight gaussianSoftAbsPotential q) ≤
+          ∫⁻ q : Position Unit,
+            ENNReal.ofReal (Real.exp (t ^ 2)) *
+              ENNReal.ofReal
+                (Real.exp (-(1 / 4 : ℝ) * (q Unit.unit) ^ 2)) := by
+        apply lintegral_mono
+        intro q
+        unfold gaussianSoftAbsExpLyapunov gaussianSoftAbsExpWeight
+          positionBoltzmannWeight gaussianSoftAbsPotential
+          squaredEuclideanNorm euclideanInner
+        simp only [Finset.univ_unique, Finset.sum_singleton]
+        rw [← ENNReal.ofReal_mul (Real.exp_nonneg _),
+          ← ENNReal.ofReal_mul (Real.exp_nonneg _)]
+        apply ENNReal.ofReal_le_ofReal
+        rw [← Real.exp_add, ← Real.exp_add]
+        apply Real.exp_le_exp.mpr
+        have hdefault : q default = q Unit.unit := by
+          congr
+        rw [hdefault]
+        nlinarith [sq_nonneg (|q Unit.unit| - 2 * t),
+          sq_abs (q Unit.unit)]
+      _ = ENNReal.ofReal (Real.exp (t ^ 2)) *
+          ∫⁻ q : Position Unit,
+            ENNReal.ofReal
+              (Real.exp (-(1 / 4 : ℝ) * (q Unit.unit) ^ 2)) := by
+        rw [lintegral_const_mul _]
+        fun_prop
+  unfold gaussianSoftAbsPositionTarget generalRelativisticPositionTarget
+    positionBoltzmannTarget
+  rw [lintegral_smul_measure]
+  apply ENNReal.mul_ne_top ENNReal.coe_ne_top
+  rw [lintegral_withDensity_eq_lintegral_mul]
+  · simpa only [Pi.mul_apply, mul_comm] using hcore
+  · exact measurable_positionBoltzmannWeight
+      measurable_gaussianSoftAbsPotential
+  · exact measurable_gaussianSoftAbsExpLyapunov t
+
+/-- Normalizing the Gaussian SoftAbs position target preserves finiteness of
+the exponential Lyapunov moment. -/
+theorem lintegral_gaussianSoftAbsExpLyapunov_finiteNormalize_ne_top
+    (t : ℝ) :
+    (∫⁻ q, gaussianSoftAbsExpLyapunov t q
+      ∂Mcmc.Kernel.finiteNormalize
+        (gaussianSoftAbsPositionTarget (ι := Unit))) ≠ ∞ := by
+  let target : Measure (Position Unit) :=
+    gaussianSoftAbsPositionTarget (ι := Unit)
+  let finiteTarget : MeasureTheory.FiniteMeasure (Position Unit) :=
+    ⟨target, inferInstance⟩
+  have hfiniteTarget : finiteTarget ≠ 0 := by
+    intro hzero
+    apply gaussianSoftAbsPositionTarget_ne_zero (ι := Unit)
+    have hcoerced := congrArg
+      (fun μ : MeasureTheory.FiniteMeasure (Position Unit) =>
+        (μ : Measure (Position Unit))) hzero
+    simpa [finiteTarget, target] using hcoerced
+  unfold Mcmc.Kernel.finiteNormalize
+  change (∫⁻ q, gaussianSoftAbsExpLyapunov t q
+    ∂((MeasureTheory.FiniteMeasure.normalize finiteTarget :
+      ProbabilityMeasure (Position Unit)) : Measure (Position Unit))) ≠ ∞
+  rw [MeasureTheory.FiniteMeasure.toMeasure_normalize_eq_of_nonzero
+    finiteTarget hfiniteTarget, lintegral_smul_measure]
+  apply ENNReal.mul_ne_top ENNReal.coe_ne_top
+  exact lintegral_gaussianSoftAbsExpLyapunov_positionTarget_ne_top t
+
+/-- A positive bare Gaussian SoftAbs skeleton converges setwise from every
+point mass, with no residual target-moment premise. -/
+theorem exists_gaussianSoftAbs_bare_power_setwise_convergence
+    (t : ℝ) (ht : 0 < t)
+    (q : Position Unit) {s : Set (Position Unit)} (hs : MeasurableSet s) :
+    ∃ steps : ℕ, 0 < steps ∧
+      Filter.Tendsto
+        (fun n => Mcmc.Kernel.lawAtTime (Measure.dirac q)
+          (gaussianSoftAbsMultinomialTransition 1 1 ^ steps) n s)
+        Filter.atTop
+        (nhds (Mcmc.Kernel.finiteNormalize
+          (gaussianSoftAbsPositionTarget (ι := Unit)) s)) :=
+  exists_gaussianSoftAbs_bare_power_setwise_convergence_of_targetMoment
+    t ht (lintegral_gaussianSoftAbsExpLyapunov_finiteNormalize_ne_top t) q hs
 
 /-- A positive exponential scale admits one fixed strict drift rate beyond a
 finite positive-tail threshold. -/
