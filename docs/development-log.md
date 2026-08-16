@@ -6,7 +6,10 @@
   for every strictly ordered endpoint pair, the Markov-kernel instance, and
   probability-one support in the declared bracket. This turns future
   deterministic expansion/shrinkage sections into concrete kernels rather
-  than abstract conditionals.
+  than abstract conditionals. Its rows are now identified exactly as the
+  inverse interval length times restricted Lebesgue measure, with the closed
+  event formula `length⁻¹ · volume(event ∩ interval)` needed by the
+  forthcoming under-graph factorization.
 
 - Connected the complete three-dimensional product reversible-jump theorem to
   an executable `SpatialBirthDeathRJ` client. Birth applies the formally

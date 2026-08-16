@@ -155,6 +155,45 @@ instance variableIntervalKernel.instIsMarkovKernel
     ProbabilityTheory.Kernel.const_apply, Measure.restrict_univ,
     variableIntervalDensity_lintegral lower upper hordered]
 
+/-- Each row of the variable-interval kernel is exactly normalized Lebesgue
+restriction to its declared interval. -/
+theorem variableIntervalKernel_apply_eq_smul_restrict
+    {Parameter : Type*} [MeasurableSpace Parameter]
+    (lower upper : Parameter → ℝ) (hlower : Measurable lower)
+    (hupper : Measurable upper)
+    (hordered : ∀ parameter, lower parameter < upper parameter)
+    (parameter : Parameter) :
+    variableIntervalKernel lower upper hlower hupper hordered parameter =
+      (ENNReal.ofReal (upper parameter - lower parameter))⁻¹ •
+        (volume.restrict (Ioc (lower parameter) (upper parameter))) := by
+  rw [variableIntervalKernel,
+    ProbabilityTheory.Kernel.withDensity_apply
+      _ (measurable_uncurry_variableIntervalDensity hlower hupper),
+    ProbabilityTheory.Kernel.const_apply]
+  rw [show variableIntervalDensity lower upper parameter =
+      (Ioc (lower parameter) (upper parameter)).indicator
+        (fun _ ↦ (ENNReal.ofReal
+          (upper parameter - lower parameter))⁻¹) by
+    funext x
+    by_cases hx : x ∈ Ioc (lower parameter) (upper parameter) <;>
+      simp [variableIntervalDensity, hx],
+    withDensity_indicator measurableSet_Ioc,
+    withDensity_const]
+
+/-- Closed event-probability formula for a variable-interval draw. -/
+theorem variableIntervalKernel_apply_event
+    {Parameter : Type*} [MeasurableSpace Parameter]
+    (lower upper : Parameter → ℝ) (hlower : Measurable lower)
+    (hupper : Measurable upper)
+    (hordered : ∀ parameter, lower parameter < upper parameter)
+    (parameter : Parameter) {event : Set ℝ} (hevent : MeasurableSet event) :
+    variableIntervalKernel lower upper hlower hupper hordered parameter event =
+      (ENNReal.ofReal (upper parameter - lower parameter))⁻¹ *
+        volume (event ∩ Ioc (lower parameter) (upper parameter)) := by
+  rw [variableIntervalKernel_apply_eq_smul_restrict lower upper hlower hupper
+    hordered parameter, Measure.smul_apply, Measure.restrict_apply hevent,
+    smul_eq_mul]
+
 /-- The variable-interval draw lies in its declared bracket with probability
 one. -/
 theorem variableIntervalKernel_apply_interval
