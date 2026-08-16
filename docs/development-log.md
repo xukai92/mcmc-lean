@@ -1,5 +1,15 @@
 # Development log
 
+- Instantiated a concrete time-uniform finite Feynman--Kac particle model.
+  Its potential may be any strictly positive state function and therefore its
+  multinomial resampling is genuinely population dependent, but mutation
+  completely refreshes every child from one fixed law. Lean proves the
+  propagated cloud is iid regardless of the ancestors, every positive-time
+  bootstrap population is exactly iid, the normalized target is the refresh
+  law, and empirical MSE is exactly `variance/N` at every positive horizon.
+  This is a real uniform-in-time SMC theorem, while partially mixing models
+  and particle-count-uniform particle-Gibbs rates remain open.
+
 - Added the correctness interface needed beyond conservative checked dynamic
   trees. A finite root-dependent sampler now consists of a state-dependent
   complete trace law, conditional selection law, and endpoint-indexed
