@@ -1,5 +1,14 @@
 # Development log
 
+- Completed the canonical signed Gaussian event-clock law needed by the
+  renewal proof. For every positive exponential draw, Lean proves that the
+  horizon precedes the inverse-clock event exactly when accumulated hazard is
+  below the draw. Consequently the exact no-event probability is
+  `exp (-A(s,t))`. The accumulated hazard is also identified with the change
+  in the positive-half quadratic potential,
+  `A(s,t) = max(0,s+t)^2/2 - max(0,s)^2/2`. These results turn the remaining
+  target-preservation calculation into explicit Gaussian density algebra.
+
 - Derived the first-event renewal equation for the exact stopped Gaussian
   Zig-Zag kernel directly in signed coordinates. Its no-event branch is now
   explicit unit-speed translation, while its event branch restarts the same

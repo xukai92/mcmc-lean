@@ -570,7 +570,10 @@ by paper date:
   bookkeeping from the remaining scalar renewal/transport analysis. The exact
   horizon kernel now also satisfies the explicit signed first-event renewal
   equation: unit-speed translation before the first event and restart from
-  the negative-square-root reset afterward. Splitting a horizon
+  the negative-square-root reset afterward. The signed inverse clock is now
+  proved order-equivalent to its accumulated hazard, its exact no-event
+  survival probability is checked, and that hazard is the change in the
+  positive-half quadratic potential along translation. Splitting a horizon
   between events is still correctly treated as a law-level argument rather
   than a pointwise semigroup identity;
 2. bare Gaussian SoftAbs GR-HMC convergence -- complete for the concrete

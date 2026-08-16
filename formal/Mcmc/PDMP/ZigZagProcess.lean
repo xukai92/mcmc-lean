@@ -2316,6 +2316,104 @@ noncomputable def gaussianZigZagSignedWaitingNNReal
     (initial : ZigZagState) (hazard : NNReal) : NNReal :=
   gaussianZigZagWaitingNNReal (zigZagSignedCoordinate initial) hazard
 
+/-- Accumulated event hazard over a signed-coordinate horizon. -/
+noncomputable def gaussianZigZagSignedIntegratedRate
+    (initial : ZigZagState) (horizon : NNReal) : NNReal :=
+  ⟨gaussianZigZagIntegratedRate
+      (zigZagSignedCoordinate initial).1
+      (zigZagSignedCoordinate initial).2 (horizon : ℝ),
+    gaussianZigZagIntegratedRate_nonneg _ _ horizon.coe_nonneg⟩
+
+/-- Closed scalar form of the signed accumulated hazard. -/
+theorem coe_gaussianZigZagSignedIntegratedRate
+    (initial : ZigZagState) (horizon : NNReal) :
+    (gaussianZigZagSignedIntegratedRate initial horizon : ℝ) =
+      if 0 ≤ initial.1 then
+        initial.1 * (horizon : ℝ) + (horizon : ℝ) ^ 2 / 2
+      else if (horizon : ℝ) ≤ -initial.1 then 0
+      else (initial.1 + (horizon : ℝ)) ^ 2 / 2 := by
+  change gaussianZigZagIntegratedRate
+      (zigZagSignedCoordinate initial).1
+      (zigZagSignedCoordinate initial).2 (horizon : ℝ) = _
+  unfold gaussianZigZagIntegratedRate
+  change (if 0 ≤ zigZagSignedPosition (zigZagSignedCoordinate initial) then
+      zigZagSignedPosition (zigZagSignedCoordinate initial) * (horizon : ℝ) +
+        (horizon : ℝ) ^ 2 / 2
+    else if (horizon : ℝ) ≤
+        -zigZagSignedPosition (zigZagSignedCoordinate initial) then 0
+    else (zigZagSignedPosition (zigZagSignedCoordinate initial) +
+      (horizon : ℝ)) ^ 2 / 2) = _
+  rw [zigZagSignedPosition_signedCoordinate]
+
+/-- Accumulated signed hazard is the increase of the positive-half quadratic
+potential along unit-speed translation. -/
+theorem coe_gaussianZigZagSignedIntegratedRate_eq_positivePart
+    (initial : ZigZagState) (horizon : NNReal) :
+    (gaussianZigZagSignedIntegratedRate initial horizon : ℝ) =
+      (max 0 (initial.1 + (horizon : ℝ))) ^ 2 / 2 -
+        (max 0 initial.1) ^ 2 / 2 := by
+  rw [coe_gaussianZigZagSignedIntegratedRate]
+  by_cases hs : 0 ≤ initial.1
+  · rw [if_pos hs, max_eq_right hs]
+    have hsum : 0 ≤ initial.1 + (horizon : ℝ) :=
+      add_nonneg hs horizon.coe_nonneg
+    rw [max_eq_right hsum]
+    ring
+  · rw [if_neg hs]
+    have hsNeg : initial.1 < 0 := lt_of_not_ge hs
+    rw [max_eq_left (le_of_lt hsNeg)]
+    by_cases hflat : (horizon : ℝ) ≤ -initial.1
+    · rw [if_pos hflat]
+      have hsum : initial.1 + (horizon : ℝ) ≤ 0 := by linarith
+      rw [max_eq_left hsum]
+      ring
+    · rw [if_neg hflat]
+      have hsum : 0 ≤ initial.1 + (horizon : ℝ) := by linarith
+      rw [max_eq_right hsum]
+      ring
+
+/-- The canonical signed clock is before its event exactly while the fresh
+exponential hazard exceeds the accumulated event rate. -/
+theorem gaussianZigZagSignedIntegratedRate_lt_iff_horizon_lt_waiting
+    (initial : ZigZagState) (horizon : NNReal) {hazard : NNReal}
+    (hhazard : 0 < hazard) :
+    gaussianZigZagSignedIntegratedRate initial horizon < hazard ↔
+      horizon < gaussianZigZagSignedWaitingNNReal initial hazard := by
+  change gaussianZigZagIntegratedRate
+      (zigZagSignedCoordinate initial).1
+      (zigZagSignedCoordinate initial).2 (horizon : ℝ) < (hazard : ℝ) ↔
+    (horizon : ℝ) <
+      (gaussianZigZagWaitingNNReal
+        (zigZagSignedCoordinate initial) hazard : ℝ)
+  rw [coe_gaussianZigZagWaitingNNReal]
+  exact gaussianZigZagIntegratedRate_lt_iff_lt_waitingTime _ _
+    horizon.coe_nonneg (by exact_mod_cast hhazard)
+
+/-- Exact no-event probability for the canonical signed clock. -/
+theorem gaussianZigZagSignedWaitingNNReal_survival
+    (initial : ZigZagState) (horizon : NNReal) :
+    gaussianZigZagHazardMeasure
+        {hazard | horizon <
+          gaussianZigZagSignedWaitingNNReal initial hazard} =
+      ENNReal.ofReal
+        (Real.exp (-(gaussianZigZagSignedIntegratedRate
+          initial horizon : ℝ))) := by
+  have hsets : {hazard | horizon <
+        gaussianZigZagSignedWaitingNNReal initial hazard} =ᵐ[
+      gaussianZigZagHazardMeasure]
+      (Set.Ioi (gaussianZigZagSignedIntegratedRate initial horizon) :
+        Set NNReal) := by
+    filter_upwards [gaussianZigZagHazardMeasure_positive_ae]
+      with hazard hhazard
+    change (horizon < gaussianZigZagSignedWaitingNNReal initial hazard) =
+      (gaussianZigZagSignedIntegratedRate initial horizon < hazard)
+    exact propext
+      (gaussianZigZagSignedIntegratedRate_lt_iff_horizon_lt_waiting
+        initial horizon hhazard).symm
+  rw [measure_congr hsets]
+  exact gaussianZigZagHazardMeasure_Ioi
+    (gaussianZigZagSignedIntegratedRate initial horizon)
+
 /-- Event update viewed from signed coordinates. -/
 noncomputable def gaussianZigZagSignedEventUpdate
     (initial : ZigZagState) (hazard : NNReal) : ZigZagState :=

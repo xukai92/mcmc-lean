@@ -654,4 +654,70 @@ theorem gaussianZigZagIntegratedRate_waitingTime
     have hsqrt := Real.sq_sqrt hrad
     nlinarith
 
+/-- The inverse clock is order-reflecting for a positive hazard draw. Thus a
+deterministic horizon occurs before the event exactly when the accumulated
+hazard at that horizon is still below the exponential draw. -/
+theorem gaussianZigZagIntegratedRate_lt_iff_lt_waitingTime
+    (q : ℝ) (v : Bool) {t exponentialDraw : ℝ}
+    (ht : 0 ≤ t) (hdraw : 0 < exponentialDraw) :
+    gaussianZigZagIntegratedRate q v t < exponentialDraw ↔
+      t < gaussianZigZagWaitingTime q v exponentialDraw := by
+  let a := zigZagVelocity v * q
+  by_cases ha : 0 ≤ a
+  · simp only [gaussianZigZagIntegratedRate, gaussianZigZagWaitingTime,
+      a, if_pos ha]
+    have hrad : 0 ≤ a ^ 2 + 2 * exponentialDraw := by
+      nlinarith [sq_nonneg a]
+    have hsqrtSq : (Real.sqrt (a ^ 2 + 2 * exponentialDraw)) ^ 2 =
+        a ^ 2 + 2 * exponentialDraw := Real.sq_sqrt hrad
+    have hsqrtNonneg := Real.sqrt_nonneg (a ^ 2 + 2 * exponentialDraw)
+    constructor <;> intro h
+    · by_contra hnot
+      have hle : Real.sqrt (a ^ 2 + 2 * exponentialDraw) ≤ a + t := by
+        linarith
+      nlinarith
+    · have hlt : a + t < Real.sqrt (a ^ 2 + 2 * exponentialDraw) := by
+        linarith
+      nlinarith
+  · have haNeg : a < 0 := lt_of_not_ge ha
+    simp only [gaussianZigZagIntegratedRate, gaussianZigZagWaitingTime,
+      a, if_neg ha]
+    by_cases hflat : t ≤ -a
+    · rw [if_pos hflat]
+      constructor
+      · intro _
+        have hsqrtPos : 0 < Real.sqrt (2 * exponentialDraw) :=
+          Real.sqrt_pos.2 (by positivity)
+        linarith
+      · intro _
+        exact hdraw
+    · rw [if_neg hflat]
+      have hatPos : 0 < a + t := by linarith
+      have hrad : 0 ≤ 2 * exponentialDraw := by positivity
+      have hsqrtSq : (Real.sqrt (2 * exponentialDraw)) ^ 2 =
+          2 * exponentialDraw := Real.sq_sqrt hrad
+      have hsqrtNonneg := Real.sqrt_nonneg (2 * exponentialDraw)
+      constructor <;> intro h
+      · by_contra hnot
+        have hle : Real.sqrt (2 * exponentialDraw) ≤ a + t := by
+          linarith
+        nlinarith
+      · have hlt : a + t < Real.sqrt (2 * exponentialDraw) := by
+          linarith
+        nlinarith
+
+/-- Accumulated Gaussian Zig-Zag hazard is nonnegative at every nonnegative
+horizon. -/
+theorem gaussianZigZagIntegratedRate_nonneg
+    (q : ℝ) (v : Bool) {t : ℝ} (ht : 0 ≤ t) :
+    0 ≤ gaussianZigZagIntegratedRate q v t := by
+  let a := zigZagVelocity v * q
+  by_cases ha : 0 ≤ a
+  · simp only [gaussianZigZagIntegratedRate, a, if_pos ha]
+    nlinarith [sq_nonneg t]
+  · simp only [gaussianZigZagIntegratedRate, a, if_neg ha]
+    split_ifs
+    · rfl
+    · positivity
+
 end Mcmc.PDMP
