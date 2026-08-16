@@ -1,5 +1,16 @@
 # Development log
 
+- Formalized the missing weak-forward uniqueness architecture without
+  incorrectly applying the generator to all continuous functions. The generic
+  solution/uniqueness interfaces take an explicit test type, observation map,
+  and generator map. Generator balance makes the constant target curve a weak
+  solution, and uniqueness identifies it with the constructed transition law,
+  proving invariance. For Gaussian Zig-Zag, added a compactly supported `C¹`
+  test structure with full phase-generator integrability; Fubini and the equal-
+  velocity law reduce its full target generator expectation to the previously
+  checked smooth Stein cancellation. Thus weak-forward uniqueness of the exact
+  stopped path is now the sole premise of a concrete stationarity theorem.
+
 - Added a compact-test forward-equation stationarity bridge. For locally
   compact Borel state spaces, if every compactly supported continuous
   expectation is differentiable in time with zero derivative, Lean proves

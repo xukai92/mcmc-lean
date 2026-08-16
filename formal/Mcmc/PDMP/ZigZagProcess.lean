@@ -44,6 +44,73 @@ instance gaussianZigZagTarget.instIsProbabilityMeasure :
   unfold gaussianZigZagTarget
   infer_instance
 
+/-! ### Smooth weak-generator domain -/
+
+/-- Compactly supported `C¹` Gaussian Zig-Zag generator test, including the
+integrability of the full phase-space generator needed for the weak forward
+equation. -/
+structure GaussianZigZagSmoothTest where
+  observable : ℝ → Bool → ℝ
+  derivative : ℝ → Bool → ℝ
+  difference : ℝ → ℝ
+  difference_eq : difference =
+    fun q => observable q true - observable q false
+  contDiff_difference : ContDiff ℝ 1 difference
+  compact_difference : HasCompactSupport difference
+  derivative_eq : ∀ q,
+    derivative q true - derivative q false = deriv difference q
+  generator_integrable : Integrable
+    (fun state : ZigZagState =>
+      zigZagGenerator id derivative observable state.1 state.2)
+    gaussianZigZagTarget
+
+/-- Observable represented by a smooth Zig-Zag generator test. -/
+def GaussianZigZagSmoothTest.observe
+    (test : GaussianZigZagSmoothTest) : ZigZagState → ℝ :=
+  fun state => test.observable state.1 state.2
+
+/-- Generator represented by a smooth Zig-Zag generator test. -/
+def GaussianZigZagSmoothTest.generator
+    (test : GaussianZigZagSmoothTest) : ZigZagState → ℝ :=
+  fun state => zigZagGenerator id test.derivative test.observable
+    state.1 state.2
+
+/-- Integration against the equal-sign velocity law averages the two Boolean
+values. -/
+theorem integral_zigZagVelocityProbability (f : Bool → ℝ) :
+    (∫ v, f v ∂zigZagVelocityProbability) =
+      (2 : ℝ)⁻¹ * f false + (2 : ℝ)⁻¹ * f true := by
+  have hfalse : Integrable f ((2 : ENNReal)⁻¹ • Measure.dirac false) :=
+    (integrable_dirac (by simp)).smul_measure (by simp)
+  have htrue : Integrable f ((2 : ENNReal)⁻¹ • Measure.dirac true) :=
+    (integrable_dirac (by simp)).smul_measure (by simp)
+  rw [zigZagVelocityProbability, integral_add_measure hfalse htrue,
+    integral_smul_measure, integral_smul_measure]
+  simp
+
+/-- Every smooth-core test has zero generator expectation under the full
+Gaussian position/equal-velocity target. -/
+theorem GaussianZigZagSmoothTest.generator_mean_zero
+    (test : GaussianZigZagSmoothTest) :
+    (∫ state, test.generator state ∂gaussianZigZagTarget) = 0 := by
+  unfold GaussianZigZagSmoothTest.generator
+  rw [gaussianZigZagTarget,
+    integral_prod _ test.generator_integrable]
+  simp_rw [integral_zigZagVelocityProbability]
+  have hcore :=
+    gaussian_zigZagGenerator_mean_zero_of_contDiff_compactSupport
+      test.derivative test.observable test.difference test.difference_eq
+      test.contDiff_difference test.compact_difference test.derivative_eq
+  have heq : (fun q =>
+      (2 : ℝ)⁻¹ * zigZagGenerator id test.derivative test.observable q false +
+      (2 : ℝ)⁻¹ * zigZagGenerator id test.derivative test.observable q true) =
+      fun q => (2 : ℝ)⁻¹ *
+        (∑ v : Bool, zigZagGenerator id test.derivative test.observable q v) := by
+    funext q
+    rw [Fintype.sum_bool]
+    ring
+  rw [heq, integral_const_mul, hcore, mul_zero]
+
 /-- Exact linear Zig-Zag motion between velocity-switching events. -/
 def zigZagFlow (t : NNReal) (state : ZigZagState) : ZigZagState :=
   (state.1 + (t : ℝ) * zigZagVelocity state.2, state.2)
@@ -1037,6 +1104,12 @@ abbrev GaussianZigZagCompactForwardEquation :=
   CompactTestForwardStationarityCertificate
     gaussianZigZagHorizonKernel gaussianZigZagTarget
 
+/-- Weak-forward uniqueness statement for the exact Gaussian Zig-Zag path law
+on the certified compact `C¹` generator domain. -/
+abbrev GaussianZigZagWeakForwardUniqueness :=
+  CompactTestWeakForwardUniqueness gaussianZigZagHorizonKernel
+    GaussianZigZagSmoothTest.observe GaussianZigZagSmoothTest.generator
+
 theorem GaussianZigZagForwardEquation.toSetwiseCertificate
     (forward : GaussianZigZagForwardEquation) :
     SetwiseForwardStationarityCertificate
@@ -1069,6 +1142,20 @@ theorem gaussianZigZagHorizonKernel_invariant_of_compactForwardEquation
     (horizon : NNReal) :
     (gaussianZigZagHorizonKernel horizon).Invariant gaussianZigZagTarget :=
   forward.invariant gaussianZigZagHorizonKernel gaussianZigZagTarget horizon
+
+/-- Once weak-forward uniqueness is proved for the constructed stopped path,
+the checked smooth-core generator balance yields exact stationarity. -/
+theorem gaussianZigZagHorizonKernel_invariant_of_weakForwardUniqueness
+    (uniqueness : GaussianZigZagWeakForwardUniqueness)
+    (horizon : NNReal) :
+    (gaussianZigZagHorizonKernel horizon).Invariant gaussianZigZagTarget := by
+  apply invariant_of_compactTest_generatorBalance_and_weakUniqueness
+    gaussianZigZagHorizonKernel GaussianZigZagSmoothTest.observe
+    GaussianZigZagSmoothTest.generator gaussianZigZagTarget uniqueness
+  · intro test
+    exact test.generator_integrable
+  · intro test
+    exact test.generator_mean_zero
 
 /-- Under the event kernel's actual exponential-hazard law, inverse-clock
 execution satisfies the integrated-hazard equation almost surely. -/

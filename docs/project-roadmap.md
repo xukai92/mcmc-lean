@@ -418,6 +418,12 @@ breadth branches are:
   regularity discharged automatically. It remains to derive time
   differentiability and the zero derivative for the constructed path law from
   the smooth generator core.
+  In parallel, the weak-forward route is now factored precisely: a generic
+  uniqueness theorem upgrades generator balance to invariance on an explicit
+  differentiable test domain. The Gaussian smooth-test domain is instantiated,
+  its full product-target generator expectation is zero, and exact horizon
+  stationarity follows from one remaining weak-forward uniqueness theorem for
+  the stopped path construction.
   The normalized Gaussian/equal-velocity target and exact zero-time identity
   are discharged, so the specialized certificate contains only
   differentiability and the zero-derivative forward equation.

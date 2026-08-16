@@ -215,6 +215,12 @@ the forward equation for every compactly supported continuous expectation;
 the exact Gaussian Zig-Zag horizon family is connected to this more natural
 compact-test certificate, with regularity of its finite transported measures
 discharged automatically from the state-space topology.
+The weak-forward route is also explicit and domain-correct: a concrete
+compactly supported `C¹` Zig-Zag test type includes full phase-generator
+integrability, and Lean proves zero generator expectation under the actual
+Gaussian×equal-velocity target. A generic theorem shows that weak-forward
+uniqueness for this test domain implies exact stationarity. Proving that
+uniqueness theorem for the constructed stopped path remains open.
 The normalized Gaussian-position/equal-velocity target is now explicit and
 proved a probability measure, and the stopped horizon family is proved exactly
 the identity kernel at time zero; these parts no longer remain premises of the
