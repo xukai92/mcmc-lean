@@ -1,4 +1,8 @@
 import Mcmc.Finite.Doeblin
+import Mathlib.Analysis.SpecificLimits.Basic
+import Mathlib.Order.Filter.AtTopBot.Field
+import Mathlib.Order.Filter.AtTopBot.Group
+import Mathlib.MeasureTheory.Integral.IntegralEqImproper
 
 /-!
 # Count-indexed positive-horizon particle-Gibbs rates
@@ -129,6 +133,84 @@ theorem particleGibbsCountCoefficient_mono
       have hcast : (extra : ℝ) ≤ (more : ℝ) := by exact_mod_cast hcount
       nlinarith
   exact pow_le_pow_left₀ (by positivity) hbase _
+
+/-- At fixed horizon and fixed finite potential penalty, the certified
+positive-horizon refresh coefficient tends to one as the number of
+non-retained particles tends to infinity. -/
+theorem particleGibbsCountCoefficient_tendsto_one
+    (bound : ℝ) (horizon : ℕ) :
+    Filter.Tendsto
+      (fun extra => particleGibbsCountCoefficient extra bound horizon)
+      Filter.atTop (nhds 1) := by
+  have hdenom : Filter.Tendsto (fun extra : ℕ => (extra : ℝ) + bound)
+      Filter.atTop Filter.atTop :=
+    Filter.tendsto_atTop_add_const_right Filter.atTop bound
+      tendsto_natCast_atTop_atTop
+  have hpenalty : Filter.Tendsto
+      (fun extra : ℕ => bound / ((extra : ℝ) + bound))
+      Filter.atTop (nhds 0) := hdenom.const_div_atTop bound
+  have hbase : Filter.Tendsto
+      (fun extra : ℕ => (extra : ℝ) / ((extra : ℝ) + bound))
+      Filter.atTop (nhds 1) := by
+    have hsub : Filter.Tendsto
+        (fun extra : ℕ => (1 : ℝ) - bound / ((extra : ℝ) + bound))
+        Filter.atTop (nhds 1) := by
+      simpa using (tendsto_const_nhds.sub hpenalty)
+    apply hsub.congr'
+    filter_upwards [hdenom.eventually (Filter.eventually_gt_atTop 0)] with extra hpos
+    field_simp [ne_of_gt hpos]
+    ring
+  unfold particleGibbsCountCoefficient
+  simpa using hbase.pow horizon
+
+/-- For every fixed finite time-inhomogeneous penalty schedule, the certified
+refresh coefficient also tends to one with particle count. -/
+theorem particleGibbsScheduleCoefficient_tendsto_one
+    (penalties : List ℝ) :
+    Filter.Tendsto
+      (fun extra => particleGibbsScheduleCoefficient extra penalties)
+      Filter.atTop (nhds 1) := by
+  induction penalties with
+  | nil => simp [particleGibbsScheduleCoefficient]
+  | cons penalty penalties ih =>
+      have hhead := particleGibbsCountCoefficient_tendsto_one penalty 1
+      have hproduct := hhead.mul ih
+      simpa [particleGibbsScheduleCoefficient,
+        particleGibbsCountCoefficient] using hproduct
+
+/-- At any fixed positive number of MCMC iterations, the resulting geometric
+upper-bound factor vanishes as particle count grows. -/
+theorem particleGibbsCountRate_tendsto_zero
+    (bound : ℝ) (horizon iterations : ℕ) (hiterations : 0 < iterations) :
+    Filter.Tendsto
+      (fun extra =>
+        (1 - particleGibbsCountCoefficient extra bound horizon) ^ iterations)
+      Filter.atTop (nhds 0) := by
+  have hzero : Filter.Tendsto
+      (fun extra => 1 - particleGibbsCountCoefficient extra bound horizon)
+      Filter.atTop (nhds 0) := by
+    simpa using
+      ((tendsto_const_nhds : Filter.Tendsto (fun _ : ℕ => (1 : ℝ))
+          Filter.atTop (nhds 1)).sub
+        (particleGibbsCountCoefficient_tendsto_one bound horizon))
+  simpa [zero_pow hiterations.ne'] using hzero.pow iterations
+
+/-- Time-inhomogeneous schedules have the same fixed-iteration asymptotic
+bound. -/
+theorem particleGibbsScheduleRate_tendsto_zero
+    (penalties : List ℝ) (iterations : ℕ) (hiterations : 0 < iterations) :
+    Filter.Tendsto
+      (fun extra =>
+        (1 - particleGibbsScheduleCoefficient extra penalties) ^ iterations)
+      Filter.atTop (nhds 0) := by
+  have hzero : Filter.Tendsto
+      (fun extra => 1 - particleGibbsScheduleCoefficient extra penalties)
+      Filter.atTop (nhds 0) := by
+    simpa using
+      ((tendsto_const_nhds : Filter.Tendsto (fun _ : ℕ => (1 : ℝ))
+          Filter.atTop (nhds 1)).sub
+        (particleGibbsScheduleCoefficient_tendsto_one penalties))
+  simpa [zero_pow hiterations.ne'] using hzero.pow iterations
 
 /-- Exact model-specific evidence still required from a conditional-SMC
 construction. The bound is stated pointwise, so it cannot be confused with a

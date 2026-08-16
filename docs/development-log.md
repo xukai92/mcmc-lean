@@ -1,5 +1,13 @@
 # Development log
 
+- Completed the large-particle asymptotics of the positive-horizon PG rate
+  certificate. At fixed horizon and finite potential bound, the coefficient
+  `((N-1)/(N-1+B))^T` tends to one as `N → ∞`; the finite product for a
+  time-varying penalty schedule has the same limit. For every fixed positive
+  number of MCMC iterations, Lean then proves the corresponding geometric
+  upper-bound factor tends to zero. These are asymptotics of the certified
+  bound and do not replace its model-specific minorization premise.
+
 - Formalized the missing weak-forward uniqueness architecture without
   incorrectly applying the generator to all continuous functions. The generic
   solution/uniqueness interfaces take an explicit test type, observation map,

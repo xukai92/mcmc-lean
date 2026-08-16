@@ -291,8 +291,11 @@ then applies the checked Doeblin layer. Its coefficient is deliberately
 conservative. The same theorem is now exposed directly with labels
 `Fin (extra+1)`: every `extra > 0` constructs a positive refresh certificate,
 an explicit geometric bound using its finite-matrix rate, and TV convergence.
-The sharper closed-form dependence on bounded-potential constants remains
-separate quantitative work.
+For the separate bounded-potential certificate, the closed-form coefficient
+`((N-1)/(N-1+B))^T` and its time-varying finite-product analogue are monotone
+in particle count and now proved to tend to one as `N → ∞`; every fixed-
+positive-iteration geometric factor consequently tends to zero. Establishing
+the model-specific minorization remains distinct from this asymptotic algebra.
 
 The Julia layer also exposes bounded warmup-only tuning for Gaussian RWMH.
 `WarmupGaussianRWMH` uses diminishing `1/√n` Robbins--Monro log-scale updates,

@@ -274,9 +274,12 @@ trajectory-state kernel, target marginal, and stationarity theorem built by
 exact conditional lift, terminal-index refresh, and projection. Its Doeblin
 specialization is on this trajectory space rather than the more restrictive
 retained-history space, and any pointwise minorization constructs the residual
-certificate automatically. Deriving a positive coefficient from bounded
-Feynman--Kac potentials, and its dependence on particle count and horizon,
-remains model-specific work. The intermediate support interface is now
+certificate automatically. Deriving its minorization premise from concrete
+bounded Feynman--Kac potentials remains model-specific work. Conditional on
+that certificate, the count/horizon coefficient is explicit and its
+large-particle asymptotics are now complete: constant and scheduled
+coefficients tend to one, and fixed-positive-iteration geometric factors tend
+to zero. The intermediate support interface is now
 machine checked: `ParticleGibbsFiberConnectivity` reduces positivity of each
 collapsed trajectory transition to a positive selected-history witness and a
 positive terminal-index edge between the corresponding fibers, and this
