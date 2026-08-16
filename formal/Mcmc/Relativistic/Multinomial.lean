@@ -287,6 +287,69 @@ theorem lintegral_positionMultinomialGRHMC
   rw [MeasureTheory.lintegral_prod _ hg.lintegral_kernel.aemeasurable,
     lintegral_dirac' q hg.lintegral_kernel.lintegral_prod_right]
 
+/-- A phase-kernel event floor on a measurable momentum subset propagates
+through momentum refresh and position projection. -/
+theorem momentumMeasure_mul_le_positionMultinomialGRHMC_apply
+    [Nonempty ι] [DecidableEq ι]
+    {positionDerivative momentumDerivative : PhaseSpace ι → Position ι}
+    (potential : Position ι → ℝ)
+    (metric : FactoredRiemannianMetric ι) (m c : ℝ)
+    (hm : 0 < m) (hc : 0 < c)
+    (selection : GeneralizedLeapfrogSelection
+      positionDerivative momentumDerivative)
+    (hvalid : selection.IsValid)
+    (hH : Measurable
+      (generalRelativisticHamiltonian potential metric m c))
+    (hmeasurableMomentum :
+      IsMeasurableRiemannianMomentumFamily metric m c hm hc)
+    (ε : ℝ) (L : ℕ) (q : Position ι)
+    {momentumSet : Set (Momentum ι)} (hmomentumSet : MeasurableSet momentumSet)
+    {positionSet : Set (Position ι)} (hpositionSet : MeasurableSet positionSet)
+    (a : ENNReal)
+    (hphase : ∀ p ∈ momentumSet, a ≤
+      multinomialGRHMCPhase potential metric m c selection hvalid hH ε L
+        (q, p) (Prod.fst ⁻¹' positionSet)) :
+    riemannianMomentumKernel metric m c hm hc hmeasurableMomentum q
+        momentumSet * a ≤
+      positionMultinomialGRHMC potential metric m c hm hc selection hvalid hH
+        hmeasurableMomentum ε L q positionSet := by
+  rw [← lintegral_indicator_one hpositionSet]
+  change riemannianMomentumKernel metric m c hm hc hmeasurableMomentum q
+      momentumSet * a ≤
+    ∫⁻ y, positionSet.indicator (fun _ => (1 : ENNReal)) y
+      ∂positionMultinomialGRHMC potential metric m c hm hc selection hvalid hH
+        hmeasurableMomentum ε L q
+  rw [lintegral_positionMultinomialGRHMC potential metric m c hm hc
+    selection hvalid hH hmeasurableMomentum ε L
+    (positionSet.indicator fun _ => (1 : ENNReal))
+    (measurable_const.indicator hpositionSet) q]
+  change riemannianMomentumKernel metric m c hm hc hmeasurableMomentum q
+      momentumSet * a ≤
+    ∫⁻ p, ∫⁻ z, positionSet.indicator (fun _ => (1 : ENNReal)) z.1
+      ∂multinomialGRHMCPhase potential metric m c selection hvalid hH ε L
+        (q, p)
+      ∂riemannianMomentumKernel metric m c hm hc hmeasurableMomentum q
+  calc
+    riemannianMomentumKernel metric m c hm hc hmeasurableMomentum q
+        momentumSet * a =
+      ∫⁻ p, momentumSet.indicator (fun _ => a) p
+        ∂riemannianMomentumKernel metric m c hm hc hmeasurableMomentum q := by
+          rw [lintegral_indicator_const hmomentumSet]
+          ac_rfl
+    _ ≤ _ := by
+      apply lintegral_mono
+      intro p
+      by_cases hp : p ∈ momentumSet
+      · rw [Set.indicator_of_mem hp]
+        change a ≤
+          ∫⁻ z, (Prod.fst ⁻¹' positionSet).indicator
+            (1 : PhaseSpace ι → ENNReal) z
+            ∂multinomialGRHMCPhase potential metric m c selection hvalid hH
+              ε L (q, p)
+        rw [lintegral_indicator_one (measurable_fst hpositionSet)]
+        exact hphase p hp
+      · simp [Set.indicator, hp]
+
 /-- Momentum refresh cannot create position movement when the multinomial
 orbit has length zero: the user-facing position transition is identity. -/
 theorem positionMultinomialGRHMC_zero

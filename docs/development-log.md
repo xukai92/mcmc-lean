@@ -2684,3 +2684,18 @@ finite-speed fact that every output lies within one position unit of its
 input almost surely.  The remaining bare-kernel convergence obligation is an
 asymptotic drift/minorization argument; the current results do not yet claim
 ergodicity by themselves.
+
+## 2026-08-16: expanding-band Gaussian SoftAbs correction
+
+Strengthened the fixed central-momentum calculation to the position-indexed
+band `|p| ≤ q/2 - 2` on the positive tail.  Forward-time correction handles
+nonnegative momenta; generalized-leapfrog time reversal handles nonpositive
+momenta through the backward trajectory origin.  Lean proves throughout this
+band that both trajectory directions are non-outward and that an endpoint at
+least the certified SoftAbs distance inward is selected with probability at
+least one quarter.  The exact transported momentum probability of this band
+is proved to tend to one as `q → +∞`.  Reusable GR-HMC infrastructure now
+propagates any measurable momentum-subset phase-event floor through refresh
+and position projection.  Thus the actual position kernel inherits both the
+expanding inward floor and the non-outward mass.  The symmetric negative-tail
+packaging and the final Lyapunov/minorization theorem remain open.
