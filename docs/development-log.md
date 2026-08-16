@@ -1,5 +1,15 @@
 # Development log
 
+- Combined the positive and nonpositive residual-clock cases into the exact
+  pointwise Palm identity. For every occupied signed position `s`, restrict
+  two independent negative-Rayleigh resets to cycles that cover `s`, then map
+  the right reset to the remaining integrated hazard after subtracting the
+  positive-half energy already spent. Lean proves the resulting measure is
+  exactly `exp(-s²/2)` times a fresh unit-exponential law. This supplies the
+  fiberwise conditional-independence theorem needed for the full stationary
+  cycle pushforward; the next step is Tonelli integration over `s` to obtain
+  the Gaussian-position × exponential-residual product law.
+
 - Began the Palm/disintegration bridge from stationary cycle occupation to
   the inverse-clock executor. The negative-Rayleigh reset is now proved
   exactly invertible through quadratic energy: mapping `-sqrt(2E)` back to

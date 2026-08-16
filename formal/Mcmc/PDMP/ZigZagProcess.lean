@@ -2647,6 +2647,18 @@ theorem gaussianZigZagNegativeRayleighMeasure_future_energy_of_nonpos
   rw [Measure.restrict_congr_set hset, Measure.restrict_univ,
     gaussianZigZagNegativeRayleighMeasure_map_energy]
 
+/-- Residual integrated hazard from an occupied signed position to the right
+reset endpoint of its current regenerative cycle. -/
+noncomputable def gaussianZigZagCycleResidualHazard
+    (signed rightReset : ℝ) : NNReal :=
+  gaussianZigZagNegativeRayleighEnergy rightReset -
+    Real.toNNReal ((max 0 signed) ^ 2 / 2)
+
+theorem measurable_gaussianZigZagCycleResidualHazard (signed : ℝ) :
+    Measurable (gaussianZigZagCycleResidualHazard signed) := by
+  unfold gaussianZigZagCycleResidualHazard
+  exact measurable_gaussianZigZagNegativeRayleighEnergy.sub measurable_const
+
 /-- Exact left tail of the negative-Rayleigh event-start position. -/
 theorem gaussianZigZagNegativeRayleighMeasure_Iio_neg
     (radius : NNReal) :
@@ -2755,6 +2767,90 @@ theorem gaussianZigZagCycleCoverageDensity_eq_measure (signed : ℝ) :
         gaussianZigZagNegativeRayleighMeasure)
           (gaussianZigZagCycleCoverageSet signed) := by
   exact (gaussianZigZagCycleCoverageMeasure signed).symm
+
+/-- Pointwise Palm residual-clock identity. Restrict two independent resets
+to cycles covering `signed`, then map the right reset to its residual hazard:
+the result is the Gaussian coverage weight at `signed` times a fresh unit
+exponential law. -/
+theorem gaussianZigZagCycleResidualHazard_fiber (signed : ℝ) :
+    Measure.map
+        (fun resets : ℝ × ℝ =>
+          gaussianZigZagCycleResidualHazard signed resets.2)
+        ((gaussianZigZagNegativeRayleighMeasure.prod
+          gaussianZigZagNegativeRayleighMeasure).restrict
+            (gaussianZigZagCycleCoverageSet signed)) =
+      gaussianZigZagCycleCoverageDensity signed •
+        gaussianZigZagHazardMeasure := by
+  let leftSet : Set ℝ := Set.Iio signed
+  let rightSet : Set ℝ := {right | signed < -right}
+  have hcoverage : gaussianZigZagCycleCoverageSet signed =
+      leftSet ×ˢ rightSet := rfl
+  rw [hcoverage, ← Measure.prod_restrict]
+  change Measure.map
+      (gaussianZigZagCycleResidualHazard signed ∘ Prod.snd)
+      ((gaussianZigZagNegativeRayleighMeasure.restrict leftSet).prod
+        (gaussianZigZagNegativeRayleighMeasure.restrict rightSet)) = _
+  rw [← Measure.map_map
+      (measurable_gaussianZigZagCycleResidualHazard signed) measurable_snd,
+    Measure.map_snd_prod, Measure.map_smul]
+  by_cases hsigned : signed ≤ 0
+  · have hresidual : gaussianZigZagCycleResidualHazard signed =
+        gaussianZigZagNegativeRayleighEnergy := by
+      funext right
+      unfold gaussianZigZagCycleResidualHazard
+      rw [max_eq_left hsigned]
+      simp
+    rw [hresidual,
+      gaussianZigZagNegativeRayleighMeasure_future_energy_of_nonpos
+        signed hsigned]
+    have hleft : gaussianZigZagNegativeRayleighMeasure leftSet =
+        gaussianZigZagCycleCoverageDensity signed := by
+      let radius : NNReal := Real.toNNReal (-signed)
+      have hneg : 0 ≤ -signed := neg_nonneg.mpr hsigned
+      have hradius : (radius : ℝ) = -signed :=
+        Real.coe_toNNReal (-signed) hneg
+      unfold leftSet gaussianZigZagCycleCoverageDensity
+      simpa [radius, hradius] using
+        gaussianZigZagNegativeRayleighMeasure_Iio_neg radius
+    rw [Measure.restrict_apply MeasurableSet.univ, Set.univ_inter, hleft]
+  · have hsignedPos : 0 < signed := lt_of_not_ge hsigned
+    let radius : NNReal := Real.toNNReal signed
+    have hradius : (radius : ℝ) = signed :=
+      Real.coe_toNNReal signed (le_of_lt hsignedPos)
+    have hright : rightSet = Set.Iio (-(radius : ℝ)) := by
+      ext right
+      simp only [rightSet, Set.mem_setOf_eq, Set.mem_Iio]
+      rw [hradius]
+      constructor <;> intro h <;> linarith
+    have hresidual : gaussianZigZagCycleResidualHazard signed =
+        fun right => gaussianZigZagNegativeRayleighEnergy right -
+          gaussianZigZagRadiusEnergy radius := by
+      funext right
+      unfold gaussianZigZagCycleResidualHazard
+      rw [max_eq_right (le_of_lt hsignedPos)]
+      congr 1
+      apply NNReal.eq
+      calc
+        (Real.toNNReal (signed ^ 2 / 2) : ℝ) = signed ^ 2 / 2 :=
+          Real.coe_toNNReal _ (by positivity)
+        _ = (gaussianZigZagRadiusEnergy radius : ℝ) := by
+          change signed ^ 2 / 2 = (radius : ℝ) ^ 2 / 2
+          rw [hradius]
+    rw [hresidual, hright,
+      gaussianZigZagNegativeRayleighMeasure_residual_energy radius]
+    have hleftAE : leftSet =ᵐ[gaussianZigZagNegativeRayleighMeasure]
+        Set.univ := by
+      filter_upwards [gaussianZigZagNegativeRayleighMeasure_negative_ae]
+        with left hleft
+      change (left < signed) = True
+      exact propext ⟨fun _ => trivial, fun _ => by linarith⟩
+    rw [Measure.restrict_apply MeasurableSet.univ, Set.univ_inter,
+      measure_congr hleftAE, measure_univ, one_smul]
+    unfold gaussianZigZagCycleCoverageDensity
+    congr 2
+    rw [show (gaussianZigZagRadiusEnergy radius : ℝ) = signed ^ 2 / 2 by
+      change (radius : ℝ) ^ 2 / 2 = signed ^ 2 / 2
+      rw [hradius]]
 
 /-- Unnormalized position-occupation measure of a regenerative cycle. -/
 noncomputable def gaussianZigZagCycleOccupationMeasure : Measure ℝ :=
