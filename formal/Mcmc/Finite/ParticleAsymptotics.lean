@@ -966,6 +966,118 @@ theorem abs_normalized_ratio_sub_le
     _ ≤ numeratorError / lower +
         observableBound * denominatorError / lower := add_le_add hfirst hsecond
 
+/-- Squared-error form of `abs_normalized_ratio_sub_le`. It is arranged for
+direct integration against a finite particle law: numerator and denominator
+mean-square errors enter additively, at the price of the standard factor two.
+-/
+theorem sq_normalized_ratio_sub_le
+    {numerator approximateNumerator denominator approximateDenominator
+      observableBound lower : ℝ}
+    (hdenominator : denominator ≠ 0)
+    (hlower : 0 < lower)
+    (happroxDenominator : lower ≤ approximateDenominator)
+    (hobservable : |numerator / denominator| ≤ observableBound)
+    (hobservableNonneg : 0 ≤ observableBound) :
+    (approximateNumerator / approximateDenominator -
+        numerator / denominator) ^ 2 ≤
+      2 * ((approximateNumerator - numerator) ^ 2 +
+        observableBound ^ 2 *
+          (approximateDenominator - denominator) ^ 2) / lower ^ 2 := by
+  let x := |approximateNumerator - numerator| / lower
+  let y := observableBound * |approximateDenominator - denominator| / lower
+  have hbound :
+      |approximateNumerator / approximateDenominator -
+          numerator / denominator| ≤ x + y := by
+    exact abs_normalized_ratio_sub_le hdenominator hlower happroxDenominator
+      (le_refl _) (le_refl _) hobservable (abs_nonneg _) (abs_nonneg _)
+      hobservableNonneg
+  have hx : 0 ≤ x := div_nonneg (abs_nonneg _) hlower.le
+  have hy : 0 ≤ y := by positivity
+  have hsq :
+      |approximateNumerator / approximateDenominator -
+          numerator / denominator| ^ 2 ≤ (x + y) ^ 2 := by
+    nlinarith [abs_nonneg (approximateNumerator / approximateDenominator -
+      numerator / denominator)]
+  have htwo : (x + y) ^ 2 ≤ 2 * (x ^ 2 + y ^ 2) := by
+    nlinarith [sq_nonneg (x - y)]
+  calc
+    (approximateNumerator / approximateDenominator -
+        numerator / denominator) ^ 2 =
+      |approximateNumerator / approximateDenominator -
+        numerator / denominator| ^ 2 := by rw [sq_abs]
+    _ ≤ (x + y) ^ 2 := hsq
+    _ ≤ 2 * (x ^ 2 + y ^ 2) := htwo
+    _ = 2 * ((approximateNumerator - numerator) ^ 2 +
+        observableBound ^ 2 *
+          (approximateDenominator - denominator) ^ 2) / lower ^ 2 := by
+      dsimp [x, y]
+      field_simp [ne_of_gt hlower]
+      all_goals simp only [sq_abs]
+
+/-- Finite-law integration of the squared normalized-ratio bound. This turns
+separate numerator and normalizer MSE estimates into the one-step nonlinear
+MSE estimate needed by a full-horizon particle induction. -/
+theorem normalized_ratio_mse_le
+    {Approximation : Type*} [Fintype Approximation]
+    (law : Distribution Approximation)
+    (approximateNumerator approximateDenominator : Approximation → ℝ)
+    {numerator denominator observableBound lower numeratorMSE denominatorMSE : ℝ}
+    (hdenominator : denominator ≠ 0)
+    (hlower : 0 < lower)
+    (happroxDenominator : ∀ z, lower ≤ approximateDenominator z)
+    (hobservable : |numerator / denominator| ≤ observableBound)
+    (hobservableNonneg : 0 ≤ observableBound)
+    (hnumeratorMSE :
+      ∑ z, law.mass z * (approximateNumerator z - numerator) ^ 2 ≤ numeratorMSE)
+    (hdenominatorMSE :
+      ∑ z, law.mass z * (approximateDenominator z - denominator) ^ 2 ≤
+        denominatorMSE) :
+    ∑ z, law.mass z *
+        (approximateNumerator z / approximateDenominator z -
+          numerator / denominator) ^ 2 ≤
+      2 * (numeratorMSE + observableBound ^ 2 * denominatorMSE) / lower ^ 2 := by
+  calc
+    ∑ z, law.mass z *
+        (approximateNumerator z / approximateDenominator z -
+          numerator / denominator) ^ 2 ≤
+      ∑ z, law.mass z *
+        (2 * ((approximateNumerator z - numerator) ^ 2 +
+          observableBound ^ 2 *
+            (approximateDenominator z - denominator) ^ 2) / lower ^ 2) := by
+      apply Finset.sum_le_sum
+      intro z _
+      exact mul_le_mul_of_nonneg_left
+        (sq_normalized_ratio_sub_le hdenominator hlower
+          (happroxDenominator z) hobservable hobservableNonneg)
+        (law.nonneg z)
+    _ = 2 * ((∑ z, law.mass z *
+          (approximateNumerator z - numerator) ^ 2) +
+        observableBound ^ 2 * (∑ z, law.mass z *
+          (approximateDenominator z - denominator) ^ 2)) / lower ^ 2 := by
+      calc
+        ∑ z, law.mass z *
+            (2 * ((approximateNumerator z - numerator) ^ 2 +
+              observableBound ^ 2 *
+                (approximateDenominator z - denominator) ^ 2) / lower ^ 2) =
+          ∑ z, (2 / lower ^ 2) *
+            (law.mass z * (approximateNumerator z - numerator) ^ 2 +
+              observableBound ^ 2 * law.mass z *
+                (approximateDenominator z - denominator) ^ 2) := by
+            apply Finset.sum_congr rfl
+            intro z _
+            ring
+        _ = _ := by
+          simp_rw [mul_add]
+          rw [Finset.sum_add_distrib]
+          rw [← Finset.mul_sum, ← Finset.mul_sum]
+          simp_rw [mul_assoc]
+          rw [← Finset.mul_sum]
+          ring
+    _ ≤ 2 * (numeratorMSE + observableBound ^ 2 * denominatorMSE) /
+        lower ^ 2 := by
+      have hlowerSq : 0 < lower ^ 2 := sq_pos_of_pos hlower
+      gcongr
+
 end NormalizedWeightPerturbation
 
 section SequentialErrorRecursion

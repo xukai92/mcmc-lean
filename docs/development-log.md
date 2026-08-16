@@ -25,6 +25,18 @@ definitionally to the original power coefficient for a replicated penalty.
 This matches the shape of published PG bounds without claiming that the
 model-specific penalty sequence has already been derived.
 
+## 2026-08-16: nonlinear particle-normalization MSE bridge
+
+Strengthened the deterministic self-normalized estimate from an absolute
+error inequality to a squared-error theorem, then integrated it against an
+arbitrary finite approximation law. `normalized_ratio_mse_le` now converts
+separate numerator and normalizer MSE estimates into an explicit MSE bound for
+their normalized ratio, assuming the computed normalizer has a positive lower
+bound. This closes the nonlinear algebraic link needed between the existing
+one-step resample--propagate variance identity and the existing affine
+full-horizon error recurrence. Instantiating the numerator and denominator
+budgets recursively for an actual Feynman--Kac schedule remains open.
+
 ## 2026-08-15: finite continuous-time event schedules
 
 Extended the Poissonized fixed-event skeleton with ordered real timestamps.

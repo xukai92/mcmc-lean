@@ -232,7 +232,12 @@ SMC. A complete bootstrap resample--propagate step now has the exact sum of
 propagation-variance and ancestry-mean-variance terms divided by `N`, including
 a uniform-bound corollary. The remaining full-horizon recurrence must control
 the nonlinear normalized-weight map and propagate previous-stage empirical
-error.
+error. The first part is now closed abstractly: separate numerator and
+normalizer MSE bounds, together with a positive lower bound on the approximate
+normalizer, yield an explicit squared self-normalized-ratio bound with the
+standard factor two. The remaining induction must instantiate those two MSE
+bounds at every resample--propagate stage and feed them into the existing
+affine sequential-error recurrence.
 
 General-state composable inference is also complete at the common-target
 stationarity layer. `Mcmc.Kernel.ComposableInference` supplies scoped
