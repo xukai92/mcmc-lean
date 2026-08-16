@@ -316,6 +316,23 @@ theorem ThinnedFlowSimulator.horizonKernel_invariant_of_sections
     (poissonCandidateSchedule
       (simulator.clock.rate * horizon.duration) horizon) hsection
 
+/-- For a continuously distributed Poisson schedule it is enough that fixed
+schedule sections preserve the target almost everywhere. -/
+theorem ThinnedFlowSimulator.horizonKernel_invariant_of_ae_sections
+    (simulator : ThinnedFlowSimulator State) (horizon : PositiveHorizon)
+    (target : Measure State) [SFinite target]
+    (hsection : ∀ᵐ schedule ∂(poissonCandidateSchedule
+        (simulator.clock.rate * horizon.duration) horizon),
+      (Kernel.comap (simulator.executeScheduled horizon.duration)
+        (fun state => (state, schedule))
+        (measurable_id.prodMk measurable_const)).Invariant target) :
+    (simulator.horizonKernel horizon).Invariant target := by
+  rw [simulator.horizonKernel_eq_independentParameterMixture horizon]
+  exact Mcmc.Kernel.independentParameterMixture_invariant_ae
+    (simulator.executeScheduled horizon.duration) target
+    (poissonCandidateSchedule
+      (simulator.clock.rate * horizon.duration) horizon) hsection
+
 /-- It suffices to prove invariance of the executor selected by each schedule's
 stored count. -/
 theorem ThinnedFlowSimulator.horizonKernel_invariant_of_count_sections

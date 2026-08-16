@@ -1,4 +1,4 @@
-# Executable scalar HMC tests and placeholders for later vector/DHMC work.
+# Executable continuous and mixed-state sampler tests.
 
 @testset "scalar leapfrog integrator properties" begin
     @testset "energy conservation" begin

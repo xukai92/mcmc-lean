@@ -141,9 +141,10 @@ real jump with probability `rate(x)/clockRate` and otherwise self-loops. Lean
 proves the embedded and real-time kernels Markov, transports any proved
 rate-biased balanced-flux certificate through the embedded chain and
 Poissonization to real-time target invariance, and records finite-count
-nonexplosion. A dependent joint measure over all event counts, deterministic
-state-dependent event-time simulation, unbounded clocks, and BPS/Zig-Zag
-convergence remain open.
+nonexplosion. The flow-driven bounded-rate path construction described below
+now supplies the dependent all-count schedule and fixed-horizon transition;
+unbounded clocks and BPS/Zig-Zag process-level stationarity and convergence
+remain open.
 
 The deterministic PDMP branch now has a measurable-semiflow interface. Every
 elapsed time yields a deterministic Markov kernel, the exact semigroup law is
@@ -165,8 +166,8 @@ virtual event. Fixed candidate-count iterates are Markov and compose by
 addition. For supplied candidate waits, a fixed-horizon executor consumes only
 candidates within the remaining time and fills the residual interval by exact
 flow; the associated bounded-clock Poisson count is almost surely finite.
-An unconditional executable path kernel for arbitrary candidate counts and
-unbounded-rate nonexplosion remain open.
+The unconditional executable path kernel for arbitrary candidate counts is
+constructed below; unbounded-rate nonexplosion remains open.
 The conditional continuous-time ingredient is now present: for every positive
 horizon and fixed candidate count, Lean constructs the iid uniform timestamp
 product measure and proves it is a probability law. The remaining ordering

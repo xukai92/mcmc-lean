@@ -135,6 +135,11 @@ its invariance first to all fixed-schedule sections and then to the executor
 selected by each schedule's stored count. Discharging those sections from
 separate flow/jump invariance is appropriate for constant-rate transport
 models; BPS/Zig-Zag instead require the stronger combined generator argument.
+The generic bridge and horizon client now also accept section invariance only
+almost everywhere under the schedule law, so null timestamp configurations do
+not create artificial proof obligations. This is still only a reduction:
+averaged event-time invariance from the BPS/Zig-Zag generator identities is not
+yet proved.
 
 ## 2026-08-15: categorical discontinuous-HMC vertical slice
 
