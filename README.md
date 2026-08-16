@@ -200,10 +200,12 @@ fixed-count, ordered-time averages. An adjacent-count flux certificate now
 formalizes the required cancellation: each transported and target count
 stratum shares a core while residual flux shifts by one count, and equality of
 the total flux proves horizon invariance. The adjacent Poisson weights satisfy
-the required exact recurrence `(n+1)p(n+1) = intensity·p(n)`. Concrete
-Zig-Zag/BPS clients must still construct the spatial flux certificate; neither
-deterministic schedules nor individual count components are incorrectly
-assumed invariant.
+the required exact recurrence `(n+1)p(n+1) = intensity·p(n)`. The infinite
+flux-shift equality is now derived automatically from the client-facing
+count-zero boundary condition, so a concrete client only supplies its two
+finite-stratum spatial decompositions and zero initial flux. Zig-Zag/BPS
+clients must still construct those spatial identities; neither deterministic
+schedules nor individual count components are incorrectly assumed invariant.
 
 For positive-horizon particle Gibbs, the finite library now proves a concrete
 arbitrary-horizon result: with any finite particle index type containing at

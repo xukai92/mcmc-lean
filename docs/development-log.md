@@ -2381,3 +2381,14 @@ between `target - p^n` and `target + p^n`. The concrete Gaussian diagonal-
 SoftAbs multinomial GR-HMC client instantiates this theorem. The result remains
 explicitly about the target-refresh-augmented chain and makes no convergence
 claim for bare GR-HMC.
+
+## 2026-08-16: zero-boundary adjacent-count PDMP flux
+
+Simplified the fixed-horizon PDMP stationarity interface at the exact
+cross-count boundary. Lean now proves that `flux 0 = 0` automatically implies
+equality between the sum of positive-count incoming fluxes and the full flux
+sum, by splitting count zero and reindexing positive naturals. A new horizon
+theorem consumes only the transported-stratum decomposition, the weighted-
+target decomposition, and this zero-boundary fact. Concrete Zig-Zag/BPS
+clients still owe the spatial decomposition itself, but no longer need to
+repeat infinite-measure reindexing.

@@ -35,6 +35,46 @@ structure AdjacentCountFluxBalance
     weights count • target = core count + flux count
   flux_shift : Measure.sum (fun count => flux (count + 1)) = Measure.sum flux
 
+/-- The cross-count boundary condition has a simpler client-facing form:
+there is no incoming flux below count zero. Reindexing the remaining positive
+counts then supplies `flux_shift` automatically. -/
+noncomputable def AdjacentCountFluxBalance.of_zeroInitialFlux
+    {weights : ℕ → ENNReal} {target : Measure State}
+    {transported core flux : ℕ → Measure State}
+    (htransported : ∀ count,
+      transported count = core count + flux (count + 1))
+    (htarget : ∀ count,
+      weights count • target = core count + flux count)
+    (hflux0 : flux 0 = 0) :
+    AdjacentCountFluxBalance weights target transported where
+  core := core
+  flux := flux
+  transported_eq := htransported
+  target_eq := htarget
+  flux_shift := by
+    let positive : ℕ ≃ {n : ℕ // n ∈ ({0} : Set ℕ)ᶜ} :=
+      { toFun := fun n => ⟨n + 1, by simp⟩
+        invFun := fun n => n.1 - 1
+        left_inv := fun n => by simp
+        right_inv := fun n => by
+          apply Subtype.ext
+          have hn : n.1 ≠ 0 := by
+            simpa only [Set.mem_compl_iff, Set.mem_singleton_iff] using n.2
+          exact Nat.sub_add_cancel (Nat.one_le_iff_ne_zero.2 hn) }
+    have hpositive : Measure.sum (fun count => flux (count + 1)) =
+        Measure.sum (fun n : {n : ℕ // n ∈ ({0} : Set ℕ)ᶜ} => flux n) := by
+      rw [← Measure.sum_comp_equiv positive
+        (fun n : {n : ℕ // n ∈ ({0} : Set ℕ)ᶜ} => flux n)]
+      rfl
+    rw [hpositive]
+    have hsplit := Measure.sum_add_sum_compl ({0} : Set ℕ) flux
+    have hzero : Measure.sum (fun n : ({0} : Set ℕ) => flux n) = 0 := by
+      ext s hs
+      rw [Measure.sum_apply _ hs]
+      simp [hflux0]
+    rw [hzero, zero_add] at hsplit
+    exact hsplit
+
 /-- Adjacent-count flux balance turns normalized count weights into exact
 mixture invariance. -/
 theorem AdjacentCountFluxBalance.sum_transported_eq_target
@@ -450,6 +490,26 @@ theorem ThinnedFlowSimulator.horizonKernel_invariant_of_adjacentCountFlux
   exact balance.sum_transported_eq_target
     (tsum_poisson_singletons
       (simulator.clock.rate * horizon.duration))
+
+/-- Client-facing form of cross-count invariance. A concrete spatial-flux
+calculation only needs to split each transported and target count stratum and
+show that the incoming count-zero boundary flux vanishes; the infinite
+reindexing is discharged here. -/
+theorem ThinnedFlowSimulator.horizonKernel_invariant_of_zeroInitialAdjacentFlux
+    (simulator : ThinnedFlowSimulator State) (horizon : PositiveHorizon)
+    (target : Measure State) [SFinite target]
+    (core flux : ℕ → Measure State)
+    (htransported : ∀ count,
+      simulator.countTransportedTarget horizon target count =
+        core count + flux (count + 1))
+    (htarget : ∀ count,
+      poissonMeasure (simulator.clock.rate * horizon.duration) {count} •
+        target = core count + flux count)
+    (hflux0 : flux 0 = 0) :
+    (simulator.horizonKernel horizon).Invariant target := by
+  apply simulator.horizonKernel_invariant_of_adjacentCountFlux horizon target
+  exact AdjacentCountFluxBalance.of_zeroInitialFlux
+    htransported htarget hflux0
 
 /-- It suffices to prove invariance of the executor selected by each schedule's
 stored count. -/
