@@ -209,4 +209,40 @@ theorem iidPopulation_particleAverage_mse
     iidPopulation_centered_sum_sq_expectation law score]
   field_simp
 
+/-- Mean-square error indexed by `extra + 1` iid particles, so every index
+has a nonempty particle type. -/
+noncomputable def iidParticleAverageMSEByExtra
+    (law : Distribution Sample) (score : Sample → ℝ) (extra : ℕ) : ℝ :=
+  ∑ samples : Fin (extra + 1) → Sample,
+    (iidPopulation law).mass samples *
+      (particleAverage score samples - finiteExpectation law score) ^ 2
+
+omit [DecidableEq Sample] [Nonempty Particle] in
+theorem iidParticleAverageMSEByExtra_eq
+    (law : Distribution Sample) (score : Sample → ℝ) (extra : ℕ) :
+    iidParticleAverageMSEByExtra law score extra =
+      finiteVariance law score / (extra + 1) := by
+  unfold iidParticleAverageMSEByExtra
+  rw [iidPopulation_particleAverage_mse]
+  simp
+
+omit [DecidableEq Sample] [Nonempty Particle] in
+/-- The iid empirical average is mean-square consistent as the explicit
+particle count tends to infinity. -/
+theorem iidParticleAverageMSEByExtra_tendsto_zero
+    (law : Distribution Sample) (score : Sample → ℝ) :
+    Filter.Tendsto (iidParticleAverageMSEByExtra law score)
+      Filter.atTop (nhds 0) := by
+  have hden : Filter.Tendsto (fun extra : ℕ => (extra : ℝ) + 1)
+      Filter.atTop Filter.atTop :=
+    Filter.tendsto_atTop_add_const_right Filter.atTop 1
+      tendsto_natCast_atTop_atTop
+  have hratio : Filter.Tendsto
+      (fun extra : ℕ => finiteVariance law score / ((extra : ℝ) + 1))
+      Filter.atTop (nhds 0) :=
+    tendsto_const_nhds.div_atTop hden
+  apply hratio.congr'
+  filter_upwards [] with extra
+  rw [iidParticleAverageMSEByExtra_eq]
+
 end Mcmc.Finite.ParticleEstimator

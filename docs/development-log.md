@@ -1792,5 +1792,6 @@ derives
 
 for every positive finite count. This is an exact finite theorem and supplies
 the quantitative `1/N` mean-square scaling used by particle consistency
-arguments; it is not a central-limit theorem and does not yet establish the
-sequential particle-filter asymptotics.
+arguments. The count-indexed `Fin (extra+1)` estimator is then proved to
+converge to zero in mean square as `extra → ∞`. This is not a central-limit
+theorem and does not yet establish sequential particle-filter asymptotics.
