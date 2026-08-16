@@ -401,6 +401,95 @@ theorem normalizedPotentialWeights_mass_pos
   exact div_pos (hpotential _) (Finset.sum_pos
     (fun j _ => hpotential (particles j)) Finset.univ_nonempty)
 
+/-- One multiplicative oscillation constant for a strictly positive finite
+potential. This is the primitive model quantity entering count-uniform
+particle-Gibbs resampling estimates. -/
+structure PotentialOscillationBound (potential : Sample → ℝ) (bound : ℝ) : Prop where
+  bound_pos : 0 < bound
+  le_mul : ∀ x y, potential x ≤ bound * potential y
+
+/-- Explicit finite oscillation constant, chosen as the sum of every ordered
+potential ratio. It is conservative but depends only on the model, never on
+the particle count. -/
+noncomputable def finitePotentialOscillationConstant
+    (potential : Sample → ℝ) : ℝ :=
+  ∑ x, ∑ y, potential x / potential y
+
+omit [DecidableEq Sample] [DecidableEq Particle] in
+/-- Strict positivity on a nonempty finite state space automatically supplies
+a count-independent oscillation certificate. -/
+theorem finitePotentialOscillationBound
+    [Nonempty Sample] (potential : Sample → ℝ)
+    (hpotential : ∀ x, 0 < potential x) :
+    PotentialOscillationBound potential
+      (finitePotentialOscillationConstant potential) := by
+  constructor
+  · unfold finitePotentialOscillationConstant
+    apply Finset.sum_pos
+    · intro x _hx
+      apply Finset.sum_pos
+      · intro y _hy
+        exact div_pos (hpotential x) (hpotential y)
+      · exact Finset.univ_nonempty
+    · exact Finset.univ_nonempty
+  · intro x y
+    have hratio : potential x / potential y ≤
+        finitePotentialOscillationConstant potential := by
+      unfold finitePotentialOscillationConstant
+      exact (Finset.single_le_sum
+        (fun x' _ => Finset.sum_nonneg fun y' _ =>
+          div_nonneg (hpotential x').le (hpotential y').le)
+        (Finset.mem_univ x)).trans' <|
+          Finset.single_le_sum
+            (fun y' _ => div_nonneg (hpotential x).le (hpotential y').le)
+            (Finset.mem_univ y)
+    have hy := hpotential y
+    calc
+      potential x = (potential x / potential y) * potential y := by
+        field_simp
+      _ ≤ finitePotentialOscillationConstant potential * potential y :=
+        mul_le_mul_of_nonneg_right hratio hy.le
+
+omit [Fintype Sample] [DecidableEq Sample] [DecidableEq Particle] in
+/-- A potential oscillation bound gives a particle-count-uniform lower bound
+on every normalized ancestor weight: `wᵢ ≥ 1 / (N B)`. -/
+theorem normalizedPotentialWeights_mass_ge_inv_card_mul
+    (potential : Sample → ℝ) (hpotential : ∀ x, 0 < potential x)
+    {bound : ℝ} (hoscillation : PotentialOscillationBound potential bound)
+    (particles : Particle → Sample) (i : Particle) :
+    1 / ((Fintype.card Particle : ℝ) * bound) ≤
+      (normalizedPotentialWeights potential hpotential particles).mass i := by
+  unfold normalizedPotentialWeights
+  have hsumPos : 0 < ∑ j, potential (particles j) :=
+    Finset.sum_pos (fun j _ => hpotential _) Finset.univ_nonempty
+  have hcardPos : 0 < (Fintype.card Particle : ℝ) := by positivity
+  have hdenominatorPos :
+      0 < (Fintype.card Particle : ℝ) * bound :=
+    mul_pos hcardPos hoscillation.bound_pos
+  rw [div_le_div_iff₀ hdenominatorPos hsumPos]
+  calc
+    1 * (∑ j, potential (particles j)) ≤
+        1 * (∑ _j : Particle, bound * potential (particles i)) := by
+      gcongr with j
+      exact hoscillation.le_mul _ _
+    _ = potential (particles i) *
+        ((Fintype.card Particle : ℝ) * bound) := by
+      simp
+      ring
+
+omit [DecidableEq Sample] [DecidableEq Particle] in
+/-- Fully primitive finite-state specialization of the normalized resampling
+weight bound. Its constant is independent of the particle type. -/
+theorem normalizedPotentialWeights_mass_ge_finiteOscillation
+    [Nonempty Sample]
+    (potential : Sample → ℝ) (hpotential : ∀ x, 0 < potential x)
+    (particles : Particle → Sample) (i : Particle) :
+    1 / ((Fintype.card Particle : ℝ) *
+        finitePotentialOscillationConstant potential) ≤
+      (normalizedPotentialWeights potential hpotential particles).mass i :=
+  normalizedPotentialWeights_mass_ge_inv_card_mul potential hpotential
+    (finitePotentialOscillationBound potential hpotential) particles i
+
 omit [Fintype Sample] [DecidableEq Sample] [DecidableEq Particle] in
 /-- Expectation under normalized empirical potential weights is exactly the
 ratio of the weighted and unweighted particle averages. -/

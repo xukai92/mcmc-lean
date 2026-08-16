@@ -208,7 +208,10 @@ The pre-Xu dependency order is:
    remains. The exact aggregation identity is now proved: the transition entry
    is the conditional expectation of the fraction of terminal indices whose
    genealogy equals the proposed trajectory. This replaces the inadequate
-   single-history route for particle-count asymptotics. A parallel
+   single-history route for particle-count asymptotics. Primitive positive
+   finite potentials now automatically construct count-independent
+   oscillation penalties and the resampling estimate `wᵢ ≥ 1/(N B)`; the
+   remaining step is their recursive aggregate-history lift. A parallel
    scheduled certificate now retains distinct per-time penalties, proves its
    product coefficient is in `(0,1)`, and supplies the refresh decomposition,
    geometric TV estimate, and convergence theorem without a worst-case

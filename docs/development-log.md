@@ -20,6 +20,15 @@
   the route to a count-uniform coefficient. A new direct consumer proves the
   actual fixed-positive-iteration particle-count TV limit from one common
   aggregate-history bound across all counts.
+  The primitive quantitative inputs to that aggregate proof are now
+  constructed automatically. For every positive potential on a nonempty
+  finite sample space, Lean defines a count-independent oscillation constant,
+  proves its multiplicative comparison inequality, and derives the uniform
+  normalized-resampling bound `wᵢ ≥ 1/(N B)`. The corresponding
+  Feynman--Kac penalty list has exactly `T+1` positive entries (one neutral
+  terminal-index factor and one oscillation constant per step). Lifting these
+  local bounds through the recursive conditional-SMC aggregate is the
+  remaining sharp-coefficient proof.
 
 - Completed the compact-minorization and faithful-coupling foundation for the
   actual bare one-dimensional Gaussian SoftAbs multinomial kernel at

@@ -93,6 +93,32 @@ noncomputable def particleGibbsScheduleCoefficient
   (penalties.map fun penalty =>
     (extra : ℝ) / ((extra : ℝ) + penalty)).prod
 
+/-- Count-independent primitive penalty schedule: one neutral terminal-index
+penalty followed by the finite oscillation constant of each Feynman--Kac
+potential. -/
+noncomputable def feynmanKacOscillationPenalties
+    (steps : List (FeynmanKacStep Sample)) : List ℝ :=
+  1 :: steps.map fun step =>
+    finitePotentialOscillationConstant step.potential
+
+omit [DecidableEq Sample] in
+@[simp] theorem length_feynmanKacOscillationPenalties
+    (steps : List (FeynmanKacStep Sample)) :
+    (feynmanKacOscillationPenalties steps).length = steps.length + 1 := by
+  simp [feynmanKacOscillationPenalties]
+
+omit [DecidableEq Sample] in
+theorem feynmanKacOscillationPenalties_pos [Nonempty Sample]
+    (steps : List (FeynmanKacStep Sample)) :
+    ∀ penalty ∈ feynmanKacOscillationPenalties steps, 0 < penalty := by
+  intro penalty hpenalty
+  simp only [feynmanKacOscillationPenalties, List.mem_cons,
+    List.mem_map] at hpenalty
+  rcases hpenalty with rfl | ⟨step, _hstep, rfl⟩
+  · norm_num
+  · exact (finitePotentialOscillationBound
+      step.potential step.potential_pos).bound_pos
+
 /-- A constant schedule recovers the original power coefficient exactly. -/
 theorem particleGibbsScheduleCoefficient_replicate
     (extra horizon : ℕ) (bound : ℝ) :
