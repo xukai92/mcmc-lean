@@ -161,7 +161,10 @@ checks the one-dimensional two-velocity generator cancellation and derives
 mean-zero generator expectation from explicit integrability and weighted
 integration-by-parts premises. For BPS, the finite-dimensional reflection is
 proved involutive, kinetic-norm preserving, and reversing the normal velocity
-component. These are generator/geometric foundations, not yet path-existence,
+component. The process API now also provides full independent velocity
+refreshment, proves it Markov, proves it preserves every compatible
+position–velocity product target, and proves that it leaves measurable
+position events unchanged. These are generator/geometric foundations, not yet path-existence,
 unbounded-rate nonexplosion, or convergence theorems. Fixed finite event
 schedules can now be executed as general-state Markov kernels by alternating
 the semiflow with jumps; schedule concatenation and conditional invariance are

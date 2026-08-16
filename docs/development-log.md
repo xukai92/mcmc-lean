@@ -1,5 +1,13 @@
 # Development log
 
+- Added the practical Bouncy Particle velocity-refresh transition. It reuses
+  the common Hamiltonian momentum-refresh implementation, retains position,
+  independently redraws velocity from any probability law, is a Markov
+  kernel, and preserves the product of that velocity law with every s-finite
+  position target. A measurable-position-event theorem makes the retained
+  marginal explicit. This supplies a standard BPS ergodicity component but
+  does not itself prove bounce-process stationarity or convergence.
+
 - Added `GaussianSteinTest`, a reusable analytic interface for arbitrary
   velocity-dependent standard-Gaussian Zig-Zag observables. Its fields expose
   derivative and position-weighted integrability plus the exact Gaussian

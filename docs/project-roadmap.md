@@ -370,6 +370,11 @@ breadth branches are:
   this from separate invariance of every flow segment and the uniformized
   event. This sigma-finite example does not discharge the state-dependent
   spatial-flux or convergence obligations for Zig-Zag/BPS.
+  The BPS client now includes a full independent velocity-refresh kernel,
+  unified with the Hamiltonian momentum-refresh layer, with Markovness,
+  product-target invariance, and exact retention of measurable position
+  events proved. Combining refreshment with an exact unbounded-rate bounce
+  horizon process and proving its ergodicity remain open.
   Separately, the unbounded-rate standard-Gaussian Zig-Zag now has a genuine
   event kernel based on the closed-form inverse integrated hazard. Its unit
   exponential draw is positive almost surely, the inversion equation is

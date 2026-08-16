@@ -290,6 +290,65 @@ theorem gaussian_zigZagGenerator_affineVelocity_mean_zero (a b : ℝ) :
       rw [hconst, hlinearIntegral, hsquareIntegral]
       ring
 
+/-- Every affine velocity-odd observable satisfies the reusable Gaussian Stein
+test interface.  This is the first nontrivial family-level client of
+`GaussianSteinTest`; in particular, the certificate is available to later
+analytic arguments without unfolding the Zig-Zag generator. -/
+theorem gaussianSteinTest_affineVelocity (a b : ℝ) :
+    GaussianSteinTest (zigZagAffineVelocityDerivative a b)
+      (zigZagAffineVelocityObservable a b) := by
+  let gaussian := ProbabilityTheory.gaussianReal 0 1
+  have hid : MemLp id 2 gaussian :=
+    ProbabilityTheory.memLp_id_gaussianReal 2
+  have hidIntegrable : Integrable (fun q : ℝ => q) gaussian :=
+    hid.integrable (by norm_num)
+  have hsquareIntegrable : Integrable (fun q : ℝ => q ^ 2) gaussian := by
+    simpa [Pi.pow_apply] using hid.integrable_sq
+  have hsquare : (∫ q, q ^ 2 ∂gaussian) = 1 := by
+    have hvariance := ProbabilityTheory.variance_eq_sub hid
+    dsimp [gaussian] at hvariance
+    rw [ProbabilityTheory.variance_id_gaussianReal,
+      ProbabilityTheory.integral_id_gaussianReal] at hvariance
+    simpa [Pi.pow_apply] using hvariance.symm
+  refine ⟨?_, ?_, ?_⟩
+  · convert (integrable_const (2 * b) :
+        Integrable (fun _q : ℝ => 2 * b) gaussian) using 1
+    funext q
+    simp [zigZagAffineVelocityDerivative, zigZagVelocity, two_mul]
+  · have hlinear := hidIntegrable.const_mul (2 * a)
+    have hquadratic := hsquareIntegrable.const_mul (2 * b)
+    have hsum := hlinear.add hquadratic
+    apply hsum.congr
+    filter_upwards [] with q
+    simp [zigZagAffineVelocityObservable, zigZagVelocity]
+    ring
+  · simp only [zigZagAffineVelocityDerivative,
+      zigZagAffineVelocityObservable, zigZagVelocity, mul_one, mul_neg,
+      mul_one, sub_neg_eq_add]
+    simp_rw [← two_mul]
+    change (∫ _q : ℝ, 2 * b ∂gaussian) =
+      ∫ q : ℝ, q * (2 * (a + b * q)) ∂gaussian
+    have hright : (∫ q : ℝ, q * (2 * (a + b * q)) ∂gaussian) =
+        (∫ q : ℝ, 2 * a * q ∂gaussian) +
+          ∫ q : ℝ, 2 * b * q ^ 2 ∂gaussian := by
+      rw [← integral_add (hidIntegrable.const_mul (2 * a))
+        (hsquareIntegrable.const_mul (2 * b))]
+      apply integral_congr_ae
+      filter_upwards [] with q
+      ring
+    rw [hright]
+    have hlinearIntegral :
+        (∫ q : ℝ, 2 * a * q ∂gaussian) = 0 := by
+      rw [integral_const_mul,
+        ProbabilityTheory.integral_id_gaussianReal]
+      ring
+    have hquadraticIntegral :
+        (∫ q : ℝ, 2 * b * q ^ 2 ∂gaussian) = 2 * b := by
+      rw [integral_const_mul, hsquare]
+      ring
+    rw [hlinearIntegral, hquadraticIntegral]
+    simp
+
 /-! ### Exact Gaussian event clock -/
 
 /-- Integrated switching rate along the linear Gaussian Zig-Zag flow.  With

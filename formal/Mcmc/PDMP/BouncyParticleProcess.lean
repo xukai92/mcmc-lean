@@ -1,5 +1,6 @@
 import Mcmc.PDMP.BouncyParticle
 import Mcmc.PDMP.EventSimulation
+import Mcmc.Hamiltonian.MomentumRefresh
 import Mathlib.Tactic
 
 /-!
@@ -94,6 +95,46 @@ instance BouncyParticleBounceData.executeSchedule.instIsMarkovKernel
     IsMarkovKernel (data.executeSchedule waits) := by
   unfold BouncyParticleBounceData.executeSchedule
   infer_instance
+
+/-! ### Velocity refreshment -/
+
+/-- Independently redraw the Bouncy Particle velocity while retaining its
+current position.  This is the refresh transition used by practical BPS
+implementations and by many ergodicity arguments. -/
+noncomputable def bouncyParticleVelocityRefresh
+    (velocityLaw : Measure (Position ι)) :
+    Kernel (BouncyParticleState ι) (BouncyParticleState ι) :=
+  Mcmc.Hamiltonian.momentumRefreshWith velocityLaw
+
+instance bouncyParticleVelocityRefresh.instIsMarkovKernel
+    (velocityLaw : Measure (Position ι)) [IsProbabilityMeasure velocityLaw] :
+    IsMarkovKernel (bouncyParticleVelocityRefresh velocityLaw) := by
+  unfold bouncyParticleVelocityRefresh
+  infer_instance
+
+/-- Full velocity refresh preserves the product of any s-finite position
+target with the refresh law. -/
+theorem bouncyParticleVelocityRefresh_invariant
+    (positionTarget velocityTarget : Measure (Position ι))
+    [SFinite positionTarget] [IsProbabilityMeasure velocityTarget] :
+    (bouncyParticleVelocityRefresh velocityTarget).Invariant
+      (positionTarget.prod velocityTarget) := by
+  exact Mcmc.Hamiltonian.momentumRefreshWith_invariant
+    positionTarget velocityTarget
+
+/-- Refreshment leaves every measurable position event unchanged. -/
+theorem bouncyParticleVelocityRefresh_position_event
+    (velocityLaw : Measure (Position ι)) [IsProbabilityMeasure velocityLaw]
+    (state : BouncyParticleState ι) (s : Set (Position ι))
+    (hs : MeasurableSet s) :
+    bouncyParticleVelocityRefresh velocityLaw state (s ×ˢ Set.univ) =
+      s.indicator 1 state.1 := by
+  unfold bouncyParticleVelocityRefresh
+  unfold Mcmc.Hamiltonian.momentumRefreshWith
+  unfold Mcmc.Hamiltonian.momentumTransition
+  rw [Kernel.parallelComp_apply_prod]
+  simp only [Kernel.const_apply, measure_univ, mul_one]
+  rw [Kernel.id_apply, Measure.dirac_apply' _ hs]
 
 /-- Canonical position-dependent bounce intensity. -/
 noncomputable def BouncyParticleBounceData.stateRate
