@@ -1,5 +1,13 @@
 # Development log
 
+- Added literal ideal-real semantics for the bounded practical slice runtime:
+  finite left/right stepping out, affine shrink proposals, explicit trace
+  allocation, checked malformed-trace failure, and identity fallback only on
+  attempt-budget exhaustion. Lean proves every successful result is either
+  that fallback or lies above the sampled log height, and includes a concrete
+  Gaussian reduction example. This is now the algorithmic object to which the
+  pending joint trace reversal must be attached.
+
 - Added bounded numerical refinement for every comparison in a finite
   stepping-out/shrinkage trace. Lean proves simultaneous agreement of strict,
   non-strict stop, and acceptance decisions from per-evaluation callback

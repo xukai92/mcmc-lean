@@ -121,6 +121,7 @@ import Mcmc.Kernel.RefreshAugmented
 import Mcmc.Kernel.IndependenceMetropolis
 import Mcmc.Kernel.Langevin
 import Mcmc.Kernel.Slice
+import Mcmc.Kernel.PracticalSlice
 import Mcmc.Examples.BoundedUniformSlice
 import Mcmc.PDMP.Generator
 import Mcmc.PDMP.Uniformization
