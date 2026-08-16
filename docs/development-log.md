@@ -233,6 +233,14 @@ A variable-depth stopped-doubling client uses `2^depth` leaf indices and proves
 stationarity componentwise. Certification of a particular floating-point
 U-turn/subtree-exclusion builder remains a separate refinement task.
 
+The tree boundary now has an executable Lean checker. A successful Boolean
+check constructs `CertifiedDynamicTree`, so target-weighted selection inherits
+the reversible/stationary theorem without a second hand-written proof. Julia
+mirrors the completed-row check and tests valid variable-size components plus
+missing-root and asymmetric-reroot failures. The still-open numerical task is
+to make a concrete U-turn/subtree-exclusion builder emit a passing candidate
+family; the checker does not assume that geometric property.
+
 ## 2026-08-15: normalized targets and refresh-augmented GR-HMC convergence
 
 Added a reusable bridge from any nonzero finite invariant measure to mathlib's

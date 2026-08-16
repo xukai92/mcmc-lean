@@ -64,8 +64,11 @@ semantics and a carefully scoped stationary theorem for static candidate
 mixtures. Dynamic selection now has a separate certified-tree theorem:
 root inclusion plus equality of the completed candidate `Finset` after every
 admissible reroot imply reversible and stationary target-weighted selection.
-Variable-depth stopped doubling trees instantiate it; a particular numerical
-U-turn/subtree-exclusion builder must still prove that certificate.
+Lean provides an executable checker whose successful result constructs that
+proof-bearing tree, and Julia checks the same completed-tree conditions on
+runtime candidate rows. Variable-depth stopped doubling trees instantiate it;
+a particular numerical U-turn/subtree-exclusion builder must still produce a
+passing certificate.
 
 The implicit-solver foundation now includes a fixed-step, smooth,
 momentum-even nonseparable example `H(q,p) = a q √(1+p²)`. Lean proves the

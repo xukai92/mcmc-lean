@@ -22,6 +22,7 @@ export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, Bounded
     certify_restricted_gaussian_float64,
     restricted_gaussian_certificate_arguments,
     Xu21CoupledSampler, ScopedInferenceOperator, ComposableSampler, covers,
+    DynamicTreeCertificate, certify_dynamic_tree,
     generated_schedule,
     ObservationCursor, observation_cursor, resume_observation, run_observations,
     FiniteHMMParticleGibbs,
@@ -1036,6 +1037,41 @@ end
 
 sample(sampler::BoundedRejectionSlice, initial::Real, count::Integer) =
     sample(Random.default_rng(), sampler, initial, count)
+
+"""Per-output certificate for a finite dynamic trajectory builder.
+
+`candidates[root]` uses one-based state indices. Validity requires every root
+to be retained and every admitted leaf to expose exactly the same completed
+candidate set when rerooted.
+"""
+struct DynamicTreeCertificate
+    candidates::Vector{Vector{Int}}
+    valid::Bool
+end
+
+function certify_dynamic_tree(rows::AbstractVector{<:AbstractVector{<:Integer}})
+    count = length(rows)
+    count > 0 || throw(ArgumentError("dynamic tree must contain a state"))
+    candidates = Vector{Vector{Int}}(undef, count)
+    for root in 1:count
+        row = sort!(unique!(Int.(collect(rows[root]))))
+        all(leaf -> 1 <= leaf <= count, row) ||
+            throw(ArgumentError("dynamic-tree candidate index is out of range"))
+        candidates[root] = row
+    end
+    valid = true
+    for root in 1:count
+        root in candidates[root] || (valid = false; break)
+        for leaf in candidates[root]
+            if candidates[leaf] != candidates[root]
+                valid = false
+                break
+            end
+        end
+        valid || break
+    end
+    DynamicTreeCertificate(candidates, valid)
+end
 
 struct FiniteKernelWeights
     rows::Vector{Vector{BigInt}}

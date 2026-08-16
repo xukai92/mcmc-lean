@@ -27,6 +27,40 @@ structure CertifiedDynamicTree (State : Type*) [Fintype State]
   reroot_eq : ∀ {root leaf}, leaf ∈ candidates root →
     candidates leaf = candidates root
 
+/-- Decidable correctness predicate for completed candidate sets emitted by a
+finite dynamic-tree builder. -/
+def CertifiedDynamicTree.Checks
+    (candidates : State → Finset State) : Prop :=
+  (∀ root, root ∈ candidates root) ∧
+    ∀ root leaf, leaf ∈ candidates root →
+      candidates leaf = candidates root
+
+instance CertifiedDynamicTree.instDecidableChecks
+    (candidates : State → Finset State) : Decidable (Checks candidates) := by
+  unfold Checks
+  infer_instance
+
+/-- Executable Boolean checker for a finite completed tree. -/
+def CertifiedDynamicTree.check
+    (candidates : State → Finset State) : Bool :=
+  decide (Checks candidates)
+
+theorem CertifiedDynamicTree.check_eq_true_iff
+    (candidates : State → Finset State) :
+    check candidates = true ↔ Checks candidates := by
+  exact decide_eq_true_iff
+
+/-- A successful executable check constructs the proof-bearing tree interface
+consumed by the balance theorem. -/
+def CertifiedDynamicTree.ofCheck
+    (candidates : State → Finset State)
+    (hcheck : check candidates = true) : CertifiedDynamicTree State where
+  candidates := candidates
+  root_mem := (check_eq_true_iff candidates).mp hcheck |>.1
+  reroot_eq := by
+    intro root leaf hleaf
+    exact (check_eq_true_iff candidates).mp hcheck |>.2 root leaf hleaf
+
 /-- Membership in a certified completed tree is a reroot-invariant candidate
 relation. -/
 noncomputable def CertifiedDynamicTree.toCandidateSet
@@ -76,6 +110,17 @@ theorem CertifiedDynamicTree.kernel_stationary
       target :=
   tree.kernel_reversible target htarget |>.stationary
 
+/-- Checked builder output can be used directly as a stationary
+target-weighted dynamic trajectory transition. -/
+theorem CertifiedDynamicTree.checkedKernel_stationary
+    (target : Distribution State) (candidates : State → Finset State)
+    (hcheck : check candidates = true)
+    (htarget : ∀ state, 0 < target.mass state) :
+    (dynamicCandidateKernel target
+      ((ofCheck candidates hcheck).toCandidateSet target)
+      htarget).Stationary target :=
+  (ofCheck candidates hcheck).kernel_stationary target htarget
+
 /-- A leaf of a stopped doubling tree. `depth` may vary between tree
 components, while a completed component contains `2^depth` leaf offsets. -/
 structure StoppedDoublingLeaf (TreeId : Type*) [Fintype TreeId]
@@ -111,6 +156,15 @@ def stoppedDoublingTree {TreeId : Type*} [Fintype TreeId]
     constructor <;> intro h
     · exact ⟨h.1.trans hleaf.1, h.2.trans hleaf.2⟩
     · exact ⟨h.1.trans hleaf.1.symm, h.2.trans hleaf.2.symm⟩
+
+@[simp] theorem check_stoppedDoublingCandidates
+    {TreeId : Type*} [Fintype TreeId] [DecidableEq TreeId]
+    (maxDepth : ℕ) :
+    CertifiedDynamicTree.check (stoppedDoublingCandidates (TreeId := TreeId)
+      maxDepth) = true := by
+  rw [CertifiedDynamicTree.check_eq_true_iff]
+  exact ⟨(stoppedDoublingTree maxDepth).root_mem,
+    fun root leaf hleaf => (stoppedDoublingTree maxDepth).reroot_eq hleaf⟩
 
 /-- Target-weighted selection from variable-depth completed doubling trees is
 stationary. -/

@@ -72,6 +72,11 @@ mean and variance of a bounded uniform target. These tests exercise the
 practical implementation; they do not identify Float64 callback evaluation or
 the finite retry guard with the disintegrated ideal slice kernel.
 
+Dynamic-tree tests exercise the runtime form of Lean's completed-tree checker:
+they accept components with different candidate counts and reject missing-root
+and asymmetric-reroot outputs. This validates certificate transport logic, not
+the geometry of a future floating-point U-turn detector.
+
 Position-dependent generalized leapfrog now has Reference-versus-Optimized
 fixed-point tests using nonseparable derivatives, direct checks of both
 implicit residuals, public-API validation, and a check that approximate

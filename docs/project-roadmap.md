@@ -243,10 +243,11 @@ positive product lower bound and proves TV convergence from every initial law.
 After those foundations and the paper execution milestones, the optional
 breadth branches are:
 
-- numerical NUTS tree-building refinement beyond the completed finite
-  certified-tree and stopped-doubling selection theorems;
-- continuous stepping-out/shrinkage implementations beyond the exact
-  disintegration and executable finite integer-slice clients;
+- numerical U-turn/subtree-exclusion construction beyond the completed finite
+  certified-tree, executable checker, Julia certificate mirror, and
+  stopped-doubling selection theorems;
+- stepping-out/shrinkage beyond the exact disintegration, finite integer slice,
+  and bounded-interval continuous rejection implementation;
 - reversible-jump transports beyond the checked scalar and planar
   birth/death scaling clients;
 - particle MCMC after finite SMC and pseudo-marginal foundations;
