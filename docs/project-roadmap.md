@@ -364,11 +364,12 @@ breadth branches are:
   reflection geometry are checked; semigroup/stationarity results for the
   flow-driven path kernel, unbounded-rate Lyapunov arguments,
   process-level stationarity, and convergence remain. A bounded constant-rate
-  telegraph client now closes conditional process-level stationarity for
-  arbitrary supplied finite candidate schedules: its linear flow and velocity
-  flip separately preserve equal velocity mass times Lebesgue position. This
-  sigma-finite example does not discharge the state-dependent spatial-flux or
-  convergence obligations for Zig-Zag/BPS.
+  telegraph client now closes process-level stationarity for the actual
+  arbitrary-count positive-horizon kernel, including the Poisson candidate
+  count and continuous ordered event-time mixture. A reusable theorem derives
+  this from separate invariance of every flow segment and the uniformized
+  event. This sigma-finite example does not discharge the state-dependent
+  spatial-flux or convergence obligations for Zig-Zag/BPS.
 
 Sequence-parallel evaluation is an execution-refinement project downstream of
 exact seeded trace semantics. Full solver convergence may refine a sequential

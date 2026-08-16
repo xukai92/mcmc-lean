@@ -1,5 +1,15 @@
 # Development log
 
+- Proved a fixed-padded-schedule correspondence for the bounded PDMP executor:
+  augmented execution retains the supplied schedule and its state marginal is
+  the explicit state-only composition of flow and uniformized-event kernels.
+  Consequently, whenever every flow segment and the uniformized event
+  separately preserve a target, the full arbitrary-count Poisson-scheduled
+  horizon kernel preserves it. The constant-rate telegraph client now applies
+  this theorem to its actual unconditional positive-horizon transition, not
+  merely to supplied finite waits. Its invariant reference is sigma-finite;
+  no convergence or state-dependent Zig-Zag/BPS flux claim follows.
+
 - Used the regularized-logistic coercive lower bound to prove integrability of
   its unnormalized Boltzmann density. The finite nonzero measure is now
   normalized to a probability target, and the concrete HMC/RWMH mixture is

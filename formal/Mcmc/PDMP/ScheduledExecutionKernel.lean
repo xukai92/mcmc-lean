@@ -274,6 +274,126 @@ instance ThinnedFlowSimulator.executeScheduledRange.instIsMarkovKernel
           (simulator.executeScheduledRange (start + 1) count) := ih (start + 1)
       infer_instance
 
+/-- State-only execution of a fixed padded schedule. This is the section of
+`executeScheduledRange` obtained by holding the schedule coordinate fixed. -/
+noncomputable def ThinnedFlowSimulator.executeFixedRange
+    (simulator : ThinnedFlowSimulator State)
+    (schedule : CandidateScheduleSample) :
+    ℕ → ℕ → Kernel State State
+  | _, 0 => Kernel.id
+  | start, count + 1 =>
+      simulator.executeFixedRange schedule (start + 1) count ∘ₖ
+        (simulator.mechanism.uniformizedKernel simulator.clock.rate ∘ₖ
+          simulator.semiflow.kernel (schedule.2 start))
+
+instance ThinnedFlowSimulator.executeFixedRange.instIsMarkovKernel
+    (simulator : ThinnedFlowSimulator State)
+    (schedule : CandidateScheduleSample) (start count : ℕ) :
+    IsMarkovKernel (simulator.executeFixedRange schedule start count) := by
+  letI : IsMarkovKernel
+      (simulator.mechanism.uniformizedKernel simulator.clock.rate) :=
+    simulator.mechanism.uniformizedKernel_isMarkov simulator.clock.rate
+      simulator.clock.positive simulator.rate_le_clock
+  induction count generalizing start with
+  | zero =>
+      simp only [ThinnedFlowSimulator.executeFixedRange]
+      infer_instance
+  | succ count ih =>
+      simp only [ThinnedFlowSimulator.executeFixedRange]
+      letI : IsMarkovKernel
+          (simulator.executeFixedRange schedule (start + 1) count) :=
+        ih (start + 1)
+      infer_instance
+
+theorem ThinnedFlowSimulator.scheduledCoordinateStep_fixed
+    (simulator : ThinnedFlowSimulator State)
+    (schedule : CandidateScheduleSample) (start : ℕ) (state : State) :
+    simulator.scheduledCoordinateStep start (state, schedule) =
+      Measure.map (fun next => (next, schedule))
+        ((simulator.mechanism.uniformizedKernel simulator.clock.rate ∘ₖ
+          simulator.semiflow.kernel (schedule.2 start)) state) := by
+  letI : IsMarkovKernel
+      (simulator.mechanism.uniformizedKernel simulator.clock.rate) :=
+    simulator.mechanism.uniformizedKernel_isMarkov simulator.clock.rate
+      simulator.clock.positive simulator.rate_le_clock
+  ext event hevent
+  unfold ThinnedFlowSimulator.scheduledCoordinateStep
+    ThinnedFlowSimulator.flowScheduledCoordinate
+  rw [Kernel.comp_deterministic_eq_comap, Kernel.comap_apply]
+  unfold ThinnedFlowSimulator.jumpKeepSchedule
+  rw [Kernel.prod_apply, Kernel.prodMkRight_apply,
+    Kernel.deterministic_apply, Measure.prod_dirac]
+  simp [MeasurableSemiflow.kernel, Kernel.comp_deterministic_eq_comap,
+    Kernel.comap_apply]
+
+theorem ThinnedFlowSimulator.executeScheduledRange_fixed
+    (simulator : ThinnedFlowSimulator State)
+    (schedule : CandidateScheduleSample) (start count : ℕ) :
+    Kernel.comap (Kernel.fst
+      (simulator.executeScheduledRange start count))
+      (fun state => (state, schedule))
+      (measurable_id.prodMk measurable_const) =
+        simulator.executeFixedRange schedule start count := by
+  induction count generalizing start with
+  | zero =>
+      ext state event hevent
+      simp only [ThinnedFlowSimulator.executeScheduledRange,
+        ThinnedFlowSimulator.executeFixedRange]
+      rw [Kernel.comap_apply, Kernel.fst_apply, Kernel.id_apply]
+      rw [Measure.map_apply measurable_fst hevent,
+        Measure.dirac_apply' _ (measurable_fst hevent),
+        Kernel.id_apply, Measure.dirac_apply' _ hevent]
+      rfl
+  | succ count ih =>
+      ext state event hevent
+      simp only [ThinnedFlowSimulator.executeScheduledRange,
+        ThinnedFlowSimulator.executeFixedRange, Kernel.comap_apply]
+      rw [Kernel.fst_comp]
+      rw [Kernel.comp_apply, simulator.scheduledCoordinateStep_fixed]
+      rw [← Measure.deterministic_comp_eq_map (by fun_prop),
+        Measure.comp_assoc, Kernel.comp_deterministic_eq_comap, ih]
+      let prior : Kernel State State :=
+        simulator.mechanism.uniformizedKernel simulator.clock.rate ∘ₖ
+          simulator.semiflow.kernel (schedule.2 start)
+      let next : Kernel State State :=
+        simulator.executeFixedRange schedule (start + 1) count
+      have hcomp : (next ∘ₖ prior) state = next ∘ₘ prior state :=
+        Kernel.comp_apply next prior state
+      exact congrArg (fun measure : Measure State => measure event) hcomp.symm
+
+/-- A scheduled executor started with a fixed schedule retains that schedule;
+its state marginal is exactly `executeFixedRange`. -/
+theorem ThinnedFlowSimulator.executeScheduledRange_apply_fixed
+    (simulator : ThinnedFlowSimulator State)
+    (schedule : CandidateScheduleSample) (start count : ℕ) (state : State) :
+    simulator.executeScheduledRange start count (state, schedule) =
+      Measure.map (fun next => (next, schedule))
+        (simulator.executeFixedRange schedule start count state) := by
+  induction count generalizing start state with
+  | zero =>
+      simp only [ThinnedFlowSimulator.executeScheduledRange,
+        ThinnedFlowSimulator.executeFixedRange, Kernel.id_apply]
+      rw [Measure.map_dirac' (by fun_prop)]
+  | succ count ih =>
+      have hembed : Measurable (fun next : State => (next, schedule)) :=
+        measurable_id.prodMk measurable_const
+      rw [ThinnedFlowSimulator.executeScheduledRange,
+        ThinnedFlowSimulator.executeFixedRange, Kernel.comp_apply,
+        simulator.scheduledCoordinateStep_fixed]
+      rw [← Measure.deterministic_comp_eq_map (by fun_prop),
+        Measure.comp_assoc, Kernel.comp_deterministic_eq_comap]
+      have houter : Kernel.comap
+          (simulator.executeScheduledRange (start + 1) count)
+          (fun next => (next, schedule))
+          (measurable_id.prodMk measurable_const) =
+          (simulator.executeFixedRange schedule (start + 1) count).map
+            (fun next => (next, schedule)) := by
+        ext next
+        rw [Kernel.comap_apply, Kernel.map_apply _ hembed]
+        exact congrArg (fun measure => measure ‹_›) (ih (start + 1) next)
+      rw [houter, ← Measure.map_comp _ _ hembed]
+      congr 1
+
 /-- Total elapsed time represented by the first `count` wait coordinates. -/
 def scheduleElapsed (count : ℕ) (schedule : CandidateScheduleSample) : NNReal :=
   ∑ index ∈ Finset.range count, schedule.2 index
@@ -315,6 +435,48 @@ instance ThinnedFlowSimulator.executeScheduledCount.instIsMarkovKernel
     IsMarkovKernel (simulator.executeScheduledCount horizon count) := by
   unfold ThinnedFlowSimulator.executeScheduledCount
   infer_instance
+
+/-- State-only section of a fixed-count scheduled executor. -/
+noncomputable def ThinnedFlowSimulator.executeFixedCount
+    (simulator : ThinnedFlowSimulator State) (horizon : NNReal)
+    (schedule : CandidateScheduleSample) : Kernel State State :=
+  simulator.semiflow.kernel (horizon - scheduleElapsed schedule.1 schedule) ∘ₖ
+    simulator.executeFixedRange schedule 0 schedule.1
+
+instance ThinnedFlowSimulator.executeFixedCount.instIsMarkovKernel
+    (simulator : ThinnedFlowSimulator State) (horizon : NNReal)
+    (schedule : CandidateScheduleSample) :
+    IsMarkovKernel (simulator.executeFixedCount horizon schedule) := by
+  unfold ThinnedFlowSimulator.executeFixedCount
+  infer_instance
+
+theorem ThinnedFlowSimulator.executeScheduledCount_fixed
+    (simulator : ThinnedFlowSimulator State) (horizon : NNReal)
+    (schedule : CandidateScheduleSample) :
+    Kernel.comap
+      (simulator.executeScheduledCount horizon schedule.1)
+      (fun state => (state, schedule))
+      (measurable_id.prodMk measurable_const) =
+        simulator.executeFixedCount horizon schedule := by
+  ext state event hevent
+  rw [Kernel.comap_apply]
+  unfold ThinnedFlowSimulator.executeScheduledCount
+    ThinnedFlowSimulator.executeFixedCount
+  rw [Kernel.comp_apply,
+    simulator.executeScheduledRange_apply_fixed schedule 0 schedule.1 state,
+    ← Measure.deterministic_comp_eq_map (by fun_prop), Measure.comp_assoc,
+    Kernel.comp_deterministic_eq_comap]
+  have hresidual : Kernel.comap
+      (simulator.flowScheduledResidual horizon schedule.1)
+      (fun next => (next, schedule))
+      (measurable_id.prodMk measurable_const) =
+      simulator.semiflow.kernel
+        (horizon - scheduleElapsed schedule.1 schedule) := by
+    ext next measurableEvent hmeasurableEvent
+    simp [ThinnedFlowSimulator.flowScheduledResidual,
+      MeasurableSemiflow.kernel, Kernel.comap_apply,
+      Kernel.deterministic_apply]
+  rw [hresidual, ← Kernel.comp_apply]
 
 private theorem measurableSet_scheduleCount
     (count : ℕ) :
@@ -536,5 +698,35 @@ theorem ThinnedFlowSimulator.horizonKernel_invariant_of_count_sections
     rw [simulator.executeScheduled_apply horizon.duration (state, schedule)]
   rw [heq]
   exact hsection schedule
+
+/-- If the deterministic flow and the uniformized event separately preserve a
+target, then integrating every finite Poisson schedule preserves it as well.
+Unlike adjacent-count flux balance, this criterion is intentionally strong;
+it applies when no cancellation between flow and event terms is needed. -/
+theorem ThinnedFlowSimulator.horizonKernel_invariant_of_components
+    (simulator : ThinnedFlowSimulator State) (horizon : PositiveHorizon)
+    (target : Measure State) [SFinite target]
+    (hflow : ∀ time, (simulator.semiflow.kernel time).Invariant target)
+    (hevent : (simulator.mechanism.uniformizedKernel
+      simulator.clock.rate).Invariant target) :
+    (simulator.horizonKernel horizon).Invariant target := by
+  apply simulator.horizonKernel_invariant_of_count_sections horizon target
+  intro schedule
+  rw [simulator.executeScheduledCount_fixed horizon.duration schedule]
+  unfold ThinnedFlowSimulator.executeFixedCount
+  apply (hflow _).comp
+  have hrange : ∀ count start,
+      (simulator.executeFixedRange schedule start count).Invariant target := by
+    intro count
+    induction count with
+    | zero =>
+        intro start
+        simp only [ThinnedFlowSimulator.executeFixedRange]
+        exact Measure.id_comp
+    | succ count ih =>
+        intro start
+        simp only [ThinnedFlowSimulator.executeFixedRange]
+        exact (ih (start + 1)).comp (hevent.comp (hflow _))
+  exact hrange schedule.1 0
 
 end Mcmc.PDMP

@@ -177,4 +177,19 @@ theorem telegraph_executeUntil_invariant
     rw [telegraph_uniformizedKernel_eq_jump rate hrate]
     exact telegraphJumpKernel_invariant
 
+/-- The actual fixed-horizon transition, including its Poisson-distributed
+number of candidate events and continuous ordered event times, preserves the
+telegraph target. -/
+theorem telegraph_horizonKernel_invariant
+    (rate : NNReal) (hrate : 0 < rate) (horizon : PositiveHorizon) :
+    ((telegraphSimulator rate hrate).horizonKernel horizon).Invariant
+      telegraphTarget := by
+  apply (telegraphSimulator rate hrate).horizonKernel_invariant_of_components
+    horizon telegraphTarget
+  · exact telegraphSemiflow_invariant
+  · change ((telegraphJumpMechanism rate).uniformizedKernel rate).Invariant
+      telegraphTarget
+    rw [telegraph_uniformizedKernel_eq_jump rate hrate]
+    exact telegraphJumpKernel_invariant
+
 end Mcmc.PDMP
