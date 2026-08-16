@@ -21,7 +21,10 @@ The expanded composable-inference target is Ge, Xu, and Ghahramani,
 [*Turing: A Language for Flexible Probabilistic Inference*](https://proceedings.mlr.press/v84/ge18b.html):
 see its [coverage audit](docs/ge18-coverage.md). Its formal core is composition
 of target-preserving full-state operators; systems and empirical claims remain
-separately classified.
+separately classified. The concrete mixed Boolean/Gaussian PG--GR-HMC client
+also has a visibly target-refresh-augmented form with setwise convergence from
+every initial probability law; no such convergence is inferred from
+stationarity of the unaugmented composition alone.
 
 The algorithms are defined as mathlib kernels rather than assumed through
 opaque interfaces. Any corrected, conditional, obstructed, or empirical paper

@@ -2414,3 +2414,14 @@ postcomposition preserves planar volume, derives the inverse-Jacobian density
 pushforward as a transport-density certificate. The resulting tagged proposal
 is normalized and its reversible-jump MH transition preserves the intended
 tagged target.
+
+## 2026-08-16: setwise convergence for mixed PG--GR-HMC
+
+Extended the dependent Boolean/Gaussian general-state composition with an
+explicit normalized-target refresh branch. The original two-block
+disintegration update followed by Gaussian SoftAbs GR-HMC remains the active
+branch, and its existing common-target stationarity theorem feeds the generic
+refresh convergence result. For `0 < p < 1`, Lean now proves setwise
+convergence on every measurable event from every initial probability law. The
+unaugmented PG--GR-HMC composition remains correctly described as stationary,
+not automatically convergent.

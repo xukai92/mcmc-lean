@@ -101,7 +101,10 @@ metadata.
    sign-region model and a two-dimensional four-quadrant auxiliary model. Each
    constructs its exact reverse conditional by standard-Borel disintegration
    and composes the resulting two-block update with the actual Gaussian
-   SoftAbs multinomial GR-HMC transition. A noisy multivariate likelihood
+   SoftAbs multinomial GR-HMC transition. The sign-region client additionally
+   has an explicitly target-refresh-augmented schedule with direct setwise
+   convergence from every initial probability law for `0 < p < 1`; this is
+   not claimed for the unaugmented composition. A noisy multivariate likelihood
    model remains a useful empirical extension, not a missing composition
    theorem.
 2. Complete runtime callback refinement beyond the new checked semantic

@@ -261,7 +261,9 @@ factorization theorem. `Examples.GeneralStatePgHmc` now closes a concrete
 dependent Boolean/Gaussian client: the Boolean records the position's sign,
 its reverse half-line conditional is constructed by standard-Borel
 disintegration, and the actual Gaussian SoftAbs multinomial GR-HMC transition
-supplies the continuous update. Portable schedule descriptors can also be
+supplies the continuous update. Its explicitly target-refresh-augmented form
+now has direct setwise convergence from every initial probability law, while
+the unaugmented composition is only claimed stationary. Portable schedule descriptors can also be
 bound to their exact scoped kernels and invariance proofs; foreign callback
 equality remains a language-semantics obligation.
 

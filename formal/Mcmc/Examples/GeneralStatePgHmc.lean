@@ -85,6 +85,45 @@ theorem pg_grhmc_invariant (ε : ℝ) (L : ℕ) :
       gaussianSoftAbsPositionTarget_ne_zero
     exact gaussianSoftAbs_multinomialGRHMC_invariant ε L
 
+/-- Explicit target-refresh augmentation of the mixed PG--GR-HMC schedule.
+The weight `p` is assigned to the original composed transition. -/
+noncomputable def pgGrhmcRefreshAugmented
+    (p : Set.Icc (0 : NNReal) 1) (ε : ℝ) (L : ℕ) :
+    Kernel ContinuousState ContinuousState :=
+  Mcmc.Kernel.refreshAugmented p
+    (Mcmc.Kernel.ComposableInference.pgHmcKernel
+      (Mcmc.Kernel.twoBlockConditional particleForward particleReverse)
+      (gaussianSoftAbsMultinomialTransition (ι := Unit) ε L)) target
+
+instance pgGrhmcRefreshAugmented.instIsMarkovKernel
+    (p : Set.Icc (0 : NNReal) 1) (ε : ℝ) (L : ℕ) :
+    IsMarkovKernel (pgGrhmcRefreshAugmented p ε L) := by
+  unfold pgGrhmcRefreshAugmented
+  infer_instance
+
+/-- The visibly refresh-augmented mixed sampler preserves the same normalized
+continuous target. -/
+theorem pgGrhmcRefreshAugmented_invariant
+    (p : Set.Icc (0 : NNReal) 1) (ε : ℝ) (L : ℕ) :
+    (pgGrhmcRefreshAugmented p ε L).Invariant target := by
+  exact Mcmc.Kernel.refreshAugmented_invariant p _ target
+    (pg_grhmc_invariant ε L)
+
+/-- With both the composed and exact-refresh branches active, the concrete
+mixed PG--GR-HMC chain converges setwise from every initial probability law.
+No convergence claim is made here for the unaugmented composition. -/
+theorem pgGrhmcRefreshAugmented_lawAtTime_apply_tendsto
+    (p : Set.Icc (0 : NNReal) 1) (hp0 : 0 < p.1) (hp1 : p.1 < 1)
+    (ε : ℝ) (L : ℕ) (initial : Measure ContinuousState)
+    [IsProbabilityMeasure initial] {s : Set ContinuousState}
+    (hs : MeasurableSet s) :
+    Filter.Tendsto
+      (fun n => Mcmc.Kernel.lawAtTime initial
+        (pgGrhmcRefreshAugmented p ε L) n s)
+      Filter.atTop (nhds (target s)) := by
+  exact Mcmc.Kernel.refreshAugmented_lawAtTime_apply_tendsto
+    p hp0 hp1 _ target initial (pg_grhmc_invariant ε L) hs
+
 namespace QuadrantClient
 
 abbrev Index := Fin 2
