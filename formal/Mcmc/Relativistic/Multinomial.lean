@@ -53,6 +53,19 @@ theorem generalizedLeapfrogPerm_symm_apply
       selection.step (-ε) z :=
   rfl
 
+omit [Fintype ι] in
+/-- The selected generalized-leapfrog permutation is identity at zero step
+size. -/
+theorem generalizedLeapfrogPerm_zero
+    {positionDerivative momentumDerivative : PhaseSpace ι → Position ι}
+    (selection : GeneralizedLeapfrogSelection
+      positionDerivative momentumDerivative)
+    (hunique : selection.IsUnique) :
+    generalizedLeapfrogPerm selection hunique 0 = 1 := by
+  apply Equiv.ext
+  intro z
+  exact selection.step_zero z
+
 /-- Random-origin, Boltzmann-weighted multinomial selection along a
 generalized-leapfrog orbit. -/
 noncomputable def multinomialGRHMCPhase
@@ -104,6 +117,24 @@ theorem multinomialGRHMCPhase_zero
       Kernel.id := by
   unfold multinomialGRHMCPhase
   exact orbitMultinomialKernel_zero _ _ _ _ _ _ _
+
+/-- At zero step size every orbit point is the current state, so phase-space
+multinomial GR-HMC is identity for every nominal trajectory length. -/
+theorem multinomialGRHMCPhase_step_zero
+    {positionDerivative momentumDerivative : PhaseSpace ι → Position ι}
+    (potential : Position ι → ℝ)
+    (metric : FactoredRiemannianMetric ι) (m c : ℝ)
+    (selection : GeneralizedLeapfrogSelection
+      positionDerivative momentumDerivative)
+    (hvalid : selection.IsValid)
+    (hH : Measurable
+      (generalRelativisticHamiltonian potential metric m c))
+    (L : ℕ) :
+    multinomialGRHMCPhase potential metric m c selection hvalid hH 0 L =
+      Kernel.id := by
+  unfold multinomialGRHMCPhase
+  apply orbitMultinomialKernel_eq_id_of_eq_one
+  exact generalizedLeapfrogPerm_zero selection hvalid.unique
 
 /-- The multinomial generalized-leapfrog transition satisfies detailed
 balance for the complete GR phase target. -/
@@ -210,6 +241,36 @@ theorem positionMultinomialGRHMC_zero
       hmeasurableMomentum ε 0 = Kernel.id := by
   unfold positionMultinomialGRHMC
   rw [multinomialGRHMCPhase_zero]
+  ext q s hs
+  rw [Kernel.map_apply'
+    (Kernel.id ∘ₖ riemannianPositionMomentumLift metric m c hm hc
+      hmeasurableMomentum) measurable_fst q hs]
+  rw [Kernel.id_comp]
+  rw [riemannianPositionMomentumLift, Kernel.prod_apply, Kernel.id_apply]
+  rw [show Prod.fst ⁻¹' s = s ×ˢ (Set.univ : Set (Momentum ι)) by ext; simp,
+    Measure.prod_prod, Measure.dirac_apply' _ hs, measure_univ]
+  by_cases hq : q ∈ s <;> simp [hq]
+
+/-- The user-facing position transition is also identity at zero step size,
+regardless of its nominal trajectory length. -/
+theorem positionMultinomialGRHMC_step_zero
+    [Nonempty ι] [DecidableEq ι]
+    {positionDerivative momentumDerivative : PhaseSpace ι → Position ι}
+    (potential : Position ι → ℝ)
+    (metric : FactoredRiemannianMetric ι) (m c : ℝ)
+    (hm : 0 < m) (hc : 0 < c)
+    (selection : GeneralizedLeapfrogSelection
+      positionDerivative momentumDerivative)
+    (hvalid : selection.IsValid)
+    (hH : Measurable
+      (generalRelativisticHamiltonian potential metric m c))
+    (hmeasurableMomentum :
+      IsMeasurableRiemannianMomentumFamily metric m c hm hc)
+    (L : ℕ) :
+    positionMultinomialGRHMC potential metric m c hm hc selection hvalid hH
+      hmeasurableMomentum 0 L = Kernel.id := by
+  unfold positionMultinomialGRHMC
+  rw [multinomialGRHMCPhase_step_zero]
   ext q s hs
   rw [Kernel.map_apply'
     (Kernel.id ∘ₖ riemannianPositionMomentumLift metric m c hm hc

@@ -34,6 +34,13 @@ theorem orbitPoint_origin (T : Equiv.Perm α) {L : ℕ}
   simp [orbitPoint]
 
 omit [MeasurableSpace α] in
+@[simp]
+theorem orbitPoint_one {L : ℕ} (origin : Fin (L + 1)) (z : α)
+    (i : Fin (L + 1)) :
+    orbitPoint (1 : Equiv.Perm α) origin z i = z := by
+  simp [orbitPoint]
+
+omit [MeasurableSpace α] in
 /-- Re-rooting an orbit at any indexed point leaves every indexed point
 unchanged. -/
 theorem orbitPoint_reroot (T : Equiv.Perm α) {L : ℕ}
@@ -222,6 +229,63 @@ theorem orbitMultinomialKernel_zero
   rw [ENNReal.mul_inv_cancel (hweight0 z) (hweightTop z)]
   rw [Measure.dirac_apply' _ hs]
   by_cases hz : z ∈ s <;> simp [hz]
+
+/-- If the orbit permutation itself is identity, every indexed candidate is
+the current state and multinomial selection is the identity kernel for every
+nominal trajectory length. -/
+theorem orbitMultinomialKernel_one
+    (weight : α → ENNReal) (L : ℕ)
+    (hweight0 : ∀ z, weight z ≠ 0) (hweightTop : ∀ z, weight z ≠ ∞)
+    (hweight : Measurable weight) :
+    orbitMultinomialKernel weight (1 : Equiv.Perm α) L hweight0 hweightTop
+      hweight measurable_id measurable_id = Kernel.id := by
+  ext z s hs
+  rw [orbitMultinomialKernel_apply_set weight (1 : Equiv.Perm α) L
+    hweight0 hweightTop hweight measurable_id measurable_id z s hs]
+  have hsum (origin : Fin (L + 1)) :
+      ∑ selected : Fin (L + 1),
+          orbitIndexProbability weight (1 : Equiv.Perm α) origin selected z =
+        1 := by
+    unfold orbitIndexProbability orbitNormalizer
+    rw [← Finset.sum_mul]
+    exact ENNReal.mul_inv_cancel
+      (orbitNormalizer_ne_zero hweight0 (1 : Equiv.Perm α) origin z)
+      (orbitNormalizer_ne_top hweightTop (1 : Equiv.Perm α) origin z)
+  rw [Kernel.id_apply, Measure.dirac_apply' _ hs]
+  change (∑ origin : Fin (L + 1),
+      ↑(PMF.uniformOfFintype (Fin (L + 1)) origin) *
+        ∑ selected : Fin (L + 1),
+          orbitIndexProbability weight (1 : Equiv.Perm α) origin selected z *
+            s.indicator (fun _ : α => (1 : ENNReal))
+              (orbitPoint (1 : Equiv.Perm α) origin z selected)) =
+    s.indicator (fun _ : α => (1 : ENNReal)) z
+  by_cases hz : z ∈ s
+  · simp only [orbitPoint_one, Set.indicator_of_mem hz, mul_one]
+    calc
+      (∑ origin : Fin (L + 1),
+          ↑(PMF.uniformOfFintype (Fin (L + 1)) origin) *
+            ∑ selected : Fin (L + 1),
+              orbitIndexProbability weight (1 : Equiv.Perm α) origin
+                selected z) =
+          ∑ origin : Fin (L + 1),
+            PMF.uniformOfFintype (Fin (L + 1)) origin := by
+        apply Finset.sum_congr rfl
+        intro origin _
+        rw [hsum, mul_one]
+      _ = 1 := (tsum_fintype _).symm.trans (PMF.tsum_coe _)
+  · simp [orbitPoint_one, hz]
+
+/-- Extensional wrapper for the identity-orbit theorem that accepts an
+arbitrary permutation proved equal to identity. -/
+theorem orbitMultinomialKernel_eq_id_of_eq_one
+    (weight : α → ENNReal) (T : Equiv.Perm α) (L : ℕ)
+    (hweight0 : ∀ z, weight z ≠ 0) (hweightTop : ∀ z, weight z ≠ ∞)
+    (hweight : Measurable weight) (hT : Measurable T)
+    (hTinv : Measurable T.symm) (hTone : T = 1) :
+    orbitMultinomialKernel weight T L hweight0 hweightTop hweight hT hTinv =
+      Kernel.id := by
+  subst T
+  exact orbitMultinomialKernel_one weight L hweight0 hweightTop hweight
 
 instance orbitMultinomialKernel_isMarkovKernel
     {weight : α → ENNReal} (hweight0 : ∀ z, weight z ≠ 0)

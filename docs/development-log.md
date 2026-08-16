@@ -1,13 +1,23 @@
 # Development log
 
-- Proved the zero-trajectory obstruction for orbit-multinomial samplers at the
-  kernel level. Every length-zero orbit contains only its current state, so
+- Exposed the exact one-step transition algebra for the Gaussian SoftAbs
+  generalized-leapfrog client. Lean now rewrites the solver to the explicit
+  half force kick, relativistic drift
+  `q' = q + ε v(p - (ε/2)q)`, and final half kick. This identifies the genuine
+  target-specific analytic input for bare-kernel drift: unlike quadratic HMC,
+  the middle velocity is bounded and nonlinear in the refreshed momentum.
+
+- Proved both elementary degeneracy obstructions for orbit-multinomial
+  samplers at the kernel level. Every length-zero orbit contains only its current state, so
   the phase transition is exactly `Kernel.id`; momentum augmentation followed
   by position projection leaves the user-facing position transition exactly
   `Kernel.id` as well. The concrete Gaussian SoftAbs GR-HMC client instantiates
-  this theorem. Thus bare-GR-HMC convergence cannot hold uniformly over all
-  trajectory lengths: its pending drift/minorization theorem must assume a
-  positive, nondegenerate trajectory regime.
+  this theorem. Independently, an identity orbit permutation yields the
+  identity kernel at every nominal length; generalized leapfrog is identity at
+  zero step size, so the Gaussian SoftAbs position kernel instantiates this
+  obstruction too. Thus bare-GR-HMC convergence cannot hold uniformly over
+  trajectory lengths or step sizes: its pending drift/minorization theorem
+  must assume `L > 0` and a nonzero effective step.
 
 - Lifted the positive-horizon particle-count rate asymptotics from scalar
   coefficients to the actual particle-Gibbs laws. If one common bounded-model

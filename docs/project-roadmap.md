@@ -450,8 +450,9 @@ by paper date:
    stationarity;
 2. construct drift and local-meeting witnesses for the *bare* Gaussian
    SoftAbs GR-HMC kernel in a positive, nondegenerate trajectory regime.
-   Length zero is now proved to give exactly the identity kernel, so no
-   arbitrary-length convergence statement is possible. The generic drift-to-meeting-tail and
+   Length zero and, independently, zero step size are now proved to give
+   exactly the identity kernel, so no arbitrary-length or arbitrary-step
+   convergence statement is possible. The generic drift-to-meeting-tail and
    meeting-tail-to-bounded-expectation-convergence chain is complete, including
    the required finite-initial-moment bridge;
 3. derive the sharp positive-horizon particle-Gibbs history-density comparison

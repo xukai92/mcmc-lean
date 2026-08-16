@@ -127,6 +127,25 @@ theorem gaussianSoftAbsSelection_valid :
     (gaussianSoftAbsGradient (ι := ι))
     (measurable_gaussianSoftAbsGradient (ι := ι))
 
+omit [Nonempty ι] [DecidableEq ι] in
+/-- Exact one-step algebra for the concrete Gaussian SoftAbs solver.  The
+relativistic velocity is evaluated at the force-kicked half momentum; this is
+the nonquadratic term that a bare-kernel drift proof must control. -/
+theorem gaussianSoftAbsSelection_step_eq (ε : ℝ) (z : PhaseSpace ι) :
+    (gaussianSoftAbsSelection (ι := ι)).step ε z =
+      let pHalf := z.2 - (ε / 2) • z.1
+      let qNext := z.1 + ε • gaussianSoftAbsVelocity pHalf
+      (qNext, pHalf - (ε / 2) • qNext) := by
+  rfl
+
+omit [Nonempty ι] [DecidableEq ι] in
+/-- Position component of one concrete Gaussian SoftAbs generalized-leapfrog
+step. -/
+theorem gaussianSoftAbsSelection_step_fst (ε : ℝ) (z : PhaseSpace ι) :
+    ((gaussianSoftAbsSelection (ι := ι)).step ε z).1 =
+      z.1 + ε • gaussianSoftAbsVelocity (z.2 - (ε / 2) • z.1) := by
+  rw [gaussianSoftAbsSelection_step_eq]
+
 /-- End-to-end exact position invariance for endpoint-Metropolis GR-HMC on
 the Gaussian target with its actual diagonal SoftAbs Hessian metric. -/
 theorem gaussianSoftAbs_endpointGRHMC_invariant (ε : ℝ) :

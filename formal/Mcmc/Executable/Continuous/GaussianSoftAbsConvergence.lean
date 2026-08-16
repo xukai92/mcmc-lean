@@ -113,6 +113,12 @@ theorem gaussianSoftAbsMultinomialTransition_zero (ε : ℝ) :
     gaussianSoftAbsMultinomialTransition (ι := ι) ε 0 = Kernel.id := by
   exact positionMultinomialGRHMC_zero _ _ _ _ _ _ _ _ _ _ ε
 
+/-- Zero step size is the second exact degeneracy: the Gaussian SoftAbs
+position transition is identity for every nominal trajectory length. -/
+theorem gaussianSoftAbsMultinomialTransition_step_zero (L : ℕ) :
+    gaussianSoftAbsMultinomialTransition (ι := ι) 0 L = Kernel.id := by
+  exact positionMultinomialGRHMC_step_zero _ _ _ _ _ _ _ _ _ _ L
+
 /-- Mix GR-HMC (weight `p`) with an exact independent normalized-target draw
 (weight `1-p`). -/
 noncomputable def gaussianSoftAbsRefreshAugmented
