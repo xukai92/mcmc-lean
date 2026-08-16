@@ -23,7 +23,8 @@ export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, Bounded
     restricted_sinusoidal_potential, RestrictedGaussianFloat64Certificate,
     certify_restricted_gaussian_float64,
     restricted_gaussian_certificate_arguments,
-    SoftAbsMetricFloat64Evaluation, evaluate_softabs_metric_float64,
+    SoftAbsMetricFloat64Evaluation, SoftAbsDiagonalFloat64Evaluation,
+    evaluate_softabs_metric_float64, evaluate_softabs_diagonal_float64,
     Xu21CoupledSampler, ScopedInferenceOperator, ComposableSampler, covers,
     DynamicTreeCertificate, certify_dynamic_tree, certified_orbit_partition,
     generated_schedule,
@@ -181,6 +182,13 @@ struct SoftAbsMetricFloat64Evaluation
     logdet::Float64
 end
 
+"""Guarded Float64 evaluation of a complete diagonal SoftAbs metric."""
+struct SoftAbsDiagonalFloat64Evaluation
+    entries::Vector{SoftAbsMetricFloat64Evaluation}
+    factors::Vector{Float64}
+    logdet::Float64
+end
+
 """Evaluate a scalar SoftAbs eigenvalue and its derived metric quantities."""
 function evaluate_softabs_metric_float64(hessian::Real; smoothing::Real=1.0)
     h = Float64(hessian)
@@ -197,6 +205,20 @@ function evaluate_softabs_metric_float64(hessian::Real; smoothing::Real=1.0)
     all(isfinite, (sqrt_eigenvalue, factor, logdet)) ||
         throw(DomainError(eigenvalue, "derived SoftAbs quantities must be finite"))
     SoftAbsMetricFloat64Evaluation(h, eigenvalue, sqrt_eigenvalue, factor, logdet)
+end
+
+
+"""Evaluate every diagonal SoftAbs entry and its aggregate log determinant."""
+function evaluate_softabs_diagonal_float64(hessian::AbstractVector{<:Real};
+        smoothing::Real=1.0)
+    isempty(hessian) && throw(ArgumentError("SoftAbs diagonal cannot be empty"))
+    entries = [evaluate_softabs_metric_float64(value; smoothing=smoothing)
+        for value in hessian]
+    factors = [entry.factor for entry in entries]
+    logdet = sum(entry.logdet for entry in entries)
+    isfinite(logdet) || throw(DomainError(logdet,
+        "SoftAbs log determinant must be finite"))
+    SoftAbsDiagonalFloat64Evaluation(entries, factors, logdet)
 end
 
 function _checked_restricted(value::Float64, derivative::Float64)

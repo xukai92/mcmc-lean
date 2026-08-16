@@ -86,6 +86,13 @@ end
     @test entry.factor * entry.sqrt_eigenvalue ≈ 1.0
     @test_throws DomainError evaluate_softabs_metric_float64(Inf)
     @test_throws DomainError evaluate_softabs_metric_float64(1.0; smoothing=0.0)
+
+    diagonal = evaluate_softabs_diagonal_float64([0.0, 1.0, -0.5];
+        smoothing=2.0)
+    @test diagonal.factors == [entry.factor for entry in diagonal.entries]
+    @test diagonal.logdet == sum(entry.logdet for entry in diagonal.entries)
+    @test all(>(0), [entry.eigenvalue for entry in diagonal.entries])
+    @test_throws ArgumentError evaluate_softabs_diagonal_float64(Float64[])
 end
 
 @testset "restricted target expressions" begin

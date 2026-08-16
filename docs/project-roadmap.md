@@ -200,7 +200,12 @@ scalar zero-to-one-dimensional client and a product-Jacobian-certified
 zero-to-two-dimensional planar birth/death client. The finite
 particle-MCMC spine through conditional SMC and particle Gibbs is complete at
 fixed particle count and finite horizon. Convergence, mixing rates, and
-particle-count asymptotics remain separate later layers.
+particle-count asymptotics remain separate later layers. The particle-count
+layer now includes exact iid `1/N` MSE and convergence in probability, plus
+the heterogeneous conditional identity `sum coordinate variances / N²` for
+independently propagated populations. This supplies the local variance term
+for sequential SMC; the full recurrence must still compose it with random
+multinomial-resampling weights and previous-stage empirical error.
 
 General-state composable inference is also complete at the common-target
 stationarity layer. `Mcmc.Kernel.ComposableInference` supplies scoped

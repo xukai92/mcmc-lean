@@ -1890,6 +1890,26 @@ evaluates the same scalar bound. This turns practical nonzero residuals into
 quantified approximation guarantees; it does not misclassify them as exact,
 reversible, or volume-preserving solves.
 
+Julia's guarded metric surface now also evaluates a complete nonempty
+diagonal, returning per-coordinate factors and the aggregate log determinant.
+This mirrors the finite-dimensional Lean certificate rather than leaving the
+runtime at a scalar-only demonstration.
+
+## 2026-08-16: heterogeneous particle propagation variance
+
+Extended the particle-count asymptotic foundation from iid populations to
+independent, non-identically distributed coordinates, the conditional law
+that arises after fixing SMC ancestor indices. Lean proves exact
+factorization of distinct coordinates, cancellation of all cross-coordinate
+covariances, and
+
+`MSE(empirical average) = (sum of coordinate variances) / N²`.
+
+This is the per-stage conditional variance identity needed for a sequential
+resample--propagate recurrence. It is not yet the completed normalized
+particle-filter consistency theorem, because the randomness of resampling
+weights and the propagation of previous-stage error must still be composed.
+
 Julia exposes the matching guarded Float64 evaluator, including the removable
 zero-Hessian branch, and tests its algebraic outputs and invalid domains. This
 is deliberately runtime evidence rather than a platform certificate: error
