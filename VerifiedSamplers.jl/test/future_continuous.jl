@@ -185,6 +185,13 @@ end
     @test reference[3].half_momentum_residual.computed < 1e-12
     @test reference[3].position_residual.computed < 1e-12
     @test !Certificates.certifies_exact_solver(reference[3])
+    half_error = Certificates.contraction_error_bound(
+        reference[3].half_momentum_residual.computed, 1e-15, 0.2)
+    @test half_error.distance_bound ==
+        (abs(BigFloat(reference[3].half_momentum_residual.computed)) +
+          half_error.residual_error) / (1 - half_error.rate)
+    @test_throws DomainError Certificates.contraction_error_bound(1e-8, 0, 1)
+    @test_throws DomainError Certificates.contraction_error_bound(1e-8, -1, 0.2)
 
     public_result = fixed_point_generalized_leapfrog(
         position_derivative, momentum_derivative, q, p, ε)

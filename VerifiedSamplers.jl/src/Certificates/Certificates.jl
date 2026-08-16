@@ -4,6 +4,7 @@ export BoundWitness, DecisionCertificate, certify_bound, certify_decision,
     SamplerDecisionCertificate, certify_rwmh_decision, certify_hmc_decision,
     MultinomialSelectionCertificate, certify_multinomial_selection,
     ImplicitSolveCertificate, certify_implicit_solve, certifies_exact_solver,
+    ContractionErrorBound, contraction_error_bound,
     is_stable, uncertainty_band
 
 """A checked, execution-specific absolute-error claim.
@@ -54,6 +55,37 @@ certifies_exact_solver(certificate::ImplicitSolveCertificate) =
     iszero(certificate.half_momentum_residual.observed_error) &&
     iszero(certificate.position_residual.observed_error) &&
     certificate.unique && certificate.reversible && certificate.volume_preserving
+
+"""A posteriori distance bound from a computed fixed-point residual.
+
+Lean proves `distance_to_exact ≤ (abs(residual) + residual_error)/(1-rate)`
+for a genuine contraction. This runtime record evaluates that bound after
+checking its scalar premises; it does not itself prove that the callback has
+the supplied contraction rate or residual error.
+"""
+struct ContractionErrorBound
+    computed_residual::Float64
+    residual_error::BigFloat
+    rate::BigFloat
+    distance_bound::BigFloat
+end
+
+function contraction_error_bound(computed_residual::Real,
+        residual_error::Real, rate::Real; precision::Integer=256)
+    isfinite(computed_residual) || throw(DomainError(computed_residual,
+        "computed residual must be finite"))
+    setprecision(BigFloat, precision) do
+        error = BigFloat(residual_error)
+        contraction_rate = BigFloat(rate)
+        error >= 0 || throw(DomainError(residual_error,
+            "residual error must be nonnegative"))
+        0 <= contraction_rate < 1 || throw(DomainError(rate,
+            "contraction rate must lie in [0, 1)"))
+        residual = Float64(computed_residual)
+        bound = (abs(BigFloat(residual)) + error) / (1 - contraction_rate)
+        ContractionErrorBound(residual, error, contraction_rate, bound)
+    end
+end
 
 """Execution-specific cumulative-boundary certificate for multinomial selection."""
 struct MultinomialSelectionCertificate

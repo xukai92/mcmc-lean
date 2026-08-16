@@ -12,6 +12,72 @@ global obligations in `FiniteFixedPointIsValid`.
 
 namespace Mcmc.Executable.Continuous
 
+open Mcmc.Hamiltonian
+open Mcmc.Relativistic
+
+/-- A computed fixed-point residual plus its absolute error controls distance
+to the exact contraction-selected solution. This is the useful positive-error
+counterpart of the zero-budget exactness bridge below. -/
+theorem dist_fixedPoint_le_of_computedResidual
+    {α : Type*} [MetricSpace α] [CompleteSpace α] [Nonempty α]
+    {f : α → α} {K : NNReal}
+    (hcontract : ContractingWith K f) (x : α)
+    {computedResidual residualError : ℝ}
+    (hresidual : Approximates computedResidual (dist x (f x)) residualError) :
+    dist x (hcontract.fixedPoint f) ≤
+      (|computedResidual| + residualError) / (1 - K) := by
+  have herror : |computedResidual - dist x (f x)| ≤ residualError := hresidual
+  have hdist : dist x (f x) ≤ |computedResidual| + residualError := by
+    calc
+      dist x (f x) = |dist x (f x)| := (abs_of_nonneg dist_nonneg).symm
+      _ = |computedResidual - (computedResidual - dist x (f x))| := by ring_nf
+      _ ≤ |computedResidual| + |computedResidual - dist x (f x)| :=
+        abs_sub _ _
+      _ ≤ |computedResidual| + residualError := add_le_add (le_refl _) herror
+  exact (hcontract.dist_fixedPoint_le x).trans
+    (div_le_div_of_nonneg_right hdist (sub_nonneg.mpr hcontract.1.le))
+
+/-- A backend residual bound for a finite half-momentum iteration yields an
+explicit distance to the exact contraction-selected half momentum. -/
+theorem dist_finiteHalfMomentum_fixedPoint_le_of_computedResidual
+    {ι : Type*} [Fintype ι]
+    (positionDerivative : PhaseSpace ι → Position ι)
+    (K : NNReal) (iterations : ℕ) (ε : ℝ) (z : PhaseSpace ι)
+    (hcontract : ContractingWith K
+      (halfMomentumFixedPointUpdate positionDerivative ε z))
+    {computedResidual residualError : ℝ}
+    (hresidual : Approximates computedResidual
+      (dist (finiteHalfMomentum positionDerivative iterations ε z)
+        (halfMomentumFixedPointUpdate positionDerivative ε z
+          (finiteHalfMomentum positionDerivative iterations ε z)))
+      residualError) :
+    dist (finiteHalfMomentum positionDerivative iterations ε z)
+        (hcontract.fixedPoint
+          (halfMomentumFixedPointUpdate positionDerivative ε z)) ≤
+      (|computedResidual| + residualError) / (1 - K) :=
+  dist_fixedPoint_le_of_computedResidual hcontract _ hresidual
+
+/-- The analogous a posteriori error bound for the finite implicit position
+iteration. -/
+theorem dist_finiteNextPosition_fixedPoint_le_of_computedResidual
+    {ι : Type*} [Fintype ι]
+    (momentumDerivative : PhaseSpace ι → Position ι)
+    (K : NNReal) (iterations : ℕ) (ε : ℝ)
+    (q : Position ι) (pHalf : Momentum ι)
+    (hcontract : ContractingWith K
+      (positionFixedPointUpdate momentumDerivative ε q pHalf))
+    {computedResidual residualError : ℝ}
+    (hresidual : Approximates computedResidual
+      (dist (finiteNextPosition momentumDerivative iterations ε q pHalf)
+        (positionFixedPointUpdate momentumDerivative ε q pHalf
+          (finiteNextPosition momentumDerivative iterations ε q pHalf)))
+      residualError) :
+    dist (finiteNextPosition momentumDerivative iterations ε q pHalf)
+        (hcontract.fixedPoint
+          (positionFixedPointUpdate momentumDerivative ε q pHalf)) ≤
+      (|computedResidual| + residualError) / (1 - K) :=
+  dist_fixedPoint_le_of_computedResidual hcontract _ hresidual
+
 /-- Backend-facing bounds for the two implicit fixed-point residual norms. -/
 structure BackendImplicitResidualCertificate where
   computedHalfResidual : ℝ

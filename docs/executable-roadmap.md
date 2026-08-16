@@ -91,6 +91,13 @@ trajectory and residual errors and certify decisions away from numerical
 boundaries; a fixed iteration count alone is insufficient as a correctness
 witness.
 
+The first solver-error link is complete: a certified computed residual and a
+contraction rate now give an explicit a posteriori distance to the exact
+Banach-selected solve for each implicit loop, with a matching checked Julia
+calculation. Remaining work is to derive the contraction and primitive-error
+premises for the concrete sinusoidal SoftAbs callbacks and propagate these
+state errors through trajectory energies and multinomial boundaries.
+
 ### 2. Restricted callbacks, adaptation, and performance
 
 The first restricted scalar target surface is implemented. Its syntax admits

@@ -1881,6 +1881,15 @@ error certificate directly into the SoftAbs metric-entry constructor. Julia
 now evaluates value, force, and symbolic Hessian from the same generated
 expression before exercising the guarded metric evaluator.
 
+The implicit-solver refinement now has its positive-error theorem as well.
+For any genuine contraction, Lean transports an approximate computed residual
+to the a posteriori bound
+`distance_to_exact ≤ (|computed residual| + residual error)/(1-rate)` and
+specializes it to both generalized-leapfrog implicit loops. Julia checks and
+evaluates the same scalar bound. This turns practical nonzero residuals into
+quantified approximation guarantees; it does not misclassify them as exact,
+reversible, or volume-preserving solves.
+
 Julia exposes the matching guarded Float64 evaluator, including the removable
 zero-Hessian branch, and tests its algebraic outputs and invalid domains. This
 is deliberately runtime evidence rather than a platform certificate: error
