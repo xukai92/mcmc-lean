@@ -1,5 +1,14 @@
 # Development log
 
+- Closed the discrete integration part of the practical-slice trace
+  packaging. Although valid allocations were originally a bounded subtype of
+  the infinite integer type, Lean now gives an explicit equivalence to a
+  subtype of `Fin intervals`, installs its finite enumeration, and proves that
+  allocation rerooting preserves arbitrary finite counting sums. Therefore
+  the pointwise successful-trace likelihood theorem integrates over every
+  valid allocation stratum. The remaining measure assembly is the
+  offset-dependent partition and varying rejected-list length.
+
 - Added the general event-skeleton construction for unbounded PDMP rates.
   `InverseHazardClock` draws a unit-exponential hazard, uses a jointly
   measurable exact inverse of accumulated rate along a semiflow, and composes

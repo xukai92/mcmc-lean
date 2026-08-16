@@ -261,6 +261,72 @@ theorem allocationSteps_lt {intervals : ℕ} {shift : ℤ}
   have hbound := allocation.2.2.1
   omega
 
+/-- Finite-index presentation of the valid integer allocation stratum. -/
+abbrev FiniteValidAllocation (intervals : ℕ) (shift : ℤ) :=
+  {allocation : Fin intervals //
+    0 ≤ (allocation.1 : ℤ) + shift ∧
+      (allocation.1 : ℤ) + shift < intervals}
+
+/-- Valid integer allocations are a genuinely finite type, despite being
+defined as a bounded subtype of `ℤ`. -/
+def validAllocationEquivFinite (intervals : ℕ) (shift : ℤ) :
+    ValidAllocation intervals shift ≃ FiniteValidAllocation intervals shift where
+  toFun allocation :=
+    ⟨⟨allocationSteps allocation, allocationSteps_lt allocation⟩,
+      by
+        rw [intCast_allocationSteps]
+        exact ⟨allocation.2.2.2.1, allocation.2.2.2.2⟩⟩
+  invFun allocation :=
+    ⟨(allocation.1.1 : ℤ), by
+      exact ⟨by positivity, by exact_mod_cast allocation.1.2,
+        allocation.2.1, allocation.2.2⟩⟩
+  left_inv allocation := by
+    apply Subtype.ext
+    change (allocationSteps allocation : ℤ) = allocation.1
+    exact intCast_allocationSteps allocation
+  right_inv allocation := by
+    apply Subtype.ext
+    apply Fin.ext
+    change Int.toNat (allocation.1.1 : ℤ) = allocation.1.1
+    simp
+
+noncomputable instance validAllocation.instFintype
+    (intervals : ℕ) (shift : ℤ) : Fintype (ValidAllocation intervals shift) :=
+  Fintype.ofEquiv (FiniteValidAllocation intervals shift)
+    (validAllocationEquivFinite intervals shift).symm
+
+/-- Allocation rerooting preserves every finite counting sum exactly. This is
+the discrete measure-preservation component of successful trace reversal. -/
+theorem sum_reverseAllocation
+    {Value : Type*} [AddCommMonoid Value]
+    (intervals : ℕ) (shift : ℤ)
+    (weight : ValidAllocation intervals (-shift) → Value) :
+    (∑ allocation : ValidAllocation intervals shift,
+      weight (reverseAllocation intervals shift allocation)) =
+      ∑ allocation, weight allocation :=
+  Equiv.sum_comp (reverseAllocation intervals shift) weight
+
+/-- Integration rule for a pair of forward/reverse allocation-stratum
+weights. Pointwise trace reversal plus this theorem yields equality of the
+full finite allocation sums. -/
+theorem sum_validAllocation_eq_of_reverse
+    {Value : Type*} [AddCommMonoid Value]
+    (intervals : ℕ) (shift : ℤ)
+    (forward : ValidAllocation intervals shift → Value)
+    (reverse : ValidAllocation intervals (-shift) → Value)
+    (hpointwise : ∀ allocation,
+      forward allocation =
+        reverse (reverseAllocation intervals shift allocation)) :
+    (∑ allocation, forward allocation) = ∑ allocation, reverse allocation := by
+  calc
+    (∑ allocation, forward allocation) =
+        ∑ allocation,
+          reverse (reverseAllocation intervals shift allocation) := by
+      apply Finset.sum_congr rfl
+      intro allocation _
+      exact hpointwise allocation
+    _ = _ := sum_reverseAllocation intervals shift reverse
+
 /-- Remaining right-expansion budget when `intervals` possible allocations
 split a total budget of `intervals - 1`. -/
 def allocationRightSteps {intervals : ℕ} {shift : ℤ}
