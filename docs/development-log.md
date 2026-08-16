@@ -1975,6 +1975,19 @@ semigroup result. Extending from this checked test family to an integration-
 by-parts class, and connecting it to the all-count event scheduler, remain
 explicit PDMP obligations.
 
+## 2026-08-16: practical stepping-out slice runtime
+
+Added a public `SteppingOutSlice` sampler on the real line with randomized
+initial brackets, bounded stepping out, and shrinkage. Independent Reference
+and low-allocation Optimized implementations agree under deterministic trace
+replay; seeded standard-normal moment tests, reproducibility, and invalid
+configuration tests are active.
+
+The ideal under-graph disintegration theorem remains the mathematical
+invariance endpoint. The adaptive bracket algorithm, Float64 callbacks, and
+finite expansion/shrinkage guards have not yet been refined to that kernel, so
+the runtime is not advertised as machine-checked exact slice sampling.
+
 Julia exposes the matching guarded Float64 evaluator, including the removable
 zero-Hessian branch, and tests its algebraic outputs and invalid domains. This
 is deliberately runtime evidence rather than a platform certificate: error

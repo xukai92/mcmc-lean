@@ -6,7 +6,7 @@ using ..Runtime: AbstractRandomSource, draw_below!, standard_normal!, uniform_un
 using ..Certificates: ImplicitSolveCertificate, certify_implicit_solve,
     certifies_exact_solver
 
-export categorical_index!, integer_slice_step!, bounded_slice_step!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!, scalar_hmc_step!, vector_hmc_step!, metric_hmc_step!, multinomial_hmc_step!, metric_multinomial_hmc_step!, categorical_dhmc_step!,
+export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_out_slice_step!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!, scalar_hmc_step!, vector_hmc_step!, metric_hmc_step!, multinomial_hmc_step!, metric_multinomial_hmc_step!, categorical_dhmc_step!,
     finite_hmm_particle_gibbs_step!,
     relativistic_multinomial_hmc_step!,
     fixed_point_generalized_leapfrog,
@@ -85,6 +85,48 @@ function bounded_slice_step!(source::AbstractRandomSource, logdensity,
         proposed_logdensity >= logheight && return proposal
     end
     throw(ErrorException("bounded slice rejection exceeded max_attempts"))
+end
+
+"""Reference stepping-out and shrinkage slice update on the real line."""
+function stepping_out_slice_step!(source::AbstractRandomSource, logdensity,
+        width::Real, current::Real, max_steps::Integer, max_shrink::Integer)
+    w, x = Float64(width), Float64(current)
+    isfinite(w) && w > 0 || throw(ArgumentError("width must be finite and positive"))
+    isfinite(x) || throw(ArgumentError("current state must be finite"))
+    max_steps >= 0 || throw(ArgumentError("max_steps must be nonnegative"))
+    max_shrink > 0 || throw(ArgumentError("max_shrink must be positive"))
+    base = Float64(logdensity(x))
+    isfinite(base) || throw(ArgumentError("current log density must be finite"))
+    threshold = base + log(uniform_unit!(source))
+    left = x - w * uniform_unit!(source)
+    right = left + w
+    left_steps = Int(floor(uniform_unit!(source) * (max_steps + 1)))
+    right_steps = max_steps - left_steps
+    while left_steps > 0
+        value = Float64(logdensity(left))
+        (isfinite(value) || value == -Inf) ||
+            throw(ArgumentError("log density must be finite or -Inf"))
+        value <= threshold && break
+        left -= w
+        left_steps -= 1
+    end
+    while right_steps > 0
+        value = Float64(logdensity(right))
+        (isfinite(value) || value == -Inf) ||
+            throw(ArgumentError("log density must be finite or -Inf"))
+        value <= threshold && break
+        right += w
+        right_steps -= 1
+    end
+    for _ in 1:max_shrink
+        proposal = left + (right - left) * uniform_unit!(source)
+        value = Float64(logdensity(proposal))
+        (isfinite(value) || value == -Inf) ||
+            throw(ArgumentError("log density must be finite or -Inf"))
+        value >= threshold && return proposal
+        proposal < x ? (left = proposal) : (right = proposal)
+    end
+    throw(ErrorException("slice shrinkage exceeded max_shrink"))
 end
 
 struct SList

@@ -262,7 +262,9 @@ breadth branches are:
   Recursive subtree aggregation and equivalence with a standard dynamic-NUTS
   builder remain;
 - stepping-out/shrinkage beyond the exact disintegration, finite integer slice,
-  and bounded-interval continuous rejection implementation;
+  and bounded-interval continuous rejection implementation. A practical
+  Reference/Optimized real-line stepping-out sampler is now tested; its
+  adaptive-bracket refinement to the ideal slice kernel remains;
 - reversible-jump transports beyond the checked scalar and planar
   birth/death scaling clients. Product transport-density certificates now
   compose recursively and instantiate a three-dimensional scaling transport;

@@ -9,7 +9,7 @@ include("Certificates/Certificates.jl")
 include("Reference/Reference.jl")
 include("Optimized/Optimized.jl")
 
-export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, BoundedRejectionSlice, TwoStateMH, GaussianRWMH,
+export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, BoundedRejectionSlice, SteppingOutSlice, TwoStateMH, GaussianRWMH,
     WarmupGaussianRWMH, GaussianRWMHWarmupResult, warmup,
     ScalarHMC, VectorHMC, MultinomialHMC, MetricMultinomialHMC,
     CategoricalDHMC,
@@ -1142,6 +1142,50 @@ function sample(rng::AbstractRNG, sampler::BoundedRejectionSlice,
 end
 
 sample(sampler::BoundedRejectionSlice, initial::Real, count::Integer) =
+    sample(Random.default_rng(), sampler, initial, count)
+
+"""Practical real-line slice sampler with stepping out and shrinkage.
+
+The finite `max_steps` and `max_shrink` guards are runtime controls. This
+implementation is differentially tested, but its adaptive bracket is not yet
+connected to the ideal Lean disintegration theorem.
+"""
+struct SteppingOutSlice{F}
+    logdensity::F
+    width::Float64
+    max_steps::Int
+    max_shrink::Int
+    function SteppingOutSlice(logdensity::F, width::Real;
+            max_steps::Integer=100, max_shrink::Integer=10_000) where {F}
+        w = Float64(width)
+        isfinite(w) && w > 0 || throw(ArgumentError("width must be finite and positive"))
+        max_steps >= 0 || throw(ArgumentError("max_steps must be nonnegative"))
+        max_shrink > 0 || throw(ArgumentError("max_shrink must be positive"))
+        new{F}(logdensity, w, Int(max_steps), Int(max_shrink))
+    end
+end
+
+function step(rng::AbstractRNG, sampler::SteppingOutSlice, current::Real)
+    Reference.stepping_out_slice_step!(Runtime.RNGSource(rng), sampler.logdensity,
+        sampler.width, current, sampler.max_steps, sampler.max_shrink)
+end
+
+step(sampler::SteppingOutSlice, current::Real) =
+    step(Random.default_rng(), sampler, current)
+
+function sample(rng::AbstractRNG, sampler::SteppingOutSlice,
+        initial::Real, count::Integer)
+    count >= 0 || throw(ArgumentError("sample count must be nonnegative"))
+    states = Vector{Float64}(undef, count)
+    current = Float64(initial)
+    for index in eachindex(states)
+        current = step(rng, sampler, current)
+        states[index] = current
+    end
+    states
+end
+
+sample(sampler::SteppingOutSlice, initial::Real, count::Integer) =
     sample(Random.default_rng(), sampler, initial, count)
 
 """Per-output certificate for a finite dynamic trajectory builder.
