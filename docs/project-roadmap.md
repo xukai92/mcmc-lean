@@ -375,7 +375,10 @@ breadth branches are:
   exponential draw is positive almost surely, the inversion equation is
   machine checked almost surely, and fixed-event iterates are Markov. Turning
   those event iterates into a finite-horizon process still requires a
-  nonexplosion theorem.
+  nonexplosion theorem. The pathwise part is reduced further: the signed
+  position after an event is an explicit negative square root of the fresh
+  hazard, so every subsequent wait is at least `sqrt(2E)`. It remains to connect
+  an infinite i.i.d. hazard law to divergence of those lower bounds.
 
 Sequence-parallel evaluation is an execution-refinement project downstream of
 exact seeded trace semantics. Full solver convergence may refine a sequential

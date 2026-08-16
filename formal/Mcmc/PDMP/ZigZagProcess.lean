@@ -147,6 +147,11 @@ theorem measurable_gaussianZigZagWaitingNNReal :
       ((measurable_const.mul
         (measurable_coe_nnreal_real.comp measurable_snd)).sqrt)
 
+/-- Deterministic state update driven by one exponential hazard draw. -/
+noncomputable def gaussianZigZagEventUpdate
+    (state : ZigZagState) (hazard : NNReal) : ZigZagState :=
+  zigZagFlip (zigZagFlow (gaussianZigZagWaitingNNReal state hazard) state)
+
 /-- One exact standard-Gaussian Zig-Zag event: draw unit exponential hazard,
 invert the integrated rate, flow to that time, and flip velocity. -/
 noncomputable def gaussianZigZagEventKernel :
@@ -154,8 +159,7 @@ noncomputable def gaussianZigZagEventKernel :
   Kernel.map
     (Kernel.prod Kernel.id
       (Kernel.const ZigZagState gaussianZigZagHazardMeasure))
-    (fun input => zigZagFlip (zigZagFlow
-      (gaussianZigZagWaitingNNReal input.1 input.2) input.1))
+    (fun input => gaussianZigZagEventUpdate input.1 input.2)
 
 instance gaussianZigZagEventKernel.instIsMarkovKernel :
     IsMarkovKernel gaussianZigZagEventKernel := by
@@ -168,7 +172,7 @@ instance gaussianZigZagEventKernel.instIsMarkovKernel :
       zigZagVelocity input.1.2) := by
     unfold zigZagVelocity
     fun_prop
-  unfold zigZagFlip zigZagFlow
+  unfold gaussianZigZagEventUpdate zigZagFlip zigZagFlow
   exact ((measurable_fst.comp measurable_fst).add
     (hwait.coe_nnreal_real.mul hvelocity)).prodMk (by fun_prop)
 
@@ -191,6 +195,94 @@ theorem gaussianZigZagIntegratedRate_waitingNNReal
   rw [coe_gaussianZigZagWaitingNNReal]
   exact gaussianZigZagIntegratedRate_waitingTime state.1 state.2
     (by exact_mod_cast hhazard)
+
+/-- Position with the velocity sign folded into it. Along a linear segment it
+increases at unit speed. -/
+def zigZagSignedPosition (state : ZigZagState) : ℝ :=
+  zigZagVelocity state.2 * state.1
+
+@[simp] theorem zigZagVelocity_not (velocity : Bool) :
+    zigZagVelocity (!velocity) = -zigZagVelocity velocity := by
+  cases velocity <;> simp [zigZagVelocity]
+
+@[simp] theorem zigZagVelocity_sq (velocity : Bool) :
+    zigZagVelocity velocity ^ 2 = 1 := by
+  cases velocity <;> norm_num [zigZagVelocity]
+
+/-- Exact post-event recurrence for the Gaussian clock. Once the signed
+position is negative, the next event resets it to `-sqrt (2E)` independently
+of its previous magnitude. -/
+theorem zigZagSignedPosition_gaussianZigZagEventUpdate
+    (state : ZigZagState) (hazard : NNReal) :
+    zigZagSignedPosition (gaussianZigZagEventUpdate state hazard) =
+      if 0 ≤ zigZagSignedPosition state then
+        -Real.sqrt (zigZagSignedPosition state ^ 2 + 2 * (hazard : ℝ))
+      else -Real.sqrt (2 * (hazard : ℝ)) := by
+  let a := zigZagSignedPosition state
+  have hflow (time : ℝ) :
+      zigZagVelocity state.2 *
+        (state.1 + time * zigZagVelocity state.2) = a + time := by
+    unfold a zigZagSignedPosition
+    calc
+      _ = zigZagVelocity state.2 * state.1 +
+          time * zigZagVelocity state.2 ^ 2 := by ring
+      _ = zigZagVelocity state.2 * state.1 + time := by
+        rw [zigZagVelocity_sq]
+        ring
+  unfold gaussianZigZagEventUpdate zigZagSignedPosition zigZagFlip zigZagFlow
+  rw [show (gaussianZigZagWaitingNNReal state hazard : ℝ) =
+      gaussianZigZagWaitingTime state.1 state.2 (hazard : ℝ) from
+    coe_gaussianZigZagWaitingNNReal state hazard]
+  simp only [zigZagVelocity_not, neg_mul]
+  change -(zigZagVelocity state.2 *
+      (state.1 + gaussianZigZagWaitingTime state.1 state.2 (hazard : ℝ) *
+        zigZagVelocity state.2)) = _
+  rw [hflow]
+  unfold gaussianZigZagWaitingTime
+  change -(a + if 0 ≤ a then Real.sqrt (a ^ 2 + 2 * (hazard : ℝ)) - a
+    else -a + Real.sqrt (2 * (hazard : ℝ))) =
+      if 0 ≤ a then -Real.sqrt (a ^ 2 + 2 * (hazard : ℝ))
+      else -Real.sqrt (2 * (hazard : ℝ))
+  split_ifs <;> ring
+
+theorem zigZagSignedPosition_gaussianZigZagEventUpdate_neg
+    (state : ZigZagState) {hazard : NNReal} (hhazard : 0 < hazard) :
+    zigZagSignedPosition (gaussianZigZagEventUpdate state hazard) < 0 := by
+  rw [zigZagSignedPosition_gaussianZigZagEventUpdate]
+  split_ifs
+  · exact neg_lt_zero.mpr (Real.sqrt_pos.2 (by
+      have : 0 < (2 : ℝ) * (hazard : ℝ) := by positivity
+      nlinarith [sq_nonneg (zigZagSignedPosition state)]))
+  · exact neg_lt_zero.mpr (Real.sqrt_pos.2 (by positivity))
+
+/-- From a negative signed position, the next waiting time dominates the
+square root of its fresh exponential hazard. -/
+theorem sqrt_hazard_le_gaussianZigZagWaitingNNReal_of_signedPosition_neg
+    (state : ZigZagState) (hazard : NNReal)
+    (hstate : zigZagSignedPosition state < 0) :
+    Real.sqrt (2 * (hazard : ℝ)) ≤
+      (gaussianZigZagWaitingNNReal state hazard : ℝ) := by
+  rw [coe_gaussianZigZagWaitingNNReal]
+  unfold gaussianZigZagWaitingTime
+  change Real.sqrt (2 * (hazard : ℝ)) ≤
+    if 0 ≤ zigZagSignedPosition state then
+      Real.sqrt (zigZagSignedPosition state ^ 2 + 2 * (hazard : ℝ)) -
+        zigZagSignedPosition state
+    else -zigZagSignedPosition state + Real.sqrt (2 * (hazard : ℝ))
+  rw [if_neg (not_le.mpr hstate)]
+  linarith
+
+/-- Every waiting time after the first genuine event has a fresh positive
+`sqrt(2E)` lower bound. This is the deterministic reduction needed for a
+future i.i.d.-series nonexplosion proof. -/
+theorem sqrt_hazard_le_gaussianZigZagWaitingNNReal_after_event
+    (state : ZigZagState) {previousHazard : NNReal}
+    (hprevious : 0 < previousHazard) (hazard : NNReal) :
+    Real.sqrt (2 * (hazard : ℝ)) ≤
+      (gaussianZigZagWaitingNNReal
+        (gaussianZigZagEventUpdate state previousHazard) hazard : ℝ) :=
+  sqrt_hazard_le_gaussianZigZagWaitingNNReal_of_signedPosition_neg _ _
+    (zigZagSignedPosition_gaussianZigZagEventUpdate_neg state hprevious)
 
 theorem gaussianZigZagHazardMeasure_singleton_zero :
     gaussianZigZagHazardMeasure {0} = 0 := by

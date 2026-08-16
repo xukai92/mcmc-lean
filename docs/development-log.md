@@ -9,6 +9,10 @@
   and every fixed-event iterate is Markov and composes by addition. This avoids
   incorrectly imposing a global thinning bound on the Gaussian rate;
   finite-horizon nonexplosion, stationarity, and convergence remain separate.
+  The exact post-event signed-position recurrence is proved as well: after a
+  genuine event it is strictly negative, and the following wait dominates
+  `sqrt(2E)` for its fresh hazard. This isolates nonexplosion to an infinite
+  i.i.d.-series theorem rather than further Zig-Zag trajectory algebra.
 
 - Proved a fixed-padded-schedule correspondence for the bounded PDMP executor:
   augmented execution retains the supplied schedule and its state marginal is
