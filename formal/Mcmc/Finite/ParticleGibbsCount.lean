@@ -450,6 +450,43 @@ noncomputable def proposedTrajectoryFraction
       if proposed = selectedTrajectoryVector steps (history, j)
         then 1 else 0) / Fintype.card (Fin (extra + 1))
 
+/-- The same terminal genealogy fraction computed forward by carrying a path
+label through every ancestor map. This recursion-oriented presentation is
+definitionally local at each SMC stage. -/
+noncomputable def genealogicalTrajectoryFraction
+    (steps : List (FeynmanKacStep Sample)) (extra : ℕ)
+    (history : History (Particle := Fin (extra + 1)) steps)
+    (proposed : Trajectory steps) : ℝ :=
+  particleAverage
+    (fun path : List Sample => if path = proposed.toList then 1 else 0)
+    (terminalLabels (fun path y => path ++ [y]) steps
+      (fun i => [history.1 i]) history.2)
+
+/-- Forward path-label counting is exactly the backward selected-genealogy
+fraction used by the particle-Gibbs kernel. -/
+theorem genealogicalTrajectoryFraction_eq_proposedTrajectoryFraction
+    (steps : List (FeynmanKacStep Sample)) (extra : ℕ)
+    (history : History (Particle := Fin (extra + 1)) steps)
+    (proposed : Trajectory steps) :
+    genealogicalTrajectoryFraction steps extra history proposed =
+      proposedTrajectoryFraction steps extra history proposed := by
+  unfold genealogicalTrajectoryFraction proposedTrajectoryFraction particleAverage
+  congr 1
+  apply Finset.sum_congr rfl
+  intro j _
+  rw [terminalLabels_singleton_eq_selectedTrajectory]
+  have heq := selectedTrajectoryVector_eq_iff_toList
+    (Particle := Fin (extra + 1)) steps (history, j) proposed
+  by_cases h : proposed = selectedTrajectoryVector steps (history, j)
+  · have hlist : selectedTrajectory steps history.1 history.2 j =
+        proposed.toList := heq.mp h.symm
+    simp [h, hlist]
+  · have hlist : selectedTrajectory steps history.1 history.2 j ≠
+        proposed.toList := by
+      intro hp
+      exact h (heq.mpr hp).symm
+    simp [h, hlist]
+
 /-- Uniform terminal-index refresh turns the compatible-index count in a
 fixed history into exactly its proposed-trajectory fraction. -/
 theorem selectedIndexRefresh_aggregate_eq_proposedTrajectoryFraction

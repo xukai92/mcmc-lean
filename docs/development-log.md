@@ -51,6 +51,9 @@
   aggregate one-stage lower bound
   `(N-1)/N · Σᵢ wᵢ 1{marked i} K(xᵢ,y)`. Its count factor tends to
   one; no pointwise `1/B` loss or selected-history witness is introduced.
+  Finally, the terminal proposed-trajectory fraction is proved equal to a
+  forward path-label empirical average. This connects the kernel-facing
+  backward-genealogy definition to the stage-local marked-lineage recursion.
 
 - Completed the compact-minorization and faithful-coupling foundation for the
   actual bare one-dimensional Gaussian SoftAbs multinomial kernel at
