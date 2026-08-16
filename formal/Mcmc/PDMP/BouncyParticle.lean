@@ -1,5 +1,6 @@
 import Mcmc.PDMP.Flow
 import Mcmc.Hamiltonian.Leapfrog
+import Mathlib.MeasureTheory.Integral.Bochner.Basic
 import Mathlib.Tactic
 
 /-!
@@ -15,6 +16,7 @@ flux argument; event-time construction and convergence remain separate.
 namespace Mcmc.PDMP
 
 open Mcmc.Hamiltonian
+open MeasureTheory
 
 variable {ι : Type*} [Fintype ι]
 
@@ -123,5 +125,93 @@ theorem bouncyJump_pair
   have hflux := bouncyRate_sub_reflectedRate normal velocity hnormal
   rw [← hflux]
   ring
+
+/-- For a fixed nonzero normal, bounce reflection is a measurable involutive
+equivalence of velocity space. -/
+noncomputable def bouncyReflectionMeasurableEquiv
+    (normal : Position ι) (hnormal : normal ≠ 0) :
+    Position ι ≃ᵐ Position ι where
+  toEquiv :=
+    { toFun := bouncyReflection normal
+      invFun := bouncyReflection normal
+      left_inv := fun velocity =>
+        bouncyReflection_involutive normal velocity hnormal
+      right_inv := fun velocity =>
+        bouncyReflection_involutive normal velocity hnormal }
+  measurable_toFun := by
+    change Measurable (bouncyReflection normal)
+    unfold bouncyReflection squaredEuclideanNorm euclideanInner
+    fun_prop
+  measurable_invFun := by
+    change Measurable (bouncyReflection normal)
+    unfold bouncyReflection squaredEuclideanNorm euclideanInner
+    fun_prop
+
+/-- Under any reflection-invariant velocity law, the integrated BPS jump term
+equals minus the signed normal transport term. This is the measure-level
+change-of-variables bridge from reflection geometry to generator balance. -/
+theorem integral_bouncyJump_eq_neg_integral_normalFlux
+    (normal : Position ι) (hnormal : normal ≠ 0)
+    (velocityLaw : Measure (Position ι)) (test : Position ι → ℝ)
+    (hpreserve : MeasurePreserving
+      (bouncyReflectionMeasurableEquiv normal hnormal) velocityLaw velocityLaw)
+    (hincoming : Integrable (fun velocity =>
+      bouncyRate normal velocity *
+        test (bouncyReflection normal velocity)) velocityLaw)
+    (houtgoing : Integrable (fun velocity =>
+      bouncyRate normal velocity * test velocity) velocityLaw)
+    (hreflected : Integrable (fun velocity =>
+      bouncyRate normal (bouncyReflection normal velocity) *
+        test velocity) velocityLaw) :
+    (∫ velocity,
+      bouncyRate normal velocity *
+        (test (bouncyReflection normal velocity) - test velocity)
+        ∂velocityLaw) =
+      -∫ velocity, euclideanInner velocity normal * test velocity
+        ∂velocityLaw := by
+  let reflection := bouncyReflectionMeasurableEquiv normal hnormal
+  have hchange := hpreserve.integral_comp'
+    (fun velocity =>
+      bouncyRate normal (bouncyReflection normal velocity) * test velocity)
+  have hchange' :
+      (∫ velocity,
+        bouncyRate normal velocity *
+          test (bouncyReflection normal velocity) ∂velocityLaw) =
+      ∫ velocity,
+        bouncyRate normal (bouncyReflection normal velocity) * test velocity
+          ∂velocityLaw := by
+    rw [← hchange]
+    apply integral_congr_ae
+    filter_upwards [] with velocity
+    simp [bouncyReflectionMeasurableEquiv,
+      bouncyReflection_involutive normal velocity hnormal]
+  have hintegrand : (fun velocity => bouncyRate normal velocity *
+      (test (bouncyReflection normal velocity) - test velocity)) =
+      fun velocity => bouncyRate normal velocity *
+          test (bouncyReflection normal velocity) -
+        bouncyRate normal velocity * test velocity := by
+    funext velocity
+    ring
+  rw [hintegrand, integral_sub hincoming houtgoing]
+  rw [hchange']
+  rw [← integral_sub hreflected houtgoing]
+  calc
+    (∫ velocity,
+        bouncyRate normal (bouncyReflection normal velocity) * test velocity -
+          bouncyRate normal velocity * test velocity ∂velocityLaw) =
+        ∫ velocity, -(euclideanInner velocity normal * test velocity)
+          ∂velocityLaw := by
+      apply integral_congr_ae
+      filter_upwards [] with velocity
+      calc
+        bouncyRate normal (bouncyReflection normal velocity) * test velocity -
+            bouncyRate normal velocity * test velocity =
+          (bouncyRate normal (bouncyReflection normal velocity) -
+            bouncyRate normal velocity) * test velocity := by ring
+        _ = (-euclideanInner velocity normal) * test velocity := by
+          rw [reflectedRate_sub_bouncyRate normal velocity hnormal]
+        _ = -(euclideanInner velocity normal * test velocity) := by ring
+    _ = -∫ velocity, euclideanInner velocity normal * test velocity
+          ∂velocityLaw := by rw [integral_neg]
 
 end Mcmc.PDMP

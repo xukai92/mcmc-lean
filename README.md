@@ -174,7 +174,10 @@ position–velocity product target, and proves that it leaves measurable
 position events unchanged. The multidimensional bounce algebra also proves
 the signed flux identity `λ(v) - λ(Rv) = ⟨v,∇U⟩` and its paired
 jump-generator form, isolating the exact pointwise cancellation used after a
-reflection-invariant velocity change of variables. For globally bounded bounce intensities, Lean now
+reflection-invariant velocity change of variables. Reflection is packaged as
+a measurable involutive equivalence, and a measure-level theorem proves that
+any velocity law preserved by it turns the integrated bounce term into minus
+the normal transport-flux term. For globally bounded bounce intensities, Lean now
 also constructs the exact positive-horizon Poisson/ordered-time thinning
 kernel and the practical refresh-then-bounce composition. The latter preserves
 a product target conditional on the still-explicit bounce-horizon spatial-flux

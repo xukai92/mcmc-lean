@@ -3,10 +3,13 @@
 - Strengthened the general-dimensional Bouncy Particle foundation with the
   exact signed-flux cancellation. For every nonzero event normal, Lean proves
   `λ(v) - λ(Rv) = ⟨v,n⟩` and the paired bounce-generator identity at
-  `v` and `Rv`. These are the pointwise algebraic inputs to the usual
-  reflection-invariant Gaussian-velocity change of variables; the remaining
-  general-dimensional work is the measure/integration and process-semigroup
-  layer, not reflection geometry.
+  `v` and `Rv`. Bounce reflection is now also a measurable involutive
+  equivalence. Given any velocity measure it preserves, Lean performs the
+  change of variables and proves that the integrated bounce generator equals
+  minus the signed normal transport flux. Thus the remaining
+  general-dimensional work is instantiating reflection invariance and the
+  position integration-by-parts/process-semigroup layer, not reflection
+  geometry or the velocity change of variables.
 
 - Strengthened primitive positive-horizon particle-Gibbs convergence from an
   opaque finite-matrix refresh rate to the explicit forced-lineage interface.
