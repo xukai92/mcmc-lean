@@ -1,5 +1,14 @@
 # Development log
 
+- Proved the zero-trajectory obstruction for orbit-multinomial samplers at the
+  kernel level. Every length-zero orbit contains only its current state, so
+  the phase transition is exactly `Kernel.id`; momentum augmentation followed
+  by position projection leaves the user-facing position transition exactly
+  `Kernel.id` as well. The concrete Gaussian SoftAbs GR-HMC client instantiates
+  this theorem. Thus bare-GR-HMC convergence cannot hold uniformly over all
+  trajectory lengths: its pending drift/minorization theorem must assume a
+  positive, nondegenerate trajectory regime.
+
 - Lifted the positive-horizon particle-count rate asymptotics from scalar
   coefficients to the actual particle-Gibbs laws. If one common bounded-model
   penalty (or one common time-varying penalty schedule) supplies the explicit

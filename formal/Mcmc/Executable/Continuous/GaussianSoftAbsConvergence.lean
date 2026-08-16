@@ -106,6 +106,13 @@ noncomputable abbrev gaussianSoftAbsMultinomialTransition (ε : ℝ) (L : ℕ) :
       (by norm_num) (by norm_num)
       (measurable_gaussianHessianDiagonal (ι := ι))) ε L
 
+/-- The bare Gaussian SoftAbs transition is identity at trajectory length
+zero. Consequently any convergence theorem for the unaugmented sampler must
+assume a genuinely positive, nondegenerate trajectory regime. -/
+theorem gaussianSoftAbsMultinomialTransition_zero (ε : ℝ) :
+    gaussianSoftAbsMultinomialTransition (ι := ι) ε 0 = Kernel.id := by
+  exact positionMultinomialGRHMC_zero _ _ _ _ _ _ _ _ _ _ ε
+
 /-- Mix GR-HMC (weight `p`) with an exact independent normalized-target draw
 (weight `1-p`). -/
 noncomputable def gaussianSoftAbsRefreshAugmented

@@ -199,6 +199,30 @@ theorem orbitMultinomialKernel_apply_set
   simp only [Measure.smul_apply, Measure.dirac_apply' _ hs, smul_eq_mul]
   congr 1
 
+/-- A zero-length orbit contains only the current state, so multinomial
+selection is exactly the identity kernel.  This boundary is important for
+convergence claims: invariance still holds, but no movement is possible. -/
+theorem orbitMultinomialKernel_zero
+    (weight : α → ENNReal) (T : Equiv.Perm α)
+    (hweight0 : ∀ z, weight z ≠ 0) (hweightTop : ∀ z, weight z ≠ ∞)
+    (hweight : Measurable weight) (hT : Measurable T)
+    (hTinv : Measurable T.symm) :
+    orbitMultinomialKernel weight T 0 hweight0 hweightTop hweight hT hTinv =
+      Kernel.id := by
+  ext z s hs
+  rw [orbitMultinomialKernel_apply_set weight T 0 hweight0 hweightTop
+    hweight hT hTinv z s hs]
+  simp only [Finset.univ_unique, Fin.default_eq_zero, Finset.sum_singleton,
+    PMF.uniformOfFintype_apply, Fintype.card_fin, Nat.reduceAdd,
+    Nat.cast_one, inv_one, one_mul, orbitIndexProbability,
+    orbitNormalizer, orbitPoint, Fin.val_zero, Nat.cast_zero, sub_self,
+    zpow_zero, Kernel.id_apply]
+  change weight z * (weight z)⁻¹ *
+    s.indicator (fun _ : α => (1 : ENNReal)) z = Measure.dirac z s
+  rw [ENNReal.mul_inv_cancel (hweight0 z) (hweightTop z)]
+  rw [Measure.dirac_apply' _ hs]
+  by_cases hz : z ∈ s <;> simp [hz]
+
 instance orbitMultinomialKernel_isMarkovKernel
     {weight : α → ENNReal} (hweight0 : ∀ z, weight z ≠ 0)
     (hweightTop : ∀ z, weight z ≠ ∞)

@@ -88,6 +88,23 @@ instance multinomialGRHMCPhase_isMarkovKernel
   unfold multinomialGRHMCPhase
   infer_instance
 
+/-- With no trajectory steps, phase-space multinomial GR-HMC is exactly the
+identity kernel, independently of the selected solver. -/
+theorem multinomialGRHMCPhase_zero
+    {positionDerivative momentumDerivative : PhaseSpace ι → Position ι}
+    (potential : Position ι → ℝ)
+    (metric : FactoredRiemannianMetric ι) (m c : ℝ)
+    (selection : GeneralizedLeapfrogSelection
+      positionDerivative momentumDerivative)
+    (hvalid : selection.IsValid)
+    (hH : Measurable
+      (generalRelativisticHamiltonian potential metric m c))
+    (ε : ℝ) :
+    multinomialGRHMCPhase potential metric m c selection hvalid hH ε 0 =
+      Kernel.id := by
+  unfold multinomialGRHMCPhase
+  exact orbitMultinomialKernel_zero _ _ _ _ _ _ _
+
 /-- The multinomial generalized-leapfrog transition satisfies detailed
 balance for the complete GR phase target. -/
 theorem multinomialGRHMCPhase_isReversible
@@ -172,6 +189,36 @@ instance positionMultinomialGRHMC_isMarkovKernel
       selection hvalid hH hmeasurableMomentum ε L) := by
   unfold positionMultinomialGRHMC
   exact Kernel.IsMarkovKernel.map _ measurable_fst
+
+/-- Momentum refresh cannot create position movement when the multinomial
+orbit has length zero: the user-facing position transition is identity. -/
+theorem positionMultinomialGRHMC_zero
+    [Nonempty ι] [DecidableEq ι]
+    {positionDerivative momentumDerivative : PhaseSpace ι → Position ι}
+    (potential : Position ι → ℝ)
+    (metric : FactoredRiemannianMetric ι) (m c : ℝ)
+    (hm : 0 < m) (hc : 0 < c)
+    (selection : GeneralizedLeapfrogSelection
+      positionDerivative momentumDerivative)
+    (hvalid : selection.IsValid)
+    (hH : Measurable
+      (generalRelativisticHamiltonian potential metric m c))
+    (hmeasurableMomentum :
+      IsMeasurableRiemannianMomentumFamily metric m c hm hc)
+    (ε : ℝ) :
+    positionMultinomialGRHMC potential metric m c hm hc selection hvalid hH
+      hmeasurableMomentum ε 0 = Kernel.id := by
+  unfold positionMultinomialGRHMC
+  rw [multinomialGRHMCPhase_zero]
+  ext q s hs
+  rw [Kernel.map_apply'
+    (Kernel.id ∘ₖ riemannianPositionMomentumLift metric m c hm hc
+      hmeasurableMomentum) measurable_fst q hs]
+  rw [Kernel.id_comp]
+  rw [riemannianPositionMomentumLift, Kernel.prod_apply, Kernel.id_apply]
+  rw [show Prod.fst ⁻¹' s = s ×ˢ (Set.univ : Set (Momentum ι)) by ext; simp,
+    Measure.prod_prod, Measure.dirac_apply' _ hs, measure_univ]
+  by_cases hq : q ∈ s <;> simp [hq]
 
 /-- Under the same explicit disintegration compatibility equation as endpoint
 GR-HMC, the full position-space multinomial algorithm preserves its target. -/
