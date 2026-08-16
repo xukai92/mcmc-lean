@@ -9,6 +9,9 @@
   `extra / (extra + (2B-1))`. This closes the previously missing nonlinear
   leave-one-out estimate; the remaining work is to instantiate its score with
   recursive path-label continuation values and compose the horizon induction.
+  The recursive suffix expectation is now also proved nonnegative for every
+  nonnegative label observable, discharging the sign premise needed when the
+  normalization inequality is applied inside the cons expansion.
 
 - Added the conditional product structure required to apply the PG
   leave-one-out bound. Lean now defines a two-coordinate-forced independent

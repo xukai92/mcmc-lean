@@ -1165,6 +1165,25 @@ noncomputable def forcedLineageSuffixLabelExpectation {Label : Type*}
       particleAverage observable
         (terminalLabels extend steps labels suffix.1)
 
+/-- A nonnegative terminal-label observable has nonnegative expectation under
+every forced-lineage suffix law. -/
+theorem forcedLineageSuffixLabelExpectation_nonneg {Label : Type*}
+    (extend : Label → Sample → Label)
+    (steps : List (FeynmanKacStep Sample)) (current : Sample)
+    (future : List Sample) (hlength : future.length = steps.length)
+    (particles : Particle → Sample) (retained : Particle)
+    (labels : Particle → Label) (observable : Label → ℝ)
+    (hobservable : ∀ label, 0 ≤ observable label) :
+    0 ≤ forcedLineageSuffixLabelExpectation extend steps current future hlength
+      particles retained labels observable := by
+  unfold forcedLineageSuffixLabelExpectation
+  apply Finset.sum_nonneg
+  intro suffix _
+  exact mul_nonneg
+    ((forcedLineageSuffixLaw steps current future hlength particles retained).nonneg
+      suffix)
+    (particleAverage_nonneg (fun label => hobservable label) _)
+
 @[simp] theorem forcedLineageSuffixLabelExpectation_nil {Label : Type*}
     (extend : Label → Sample → Label) (current : Sample)
     (particles : Particle → Sample) (retained : Particle)
