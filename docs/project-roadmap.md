@@ -466,7 +466,12 @@ by paper date:
 
 1. prove weak-forward uniqueness for the constructed Gaussian Zig-Zag stopped
    path, closing Gaussian Zig-Zag and one-dimensional unit-speed Gaussian BPS
-   stationarity;
+   stationarity. The obligation is now split exactly into scalar weak-
+   expectation uniqueness and measure determination by the certified smooth
+   test family; Lean proves that these two statements reconstruct the full
+   uniqueness interface. A separate target-started interface records the
+   strictly weaker premise actually sufficient for stationarity, avoiding an
+   unnecessary global well-posedness theorem;
 2. bare Gaussian SoftAbs GR-HMC convergence -- complete for the concrete
    one-dimensional `ε = 1`, `L = 1` chain. Lean proves affine drift, compact
    skeleton minorization, faithful geometric meeting, the normalized target's

@@ -1,5 +1,19 @@
 # Development log
 
+- Refined the remaining Gaussian Zig-Zag/BPS weak-forward obligation into two
+  independently checkable statements. `CompactTestWeakExpectationUniqueness`
+  records uniqueness of every scalar test expectation, while
+  `CompactTestExpectationDetermining` records that equality on the chosen test
+  family identifies measures; Lean proves that together they imply the
+  existing full weak-forward uniqueness interface. Gaussian Zig-Zag and its
+  proved one-dimensional unit-speed BPS representation now expose these split
+  aliases and direct stationarity consumers. Neither analytic premise is
+  silently assumed, so process stationarity remains open until both are
+  supplied for the constructed stopped path. The stationarity interface is
+  also weakened to the mathematically minimal target-started uniqueness
+  statement: global weak-forward well-posedness from every initial measure is
+  no longer required merely to prove invariance of the Gaussian target.
+
 - Completed the supportable arbitrary-horizon positive-horizon particle-Gibbs
   theorem. The forced-cloud induction now composes over every finite schedule
   using the oscillation of each full remaining backward Feynman--Kac

@@ -143,6 +143,17 @@ theorem gaussianUnitBouncyEventElapsed_tendsto_atTop_ae
 setwise forward equation as in its Zig-Zag representation. -/
 abbrev GaussianUnitBouncyForwardEquation := GaussianZigZagForwardEquation
 
+/-- Weak-forward uniqueness for unit-speed one-dimensional Gaussian BPS is
+the same obligation as for its proved Zig-Zag representation. -/
+abbrev GaussianUnitBouncyWeakForwardUniqueness :=
+  GaussianZigZagWeakForwardUniqueness
+
+abbrev GaussianUnitBouncyTargetWeakForwardUniqueness :=
+  GaussianZigZagTargetWeakForwardUniqueness
+
+abbrev GaussianUnitBouncyWeakExpectationUniqueness :=
+  GaussianZigZagWeakExpectationUniqueness
+
 /-- A proof of the shared forward equation yields target preservation for the
 exact unit-speed Gaussian BPS horizon kernel. -/
 theorem gaussianUnitBouncyHorizonKernel_invariant_of_forwardEquation
@@ -150,5 +161,26 @@ theorem gaussianUnitBouncyHorizonKernel_invariant_of_forwardEquation
     (gaussianUnitBouncyHorizonKernel horizon).Invariant
       gaussianUnitBouncyTarget :=
   gaussianZigZagHorizonKernel_invariant_of_forwardEquation forward horizon
+
+/-- The split scalar-uniqueness and measure-determination obligations also
+yield exact unit-speed Gaussian BPS stationarity. -/
+theorem gaussianUnitBouncyHorizonKernel_invariant_of_weakExpectationUniqueness
+    (scalar : GaussianUnitBouncyWeakExpectationUniqueness)
+    (determining : GaussianZigZagSmoothTestDetermining)
+    (horizon : NNReal) :
+    (gaussianUnitBouncyHorizonKernel horizon).Invariant
+      gaussianUnitBouncyTarget :=
+  gaussianZigZagHorizonKernel_invariant_of_weakExpectationUniqueness
+    scalar determining horizon
+
+/-- Target-started weak-forward uniqueness is the minimal remaining premise
+for exact unit-speed Gaussian BPS stationarity. -/
+theorem gaussianUnitBouncyHorizonKernel_invariant_of_targetWeakForwardUniqueness
+    (uniqueness : GaussianUnitBouncyTargetWeakForwardUniqueness)
+    (horizon : NNReal) :
+    (gaussianUnitBouncyHorizonKernel horizon).Invariant
+      gaussianUnitBouncyTarget :=
+  gaussianZigZagHorizonKernel_invariant_of_targetWeakForwardUniqueness
+    uniqueness horizon
 
 end Mcmc.PDMP

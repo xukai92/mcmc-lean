@@ -1110,6 +1110,22 @@ abbrev GaussianZigZagWeakForwardUniqueness :=
   CompactTestWeakForwardUniqueness gaussianZigZagHorizonKernel
     GaussianZigZagSmoothTest.observe GaussianZigZagSmoothTest.generator
 
+/-- Target-started uniqueness, the minimal process-level premise needed for
+Gaussian stationarity. -/
+abbrev GaussianZigZagTargetWeakForwardUniqueness :=
+  CompactTestTargetWeakForwardUniqueness gaussianZigZagHorizonKernel
+    GaussianZigZagSmoothTest.observe GaussianZigZagSmoothTest.generator
+    gaussianZigZagTarget
+
+/-- Scalar-expectation part of Gaussian Zig-Zag weak-forward uniqueness. -/
+abbrev GaussianZigZagWeakExpectationUniqueness :=
+  CompactTestWeakExpectationUniqueness gaussianZigZagHorizonKernel
+    GaussianZigZagSmoothTest.observe GaussianZigZagSmoothTest.generator
+
+/-- Measure-determination part of the Gaussian smooth-core obligation. -/
+abbrev GaussianZigZagSmoothTestDetermining :=
+  CompactTestExpectationDetermining GaussianZigZagSmoothTest.observe
+
 theorem GaussianZigZagForwardEquation.toSetwiseCertificate
     (forward : GaussianZigZagForwardEquation) :
     SetwiseForwardStationarityCertificate
@@ -1156,6 +1172,33 @@ theorem gaussianZigZagHorizonKernel_invariant_of_weakForwardUniqueness
     exact test.generator_integrable
   · intro test
     exact test.generator_mean_zero
+
+/-- Target-started weak-forward uniqueness already suffices; no theorem about
+arbitrary initial measures is needed for stationarity. -/
+theorem gaussianZigZagHorizonKernel_invariant_of_targetWeakForwardUniqueness
+    (uniqueness : GaussianZigZagTargetWeakForwardUniqueness)
+    (horizon : NNReal) :
+    (gaussianZigZagHorizonKernel horizon).Invariant gaussianZigZagTarget := by
+  apply invariant_of_compactTest_generatorBalance_and_targetWeakUniqueness
+    gaussianZigZagHorizonKernel GaussianZigZagSmoothTest.observe
+    GaussianZigZagSmoothTest.generator gaussianZigZagTarget uniqueness
+  · intro test
+    exact test.generator_integrable
+  · intro test
+    exact test.generator_mean_zero
+
+/-- The split weak-forward obligations—scalar expectation uniqueness and
+measure determination—suffice for exact Gaussian Zig-Zag stationarity. -/
+theorem gaussianZigZagHorizonKernel_invariant_of_weakExpectationUniqueness
+    (scalar : GaussianZigZagWeakExpectationUniqueness)
+    (determining : GaussianZigZagSmoothTestDetermining)
+    (horizon : NNReal) :
+    (gaussianZigZagHorizonKernel horizon).Invariant gaussianZigZagTarget :=
+  gaussianZigZagHorizonKernel_invariant_of_weakForwardUniqueness
+    (scalar.toWeakForwardUniqueness gaussianZigZagHorizonKernel
+      GaussianZigZagSmoothTest.observe GaussianZigZagSmoothTest.generator
+      determining)
+    horizon
 
 /-- Under the event kernel's actual exponential-hazard law, inverse-clock
 execution satisfies the integrated-hazard equation almost surely. -/

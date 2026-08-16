@@ -173,6 +173,68 @@ structure CompactTestWeakForwardUniqueness
     CompactTestWeakForwardSolution observe generator initial curve →
     ∀ time, curve time = (transition time) ∘ₘ initial
 
+/-- Target-specific weak-forward uniqueness. This is strictly the obligation
+needed for stationarity: every weak solution starting from `target` must agree
+with the constructed transported target curve. It does not demand global
+well-posedness from arbitrary initial measures. -/
+structure CompactTestTargetWeakForwardUniqueness
+    {Test : Type*}
+    (transition : NNReal → Kernel State State)
+    (observe generator : Test → State → ℝ) (target : Measure State) : Prop where
+  unique : ∀ (curve : NNReal → Measure State),
+    CompactTestWeakForwardSolution observe generator target curve →
+    ∀ time, curve time = (transition time) ∘ₘ target
+
+omit [TopologicalSpace State] [BorelSpace State]
+    [LocallyCompactSpace State] [T2Space State] in
+/-- Global weak-forward uniqueness implies its target-specific form. -/
+theorem CompactTestWeakForwardUniqueness.forTarget
+    {Test : Type*}
+    (transition : NNReal → Kernel State State)
+    (observe generator : Test → State → ℝ)
+    (uniqueness : CompactTestWeakForwardUniqueness transition observe generator)
+    (target : Measure State) :
+    CompactTestTargetWeakForwardUniqueness transition observe generator target where
+  unique curve solution time := uniqueness.unique target curve solution time
+
+/-- A test family determines measures when equality of all its expectations
+forces equality of the underlying measures. This is logically separate from
+uniqueness of the scalar weak equations. -/
+structure CompactTestExpectationDetermining
+    {Test : Type*} (observe : Test → State → ℝ) : Prop where
+  eq_of_expectations : ∀ (left right : Measure State),
+    (∀ test, (∫ state, observe test state ∂left) =
+      ∫ state, observe test state ∂right) → left = right
+
+/-- Scalar-expectation form of weak-forward uniqueness. It asks that every
+weak solution agree with the constructed transition curve on the supplied
+test family, but does not by itself identify the measures. -/
+structure CompactTestWeakExpectationUniqueness
+    {Test : Type*}
+    (transition : NNReal → Kernel State State)
+    (observe generator : Test → State → ℝ) : Prop where
+  unique_expectation :
+    ∀ (initial : Measure State) (curve : NNReal → Measure State),
+      CompactTestWeakForwardSolution observe generator initial curve →
+      ∀ time test,
+        (∫ state, observe test state ∂curve time) =
+          ∫ state, observe test state ∂((transition time) ∘ₘ initial)
+
+omit [TopologicalSpace State] [BorelSpace State]
+    [LocallyCompactSpace State] [T2Space State] in
+/-- Scalar weak-equation uniqueness plus a measure-determining test family
+yields full weak-forward uniqueness. -/
+theorem CompactTestWeakExpectationUniqueness.toWeakForwardUniqueness
+    {Test : Type*}
+    (transition : NNReal → Kernel State State)
+    (observe generator : Test → State → ℝ)
+    (scalar : CompactTestWeakExpectationUniqueness transition observe generator)
+    (determining : CompactTestExpectationDetermining observe) :
+    CompactTestWeakForwardUniqueness transition observe generator where
+  unique initial curve solution time :=
+    determining.eq_of_expectations (curve time) ((transition time) ∘ₘ initial)
+      (fun test => scalar.unique_expectation initial curve solution time test)
+
 omit [TopologicalSpace State] [BorelSpace State]
   [LocallyCompactSpace State] [T2Space State] in
 /-- Generator balance makes the constant target curve a weak-forward
@@ -212,6 +274,28 @@ theorem invariant_of_compactTest_generatorBalance_and_weakUniqueness
     (transition time).Invariant target := by
   rw [Kernel.Invariant]
   exact (uniqueness.unique target (fun _ => target)
+    (compactTestWeakForwardSolution_const observe generator target
+      hintegrable hbalance)
+    time).symm
+
+omit [TopologicalSpace State] [BorelSpace State]
+  [LocallyCompactSpace State] [T2Space State] in
+/-- Target-specific weak-forward uniqueness is sufficient for generator
+balance to imply invariance; global uniqueness from every initial law is not
+required. -/
+theorem invariant_of_compactTest_generatorBalance_and_targetWeakUniqueness
+    {Test : Type*}
+    (transition : NNReal → Kernel State State)
+    (observe generator : Test → State → ℝ)
+    (target : Measure State)
+    (uniqueness : CompactTestTargetWeakForwardUniqueness
+      transition observe generator target)
+    (hintegrable : ∀ test, Integrable (generator test) target)
+    (hbalance : ∀ test, (∫ state, generator test state ∂target) = 0)
+    (time : NNReal) :
+    (transition time).Invariant target := by
+  rw [Kernel.Invariant]
+  exact (uniqueness.unique (fun _ => target)
     (compactTestWeakForwardSolution_const observe generator target
       hintegrable hbalance)
     time).symm
