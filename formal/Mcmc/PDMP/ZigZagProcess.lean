@@ -52,13 +52,13 @@ equation. -/
 structure GaussianZigZagSmoothTest where
   observable : ℝ → Bool → ℝ
   derivative : ℝ → Bool → ℝ
+  hasDerivAt_observable : ∀ q v,
+    HasDerivAt (fun x => observable x v) (derivative q v) q
   difference : ℝ → ℝ
   difference_eq : difference =
     fun q => observable q true - observable q false
   contDiff_difference : ContDiff ℝ 1 difference
   compact_difference : HasCompactSupport difference
-  derivative_eq : ∀ q,
-    derivative q true - derivative q false = deriv difference q
   generator_integrable : Integrable
     (fun state : ZigZagState =>
       zigZagGenerator id derivative observable state.1 state.2)
@@ -74,6 +74,26 @@ def GaussianZigZagSmoothTest.generator
     (test : GaussianZigZagSmoothTest) : ZigZagState → ℝ :=
   fun state => zigZagGenerator id test.derivative test.observable
     state.1 state.2
+
+/-- The derivative-difference identity is derived from the two genuine
+observable derivatives; it is not an independent certificate field. -/
+theorem GaussianZigZagSmoothTest.derivative_sub_eq_deriv
+    (test : GaussianZigZagSmoothTest) (q : ℝ) :
+    test.derivative q true - test.derivative q false =
+      deriv test.difference q := by
+  have h := (test.hasDerivAt_observable q true).sub
+    (test.hasDerivAt_observable q false)
+  have heq : ((fun x => test.observable x true) -
+      fun x => test.observable x false) =
+      fun x => test.observable x true - test.observable x false := by
+    funext x
+    rfl
+  rw [heq] at h
+  have hd : HasDerivAt test.difference
+      (test.derivative q true - test.derivative q false) q := by
+    rw [test.difference_eq]
+    exact h
+  exact hd.deriv.symm
 
 /-- Integration against the equal-sign velocity law averages the two Boolean
 values. -/
@@ -100,7 +120,8 @@ theorem GaussianZigZagSmoothTest.generator_mean_zero
   have hcore :=
     gaussian_zigZagGenerator_mean_zero_of_contDiff_compactSupport
       test.derivative test.observable test.difference test.difference_eq
-      test.contDiff_difference test.compact_difference test.derivative_eq
+      test.contDiff_difference test.compact_difference
+      test.derivative_sub_eq_deriv
   have heq : (fun q =>
       (2 : ℝ)⁻¹ * zigZagGenerator id test.derivative test.observable q false +
       (2 : ℝ)⁻¹ * zigZagGenerator id test.derivative test.observable q true) =

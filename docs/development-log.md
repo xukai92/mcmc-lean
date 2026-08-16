@@ -1,5 +1,14 @@
 # Development log
 
+- Tightened the Gaussian Zig-Zag weak-generator domain so every supplied
+  position derivative is now certified as the actual derivative of its
+  velocity-specific observable. The derivative-of-difference identity used by
+  Gaussian integration by parts is derived in Lean from those two certificates
+  instead of being accepted as an independent field. This removes spurious
+  tests that could previously satisfy the integrated cancellation interface
+  without representing the path generator. Weak-forward uniqueness and
+  measure determination remain open, now for the semantically correct domain.
+
 - Added the full finite-dimensional Bouncy Particle generator at a fixed
   position and proved its velocity-integrated reduction to transport minus
   signed normal flux under a reflection-invariant velocity law. The theorem

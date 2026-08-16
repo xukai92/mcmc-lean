@@ -475,6 +475,9 @@ by paper date:
    unnecessary global well-posedness theorem. The target-started scalar
    uniqueness and measure-determination pair now feeds Gaussian Zig-Zag and
    unit-speed Gaussian BPS stationarity directly;
+   the smooth test certificate now also requires each supplied derivative to
+   be the actual derivative of its velocity-specific observable, and derives
+   the difference identity rather than assuming it independently;
 2. bare Gaussian SoftAbs GR-HMC convergence -- complete for the concrete
    one-dimensional `ε = 1`, `L = 1` chain. Lean proves affine drift, compact
    skeleton minorization, faithful geometric meeting, the normalized target's
