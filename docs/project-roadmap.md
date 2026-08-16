@@ -507,8 +507,11 @@ by paper date:
    transport-minus-normal-flux identity are now checked, including the
    zero-gradient case. The product-space mean-zero theorem is also checked and
    reduces full generator balance exactly to reflection invariance plus a
-   multidimensional spatial integration-by-parts premise. Target-specific
-   proofs of those premises, construction of the unbounded-rate process,
+   multidimensional spatial integration-by-parts premise. Orthogonal
+   reflection invariance of mathlib's finite-dimensional standard Gaussian is
+   now proved coordinate-free. Identifying the `Position` Householder map
+   through the `L²` equivalence, target-specific integration by parts,
+   construction of the unbounded-rate process,
    weak-forward uniqueness, and ergodicity remain.
 
    The nonlinear reversible-jump branch is complete at the exact theorem and

@@ -6,9 +6,12 @@
   reflection identity pointwise and reduces mean-zero exactly to the supplied
   multidimensional spatial integration-by-parts equation. All Fubini and
   integrability premises are explicit. This is still infinitesimal balance:
-  standard-Gaussian reflection invariance, target-specific integration by
-  parts, process construction, weak-forward uniqueness, and convergence are
-  not inferred silently.
+  target-specific integration by parts, process construction, weak-forward
+  uniqueness, and convergence are not inferred silently. The coordinate-free
+  Gaussian premise is now discharged: every closed-subspace orthogonal
+  reflection preserves mathlib's finite-dimensional standard Gaussian. A
+  `Position` client must still identify its sup-norm coordinate Householder map
+  with that Euclidean reflection through the measurable `L²` equivalence.
 
 - Connected Julia dynamic-tree certificates to executable sampling. The new
   checked selector refuses uncertified candidate-row families and otherwise

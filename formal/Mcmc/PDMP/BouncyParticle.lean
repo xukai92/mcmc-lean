@@ -1,6 +1,8 @@
 import Mcmc.PDMP.Flow
 import Mcmc.Hamiltonian.Leapfrog
 import Mathlib.MeasureTheory.Integral.Bochner.Basic
+import Mathlib.Analysis.InnerProductSpace.Projection.Reflection
+import Mathlib.Probability.Distributions.Gaussian.Multivariate
 import Mathlib.Tactic
 
 /-!
@@ -377,5 +379,26 @@ theorem integral_bouncyPhaseGenerator_eq_zero
       (hincoming position) (houtgoing position) (hreflected position)
   rw [hpointwise, integral_sub htransportIntegrated hfluxIntegrated, hibp,
     sub_self]
+
+/-! ### Standard-Gaussian reflection invariance -/
+
+section GaussianReflection
+
+variable {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E]
+  [MeasurableSpace E] [BorelSpace E] [FiniteDimensional ℝ E]
+
+/-- Every orthogonal reflection preserves the finite-dimensional standard
+Gaussian law. This is the coordinate-free Gaussian premise needed by BPS; a
+client using `Position ι` must additionally identify its Householder map with
+such a reflection through the Euclidean-space equivalence. -/
+theorem stdGaussian_reflection_measurePreserving
+    (subspace : Submodule ℝ E) :
+    MeasurePreserving subspace.reflection
+      (ProbabilityTheory.stdGaussian E)
+      (ProbabilityTheory.stdGaussian E) := by
+  refine ⟨subspace.reflection.continuous.measurable, ?_⟩
+  exact ProbabilityTheory.stdGaussian_map subspace.reflection
+
+end GaussianReflection
 
 end Mcmc.PDMP
