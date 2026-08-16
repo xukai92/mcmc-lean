@@ -241,7 +241,16 @@ normalizer MSE bounds, together with a positive lower bound on the approximate
 normalizer, yield an explicit squared self-normalized-ratio bound with the
 standard factor two. The remaining induction must instantiate those two MSE
 bounds at every resample--propagate stage and feed them into the existing
-affine sequential-error recurrence.
+affine sequential-error recurrence. The one-stage connector is now complete:
+the explicit joint ancestor/propagation law has an exact arbitrary-reference
+bias--variance decomposition, its conditional mean is proved equal to the
+self-normalized empirical Feynman--Kac ratio, and `bootstrapStage_mse_le`
+combines fresh `1/N` variance with incoming numerator/normalizer MSE. A
+time-inhomogeneous affine budget then propagates stage constants and proves
+fixed-horizon convergence to zero as `N → ∞`. The remaining model theorem is
+to define the count-indexed population law at every schedule prefix and
+instantiate these stage hypotheses recursively for its backward test
+functions.
 
 General-state composable inference is also complete at the common-target
 stationarity layer. `Mcmc.Kernel.ComposableInference` supplies scoped

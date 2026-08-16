@@ -32,6 +32,60 @@ noncomputable def finiteVariance (law : Distribution Sample)
   ∑ x, law.mass x * (score x - finiteExpectation law score) ^ 2
 
 omit [DecidableEq Sample] [Nonempty Particle] in
+/-- Bias--variance decomposition for an arbitrary finite distribution. -/
+theorem finite_sq_error_eq_variance_add_bias
+    (law : Distribution Sample) (score : Sample → ℝ) (reference : ℝ) :
+    ∑ x, law.mass x * (score x - reference) ^ 2 =
+      finiteVariance law score +
+        (finiteExpectation law score - reference) ^ 2 := by
+  let mean := finiteExpectation law score
+  have hcenter : ∑ x, law.mass x * (score x - mean) = 0 := by
+    calc
+      ∑ x, law.mass x * (score x - mean) =
+          (∑ x, law.mass x * score x) -
+            ∑ x, law.mass x * mean := by
+              simp_rw [mul_sub]
+              rw [Finset.sum_sub_distrib]
+      _ = mean - mean := by
+        rw [show (∑ x, law.mass x * score x) = mean by rfl]
+        rw [← Finset.sum_mul, law.sum_mass, one_mul]
+      _ = 0 := sub_self mean
+  change ∑ x, law.mass x * (score x - reference) ^ 2 =
+    (∑ x, law.mass x * (score x - mean) ^ 2) + (mean - reference) ^ 2
+  have hcross :
+      (∑ x, law.mass x * (2 * (score x - mean) * (mean - reference))) =
+        2 * (mean - reference) *
+          (∑ x, law.mass x * (score x - mean)) := by
+    rw [Finset.mul_sum]
+    apply Finset.sum_congr rfl
+    intro x _
+    ring
+  have hconstant :
+      (∑ x, law.mass x * (mean - reference) ^ 2) =
+        (mean - reference) ^ 2 * (∑ x, law.mass x) := by
+    rw [Finset.mul_sum]
+    apply Finset.sum_congr rfl
+    intro x _
+    ring
+  calc
+    ∑ x, law.mass x * (score x - reference) ^ 2 =
+      ∑ x, law.mass x *
+        ((score x - mean) ^ 2 +
+          2 * (score x - mean) * (mean - reference) +
+          (mean - reference) ^ 2) := by
+            apply Finset.sum_congr rfl
+            intro x _
+            ring
+    _ = (∑ x, law.mass x * (score x - mean) ^ 2) +
+        2 * (mean - reference) *
+          (∑ x, law.mass x * (score x - mean)) +
+        (mean - reference) ^ 2 * (∑ x, law.mass x) := by
+          simp_rw [mul_add]
+          rw [Finset.sum_add_distrib, Finset.sum_add_distrib]
+          rw [hcross, hconstant]
+    _ = _ := by rw [hcenter, law.sum_mass]; ring
+
+omit [DecidableEq Sample] [Nonempty Particle] in
 theorem finiteVariance_nonneg (law : Distribution Sample)
     (score : Sample → ℝ) : 0 ≤ finiteVariance law score := by
   unfold finiteVariance
@@ -395,6 +449,61 @@ theorem independentPopulation_particleAverage_sq_expectation
       simp
 
 omit [DecidableEq Sample] in
+/-- Joint law of multinomial ancestors and the subsequently propagated
+population for one bootstrap particle-filter stage. -/
+noncomputable def resamplePropagateLaw
+    (weights : Distribution Particle) (particles : Particle → Sample)
+    (transition : MarkovKernel Sample) :
+    Distribution ((Particle → Particle) × (Particle → Sample)) where
+  mass outcome := (multinomialResampling weights).mass outcome.1 *
+    (propagatedPopulation transition particles outcome.1).mass outcome.2
+  nonneg outcome := mul_nonneg
+    ((multinomialResampling weights).nonneg outcome.1)
+    ((propagatedPopulation transition particles outcome.1).nonneg outcome.2)
+  sum_mass := by
+    rw [Fintype.sum_prod_type]
+    simp_rw [← Finset.mul_sum,
+      (propagatedPopulation transition particles _).sum_mass, mul_one]
+    exact (multinomialResampling weights).sum_mass
+
+omit [DecidableEq Sample] in
+/-- The one-step joint law has the normalized weighted transition mean. -/
+theorem resamplePropagateLaw_particleAverage_expectation
+    (weights : Distribution Particle) (particles : Particle → Sample)
+    (transition : MarkovKernel Sample) (score : Sample → ℝ) :
+    finiteExpectation (resamplePropagateLaw weights particles transition)
+        (fun outcome => particleAverage score outcome.2) =
+      finiteExpectation weights (fun i =>
+        finiteExpectation (rowDistribution transition (particles i)) score) := by
+  unfold finiteExpectation resamplePropagateLaw
+  rw [Fintype.sum_prod_type]
+  have h := resamplePropagate_particleAverage_expectation
+    weights particles transition score
+  simp_rw [Finset.mul_sum] at h
+  simp_rw [Finset.mul_sum]
+  simpa [rowDistribution, mul_assoc] using h
+
+omit [DecidableEq Sample] in
+/-- For bootstrap weights, the one-stage conditional mean is the explicit
+self-normalized empirical Feynman--Kac ratio. -/
+theorem resamplePropagateLaw_normalized_expectation
+    (potential : Sample → ℝ) (hpotential : ∀ x, 0 < potential x)
+    (particles : Particle → Sample) (transition : MarkovKernel Sample)
+    (score : Sample → ℝ) :
+    finiteExpectation
+        (resamplePropagateLaw
+          (normalizedPotentialWeights potential hpotential particles)
+          particles transition)
+        (fun outcome => particleAverage score outcome.2) =
+      particleAverage (fun x => potential x *
+          finiteExpectation (rowDistribution transition x) score) particles /
+        particleAverage potential particles := by
+  rw [resamplePropagateLaw_particleAverage_expectation]
+  unfold finiteExpectation
+  exact finiteExpectation_normalizedPotentialWeights potential hpotential
+    particles (fun x => finiteExpectation (rowDistribution transition x) score)
+
+omit [DecidableEq Sample] in
 /-- Exact one-step resample--propagate MSE. The two `1/N` terms are the
 average conditional propagation variance and the multinomial-ancestry
 variance of the propagated conditional mean. -/
@@ -485,6 +594,90 @@ theorem resamplePropagate_particleAverage_mse
   simp_rw [hconditional, mul_add]
   rw [Finset.sum_add_distrib, hvarianceTerm, hmeanTerm]
   ring
+
+omit [DecidableEq Sample] in
+/-- Variance of the empirical average under the explicit joint one-stage law.
+This packages the nested exact MSE identity as an ordinary finite-distribution
+statement suitable for repeated bias--variance decomposition. -/
+theorem resamplePropagateLaw_particleAverage_variance
+    (weights : Distribution Particle) (particles : Particle → Sample)
+    (transition : MarkovKernel Sample) (score : Sample → ℝ) :
+    finiteVariance (resamplePropagateLaw weights particles transition)
+        (fun outcome => particleAverage score outcome.2) =
+      (finiteExpectation weights (fun i =>
+          finiteVariance (rowDistribution transition (particles i)) score) +
+        finiteVariance weights (fun i =>
+          finiteExpectation (rowDistribution transition (particles i)) score)) /
+        Fintype.card Particle := by
+  unfold finiteVariance
+  rw [resamplePropagateLaw_particleAverage_expectation]
+  unfold resamplePropagateLaw
+  rw [Fintype.sum_prod_type]
+  have h := resamplePropagate_particleAverage_mse
+    weights particles transition score
+  simp_rw [Finset.mul_sum] at h
+  simpa [finiteVariance, mul_assoc] using h
+
+omit [DecidableEq Sample] in
+/-- Exact one-stage error around an arbitrary deterministic reference: fresh
+particle variance contributes `1/N`, while the squared error of the normalized
+weighted transition mean is carried to the next stage. -/
+theorem resamplePropagateLaw_particleAverage_sq_error
+    (weights : Distribution Particle) (particles : Particle → Sample)
+    (transition : MarkovKernel Sample) (score : Sample → ℝ) (reference : ℝ) :
+    ∑ outcome,
+        (resamplePropagateLaw weights particles transition).mass outcome *
+          (particleAverage score outcome.2 - reference) ^ 2 =
+      (finiteExpectation weights (fun i =>
+          finiteVariance (rowDistribution transition (particles i)) score) +
+        finiteVariance weights (fun i =>
+          finiteExpectation (rowDistribution transition (particles i)) score)) /
+          Fintype.card Particle +
+        (finiteExpectation weights (fun i =>
+          finiteExpectation (rowDistribution transition (particles i)) score) -
+            reference) ^ 2 := by
+  rw [finite_sq_error_eq_variance_add_bias]
+  rw [resamplePropagateLaw_particleAverage_variance,
+    resamplePropagateLaw_particleAverage_expectation]
+
+omit [DecidableEq Sample] in
+/-- Bootstrap specialization of the exact one-stage recurrence. The carried
+bias is now visibly a self-normalized empirical ratio, ready for
+`normalized_ratio_mse_le`; the remaining term is fresh `1/N` variance. -/
+theorem bootstrapStage_particleAverage_sq_error
+    (potential : Sample → ℝ) (hpotential : ∀ x, 0 < potential x)
+    (particles : Particle → Sample) (transition : MarkovKernel Sample)
+    (score : Sample → ℝ) (reference : ℝ) :
+    ∑ outcome,
+        (resamplePropagateLaw
+          (normalizedPotentialWeights potential hpotential particles)
+          particles transition).mass outcome *
+          (particleAverage score outcome.2 - reference) ^ 2 =
+      (finiteExpectation
+          (normalizedPotentialWeights potential hpotential particles)
+          (fun i => finiteVariance
+            (rowDistribution transition (particles i)) score) +
+        finiteVariance
+          (normalizedPotentialWeights potential hpotential particles)
+          (fun i => finiteExpectation
+            (rowDistribution transition (particles i)) score)) /
+          Fintype.card Particle +
+        (particleAverage (fun x => potential x *
+            finiteExpectation (rowDistribution transition x) score) particles /
+          particleAverage potential particles - reference) ^ 2 := by
+  have hmean :
+      finiteExpectation
+          (normalizedPotentialWeights potential hpotential particles)
+          (fun i => finiteExpectation
+            (rowDistribution transition (particles i)) score) =
+        particleAverage (fun x => potential x *
+            finiteExpectation (rowDistribution transition x) score) particles /
+          particleAverage potential particles := by
+    unfold finiteExpectation
+    exact finiteExpectation_normalizedPotentialWeights potential hpotential
+      particles (fun x => finiteExpectation (rowDistribution transition x) score)
+  rw [resamplePropagateLaw_particleAverage_sq_error]
+  rw [hmean]
 
 omit [DecidableEq Sample] in
 /-- A directly checkable one-step `O(1/N)` bound for bootstrap
@@ -1078,9 +1271,225 @@ theorem normalized_ratio_mse_le
       have hlowerSq : 0 < lower ^ 2 := sq_pos_of_pos hlower
       gcongr
 
+omit [DecidableEq Sample] in
+/-- Integrated one-stage bootstrap MSE bound. It combines the exact fresh
+`1/N` resample--propagate variance with the nonlinear normalized-ratio MSE of
+the incoming population. -/
+theorem bootstrapStage_mse_le
+    (currentLaw : Distribution (Particle → Sample))
+    (potential : Sample → ℝ) (hpotential : ∀ x, 0 < potential x)
+    (transition : MarkovKernel Sample) (score : Sample → ℝ)
+    {numerator denominator observableBound lower
+      freshVariance numeratorMSE denominatorMSE : ℝ}
+    (hdenominator : denominator ≠ 0)
+    (hlower : 0 < lower)
+    (hparticleLower : ∀ particles : Particle → Sample,
+      lower ≤ particleAverage potential particles)
+    (hobservable : |numerator / denominator| ≤ observableBound)
+    (hobservableNonneg : 0 ≤ observableBound)
+    (hfresh : ∀ particles : Particle → Sample,
+      finiteExpectation
+          (normalizedPotentialWeights potential hpotential particles)
+          (fun i => finiteVariance
+            (rowDistribution transition (particles i)) score) +
+        finiteVariance
+          (normalizedPotentialWeights potential hpotential particles)
+          (fun i => finiteExpectation
+            (rowDistribution transition (particles i)) score) ≤ freshVariance)
+    (hnumeratorMSE :
+      ∑ particles, currentLaw.mass particles *
+        (particleAverage (fun x => potential x *
+            finiteExpectation (rowDistribution transition x) score) particles -
+          numerator) ^ 2 ≤ numeratorMSE)
+    (hdenominatorMSE :
+      ∑ particles, currentLaw.mass particles *
+        (particleAverage potential particles - denominator) ^ 2 ≤
+          denominatorMSE) :
+    ∑ particles, currentLaw.mass particles *
+        (∑ outcome,
+          (resamplePropagateLaw
+            (normalizedPotentialWeights potential hpotential particles)
+            particles transition).mass outcome *
+            (particleAverage score outcome.2 - numerator / denominator) ^ 2) ≤
+      freshVariance / Fintype.card Particle +
+        2 * (numeratorMSE + observableBound ^ 2 * denominatorMSE) /
+          lower ^ 2 := by
+  let approximateNumerator : (Particle → Sample) → ℝ := fun particles =>
+    particleAverage (fun x => potential x *
+      finiteExpectation (rowDistribution transition x) score) particles
+  let approximateDenominator : (Particle → Sample) → ℝ := fun particles =>
+    particleAverage potential particles
+  have hratio := normalized_ratio_mse_le currentLaw approximateNumerator
+    approximateDenominator hdenominator hlower hparticleLower hobservable
+    hobservableNonneg hnumeratorMSE hdenominatorMSE
+  have hfreshMean :
+      ∑ particles, currentLaw.mass particles *
+        (finiteExpectation
+            (normalizedPotentialWeights potential hpotential particles)
+            (fun i => finiteVariance
+              (rowDistribution transition (particles i)) score) +
+          finiteVariance
+            (normalizedPotentialWeights potential hpotential particles)
+            (fun i => finiteExpectation
+              (rowDistribution transition (particles i)) score)) ≤
+        freshVariance := by
+    calc
+      _ ≤ ∑ particles, currentLaw.mass particles * freshVariance := by
+        apply Finset.sum_le_sum
+        intro particles _
+        exact mul_le_mul_of_nonneg_left (hfresh particles)
+          (currentLaw.nonneg particles)
+      _ = freshVariance := by
+        rw [← Finset.sum_mul, currentLaw.sum_mass, one_mul]
+  calc
+    ∑ particles, currentLaw.mass particles *
+        (∑ outcome,
+          (resamplePropagateLaw
+            (normalizedPotentialWeights potential hpotential particles)
+            particles transition).mass outcome *
+            (particleAverage score outcome.2 - numerator / denominator) ^ 2) =
+      ∑ particles, currentLaw.mass particles *
+        (((finiteExpectation
+              (normalizedPotentialWeights potential hpotential particles)
+              (fun i => finiteVariance
+                (rowDistribution transition (particles i)) score) +
+            finiteVariance
+              (normalizedPotentialWeights potential hpotential particles)
+              (fun i => finiteExpectation
+                (rowDistribution transition (particles i)) score)) /
+              Fintype.card Particle) +
+          (approximateNumerator particles / approximateDenominator particles -
+            numerator / denominator) ^ 2) := by
+              apply Finset.sum_congr rfl
+              intro particles _
+              rw [bootstrapStage_particleAverage_sq_error]
+    _ = (∑ particles, currentLaw.mass particles *
+          (finiteExpectation
+              (normalizedPotentialWeights potential hpotential particles)
+              (fun i => finiteVariance
+                (rowDistribution transition (particles i)) score) +
+            finiteVariance
+              (normalizedPotentialWeights potential hpotential particles)
+              (fun i => finiteExpectation
+                (rowDistribution transition (particles i)) score))) /
+            Fintype.card Particle +
+        ∑ particles, currentLaw.mass particles *
+          (approximateNumerator particles / approximateDenominator particles -
+            numerator / denominator) ^ 2 := by
+              simp_rw [mul_add]
+              rw [Finset.sum_add_distrib, Finset.sum_div]
+              apply congrArg₂ (· + ·) ?_ rfl
+              apply Finset.sum_congr rfl
+              intro particles _
+              ring
+    _ ≤ freshVariance / Fintype.card Particle +
+        2 * (numeratorMSE + observableBound ^ 2 * denominatorMSE) /
+          lower ^ 2 := add_le_add
+            (div_le_div_of_nonneg_right hfreshMean (by positivity)) hratio
+
 end NormalizedWeightPerturbation
 
 section SequentialErrorRecursion
+
+/-- Exact deterministic budget generated by a time-inhomogeneous affine error
+recurrence. `rate n` and `noise n` may vary with the Feynman--Kac stage. -/
+noncomputable def sequentialErrorBudget
+    (rate noise : ℕ → ℝ) (initial : ℝ) : ℕ → ℝ
+  | 0 => initial
+  | n + 1 => rate n * sequentialErrorBudget rate noise initial n + noise n
+
+/-- A stagewise affine error estimate is bounded by its recursively generated
+time-inhomogeneous budget. -/
+theorem sequential_error_le_budget
+    (error rate noise : ℕ → ℝ) {initial : ℝ}
+    (hrate : ∀ n, 0 ≤ rate n)
+    (hinitial : error 0 ≤ initial)
+    (hstep : ∀ n, error (n + 1) ≤ rate n * error n + noise n) :
+    ∀ n, error n ≤ sequentialErrorBudget rate noise initial n := by
+  intro n
+  induction n with
+  | zero => exact hinitial
+  | succ n ih =>
+      rw [sequentialErrorBudget]
+      calc
+        error (n + 1) ≤ rate n * error n + noise n := hstep n
+        _ ≤ rate n * sequentialErrorBudget rate noise initial n + noise n := by
+          exact add_le_add (mul_le_mul_of_nonneg_left ih (hrate n)) (le_refl _)
+
+/-- Fixed-horizon inverse-particle-count propagation. If the initial MSE and
+every stage's fresh Monte Carlo noise are bounded by count-independent
+coefficients divided by `N`, then the full time-inhomogeneous recurrence is
+bounded by the recursively generated coefficient divided by `N`. -/
+theorem sequential_error_le_inverse_count
+    (error : ℕ → ℕ → ℝ) (rate noiseCoefficient : ℕ → ℝ)
+    {initialCoefficient : ℝ}
+    (hrate : ∀ n, 0 ≤ rate n)
+    (hinitial : ∀ extra,
+      error extra 0 ≤ initialCoefficient / ((extra : ℝ) + 1))
+    (hstep : ∀ extra n,
+      error extra (n + 1) ≤ rate n * error extra n +
+        noiseCoefficient n / ((extra : ℝ) + 1)) :
+    ∀ extra n, error extra n ≤
+      sequentialErrorBudget rate noiseCoefficient initialCoefficient n /
+        ((extra : ℝ) + 1) := by
+  intro extra n
+  have hdenom : (0 : ℝ) < (extra : ℝ) + 1 := by positivity
+  induction n with
+  | zero => exact hinitial extra
+  | succ n ih =>
+      rw [sequentialErrorBudget]
+      calc
+        error extra (n + 1) ≤ rate n * error extra n +
+            noiseCoefficient n / ((extra : ℝ) + 1) := hstep extra n
+        _ ≤ rate n *
+              (sequentialErrorBudget rate noiseCoefficient initialCoefficient n /
+                ((extra : ℝ) + 1)) +
+            noiseCoefficient n / ((extra : ℝ) + 1) := by
+              exact add_le_add (mul_le_mul_of_nonneg_left ih (hrate n))
+                (le_refl _)
+        _ = (rate n *
+              sequentialErrorBudget rate noiseCoefficient initialCoefficient n +
+            noiseCoefficient n) / ((extra : ℝ) + 1) := by ring
+
+/-- At every fixed horizon, the preceding inverse-count budget tends to zero
+as the concrete particle count `N = extra + 1` tends to infinity. -/
+theorem sequentialErrorBudget_div_count_tendsto_zero
+    (rate noiseCoefficient : ℕ → ℝ) (initialCoefficient : ℝ) (horizon : ℕ) :
+    Filter.Tendsto
+      (fun extra : ℕ =>
+        sequentialErrorBudget rate noiseCoefficient initialCoefficient horizon /
+          ((extra : ℝ) + 1))
+      Filter.atTop (nhds 0) := by
+  exact tendsto_const_nhds.div_atTop
+    (Filter.tendsto_atTop_add_const_right Filter.atTop 1
+      tendsto_natCast_atTop_atTop)
+
+/-- Fixed-horizon mean-square consistency follows from nonnegativity and the
+stagewise inverse-count recurrence. This theorem is deliberately abstract in
+the stage constants so concrete SMC models must still prove their normalized
+one-step estimates. -/
+theorem sequential_error_tendsto_zero_of_inverse_count
+    (error : ℕ → ℕ → ℝ) (rate noiseCoefficient : ℕ → ℝ)
+    {initialCoefficient : ℝ}
+    (hnonneg : ∀ extra n, 0 ≤ error extra n)
+    (hrate : ∀ n, 0 ≤ rate n)
+    (hinitial : ∀ extra,
+      error extra 0 ≤ initialCoefficient / ((extra : ℝ) + 1))
+    (hstep : ∀ extra n,
+      error extra (n + 1) ≤ rate n * error extra n +
+        noiseCoefficient n / ((extra : ℝ) + 1))
+    (horizon : ℕ) :
+    Filter.Tendsto (fun extra => error extra horizon)
+      Filter.atTop (nhds 0) := by
+  apply squeeze_zero
+    (g := fun extra : ℕ =>
+      sequentialErrorBudget rate noiseCoefficient initialCoefficient horizon /
+        ((extra : ℝ) + 1))
+  · exact fun extra => hnonneg extra horizon
+  · exact fun extra => sequential_error_le_inverse_count error rate
+      noiseCoefficient hrate hinitial hstep extra horizon
+  · exact sequentialErrorBudget_div_count_tendsto_zero rate noiseCoefficient
+      initialCoefficient horizon
 
 /-- Iteration of a one-step affine particle-error estimate.  At every fixed
 horizon this retains an explicit inverse-particle-count noise term; obtaining

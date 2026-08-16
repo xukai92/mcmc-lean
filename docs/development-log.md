@@ -45,6 +45,19 @@ one-step resample--propagate variance identity and the existing affine
 full-horizon error recurrence. Instantiating the numerator and denominator
 budgets recursively for an actual Feynman--Kac schedule remains open.
 
+The next recurrence layer is now machine checked. `resamplePropagateLaw`
+packages one bootstrap ancestor/propagation step as an ordinary finite law.
+Lean proves its exact expectation and variance, an arbitrary-reference
+bias--variance identity, and the bootstrap specialization identifying the
+carried bias with the self-normalized empirical Feynman--Kac ratio.
+`bootstrapStage_mse_le` integrates this identity over an arbitrary incoming
+population law and combines fresh `1/N` variance with the previously proved
+numerator/normalizer MSE bound. Time-varying stage constants are propagated by
+`sequentialErrorBudget`; inverse-count initial and innovation bounds imply an
+explicit inverse-count full-horizon bound and fixed-horizon convergence to
+zero. What remains is the schedule-level instantiation that recursively
+supplies those constants for the actual prefix population laws.
+
 ## 2026-08-15: finite continuous-time event schedules
 
 Extended the Poissonized fixed-event skeleton with ordered real timestamps.

@@ -401,6 +401,36 @@ theorem normalizedPotentialWeights_mass_pos
   exact div_pos (hpotential _) (Finset.sum_pos
     (fun j _ => hpotential (particles j)) Finset.univ_nonempty)
 
+omit [Fintype Sample] [DecidableEq Sample] [DecidableEq Particle] in
+/-- Expectation under normalized empirical potential weights is exactly the
+ratio of the weighted and unweighted particle averages. -/
+theorem finiteExpectation_normalizedPotentialWeights
+    (potential : Sample → ℝ) (hpotential : ∀ x, 0 < potential x)
+    (particles : Particle → Sample) (score : Sample → ℝ) :
+    (∑ i,
+      (normalizedPotentialWeights potential hpotential particles).mass i *
+        score (particles i)) =
+      particleAverage (fun x => potential x * score x) particles /
+        particleAverage potential particles := by
+  unfold normalizedPotentialWeights particleAverage
+  have hsum : (∑ j, potential (particles j)) ≠ 0 :=
+    ne_of_gt (Finset.sum_pos (fun j _ => hpotential (particles j))
+      Finset.univ_nonempty)
+  have hcard : (Fintype.card Particle : ℝ) ≠ 0 := by
+    exact_mod_cast Fintype.card_ne_zero
+  rw [show (∑ i, potential (particles i) /
+      (∑ j, potential (particles j)) * score (particles i)) =
+      (∑ i, potential (particles i) * score (particles i)) /
+        (∑ j, potential (particles j)) by
+    calc
+      _ = ∑ i, (potential (particles i) * score (particles i)) /
+          (∑ j, potential (particles j)) := by
+            apply Finset.sum_congr rfl
+            intro i _
+            ring
+      _ = _ := by rw [Finset.sum_div]]
+  field_simp
+
 omit [DecidableEq Sample] in
 /-- Multiplying the normalized resample--propagate expectation by the current
 average potential cancels the empirical normalizer. This is the local
