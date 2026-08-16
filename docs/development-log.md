@@ -39,7 +39,10 @@
   diminishing adaptation, containment, and convergence remain to be lifted
   onto this semantics. A conservativity check now proves that constant
   parameter selection recovers the established homogeneous next-step adapter,
-  infinite path kernel, and finite-time kernel powers exactly.
+  infinite path kernel, and finite-time kernel powers exactly. The first
+  nontrivial coordinate is also checked directly: the time-one state kernel is
+  precisely the parameterized family section chosen from the singleton
+  initial history, ruling out an off-by-one adaptation stage.
 
 - Tightened the Gaussian Zig-Zag weak-generator domain so every supplied
   position derivative is now certified as the actual derivative of its

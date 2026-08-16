@@ -116,6 +116,47 @@ instance HistoryAdaptiveFamily.stateKernel.instIsMarkovKernel
     ProbabilityTheory.Kernel.id_apply]
   rfl
 
+/-- The actual transition selected from the time-zero history. -/
+noncomputable def HistoryAdaptiveFamily.initialKernel
+    (adaptive : HistoryAdaptiveFamily (State := State) (Parameter := Parameter)) :
+    ProbabilityTheory.Kernel State State :=
+  (adaptive.next 0).comap initialHistory measurable_initialHistory
+
+instance HistoryAdaptiveFamily.initialKernel.instIsMarkovKernel
+    (adaptive : HistoryAdaptiveFamily (State := State) (Parameter := Parameter)) :
+    IsMarkovKernel adaptive.initialKernel := by
+  unfold HistoryAdaptiveFamily.initialKernel
+  infer_instance
+
+/-- Expanded form of the initial selected kernel: retain the current state and
+pair it with the parameter chosen from its singleton history. -/
+theorem HistoryAdaptiveFamily.initialKernel_eq_family_comap
+    (adaptive : HistoryAdaptiveFamily (State := State) (Parameter := Parameter)) :
+    adaptive.initialKernel = adaptive.family.comap
+      (fun state => (state, adaptive.select 0 (initialHistory state)))
+      (measurable_id.prodMk
+        ((adaptive.measurable_select 0).comp measurable_initialHistory)) := by
+  ext state event hevent
+  simp [HistoryAdaptiveFamily.initialKernel, HistoryAdaptiveFamily.next,
+    ProbabilityTheory.Kernel.comap_apply]
+  rfl
+
+/-- The first nontrivial adaptive marginal is exactly the kernel chosen from
+the initial history; this checks the Ionescu--Tulcea stage indexing. -/
+@[simp] theorem HistoryAdaptiveFamily.stateKernel_one
+    (adaptive : HistoryAdaptiveFamily (State := State) (Parameter := Parameter)) :
+    adaptive.stateKernel 1 = adaptive.initialKernel := by
+  letI : ∀ k, IsMarkovKernel (adaptive.next k) := fun k =>
+    HistoryAdaptiveFamily.next.instIsMarkovKernel adaptive k
+  rw [HistoryAdaptiveFamily.stateKernel]
+  change (((ProbabilityTheory.Kernel.partialTraj (X := fun _ => State)
+    adaptive.next 0 (0 + 1)).map
+    (fun history => history
+      (⟨0 + 1, Finset.mem_Iic.mpr le_rfl⟩ : Finset.Iic (0 + 1)))).comap
+        initialHistory measurable_initialHistory) = adaptive.initialKernel
+  rw [ProbabilityTheory.Kernel.map_partialTraj_succ_self]
+  rfl
+
 /-- The finite state kernel is exactly the corresponding coordinate marginal
 of the infinite adaptive path kernel. No homogeneous Markov recurrence is
 asserted: after marginalizing the history, the selected kernel generally
