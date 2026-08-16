@@ -309,6 +309,12 @@ For the separate bounded-potential certificate, the closed-form coefficient
 in particle count and now proved to tend to one as `N → ∞`; every fixed-
 positive-iteration geometric factor consequently tends to zero. Establishing
 the model-specific minorization remains distinct from this asymptotic algebra.
+Here `B` denotes the supplied PG penalty, not merely a raw potential ratio.
+For the primitive finite oscillation constant `Bosc`, the safe schedule now
+uses `B = 2Bosc - 1`, so each propagation factor is
+`(N-1)/(N-2+2Bosc)`. The extra term accounts for self-normalizing the ordinary
+particle cloud against the exact normalized trajectory target; omitting it is
+false for skewed finite initial laws.
 
 The Julia layer also exposes bounded warmup-only tuning for Gaussian RWMH.
 `WarmupGaussianRWMH` uses diminishing `1/√n` Robbins--Monro log-scale updates,

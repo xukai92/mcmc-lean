@@ -1069,6 +1069,33 @@ theorem finitePotentialOscillationBound
       _ ≤ finitePotentialOscillationConstant potential * potential y :=
         mul_le_mul_of_nonneg_right hratio hy.le
 
+omit [DecidableEq Sample] [DecidableEq Particle] in
+/-- Every positive finite oscillation constant is at least one. -/
+theorem one_le_finitePotentialOscillationConstant
+    [Nonempty Sample] (potential : Sample → ℝ)
+    (hpotential : ∀ x, 0 < potential x) :
+    1 ≤ finitePotentialOscillationConstant potential := by
+  let x : Sample := Classical.choice inferInstance
+  have hcompare := (finitePotentialOscillationBound potential hpotential).le_mul x x
+  have hx := hpotential x
+  nlinarith
+
+/-- Safe primitive particle-Gibbs penalty for one potential slice. Besides the
+retained-particle denominator cost, the second copy of the oscillation bound
+accounts for comparison of the self-normalized ordinary cloud with the exact
+normalized Feynman--Kac target. -/
+noncomputable def finitePotentialParticleGibbsPenalty
+    (potential : Sample → ℝ) : ℝ :=
+  2 * finitePotentialOscillationConstant potential - 1
+
+omit [DecidableEq Sample] [DecidableEq Particle] in
+theorem finitePotentialParticleGibbsPenalty_pos
+    [Nonempty Sample] (potential : Sample → ℝ)
+    (hpotential : ∀ x, 0 < potential x) :
+    0 < finitePotentialParticleGibbsPenalty potential := by
+  unfold finitePotentialParticleGibbsPenalty
+  linarith [one_le_finitePotentialOscillationConstant potential hpotential]
+
 omit [Fintype Sample] [DecidableEq Sample] [DecidableEq Particle] in
 /-- A potential oscillation bound gives a particle-count-uniform lower bound
 on every normalized ancestor weight: `wᵢ ≥ 1 / (N B)`. -/

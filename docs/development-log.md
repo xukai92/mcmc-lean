@@ -45,7 +45,8 @@
   proves its multiplicative comparison inequality, and derives the uniform
   normalized-resampling bound `wᵢ ≥ 1/(N B)`. The corresponding
   Feynman--Kac penalty list has exactly `T+1` positive entries (one neutral
-  terminal-index factor and one oscillation constant per step). Lifting these
+  terminal-index factor and one corrected `2B-1` oscillation penalty per
+  step). Lifting these
   local bounds through the recursive conditional-SMC aggregate is the
   remaining sharp-coefficient proof.
   Full-support schedules now also discharge `PathSuffixSupported`
@@ -83,8 +84,8 @@
   `N−1 · G(retained) ≤ B · Σ(unforced G)`, hence the full normalizer is
   at most `(N−1+B)/(N−1)` times the unforced normalizer. Lean packages the
   resulting ratio inequality and instantiates it for marked transition mass,
-  yielding the desired `(N−1)/(N−1+B)` resampling comparison before the
-  remaining recursion bookkeeping. This replaces the earlier crude
+  yielding the retained-normalizer half of the resampling comparison before
+  the remaining recursion bookkeeping. This replaces the earlier crude
   pointwise-weight route that would have left a permanent `1/B` loss. The
   normalizer comparison is now composed with the forced resample--propagate
   expectation in one checked theorem, leaving only the telescoping of the
@@ -93,6 +94,15 @@
   for the zero-step trajectory kernel, Lean identifies the target with the
   initial law and constructs an aggregate certificate with the exact
   `(N−1)/N` coefficient (including the degenerate `N=1` zero coefficient).
+  Attempting the one-step target comparison exposed a second, distinct
+  self-normalization cost: the raw oscillation constant `B` cannot in general
+  be used directly as the displayed PG penalty. A skewed two-state initial law
+  already violates that proposed bound. The primitive schedule is therefore
+  corrected to the standard safe penalty `2B−1`, giving the slice factor
+  `(N−1)/(N−2+2B)`. Lean proves `B ≥ 1`, hence positivity of every
+  corrected penalty. Abstract certificate theorems with an arbitrary supplied
+  penalty are unchanged, and no previously proved convergence claim relied on
+  the obstructed primitive instantiation.
 
 - Completed the compact-minorization and faithful-coupling foundation for the
   actual bare one-dimensional Gaussian SoftAbs multinomial kernel at
