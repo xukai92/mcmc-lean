@@ -2047,6 +2047,15 @@ oracle while preserving the intended boundary: Julia `Float64` is related by
 bounded-error and stable-decision certificates, not by a false equality
 instance.
 
+Added the first executable constrained-coordinate client.
+`PositiveTransformedRWMH` maps a positive state through `log`, runs the
+existing Gaussian RWMH implementation with unconstrained log density
+`logπ(exp(y)) + y`, and maps back through `exp`.  Julia tests positivity,
+deterministic replay, validation, and exponential-target moments.  The `+y`
+term makes the measure Jacobian visible and aligns the runtime with
+`transformedKernel_invariant`; bounded `Float64` refinement of `log` and `exp`
+remains explicit rather than being inferred from the empirical test.
+
 ## 2026-08-16: normalized particle-error recursion
 
 Added the deterministic nonlinear bridge needed beyond the exact one-step

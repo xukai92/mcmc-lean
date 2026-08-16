@@ -9,7 +9,7 @@ include("Certificates/Certificates.jl")
 include("Reference/Reference.jl")
 include("Optimized/Optimized.jl")
 
-export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, BoundedRejectionSlice, SteppingOutSlice, TwoStateMH, GaussianRWMH,
+export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, BoundedRejectionSlice, SteppingOutSlice, TwoStateMH, GaussianRWMH, PositiveTransformedRWMH,
     WarmupGaussianRWMH, GaussianRWMHWarmupResult, warmup,
     ScalarHMC, VectorHMC, MultinomialHMC, MetricMultinomialHMC,
     CategoricalDHMC,
@@ -986,6 +986,55 @@ function sample(rng::AbstractRNG, sampler::GaussianRWMH, initial::Real, count::I
 end
 
 sample(sampler::GaussianRWMH, initial::Real, count::Integer) =
+    sample(Random.default_rng(), sampler, initial, count)
+
+"""Gaussian RWMH on a positive real parameter through the log transform.
+
+`logdensity` is the constrained-space log density with respect to Lebesgue
+measure on `(0,∞)`. The unconstrained callback is
+`logdensity(exp(y)) + y`; the final term is the log-Jacobian. The exact Lean
+conjugation theorem applies once this pushed-density identification is
+supplied. Float64 `log`/`exp` remain a numerical-refinement boundary.
+"""
+struct PositiveTransformedRWMH{F}
+    logdensity::F
+    scale::Float64
+    function PositiveTransformedRWMH(logdensity::F, scale::Real) where {F}
+        converted = Float64(scale)
+        isfinite(converted) && converted > 0 ||
+            throw(ArgumentError("scale must be finite and positive"))
+        new{F}(logdensity, converted)
+    end
+end
+
+function step(rng::AbstractRNG, sampler::PositiveTransformedRWMH, current::Real)
+    x = Float64(current)
+    isfinite(x) && x > 0 ||
+        throw(ArgumentError("positive transformed state must be finite and positive"))
+    unconstrained(y) = sampler.logdensity(exp(y)) + y
+    next_log = step(rng, GaussianRWMH(unconstrained, sampler.scale), log(x))
+    next = exp(next_log)
+    isfinite(next) && next > 0 ||
+        throw(DomainError(next_log, "inverse transformed state must be finite"))
+    next
+end
+
+step(sampler::PositiveTransformedRWMH, current::Real) =
+    step(Random.default_rng(), sampler, current)
+
+function sample(rng::AbstractRNG, sampler::PositiveTransformedRWMH,
+        initial::Real, count::Integer)
+    count >= 0 || throw(ArgumentError("sample count must be nonnegative"))
+    samples = Vector{Float64}(undef, count)
+    current = Float64(initial)
+    for index in eachindex(samples)
+        current = step(rng, sampler, current)
+        samples[index] = current
+    end
+    samples
+end
+
+sample(sampler::PositiveTransformedRWMH, initial::Real, count::Integer) =
     sample(Random.default_rng(), sampler, initial, count)
 
 """Bounded, warmup-only Robbins--Monro tuning for Gaussian RWMH.

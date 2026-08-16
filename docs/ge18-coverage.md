@@ -79,7 +79,11 @@ the constrained target. The standard positive-real log/exp equivalence is
 instantiated. Any Jacobian belongs in the density identification of that pushed
 measure; the theorem does not permit silently reusing the untransformed density.
 Generated Julia transforms and their floating-point refinement remain runtime
-work.
+work. A public `PositiveTransformedRWMH` runtime client now implements the
+standard log transform, including the required `+y` log-Jacobian, validates
+the positive domain, and has reproducible exponential-target diagnostics.
+Connecting its `Float64` `log`/`exp` calls to the exact conjugation theorem
+remains the numerical boundary.
 
 ## Remaining milestones
 

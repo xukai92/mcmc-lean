@@ -679,6 +679,18 @@ end
         @test_throws ArgumentError WarmupGaussianRWMH(identity, 1.0, 10;
             min_scale=2.0, max_scale=1.0)
     end
+    @testset "positive constrained transform" begin
+        sampler = PositiveTransformedRWMH(x -> -x, 0.8)
+        first = sample(MersenneTwister(0x105), sampler, 1.0, 25_000)
+        second = sample(MersenneTwister(0x105), sampler, 1.0, 25_000)
+        @test first == second
+        @test all(x -> isfinite(x) && x > 0, first)
+        retained = first[2001:end]
+        @test abs(mean(retained) - 1) < 0.06
+        @test abs(var(retained) - 1) < 0.12
+        @test_throws ArgumentError PositiveTransformedRWMH(identity, 0.0)
+        @test_throws ArgumentError step(MersenneTwister(1), sampler, 0.0)
+    end
     @testset "ESS and gradient-count benchmarks" begin
         function autocorrelation_ess(values; max_lag=min(1_000, length(values) ÷ 4))
             centered = values .- mean(values)
