@@ -4141,6 +4141,178 @@ theorem gaussianZigZagSuspension_ageFiber_map
   rw [gaussianZigZagCycleIntervalKernel_apply]
   exact Measure.restrict_congr_set Ioo_ae_eq_Ico.symm
 
+/-- Integrating the age-fiber translation over two independent event resets
+gives exactly the literal regenerative-cycle composition product. -/
+theorem gaussianZigZagCycleAgeOccupation_map :
+    Measure.map
+        (fun input : (ℝ × ℝ) × ℝ =>
+          (input.1, input.1.1 + input.2))
+        (((gaussianZigZagNegativeRayleighMeasure.prod
+            gaussianZigZagNegativeRayleighMeasure).prod volume).restrict
+          {input | input.2 ∈ Set.Ico 0
+            (gaussianZigZagCycleEnvironmentRoof (input.1, fun _ => 0) : ℝ)}) =
+      (gaussianZigZagNegativeRayleighMeasure.prod
+        gaussianZigZagNegativeRayleighMeasure) ⊗ₘ
+          gaussianZigZagCycleIntervalKernel := by
+  let resetMeasure := gaussianZigZagNegativeRayleighMeasure.prod
+    gaussianZigZagNegativeRayleighMeasure
+  have hmap : Measurable (fun input : (ℝ × ℝ) × ℝ =>
+      (input.1, input.1.1 + input.2)) := by fun_prop
+  have hdomain : MeasurableSet
+      {input : (ℝ × ℝ) × ℝ | input.2 ∈ Set.Ico 0
+        (gaussianZigZagCycleEnvironmentRoof (input.1, fun _ => 0) : ℝ)} := by
+    exact (measurableSet_le measurable_const measurable_snd).inter
+      (measurableSet_lt measurable_snd
+        (measurable_gaussianZigZagCycleEnvironmentRoof.coe_nnreal_real.comp
+          (measurable_fst.prodMk measurable_const)))
+  ext event hevent
+  rw [Measure.map_apply hmap hevent,
+    Measure.restrict_apply (hmap hevent),
+    Measure.prod_apply ((hmap hevent).inter hdomain),
+    Measure.compProd_apply hevent]
+  apply lintegral_congr_ae
+  filter_upwards [gaussianZigZagCycleEnvironment_resets_negative_ae]
+      with resets hnegative
+  have hfiber := congrArg (fun measure : Measure ℝ =>
+      measure (Prod.mk resets ⁻¹' event))
+    (gaussianZigZagSuspension_ageFiber_map
+      (resets, fun _ => 0) hnegative.1 hnegative.2)
+  rw [Measure.map_apply (by fun_prop) (hevent.preimage measurable_prodMk_left),
+    Measure.restrict_apply ((hmap.comp measurable_prodMk_left) hevent)] at hfiber
+  simpa [resetMeasure] using hfiber
+
+/-- Decoding the full suspension occupation, including the independent phase
+and future hazard tail, gives the unnormalized stationary-cycle source law. -/
+theorem gaussianZigZagSuspensionDecode_map_occupation :
+    Measure.map gaussianZigZagSuspensionDecode
+        gaussianZigZagSuspensionOccupationMeasure =
+      (((gaussianZigZagNegativeRayleighMeasure.prod
+          gaussianZigZagNegativeRayleighMeasure) ⊗ₘ
+            gaussianZigZagCycleIntervalKernel).prod
+        zigZagVelocityProbability).prod
+          gaussianZigZagHazardSequenceMeasure := by
+  let resetMeasure := gaussianZigZagNegativeRayleighMeasure.prod
+    gaussianZigZagNegativeRayleighMeasure
+  let hazardMeasure := gaussianZigZagHazardSequenceMeasure
+  let velocityMeasure := zigZagVelocityProbability
+  let permute : (((ℝ × ℝ) × (ℕ → NNReal)) × Bool) × ℝ →
+      ((((ℝ × ℝ) × ℝ) × Bool) × (ℕ → NNReal)) :=
+    fun input => (((input.1.1.1, input.2), input.1.2), input.1.1.2)
+  let translate : ((((ℝ × ℝ) × ℝ) × Bool) × (ℕ → NNReal)) →
+      ((((ℝ × ℝ) × ℝ) × Bool) × (ℕ → NNReal)) :=
+    fun input => (((input.1.1.1, input.1.1.1.1 + input.1.1.2),
+      input.1.2), input.2)
+  have hpermute : Measurable permute := by unfold permute; fun_prop
+  have htranslate : Measurable translate := by unfold translate; fun_prop
+  have hpermuteMeasure : Measure.map permute
+      (((resetMeasure.prod hazardMeasure).prod velocityMeasure).prod volume) =
+      (((resetMeasure.prod volume).prod velocityMeasure).prod hazardMeasure) := by
+    let p₁ := (MeasurableEquiv.prodAssoc :
+      (((ℝ × ℝ) × (ℕ → NNReal)) × Bool) × ℝ ≃ᵐ
+        ((ℝ × ℝ) × (ℕ → NNReal)) × (Bool × ℝ))
+    let p₂ := (MeasurableEquiv.prodAssoc :
+      ((ℝ × ℝ) × (ℕ → NNReal)) × (Bool × ℝ) ≃ᵐ
+        (ℝ × ℝ) × ((ℕ → NNReal) × (Bool × ℝ)))
+    let p₃ : (ℝ × ℝ) × ((ℕ → NNReal) × (Bool × ℝ)) →
+        (ℝ × ℝ) × ((Bool × ℝ) × (ℕ → NNReal)) :=
+      Prod.map id Prod.swap
+    let p₄ : (ℝ × ℝ) × ((Bool × ℝ) × (ℕ → NNReal)) →
+        (ℝ × ℝ) × ((ℝ × Bool) × (ℕ → NNReal)) :=
+      Prod.map id (Prod.map Prod.swap id)
+    let p₅ := (MeasurableEquiv.prodAssoc.symm :
+      (ℝ × ℝ) × ((ℝ × Bool) × (ℕ → NNReal)) ≃ᵐ
+        ((ℝ × ℝ) × (ℝ × Bool)) × (ℕ → NNReal))
+    let p₆ : ((ℝ × ℝ) × (ℝ × Bool)) × (ℕ → NNReal) →
+        ((((ℝ × ℝ) × ℝ) × Bool) × (ℕ → NNReal)) :=
+      Prod.map MeasurableEquiv.prodAssoc.symm id
+    have hp₁ := measurePreserving_prodAssoc
+      (resetMeasure.prod hazardMeasure) velocityMeasure (volume : Measure ℝ)
+    have hp₂ := measurePreserving_prodAssoc
+      resetMeasure hazardMeasure (velocityMeasure.prod (volume : Measure ℝ))
+    have hp₃ := (MeasurePreserving.id resetMeasure).prod
+      (Measure.measurePreserving_swap
+        (μ := hazardMeasure) (ν := velocityMeasure.prod (volume : Measure ℝ)))
+    have hp₄ := (MeasurePreserving.id resetMeasure).prod
+      ((Measure.measurePreserving_swap
+        (μ := velocityMeasure) (ν := (volume : Measure ℝ))).prod
+          (MeasurePreserving.id hazardMeasure))
+    have hp₅ := (measurePreserving_prodAssoc resetMeasure
+      (volume.prod velocityMeasure) hazardMeasure).symm
+        MeasurableEquiv.prodAssoc
+    have hp₆ := ((measurePreserving_prodAssoc resetMeasure
+      (volume : Measure ℝ) velocityMeasure).symm
+        MeasurableEquiv.prodAssoc).prod (MeasurePreserving.id hazardMeasure)
+    have hp := hp₆.comp (hp₅.comp (hp₄.comp
+      (hp₃.comp (hp₂.comp hp₁))))
+    have hfun : permute = p₆ ∘ p₅ ∘ p₄ ∘ p₃ ∘ p₂ ∘ p₁ := by
+      funext input
+      rfl
+    rw [hfun]
+    exact hp.map_eq
+  have hdomain : MeasurableSet
+      (suspensionFundamentalDomain gaussianZigZagCyclePhaseEnvironmentRoof) :=
+    measurableSet_suspensionFundamentalDomain
+      measurable_gaussianZigZagCyclePhaseEnvironmentRoof
+  let ageDomain : Set ((ℝ × ℝ) × ℝ) :=
+    {input | input.2 ∈ Set.Ico 0
+      (gaussianZigZagCycleEnvironmentRoof (input.1, fun _ => 0) : ℝ)}
+  have hageDomain : MeasurableSet ageDomain := by
+    unfold ageDomain
+    exact (measurableSet_le measurable_const measurable_snd).inter
+      (measurableSet_lt measurable_snd
+        (measurable_gaussianZigZagCycleEnvironmentRoof.coe_nnreal_real.comp
+          (measurable_fst.prodMk measurable_const)))
+  have hpre : permute ⁻¹'
+      ((ageDomain ×ˢ Set.univ) ×ˢ Set.univ) =
+      suspensionFundamentalDomain gaussianZigZagCyclePhaseEnvironmentRoof := by
+    ext input
+    simp [permute, ageDomain, suspensionFundamentalDomain,
+      gaussianZigZagCyclePhaseEnvironmentRoof]
+  have hpermutedOccupation : Measure.map permute
+      gaussianZigZagSuspensionOccupationMeasure =
+      ((((resetMeasure.prod volume).restrict ageDomain).prod velocityMeasure).prod
+        hazardMeasure) := by
+    unfold gaussianZigZagSuspensionOccupationMeasure
+      suspensionOccupationMeasure
+      gaussianZigZagCyclePhaseEnvironmentMeasure
+      gaussianZigZagCycleEnvironmentMeasure
+    change Measure.map permute
+        ((((resetMeasure.prod hazardMeasure).prod velocityMeasure).prod volume).restrict
+          (suspensionFundamentalDomain gaussianZigZagCyclePhaseEnvironmentRoof)) = _
+    rw [← hpre, ← Measure.restrict_map hpermute
+      ((hageDomain.prod MeasurableSet.univ).prod MeasurableSet.univ),
+      hpermuteMeasure]
+    rw [Measure.prod_restrict, Measure.prod_restrict]
+    simp
+  have hfactor : gaussianZigZagSuspensionDecode = translate ∘ permute := by
+    funext input
+    rfl
+  rw [hfactor, Measure.map_map htranslate hpermute,
+    hpermutedOccupation]
+  have htranslateFactor : translate =
+      Prod.map (Prod.map
+        (fun input : (ℝ × ℝ) × ℝ =>
+          (input.1, input.1.1 + input.2)) id) id := rfl
+  rw [htranslateFactor, ← Measure.map_prod_map,
+    ← Measure.map_prod_map, Measure.map_id, Measure.map_id,
+    gaussianZigZagCycleAgeOccupation_map]
+  rfl
+
+/-- The preceding unnormalized decoder law is the mean cycle duration times
+the normalized stationary-cycle source used by the stopped executor. -/
+theorem gaussianZigZagSuspensionDecode_map_occupation_eq_smul :
+    Measure.map gaussianZigZagSuspensionDecode
+        gaussianZigZagSuspensionOccupationMeasure =
+      gaussianZigZagCycleMeanDuration •
+        ((gaussianZigZagStationaryCycleMeasure.prod
+          zigZagVelocityProbability).prod
+            gaussianZigZagHazardSequenceMeasure) := by
+  rw [gaussianZigZagSuspensionDecode_map_occupation]
+  unfold gaussianZigZagStationaryCycleMeasure
+  rw [Measure.prod_smul_left, Measure.prod_smul_left, smul_smul]
+  rw [ENNReal.mul_inv_cancel gaussianZigZagCycleMeanDuration_ne_zero
+    gaussianZigZagCycleMeanDuration_ne_top, one_smul]
+
 /-- Regenerative event-epoch law: negative-Rayleigh signed position and an
 independent uniform velocity label. -/
 noncomputable def gaussianZigZagSignedEventTarget : Measure ZigZagState :=

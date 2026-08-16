@@ -3667,3 +3667,15 @@ cumulative roof time past every finite horizon. Consequently, the concrete
 Gaussian suspension occupation measure is now machine-checked invariant at
 every nonnegative time. Only the pathwise decoder/intertwining transfer to the
 public stopped Zig-Zag kernel remains.
+
+## 2026-08-16: suspension/stationary-cycle decoder law
+
+Completed the measure-level decoder identification. A checked permutation of
+the reset, future-hazard, velocity, and age product coordinates moves the
+suspension age beside its reset pair. Fiberwise translation then maps the age
+interval exactly to the literal regenerative-cycle kernel, and product-map
+laws restore the public stationary-cycle coordinate order. Thus decoded
+unnormalized suspension occupation is exactly the mean cycle duration times
+the normalized stationary-cycle source law used by the stopped executor.
+The remaining transfer is now solely the pathwise commuting equation between
+the suspension endpoint and the exact stopped recursion.
