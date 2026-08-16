@@ -78,4 +78,50 @@ theorem bouncyRate_reflection
       max 0 (-euclideanInner velocity normal) := by
   rw [bouncyRate, euclideanInner_bouncyReflection_normal normal velocity hnormal]
 
+/-- Positive and negative normal flux differ by the signed normal velocity.
+This is the pointwise cancellation between the BPS transport generator and
+its bounce generator. -/
+theorem bouncyRate_sub_reflectedRate
+    (normal velocity : Position ι) (hnormal : normal ≠ 0) :
+    bouncyRate normal velocity -
+        bouncyRate normal (bouncyReflection normal velocity) =
+      euclideanInner velocity normal := by
+  rw [bouncyRate_reflection normal velocity hnormal]
+  unfold bouncyRate
+  let flux := euclideanInner velocity normal
+  by_cases hflux : 0 ≤ flux
+  · rw [max_eq_right hflux, max_eq_left (by linarith)]
+    ring
+  · have hflux' : flux ≤ 0 := le_of_not_ge hflux
+    rw [max_eq_left hflux', max_eq_right (by linarith)]
+    ring
+
+/-- Equivalent incoming-minus-outgoing form of the BPS flux identity. -/
+theorem reflectedRate_sub_bouncyRate
+    (normal velocity : Position ι) (hnormal : normal ≠ 0) :
+    bouncyRate normal (bouncyReflection normal velocity) -
+        bouncyRate normal velocity =
+      -euclideanInner velocity normal := by
+  linarith [bouncyRate_sub_reflectedRate normal velocity hnormal]
+
+/-- Pairing a bounce-generator term at a velocity with the corresponding term
+at its reflection collapses to signed transport flux times the test-function
+jump. This is the finite algebra used after a reflection-invariant velocity
+measure changes variables. -/
+theorem bouncyJump_pair
+    (normal velocity : Position ι) (hnormal : normal ≠ 0)
+    (test : Position ι → ℝ) :
+    bouncyRate normal velocity *
+          (test (bouncyReflection normal velocity) - test velocity) +
+        bouncyRate normal (bouncyReflection normal velocity) *
+          (test (bouncyReflection normal
+              (bouncyReflection normal velocity)) -
+            test (bouncyReflection normal velocity)) =
+      euclideanInner velocity normal *
+        (test (bouncyReflection normal velocity) - test velocity) := by
+  rw [bouncyReflection_involutive normal velocity hnormal]
+  have hflux := bouncyRate_sub_reflectedRate normal velocity hnormal
+  rw [← hflux]
+  ring
+
 end Mcmc.PDMP

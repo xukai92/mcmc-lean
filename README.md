@@ -171,7 +171,10 @@ proved involutive, kinetic-norm preserving, and reversing the normal velocity
 component. The process API now also provides full independent velocity
 refreshment, proves it Markov, proves it preserves every compatible
 position–velocity product target, and proves that it leaves measurable
-position events unchanged. For globally bounded bounce intensities, Lean now
+position events unchanged. The multidimensional bounce algebra also proves
+the signed flux identity `λ(v) - λ(Rv) = ⟨v,∇U⟩` and its paired
+jump-generator form, isolating the exact pointwise cancellation used after a
+reflection-invariant velocity change of variables. For globally bounded bounce intensities, Lean now
 also constructs the exact positive-horizon Poisson/ordered-time thinning
 kernel and the practical refresh-then-bounce composition. The latter preserves
 a product target conditional on the still-explicit bounce-horizon spatial-flux

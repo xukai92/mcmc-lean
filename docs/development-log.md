@@ -1,5 +1,13 @@
 # Development log
 
+- Strengthened the general-dimensional Bouncy Particle foundation with the
+  exact signed-flux cancellation. For every nonzero event normal, Lean proves
+  `λ(v) - λ(Rv) = ⟨v,n⟩` and the paired bounce-generator identity at
+  `v` and `Rv`. These are the pointwise algebraic inputs to the usual
+  reflection-invariant Gaussian-velocity change of variables; the remaining
+  general-dimensional work is the measure/integration and process-semigroup
+  layer, not reflection geometry.
+
 - Strengthened primitive positive-horizon particle-Gibbs convergence from an
   opaque finite-matrix refresh rate to the explicit forced-lineage interface.
   For every finite full-support model and every fixed count `N ≥ 2`, Lean
