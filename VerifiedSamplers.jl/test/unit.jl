@@ -101,7 +101,7 @@ end
 end
 
 @testset "versioned reference IR" begin
-    @test Reference.IR_FORMAT_VERSION == 13
+    @test Reference.IR_FORMAT_VERSION == 14
     @test sort!(collect(keys(Reference.PROGRAMS))) ==
         ["categorical_index!", "certified_relativistic_multinomial_hmc_step!",
         "coupled_gaussian_rwmh_step!",
@@ -110,6 +110,14 @@ end
         "finite_mh_step!", "gaussian_rwmh_step!", "multinomial_hmc_step!",
         "relativistic_multinomial_hmc_step!", "scalar_hmc_step!",
         "vector_hmc_step!", "xu21_coupled_step!"]
+    transform = generated_transform("positive-log")
+    @test transform.transform == "positive-log"
+    @test transform.constrained_type == "positive-real"
+    @test transform.unconstrained_type == "real"
+    @test transform.forward == "log"
+    @test transform.inverse == "exp"
+    @test transform.logabsdet_inverse_jacobian == "identity"
+    @test_throws ArgumentError generated_transform("missing")
     @test_throws ErrorException Reference.parse_document("(unterminated")
     mktemp() do path, stream
         write(stream, "(verified-samplers-ir 2 bogus)\n")

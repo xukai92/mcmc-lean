@@ -87,6 +87,9 @@ uses the new bounded refinement: `log` has an explicit `1/lower` transport
 bound away from zero, the Jacobian error composes additively, and `exp` has an
 explicit upper-domain transport bound. Platform-local libm errors remain the
 numerical boundary.
+The same positive-log convention is now emitted by Lean in versioned IR 14
+and parsed by Julia, including transform direction and inverse-Jacobian
+metadata.
 
 ## Remaining milestones
 

@@ -6,6 +6,7 @@ import Mcmc.Executable.Continuous.CoupledXu21
 import Mcmc.Executable.Continuous.RelativisticCompilerIR
 import Mcmc.Executable.Continuous.RestrictedArtifact
 import Mcmc.Executable.ComposableIR
+import Mcmc.Executable.ConstrainedTransformIR
 
 /-!
 # Versioned textual format for sampler IR
@@ -18,7 +19,7 @@ namespace Mcmc.Executable.IRFormat
 
 open Finite.CompilerIR
 
-def version : Nat := 13
+def version : Nat := 14
 
 private def quote (value : String) : String :=
   let escapedBackslash := value.replace "\\" "\\\\"
@@ -206,6 +207,18 @@ private def scheduleDescriptorRender
     list ("variables" :: schedule.variables.map quote),
     list ("operators" :: schedule.operators.map operatorDescriptorRender)]
 
+private def scalarTransformRender :
+    ConstrainedTransformIR.ScalarTransform → String
+  | .positiveLog => "positive-log"
+
+private def transformDescriptorRender
+    (descriptor : ConstrainedTransformIR.Descriptor) : String :=
+  list ["transform", quote descriptor.name,
+    scalarTransformRender descriptor.transform,
+    quote descriptor.constrainedType, quote descriptor.unconstrainedType,
+    quote descriptor.forward, quote descriptor.inverse,
+    quote descriptor.logAbsDetInverseJacobian]
+
 /-- Serialize all reference entry programs with a format version. -/
 def render : String :=
   list (["verified-samplers-ir", toString version,
@@ -224,7 +237,8 @@ def render : String :=
       Mcmc.Executable.Continuous.restrictedGaussianArtifact,
     restrictedTargetRender "restricted-sinusoidal-potential"
       Mcmc.Executable.Continuous.restrictedSinusoidalPotentialArtifact,
-    scheduleDescriptorRender ComposableIR.gePgHmcSchedule] ++
+    scheduleDescriptorRender ComposableIR.gePgHmcSchedule,
+    transformDescriptorRender ConstrainedTransformIR.positiveLog] ++
     Continuous.CoupledXu21.renderedPrograms) ++ "\n"
 
 end Mcmc.Executable.IRFormat

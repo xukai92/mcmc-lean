@@ -2073,6 +2073,14 @@ the returned coordinate through `exp` on an explicit upper-bounded region.
 This closes the backend-independent arithmetic for the positive transform;
 a concrete platform still supplies its local `log` and `exp` errors.
 
+Promoted the transform convention into generated IR version 14.  Lean emits a
+`positive-log` descriptor containing the constrained/unconstrained types,
+`log`/`exp` directions, and the identity log-Jacobian expression.  Julia
+parses, validates, and exposes that descriptor through `generated_transform`;
+artifact reproducibility and descriptor fields are tested.  The handwritten
+runtime therefore consumes a convention that is versioned at the Lean
+boundary rather than duplicating undocumented metadata.
+
 ## 2026-08-16: normalized particle-error recursion
 
 Added the deterministic nonlinear bridge needed beyond the exact one-step

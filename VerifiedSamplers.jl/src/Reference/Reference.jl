@@ -14,7 +14,7 @@ export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_ou
     coupled_multinomial_hmc_step!, coupled_gaussian_rwmh_step!, xu21_coupled_step!,
     IR_FORMAT_VERSION
 
-const IR_FORMAT_VERSION = 13
+const IR_FORMAT_VERSION = 14
 
 """Reference coordinate-wise DHMC update for a categorical law on a cycle.
 
@@ -277,6 +277,26 @@ function decode_schedule(node::SList)
     ScheduleDescriptor(atom(values[2]), variables, operators)
 end
 
+struct TransformDescriptor
+    name::String
+    transform::String
+    constrained_type::String
+    unconstrained_type::String
+    forward::String
+    inverse::String
+    logabsdet_inverse_jacobian::String
+end
+
+function decode_transform(node::SList)
+    values = items(node)
+    length(values) == 8 && atom(values[1]) == "transform" ||
+        error("invalid transform descriptor")
+    descriptor = TransformDescriptor((atom(value) for value in values[2:end])...)
+    descriptor.transform == "positive-log" ||
+        error("unsupported scalar transform: $(descriptor.transform)")
+    descriptor
+end
+
 function load_artifact(path::String)
     source = strip(read(path, String))
     document = parse_document(source)
@@ -288,6 +308,7 @@ function load_artifact(path::String)
     programs = Dict{String,Program}()
     targets = Dict{String,Any}()
     schedules = Dict{String,ScheduleDescriptor}()
+    transforms = Dict{String,TransformDescriptor}()
     for node in root[3:end]
         values = items(aslist(node))
         tag = atom(values[1])
@@ -306,18 +327,23 @@ function load_artifact(path::String)
             haskey(schedules, schedule.name) &&
                 error("duplicate schedule descriptor: $(schedule.name)")
             schedules[schedule.name] = schedule
+        elseif tag == "transform"
+            transform = decode_transform(aslist(node))
+            haskey(transforms, transform.name) &&
+                error("duplicate transform descriptor: $(transform.name)")
+            transforms[transform.name] = transform
         else
             error("unknown top-level IR declaration: $tag")
         end
     end
-    programs, targets, schedules
+    programs, targets, schedules, transforms
 end
 
 # Retain the program-only loader for downstream callers while the artifact now
 # also carries restricted target declarations.
 load_programs(path::String) = first(load_artifact(path))
 
-const PROGRAMS, TARGETS, SCHEDULES =
+const PROGRAMS, TARGETS, SCHEDULES, TRANSFORMS =
     load_artifact(joinpath(@__DIR__, "Samplers.ir"))
 
 function checked_logdensity(callback, state)

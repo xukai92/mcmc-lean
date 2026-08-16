@@ -33,6 +33,7 @@ export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, Bounded
     certified_vector_uturn_partition,
     certified_spanning_uturn_partition,
     generated_schedule,
+    generated_transform,
     ObservationCursor, observation_cursor, resume_observation, run_observations,
     FiniteHMMParticleGibbs,
     fixed_point_generalized_leapfrog, sample
@@ -442,6 +443,13 @@ function generated_schedule(name::AbstractString, transitions::AbstractDict)
         ScopedInferenceOperator(Symbol.(operator.scope), transition)
     end
     ComposableSampler(Symbol.(descriptor.variables), operators...)
+end
+
+"""Return a transform descriptor generated from Lean's versioned artifact."""
+function generated_transform(name::AbstractString)
+    descriptor = get(Reference.TRANSFORMS, String(name), nothing)
+    descriptor === nothing && throw(ArgumentError("unknown generated transform: $name"))
+    descriptor
 end
 
 function step(rng::AbstractRNG, sampler::ComposableSampler, current)
