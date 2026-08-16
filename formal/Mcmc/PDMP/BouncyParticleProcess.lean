@@ -369,4 +369,31 @@ instance BouncyParticlePartialInverseHazardData.firstEventKernel.instIsMarkovKer
   unfold BouncyParticlePartialInverseHazardData.firstEventKernel
   infer_instance
 
+/-- Exact BPS horizon execution truncated after a fixed number of reachable
+events. Every candidate uses a fresh unit-exponential hazard; an inactive or
+beyond-horizon mark completes residual flow, and exhausting the budget also
+fills the remaining time by flow. -/
+noncomputable def BouncyParticlePartialInverseHazardData.truncatedHorizonKernel
+    (data : BouncyParticlePartialInverseHazardData ι)
+    (horizon : NNReal) (eventBudget : ℕ) :
+    Kernel (BouncyParticleState ι) (BouncyParticleState ι) :=
+  data.clock.truncatedHorizonKernel
+    (fun state =>
+      (state.1, bouncyReflection (data.bounce.normal state.1) state.2))
+    data.bounce.measurable_bounce horizon eventBudget
+
+instance BouncyParticlePartialInverseHazardData.truncatedHorizonKernel.instIsMarkovKernel
+    (data : BouncyParticlePartialInverseHazardData ι)
+    (horizon : NNReal) (eventBudget : ℕ) :
+    IsMarkovKernel (data.truncatedHorizonKernel horizon eventBudget) := by
+  unfold BouncyParticlePartialInverseHazardData.truncatedHorizonKernel
+  infer_instance
+
+@[simp] theorem BouncyParticlePartialInverseHazardData.truncatedHorizonKernel_zero
+    (data : BouncyParticlePartialInverseHazardData ι) (horizon : NNReal) :
+    data.truncatedHorizonKernel horizon 0 =
+      bouncyParticleSemiflow.kernel horizon :=
+  data.clock.truncatedHorizonKernel_zero _
+    data.bounce.measurable_bounce horizon
+
 end Mcmc.PDMP

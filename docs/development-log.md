@@ -1,5 +1,18 @@
 # Development log
 
+- Built the repeated finite-horizon executor above the partial inverse clock.
+  One capped step carries remaining time in the state, draws a fresh unit
+  exponential mark, restarts after a reachable exact event, or completes the
+  residual flow and becomes absorbing when the event is inactive or beyond
+  the horizon. Iterating this Markov kernel and finally flowing any unused
+  remainder gives an exact event-budget-truncated horizon kernel; the BPS
+  adapter exposes it directly. A parallel deterministic hazard-list replay
+  composes over list append and is unchanged by every suffix once remaining
+  time reaches zero. The new `CompletesFiniteHorizons` predicate states that
+  almost every iid infinite hazard stream has such a finite completing prefix.
+  The next multidimensional BPS obligation is a concrete inverse clock and a
+  proof of this predicate, followed by the stabilized limit kernel.
+
 - Extended inverse-hazard PDMP execution with a certified inactive branch.
   `PartialInverseHazardClock` records whether a hazard mark is reachable,
   proves exact inversion when active, and proves the accumulated rate remains
