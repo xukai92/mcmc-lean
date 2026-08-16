@@ -1,5 +1,14 @@
 # Development log
 
+- Added a reproducible executable particle-count experiment for positive-
+  horizon particle Gibbs. On the two-state, one-step uniform HMM, the exact
+  path target is uniform over four paths; 8,000 independent one-step updates
+  from a fixed path are run at `N = 1,2,4,8`. The deterministic-seed empirical
+  TV errors strictly decrease, retain the exact `N=1` identity error `3/4`,
+  and meet a declared `N=8` tolerance. This is diagnostic evidence aligned
+  with the Lean fixed-iteration particle-count theorem, not a replacement for
+  it or a claim of monotonicity for every model and seed.
+
 - Extended the assumption-free exact-dyadic Gaussian callback certificate
   through the Hessian consumed by diagonal SoftAbs. Julia now evaluates value,
   gradient, and second derivative together and serializes all finite Float64

@@ -39,6 +39,28 @@
     retained_frequency = count(==(1), zero_paths) / length(zero_paths)
     @test abs(retained_frequency - (1 / 4 + (3 / 4) * (1 / 4))) < 0.025
 
+    # Reproducible fixed-horizon, fixed-iteration particle-count experiment.
+    # The exact target is uniform on the four paths. Starting from (1,1), the
+    # empirical one-step TV error decreases as the particle count grows. This
+    # is a runtime diagnostic aligned with, but not a proof of, Lean's
+    # fixed-iteration particle-count theorem.
+    count_grid = [1, 2, 4, 8]
+    one_step_tv = map(count_grid) do particle_count
+        count_sampler = FiniteHMMParticleGibbs(initial, transition,
+            potentials, particle_count)
+        rng = MersenneTwister(0x5047 + particle_count)
+        path_counts = zeros(Int, 4)
+        repetitions = 8_000
+        for _ in 1:repetitions
+            path = step(rng, count_sampler, [1, 1])
+            path_counts[(path[1] - 1) * 2 + path[2]] += 1
+        end
+        sum(abs.(path_counts ./ repetitions .- 0.25)) / 2
+    end
+    @test one_step_tv[1] == 0.75
+    @test all(diff(one_step_tv) .< 0)
+    @test one_step_tv[end] < 0.16
+
     @test_throws ArgumentError FiniteHMMParticleGibbs(initial, transition,
         potentials, 0)
     @test_throws DimensionMismatch step(MersenneTwister(1), sampler, [1])

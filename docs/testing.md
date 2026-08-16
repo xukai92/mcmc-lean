@@ -25,9 +25,13 @@ explicitly deferred robustness or performance tests.
   for a finite hidden Markov model. It checks fixed-trace
   Reference/Optimized agreement, the formally proved one-particle identity,
   public validation, empirical path frequencies on a symmetric two-state
-  model, and the exact zero-horizon `N⁻¹ I + (1-N⁻¹) Π` specialization. The
-  frequency checks are runtime regressions, not substitutes for the Lean
-  convergence theorem.
+  model, and the exact zero-horizon `N⁻¹ I + (1-N⁻¹) Π` specialization. A
+  fixed-seed positive-horizon experiment additionally measures one-step TV
+  error at `N = 1,2,4,8` against the known uniform four-path target; it checks
+  the exact identity error at `N=1` and decreasing observed errors on that
+  declared run. These frequency checks are runtime regressions, not
+  substitutes for Lean's particle-count theorem or universal monotonicity
+  claims.
 - `test/integer_slice.jl` exhaustively replays the exact finite integer-slice
   transition through independent Reference and Optimized implementations. It
   checks draw bounds and consumption, public validation, implementation
