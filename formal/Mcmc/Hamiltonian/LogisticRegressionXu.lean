@@ -1019,6 +1019,127 @@ theorem exists_geometric_exactMeetingTail_regularizedLogistic_to_stationary
       hnonempty hpairMoment
   exact ⟨gamma, C₀, contractionRate, hC₀, hrate, htail⟩
 
+/-- One selected regularized-logistic mixture simultaneously supplies the
+lag-one tail used by the unbiased estimator and the same-time tail to its
+normalized stationary posterior. -/
+theorem exists_shared_geometric_tails_regularizedLogistic
+    (feature : κ → Position ι) (label : κ → ℝ)
+    (regularization : NNReal) (hregularization : 0 < regularization)
+    (ε : ℝ) (hcancel : ε ^ 2 * (regularization : ℝ) = 2)
+    (variance : NNReal) (hvariance : variance ≠ 0) (q₀ : Position ι) :
+    ∃ (gamma : Set.Ioo (0 : NNReal) 1)
+        (lagC lagRate stationaryC stationaryRate : ENNReal),
+      lagC ≠ ⊤ ∧ lagRate < 1 ∧ stationaryC ≠ ⊤ ∧
+      stationaryRate < 1 ∧
+      let transition := hmcRwmhMixture (xuTheorem41HmcWeight gamma)
+        (regularizedLogisticPotential feature label regularization)
+        (regularizedLogisticGradient feature label regularization) ε 1
+        (contDiff_regularizedLogisticPotential feature label
+          regularization).continuous.measurable
+        (regularPotential_regularizedLogistic feature label regularization
+          hregularization).contDiff_one_gradient.continuous.measurable
+        variance hvariance
+      let coupled := stickyCoupledHmcRwmhMixture
+        (xuTheorem41HmcWeight gamma)
+        (regularizedLogisticPotential feature label regularization)
+        (regularizedLogisticGradient feature label regularization) ε 1
+        (contDiff_regularizedLogisticPotential feature label
+          regularization).continuous.measurable
+        (regularPotential_regularizedLogistic feature label regularization
+          hregularization).contDiff_one_gradient.continuous.measurable
+        variance hvariance
+      (∀ n : ℕ, Mcmc.Kernel.exactMeetingTail
+          (Mcmc.Kernel.pathLaw
+            (Mcmc.Kernel.laggedInitialMeasure
+              ((Measure.dirac q₀).prod (Measure.dirac q₀)) transition)
+            coupled) n ≤ lagC * lagRate ^ n) ∧
+      (∀ n : ℕ, Mcmc.Kernel.exactMeetingTail
+          (Mcmc.Kernel.pathLaw
+            ((Measure.dirac q₀).prod
+              (normalizedRegularizedLogisticTarget feature label regularization
+                hregularization)) coupled) n ≤
+            stationaryC * stationaryRate ^ n) := by
+  letI : IsMarkovKernel
+      (Mcmc.Kernel.euclideanGaussianRandomWalkMetropolisHastings
+        (positionBoltzmannWeight
+          (regularizedLogisticPotential feature label regularization))
+        variance hvariance) :=
+    Mcmc.Kernel.euclideanGaussianRandomWalkMetropolisHastings_isMarkov
+      _ variance hvariance
+      (measurable_positionBoltzmannWeight
+        (contDiff_regularizedLogisticPotential feature label
+          regularization).continuous.measurable)
+  obtain ⟨gamma, ell1, ⟨hspecial⟩⟩ :=
+    exists_regularizedLogistic_xuTheorem41DriftAssumptions feature label
+      regularization hregularization ε hcancel variance hvariance q₀
+  let h := hspecial.1
+  have hV : h.V = standardDistanceLyapunov := hspecial.2
+  have hcompact := h.isCompact_pairedSublevel_of_V_eq_standardDistance hV
+  have hnonempty := h.nonempty_pairedSublevel_of_V_eq_standardDistance hV
+  let A : Set (Position ι) := Metric.closedBall 0 1
+  have hAcompact : IsCompact A := isCompact_closedBall 0 1
+  have hAnonempty : A.Nonempty := ⟨0, by simp [A]⟩
+  have hAmeas : MeasurableSet A := hAcompact.measurableSet
+  have hAvolume : 0 < volume A := by
+    dsimp only [A]
+    exact Metric.measure_closedBall_pos volume 0 (by norm_num)
+  have hinitial : IsMeasureCoupling
+      ((Measure.dirac q₀).prod (Measure.dirac q₀))
+      (Measure.dirac q₀) (Measure.dirac q₀) := isMeasureCoupling_prod _ _
+  obtain ⟨lagC, lagRate, hlagC, hlagRate, hlagTail⟩ :=
+    h.exists_geometric_exactLagOneMeetingTail_stickyHmcRwmh gamma
+      (regularizedLogisticPotential feature label regularization)
+      (regularizedLogisticGradient feature label regularization) ε 1
+      (contDiff_regularizedLogisticPotential feature label
+        regularization).continuous
+      (regularPotential_regularizedLogistic feature label regularization
+        hregularization).contDiff_one_gradient.continuous.measurable
+      variance hvariance (Measure.dirac q₀)
+      (regularizedLogisticXuRegion feature label regularization ell1)
+      ((Measure.dirac q₀).prod (Measure.dirac q₀)) hinitial
+      hcompact hnonempty hAcompact hAnonempty hAmeas hAvolume
+  have hp : (xuTheorem41HmcWeight gamma).1 < 1 := by
+    dsimp only [xuTheorem41HmcWeight]
+    exact tsub_lt_self zero_lt_one gamma.property.1
+  obtain ⟨meetingBound, hmeetingPos, hmeeting⟩ :=
+    exists_pos_stickyCoupledHmcRwmhMixture_exactMeetingSmallSet_on_compact
+      (xuTheorem41HmcWeight gamma) hp
+      (regularizedLogisticPotential feature label regularization)
+      (regularizedLogisticGradient feature label regularization) ε 1
+      (contDiff_regularizedLogisticPotential feature label
+        regularization).continuous
+      (regularPotential_regularizedLogistic feature label regularization
+        hregularization).contDiff_one_gradient.continuous.measurable
+      variance hvariance hcompact hnonempty hAcompact hAnonempty hAmeas hAvolume
+  have hpairMoment : (∫⁻ z,
+      Mcmc.Kernel.IsCoupling.pairedAdd h.V z
+        ∂(Measure.dirac q₀).prod
+          (normalizedRegularizedLogisticTarget feature label regularization
+            hregularization)) ≠ ⊤ := by
+    simpa only [hV] using
+      lintegral_pairedStandardDistance_dirac_normalizedRegularizedLogistic_ne_top
+        feature label regularization hregularization q₀
+  obtain ⟨stationaryC, stationaryRate, hstationaryC, hstationaryRate,
+      hstationaryTail⟩ :=
+    h.exists_geometric_exactMeetingTail_pairInitial
+      ((Measure.dirac q₀).prod
+        (normalizedRegularizedLogisticTarget feature label regularization
+          hregularization))
+      (stickyCoupledHmcRwmhMixture (xuTheorem41HmcWeight gamma)
+        (regularizedLogisticPotential feature label regularization)
+        (regularizedLogisticGradient feature label regularization) ε 1
+        (contDiff_regularizedLogisticPotential feature label
+          regularization).continuous.measurable
+        (regularPotential_regularizedLogistic feature label regularization
+          hregularization).contDiff_one_gradient.continuous.measurable
+        variance hvariance)
+      (stickyCoupledHmcRwmhMixture_isCoupling _ _ _ _ _ _ _ _ _)
+      hmeetingPos hmeeting
+      (stickyCoupledHmcRwmhMixture_isFaithful _ _ _ _ _ _ _ _ _)
+      hnonempty hpairMoment
+  exact ⟨gamma, lagC, lagRate, stationaryC, stationaryRate, hlagC,
+    hlagRate, hstationaryC, hstationaryRate, hlagTail, hstationaryTail⟩
+
 /-- Concrete regularized-logistic bounded-observable estimator endpoint. The
 actual HMC/RWMH mixture, sticky coupling, meeting tail, and finite variance
 are discharged; only marginal expectation convergence from `q₀` is exposed. -/
@@ -1165,6 +1286,116 @@ theorem exists_regularizedLogistic_boundedEstimator
       htail (stickyCoupledHmcRwmhMixture_isFaithful _ _ _ _ _ _ _ _ _)
   exact ⟨gamma, C₀, contractionRate, targetMean, hC₀, hrate,
     hmarginal, hend⟩
+
+/-- Final bounded-observable Xu endpoint for regularized logistic regression:
+the point-started expectations converge to the normalized posterior integral,
+and the stopped lag-one estimator is unbiased for that integral with finite
+variance. -/
+theorem exists_regularizedLogistic_boundedEstimator_target
+    (feature : κ → Position ι) (label : κ → ℝ)
+    (regularization : NNReal) (hregularization : 0 < regularization)
+    (ε : ℝ) (hcancel : ε ^ 2 * (regularization : ℝ) = 2)
+    (variance : NNReal) (hvariance : variance ≠ 0)
+    (q₀ : Position ι) (observable : Position ι → ℝ)
+    (hmeasurable : Measurable observable) {B : ℝ} (hB : 0 ≤ B)
+    (hbounded : ∀ q, ‖observable q‖ ≤ B) :
+    ∃ (gamma : Set.Ioo (0 : NNReal) 1) (C₀ contractionRate : ENNReal),
+      C₀ ≠ ⊤ ∧ contractionRate < 1 ∧
+      let transition := hmcRwmhMixture (xuTheorem41HmcWeight gamma)
+        (regularizedLogisticPotential feature label regularization)
+        (regularizedLogisticGradient feature label regularization) ε 1
+        (contDiff_regularizedLogisticPotential feature label
+          regularization).continuous.measurable
+        (regularPotential_regularizedLogistic feature label regularization
+          hregularization).contDiff_one_gradient.continuous.measurable
+        variance hvariance
+      let coupled := stickyCoupledHmcRwmhMixture
+        (xuTheorem41HmcWeight gamma)
+        (regularizedLogisticPotential feature label regularization)
+        (regularizedLogisticGradient feature label regularization) ε 1
+        (contDiff_regularizedLogisticPotential feature label
+          regularization).continuous.measurable
+        (regularPotential_regularizedLogistic feature label regularization
+          hregularization).contDiff_one_gradient.continuous.measurable
+        variance hvariance
+      Filter.Tendsto
+        (fun n => ∫ q, observable q
+          ∂Mcmc.Kernel.lawAtTime (Measure.dirac q₀) transition n)
+        Filter.atTop
+        (nhds (∫ q, observable q
+          ∂normalizedRegularizedLogisticTarget feature label regularization
+            hregularization)) ∧
+      (∫ path, Mcmc.Kernel.stoppedLaggedUnbiasedEstimator observable path
+        ∂Mcmc.Kernel.pathLaw
+          (Mcmc.Kernel.laggedInitialMeasure
+            ((Measure.dirac q₀).prod (Measure.dirac q₀)) transition)
+          coupled) =
+          ∫ q, observable q
+            ∂normalizedRegularizedLogisticTarget feature label regularization
+              hregularization ∧
+      MemLp (Mcmc.Kernel.stoppedLaggedUnbiasedEstimator observable) 2
+        (Mcmc.Kernel.pathLaw
+          (Mcmc.Kernel.laggedInitialMeasure
+            ((Measure.dirac q₀).prod (Measure.dirac q₀)) transition)
+          coupled) := by
+  obtain ⟨gamma, lagC, lagRate, stationaryC, stationaryRate,
+      hlagC, hlagRate, hstationaryC, hstationaryRate,
+      hlagTail, hstationaryTail⟩ :=
+    exists_shared_geometric_tails_regularizedLogistic feature label
+      regularization hregularization ε hcancel variance hvariance q₀
+  refine ⟨gamma, lagC, lagRate, hlagC, hlagRate, ?_⟩
+  dsimp only
+  let transition := hmcRwmhMixture (xuTheorem41HmcWeight gamma)
+    (regularizedLogisticPotential feature label regularization)
+    (regularizedLogisticGradient feature label regularization) ε 1
+    (contDiff_regularizedLogisticPotential feature label
+      regularization).continuous.measurable
+    (regularPotential_regularizedLogistic feature label regularization
+      hregularization).contDiff_one_gradient.continuous.measurable
+    variance hvariance
+  let coupled := stickyCoupledHmcRwmhMixture (xuTheorem41HmcWeight gamma)
+    (regularizedLogisticPotential feature label regularization)
+    (regularizedLogisticGradient feature label regularization) ε 1
+    (contDiff_regularizedLogisticPotential feature label
+      regularization).continuous.measurable
+    (regularPotential_regularizedLogistic feature label regularization
+      hregularization).contDiff_one_gradient.continuous.measurable
+    variance hvariance
+  have hmarginal : Filter.Tendsto
+      (fun n => ∫ q, observable q
+        ∂Mcmc.Kernel.lawAtTime (Measure.dirac q₀) transition n)
+      Filter.atTop
+      (nhds (∫ q, observable q
+        ∂normalizedRegularizedLogisticTarget feature label regularization
+          hregularization)) := by
+    apply Mcmc.Kernel.tendsto_lawAtTime_integral_of_invariant_geometricMeeting
+      ((Measure.dirac q₀).prod
+        (normalizedRegularizedLogisticTarget feature label regularization
+          hregularization))
+      (Measure.dirac q₀)
+      (normalizedRegularizedLogisticTarget feature label regularization
+        hregularization)
+      transition coupled (isMeasureCoupling_prod _ _)
+      (stickyCoupledHmcRwmhMixture_isCoupling _ _ _ _ _ _ _ _ _)
+      (stickyCoupledHmcRwmhMixture_isFaithful _ _ _ _ _ _ _ _ _)
+      (hmcRwmhMixture_invariant_normalizedRegularizedLogistic
+        (xuTheorem41HmcWeight gamma) feature label regularization
+        hregularization ε 1 variance hvariance)
+      observable hmeasurable hB hbounded stationaryC stationaryRate
+      hstationaryC hstationaryRate
+    exact hstationaryTail
+  have hend :=
+    Mcmc.Kernel.integral_eq_and_memLp_two_stoppedLaggedUnbiasedEstimator_of_bounded_geometric
+      ((Measure.dirac q₀).prod (Measure.dirac q₀)) (Measure.dirac q₀)
+      transition coupled (isMeasureCoupling_prod _ _)
+      (stickyCoupledHmcRwmhMixture_isCoupling _ _ _ _ _ _ _ _ _)
+      observable hmeasurable hB hbounded
+      (∫ q, observable q
+        ∂normalizedRegularizedLogisticTarget feature label regularization
+          hregularization)
+      hmarginal lagC lagRate hlagC hlagRate hlagTail
+      (stickyCoupledHmcRwmhMixture_isFaithful _ _ _ _ _ _ _ _ _)
+  exact ⟨hmarginal, hend⟩
 
 end NonemptyDimension
 

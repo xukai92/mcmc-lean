@@ -139,14 +139,15 @@ is proved invariant for it. The same coercive Gaussian envelope now proves a
 finite first distance moment under that normalized posterior. Consequently a
 Dirac-start/stationary-start pair has finite additive Lyapunov moment, and the
 concrete sticky mixture has a same-time geometric meeting tail to the actual
-normalized logistic target.
+normalized logistic target. A shared-parameter theorem obtains this tail and
+the lag-one estimator tail from one drift record. The final logistic endpoint
+therefore proves convergence to the normalized-posterior integral,
+unbiasedness for that same integral, and finite variance.
 
 The following follow-on work remains outside the completed theorem surface:
 
 - target-specific drift certificates beyond the standard Gaussian and
   regularized-logistic families;
-- packaging one shared logistic mixture parameter for both the lag-one and
-  stationary-target tails, followed by final estimator-target identification;
 - full floating-point refinement and reproduction of every reported paper
   experiment. The generated Julia coupling already implements shared-event
   HMC/RWMH mixture steps, checks exact-meeting faithfulness, and now exposes a

@@ -2364,5 +2364,9 @@ density and then through finite-measure normalization. Lean consequently
 proves the normalized posterior's finite distance-Lyapunov moment, the finite
 paired moment for a point mass and stationary draw, and a geometric same-time
 meeting tail for the concrete sticky HMC/RWMH mixture. The remaining packaging
-step is to select this tail and the lag-one estimator tail from the same drift
+step was to select this tail and the lag-one estimator tail from the same drift
 record and identify the estimator mean with the normalized posterior integral.
+That packaging is now complete: one selected mixture supplies both tails, so
+bounded point-started expectations converge to the normalized posterior
+integral and the stopped lag-one estimator is unbiased for exactly that
+integral with finite variance.
