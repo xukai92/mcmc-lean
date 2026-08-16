@@ -44,6 +44,94 @@ theorem integrable_exp_neg_regularization_kinetic
       (-(regularization / 2)) * ∑ i, q i ^ 2 by ring,
     Finset.mul_sum]
 
+/-- The coordinate Euclidean norm is bounded by the coordinate `ℓ¹` norm. -/
+theorem euclideanNorm_le_sum_abs (q : Position ι) :
+    euclideanNorm q ≤ ∑ i, |q i| := by
+  rw [← sq_le_sq₀ (euclideanNorm_nonneg q)
+    (Finset.sum_nonneg fun i _ => abs_nonneg (q i)), euclideanNorm_sq]
+  unfold squaredEuclideanNorm euclideanInner
+  calc
+    ∑ i, q i * q i = ∑ i, |q i| * |q i| := by
+      apply Finset.sum_congr rfl
+      intro i _hi
+      rw [← pow_two, ← pow_two, sq_abs]
+    _ ≤ (∑ i, |q i|) * ∑ i, |q i| := by
+      simpa only [pow_two] using Finset.sum_sq_le_sq_sum_of_nonneg
+        (s := Finset.univ) (f := fun i => |q i|)
+        (fun i _ => abs_nonneg (q i))
+    _ = (∑ i, |q i|) ^ 2 := by rw [pow_two]
+
+/-- The Gaussian regularization envelope has a finite first Euclidean-norm
+moment. -/
+theorem integrable_euclideanNorm_mul_exp_neg_regularization_kinetic
+    {regularization : ℝ} (hregularization : 0 < regularization) :
+    Integrable (fun q : Position ι =>
+      euclideanNorm q * Real.exp (-regularization * kineticEnergy q)) := by
+  classical
+  let base : ℝ → ℝ := fun x =>
+    Real.exp (-(regularization / 2) * x ^ 2)
+  have hbase : Integrable base := by
+    exact integrable_exp_neg_mul_sq (by positivity)
+  have habsBase : Integrable (fun x : ℝ => |x| * base x) := by
+    have h := (integrable_mul_exp_neg_mul_sq
+      (show 0 < regularization / 2 by positivity)).norm
+    simpa only [base, Real.norm_eq_abs, abs_mul,
+      abs_of_pos (Real.exp_pos _)] using h
+  have hterm (i : ι) : Integrable (fun q : Position ι =>
+      |q i| * ∏ j, base (q j)) := by
+    let modified : ι → ℝ → ℝ := fun j x =>
+      if j = i then |x| * base x else base x
+    have hmodified (j : ι) : Integrable (modified j) := by
+      by_cases hji : j = i
+      · simpa [modified, hji] using habsBase
+      · simpa [modified, hji] using hbase
+    have hprod : Integrable
+        (fun q : Position ι => ∏ j, modified j (q j)) := by
+      rw [volume_pi]
+      exact Integrable.fintype_prod hmodified
+    convert hprod using 1
+    funext q
+    calc
+      |q i| * ∏ j, base (q j) =
+          (|q i| * base (q i)) * ∏ j ∈ Finset.univ.erase i, base (q j) := by
+            rw [show (∏ j, base (q j)) = base (q i) *
+                ∏ j ∈ Finset.univ.erase i, base (q j) from
+              (Finset.mul_prod_erase Finset.univ
+                (fun j => base (q j)) (Finset.mem_univ i)).symm]
+            ring
+      _ = modified i (q i) *
+          ∏ j ∈ Finset.univ.erase i, modified j (q j) := by
+            simp only [modified, if_pos]
+            congr 1
+            apply Finset.prod_congr rfl
+            intro j hj
+            have hji : j ≠ i := Finset.ne_of_mem_erase hj
+            simp [hji]
+      _ = ∏ j, modified j (q j) :=
+        Finset.mul_prod_erase Finset.univ
+          (fun j => modified j (q j)) (Finset.mem_univ i)
+  have hsum : Integrable (fun q : Position ι =>
+      ∑ i, |q i| * ∏ j, base (q j)) :=
+    integrable_finsetSum _ fun i _ => hterm i
+  apply hsum.mono'
+  · exact (continuous_euclideanNorm.measurable.mul
+      (measurable_kineticEnergy.const_mul (-regularization)).exp).aestronglyMeasurable
+  · filter_upwards with q
+    rw [Real.norm_eq_abs, abs_of_nonneg
+      (mul_nonneg (euclideanNorm_nonneg q) (Real.exp_pos _).le)]
+    have henvelope : Real.exp (-regularization * kineticEnergy q) =
+        ∏ j, base (q j) := by
+      dsimp only [base]
+      rw [← Real.exp_sum]
+      congr 1
+      unfold kineticEnergy
+      rw [show -regularization * ((1 / 2 : ℝ) * ∑ i, q i ^ 2) =
+          (-(regularization / 2)) * ∑ i, q i ^ 2 by ring,
+        Finset.mul_sum]
+    rw [henvelope, ← Finset.sum_mul]
+    exact mul_le_mul_of_nonneg_right (euclideanNorm_le_sum_abs q)
+      (Finset.prod_nonneg fun j _ => (Real.exp_pos _).le)
+
 /-- Positive regularization makes the unnormalized logistic Boltzmann weight
 integrable. -/
 theorem integrable_exp_neg_regularizedLogisticPotential
@@ -62,6 +150,51 @@ theorem integrable_exp_neg_regularizedLogisticPotential
       (regularizedLogisticPotential_coercive feature label
         (show 0 ≤ (regularization : ℝ) by positivity) q)
 
+/-- Positive regularization also gives a finite first distance moment of the
+unnormalized logistic Boltzmann density. -/
+theorem integrable_one_add_dist_mul_exp_neg_regularizedLogisticPotential
+    (feature : κ → Position ι) (label : κ → ℝ)
+    (regularization : NNReal) (hregularization : 0 < regularization) :
+    Integrable (fun q : Position ι =>
+      (1 + dist q 0) *
+        Real.exp (-regularizedLogisticPotential feature label regularization q)) := by
+  have hzero := integrable_exp_neg_regularization_kinetic (ι := ι)
+    (show 0 < (regularization : ℝ) by exact_mod_cast hregularization)
+  have hone := integrable_euclideanNorm_mul_exp_neg_regularization_kinetic (ι := ι)
+    (show 0 < (regularization : ℝ) by exact_mod_cast hregularization)
+  have hsum := hzero.add hone
+  apply hsum.mono'
+  · have hpot : Measurable (fun q : Position ι =>
+        Real.exp (-regularizedLogisticPotential feature label regularization q)) :=
+      by
+        have hc := (contDiff_regularizedLogisticPotential feature label
+          regularization).continuous
+        exact hc.measurable.neg.exp
+    exact ((continuous_const.add
+      (continuous_id.dist continuous_const)).measurable.mul hpot).aestronglyMeasurable
+  · filter_upwards with q
+    rw [Real.norm_eq_abs, abs_of_nonneg
+      (mul_nonneg (by positivity) (Real.exp_pos _).le)]
+    have hexp : Real.exp
+        (-regularizedLogisticPotential feature label regularization q) ≤
+        Real.exp (-(regularization : ℝ) * kineticEnergy q) := by
+      apply Real.exp_le_exp.mpr
+      simpa only [neg_mul] using neg_le_neg
+        (regularizedLogisticPotential_coercive feature label
+          (show 0 ≤ (regularization : ℝ) by positivity) q)
+    have hdist : dist q 0 ≤ euclideanNorm q := by
+      simpa only [sub_zero] using dist_le_euclideanNorm_sub q 0
+    calc
+      (1 + dist q 0) *
+          Real.exp (-regularizedLogisticPotential feature label regularization q) ≤
+          (1 + euclideanNorm q) *
+            Real.exp (-(regularization : ℝ) * kineticEnergy q) :=
+        mul_le_mul (by linarith) hexp (Real.exp_pos _).le
+          (by linarith [euclideanNorm_nonneg q])
+      _ = Real.exp (-(regularization : ℝ) * kineticEnergy q) +
+          euclideanNorm q *
+            Real.exp (-(regularization : ℝ) * kineticEnergy q) := by ring
+
 theorem regularizedLogisticBoltzmann_isFinite
     (feature : κ → Position ι) (label : κ → ℝ)
     (regularization : NNReal) (hregularization : 0 < regularization) :
@@ -79,6 +212,29 @@ theorem regularizedLogisticBoltzmann_isFinite
   intro q
   rw [positionBoltzmannWeight]
   exact (Real.enorm_eq_ofReal (Real.exp_pos _).le).symm
+
+/-- The real-valued distance Lyapunov representative is integrable under the
+unnormalized regularized-logistic target. -/
+theorem integrable_one_add_dist_regularizedLogisticBoltzmann
+    (feature : κ → Position ι) (label : κ → ℝ)
+    (regularization : NNReal) (hregularization : 0 < regularization) :
+    Integrable (fun q : Position ι => 1 + dist q 0)
+      (positionBoltzmannTarget
+        (regularizedLogisticPotential feature label regularization)) := by
+  have hpotential : Measurable
+      (regularizedLogisticPotential feature label regularization) := by
+    exact (contDiff_regularizedLogisticPotential feature label
+      regularization).continuous.measurable
+  rw [positionBoltzmannTarget,
+    integrable_withDensity_iff_integrable_smul'
+      (measurable_positionBoltzmannWeight hpotential)
+      (Filter.Eventually.of_forall fun q =>
+        (positionBoltzmannWeight_ne_top
+          (regularizedLogisticPotential feature label regularization) q).lt_top)]
+  simpa only [positionBoltzmannWeight, ENNReal.toReal_ofReal (Real.exp_pos _).le,
+    smul_eq_mul, mul_comm] using
+    integrable_one_add_dist_mul_exp_neg_regularizedLogisticPotential
+      feature label regularization hregularization
 
 /-- The normalized regularized-logistic posterior obtained from its finite,
 strictly positive Boltzmann measure. -/
@@ -133,6 +289,95 @@ theorem positionBoltzmannTarget_regularizedLogistic_ne_zero
     exact (Metric.measure_ball_pos volume (0 : Position ι) zero_lt_one).trans_le
       (measure_mono (Set.subset_univ _))
   exact hpos.ne' huniv
+
+/-- The normalized regularized-logistic target has the finite distance
+Lyapunov moment required by the Xu drift/meeting construction. -/
+theorem lintegral_standardDistanceLyapunov_normalizedRegularizedLogistic_ne_top
+    (feature : κ → Position ι) (label : κ → ℝ)
+    (regularization : NNReal) (hregularization : 0 < regularization) :
+    (∫⁻ q : Position ι, standardDistanceLyapunov q
+      ∂normalizedRegularizedLogisticTarget feature label regularization
+        hregularization) ≠ ⊤ := by
+  let target := positionBoltzmannTarget
+    (regularizedLogisticPotential feature label regularization)
+  letI : IsFiniteMeasure target :=
+    regularizedLogisticBoltzmann_isFinite feature label regularization
+      hregularization
+  have htarget : Integrable (fun q : Position ι => 1 + dist q 0) target :=
+    integrable_one_add_dist_regularizedLogisticBoltzmann feature label
+      regularization hregularization
+  have hnormalized : Integrable (fun q : Position ι => 1 + dist q 0)
+      (normalizedRegularizedLogisticTarget feature label regularization
+        hregularization) := by
+    let finiteTarget : MeasureTheory.FiniteMeasure (Position ι) :=
+      ⟨target, inferInstance⟩
+    unfold normalizedRegularizedLogisticTarget Mcmc.Kernel.finiteNormalize
+    change Integrable (fun q : Position ι => 1 + dist q 0)
+      ((MeasureTheory.FiniteMeasure.normalize finiteTarget :
+        ProbabilityMeasure (Position ι)) : Measure (Position ι))
+    have hnonzero : finiteTarget ≠ 0 := by
+      intro hzero
+      apply positionBoltzmannTarget_regularizedLogistic_ne_zero
+        feature label regularization
+      have hcoerced := congrArg
+        (fun μ : MeasureTheory.FiniteMeasure (Position ι) =>
+          (μ : Measure (Position ι))) hzero
+      simpa [finiteTarget, target] using hcoerced
+    rw [MeasureTheory.FiniteMeasure.toMeasure_normalize_eq_of_nonzero
+      finiteTarget hnonzero]
+    exact htarget.smul_measure (by simp)
+  have hfinite := hnormalized.hasFiniteIntegral
+  rw [hasFiniteIntegral_iff_enorm] at hfinite
+  rw [← lt_top_iff_ne_top]
+  convert hfinite using 1
+  apply lintegral_congr
+  intro q
+  unfold standardDistanceLyapunov
+  exact (Real.enorm_eq_ofReal (by positivity : 0 ≤ (1 + dist q 0))).symm
+
+/-- A point mass paired with the stationary normalized logistic target has
+finite additive Lyapunov moment. -/
+theorem lintegral_pairedStandardDistance_dirac_normalizedRegularizedLogistic_ne_top
+    (feature : κ → Position ι) (label : κ → ℝ)
+    (regularization : NNReal) (hregularization : 0 < regularization)
+    (q₀ : Position ι) :
+    (∫⁻ z : Position ι × Position ι,
+      Mcmc.Kernel.IsCoupling.pairedAdd standardDistanceLyapunov z
+      ∂(Measure.dirac q₀).prod
+        (normalizedRegularizedLogisticTarget feature label regularization
+          hregularization)) ≠ ⊤ := by
+  change (∫⁻ z : Position ι × Position ι,
+    standardDistanceLyapunov z.1 + standardDistanceLyapunov z.2
+      ∂(Measure.dirac q₀).prod
+        (normalizedRegularizedLogisticTarget feature label regularization
+          hregularization)) ≠ ⊤
+  have hprod := lintegral_prod
+    (μ := Measure.dirac q₀)
+    (ν := normalizedRegularizedLogisticTarget feature label regularization
+      hregularization)
+    (fun z : Position ι × Position ι =>
+      standardDistanceLyapunov z.1 + standardDistanceLyapunov z.2)
+    ((measurable_standardDistanceLyapunov.comp measurable_fst).add
+      (measurable_standardDistanceLyapunov.comp measurable_snd)).aemeasurable
+  rw [hprod]
+  have hinner : ∀ x : Position ι,
+      (∫⁻ y : Position ι, standardDistanceLyapunov x +
+        standardDistanceLyapunov y
+        ∂normalizedRegularizedLogisticTarget feature label regularization
+          hregularization) =
+      standardDistanceLyapunov x +
+        ∫⁻ y : Position ι, standardDistanceLyapunov y
+          ∂normalizedRegularizedLogisticTarget feature label regularization
+            hregularization := by
+    intro x
+    rw [lintegral_add_left measurable_const, lintegral_const, measure_univ,
+      mul_one]
+  simp_rw [hinner]
+  rw [lintegral_dirac q₀]
+  exact ENNReal.add_ne_top.2
+    ⟨standardDistanceLyapunov_ne_top q₀,
+      lintegral_standardDistanceLyapunov_normalizedRegularizedLogistic_ne_top
+        feature label regularization hregularization⟩
 
 /-- The concrete HMC/RWMH mixture preserves the normalized logistic target. -/
 theorem hmcRwmhMixture_invariant_normalizedRegularizedLogistic
@@ -686,6 +931,93 @@ theorem exists_geometric_exactLagOneMeetingTail_regularizedLogistic
       ((Measure.dirac q₀).prod (Measure.dirac q₀)) hinitial
       hcompact hnonempty hAcompact hAnonempty hAmeas hAvolume
   exact ⟨γ, C₀, contractionRate, hC₀, hrate, htail⟩
+
+/-- Same-time geometric meeting between a point-started logistic chain and a
+chain started from the normalized stationary logistic target. -/
+theorem exists_geometric_exactMeetingTail_regularizedLogistic_to_stationary
+    (feature : κ → Position ι) (label : κ → ℝ)
+    (regularization : NNReal) (hregularization : 0 < regularization)
+    (ε : ℝ) (hcancel : ε ^ 2 * (regularization : ℝ) = 2)
+    (variance : NNReal) (hvariance : variance ≠ 0)
+    (q₀ : Position ι) :
+    ∃ (gamma : Set.Ioo (0 : NNReal) 1) (C₀ contractionRate : ENNReal),
+      C₀ ≠ ⊤ ∧ contractionRate < 1 ∧
+        ∀ n : ℕ, Mcmc.Kernel.exactMeetingTail
+          (Mcmc.Kernel.pathLaw
+            ((Measure.dirac q₀).prod
+              (normalizedRegularizedLogisticTarget feature label regularization
+                hregularization))
+            (stickyCoupledHmcRwmhMixture (xuTheorem41HmcWeight gamma)
+              (regularizedLogisticPotential feature label regularization)
+              (regularizedLogisticGradient feature label regularization) ε 1
+              (contDiff_regularizedLogisticPotential feature label
+                regularization).continuous.measurable
+              (regularPotential_regularizedLogistic feature label regularization
+                hregularization).contDiff_one_gradient.continuous.measurable
+              variance hvariance)) n ≤ C₀ * contractionRate ^ n := by
+  letI : IsMarkovKernel
+      (Mcmc.Kernel.euclideanGaussianRandomWalkMetropolisHastings
+        (positionBoltzmannWeight
+          (regularizedLogisticPotential feature label regularization))
+        variance hvariance) :=
+    Mcmc.Kernel.euclideanGaussianRandomWalkMetropolisHastings_isMarkov
+      _ variance hvariance
+      (measurable_positionBoltzmannWeight
+        (contDiff_regularizedLogisticPotential feature label
+          regularization).continuous.measurable)
+  obtain ⟨gamma, ell1, ⟨hspecial⟩⟩ :=
+    exists_regularizedLogistic_xuTheorem41DriftAssumptions feature label
+      regularization hregularization ε hcancel variance hvariance q₀
+  let h := hspecial.1
+  have hV : h.V = standardDistanceLyapunov := hspecial.2
+  have hcompact := h.isCompact_pairedSublevel_of_V_eq_standardDistance hV
+  have hnonempty := h.nonempty_pairedSublevel_of_V_eq_standardDistance hV
+  let A : Set (Position ι) := Metric.closedBall 0 1
+  have hAcompact : IsCompact A := isCompact_closedBall 0 1
+  have hAnonempty : A.Nonempty := ⟨0, by simp [A]⟩
+  have hAmeas : MeasurableSet A := hAcompact.measurableSet
+  have hAvolume : 0 < volume A := by
+    dsimp only [A]
+    exact Metric.measure_closedBall_pos volume 0 (by norm_num)
+  have hp : (xuTheorem41HmcWeight gamma).1 < 1 := by
+    dsimp only [xuTheorem41HmcWeight]
+    exact tsub_lt_self zero_lt_one gamma.property.1
+  obtain ⟨meetingBound, hmeetingPos, hmeeting⟩ :=
+    exists_pos_stickyCoupledHmcRwmhMixture_exactMeetingSmallSet_on_compact
+      (xuTheorem41HmcWeight gamma) hp
+      (regularizedLogisticPotential feature label regularization)
+      (regularizedLogisticGradient feature label regularization) ε 1
+      (contDiff_regularizedLogisticPotential feature label
+        regularization).continuous
+      (regularPotential_regularizedLogistic feature label regularization
+        hregularization).contDiff_one_gradient.continuous.measurable
+      variance hvariance hcompact hnonempty hAcompact hAnonempty hAmeas hAvolume
+  have hpairMoment : (∫⁻ z,
+      Mcmc.Kernel.IsCoupling.pairedAdd h.V z
+        ∂(Measure.dirac q₀).prod
+          (normalizedRegularizedLogisticTarget feature label regularization
+            hregularization)) ≠ ⊤ := by
+    simpa only [hV] using
+      lintegral_pairedStandardDistance_dirac_normalizedRegularizedLogistic_ne_top
+        feature label regularization hregularization q₀
+  obtain ⟨C₀, contractionRate, hC₀, hrate, htail⟩ :=
+    h.exists_geometric_exactMeetingTail_pairInitial
+      ((Measure.dirac q₀).prod
+        (normalizedRegularizedLogisticTarget feature label regularization
+          hregularization))
+      (stickyCoupledHmcRwmhMixture (xuTheorem41HmcWeight gamma)
+        (regularizedLogisticPotential feature label regularization)
+        (regularizedLogisticGradient feature label regularization) ε 1
+        (contDiff_regularizedLogisticPotential feature label
+          regularization).continuous.measurable
+        (regularPotential_regularizedLogistic feature label regularization
+          hregularization).contDiff_one_gradient.continuous.measurable
+        variance hvariance)
+      (stickyCoupledHmcRwmhMixture_isCoupling _ _ _ _ _ _ _ _ _)
+      hmeetingPos hmeeting
+      (stickyCoupledHmcRwmhMixture_isFaithful _ _ _ _ _ _ _ _ _)
+      hnonempty hpairMoment
+  exact ⟨gamma, C₀, contractionRate, hC₀, hrate, htail⟩
 
 /-- Concrete regularized-logistic bounded-observable estimator endpoint. The
 actual HMC/RWMH mixture, sticky coupling, meeting tail, and finite variance

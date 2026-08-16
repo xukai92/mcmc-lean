@@ -2353,3 +2353,16 @@ packages these facts into the existing list-based selection certificate, whose
 stable-margin theorem proves the computed and ideal trajectory indices equal.
 This closes the backend-independent Xu--Ge refinement chain without pretending
 to prove universal Julia/libm/RNG bounds.
+
+## 2026-08-16: normalized logistic stationary coupling
+
+Closed the analytic moment obligation that separated the regularized-logistic
+Xu client from its normalized posterior. Coordinate Gaussian integrability
+now supplies a finite Euclidean first moment for the quadratic envelope;
+coercivity transfers this to `1 + dist q 0` under the logistic Boltzmann
+density and then through finite-measure normalization. Lean consequently
+proves the normalized posterior's finite distance-Lyapunov moment, the finite
+paired moment for a point mass and stationary draw, and a geometric same-time
+meeting tail for the concrete sticky HMC/RWMH mixture. The remaining packaging
+step is to select this tail and the lag-one estimator tail from the same drift
+record and identify the estimator mean with the normalized posterior integral.

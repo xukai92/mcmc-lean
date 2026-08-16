@@ -135,15 +135,18 @@ mixture.
 Positive quadratic coercivity now additionally proves integrability and
 nonzeroness of the unnormalized logistic Boltzmann measure. The normalized
 posterior is constructed as a probability measure, and the concrete mixture
-is proved invariant for it. A finite distance-Lyapunov moment under this
-normalized target is the next requirement for the stationary-start coupling.
+is proved invariant for it. The same coercive Gaussian envelope now proves a
+finite first distance moment under that normalized posterior. Consequently a
+Dirac-start/stationary-start pair has finite additive Lyapunov moment, and the
+concrete sticky mixture has a same-time geometric meeting tail to the actual
+normalized logistic target.
 
 The following follow-on work remains outside the completed theorem surface:
 
 - target-specific drift certificates beyond the standard Gaussian and
   regularized-logistic families;
-- the normalized logistic target's finite distance-Lyapunov moment and the
-  resulting stationary-target coupling/estimator identification;
+- packaging one shared logistic mixture parameter for both the lag-one and
+  stationary-target tails, followed by final estimator-target identification;
 - full floating-point refinement and reproduction of every reported paper
   experiment. The generated Julia coupling already implements shared-event
   HMC/RWMH mixture steps, checks exact-meeting faithfulness, and now exposes a
