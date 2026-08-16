@@ -1,5 +1,14 @@
 # Development log
 
+- Connected the geometric drift/small-set machinery directly to marginal
+  convergence. A finite initial Lyapunov moment now proves finiteness of the
+  time-zero weighted off-diagonal mass, and the new endpoint combines this
+  with a faithful coupling, positive exact-meeting set, and invariant target
+  to prove convergence of every bounded measurable expectation. Sampler
+  clients such as bare Gaussian GR-HMC therefore only need to supply their
+  target-specific drift, local meeting, faithfulness, and moment witnesses;
+  no separate probabilistic tail-to-convergence argument remains.
+
 - Completed the large-particle asymptotics of the positive-horizon PG rate
   certificate. At fixed horizon and finite potential bound, the coefficient
   `((N-1)/(N-1+B))^T` tends to one as `N → ∞`; the finite product for a

@@ -274,6 +274,50 @@ theorem tendsto_lawAtTime_integral_of_invariant_geometricMeeting
     (tendsto_pow_atTop_nhds_zero_of_lt_one ENNReal.toReal_nonneg hrateReal).const_mul
       (2 * B * C.toReal)
 
+/-- A geometric drift condition, a positive exact-meeting small set, and a
+finite initial Lyapunov moment imply convergence of every bounded observable
+to its invariant-target expectation.  This packages the drift/meeting layer
+into the marginal convergence interface used by sampler clients. -/
+theorem HasGeometricDrift.tendsto_lawAtTime_integral_of_invariant
+    [MeasurableEq α]
+    (initialCoupling : Measure (α × α))
+    [IsProbabilityMeasure initialCoupling]
+    (leftInitial target : Measure α)
+    (transition : Kernel α α) [IsMarkovKernel transition]
+    (coupled : Kernel (α × α) (α × α)) [IsMarkovKernel coupled]
+    (hinitial : IsMeasureCoupling initialCoupling leftInitial target)
+    (hcoupled : IsCoupling coupled transition transition)
+    (hfaithful : IsFaithful coupled) (hinvariant : transition.Invariant target)
+    {V : (α × α) → ENNReal}
+    {driftRate allowance meetingBound threshold : ENNReal}
+    (hdrift : HasGeometricDrift coupled V (lyapunovSublevel V threshold)
+      driftRate allowance)
+    (hmeeting : IsExactMeetingSmallSet coupled
+      (lyapunovSublevel V threshold) meetingBound)
+    (hdriftRate : driftRate < 1)
+    (hmeetingPos : 0 < meetingBound) (hmeetingBound : meetingBound ≤ 1)
+    (hthreshold0 : threshold ≠ 0) (hthresholdTop : threshold ≠ ∞)
+    (hdriftBudgetTop : driftRate * threshold + allowance ≠ ∞)
+    (hVmoment : (∫⁻ x, V x ∂initialCoupling) ≠ ∞)
+    (f : α → ℝ) (hf : Measurable f) {B : ℝ} (hB : 0 ≤ B)
+    (hbound : ∀ x, ‖f x‖ ≤ B) :
+    Filter.Tendsto
+      (fun n => ∫ x, f x ∂lawAtTime leftInitial transition n)
+      Filter.atTop (nhds (∫ x, f x ∂target)) := by
+  obtain ⟨scale, rate, _hscale0, hscaleTop, hrate, htail⟩ :=
+    hdrift.exists_scale_rate_exactMeetingTail_pathLaw_le initialCoupling
+      coupled hmeeting hfaithful hdriftRate hmeetingPos hmeetingBound
+      hthreshold0 hthresholdTop hdriftBudgetTop
+  let C := weightedOffDiagonalMassAtTime initialCoupling coupled V scale 0
+  have hC : C ≠ ∞ :=
+    weightedOffDiagonalMassAtTime_zero_ne_top_of_lintegral_ne_top
+      initialCoupling coupled hdrift.1 scale hscaleTop hVmoment
+  apply tendsto_lawAtTime_integral_of_invariant_geometricMeeting
+    initialCoupling leftInitial target transition coupled hinitial hcoupled
+    hfaithful hinvariant f hf hB hbound C rate hC hrate
+  intro n
+  simpa only [C, mul_comm] using htail n
+
 /-- If the right marginal starts stationary, the coupling tail directly
 controls eventwise convergence of the left chain. -/
 theorem lawAtTime_apply_le_invariant_add_exactMeetingTail

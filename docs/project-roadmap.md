@@ -438,13 +438,25 @@ obligations.
 
 ## Immediate plan
 
-A1--A4 and B1 are complete. Phase I is complete: fully state-indexed finite
-PMMH, concrete conditional SMC, particle Gibbs, the consolidated particle-MCMC
-surface, corrected relativistic execution, and its guarded implicit-solver
-certificate interface are all present. Practical slice transitions and richer
-reversible-jump clients are optional breadth branches. Subsequent work can
-strengthen the B2 numerical refinement, particle convergence/asymptotics, and
-the paper-specific theorem instances. None of these is needed to support the
-completed finite Gibbs, tempering,
-pseudo-marginal, independence-MH, MALA, adaptive-boundary, or Xu et al.
-coupling claims.
+A1--A4, B1, and the exact/guarded B2 sampler construction are complete. The
+remaining work is ordered by the missing mathematical dependency rather than
+by paper date:
+
+1. prove weak-forward uniqueness for the constructed Gaussian Zig-Zag stopped
+   path, closing Gaussian Zig-Zag and one-dimensional unit-speed Gaussian BPS
+   stationarity;
+2. construct drift and local-meeting witnesses for the *bare* Gaussian
+   SoftAbs GR-HMC kernel. The generic drift-to-meeting-tail and
+   meeting-tail-to-bounded-expectation-convergence chain is complete, including
+   the required finite-initial-moment bridge;
+3. derive the sharp positive-horizon particle-Gibbs history-density comparison
+   from primitive Feynman--Kac bounds. Its coefficient and fixed-iteration
+   large-particle asymptotics are already complete; and
+4. finish the optional breadth clients: standard dynamic-NUTS tree recursion,
+   ideal refinement of stepping-out slice sampling, nonlinear RJ transports,
+   unbounded-history adaptation, and general-dimensional PDMP
+   stationarity/convergence.
+
+These open items do not weaken the completed finite Gibbs, tempering,
+pseudo-marginal, independence-MH, MALA, adaptive-boundary, Xu et al. coupling,
+or corrected exact GR-HMC invariance claims.

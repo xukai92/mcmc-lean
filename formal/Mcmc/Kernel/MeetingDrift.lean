@@ -2110,6 +2110,31 @@ theorem weightedOffDiagonalMassAtTime_dirac_zero_le
   rw [weightedOffDiagonalMassAtTime_dirac_zero coupled hV scale x]
   by_cases hx : x ∈ (Set.diagonal α)ᶜ <;> simp [hx]
 
+/-- Finite initial Lyapunov moment makes the time-zero weighted
+off-diagonal mass finite for every finite scale.  This is the integrability
+condition needed when a drift/meeting-tail estimate is consumed by a
+marginal-convergence theorem. -/
+theorem weightedOffDiagonalMassAtTime_zero_ne_top_of_lintegral_ne_top
+    [MeasurableEq α]
+    (initial : Measure (α × α)) [IsProbabilityMeasure initial]
+    (coupled : Kernel (α × α) (α × α))
+    {V : (α × α) → ENNReal} (hV : Measurable V)
+    (scale : ENNReal) (hscaleTop : scale ≠ ∞)
+    (hVmoment : (∫⁻ x, V x ∂initial) ≠ ∞) :
+    weightedOffDiagonalMassAtTime initial coupled V scale 0 ≠ ∞ := by
+  apply ne_top_of_le_ne_top
+    (ENNReal.add_ne_top.2
+      ⟨ENNReal.one_ne_top, ENNReal.mul_ne_top hscaleTop hVmoment⟩)
+  rw [weightedOffDiagonalMassAtTime, lawAtTime_zero]
+  calc
+    (∫⁻ x in (Set.diagonal α)ᶜ, meetingWeight V scale x ∂initial) ≤
+        ∫⁻ x, meetingWeight V scale x ∂initial :=
+      setLIntegral_le_lintegral (Set.diagonal α)ᶜ _
+    _ = 1 + scale * ∫⁻ x, V x ∂initial := by
+      rw [show meetingWeight V scale = fun x => 1 + scale * V x by rfl,
+        lintegral_add_left measurable_const, lintegral_const,
+        measure_univ, one_mul, lintegral_const_mul _ hV]
+
 /-- Faithfulness and weighted operator contraction give one-step contraction
 of weighted off-diagonal mass. -/
 theorem weightedOffDiagonalMassAtTime_succ_le
