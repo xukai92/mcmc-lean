@@ -244,4 +244,230 @@ theorem map_suspensionSurvivorDomain
   rw [hleft, hright]
   exact hfiber
 
+/-! ### Countable special-flow execution -/
+
+/-- Cumulative roof length over the first `eventCount` base iterates. -/
+noncomputable def suspensionRoofElapsed
+    (baseMap : Base → Base) (roof : Base → ℝ)
+    (initial : Base) (eventCount : ℕ) : ℝ :=
+  ∑ index ∈ Finset.range eventCount,
+    roof ((baseMap^[index]) initial)
+
+theorem measurable_suspensionRoofElapsed
+    {baseMap : Base → Base} (hbaseMap : Measurable baseMap)
+    {roof : Base → ℝ} (hroof : Measurable roof)
+    (eventCount : ℕ) :
+    Measurable (fun initial =>
+      suspensionRoofElapsed baseMap roof initial eventCount) := by
+  unfold suspensionRoofElapsed
+  fun_prop
+
+/-- The shifted age lies before the end of the cycle indexed by
+`eventCount`. -/
+def suspensionCrossed
+    (baseMap : Base → Base) (roof : Base → ℝ)
+    (initial : Base) (age shift : ℝ) (eventCount : ℕ) : Prop :=
+  age + shift < suspensionRoofElapsed baseMap roof initial (eventCount + 1)
+
+theorem measurableSet_suspensionCrossed
+    {baseMap : Base → Base} (hbaseMap : Measurable baseMap)
+    {roof : Base → ℝ} (hroof : Measurable roof)
+    (shift : ℝ) (eventCount : ℕ) :
+    MeasurableSet {input : Base × ℝ |
+      suspensionCrossed baseMap roof input.1 input.2 shift eventCount} := by
+  unfold suspensionCrossed
+  exact measurableSet_lt (measurable_snd.add measurable_const)
+    ((measurable_suspensionRoofElapsed hbaseMap hroof
+      (eventCount + 1)).comp measurable_fst)
+
+/-- Total search predicate, using index zero as a fallback when cumulative
+roof length never crosses the shifted age. -/
+def suspensionCrossingSearchPredicate
+    (baseMap : Base → Base) (roof : Base → ℝ)
+    (shift : ℝ) (input : Base × ℝ) (eventCount : ℕ) : Prop :=
+  suspensionCrossed baseMap roof input.1 input.2 shift eventCount ∨
+    (eventCount = 0 ∧ ¬∃ count,
+      suspensionCrossed baseMap roof input.1 input.2 shift count)
+
+omit [MeasurableSpace Base] in
+theorem suspensionCrossingSearchPredicate_exists
+    (baseMap : Base → Base) (roof : Base → ℝ)
+    (shift : ℝ) (input : Base × ℝ) :
+    ∃ eventCount,
+      suspensionCrossingSearchPredicate baseMap roof shift input eventCount := by
+  classical
+  by_cases hcross : ∃ eventCount,
+      suspensionCrossed baseMap roof input.1 input.2 shift eventCount
+  · obtain ⟨eventCount, heventCount⟩ := hcross
+    exact ⟨eventCount, Or.inl heventCount⟩
+  · exact ⟨0, Or.inr ⟨rfl, hcross⟩⟩
+
+theorem measurableSet_suspensionCrossingSearchPredicate
+    {baseMap : Base → Base} (hbaseMap : Measurable baseMap)
+    {roof : Base → ℝ} (hroof : Measurable roof)
+    (shift : ℝ) (eventCount : ℕ) :
+    MeasurableSet {input : Base × ℝ |
+      suspensionCrossingSearchPredicate
+        baseMap roof shift input eventCount} := by
+  classical
+  by_cases hzero : eventCount = 0
+  · subst eventCount
+    simp only [suspensionCrossingSearchPredicate, true_and]
+    apply MeasurableSet.union
+    · exact measurableSet_suspensionCrossed hbaseMap hroof shift 0
+    · have hexists : MeasurableSet {input : Base × ℝ | ∃ count,
+          suspensionCrossed baseMap roof input.1 input.2 shift count} := by
+        rw [show {input : Base × ℝ | ∃ count,
+            suspensionCrossed baseMap roof input.1 input.2 shift count} =
+            ⋃ count, {input | suspensionCrossed
+              baseMap roof input.1 input.2 shift count} by
+          ext input
+          simp]
+        exact MeasurableSet.iUnion fun count =>
+          measurableSet_suspensionCrossed hbaseMap hroof shift count
+      exact hexists.compl
+  · simp only [suspensionCrossingSearchPredicate, hzero, false_and,
+      or_false]
+    exact measurableSet_suspensionCrossed hbaseMap hroof shift eventCount
+
+/-- First base index whose roof endpoint lies strictly after the shifted age,
+with a total fallback at zero outside the nonexplosive domain. -/
+noncomputable def suspensionCrossingIndex
+    (baseMap : Base → Base) (roof : Base → ℝ)
+    (shift : ℝ) (input : Base × ℝ) : ℕ := by
+  classical
+  exact Nat.find
+    (suspensionCrossingSearchPredicate_exists baseMap roof shift input)
+
+theorem measurable_suspensionCrossingIndex
+    {baseMap : Base → Base} (hbaseMap : Measurable baseMap)
+    {roof : Base → ℝ} (hroof : Measurable roof)
+    (shift : ℝ) :
+    Measurable (suspensionCrossingIndex baseMap roof shift) := by
+  unfold suspensionCrossingIndex
+  classical
+  apply measurable_find
+  exact measurableSet_suspensionCrossingSearchPredicate
+    hbaseMap hroof shift
+
+/-- Total measurable special-flow endpoint after a nonnegative age shift. On
+the nonexplosive domain it selects the containing future roof fiber and its
+residual age. -/
+noncomputable def suspensionEndpoint
+    (baseMap : Base → Base) (roof : Base → ℝ)
+    (shift : ℝ) (input : Base × ℝ) : Base × ℝ :=
+  let eventCount := suspensionCrossingIndex baseMap roof shift input
+  ((baseMap^[eventCount]) input.1,
+    input.2 + shift -
+      suspensionRoofElapsed baseMap roof input.1 eventCount)
+
+theorem measurable_suspensionEndpoint
+    {baseMap : Base → Base} (hbaseMap : Measurable baseMap)
+    {roof : Base → ℝ} (hroof : Measurable roof)
+    (shift : ℝ) :
+    Measurable (suspensionEndpoint baseMap roof shift) := by
+  classical
+  let searchExists : ∀ input : Base × ℝ, ∃ eventCount,
+      suspensionCrossingSearchPredicate
+        baseMap roof shift input eventCount :=
+    suspensionCrossingSearchPredicate_exists baseMap roof shift
+  have hfamily : ∀ eventCount, Measurable
+      (fun input : Base × ℝ =>
+        ((baseMap^[eventCount]) input.1,
+          input.2 + shift - suspensionRoofElapsed
+            baseMap roof input.1 eventCount)) := by
+    intro eventCount
+    exact ((hbaseMap.iterate eventCount).comp measurable_fst).prodMk
+      ((measurable_snd.add measurable_const).sub
+        ((measurable_suspensionRoofElapsed hbaseMap hroof eventCount).comp
+          measurable_fst))
+  change Measurable (fun input =>
+    (fun eventCount input =>
+      ((baseMap^[eventCount]) input.1,
+        input.2 + shift - suspensionRoofElapsed
+          baseMap roof input.1 eventCount))
+      (Nat.find (searchExists input)) input)
+  exact Measurable.find hfamily
+    (measurableSet_suspensionCrossingSearchPredicate
+      hbaseMap hroof shift)
+    searchExists
+
+omit [MeasurableSpace Base] in
+theorem suspensionRoofElapsed_succ
+    (baseMap : Base → Base) (roof : Base → ℝ)
+    (initial : Base) (eventCount : ℕ) :
+    suspensionRoofElapsed baseMap roof initial (eventCount + 1) =
+      suspensionRoofElapsed baseMap roof initial eventCount +
+        roof ((baseMap^[eventCount]) initial) := by
+  unfold suspensionRoofElapsed
+  rw [Finset.sum_range_succ]
+
+omit [MeasurableSpace Base] in
+theorem suspensionCrossingIndex_crossed
+    (baseMap : Base → Base) (roof : Base → ℝ)
+    (shift : ℝ) (input : Base × ℝ)
+    (hexists : ∃ eventCount,
+      suspensionCrossed baseMap roof input.1 input.2 shift eventCount) :
+    suspensionCrossed baseMap roof input.1 input.2 shift
+      (suspensionCrossingIndex baseMap roof shift input) := by
+  classical
+  unfold suspensionCrossingIndex
+  let searchExists :=
+    suspensionCrossingSearchPredicate_exists baseMap roof shift input
+  have hspec := Nat.find_spec searchExists
+  rcases hspec with hcrossed | hfallback
+  · exact hcrossed
+  · exact False.elim (hfallback.2 hexists)
+
+omit [MeasurableSpace Base] in
+theorem suspensionCrossingIndex_not_crossed_of_lt
+    (baseMap : Base → Base) (roof : Base → ℝ)
+    (shift : ℝ) (input : Base × ℝ) {eventCount : ℕ}
+    (hlt : eventCount <
+      suspensionCrossingIndex baseMap roof shift input) :
+    ¬suspensionCrossed baseMap roof input.1 input.2 shift eventCount := by
+  classical
+  unfold suspensionCrossingIndex at hlt
+  let searchExists :=
+    suspensionCrossingSearchPredicate_exists baseMap roof shift input
+  intro hcrossed
+  have hminimal := Nat.find_min' searchExists (Or.inl hcrossed)
+  omega
+
+omit [MeasurableSpace Base] in
+/-- On every terminating nonnegative shift from a nonnegative age, the
+special-flow endpoint lies in the fundamental domain of its selected roof. -/
+theorem suspensionEndpoint_mem_fundamentalDomain
+    (baseMap : Base → Base) (roof : Base → ℝ)
+    {shift : ℝ} (hshift : 0 ≤ shift) (input : Base × ℝ)
+    (hage : 0 ≤ input.2)
+    (hexists : ∃ eventCount,
+      suspensionCrossed baseMap roof input.1 input.2 shift eventCount) :
+    suspensionEndpoint baseMap roof shift input ∈
+      suspensionFundamentalDomain roof := by
+  let eventCount := suspensionCrossingIndex baseMap roof shift input
+  have hcrossed := suspensionCrossingIndex_crossed
+    baseMap roof shift input hexists
+  have hupper : input.2 + shift -
+      suspensionRoofElapsed baseMap roof input.1 eventCount <
+      roof ((baseMap^[eventCount]) input.1) := by
+    unfold suspensionCrossed at hcrossed
+    rw [suspensionRoofElapsed_succ] at hcrossed
+    linarith
+  have hlower : 0 ≤ input.2 + shift -
+      suspensionRoofElapsed baseMap roof input.1 eventCount := by
+    by_cases hzero : eventCount = 0
+    · rw [hzero]
+      simpa [suspensionRoofElapsed] using add_nonneg hage hshift
+    · have hpred : eventCount - 1 < eventCount :=
+        Nat.sub_one_lt hzero
+      have hnot := suspensionCrossingIndex_not_crossed_of_lt
+        baseMap roof shift input hpred
+      unfold suspensionCrossed at hnot
+      have heq : eventCount - 1 + 1 = eventCount :=
+        Nat.sub_add_cancel (Nat.one_le_iff_ne_zero.mpr hzero)
+      rw [heq] at hnot
+      exact sub_nonneg.mpr (le_of_not_gt hnot)
+  exact ⟨hlower, hupper⟩
+
 end Mcmc.PDMP

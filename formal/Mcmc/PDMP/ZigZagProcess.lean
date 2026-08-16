@@ -3959,6 +3959,38 @@ noncomputable def gaussianZigZagSuspensionOccupationMeasure :
   suspensionOccupationMeasure gaussianZigZagCyclePhaseEnvironmentMeasure
     gaussianZigZagCyclePhaseEnvironmentRoof
 
+/-- Translate suspension age into the signed position of the current literal
+cycle while retaining velocity and the future hazard tail. -/
+noncomputable def gaussianZigZagSuspensionDecode
+    (input : ((((ℝ × ℝ) × (ℕ → NNReal)) × Bool) × ℝ)) :
+    ((((ℝ × ℝ) × ℝ) × Bool) × (ℕ → NNReal)) :=
+  (((input.1.1.1, input.1.1.1.1 + input.2), input.1.2), input.1.1.2)
+
+theorem measurable_gaussianZigZagSuspensionDecode :
+    Measurable gaussianZigZagSuspensionDecode := by
+  unfold gaussianZigZagSuspensionDecode
+  fun_prop
+
+/-- For a genuine reset environment, translating Lebesgue age by the left
+reset gives exactly the literal signed cycle-interval kernel. -/
+theorem gaussianZigZagSuspension_ageFiber_map
+    (environment : (ℝ × ℝ) × (ℕ → NNReal))
+    (hleft : environment.1.1 < 0) (hright : environment.1.2 < 0) :
+    Measure.map (fun age : ℝ => environment.1.1 + age)
+        (volume.restrict (Set.Ico 0
+          (gaussianZigZagCycleEnvironmentRoof environment : ℝ))) =
+      gaussianZigZagCycleIntervalKernel environment.1 := by
+  have hroof : (gaussianZigZagCycleEnvironmentRoof environment : ℝ) =
+      -environment.1.2 - environment.1.1 := by
+    unfold gaussianZigZagCycleEnvironmentRoof
+    rw [Real.coe_toNNReal]
+    linarith
+  rw [hroof, show -environment.1.2 - environment.1.1 =
+      (-environment.1.2) - environment.1.1 by ring]
+  rw [map_add_restrict_Ico environment.1.1 (-environment.1.2)]
+  rw [gaussianZigZagCycleIntervalKernel_apply]
+  exact Measure.restrict_congr_set Ioo_ae_eq_Ico.symm
+
 /-- Regenerative event-epoch law: negative-Rayleigh signed position and an
 independent uniform velocity label. -/
 noncomputable def gaussianZigZagSignedEventTarget : Measure ZigZagState :=

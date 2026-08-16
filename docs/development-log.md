@@ -3616,3 +3616,17 @@ environment, invariant phase base, positive roof, and concrete suspension
 occupation are instantiated against this API. What remains in this layer is
 the countable crossing reduction, using nonexplosion to exhaust all event
 counts.
+
+## 2026-08-16: measurable countable suspension executor
+
+Extended the reusable suspension layer with measurable base iterates,
+cumulative roofs, crossing predicates, the first crossing index, and the
+total special-flow endpoint. On every terminating nonnegative shift from a
+valid age, Lean proves that the selected residual age lies in the fundamental
+domain of the selected future roof. The Gaussian client now has an explicit
+measurable decoder from suspension age to signed cycle position, and
+fiberwise Lebesgue translation is proved exactly equal to the existing
+literal cycle-interval kernel (open versus half-open endpoints are discharged
+as a volume-null distinction). The next proof is the crossing-count
+truncation identity and vanishing nonexplosive remainder, after which the
+generic endpoint preserves normalized occupation.
