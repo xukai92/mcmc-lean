@@ -54,6 +54,12 @@
   Finally, the terminal proposed-trajectory fraction is proved equal to a
   forward path-label empirical average. This connects the kernel-facing
   backward-genealogy definition to the stage-local marked-lineage recursion.
+  The recursive object is now explicit: Lean defines the forced-suffix label
+  expectation, proves its empty-schedule base equation and exact one-step
+  bind expansion, and rewrites the aggregate PG kernel entry as an initial
+  forced cloud followed by precisely that suffix expectation. The remaining
+  induction no longer has to unfold the collapsed kernel or reconstruct
+  backward genealogies.
 
 - Completed the compact-minorization and faithful-coupling foundation for the
   actual bare one-dimensional Gaussian SoftAbs multinomial kernel at

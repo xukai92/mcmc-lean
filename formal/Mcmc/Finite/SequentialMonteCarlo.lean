@@ -1150,6 +1150,81 @@ noncomputable def forcedLineageLaw (initial : Distribution Sample)
                 (forcedLineageSuffixLaw steps first future hfuture particles retained)
                 fun suffix => ((particles, suffix.1), suffix.2)
 
+/-- Expected terminal empirical label observable under a forced-lineage
+suffix. Labels may encode complete path prefixes; the definition deliberately
+ignores the final retained index and aggregates all terminal genealogies. -/
+noncomputable def forcedLineageSuffixLabelExpectation {Label : Type*}
+    (extend : Label → Sample → Label)
+    (steps : List (FeynmanKacStep Sample)) (current : Sample)
+    (future : List Sample) (hlength : future.length = steps.length)
+    (particles : Particle → Sample) (retained : Particle)
+    (labels : Particle → Label) (observable : Label → ℝ) : ℝ :=
+  ∑ suffix,
+    (forcedLineageSuffixLaw steps current future hlength
+      particles retained).mass suffix *
+      particleAverage observable
+        (terminalLabels extend steps labels suffix.1)
+
+@[simp] theorem forcedLineageSuffixLabelExpectation_nil {Label : Type*}
+    (extend : Label → Sample → Label) (current : Sample)
+    (particles : Particle → Sample) (retained : Particle)
+    (labels : Particle → Label) (observable : Label → ℝ)
+    (hlength : [].length = ([] : List (FeynmanKacStep Sample)).length) :
+    forcedLineageSuffixLabelExpectation extend [] current [] hlength
+        particles retained labels observable =
+      particleAverage observable labels := by
+  simp [forcedLineageSuffixLabelExpectation, forcedLineageSuffixLaw,
+    terminalLabels, pointDistribution]
+
+/-- Recursive expansion of the aggregate label expectation through one
+forced resample--propagate stage. This is the induction-facing equation for
+quantitative conditional-SMC bounds. -/
+theorem forcedLineageSuffixLabelExpectation_cons {Label : Type*}
+    (extend : Label → Sample → Label)
+    (step : FeynmanKacStep Sample) (steps : List (FeynmanKacStep Sample))
+    (current nextState : Sample) (future : List Sample)
+    (hlength : (nextState :: future).length = (step :: steps).length)
+    (particles : Particle → Sample) (retained : Particle)
+    (labels : Particle → Label) (observable : Label → ℝ) :
+    forcedLineageSuffixLabelExpectation extend (step :: steps) current
+        (nextState :: future) hlength particles retained labels observable =
+      ∑ nextRetained,
+        (uniformParticleDistribution (Particle := Particle)).mass nextRetained *
+        ∑ ancestors,
+          (forcedIndependentPopulation
+            (fun _ => normalizedPotentialWeights step.potential
+              step.potential_pos particles)
+            nextRetained retained).mass ancestors *
+          ∑ nextParticles,
+            (forcedIndependentPopulation
+              (fun i => rowDistribution step.transition
+                (particles (ancestors i)))
+              nextRetained nextState).mass nextParticles *
+              forcedLineageSuffixLabelExpectation extend steps nextState future
+                (by simpa using hlength) nextParticles nextRetained
+                (fun i => extend (labels (ancestors i)) (nextParticles i))
+                observable := by
+  change (∑ suffix,
+      (forcedLineageSuffixLaw (step :: steps) current (nextState :: future)
+        hlength particles retained).mass suffix *
+        particleAverage observable
+          (terminalLabels extend (step :: steps) labels suffix.1)) = _
+  rw [forcedLineageSuffixLaw]
+  rw [Distribution.bind_expectation]
+  apply Finset.sum_congr rfl
+  intro nextRetained _
+  rw [Distribution.bind_expectation]
+  congr 1
+  apply Finset.sum_congr rfl
+  intro ancestors _
+  rw [Distribution.bind_expectation]
+  congr 1
+  apply Finset.sum_congr rfl
+  intro nextParticles _
+  rw [Distribution.map_expectation]
+  simp only [terminalLabels]
+  rfl
+
 /-- Unnormalized one-particle Feynman--Kac density of a fixed path suffix,
 excluding the initial-state mass. -/
 noncomputable def pathSuffixDensity :

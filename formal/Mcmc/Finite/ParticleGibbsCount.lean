@@ -556,6 +556,54 @@ theorem aggregatedForcedLineageMass_eq_forcedLineage_expectation
   rw [conditionalRow_selectedTrajectoryVector_eq_forcedLineageLaw
     initial hinitial steps hsupport hnormalizer current]
 
+/-- Recursion-facing expansion of the aggregate PG entry. After choosing the
+initial retained slot and forced initial cloud, the remaining quantity is the
+forward path-label expectation of the recursive forced suffix law. -/
+theorem aggregatedForcedLineageMass_eq_recursiveLabelExpectation
+    [Nonempty Sample]
+    (initial : Distribution Sample) (hinitial : ∀ x, 0 < initial.mass x)
+    (steps : List (FeynmanKacStep Sample))
+    (hsupport : FeynmanKacFullSupport steps)
+    (hnormalizer : 0 < normalizingConstant initial steps) (extra : ℕ)
+    (current proposed : Trajectory steps) (first : Sample)
+    (future : List Sample) (hfuture : future.length = steps.length)
+    (hcurrent : current =
+      ⟨first :: future, by simp [hfuture]⟩) :
+    aggregatedForcedLineageMass initial steps hnormalizer extra
+        current proposed =
+      ∑ retained : Fin (extra + 1),
+        (uniformParticleDistribution (Particle := Fin (extra + 1))).mass retained *
+        ∑ particles,
+          (forcedIndependentPopulation (fun _ : Fin (extra + 1) => initial)
+            retained first).mass particles *
+            forcedLineageSuffixLabelExpectation
+              (fun path y => path ++ [y]) steps first future
+              hfuture
+              particles retained (fun i => [particles i])
+              (fun path => if path = proposed.toList then 1 else 0) := by
+  rw [aggregatedForcedLineageMass_eq_forcedLineage_expectation
+    initial hinitial steps hsupport hnormalizer extra current proposed]
+  subst current
+  simp_rw [← genealogicalTrajectoryFraction_eq_proposedTrajectoryFraction]
+  unfold genealogicalTrajectoryFraction
+  change (∑ selected,
+      (forcedLineageLaw (Particle := Fin (extra + 1)) initial steps
+        (first :: future) (by simp [hfuture])).mass selected *
+        particleAverage (fun path : List Sample =>
+          if path = proposed.toList then 1 else 0)
+          (terminalLabels (fun path y => path ++ [y]) steps
+            (fun i => [selected.1.1 i]) selected.1.2)) = _
+  unfold forcedLineageLaw
+  rw [Distribution.bind_expectation]
+  apply Finset.sum_congr rfl
+  intro retained _
+  rw [Distribution.bind_expectation]
+  congr 1
+  apply Finset.sum_congr rfl
+  intro particles _
+  rw [Distribution.map_expectation]
+  rfl
+
 /-- The aggregated forced-lineage mass is exactly the trajectory particle-
 Gibbs transition entry. This is an expansion theorem, not a minorization
 assumption, and exposes the sum to which primitive Feynman--Kac estimates must
