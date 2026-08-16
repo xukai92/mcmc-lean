@@ -1,4 +1,5 @@
 import Mcmc.Kernel.Slice
+import Mathlib.MeasureTheory.Function.Floor
 
 /-!
 # Concrete finite stepping-out and shrinkage semantics
@@ -26,6 +27,74 @@ structure BracketTrace where
 /-- All random choices for a bounded stepping-out/shrinkage update. -/
 structure Trace extends BracketTrace where
   shrinkFractions : List ℝ
+
+/-- Neal's alignment reversal (equation (5)): move the initial-bracket offset
+to the new current point while retaining the same width-grid alignment. -/
+noncomputable def reverseOffset (width old new offset : ℝ) : ℝ :=
+  Int.fract (offset + (new - old) / width)
+
+theorem reverseOffset_mem_Ico (width old new offset : ℝ) :
+    reverseOffset width old new offset ∈ Set.Ico (0 : ℝ) 1 :=
+  ⟨Int.fract_nonneg _, Int.fract_lt_one _⟩
+
+theorem measurable_reverseOffset (width old new : ℝ) :
+    Measurable (reverseOffset width old new) := by
+  exact measurable_fract.comp
+    (measurable_id.add measurable_const)
+
+/-- Reversing the alignment a second time recovers the original uniform
+offset. Endpoint `1` is excluded exactly as for the continuous uniform draw. -/
+theorem reverseOffset_reverseOffset
+    {width old new offset : ℝ} (hwidth : width ≠ 0)
+    (hoffset : offset ∈ Set.Ico (0 : ℝ) 1) :
+    reverseOffset width new old (reverseOffset width old new offset) = offset := by
+  unfold reverseOffset
+  rw [Int.fract_eq_iff]
+  refine ⟨hoffset.1, hoffset.2, -⌊offset + (new - old) / width⌋, ?_⟩
+  rw [Int.fract]
+  push_cast
+  field_simp
+  ring
+
+/-- Real-valued form of Neal's integer grid displacement in equation (6).
+Its integrality is recorded separately below; this form makes the alignment
+identity independent of integer coercion bookkeeping. -/
+noncomputable def alignmentShift (width old new offset : ℝ) : ℝ :=
+  (new / width - reverseOffset width old new offset) -
+    (old / width - offset)
+
+/-- Adjusting the left expansion allocation by the alignment shift gives the
+same maximal left endpoint when the start point is changed. -/
+theorem maximalLeftEndpoint_reverse
+    {width old new offset allocation : ℝ} (hwidth : width ≠ 0) :
+    new - width * reverseOffset width old new offset -
+        width * (allocation + alignmentShift width old new offset) =
+      old - width * offset - width * allocation := by
+  unfold alignmentShift
+  field_simp
+  ring
+
+/-- The alignment displacement is in fact the floor appearing in Neal's
+formula, hence an integer despite its real-valued presentation. -/
+theorem alignmentShift_eq_floor
+    {width old new offset : ℝ} (hwidth : width ≠ 0) :
+    alignmentShift width old new offset =
+      (⌊offset + (new - old) / width⌋ : ℤ) := by
+  unfold alignmentShift reverseOffset
+  rw [Int.fract]
+  field_simp
+  ring
+
+/-- The reverse displacement cancels the forward displacement. -/
+theorem alignmentShift_reverse
+    {width old new offset : ℝ} (hwidth : width ≠ 0)
+    (hoffset : offset ∈ Set.Ico (0 : ℝ) 1) :
+    alignmentShift width new old (reverseOffset width old new offset) =
+      -alignmentShift width old new offset := by
+  unfold alignmentShift
+  rw [reverseOffset_reverseOffset hwidth hoffset]
+  field_simp
+  ring
 
 /-- Expand the left endpoint by at most `steps` widths, stopping once the
 endpoint is outside the strict superlevel set. -/
@@ -56,6 +125,48 @@ noncomputable def shrink (logDensity : ℝ → ℝ) (current threshold : ℝ) :
         shrink logDensity current threshold attempts remaining proposal right
       else
         shrink logDensity current threshold attempts remaining left proposal
+
+/-- Bracket update induced by one rejected point. -/
+noncomputable def shrinkBracket (current rejected : ℝ) (bracket : ℝ × ℝ) :
+    ℝ × ℝ :=
+  if rejected < current then (rejected, bracket.2) else (bracket.1, rejected)
+
+/-- Apply a recorded sequence of rejected points, independently of how their
+uniform fractions were represented. -/
+noncomputable def shrinkRejectedPoints (current : ℝ) :
+    List ℝ → (ℝ × ℝ) → (ℝ × ℝ)
+  | [], bracket => bracket
+  | rejected :: remaining, bracket =>
+      shrinkRejectedPoints current remaining
+        (shrinkBracket current rejected bracket)
+
+/-- If a rejected point lies on the same side of the old and new states, both
+directions perform exactly the same bracket update. -/
+theorem shrinkBracket_eq_of_sameSide
+    {old new rejected : ℝ} {bracket : ℝ × ℝ}
+    (hsame : (rejected < old) = (rejected < new)) :
+    shrinkBracket old rejected bracket = shrinkBracket new rejected bracket := by
+  unfold shrinkBracket
+  by_cases hold : rejected < old <;>
+    by_cases hnew : rejected < new <;>
+      simp only [hold, hnew, if_true, if_false] <;> simp_all
+
+/-- Neal's shrinkage-reversal core: replaying the same rejected points gives
+the same successive bracket from either endpoint whenever no rejected point
+separates the two possible states. -/
+theorem shrinkRejectedPoints_eq_of_sameSide
+    {old new : ℝ} {rejected : List ℝ} {bracket : ℝ × ℝ}
+    (hsame : ∀ point ∈ rejected, (point < old) = (point < new)) :
+    shrinkRejectedPoints old rejected bracket =
+      shrinkRejectedPoints new rejected bracket := by
+  induction rejected generalizing bracket with
+  | nil => rfl
+  | cons point remaining ih =>
+      simp only [shrinkRejectedPoints]
+      rw [shrinkBracket_eq_of_sameSide (hsame point (by simp))]
+      apply ih
+      intro candidate hcandidate
+      exact hsame candidate (by simp [hcandidate])
 
 /-- Literal ideal-real execution of one bounded practical slice update. The
 precondition `trace.leftSteps ≤ maxSteps` is checked rather than silently

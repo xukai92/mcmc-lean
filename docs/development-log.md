@@ -1,5 +1,14 @@
 # Development log
 
+- Formalized the algebraic core of Neal's practical-slice reversal. The
+  fractional-part offset transport is measurable, remains in `[0,1)`, and is
+  involutive when the start/end states are swapped. Its expansion-allocation
+  correction is proved equal to an integer floor, preserves the maximal left
+  grid endpoint, and negates under reversal. Lean also proves that replaying
+  the same rejected shrink points produces identical brackets whenever no
+  rejected point separates the old and new accepted states. The remaining
+  step is the joint-law/Jacobian packaging of these concrete identities.
+
 - Added literal ideal-real semantics for the bounded practical slice runtime:
   finite left/right stepping out, affine shrink proposals, explicit trace
   allocation, checked malformed-trace failure, and identity fallback only on
