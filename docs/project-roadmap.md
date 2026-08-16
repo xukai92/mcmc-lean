@@ -263,7 +263,9 @@ breadth branches are:
 - stepping-out/shrinkage beyond the exact disintegration, finite integer slice,
   and bounded-interval continuous rejection implementation;
 - reversible-jump transports beyond the checked scalar and planar
-  birth/death scaling clients;
+  birth/death scaling clients. Product transport-density certificates now
+  compose recursively and instantiate a three-dimensional scaling transport;
+  richer non-product diffeomorphisms and their complete MH clients remain;
 - particle MCMC after finite SMC and pseudo-marginal foundations;
 - adaptive MCMC beyond the completed boundary counterexample only with
   the completed predetermined nonhomogeneous semantics and deterministic

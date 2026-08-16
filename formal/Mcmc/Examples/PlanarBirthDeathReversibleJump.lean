@@ -77,11 +77,37 @@ theorem map_planarAuxiliary :
 
 theorem planarCertificate :
     TransportDensityCertificate (fun _ : Unit => planarAuxiliary)
-      (volume.prod volume) planarTransport planarDensity where
-  measurableTransport _ :=
-    ((measurable_const_mul 2).comp measurable_fst).prodMk
-      ((measurable_const_mul 2).comp measurable_snd)
-  pushforward_eq _ := map_planarAuxiliary
+      (volume.prod volume) planarTransport planarDensity := by
+  have hbirth : ∀ _ : Unit, Measurable (birthDensity ()) := fun _ => by
+    unfold birthDensity
+    exact Measurable.ite measurableSet_Ioc measurable_const measurable_const
+  convert birthCertificate.prod birthCertificate hbirth hbirth using 1 <;>
+    funext x <;> cases x <;> rfl
+
+/-- Three-dimensional product transport, demonstrating that certified
+Jacobian factors now scale compositionally beyond the handwritten planar
+client. -/
+abbrev Space3 := Plane × ℝ
+
+noncomputable def spatialAuxiliary : Measure Space3 :=
+  planarAuxiliary.prod birthAuxiliary
+
+def spatialTransport (_ : Unit) (u : Space3) : Space3 :=
+  (planarTransport () u.1, birthTransport () u.2)
+
+noncomputable def spatialDensity (_ : Unit) (y : Space3) : ENNReal :=
+  planarDensity () y.1 * birthDensity () y.2
+
+theorem spatialCertificate :
+    TransportDensityCertificate (fun _ : Unit => spatialAuxiliary)
+      ((volume.prod volume).prod volume) spatialTransport spatialDensity := by
+  have hplanar : ∀ _ : Unit, Measurable (planarDensity ()) :=
+    fun _ => measurable_planarDensity_fixed
+  have hbirth : ∀ _ : Unit, Measurable (birthDensity ()) := fun _ => by
+    unfold birthDensity
+    exact Measurable.ite measurableSet_Ioc measurable_const measurable_const
+  convert planarCertificate.prod birthCertificate hplanar hbirth using 1 <;>
+    funext x <;> cases x <;> rfl
 
 noncomputable def reference : Measure State :=
   twoModelReference (Measure.dirac ()) (volume.prod volume)

@@ -52,6 +52,49 @@ structure TransportDensityCertificate
       destinationReference.withDensity (crossDensity x)
 
 omit [MeasurableSpace Left] in
+/-- Independent dimension-matching transports compose by products. The
+cross-model density is the product of the coordinate densities, so Jacobian
+factors compose without rebuilding the change-of-variables argument for every
+new product dimension. -/
+theorem TransportDensityCertificate.prod
+    {Aux₁ Aux₂ Right₁ Right₂ : Type*}
+    [MeasurableSpace Aux₁] [MeasurableSpace Aux₂]
+    [MeasurableSpace Right₁] [MeasurableSpace Right₂]
+    {sourceAuxiliary₁ : Left → Measure Aux₁}
+    {sourceAuxiliary₂ : Left → Measure Aux₂}
+    {destinationReference₁ : Measure Right₁}
+    {destinationReference₂ : Measure Right₂}
+    {transport₁ : Left → Aux₁ → Right₁}
+    {transport₂ : Left → Aux₂ → Right₂}
+    {crossDensity₁ : Left → Right₁ → ENNReal}
+    {crossDensity₂ : Left → Right₂ → ENNReal}
+    [∀ x, SFinite (sourceAuxiliary₁ x)]
+    [∀ x, SFinite (sourceAuxiliary₂ x)]
+    [SFinite destinationReference₂]
+    (first : TransportDensityCertificate sourceAuxiliary₁
+      destinationReference₁ transport₁ crossDensity₁)
+    (second : TransportDensityCertificate sourceAuxiliary₂
+      destinationReference₂ transport₂ crossDensity₂)
+    (hmeasurable₁ : ∀ x, Measurable (crossDensity₁ x))
+    (hmeasurable₂ : ∀ x, Measurable (crossDensity₂ x)) :
+    TransportDensityCertificate
+      (fun x => (sourceAuxiliary₁ x).prod (sourceAuxiliary₂ x))
+      (destinationReference₁.prod destinationReference₂)
+      (fun x u => (transport₁ x u.1, transport₂ x u.2))
+      (fun x y => crossDensity₁ x y.1 * crossDensity₂ x y.2) where
+  measurableTransport x :=
+    (first.measurableTransport x).comp measurable_fst |>.prodMk
+      ((second.measurableTransport x).comp measurable_snd)
+  pushforward_eq x := by
+    rw [show (fun u : Aux₁ × Aux₂ =>
+        (transport₁ x u.1, transport₂ x u.2)) =
+      Prod.map (transport₁ x) (transport₂ x) by rfl]
+    rw [← Measure.map_prod_map (sourceAuxiliary₁ x) (sourceAuxiliary₂ x)
+      (first.measurableTransport x) (second.measurableTransport x),
+      first.pushforward_eq x, second.pushforward_eq x]
+    exact prod_withDensity (hmeasurable₁ x) (hmeasurable₂ x)
+
+omit [MeasurableSpace Left] in
 /-- A probability auxiliary law and a transport-density certificate imply
 normalization of every claimed cross-model density. -/
 theorem TransportDensityCertificate.lintegral_crossDensity_eq_one

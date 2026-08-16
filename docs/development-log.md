@@ -1940,6 +1940,20 @@ partitioning. Recursive subtree U-turn aggregation, doubling, and multinomial
 selection over such a tree still require their own equivalence and refinement
 proofs.
 
+## 2026-08-16: product-compositional reversible-jump transports
+
+Added a reusable product constructor for reversible-jump transport-density
+certificates. Two independently certified auxiliary transports now yield a
+product transport whose destination reference is the product measure and
+whose cross density is the product of the component Jacobian-corrected
+densities. The planar birth/death certificate is rebuilt from two scalar
+certificates, and recursively composing it with a third scalar certificate
+produces a checked three-dimensional transport.
+
+This removes the need to repeat the measure-level change-of-variables proof
+for every product dimension. A complete three-dimensional MH client is not
+claimed here; the proved artifact is its normalized transport-density core.
+
 Julia exposes the matching guarded Float64 evaluator, including the removable
 zero-Hessian branch, and tests its algebraic outputs and invalid domains. This
 is deliberately runtime evidence rather than a platform certificate: error
