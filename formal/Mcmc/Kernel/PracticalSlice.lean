@@ -286,6 +286,92 @@ theorem shrinkRejectedPoints_eq_of_sameSide
       intro candidate hcandidate
       exact hsame candidate (by simp [hcandidate])
 
+/-- Lebesgue density of a finite sequence of rejected shrink points. Each
+point must lie in the current bracket and below the sampled log height; its
+conditional uniform density is the reciprocal bracket width. -/
+noncomputable def rejectedTraceWeight (logDensity : ℝ → ℝ) (threshold current : ℝ) :
+    List ℝ → (ℝ × ℝ) → ENNReal
+  | [], _ => 1
+  | rejected :: remaining, bracket =>
+      if rejected ∈ Set.Ico bracket.1 bracket.2 ∧
+          logDensity rejected < threshold then
+        ENNReal.ofReal (bracket.2 - bracket.1)⁻¹ *
+          rejectedTraceWeight logDensity threshold current remaining
+            (shrinkBracket current rejected bracket)
+      else 0
+
+/-- Replaying same-side rejected points from either possible endpoint has
+exactly the same finite conditional density. -/
+theorem rejectedTraceWeight_eq_of_sameSide
+    (logDensity : ℝ → ℝ) (threshold : ℝ)
+    {old new : ℝ} {rejected : List ℝ} {bracket : ℝ × ℝ}
+    (hsame : ∀ point ∈ rejected, (point < old) = (point < new)) :
+    rejectedTraceWeight logDensity threshold old rejected bracket =
+      rejectedTraceWeight logDensity threshold new rejected bracket := by
+  induction rejected generalizing bracket with
+  | nil => rfl
+  | cons point remaining ih =>
+      simp only [rejectedTraceWeight]
+      split
+      · congr 1
+        rw [shrinkBracket_eq_of_sameSide (hsame point (by simp))]
+        apply ih
+        intro candidate hcandidate
+        exact hsame candidate (by simp [hcandidate])
+      · rfl
+
+/-- The bracket and density after all rejected points agree simultaneously in
+the two directions. -/
+theorem rejectedTrace_reversal_data
+    (logDensity : ℝ → ℝ) (threshold : ℝ)
+    {old new : ℝ} {rejected : List ℝ} {bracket : ℝ × ℝ}
+    (hsame : ∀ point ∈ rejected, (point < old) = (point < new)) :
+    shrinkRejectedPoints old rejected bracket =
+        shrinkRejectedPoints new rejected bracket ∧
+      rejectedTraceWeight logDensity threshold old rejected bracket =
+        rejectedTraceWeight logDensity threshold new rejected bracket :=
+  ⟨shrinkRejectedPoints_eq_of_sameSide hsame,
+    rejectedTraceWeight_eq_of_sameSide logDensity threshold hsame⟩
+
+/-- Conditional density of the final accepted point after shrinkage. -/
+noncomputable def acceptedPointWeight (logDensity : ℝ → ℝ) (threshold point : ℝ)
+    (bracket : ℝ × ℝ) : ENNReal :=
+  if point ∈ Set.Ico bracket.1 bracket.2 ∧ threshold ≤ logDensity point then
+    ENNReal.ofReal (bracket.2 - bracket.1)⁻¹
+  else 0
+
+/-- Joint point-coordinate density of all rejected points followed by one
+accepted point. -/
+noncomputable def shrinkTraceWeight (logDensity : ℝ → ℝ) (threshold current : ℝ)
+    (rejected : List ℝ) (accepted : ℝ) (bracket : ℝ × ℝ) : ENNReal :=
+  rejectedTraceWeight logDensity threshold current rejected bracket *
+    acceptedPointWeight logDensity threshold accepted
+      (shrinkRejectedPoints current rejected bracket)
+
+/-- Complete finite shrink-trace likelihood is symmetric between its old and
+new accepted endpoints whenever no rejected point separates them. -/
+theorem shrinkTraceWeight_symmetric
+    (logDensity : ℝ → ℝ) (threshold : ℝ)
+    {old new : ℝ} {rejected : List ℝ} {bracket : ℝ × ℝ}
+    (hsame : ∀ point ∈ rejected, (point < old) = (point < new))
+    (hold : old ∈ Set.Ico
+        (shrinkRejectedPoints old rejected bracket).1
+        (shrinkRejectedPoints old rejected bracket).2 ∧
+      threshold ≤ logDensity old)
+    (hnew : new ∈ Set.Ico
+        (shrinkRejectedPoints old rejected bracket).1
+        (shrinkRejectedPoints old rejected bracket).2 ∧
+      threshold ≤ logDensity new) :
+    shrinkTraceWeight logDensity threshold old rejected new bracket =
+      shrinkTraceWeight logDensity threshold new rejected old bracket := by
+  have hbracket := shrinkRejectedPoints_eq_of_sameSide
+    (bracket := bracket) hsame
+  have hweight := rejectedTraceWeight_eq_of_sameSide
+    logDensity threshold (bracket := bracket) hsame
+  unfold shrinkTraceWeight acceptedPointWeight
+  rw [hweight, ← hbracket]
+  simp [hold, hnew]
+
 /-! ### Accepted-proposal affine reversal -/
 
 /-- Reciprocal scaling of two real coordinates. Its Jacobian determinant is

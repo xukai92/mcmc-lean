@@ -1,5 +1,16 @@
 # Development log
 
+- Packaged the complete finite shrinkage likelihood in point coordinates.
+  Every rejected point contributes the checked reciprocal width of its current
+  bracket and must be inside that bracket but below the sampled level; the
+  final accepted point contributes the analogous in-slice density. Lean proves
+  inductively that same-side replay gives identical successive brackets and
+  rejected-trace densities, then proves the full rejected-plus-accepted trace
+  likelihood symmetric between old and new endpoints. The remaining concrete
+  trace issue is the stepping-out theorem that the offset/allocation reversal
+  yields the same actually stopped expansion bracket, not just the same
+  maximal grid extent.
+
 - Added the density-lifting step needed for full practical-slice trace
   assembly. Lean now proves generally that a measure-preserving transform also
   preserves a measurable reweighting whose density is invariant. For the
