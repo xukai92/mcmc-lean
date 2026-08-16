@@ -1,5 +1,17 @@
 # Development log
 
+- Began the concrete bare Gaussian SoftAbs drift analysis in the explicit
+  one-dimensional `ε=1`, `L=1` regime. The constant SoftAbs factor and inverse
+  metric are proved not to annihilate nonzero momentum; the client
+  instantiates the corrected anisotropic relativistic speed bound. Velocity
+  has nonnegative momentum inner product in every finite dimension and the
+  same strict sign as nonzero momentum in one dimension. Consequently Lean
+  proves that, after the half force kick, the unit generalized-leapfrog step
+  moves strictly toward the origin on either half-line. A quantitative uniform
+  inward-distance bound and integration over the refreshed momentum law remain
+  before this yields a Foster--Lyapunov certificate for the multinomial
+  kernel.
+
 - Exposed the exact one-step transition algebra for the Gaussian SoftAbs
   generalized-leapfrog client. Lean now rewrites the solver to the explicit
   half force kick, relativistic drift
