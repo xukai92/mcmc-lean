@@ -454,7 +454,9 @@ The repository now contains machine-checked implementations and proofs for:
   transport-density certificate, cross-model accepted-flow symmetry, and
   Markov/reversibility/invariance theorems, including a zero-to-one-dimensional
   Euclidean birth/death client whose `y = 2u` transport has a checked
-  inverse-Jacobian density;
+  inverse-Jacobian density. Coordinate certificates now compose over an
+  arbitrary finite homogeneous product, with iterated product measures,
+  transports, densities, and probability-law instances generated recursively;
 - finite iid particle clouds whose average nonnegative importance weight is
   proved unbiased, with exact distinct-coordinate factorization and the
   finite identity `MSE(average) = variance / particle-count`, together with

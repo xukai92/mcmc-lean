@@ -395,7 +395,11 @@ breadth branches are:
   satisfies this restricted premise, plus its Float64 refinement, remains;
 - reversible-jump transports beyond the checked scalar and planar
   birth/death scaling clients. Product transport-density certificates now
-  compose recursively and instantiate a three-dimensional scaling transport;
+  compose recursively and instantiate a three-dimensional scaling transport.
+  The composition is now dimension-generic: a one-coordinate certificate
+  recursively constructs the source/reference product measures, transport,
+  density product, probability instance, and certificate for every finite
+  dimension;
   its complete Lean MH client is now mirrored by the executable
   `SpatialBirthDeathRJ` Reference/Optimized transition and diagnostics;
   a genuinely nonlinear non-product cubic triangular shear now has an explicit

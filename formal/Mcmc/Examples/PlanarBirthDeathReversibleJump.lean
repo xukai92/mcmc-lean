@@ -114,6 +114,21 @@ theorem spatialCertificate :
   convert planarCertificate.prod birthCertificate hplanar hbirth using 1 <;>
     funext x <;> cases x <;> rfl
 
+/-- The same one-coordinate scaling certificate generates a certified
+transport in every finite nested product dimension. The existing planar and
+spatial clients use convenient pair aliases; this theorem is the reusable
+dimension-generic foundation for further clients. -/
+theorem finiteScalingCertificate (dimension : ℕ) :
+    TransportDensityCertificate
+      (fun _ : Unit => transportPowerMeasure birthAuxiliary dimension)
+      (transportPowerMeasure (volume : Measure ℝ) dimension)
+      (fun _ => transportPowerMap (birthTransport ()) dimension)
+      (fun _ => transportPowerDensity (birthDensity ()) dimension) := by
+  apply birthCertificate.power birthAuxiliary (volume : Measure ℝ)
+    (birthTransport ()) (birthDensity ())
+  unfold birthDensity
+  exact Measurable.ite measurableSet_Ioc measurable_const measurable_const
+
 noncomputable def reference : Measure State :=
   twoModelReference (Measure.dirac ()) (volume.prod volume)
 

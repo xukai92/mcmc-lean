@@ -1,5 +1,14 @@
 # Development log
 
+- Generalized reversible-jump product transport certificates from binary and
+  handwritten 3D composition to every finite homogeneous product dimension.
+  `TransportPower`, its recursively generated product measure, coordinate map,
+  and density product now carry `SFinite` and probability instances, while
+  `TransportDensityCertificate.power` proves the complete pushforward-density
+  certificate by induction. The Euclidean birth/death client instantiates the
+  theorem for arbitrary dimension; existing planar/spatial aliases remain as
+  ergonomic executable examples.
+
 - Formalized the minimal obstruction to unconditional first-stop dynamic-NUTS
   certification. On two leaves, the root-dependent rows `{0,1}` and `{1}`
   retain both roots but fail the executable reroot checker; Lean proves that

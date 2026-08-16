@@ -94,6 +94,123 @@ theorem TransportDensityCertificate.prod
       first.pushforward_eq x, second.pushforward_eq x]
     exact prod_withDensity (hmeasurable₁ x) (hmeasurable₂ x)
 
+/-! ### Arbitrary finite homogeneous products -/
+
+/-- Right-associated carrier for `n` homogeneous transported coordinates.
+The zero-coordinate carrier is `PUnit`, making the product certificate's base
+case explicit. -/
+def TransportPower (Coordinate : Type u) : ℕ → Type u
+  | 0 => PUnit
+  | n + 1 => TransportPower Coordinate n × Coordinate
+
+instance TransportPower.instMeasurableSpace
+    {Coordinate : Type u} [MeasurableSpace Coordinate] :
+    (n : ℕ) → MeasurableSpace (TransportPower Coordinate n)
+  | 0 => inferInstanceAs (MeasurableSpace PUnit)
+  | n + 1 => by
+      letI := TransportPower.instMeasurableSpace (Coordinate := Coordinate) n
+      exact inferInstanceAs
+        (MeasurableSpace (TransportPower Coordinate n × Coordinate))
+
+/-- Iterated product measure on `TransportPower`. -/
+noncomputable def transportPowerMeasure
+    {Coordinate : Type*} [MeasurableSpace Coordinate]
+    (coordinate : Measure Coordinate) :
+    (n : ℕ) → Measure (TransportPower Coordinate n)
+  | 0 => Measure.dirac PUnit.unit
+  | n + 1 => (transportPowerMeasure coordinate n).prod coordinate
+
+instance transportPowerMeasure.instSFinite
+    {Coordinate : Type*} [MeasurableSpace Coordinate]
+    (coordinate : Measure Coordinate) [SFinite coordinate] :
+    (n : ℕ) → SFinite (transportPowerMeasure coordinate n)
+  | 0 => by
+      simp only [transportPowerMeasure]
+      infer_instance
+  | n + 1 => by
+      letI := transportPowerMeasure.instSFinite coordinate n
+      change SFinite ((transportPowerMeasure coordinate n).prod coordinate)
+      infer_instance
+
+instance transportPowerMeasure.instIsProbabilityMeasure
+    {Coordinate : Type*} [MeasurableSpace Coordinate]
+    (coordinate : Measure Coordinate) [IsProbabilityMeasure coordinate] :
+    (n : ℕ) → IsProbabilityMeasure (transportPowerMeasure coordinate n)
+  | 0 => by
+      simp only [transportPowerMeasure]
+      infer_instance
+  | n + 1 => by
+      letI := transportPowerMeasure.instIsProbabilityMeasure coordinate n
+      change IsProbabilityMeasure
+        ((transportPowerMeasure coordinate n).prod coordinate)
+      infer_instance
+
+/-- Apply one coordinate transport recursively to a finite product. -/
+def transportPowerMap
+    {Aux Coordinate : Type*}
+    (transport : Aux → Coordinate) :
+    (n : ℕ) → TransportPower Aux n → TransportPower Coordinate n
+  | 0, _ => PUnit.unit
+  | n + 1, value =>
+      (transportPowerMap transport n value.1, transport value.2)
+
+/-- Product of the coordinate densities on a finite transported product. -/
+noncomputable def transportPowerDensity
+    {Coordinate : Type*} (density : Coordinate → ENNReal) :
+    (n : ℕ) → TransportPower Coordinate n → ENNReal
+  | 0, _ => 1
+  | n + 1, value =>
+      transportPowerDensity density n value.1 * density value.2
+
+theorem measurable_transportPowerDensity
+    {Coordinate : Type*} [MeasurableSpace Coordinate]
+    {density : Coordinate → ENNReal} (hdensity : Measurable density) :
+    ∀ n, Measurable (transportPowerDensity density n)
+  | 0 => measurable_const
+  | n + 1 =>
+      ((measurable_transportPowerDensity hdensity n).comp measurable_fst).mul
+        (hdensity.comp measurable_snd)
+
+omit [MeasurableSpace Left] in
+/-- A single state-independent coordinate certificate composes to every
+finite homogeneous product dimension. This removes the need to hand-associate
+and re-prove Jacobian-density products in each reversible-jump client. -/
+theorem TransportDensityCertificate.power
+    {Aux Coordinate : Type*}
+    [MeasurableSpace Aux] [MeasurableSpace Coordinate]
+    (source : Measure Aux) (reference : Measure Coordinate)
+    (transport : Aux → Coordinate) (density : Coordinate → ENNReal)
+    [SFinite source] [SFinite reference]
+    (coordinate : TransportDensityCertificate
+      (fun _ : Unit => source) reference (fun _ => transport)
+      (fun _ => density))
+    (hmeasurableDensity : Measurable density) (n : ℕ) :
+    TransportDensityCertificate
+      (fun _ : Unit => transportPowerMeasure source n)
+      (transportPowerMeasure reference n)
+      (fun _ => transportPowerMap transport n)
+      (fun _ => transportPowerDensity density n) := by
+  induction n with
+  | zero =>
+      refine
+        { measurableTransport := fun _ => measurable_const
+          pushforward_eq := fun _ => ?_ }
+      simp [transportPowerMeasure, transportPowerMap, transportPowerDensity]
+  | succ n ih =>
+      letI := transportPowerMeasure.instSFinite source n
+      letI := transportPowerMeasure.instSFinite reference n
+      change TransportDensityCertificate
+        (fun _ : Unit =>
+          (transportPowerMeasure source n).prod source)
+        ((transportPowerMeasure reference n).prod reference)
+        (fun _ value =>
+          (transportPowerMap transport n value.1, transport value.2))
+        (fun _ value =>
+          transportPowerDensity density n value.1 * density value.2)
+      exact ih.prod coordinate
+        (fun _ => measurable_transportPowerDensity hmeasurableDensity n)
+        (fun _ => hmeasurableDensity)
+
 omit [MeasurableSpace Left] in
 /-- A probability auxiliary law and a transport-density certificate imply
 normalization of every claimed cross-model density. -/
