@@ -698,4 +698,80 @@ theorem exists_standardQuadratic_boundedEstimator_of_marginal_convergence
       C₀ contractionRate hC₀ hrate htail
       (stickyCoupledHmcRwmhMixture_isFaithful _ _ _ _ _ _ _ _ _)
 
+/-- Unconditional bounded-observable endpoint for the concrete
+standard-Gaussian construction. Geometric faithful meeting now supplies the
+previously external marginal-expectation convergence premise. The theorem
+constructs the limiting mean; identifying it with an independently
+normalized Gaussian target integral is a separate normalization result. -/
+theorem exists_standardQuadratic_boundedEstimator
+    [Nonempty ι] (variance : NNReal) (hvariance : variance ≠ 0)
+    (q₀ : Position ι) (observable : Position ι → ℝ)
+    (hmeasurable : Measurable observable) {B : ℝ} (hB : 0 ≤ B)
+    (hbounded : ∀ q, ‖observable q‖ ≤ B) :
+    ∃ (gamma : Set.Ioo (0 : NNReal) 1) (C₀ contractionRate : ENNReal)
+        (targetMean : ℝ),
+      C₀ ≠ ⊤ ∧ contractionRate < 1 ∧
+      let transition := hmcRwmhMixture (xuTheorem41HmcWeight gamma)
+        standardQuadraticPotential standardQuadraticGradient
+        (Real.sqrt 2) 1
+        contDiff_standardQuadraticPotential.continuous.measurable
+        measurable_standardQuadraticGradient variance hvariance
+      let coupled := stickyCoupledHmcRwmhMixture (xuTheorem41HmcWeight gamma)
+        standardQuadraticPotential standardQuadraticGradient
+        (Real.sqrt 2) 1
+        contDiff_standardQuadraticPotential.continuous.measurable
+        measurable_standardQuadraticGradient variance hvariance
+      Filter.Tendsto
+          (fun n => ∫ q, observable q
+            ∂Mcmc.Kernel.lawAtTime (Measure.dirac q₀) transition n)
+          Filter.atTop (nhds targetMean) ∧
+        (∫ path, Mcmc.Kernel.stoppedLaggedUnbiasedEstimator observable path
+          ∂Mcmc.Kernel.pathLaw
+            (Mcmc.Kernel.laggedInitialMeasure
+              ((Measure.dirac q₀).prod (Measure.dirac q₀)) transition)
+            coupled) = targetMean ∧
+          MemLp (Mcmc.Kernel.stoppedLaggedUnbiasedEstimator observable) 2
+            (Mcmc.Kernel.pathLaw
+              (Mcmc.Kernel.laggedInitialMeasure
+                ((Measure.dirac q₀).prod (Measure.dirac q₀)) transition)
+              coupled) := by
+  obtain ⟨gamma, C₀, contractionRate, hC₀, hrate, htail⟩ :=
+    exists_geometric_exactLagOneMeetingTail_standardQuadratic_finite_sqrtTwo
+      variance hvariance q₀
+  let transition := hmcRwmhMixture (xuTheorem41HmcWeight gamma)
+    (standardQuadraticPotential : Position ι → ℝ)
+    (standardQuadraticGradient : Position ι → Position ι) (Real.sqrt 2) 1
+    contDiff_standardQuadraticPotential.continuous.measurable
+    measurable_standardQuadraticGradient variance hvariance
+  let coupled := stickyCoupledHmcRwmhMixture (xuTheorem41HmcWeight gamma)
+    (standardQuadraticPotential : Position ι → ℝ)
+    (standardQuadraticGradient : Position ι → Position ι) (Real.sqrt 2) 1
+    contDiff_standardQuadraticPotential.continuous.measurable
+    measurable_standardQuadraticGradient variance hvariance
+  let pathMeasure := Mcmc.Kernel.pathLaw
+    (Mcmc.Kernel.laggedInitialMeasure
+      ((Measure.dirac q₀).prod (Measure.dirac q₀)) transition) coupled
+  let targetMean := ∫ path,
+    Mcmc.Kernel.stoppedLaggedUnbiasedEstimator observable path ∂pathMeasure
+  have hmarginal : Filter.Tendsto
+      (fun n => ∫ q, observable q
+        ∂Mcmc.Kernel.lawAtTime (Measure.dirac q₀) transition n)
+      Filter.atTop (nhds targetMean) := by
+    exact Mcmc.Kernel.tendsto_marginalExpectation_to_stoppedEstimator_of_bounded_geometric
+      ((Measure.dirac q₀).prod (Measure.dirac q₀)) (Measure.dirac q₀)
+      transition coupled (isMeasureCoupling_prod _ _)
+      (stickyCoupledHmcRwmhMixture_isCoupling _ _ _ _ _ _ _ _ _)
+      observable hmeasurable hbounded C₀ contractionRate hC₀ hrate
+      htail (stickyCoupledHmcRwmhMixture_isFaithful _ _ _ _ _ _ _ _ _)
+  have hend :=
+    Mcmc.Kernel.integral_eq_and_memLp_two_stoppedLaggedUnbiasedEstimator_of_bounded_geometric
+      ((Measure.dirac q₀).prod (Measure.dirac q₀)) (Measure.dirac q₀)
+      transition coupled (isMeasureCoupling_prod _ _)
+      (stickyCoupledHmcRwmhMixture_isCoupling _ _ _ _ _ _ _ _ _)
+      observable hmeasurable hB hbounded targetMean hmarginal C₀
+      contractionRate hC₀ hrate htail
+      (stickyCoupledHmcRwmhMixture_isFaithful _ _ _ _ _ _ _ _ _)
+  exact ⟨gamma, C₀, contractionRate, targetMean, hC₀, hrate,
+    hmarginal, hend⟩
+
 end Mcmc.Hamiltonian

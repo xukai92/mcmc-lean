@@ -96,9 +96,11 @@ RWMH drift data, energy-region geometry, compact small set, concrete kernels,
 and initialization required by the exact lag-one theorem. Lean therefore
 proves a geometric exact lag-one meeting tail for that actual algorithm at
 `ε = √2`, `L = 1`.
-For bounded measurable observables, the module also packages the actual
-mixture into an unbiased, finite-variance estimator theorem conditional on
-the explicit marginal-expectation convergence statement from the Dirac start.
+For bounded measurable observables, geometric faithful meeting now proves
+that the Dirac-start marginal expectations converge. The module packages the
+actual mixture into an unconditional finite-variance estimator theorem whose
+expectation is this constructed limit. Identifying the limit with an
+independently normalized Gaussian Boltzmann integral remains separate.
 
 The general-target endpoint is a composition theorem: regularity and local
 strong convexity establish local HMC accessibility, while a supplied
@@ -127,9 +129,9 @@ The following follow-on work remains outside the completed theorem surface:
 
 - target-specific drift certificates beyond the standard Gaussian and
   regularized-logistic families;
-- concrete marginal-convergence or ergodicity certificates for the
-  instantiated Dirac-start Gaussian and regularized-logistic chains (the
-  general and stationary higher-moment implications are proved);
+- normalized-Boltzmann target identification for the constructed Gaussian
+  marginal limit, and the analogous unconditional closure for the
+  regularized-logistic client;
 - full floating-point refinement and reproduction of every reported paper
   experiment. The generated Julia coupling already implements shared-event
   HMC/RWMH mixture steps, checks exact-meeting faithfulness, and now exposes a

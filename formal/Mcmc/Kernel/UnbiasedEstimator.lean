@@ -1256,5 +1256,91 @@ theorem activeCorrectionCount_ae_lt_top_of_geometric
   rw [lintegral_activeCorrectionCount_eq_expectedCorrectionCount]
   exact expectedCorrectionCount_ne_top_of_geometric μ C rate hC hrate htail
 
+/-- A faithful coupling with a geometric exact-meeting tail forces the
+expectations of every bounded measurable observable along the ordinary chain
+to converge. The limit is the expectation of the absolutely summable stopped
+estimator. Identifying this limit with a named invariant target is a separate
+normalization and uniqueness step. -/
+theorem tendsto_marginalExpectation_to_stoppedEstimator_of_bounded_geometric
+    [MeasurableEq α]
+    (initialCoupling : Measure (α × α)) [IsProbabilityMeasure initialCoupling]
+    (initial : Measure α) [IsProbabilityMeasure initial]
+    (transition : Kernel α α) [IsMarkovKernel transition]
+    (coupled : Kernel (α × α) (α × α)) [IsMarkovKernel coupled]
+    (hinitial : IsMeasureCoupling initialCoupling initial initial)
+    (hcoupled : IsCoupling coupled transition transition)
+    (h : α → ℝ) (hh : Measurable h) {B : ℝ}
+    (hhB : ∀ x, ‖h x‖ ≤ B)
+    (C rate : ENNReal) (hC : C ≠ ⊤) (hrate : rate < 1)
+    (htail : ∀ n, exactMeetingTail
+      (pathLaw (laggedInitialMeasure initialCoupling transition) coupled) n ≤
+      C * rate ^ n)
+    (hfaithful : IsFaithful coupled) :
+    Filter.Tendsto
+      (fun n => ∫ x, h x ∂lawAtTime initial transition n)
+      Filter.atTop
+      (nhds (∫ path, stoppedLaggedUnbiasedEstimator h path
+        ∂pathLaw (laggedInitialMeasure initialCoupling transition) coupled)) := by
+  let μ := pathLaw (laggedInitialMeasure initialCoupling transition) coupled
+  let correction : ℕ → (ℕ → α × α) → ℝ := stoppedLaggedCorrection h
+  have hsum : (∑' n : ℕ, ∫⁻ path, ‖correction n path‖ₑ ∂μ) ≠ ⊤ :=
+    tsum_lintegral_enorm_stoppedLaggedCorrection_ne_top
+      μ h hhB C rate hC hrate htail
+  have hcorr (n : ℕ) : Integrable (correction n) μ := by
+    refine ⟨(measurable_stoppedLaggedCorrection h hh n).aestronglyMeasurable, ?_⟩
+    rw [hasFiniteIntegral_iff_enorm]
+    exact lt_of_le_of_lt (ENNReal.le_tsum n) hsum.lt_top
+  have hcorrNorm : Summable (fun n => ∫ path, ‖correction n path‖ ∂μ) := by
+    have hs := ENNReal.summable_toReal hsum
+    apply hs.congr
+    intro n
+    exact (integral_norm_eq_lintegral_enorm
+      (hcorr n).aestronglyMeasurable).symm
+  have hseries : HasSum (fun n => ∫ path, correction n path ∂μ)
+      (∫ path, ∑' n : ℕ, correction n path ∂μ) :=
+    hasSum_integral_of_summable_integral_norm hcorr hcorrNorm
+  have hint (n : ℕ) : Integrable h (lawAtTime initial transition n) := by
+    exact (MemLp.of_bound hh.aestronglyMeasurable B
+      (Filter.Eventually.of_forall hhB) :
+        MemLp h 1 (lawAtTime initial transition n)).integrable le_rfl
+  have hcoord := integrable_laggedPath_coordinate initialCoupling initial
+    transition coupled hinitial hcoupled h hh hint
+  have hbase : Integrable (fun path : ℕ → α × α => h (path 0).2) μ :=
+    (hcoord 0).2
+  have hfaithfulPath : ∀ᵐ path ∂μ, IsFaithfulPath path :=
+    hfaithful.ae_isFaithfulPath
+      (laggedInitialMeasure initialCoupling transition) coupled
+  have hfiniteIntegral (N : ℕ) :
+      (∫ path, stoppedLaggedEstimator h N path ∂μ) =
+        ∫ x, h x ∂lawAtTime initial transition (N + 1) := by
+    calc
+      _ = ∫ path, laggedTelescopingEstimator h N path ∂μ := by
+        apply integral_congr_ae
+        exact hfaithfulPath.mono fun path hpath =>
+          stoppedLaggedEstimator_eq_of_faithfulPath h N hpath
+      _ = _ := integral_laggedTelescopingEstimator_eq initialCoupling initial
+        transition coupled hinitial hcoupled h hh hint N
+  have hseriesShift := hseries.tendsto_sum_nat.comp
+    (Filter.tendsto_add_atTop_nat 1)
+  have hadd := hseriesShift.const_add (∫ path, h (path 0).2 ∂μ)
+  have hfiniteTendsto : Filter.Tendsto
+      (fun N => ∫ path, stoppedLaggedEstimator h N path ∂μ)
+      Filter.atTop
+      (nhds (∫ path, stoppedLaggedUnbiasedEstimator h path ∂μ)) := by
+    convert hadd using 1
+    · funext N
+      unfold stoppedLaggedEstimator
+      rw [integral_add hbase (integrable_finsetSum _ fun n _ => hcorr n),
+        integral_finsetSum _ fun n _ => hcorr n]
+      rfl
+    · unfold stoppedLaggedUnbiasedEstimator
+      rw [integral_add hbase
+        (integrable_tsum_stoppedLaggedCorrection μ h hh hsum)]
+  rw [show (fun N => ∫ path, stoppedLaggedEstimator h N path ∂μ) =
+      fun N => ∫ x, h x ∂lawAtTime initial transition (N + 1) by
+    funext N
+    exact hfiniteIntegral N] at hfiniteTendsto
+  exact (Filter.tendsto_add_atTop_iff_nat 1).mp hfiniteTendsto
+
 end Kernel
 end Mcmc
