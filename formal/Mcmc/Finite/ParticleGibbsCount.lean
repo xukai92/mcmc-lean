@@ -72,6 +72,136 @@ theorem advancePathMatchLabel_of_not_terminal (horizon : ℕ)
   unfold advancePathMatchLabel
   simp [hnext]
 
+omit [Fintype Sample] in
+/-- Boolean recursion rule for one genuine automaton advance. -/
+theorem advancePathMatchLabel_matched_iff (horizon : ℕ)
+    (desired : Fin (horizon + 1) → Sample)
+    (label : PathMatchLabel horizon) (state : Sample)
+    (hnext : label.time.val + 1 < horizon + 1) :
+    (advancePathMatchLabel horizon desired label state).matched = true ↔
+      label.matched = true ∧
+        state = desired ⟨label.time.val + 1, hnext⟩ := by
+  rw [advancePathMatchLabel_of_not_terminal horizon desired label state hnext]
+  simp
+
+omit [Fintype Sample] in
+/-- A genuine automaton advance increments the bounded time coordinate. -/
+theorem advancePathMatchLabel_time (horizon : ℕ)
+    (desired : Fin (horizon + 1) → Sample)
+    (label : PathMatchLabel horizon) (state : Sample)
+    (hnext : label.time.val + 1 < horizon + 1) :
+    (advancePathMatchLabel horizon desired label state).time =
+      ⟨label.time.val + 1, hnext⟩ := by
+  rw [advancePathMatchLabel_of_not_terminal horizon desired label state hnext]
+
+/-- Consume a finite list of subsequent states. -/
+def advancePathMatchList (horizon : ℕ)
+    (desired : Fin (horizon + 1) → Sample) :
+    PathMatchLabel horizon → List Sample → PathMatchLabel horizon
+  | label, [] => label
+  | label, state :: states =>
+      advancePathMatchList horizon desired
+        (advancePathMatchLabel horizon desired label state) states
+
+omit [Fintype Sample] in
+/-- The list runner is the standard left fold of the one-step automaton. -/
+theorem advancePathMatchList_eq_foldl (horizon : ℕ)
+    (desired : Fin (horizon + 1) → Sample)
+    (label : PathMatchLabel horizon) (states : List Sample) :
+    advancePathMatchList horizon desired label states =
+      states.foldl (advancePathMatchLabel horizon desired) label := by
+  induction states generalizing label with
+  | nil => rfl
+  | cons state states ih =>
+      rw [advancePathMatchList, List.foldl_cons, ih]
+
+omit [Fintype Sample] in
+/-- As long as the supplied suffix fits before the horizon, consuming it
+increments the automaton time by exactly its length. -/
+theorem advancePathMatchList_time_val (horizon : ℕ)
+    (desired : Fin (horizon + 1) → Sample)
+    (label : PathMatchLabel horizon) (states : List Sample)
+    (hfit : label.time.val + states.length < horizon + 1) :
+    (advancePathMatchList horizon desired label states).time.val =
+      label.time.val + states.length := by
+  induction states generalizing label with
+  | nil => simp [advancePathMatchList]
+  | cons state states ih =>
+      have hnext : label.time.val + 1 < horizon + 1 := by
+        simp only [List.length_cons] at hfit
+        omega
+      have hrest :
+          (advancePathMatchLabel horizon desired label state).time.val +
+              states.length < horizon + 1 := by
+        rw [advancePathMatchLabel_time horizon desired label state hnext]
+        simp only [List.length_cons] at hfit ⊢
+        omega
+      rw [advancePathMatchList]
+      rw [ih _ hrest]
+      rw [advancePathMatchLabel_time horizon desired label state hnext]
+      simp only [List.length_cons]
+      omega
+
+/-- A concrete state suffix agrees with the desired path immediately after a
+numeric start time. The existential bound proof keeps the predicate total;
+clients use it under the corresponding `hfit` hypothesis. -/
+def pathSuffixMatches (horizon : ℕ)
+    (desired : Fin (horizon + 1) → Sample) :
+    ℕ → List Sample → Prop
+  | _, [] => True
+  | start, state :: states =>
+      ∃ hnext : start + 1 < horizon + 1,
+        state = desired ⟨start + 1, hnext⟩ ∧
+          pathSuffixMatches horizon desired (start + 1) states
+
+omit [Fintype Sample] in
+/-- The list runner's final flag is exactly the conjunction of its incoming
+flag and agreement of every consumed suffix state with the desired path. -/
+theorem advancePathMatchList_matched_iff (horizon : ℕ)
+    (desired : Fin (horizon + 1) → Sample)
+    (label : PathMatchLabel horizon) (states : List Sample)
+    (hfit : label.time.val + states.length < horizon + 1) :
+    (advancePathMatchList horizon desired label states).matched = true ↔
+      label.matched = true ∧
+        pathSuffixMatches horizon desired label.time.val states := by
+  induction states generalizing label with
+  | nil => simp [advancePathMatchList, pathSuffixMatches]
+  | cons state states ih =>
+      have hnext : label.time.val + 1 < horizon + 1 := by
+        simp only [List.length_cons] at hfit
+        omega
+      have hrest :
+          (advancePathMatchLabel horizon desired label state).time.val +
+              states.length < horizon + 1 := by
+        rw [advancePathMatchLabel_time horizon desired label state hnext]
+        simp only [List.length_cons] at hfit ⊢
+        omega
+      rw [advancePathMatchList]
+      rw [ih _ hrest]
+      rw [advancePathMatchLabel_matched_iff horizon desired label state hnext]
+      change ((label.matched = true ∧
+          state = desired ⟨label.time.val + 1, hnext⟩) ∧
+          pathSuffixMatches horizon desired
+            (advancePathMatchLabel horizon desired label state).time.val states) ↔
+        label.matched = true ∧
+          ∃ hnext' : label.time.val + 1 < horizon + 1,
+            state = desired ⟨label.time.val + 1, hnext'⟩ ∧
+              pathSuffixMatches horizon desired (label.time.val + 1) states
+      have htime :
+          (advancePathMatchLabel horizon desired label state).time.val =
+            label.time.val + 1 := by
+        rw [advancePathMatchLabel_time horizon desired label state hnext]
+      constructor
+      · rintro ⟨⟨hmatched, hstate⟩, htail⟩
+        rw [htime] at htail
+        exact ⟨hmatched, ⟨hnext, hstate, htail⟩⟩
+      · rintro ⟨hmatched, ⟨hnext', hstate, htail⟩⟩
+        have hproof : hnext' = hnext := Subsingleton.elim _ _
+        subst hnext'
+        refine ⟨⟨hmatched, hstate⟩, ?_⟩
+        rw [htime]
+        exact htail
+
 /-- Two fixed-horizon paths agree through a given time index. -/
 def pathMatchesThrough {horizon : ℕ}
     (desired actual : Fin (horizon + 1) → Sample)
@@ -142,6 +272,17 @@ theorem advance_canonicalPathMatchLabel {horizon : ℕ}
   rw [show (⟨time.val + 1, _⟩ : Fin (horizon + 1)) = next from rfl]
   simp [hthrough]
 
+/-- Run the automaton along a complete actual path up to a numeric time. -/
+def pathMatchRun (horizon : ℕ)
+    (desired actual : Fin (horizon + 1) → Sample) :
+    (time : ℕ) → time < horizon + 1 → PathMatchLabel horizon
+  | 0, _ => initialPathMatchLabel horizon desired
+      (actual ⟨0, Nat.zero_lt_succ horizon⟩)
+  | time + 1, htime =>
+      advancePathMatchLabel horizon desired
+        (pathMatchRun horizon desired actual time (by omega))
+        (actual ⟨time + 1, htime⟩)
+
 omit [Fintype Sample] in
 /-- Initialization is the canonical path-match label at time zero. -/
 theorem initialPathMatchLabel_eq_canonical {horizon : ℕ}
@@ -154,6 +295,40 @@ theorem initialPathMatchLabel_eq_canonical {horizon : ℕ}
   unfold initialPathMatchLabel canonicalPathMatchLabel pathMatchesThrough
   congr
   simp
+
+omit [Fintype Sample] in
+/-- The explicit time-indexed run agrees with the canonical prefix-match
+label at every in-range time. -/
+theorem pathMatchRun_eq_canonical (horizon : ℕ)
+    (desired actual : Fin (horizon + 1) → Sample)
+    (time : ℕ) (htime : time < horizon + 1) :
+    pathMatchRun horizon desired actual time htime =
+      canonicalPathMatchLabel desired actual ⟨time, htime⟩ := by
+  induction time with
+  | zero =>
+      exact initialPathMatchLabel_eq_canonical desired actual
+  | succ time ih =>
+      unfold pathMatchRun
+      rw [ih]
+      simpa using
+        (advance_canonicalPathMatchLabel desired actual ⟨time, by omega⟩ htime)
+
+/-- Genealogical propagation of the path automaton is exactly the list runner
+on the selected trajectory suffix. -/
+theorem terminalPathMatchLabels_eq_advanceSelectedTail
+    {Particle : Type*} (steps : List (FeynmanKacStep Sample))
+    (desired : Fin (steps.length + 1) → Sample)
+    (particles : Particle → Sample)
+    (history : Continuation Particle Sample steps) (terminal : Particle) :
+    terminalLabels (advancePathMatchLabel steps.length desired) steps
+        (fun i => initialPathMatchLabel steps.length desired (particles i))
+        history terminal =
+      advancePathMatchList steps.length desired
+        (initialPathMatchLabel steps.length desired
+          (particles (initialAncestor steps history terminal)))
+        (selectedTrajectory steps particles history terminal).tail := by
+  rw [terminalLabels_eq_foldl_selectedTrajectory_tail]
+  rw [advancePathMatchList_eq_foldl]
 
 /-- Coordinate-function view of a fixed-length trajectory. -/
 def trajectoryCoordinates (steps : List (FeynmanKacStep Sample))

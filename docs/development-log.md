@@ -12,6 +12,13 @@
   `Fin (steps.length+1)` coordinate function, that view is proved injective,
   and the terminal canonical automaton score is proved definitionally equal
   to the trajectory-equality indicator already used by the aggregate kernel.
+  The explicit automaton runner agrees with the canonical prefix label at
+  every time. At the generic SMC layer, terminal label propagation is now
+  proved to be a left fold over the selected genealogy; instantiating this
+  result identifies terminal path-match labels with running the automaton over
+  the selected trajectory suffix. The remaining local obligation is the
+  fixed-length vector/list calculation identifying that run at the final time
+  with the canonical terminal label.
 
 - Closed the representation bridge needed by recursive PG bounds. Lean proves
   that coordinatewise maps commute with independent populations, identifies

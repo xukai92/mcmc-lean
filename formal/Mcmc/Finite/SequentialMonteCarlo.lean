@@ -681,6 +681,36 @@ def terminalLabels {Label : Type*} (extend : Label → Sample → Label) :
 
 omit [Fintype Particle] [DecidableEq Sample] [DecidableEq Particle]
     [Nonempty Particle] in
+/-- Terminal label propagation is a left fold over the selected ancestral
+trajectory after its initial state.  This is the generic bridge from forward
+label transport to backward genealogy tracing. -/
+theorem terminalLabels_eq_foldl_selectedTrajectory_tail {Label : Type*}
+    (extend : Label → Sample → Label)
+    (steps : List (FeynmanKacStep Sample)) (labels : Particle → Label)
+    (particles : Particle → Sample) (history : Continuation Particle Sample steps)
+    (terminal : Particle) :
+    terminalLabels extend steps labels history terminal =
+      (selectedTrajectory steps particles history terminal).tail.foldl extend
+        (labels (initialAncestor steps history terminal)) := by
+  induction steps generalizing labels particles with
+  | nil => rfl
+  | cons step steps ih =>
+      unfold terminalLabels initialAncestor selectedTrajectory
+      rw [ih]
+      let j := initialAncestor steps history.2.2 terminal
+      have hhead := selectedTrajectory_head? steps history.2.1 history.2.2 terminal
+      have hnonempty :
+          selectedTrajectory steps history.2.1 history.2.2 terminal ≠ [] := by
+        cases steps <;> simp [selectedTrajectory]
+      cases hpath : selectedTrajectory steps history.2.1 history.2.2 terminal with
+      | nil => exact (hnonempty hpath).elim
+      | cons first rest =>
+          simp only [hpath, List.head?_cons, Option.some.injEq] at hhead
+          subst first
+          rfl
+
+omit [Fintype Particle] [DecidableEq Sample] [DecidableEq Particle]
+    [Nonempty Particle] in
 /-- Forward propagation of arbitrary path prefixes agrees with backward
 genealogy tracing, up to replacing the initial singleton by the supplied
 prefix. -/
