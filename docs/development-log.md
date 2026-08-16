@@ -1,5 +1,14 @@
 # Development log
 
+- Added a compact-test forward-equation stationarity bridge. For locally
+  compact Borel state spaces, if every compactly supported continuous
+  expectation is differentiable in time with zero derivative, Lean proves
+  equality of the regular transported and target measures using mathlib's
+  Riesz measure-determination theorem. The exact Gaussian Zig-Zag family now
+  has a specialized consumer of this certificate. This replaces the need to
+  establish indicator-level equations directly, while retaining transported-
+  measure regularity as an explicit premise.
+
 - Added an automatically certified compactly supported `C¹` Gaussian
   Zig-Zag/BPS test core. From compact support and continuous differentiability,
   Lean derives Gaussian integrability of the derivative and position term,

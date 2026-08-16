@@ -1027,7 +1027,15 @@ structure GaussianZigZagForwardEquation : Prop where
     ∀ time ∈ Set.Ici (0 : ℝ),
       fderivWithin ℝ
         (transportedRealMass gaussianZigZagHorizonKernel
-          gaussianZigZagTarget event) (Set.Ici 0) time = 0
+        gaussianZigZagTarget event) (Set.Ici 0) time = 0
+
+/-- Compact-test alternative to the setwise Gaussian forward equation. It is
+the natural process-level consumer of the compactly supported smooth generator
+core. Regularity of the transported measures is kept as a separate premise of
+the invariance theorem below. -/
+abbrev GaussianZigZagCompactForwardEquation :=
+  CompactTestForwardStationarityCertificate
+    gaussianZigZagHorizonKernel gaussianZigZagTarget
 
 theorem GaussianZigZagForwardEquation.toSetwiseCertificate
     (forward : GaussianZigZagForwardEquation) :
@@ -1053,6 +1061,16 @@ theorem gaussianZigZagHorizonKernel_invariant_of_forwardEquation
     (gaussianZigZagHorizonKernel horizon).Invariant gaussianZigZagTarget :=
   gaussianZigZagHorizonKernel_invariant_of_forwardCertificate
     forward.toSetwiseCertificate horizon
+
+/-- Compactly supported continuous expectation equations also imply exact
+Gaussian Zig-Zag stationarity, by regular-measure determination. -/
+theorem gaussianZigZagHorizonKernel_invariant_of_compactForwardEquation
+    (forward : GaussianZigZagCompactForwardEquation)
+    [∀ horizon,
+      ((gaussianZigZagHorizonKernel horizon) ∘ₘ gaussianZigZagTarget).Regular]
+    (horizon : NNReal) :
+    (gaussianZigZagHorizonKernel horizon).Invariant gaussianZigZagTarget :=
+  forward.invariant gaussianZigZagHorizonKernel gaussianZigZagTarget horizon
 
 /-- Under the event kernel's actual exponential-hazard law, inverse-clock
 execution satisfies the integrated-hazard equation almost surely. -/

@@ -1,5 +1,6 @@
 import Mcmc.PDMP.Generator
 import Mathlib.Analysis.Calculus.MeanValue
+import Mathlib.MeasureTheory.Integral.RieszMarkovKakutani.Real
 import Mathlib.Probability.Kernel.Invariance
 
 /-!
@@ -14,7 +15,7 @@ every time.
 -/
 
 open MeasureTheory ProbabilityTheory
-open scoped ENNReal NNReal ProbabilityTheory
+open scoped ENNReal NNReal ProbabilityTheory CompactlySupported
 
 namespace Mcmc.PDMP
 
@@ -73,5 +74,68 @@ theorem SetwiseForwardStationarityCertificate.invariant_all
     (certificate : SetwiseForwardStationarityCertificate transition target) :
     ∀ time, (transition time).Invariant target :=
   certificate.invariant transition target
+
+/-! ### Compact-test forward equations -/
+
+section CompactTests
+
+variable [TopologicalSpace State] [BorelSpace State]
+  [LocallyCompactSpace State] [T2Space State]
+
+/-- Expectation of a compactly supported continuous test after transporting
+the target through a nonnegative-time kernel family. -/
+noncomputable def transportedCompactExpectation
+    (transition : NNReal → Kernel State State) (target : Measure State)
+    (test : C_c(State, ℝ)) (time : ℝ) : ℝ :=
+  ∫ state, test state ∂((transition (Real.toNNReal time)) ∘ₘ target)
+
+/-- A forward-equation certificate on compactly supported continuous tests.
+This is often more natural for generator arguments than measurable-set
+indicators, while still determining regular measures. -/
+structure CompactTestForwardStationarityCertificate
+    (transition : NNReal → Kernel State State) (target : Measure State) : Prop where
+  zero : transition 0 = Kernel.id
+  differentiable : ∀ test : C_c(State, ℝ),
+    DifferentiableOn ℝ
+      (transportedCompactExpectation transition target test) (Set.Ici 0)
+  fderivWithin_eq_zero : ∀ test : C_c(State, ℝ), ∀ time ∈ Set.Ici (0 : ℝ),
+    fderivWithin ℝ
+      (transportedCompactExpectation transition target test)
+      (Set.Ici 0) time = 0
+
+/-- Compact-test forward equations imply target invariance for every fixed
+time. The conclusion follows from the Riesz measure-determination theorem,
+not from an unproved promotion of generator balance. -/
+theorem CompactTestForwardStationarityCertificate.invariant
+    (transition : NNReal → Kernel State State) (target : Measure State)
+    [IsFiniteMeasure target] [∀ time, IsMarkovKernel (transition time)]
+    [target.Regular] [∀ time, ((transition time) ∘ₘ target).Regular]
+    (certificate : CompactTestForwardStationarityCertificate transition target)
+    (time : NNReal) :
+    (transition time).Invariant target := by
+  rw [Kernel.Invariant]
+  apply Measure.ext_of_integral_eq_on_compactlySupported
+  intro test
+  have hconstant :=
+    (convex_Ici (0 : ℝ)).is_const_of_fderivWithin_eq_zero
+      (certificate.differentiable test)
+      (certificate.fderivWithin_eq_zero test)
+      (show (0 : ℝ) ∈ Set.Ici 0 by simp)
+      (show (time : ℝ) ∈ Set.Ici 0 from time.coe_nonneg)
+  have hconstant' := hconstant.symm
+  unfold transportedCompactExpectation at hconstant'
+  rw [Real.toNNReal_zero, certificate.zero, Measure.id_comp] at hconstant'
+  simpa only [Real.toNNReal_coe] using hconstant'
+
+/-- A compact-test certificate proves invariance of the whole family. -/
+theorem CompactTestForwardStationarityCertificate.invariant_all
+    (transition : NNReal → Kernel State State) (target : Measure State)
+    [IsFiniteMeasure target] [∀ time, IsMarkovKernel (transition time)]
+    [target.Regular] [∀ time, ((transition time) ∘ₘ target).Regular]
+    (certificate : CompactTestForwardStationarityCertificate transition target) :
+    ∀ time, (transition time).Invariant target :=
+  certificate.invariant transition target
+
+end CompactTests
 
 end Mcmc.PDMP

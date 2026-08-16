@@ -411,8 +411,12 @@ breadth branches are:
   decay construct this certificate directly rather than assuming the Stein
   identity. Compactly supported `C¹` velocity differences now form an
   automatically certified core: all integrability and boundary hypotheses and
-  the resulting generator cancellation are proved. A smooth-core-to-setwise-
-  forward-equation argument is still required.
+  the resulting generator cancellation are proved. A general stationarity
+  bridge now proves regular measures equal from constant compactly supported
+  continuous expectations, and the Gaussian horizon family consumes this
+  compact-test forward certificate. It remains to derive time
+  differentiability and the zero derivative for the constructed path law from
+  the smooth generator core.
   The normalized Gaussian/equal-velocity target and exact zero-time identity
   are discharged, so the specialized certificate contains only
   differentiability and the zero-derivative forward equation.

@@ -210,7 +210,10 @@ decay construct the Stein certificate without assuming its identity. Deriving
 these side conditions is automatic for compactly supported `C¹` velocity
 differences, giving a genuine smooth core with a direct generator-cancellation
 theorem. Deriving the setwise forward equation from this certified core remains
-open.
+open. A new regular-measure bridge now shows that it is enough instead to prove
+the forward equation for every compactly supported continuous expectation;
+the exact Gaussian Zig-Zag horizon family is connected to this more natural
+compact-test certificate.
 The normalized Gaussian-position/equal-velocity target is now explicit and
 proved a probability measure, and the stopped horizon family is proved exactly
 the identity kernel at time zero; these parts no longer remain premises of the
