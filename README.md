@@ -974,7 +974,8 @@ and `make check-generated` checks freshness without modifying the tree.
 Documenter site locally in `docs/build/`; `make check-docs-generated` verifies
 that the committed graph page is current.
 The [testing strategy](docs/testing.md) records the exact, differential,
-statistical, and skeletoned future test layers.
+statistical, robustness, and performance layers; no registered Julia testset
+is currently skipped.
 
 ## Repository guide
 

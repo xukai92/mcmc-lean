@@ -2,7 +2,8 @@
 
 The Julia suite separates formal conformance, exact finite properties,
 empirical distribution diagnostics, active numerical-sampler tests, and
-explicitly deferred robustness or performance tests.
+active robustness and performance regressions. No registered testset is
+skipped or marked broken.
 
 ## Implemented finite tests
 
@@ -156,7 +157,7 @@ Lean's exact reals.
 
 ## Active and deferred diagnostics
 
-`test/future_continuous.jl` now actively checks:
+`test/continuous.jl` actively checks:
 
 - a seeded Geweke forward/backward diagnostic for a hierarchical Gaussian
   model, using exact forward simulation and public scalar HMC in the backward

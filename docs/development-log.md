@@ -1,5 +1,12 @@
 # Development log
 
+- Reconciled the Julia diagnostic inventory. Every registered property,
+  Geweke, continuous/mixed-state, robustness, ESS, and callback-count test is
+  active; there are no skipped or broken testsets. The formerly historical
+  `future_continuous.jl` file is now `continuous.jl`, and the runner/testing
+  documentation no longer describes implemented diagnostics as deferred or
+  skeletoned.
+
 - Completed the measure-determination half of Gaussian Zig-Zag/BPS
   weak-forward uniqueness. Compact `C¹` fiber observables now receive automatic
   Gaussian-generator integrability. Lean uniformly approximates arbitrary
