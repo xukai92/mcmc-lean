@@ -8,6 +8,10 @@
   when the complete finite path equals the proposed path. This supplies the
   finite label whose terminal score is the trajectory indicator in the
   aggregate induction.
+  The fixed-length `Trajectory steps` type is now connected to its
+  `Fin (steps.length+1)` coordinate function, that view is proved injective,
+  and the terminal canonical automaton score is proved definitionally equal
+  to the trajectory-equality indicator already used by the aggregate kernel.
 
 - Closed the representation bridge needed by recursive PG bounds. Lean proves
   that coordinatewise maps commute with independent populations, identifies

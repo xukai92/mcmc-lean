@@ -155,6 +155,48 @@ theorem initialPathMatchLabel_eq_canonical {horizon : ℕ}
   congr
   simp
 
+/-- Coordinate-function view of a fixed-length trajectory. -/
+def trajectoryCoordinates (steps : List (FeynmanKacStep Sample))
+    (trajectory : Trajectory steps) : Fin (steps.length + 1) → Sample :=
+  trajectory.get
+
+omit [DecidableEq Sample] in
+theorem trajectoryCoordinates_injective
+    (steps : List (FeynmanKacStep Sample)) :
+    Function.Injective (trajectoryCoordinates (Sample := Sample) steps) := by
+  intro left right h
+  apply List.Vector.ext
+  intro i
+  exact congrFun h i
+
+/-- The terminal automaton score is exactly the existing trajectory equality
+indicator. -/
+theorem pathMatchScore_canonical_trajectory_last
+    (steps : List (FeynmanKacStep Sample))
+    (desired actual : Trajectory steps) :
+    pathMatchScore
+        (canonicalPathMatchLabel
+          (trajectoryCoordinates steps desired)
+          (trajectoryCoordinates steps actual)
+          (Fin.last steps.length)) =
+      (if actual = desired then 1 else 0) := by
+  by_cases h : actual = desired
+  · subst actual
+    simp [pathMatchScore, canonicalPathMatchLabel_last_matched_iff]
+  · have hcoordinates : trajectoryCoordinates steps actual ≠
+        trajectoryCoordinates steps desired := by
+      intro heq
+      exact h (trajectoryCoordinates_injective steps heq)
+    have hmatched :
+        (canonicalPathMatchLabel
+          (trajectoryCoordinates steps desired)
+          (trajectoryCoordinates steps actual)
+          (Fin.last steps.length)).matched ≠ true := by
+      intro hm
+      exact hcoordinates
+        ((canonicalPathMatchLabel_last_matched_iff _ _).mp hm)
+    simp [pathMatchScore, h, Bool.eq_false_of_not_eq_true hmatched]
+
 /-- A strictly positive real family over a nonempty finite type has one
 strictly positive uniform lower bound. The product-of-truncations construction
 keeps this lemma computationally explicit enough for finite model clients. -/
