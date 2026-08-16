@@ -1,5 +1,15 @@
 # Development log
 
+- Lifted the finite-dimensional BPS reflection algebra to a full phase-space
+  generator-balance theorem. After integrating the position-dependent BPS
+  generator against a product target, Lean uses the checked velocity
+  reflection identity pointwise and reduces mean-zero exactly to the supplied
+  multidimensional spatial integration-by-parts equation. All Fubini and
+  integrability premises are explicit. This is still infinitesimal balance:
+  standard-Gaussian reflection invariance, target-specific integration by
+  parts, process construction, weak-forward uniqueness, and convergence are
+  not inferred silently.
+
 - Connected Julia dynamic-tree certificates to executable sampling. The new
   checked selector refuses uncertified candidate-row families and otherwise
   performs the exact target-weighted selection consumed by Lean's

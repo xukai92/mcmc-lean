@@ -306,4 +306,76 @@ theorem integral_bouncyGenerator_eq_transport_sub_normalFlux'
       velocityLaw directionalDerivative observable (hpreserve hnormal)
       htransport hincoming houtgoing hreflected
 
+/-! ### Product-space generator balance -/
+
+/-- Full BPS phase-space generator with position-dependent event normal,
+directional derivative, and observable. -/
+noncomputable def bouncyPhaseGenerator
+    (normal : Position ι → Position ι)
+    (directionalDerivative observable : Position ι → Position ι → ℝ)
+    (state : Position ι × Position ι) : ℝ :=
+  bouncyGenerator (normal state.1) (directionalDerivative state.1)
+    (observable state.1) state.2
+
+/-- Reflection invariance of the velocity law and spatial integration by parts
+imply mean-zero of the full finite-dimensional BPS generator under the product
+target. This is an infinitesimal balance theorem; it does not infer existence,
+stationarity, or convergence of a BPS process. -/
+theorem integral_bouncyPhaseGenerator_eq_zero
+    (positionLaw velocityLaw : Measure (Position ι))
+    [SFinite positionLaw] [SFinite velocityLaw]
+    (normal : Position ι → Position ι)
+    (directionalDerivative observable : Position ι → Position ι → ℝ)
+    (hpreserve : ∀ position (hnormal : normal position ≠ 0),
+      MeasurePreserving
+        (bouncyReflectionMeasurableEquiv (normal position) hnormal)
+        velocityLaw velocityLaw)
+    (htransport : ∀ position,
+      Integrable (directionalDerivative position) velocityLaw)
+    (hincoming : ∀ position, Integrable (fun velocity =>
+      bouncyRate (normal position) velocity *
+        observable position
+          (bouncyReflection (normal position) velocity)) velocityLaw)
+    (houtgoing : ∀ position, Integrable (fun velocity =>
+      bouncyRate (normal position) velocity * observable position velocity)
+        velocityLaw)
+    (hreflected : ∀ position, Integrable (fun velocity =>
+      bouncyRate (normal position)
+          (bouncyReflection (normal position) velocity) *
+        observable position velocity) velocityLaw)
+    (hphase : Integrable
+      (bouncyPhaseGenerator normal directionalDerivative observable)
+      (positionLaw.prod velocityLaw))
+    (htransportIntegrated : Integrable (fun position =>
+      ∫ velocity, directionalDerivative position velocity ∂velocityLaw)
+      positionLaw)
+    (hfluxIntegrated : Integrable (fun position =>
+      ∫ velocity, euclideanInner velocity (normal position) *
+        observable position velocity ∂velocityLaw) positionLaw)
+    (hibp :
+      (∫ position, ∫ velocity, directionalDerivative position velocity
+          ∂velocityLaw ∂positionLaw) =
+        ∫ position, ∫ velocity,
+          euclideanInner velocity (normal position) *
+            observable position velocity ∂velocityLaw ∂positionLaw) :
+    (∫ state,
+      bouncyPhaseGenerator normal directionalDerivative observable state
+        ∂(positionLaw.prod velocityLaw)) = 0 := by
+  rw [integral_prod _ hphase]
+  have hpointwise : (fun position =>
+      ∫ velocity,
+        bouncyPhaseGenerator normal directionalDerivative observable
+          (position, velocity) ∂velocityLaw) =
+      fun position =>
+        (∫ velocity, directionalDerivative position velocity ∂velocityLaw) -
+          ∫ velocity, euclideanInner velocity (normal position) *
+            observable position velocity ∂velocityLaw := by
+    funext position
+    exact integral_bouncyGenerator_eq_transport_sub_normalFlux'
+      (normal position) velocityLaw (directionalDerivative position)
+      (observable position) (hpreserve position) (htransport position)
+      (hincoming position) (houtgoing position) (hreflected position)
+  rw [hpointwise, integral_sub htransportIntegrated hfluxIntegrated, hibp,
+    sub_self]
+
 end Mcmc.PDMP

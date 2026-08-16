@@ -505,8 +505,11 @@ by paper date:
 
    The general-dimensional BPS generator and its velocity-integrated
    transport-minus-normal-flux identity are now checked, including the
-   zero-gradient case. Spatial integration by parts, construction of the
-   unbounded-rate process, weak-forward uniqueness, and ergodicity remain.
+   zero-gradient case. The product-space mean-zero theorem is also checked and
+   reduces full generator balance exactly to reflection invariance plus a
+   multidimensional spatial integration-by-parts premise. Target-specific
+   proofs of those premises, construction of the unbounded-rate process,
+   weak-forward uniqueness, and ergodicity remain.
 
    The nonlinear reversible-jump branch is complete at the exact theorem and
    executable-client levels; only the shared Float64 primitive boundary
