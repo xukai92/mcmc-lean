@@ -33,6 +33,7 @@ export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, Bounded
     certified_scalar_uturn_partition,
     certified_vector_uturn_partition,
     certified_spanning_uturn_partition,
+    first_stop_endpoint_uturn_candidates,
     generated_schedule,
     generated_transform,
     GaussianZigZag, GaussianZigZagResult, gaussian_zigzag_waiting_time,
@@ -1550,6 +1551,58 @@ function certified_spanning_uturn_partition(
     end
     certified_orbit_partition(barriers)
 end
+
+"""Build root-dependent first-stop endpoint U-turn candidate rows.
+
+For each possible root, symmetrically enlarge the interval by one state at a
+time and stop before the first interval whose endpoint displacement has
+negative inner product with either endpoint momentum.  The returned
+`DynamicTreeCertificate` always records the rows, but `valid` is true only
+when the completed rows satisfy the reroot condition required by the verified
+dynamic-orbit selection theorem.  Thus this is an executable first-stop
+experiment and checker, not an unconditional correctness claim for NUTS.
+"""
+function first_stop_endpoint_uturn_candidates(
+        positions::AbstractVector{<:AbstractVector{<:Real}},
+        momenta::AbstractVector{<:AbstractVector{<:Real}})
+    length(positions) == length(momenta) ||
+        throw(DimensionMismatch("position and momentum trajectories must match"))
+    isempty(positions) && throw(ArgumentError("trajectory cannot be empty"))
+    dimension = length(first(positions))
+    dimension > 0 || throw(ArgumentError("phase-space dimension cannot be zero"))
+    all(q -> length(q) == dimension, positions) &&
+        all(p -> length(p) == dimension, momenta) ||
+        throw(DimensionMismatch("all phase points must have the same dimension"))
+    q = [Float64.(point) for point in positions]
+    p = [Float64.(point) for point in momenta]
+    all(point -> all(isfinite, point), q) &&
+        all(point -> all(isfinite, point), p) ||
+        throw(DomainError((positions, momenta), "trajectory must be finite"))
+
+    count = length(q)
+    rows = Vector{Vector{Int}}(undef, count)
+    for root in 1:count
+        accepted_left = root
+        accepted_right = root
+        for radius in 1:count
+            left = max(1, root - radius)
+            right = min(count, root + radius)
+            left == accepted_left && right == accepted_right && break
+            displacement = q[right] .- q[left]
+            if dot(displacement, p[left]) < 0 || dot(displacement, p[right]) < 0
+                break
+            end
+            accepted_left, accepted_right = left, right
+        end
+        rows[root] = collect(accepted_left:accepted_right)
+    end
+    certify_dynamic_tree(rows)
+end
+
+first_stop_endpoint_uturn_candidates(
+        positions::AbstractVector{<:Real}, momenta::AbstractVector{<:Real}) =
+    first_stop_endpoint_uturn_candidates([[Float64(q)] for q in positions],
+        [[Float64(p)] for p in momenta])
 
 struct FiniteKernelWeights
     rows::Vector{Vector{BigInt}}

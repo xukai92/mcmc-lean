@@ -322,6 +322,14 @@ particle cloud against the exact normalized trajectory target; omitting it is
 false for skewed finite initial laws. The full doubly-conditional SMC proof for
 this candidate remains open and is not implied by the schedule definition.
 
+For dynamic HMC trajectories, Julia also exposes
+`first_stop_endpoint_uturn_candidates`. It builds root-dependent first-stop
+rows and immediately checks the reroot condition consumed by the verified
+finite-orbit selection theorem. Certified traces may use that theorem;
+rejected traces remain useful diagnostics but carry no stationarity claim.
+The root-independent adjacent and all-scales partitions remain the
+conservative always-certified alternatives.
+
 The Julia layer also exposes bounded warmup-only tuning for Gaussian RWMH.
 `WarmupGaussianRWMH` uses diminishing `1/√n` Robbins--Monro log-scale updates,
 clamps the proposal scale, and returns a frozen `GaussianRWMH` for retained

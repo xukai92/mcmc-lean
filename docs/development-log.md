@@ -1,5 +1,12 @@
 # Development log
 
+- Added a checked root-dependent dynamic-trajectory experiment to Julia.
+  `first_stop_endpoint_uturn_candidates` enlarges an interval from each root,
+  stops at the first endpoint U-turn, and returns the existing reroot
+  certificate instead of asserting validity. Tests cover both a monotone
+  accepted orbit and a curved rejected orbit. This closes the executable
+  diagnostic/checking milestone, not equivalence with production NUTS.
+
 - Added an executable client for the proved nonlinear reversible-jump shear.
   `ShearedBirthDeathRJ` represents the empty model by `nothing`, draws the two
   uniform birth auxiliaries, applies `(u₁,u₂) ↦ (2u₁+8u₂³,2u₂)`, and

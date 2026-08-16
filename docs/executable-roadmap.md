@@ -5,6 +5,13 @@ mathematical paper proofs. A sampler can have a verified ideal kernel while
 its Julia realization still carries explicit floating-point, callback, and RNG
 assumptions.
 
+The dynamic-trajectory API now exposes both sides of its safety boundary.
+Root-independent endpoint and all-scales barriers construct certified orbit
+partitions directly. `first_stop_endpoint_uturn_candidates` instead builds
+root-dependent first-stop rows and runs the reroot checker; its result is
+theorem-backed only when `certificate.valid` is true. Equivalence with a
+specific recursive production NUTS tree builder remains open.
+
 ## Completed vertical slices
 
 The current version-10 artifact and Julia package provide:
