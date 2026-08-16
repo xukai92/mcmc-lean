@@ -9,7 +9,11 @@
   defined. Finally, potential oscillation lifts to joint states and the sharp
   forced-cloud comparison is exposed directly against the exact
   potential-reweighted joint target. The remaining induction composes these
-  stage facts over the list of Feynman--Kac steps.
+  stage facts over the list of Feynman--Kac steps. An iterated exact labeled
+  target law is now available for any finite label type. Complete path labels
+  cannot use unrestricted `List Sample` directly because that type is
+  infinite; the trajectory client must use a horizon-indexed finite label (or
+  an equivalent finite prefix-matching automaton).
 
 - Lifted the forced resample--propagate stage to joint `(label,state)`
   populations. A generic product-Fubini theorem proves that independently

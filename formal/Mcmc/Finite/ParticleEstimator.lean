@@ -2440,6 +2440,31 @@ theorem labeledFeynmanKacStepDistribution_expectation {Label : Type*}
       ring
     _ = _ := by rw [Finset.sum_div]
 
+/-- Iterated exact normalized labeled Feynman--Kac law. -/
+noncomputable def labeledFeynmanKacLawFrom {Label : Type*}
+    [Fintype Label] [DecidableEq Label] [Nonempty Label] [Nonempty Sample]
+    (extend : Label → Sample → Label) :
+    Distribution (Label × Sample) → List (FeynmanKacStep Sample) →
+      Distribution (Label × Sample)
+  | law, [] => law
+  | law, step :: steps =>
+      labeledFeynmanKacLawFrom extend
+        (labeledFeynmanKacStepDistribution extend step law) steps
+
+@[simp] theorem labeledFeynmanKacLawFrom_nil {Label : Type*}
+    [Fintype Label] [DecidableEq Label] [Nonempty Label] [Nonempty Sample]
+    (extend : Label → Sample → Label) (law : Distribution (Label × Sample)) :
+    labeledFeynmanKacLawFrom extend law [] = law := rfl
+
+@[simp] theorem labeledFeynmanKacLawFrom_cons {Label : Type*}
+    [Fintype Label] [DecidableEq Label] [Nonempty Label] [Nonempty Sample]
+    (extend : Label → Sample → Label) (law : Distribution (Label × Sample))
+    (step : FeynmanKacStep Sample) (steps : List (FeynmanKacStep Sample)) :
+    labeledFeynmanKacLawFrom extend law (step :: steps) =
+      labeledFeynmanKacLawFrom extend
+        (labeledFeynmanKacStepDistribution extend step law) steps := rfl
+
+
 /-- Backward composition of a time-varying sequence of exact one-particle
 Feynman--Kac transforms. -/
 noncomputable def feynmanKacSequence :
