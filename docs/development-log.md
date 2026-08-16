@@ -29,6 +29,10 @@
   terminal-index factor and one oscillation constant per step). Lifting these
   local bounds through the recursive conditional-SMC aggregate is the
   remaining sharp-coefficient proof.
+  Full-support schedules now also discharge `PathSuffixSupported`
+  automatically for every retained path of the correct length, removing the
+  last path-by-path support premise before connecting the aggregate to the
+  existing exact forced-lineage density formula.
 
 - Completed the compact-minorization and faithful-coupling foundation for the
   actual bare one-dimensional Gaussian SoftAbs multinomial kernel at

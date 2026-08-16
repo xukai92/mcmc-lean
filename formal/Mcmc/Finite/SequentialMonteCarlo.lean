@@ -1174,6 +1174,29 @@ def PathSuffixSupported :
         PathSuffixSupported steps next future
 
 omit [DecidableEq Sample] in
+/-- Full-support propagation discharges the retained-path support condition
+for every suffix of the required length. -/
+theorem PathSuffixSupported.of_fullSupport
+    (steps : List (FeynmanKacStep Sample))
+    (hsupport : FeynmanKacFullSupport steps)
+    (current : Sample) (future : List Sample)
+    (hlength : future.length = steps.length) :
+    PathSuffixSupported steps current future := by
+  induction steps generalizing current future with
+  | nil =>
+      have : future = [] := by simpa using hlength
+      subst future
+      trivial
+  | cons step steps ih =>
+      cases future with
+      | nil => simp at hlength
+      | cons next future =>
+          simp only [FeynmanKacFullSupport] at hsupport
+          simp only [PathSuffixSupported]
+          exact ⟨hsupport.1 current next,
+            ih hsupport.2 next future (by simpa using hlength)⟩
+
+omit [DecidableEq Sample] in
 theorem pathSuffixDensity_pos
     (steps : List (FeynmanKacStep Sample)) (current : Sample)
     (future : List Sample) (hsupport : PathSuffixSupported steps current future) :
