@@ -5,9 +5,10 @@
   expectation is differentiable in time with zero derivative, Lean proves
   equality of the regular transported and target measures using mathlib's
   Riesz measure-determination theorem. The exact Gaussian Zig-Zag family now
-  has a specialized consumer of this certificate. This replaces the need to
-  establish indicator-level equations directly, while retaining transported-
-  measure regularity as an explicit premise.
+  has a specialized consumer of this certificate. Its finite transported
+  measures are automatically regular on the concrete state space, so that
+  specialized theorem requires no separate regularity premise. This replaces
+  the need to establish indicator-level equations directly.
 
 - Added an automatically certified compactly supported `C¹` Gaussian
   Zig-Zag/BPS test core. From compact support and continuous differentiability,

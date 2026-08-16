@@ -414,7 +414,8 @@ breadth branches are:
   the resulting generator cancellation are proved. A general stationarity
   bridge now proves regular measures equal from constant compactly supported
   continuous expectations, and the Gaussian horizon family consumes this
-  compact-test forward certificate. It remains to derive time
+  compact-test forward certificate with concrete transported-measure
+  regularity discharged automatically. It remains to derive time
   differentiability and the zero derivative for the constructed path law from
   the smooth generator core.
   The normalized Gaussian/equal-velocity target and exact zero-time identity

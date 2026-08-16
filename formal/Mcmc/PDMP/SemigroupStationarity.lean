@@ -1,6 +1,7 @@
 import Mcmc.PDMP.Generator
 import Mathlib.Analysis.Calculus.MeanValue
 import Mathlib.MeasureTheory.Integral.RieszMarkovKakutani.Real
+import Mathlib.MeasureTheory.Measure.RegularityCompacts
 import Mathlib.Probability.Kernel.Invariance
 
 /-!

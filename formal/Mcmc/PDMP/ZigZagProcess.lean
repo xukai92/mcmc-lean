@@ -1066,8 +1066,6 @@ theorem gaussianZigZagHorizonKernel_invariant_of_forwardEquation
 Gaussian Zig-Zag stationarity, by regular-measure determination. -/
 theorem gaussianZigZagHorizonKernel_invariant_of_compactForwardEquation
     (forward : GaussianZigZagCompactForwardEquation)
-    [∀ horizon,
-      ((gaussianZigZagHorizonKernel horizon) ∘ₘ gaussianZigZagTarget).Regular]
     (horizon : NNReal) :
     (gaussianZigZagHorizonKernel horizon).Invariant gaussianZigZagTarget :=
   forward.invariant gaussianZigZagHorizonKernel gaussianZigZagTarget horizon
