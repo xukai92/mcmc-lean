@@ -555,10 +555,13 @@ by paper date:
   restricted-measure and normalized conditional-law forms. The
   first-coordinate/tail product law is also now checked by explicitly
   reindexing and currying the infinite product, and cumulative crossing plus
-  the first-crossing index have exact restarted-tail recursions. The next
-  dependency is the endpoint recursion and integration of its two branches.
-  This is essential because splitting a horizon between events is not a
-  pointwise semigroup identity;
+  the first-crossing index have exact restarted-tail recursions. The endpoint
+  recursion and its integration are now complete as well: the stopped measure
+  and concrete horizon kernel satisfy an exact first-event renewal equation
+  driven by one exponential hazard and a fresh iid tail. The next dependency
+  is to use this equation to prove target-started scalar weak-forward
+  uniqueness. Splitting a horizon between events is still correctly treated
+  as a law-level argument rather than a pointwise semigroup identity;
 2. bare Gaussian SoftAbs GR-HMC convergence -- complete for the concrete
    one-dimensional `ε = 1`, `L = 1` chain. Lean proves affine drift, compact
    skeleton minorization, faithful geometric meeting, the normalized target's

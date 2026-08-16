@@ -30,6 +30,16 @@
   recursion, after which these identities can be integrated into the
   first-event law.
 
+- Completed that integration. Lean now proves the pointwise stopped-endpoint
+  recursion on both sides of the first event, lifts the event branch using
+  full-measure tail conditions uniform in the sampled head hazard, and derives
+  an exact first-event law for the endpoint measure. The concrete horizon
+  kernel has the corresponding theorem: it is exactly the pushforward of one
+  exponential hazard times a fresh iid tail through the explicit
+  no-event/event branch. This supplies the renewal equation needed by the
+  remaining weak-forward uniqueness argument; it is not merely a pointwise
+  or finite-event approximation.
+
 - Reconciled the Julia diagnostic inventory. Every registered property,
   Geweke, continuous/mixed-state, robustness, ESS, and callback-count test is
   active; there are no skipped or broken testsets. The formerly historical

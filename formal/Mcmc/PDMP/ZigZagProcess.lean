@@ -997,6 +997,27 @@ def gaussianZigZagHazardHeadTail
     (hazards : ℕ → NNReal) : NNReal × (ℕ → NNReal) :=
   (hazards 0, fun index => hazards (index + 1))
 
+/-- Reconstruct an infinite stream from its head and tail. -/
+def gaussianZigZagHazardCons
+    (headTail : NNReal × (ℕ → NNReal)) : ℕ → NNReal
+  | 0 => headTail.1
+  | index + 1 => headTail.2 index
+
+theorem measurable_gaussianZigZagHazardCons :
+    Measurable gaussianZigZagHazardCons := by
+  rw [measurable_pi_iff]
+  intro index
+  cases index with
+  | zero => exact measurable_fst
+  | succ index => exact (measurable_pi_apply index).comp measurable_snd
+
+@[simp] theorem gaussianZigZagHazardCons_headTail
+    (hazards : ℕ → NNReal) :
+    gaussianZigZagHazardCons (gaussianZigZagHazardHeadTail hazards) =
+      hazards := by
+  funext index
+  cases index <;> rfl
+
 theorem measurable_gaussianZigZagHazardHeadTail :
     Measurable gaussianZigZagHazardHeadTail := by
   unfold gaussianZigZagHazardHeadTail
@@ -1298,6 +1319,14 @@ noncomputable def gaussianZigZagEventElapsed
   ∑ index ∈ Finset.range eventCount,
     gaussianZigZagEventWaitTerm initial hazards index
 
+theorem gaussianZigZagEventElapsed_ne_top
+    (initial : ZigZagState) (hazards : ℕ → NNReal) (eventCount : ℕ) :
+    gaussianZigZagEventElapsed initial hazards eventCount ≠ ∞ := by
+  unfold gaussianZigZagEventElapsed gaussianZigZagEventWaitTerm
+  rw [ENNReal.sum_ne_top]
+  intro index _
+  exact ENNReal.ofReal_ne_top
+
 /-- Dropping the first hazard and restarting from the first post-event state
 reproduces every later pre-event state. -/
 theorem gaussianZigZagEventState_succ_eq_tail
@@ -1319,6 +1348,16 @@ theorem gaussianZigZagEventState_succ_eq_tail
           (hazards (eventCount + 1))
       exact congrArg
         (fun state => gaussianZigZagEventUpdate state (hazards (eventCount + 1))) ih
+
+theorem gaussianZigZagEventState_eq_tail_pred
+    (initial : ZigZagState) (hazards : ℕ → NNReal)
+    {eventCount : ℕ} (hpositive : 0 < eventCount) :
+    gaussianZigZagEventState initial hazards eventCount =
+      gaussianZigZagEventState
+        (gaussianZigZagEventUpdate initial (hazards 0))
+        (fun index => hazards (index + 1)) (eventCount - 1) := by
+  obtain ⟨eventCount, rfl⟩ := Nat.exists_eq_succ_of_ne_zero hpositive.ne'
+  simpa using gaussianZigZagEventState_succ_eq_tail initial hazards eventCount
 
 /-- Inter-event waits shift with the hazard stream after the first event. -/
 theorem gaussianZigZagEventWait_succ_eq_tail
@@ -1367,6 +1406,18 @@ theorem gaussianZigZagEventElapsed_succ_eq_first_add_tail
             (fun index => hazards (index + 1)) eventCount by
         simp [gaussianZigZagEventElapsed, Finset.sum_range_succ]]
       ac_rfl
+
+theorem gaussianZigZagEventElapsed_eq_first_add_tail_pred
+    (initial : ZigZagState) (hazards : ℕ → NNReal)
+    {eventCount : ℕ} (hpositive : 0 < eventCount) :
+    gaussianZigZagEventElapsed initial hazards eventCount =
+      gaussianZigZagEventWaitTerm initial hazards 0 +
+        gaussianZigZagEventElapsed
+          (gaussianZigZagEventUpdate initial (hazards 0))
+          (fun index => hazards (index + 1)) (eventCount - 1) := by
+  obtain ⟨eventCount, rfl⟩ := Nat.exists_eq_succ_of_ne_zero hpositive.ne'
+  simpa using gaussianZigZagEventElapsed_succ_eq_first_add_tail
+    initial hazards eventCount
 
 /-- Equivalent finite-horizon form of nonexplosion: almost surely, cumulative
 event time tends to infinity as the event count grows. -/
@@ -1549,6 +1600,28 @@ theorem gaussianZigZagEventCrossed_exists_ae
   obtain ⟨eventCount, heventCount⟩ := heventually.exists
   exact ⟨eventCount, heventCount⟩
 
+/-- The stream conditions used in the nonexplosion proof imply a crossing at
+every finite horizon, uniformly over the initial state. -/
+theorem gaussianZigZagEventCrossed_exists_of_positive_of_sqrt_tsum
+    (initial : ZigZagState) (horizon : NNReal) (hazards : ℕ → NNReal)
+    (hpositive : ∀ index, 0 < hazards index)
+    (hdiverges : (∑' index,
+      gaussianZigZagSqrtHazardTerm hazards index) = ∞) :
+    ∃ eventCount, gaussianZigZagEventCrossed
+      initial horizon hazards eventCount := by
+  have hsum := gaussianZigZagEventWait_tsum_eq_top
+    initial hazards hpositive hdiverges
+  have htendsto := ENNReal.tendsto_nat_tsum
+    (gaussianZigZagEventWaitTerm initial hazards)
+  rw [hsum] at htendsto
+  have hneighborhood : Set.Ioi (horizon : ENNReal) ∈ nhds (∞ : ENNReal) :=
+    Ioi_mem_nhds (ENNReal.coe_lt_top)
+  have heventually : ∀ᶠ eventCount in Filter.atTop,
+      (horizon : ENNReal) <
+        gaussianZigZagEventElapsed initial hazards eventCount := by
+    apply htendsto.eventually hneighborhood
+  exact heventually.exists
+
 theorem gaussianZigZagCrossingIndex_crossed
     (initial : ZigZagState) (horizon : NNReal) (hazards : ℕ → NNReal)
     (hexists : ∃ eventCount,
@@ -1561,6 +1634,20 @@ theorem gaussianZigZagCrossingIndex_crossed
   rcases hspec with hcrossed | ⟨_, hnone⟩
   · exact hcrossed
   · exact (hnone hexists).elim
+
+theorem gaussianZigZagCrossingIndex_pos
+    (initial : ZigZagState) (horizon : NNReal) (hazards : ℕ → NNReal)
+    (hexists : ∃ eventCount,
+      gaussianZigZagEventCrossed initial horizon hazards eventCount) :
+    0 < gaussianZigZagCrossingIndex initial horizon hazards := by
+  have hcrossed := gaussianZigZagCrossingIndex_crossed
+    initial horizon hazards hexists
+  by_contra hnot
+  have hzero : gaussianZigZagCrossingIndex initial horizon hazards = 0 :=
+    Nat.eq_zero_of_not_pos hnot
+  rw [hzero] at hcrossed
+  unfold gaussianZigZagEventCrossed gaussianZigZagEventElapsed at hcrossed
+  simp at hcrossed
 
 theorem gaussianZigZagCrossingIndex_not_crossed_of_lt
     (initial : ZigZagState) (horizon : NNReal) (hazards : ℕ → NNReal)
@@ -1653,6 +1740,74 @@ noncomputable def gaussianZigZagHorizonEndpoint
       (gaussianZigZagEventElapsed initial hazards completed).toNNReal)
     (gaussianZigZagEventState initial hazards completed)
 
+/-- If the first event occurs by the horizon, the stopped endpoint is exactly
+the endpoint of the post-event state driven by the fresh hazard tail over the
+residual horizon. -/
+theorem gaussianZigZagHorizonEndpoint_eq_tail_of_firstWait_le
+    (initial : ZigZagState) (horizon : NNReal) (hazards : ℕ → NNReal)
+    (hwait : gaussianZigZagEventWait initial hazards 0 ≤ horizon)
+    (htailExists : ∃ eventCount, gaussianZigZagEventCrossed
+      (gaussianZigZagEventUpdate initial (hazards 0))
+      (horizon - gaussianZigZagEventWait initial hazards 0)
+      (fun index => hazards (index + 1)) eventCount) :
+    gaussianZigZagHorizonEndpoint initial horizon hazards =
+      gaussianZigZagHorizonEndpoint
+        (gaussianZigZagEventUpdate initial (hazards 0))
+        (horizon - gaussianZigZagEventWait initial hazards 0)
+        (fun index => hazards (index + 1)) := by
+  let restarted := gaussianZigZagEventUpdate initial (hazards 0)
+  let residual := horizon - gaussianZigZagEventWait initial hazards 0
+  let tail := fun index => hazards (index + 1)
+  let tailIndex := gaussianZigZagCrossingIndex restarted residual tail
+  have htailPositive : 0 < tailIndex :=
+    gaussianZigZagCrossingIndex_pos restarted residual tail htailExists
+  have hindex : gaussianZigZagCrossingIndex initial horizon hazards =
+      tailIndex + 1 :=
+    gaussianZigZagCrossingIndex_eq_tail_add_one
+      initial horizon hazards hwait htailExists
+  have hstate : gaussianZigZagEventState initial hazards tailIndex =
+      gaussianZigZagEventState restarted tail (tailIndex - 1) := by
+    simpa [restarted, tail] using
+      gaussianZigZagEventState_eq_tail_pred initial hazards htailPositive
+  have helapsed : gaussianZigZagEventElapsed initial hazards tailIndex =
+      (gaussianZigZagEventWait initial hazards 0 : ENNReal) +
+        gaussianZigZagEventElapsed restarted tail (tailIndex - 1) := by
+    simpa [restarted, tail, gaussianZigZagEventWaitTerm,
+      ENNReal.ofReal_coe_nnreal] using
+      gaussianZigZagEventElapsed_eq_first_add_tail_pred
+        initial hazards htailPositive
+  have helapsedNN := congrArg ENNReal.toNNReal helapsed
+  have htailFinite :
+      gaussianZigZagEventElapsed restarted tail (tailIndex - 1) ≠ ∞ :=
+    gaussianZigZagEventElapsed_ne_top restarted tail (tailIndex - 1)
+  rw [ENNReal.toNNReal_add ENNReal.coe_ne_top htailFinite,
+    ENNReal.toNNReal_coe] at helapsedNN
+  unfold gaussianZigZagHorizonEndpoint
+  rw [hindex]
+  simp only [Nat.add_sub_cancel]
+  change zigZagFlow
+      (horizon -
+        (gaussianZigZagEventElapsed initial hazards tailIndex).toNNReal)
+      (gaussianZigZagEventState initial hazards tailIndex) =
+    zigZagFlow
+      (residual -
+        (gaussianZigZagEventElapsed restarted tail (tailIndex - 1)).toNNReal)
+      (gaussianZigZagEventState restarted tail (tailIndex - 1))
+  rw [hstate, helapsedNN, tsub_add_eq_tsub_tsub]
+
+/-- First-event decomposition of a stopped endpoint on an explicit
+`(head, tail)` hazard pair. -/
+noncomputable def gaussianZigZagFirstEventEndpoint
+    (initial : ZigZagState) (horizon : NNReal)
+    (headTail : NNReal × (ℕ → NNReal)) : ZigZagState :=
+  let wait := gaussianZigZagWaitingNNReal initial headTail.1
+  if horizon < wait then
+    zigZagFlow horizon initial
+  else
+    gaussianZigZagHorizonEndpoint
+      (gaussianZigZagEventUpdate initial headTail.1)
+      (horizon - wait) headTail.2
+
 theorem gaussianZigZagCrossingIndex_zero_eq_one
     (initial : ZigZagState) (hazards : ℕ → NNReal)
     (hhazard : 0 < hazards 0) :
@@ -1724,6 +1879,55 @@ theorem gaussianZigZagHorizonEndpoint_eq_flow_of_lt_firstWait
     initial horizon hazards hbefore]
   simp [gaussianZigZagEventElapsed, gaussianZigZagEventState]
 
+/-- Under the exact head/tail product law, direct stopped execution agrees
+almost surely with the first-event decomposition. The common full-measure
+tail conditions work uniformly for every sampled first hazard. -/
+theorem gaussianZigZagHorizonEndpoint_cons_ae_eq_firstEvent
+    (initial : ZigZagState) (horizon : NNReal) :
+    (fun headTail => gaussianZigZagHorizonEndpoint initial horizon
+        (gaussianZigZagHazardCons headTail)) =ᵐ[
+      gaussianZigZagHazardMeasure.prod gaussianZigZagHazardSequenceMeasure]
+      gaussianZigZagFirstEventEndpoint initial horizon := by
+  have hgood : ∀ᵐ tail ∂gaussianZigZagHazardSequenceMeasure,
+      (∀ index, 0 < tail index) ∧
+        (∑' index, gaussianZigZagSqrtHazardTerm tail index) = ∞ := by
+    filter_upwards [gaussianZigZagHazardSequence_positive_ae,
+      gaussianZigZagSqrtHazard_tsum_eq_top_ae] with tail hpositive hdiverges
+    exact ⟨hpositive, hdiverges⟩
+  have hgoodProduct : ∀ᵐ headTail ∂
+      gaussianZigZagHazardMeasure.prod gaussianZigZagHazardSequenceMeasure,
+      (∀ index, 0 < headTail.2 index) ∧
+        (∑' index,
+          gaussianZigZagSqrtHazardTerm headTail.2 index) = ∞ :=
+    (Measure.quasiMeasurePreserving_snd
+      (μ := gaussianZigZagHazardMeasure)
+      (ν := gaussianZigZagHazardSequenceMeasure)).ae hgood
+  filter_upwards [hgoodProduct] with headTail hgoodTail
+  by_cases hbefore : horizon <
+      gaussianZigZagWaitingNNReal initial headTail.1
+  · have hpoint := gaussianZigZagHorizonEndpoint_eq_flow_of_lt_firstWait
+      initial horizon (gaussianZigZagHazardCons headTail)
+      (by simpa [gaussianZigZagEventWait, gaussianZigZagEventState,
+        gaussianZigZagHazardCons] using hbefore)
+    simpa [gaussianZigZagFirstEventEndpoint, hbefore] using hpoint
+  · have hwait : gaussianZigZagEventWait initial
+        (gaussianZigZagHazardCons headTail) 0 ≤ horizon := by
+      simpa [gaussianZigZagEventWait, gaussianZigZagEventState,
+        gaussianZigZagHazardCons] using not_lt.mp hbefore
+    have htailExists : ∃ eventCount, gaussianZigZagEventCrossed
+        (gaussianZigZagEventUpdate initial headTail.1)
+        (horizon - gaussianZigZagWaitingNNReal initial headTail.1)
+        headTail.2 eventCount :=
+      gaussianZigZagEventCrossed_exists_of_positive_of_sqrt_tsum
+        _ _ _ hgoodTail.1 hgoodTail.2
+    have hpoint := gaussianZigZagHorizonEndpoint_eq_tail_of_firstWait_le
+      initial horizon (gaussianZigZagHazardCons headTail) hwait
+      (by simpa [gaussianZigZagEventWait, gaussianZigZagEventState,
+        gaussianZigZagHazardCons] using htailExists)
+    simpa [gaussianZigZagFirstEventEndpoint, hbefore,
+      gaussianZigZagEventWait, gaussianZigZagEventState,
+      gaussianZigZagHazardCons] using hpoint
+
 theorem gaussianZigZagHorizonEndpoint_zero
     (initial : ZigZagState) (hazards : ℕ → NNReal)
     (hhazard : 0 < hazards 0) :
@@ -1773,6 +1977,45 @@ theorem measurable_gaussianZigZagHorizonEndpoint
   exact Measurable.find hfamily
     (measurableSet_gaussianZigZagCrossingSearchPredicate initial horizon)
     existsPredicate
+
+/-- Law-level first-event equation for the stopped Gaussian Zig-Zag path.
+The left side is the original infinite-stream construction; the right side
+draws an independent first hazard and fresh tail, then executes the explicit
+first-event branch. -/
+theorem gaussianZigZagHorizonEndpoint_firstEventLaw
+    (initial : ZigZagState) (horizon : NNReal) :
+    Measure.map (gaussianZigZagHorizonEndpoint initial horizon)
+        gaussianZigZagHazardSequenceMeasure =
+      Measure.map (gaussianZigZagFirstEventEndpoint initial horizon)
+        (gaussianZigZagHazardMeasure.prod
+          gaussianZigZagHazardSequenceMeasure) := by
+  calc
+    Measure.map (gaussianZigZagHorizonEndpoint initial horizon)
+        gaussianZigZagHazardSequenceMeasure =
+        Measure.map
+          ((fun headTail => gaussianZigZagHorizonEndpoint initial horizon
+            (gaussianZigZagHazardCons headTail)))
+          (gaussianZigZagHazardMeasure.prod
+            gaussianZigZagHazardSequenceMeasure) := by
+      rw [← gaussianZigZagHazardSequenceMeasure_map_headTail]
+      symm
+      change Measure.map
+          (gaussianZigZagHorizonEndpoint initial horizon ∘
+            gaussianZigZagHazardCons)
+          (Measure.map gaussianZigZagHazardHeadTail
+            gaussianZigZagHazardSequenceMeasure) = _
+      rw [Measure.map_map
+        ((measurable_gaussianZigZagHorizonEndpoint initial horizon).comp
+          measurable_gaussianZigZagHazardCons)
+        measurable_gaussianZigZagHazardHeadTail]
+      congr 1
+      funext hazards
+      simp [Function.comp_def]
+    _ = Measure.map (gaussianZigZagFirstEventEndpoint initial horizon)
+          (gaussianZigZagHazardMeasure.prod
+            gaussianZigZagHazardSequenceMeasure) :=
+      Measure.map_congr
+        (gaussianZigZagHorizonEndpoint_cons_ae_eq_firstEvent initial horizon)
 
 theorem measurable_gaussianZigZagEventState_joint (eventCount : ℕ) :
     Measurable (fun input : ZigZagState × (ℕ → NNReal) =>
@@ -1888,6 +2131,25 @@ instance gaussianZigZagHorizonKernel.instIsMarkovKernel
   unfold gaussianZigZagHorizonKernel
   apply Kernel.IsMarkovKernel.map
   exact measurable_gaussianZigZagHorizonEndpoint_joint horizon
+
+/-- Kernel-level first-event equation. From a fixed state, the exact horizon
+transition can equivalently sample one exponential hazard and an independent
+fresh tail, then execute the explicit no-event/event branch. -/
+theorem gaussianZigZagHorizonKernel_apply_firstEvent
+    (horizon : NNReal) (initial : ZigZagState) :
+    gaussianZigZagHorizonKernel horizon initial =
+      Measure.map (gaussianZigZagFirstEventEndpoint initial horizon)
+        (gaussianZigZagHazardMeasure.prod
+          gaussianZigZagHazardSequenceMeasure) := by
+  unfold gaussianZigZagHorizonKernel
+  rw [Kernel.map_apply _
+      (measurable_gaussianZigZagHorizonEndpoint_joint horizon),
+    Kernel.prod_apply, Kernel.id_apply, Kernel.const_apply,
+    Measure.dirac_prod, Measure.map_map
+      (measurable_gaussianZigZagHorizonEndpoint_joint horizon) (by fun_prop)]
+  change Measure.map (gaussianZigZagHorizonEndpoint initial horizon)
+      gaussianZigZagHazardSequenceMeasure = _
+  exact gaussianZigZagHorizonEndpoint_firstEventLaw initial horizon
 
 @[simp] theorem gaussianZigZagHorizonKernel_zero :
     gaussianZigZagHorizonKernel 0 = Kernel.id := by
