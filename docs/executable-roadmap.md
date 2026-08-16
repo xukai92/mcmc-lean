@@ -105,6 +105,15 @@ half-momentum error into the position solve. Remaining work is to carry the
 combined state error through final momentum, trajectory energies, and
 multinomial boundaries.
 
+The final-kick algebra is now generic and checked: given explicit momentum-
+and position-slice constants for the Hamiltonian position derivative, Lean
+propagates the half-momentum and next-position budgets to the outgoing
+momentum. For the nonconstant target the momentum-slice constant is already
+global; the position-slice and energy constants must be supplied on the
+bounded trajectory region because the quadratic target is not globally
+Lipschitz. This bounded-region certificate, followed by the existing
+multinomial boundary-stability theorem, is the next link.
+
 ### 2. Restricted callbacks, adaptation, and performance
 
 The first restricted scalar target surface is implemented. Its syntax admits

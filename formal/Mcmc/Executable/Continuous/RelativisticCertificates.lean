@@ -231,6 +231,64 @@ theorem shiftedSinusoidalSoftAbs_nextPosition_error_le_of_half_error
             (mul_nonneg (by norm_num) (abs_nonneg _))
   exact (dist_triangle _ _ _).trans (add_le_add hresidual hsensitivity')
 
+/-- Generic final-kick error propagation. Separate slice constants make the
+source of error explicit: half-momentum error enters both directly and through
+the callback, while next-position error enters through the position slice. -/
+theorem generalizedLeapfrogFinalMomentum_error_le
+    {ι : Type*} [Fintype ι]
+    (positionDerivative : PhaseSpace ι → Position ι)
+    (P Q : NNReal)
+    (hlipMomentum : ∀ q, LipschitzWith P
+      (fun p => positionDerivative (q, p)))
+    (hlipPosition : ∀ p, LipschitzWith Q
+      (fun q => positionDerivative (q, p)))
+    (ε : ℝ) (pApprox pExact : Momentum ι)
+    (qApprox qExact : Position ι) :
+    dist (pApprox - (ε / 2) • positionDerivative (qApprox, pApprox))
+        (pExact - (ε / 2) • positionDerivative (qExact, pExact)) ≤
+      (1 + |ε / 2| * P) * dist pApprox pExact +
+        |ε / 2| * Q * dist qApprox qExact := by
+  rw [dist_eq_norm, dist_eq_norm, dist_eq_norm]
+  have hp := (hlipMomentum qApprox).dist_le_mul pApprox pExact
+  have hq := (hlipPosition pExact).dist_le_mul qApprox qExact
+  have hcallback :
+      ‖positionDerivative (qApprox, pApprox) -
+          positionDerivative (qExact, pExact)‖ ≤
+        P * ‖pApprox - pExact‖ + Q * ‖qApprox - qExact‖ := by
+    calc
+      _ ≤ ‖positionDerivative (qApprox, pApprox) -
+            positionDerivative (qApprox, pExact)‖ +
+          ‖positionDerivative (qApprox, pExact) -
+            positionDerivative (qExact, pExact)‖ := by
+        rw [show positionDerivative (qApprox, pApprox) -
+              positionDerivative (qExact, pExact) =
+            (positionDerivative (qApprox, pApprox) -
+              positionDerivative (qApprox, pExact)) +
+            (positionDerivative (qApprox, pExact) -
+              positionDerivative (qExact, pExact)) by module]
+        exact norm_add_le _ _
+      _ ≤ P * ‖pApprox - pExact‖ + Q * ‖qApprox - qExact‖ := by
+        exact add_le_add (by simpa [dist_eq_norm] using hp)
+          (by simpa [dist_eq_norm] using hq)
+  rw [show (pApprox - (ε / 2) • positionDerivative (qApprox, pApprox)) -
+        (pExact - (ε / 2) • positionDerivative (qExact, pExact)) =
+      (pApprox - pExact) - (ε / 2) •
+        (positionDerivative (qApprox, pApprox) -
+          positionDerivative (qExact, pExact)) by module]
+  calc
+    _ ≤ ‖pApprox - pExact‖ +
+        ‖(ε / 2) • (positionDerivative (qApprox, pApprox) -
+          positionDerivative (qExact, pExact))‖ := norm_sub_le _ _
+    _ = ‖pApprox - pExact‖ + |ε / 2| *
+        ‖positionDerivative (qApprox, pApprox) -
+          positionDerivative (qExact, pExact)‖ := by
+      rw [norm_smul, Real.norm_eq_abs]
+    _ ≤ ‖pApprox - pExact‖ + |ε / 2| *
+        (P * ‖pApprox - pExact‖ + Q * ‖qApprox - qExact‖) := by
+      gcongr
+    _ = (1 + |ε / 2| * P) * ‖pApprox - pExact‖ +
+        |ε / 2| * Q * ‖qApprox - qExact‖ := by ring
+
 /-- Backend-facing bounds for the two implicit fixed-point residual norms. -/
 structure BackendImplicitResidualCertificate where
   computedHalfResidual : ℝ

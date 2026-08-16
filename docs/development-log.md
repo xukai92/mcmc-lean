@@ -2212,3 +2212,12 @@ a perturbed half momentum. Combining it with the reported position residual
 gives an explicit two-term error bound against the actual certified solver's
 next position. Final-momentum and energy/selection propagation remain the
 next numerical links.
+
+Added the reusable final-kick link. If the Hamiltonian position derivative is
+Lipschitz in momentum with constant `P` and in position with constant `Q`, the
+outgoing momentum error is bounded by
+`(1 + |ε/2|P) * pError + |ε/2|Q * qError`. The proof is coordinate-free over
+every finite-dimensional phase space. The target's global `P` is already
+available; `Q` must be certified on the bounded numerical trajectory region,
+as must the endpoint-energy Lipschitz constant, rather than falsely asserting
+a global bound for the quadratic potential.
