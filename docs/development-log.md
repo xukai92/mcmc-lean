@@ -1905,10 +1905,13 @@ covariances, and
 
 `MSE(empirical average) = (sum of coordinate variances) / N²`.
 
-This is the per-stage conditional variance identity needed for a sequential
-resample--propagate recurrence. It is not yet the completed normalized
-particle-filter consistency theorem, because the randomness of resampling
-weights and the propagation of previous-stage error must still be composed.
+For triangular arrays whose coordinate laws may change with particle count,
+a uniform coordinate-variance bound now yields conditional `V/N` MSE,
+mean-square consistency, a finite Chebyshev bound, and convergence in
+probability around the count-specific mean. This supplies the per-stage local
+term for a sequential resample--propagate recurrence. It is not yet the
+completed normalized particle-filter consistency theorem, because random
+resampling weights and previous-stage empirical error must still be composed.
 
 Julia exposes the matching guarded Float64 evaluator, including the removable
 zero-Hessian branch, and tests its algebraic outputs and invalid domains. This

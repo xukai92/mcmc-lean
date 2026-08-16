@@ -319,6 +319,171 @@ theorem independentPopulation_particleAverage_mse
   rw [← Finset.sum_div,
     independentPopulation_centered_sum_sq_expectation law score]
 
+omit [DecidableEq Sample] in
+/-- A common coordinate-variance bound gives the usual conditional `V/N`
+MSE bound even when the independently propagated particles are heterogeneous. -/
+theorem independentPopulation_particleAverage_mse_le
+    (law : Particle → Distribution Sample) (score : Sample → ℝ)
+    {varianceBound : ℝ}
+    (hvariance : ∀ i, finiteVariance (law i) score ≤ varianceBound) :
+    ∑ samples : Particle → Sample, (independentPopulation law).mass samples *
+        (particleAverage score samples - independentPopulationMean law score) ^ 2 ≤
+      varianceBound / Fintype.card Particle := by
+  rw [independentPopulation_particleAverage_mse]
+  have hsum : (∑ i, finiteVariance (law i) score) ≤
+      ∑ _i : Particle, varianceBound :=
+    Finset.sum_le_sum fun i _ => hvariance i
+  calc
+    (∑ i, finiteVariance (law i) score) /
+          (Fintype.card Particle : ℝ) ^ 2 ≤
+        (∑ _i : Particle, varianceBound) /
+          (Fintype.card Particle : ℝ) ^ 2 := by
+      exact div_le_div_of_nonneg_right hsum (sq_nonneg _)
+    _ = varianceBound / Fintype.card Particle := by
+      simp only [Finset.sum_const, Finset.card_univ, nsmul_eq_mul]
+      have hcard : (Fintype.card Particle : ℝ) ≠ 0 := by
+        exact_mod_cast Fintype.card_ne_zero
+      field_simp
+
+/-- Conditional MSE for a particle-count-indexed heterogeneous population. -/
+noncomputable def independentPopulationMSEByExtra
+    (law : ∀ extra : ℕ, Fin (extra + 1) → Distribution Sample)
+    (score : Sample → ℝ) (extra : ℕ) : ℝ :=
+  ∑ samples : Fin (extra + 1) → Sample,
+    (independentPopulation (law extra)).mass samples *
+      (particleAverage score samples -
+        independentPopulationMean (law extra) score) ^ 2
+
+omit [DecidableEq Sample] [Nonempty Particle] in
+/-- A uniformly variance-bounded triangular array of independent finite
+particles is mean-square consistent around its count-specific mean. -/
+theorem independentPopulationMSEByExtra_tendsto_zero
+    (law : ∀ extra : ℕ, Fin (extra + 1) → Distribution Sample)
+    (score : Sample → ℝ) {varianceBound : ℝ}
+    (hvariance : ∀ extra i,
+      finiteVariance (law extra i) score ≤ varianceBound) :
+    Filter.Tendsto (independentPopulationMSEByExtra law score)
+      Filter.atTop (nhds 0) := by
+  have hupper : Filter.Tendsto
+      (fun extra : ℕ => varianceBound / ((extra : ℝ) + 1))
+      Filter.atTop (nhds 0) := by
+    exact tendsto_const_nhds.div_atTop
+      (Filter.tendsto_atTop_add_const_right Filter.atTop 1
+        tendsto_natCast_atTop_atTop)
+  apply squeeze_zero
+    (g := fun extra : ℕ => varianceBound / ((extra : ℝ) + 1))
+  · intro extra
+    unfold independentPopulationMSEByExtra
+    apply Finset.sum_nonneg
+    intro samples _
+    exact mul_nonneg ((independentPopulation (law extra)).nonneg samples)
+      (sq_nonneg _)
+  · intro extra
+    unfold independentPopulationMSEByExtra
+    simpa using independentPopulation_particleAverage_mse_le
+      (law extra) score (hvariance extra)
+  · exact hupper
+
+/-- Count-indexed deviation probability for a heterogeneous independent
+population, centered at its own average coordinate expectation. -/
+noncomputable def independentPopulationDeviationProbability
+    (law : ∀ extra : ℕ, Fin (extra + 1) → Distribution Sample)
+    (score : Sample → ℝ) (extra : ℕ) (tolerance : ℝ) : ℝ :=
+  ∑ samples : Fin (extra + 1) → Sample,
+    (independentPopulation (law extra)).mass samples *
+      if tolerance ≤ |particleAverage score samples -
+          independentPopulationMean (law extra) score|
+      then 1 else 0
+
+omit [DecidableEq Sample] [Nonempty Particle] in
+theorem independentPopulationDeviationProbability_nonneg
+    (law : ∀ extra : ℕ, Fin (extra + 1) → Distribution Sample)
+    (score : Sample → ℝ) (extra : ℕ) (tolerance : ℝ) :
+    0 ≤ independentPopulationDeviationProbability law score extra tolerance := by
+  unfold independentPopulationDeviationProbability
+  apply Finset.sum_nonneg
+  intro samples _
+  split
+  · simpa using (independentPopulation (law extra)).nonneg samples
+  · simp
+
+omit [DecidableEq Sample] [Nonempty Particle] in
+/-- Finite conditional Chebyshev bound for a heterogeneous population. -/
+theorem independentPopulationDeviationProbability_le
+    (law : ∀ extra : ℕ, Fin (extra + 1) → Distribution Sample)
+    (score : Sample → ℝ) (extra : ℕ) {tolerance varianceBound : ℝ}
+    (htolerance : 0 < tolerance)
+    (hvariance : ∀ i, finiteVariance (law extra i) score ≤ varianceBound) :
+    independentPopulationDeviationProbability law score extra tolerance ≤
+      varianceBound / ((extra + 1 : ℕ) : ℝ) / tolerance ^ 2 := by
+  unfold independentPopulationDeviationProbability
+  calc
+    _ ≤ ∑ samples : Fin (extra + 1) → Sample,
+        (independentPopulation (law extra)).mass samples *
+          (particleAverage score samples -
+            independentPopulationMean (law extra) score) ^ 2 /
+              tolerance ^ 2 := by
+      apply Finset.sum_le_sum
+      intro samples _
+      by_cases hbad : tolerance ≤ |particleAverage score samples -
+          independentPopulationMean (law extra) score|
+      · simp only [hbad, if_true]
+        have hsquare : tolerance ^ 2 ≤
+            (particleAverage score samples -
+              independentPopulationMean (law extra) score) ^ 2 := by
+          nlinarith [sq_nonneg
+            (|particleAverage score samples -
+                independentPopulationMean (law extra) score| - tolerance),
+            sq_abs (particleAverage score samples -
+              independentPopulationMean (law extra) score)]
+        have hmass := (independentPopulation (law extra)).nonneg samples
+        rw [le_div_iff₀ (sq_pos_of_pos htolerance)]
+        nlinarith
+      · simp only [hbad, if_false, mul_zero]
+        exact div_nonneg
+          (mul_nonneg ((independentPopulation (law extra)).nonneg samples)
+            (sq_nonneg _))
+          (sq_nonneg _)
+    _ = independentPopulationMSEByExtra law score extra / tolerance ^ 2 := by
+      unfold independentPopulationMSEByExtra
+      rw [Finset.sum_div]
+    _ ≤ _ := by
+      gcongr
+      unfold independentPopulationMSEByExtra
+      simpa using independentPopulation_particleAverage_mse_le
+        (law extra) score hvariance
+
+omit [DecidableEq Sample] [Nonempty Particle] in
+/-- Uniformly variance-bounded heterogeneous finite populations converge in
+probability around their count-specific coordinate-mean averages. -/
+theorem independentPopulationDeviationProbability_tendsto_zero
+    (law : ∀ extra : ℕ, Fin (extra + 1) → Distribution Sample)
+    (score : Sample → ℝ) {tolerance varianceBound : ℝ}
+    (htolerance : 0 < tolerance)
+    (hvariance : ∀ extra i,
+      finiteVariance (law extra i) score ≤ varianceBound) :
+    Filter.Tendsto (fun extra =>
+      independentPopulationDeviationProbability law score extra tolerance)
+      Filter.atTop (nhds 0) := by
+  have hupper : Filter.Tendsto
+      (fun extra : ℕ => varianceBound / ((extra : ℝ) + 1) / tolerance ^ 2)
+      Filter.atTop (nhds 0) := by
+    have hratio : Filter.Tendsto
+        (fun extra : ℕ => varianceBound / ((extra : ℝ) + 1))
+        Filter.atTop (nhds 0) :=
+      tendsto_const_nhds.div_atTop
+        (Filter.tendsto_atTop_add_const_right Filter.atTop (1 : ℝ)
+          tendsto_natCast_atTop_atTop)
+    simpa using hratio.div_const (tolerance ^ 2)
+  apply squeeze_zero
+    (g := fun extra : ℕ => varianceBound / ((extra : ℝ) + 1) / tolerance ^ 2)
+  · exact fun extra =>
+      independentPopulationDeviationProbability_nonneg law score extra tolerance
+  · intro extra
+    simpa using independentPopulationDeviationProbability_le law score extra
+      htolerance (hvariance extra)
+  · exact hupper
+
 omit [DecidableEq Sample] [Nonempty Particle] in
 /-- The expected squared centered particle sum is exactly particle count
 times the one-particle variance. -/

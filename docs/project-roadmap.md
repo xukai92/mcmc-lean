@@ -203,9 +203,11 @@ fixed particle count and finite horizon. Convergence, mixing rates, and
 particle-count asymptotics remain separate later layers. The particle-count
 layer now includes exact iid `1/N` MSE and convergence in probability, plus
 the heterogeneous conditional identity `sum coordinate variances / N²` for
-independently propagated populations. This supplies the local variance term
-for sequential SMC; the full recurrence must still compose it with random
-multinomial-resampling weights and previous-stage empirical error.
+independently propagated populations. Uniformly variance-bounded triangular
+arrays additionally have `V/N` MSE and converge in probability around their
+count-specific means. This supplies the local variance term for sequential
+SMC; the full recurrence must still compose it with random multinomial-
+resampling weights and previous-stage empirical error.
 
 General-state composable inference is also complete at the common-target
 stationarity layer. `Mcmc.Kernel.ComposableInference` supplies scoped
