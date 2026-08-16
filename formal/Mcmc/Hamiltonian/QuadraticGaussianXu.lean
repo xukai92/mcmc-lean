@@ -831,6 +831,104 @@ theorem exists_geometric_exactMeetingTail_standardQuadratic_to_stationary
       hnonempty hpairMoment
   exact ⟨gamma, C₀, contractionRate, hC₀, hrate, htail⟩
 
+/-- A single selected HMC/RWMH mixture simultaneously has the lag-one tail
+needed by the unbiased estimator and the same-time tail to the stationary
+Gaussian target. -/
+theorem exists_shared_geometric_tails_standardQuadratic
+    [Nonempty ι] (variance : NNReal) (hvariance : variance ≠ 0)
+    (q₀ : Position ι) :
+    ∃ (gamma : Set.Ioo (0 : NNReal) 1)
+        (lagC lagRate stationaryC stationaryRate : ENNReal),
+      lagC ≠ ⊤ ∧ lagRate < 1 ∧ stationaryC ≠ ⊤ ∧
+      stationaryRate < 1 ∧
+      let transition := hmcRwmhMixture (xuTheorem41HmcWeight gamma)
+        standardQuadraticPotential standardQuadraticGradient (Real.sqrt 2) 1
+        contDiff_standardQuadraticPotential.continuous.measurable
+        measurable_standardQuadraticGradient variance hvariance
+      let coupled := stickyCoupledHmcRwmhMixture
+        (xuTheorem41HmcWeight gamma) standardQuadraticPotential
+        standardQuadraticGradient (Real.sqrt 2) 1
+        contDiff_standardQuadraticPotential.continuous.measurable
+        measurable_standardQuadraticGradient variance hvariance
+      (∀ n : ℕ, Mcmc.Kernel.exactMeetingTail
+          (Mcmc.Kernel.pathLaw
+            (Mcmc.Kernel.laggedInitialMeasure
+              ((Measure.dirac q₀).prod (Measure.dirac q₀)) transition)
+            coupled) n ≤ lagC * lagRate ^ n) ∧
+      (∀ n : ℕ, Mcmc.Kernel.exactMeetingTail
+          (Mcmc.Kernel.pathLaw
+            ((Measure.dirac q₀).prod
+              (standardGaussianPositionMeasure (ι := ι))) coupled) n ≤
+            stationaryC * stationaryRate ^ n) := by
+  letI : IsMarkovKernel
+      (Mcmc.Kernel.euclideanGaussianRandomWalkMetropolisHastings
+        (positionBoltzmannWeight
+          (standardQuadraticPotential : Position ι → ℝ))
+        variance hvariance) :=
+    Mcmc.Kernel.euclideanGaussianRandomWalkMetropolisHastings_isMarkov
+      _ variance hvariance
+      (measurable_positionBoltzmannWeight
+        contDiff_standardQuadraticPotential.continuous.measurable)
+  obtain ⟨gamma, ell1, ⟨hspecial⟩⟩ :=
+    exists_standardQuadratic_finite_xuTheorem41DriftAssumptions_sqrtTwo
+      (ι := ι) variance hvariance q₀
+  let h := hspecial.1
+  have hV : h.V = standardDistanceLyapunov := hspecial.2
+  have hcompact := h.isCompact_pairedSublevel_of_V_eq_standardDistance hV
+  have hnonempty := h.nonempty_pairedSublevel_of_V_eq_standardDistance hV
+  let A : Set (Position ι) := Metric.closedBall 0 1
+  have hAcompact : IsCompact A := by
+    dsimp only [A]
+    exact isCompact_closedBall 0 1
+  have hAnonempty : A.Nonempty := ⟨0, by simp [A]⟩
+  have hAmeas : MeasurableSet A := hAcompact.measurableSet
+  have hAvolume : 0 < volume A := by
+    dsimp only [A]
+    exact Metric.measure_closedBall_pos volume 0 (by norm_num)
+  have hinitial : IsMeasureCoupling
+      ((Measure.dirac q₀).prod (Measure.dirac q₀))
+      (Measure.dirac q₀) (Measure.dirac q₀) :=
+    isMeasureCoupling_prod _ _
+  obtain ⟨lagC, lagRate, hlagC, hlagRate, hlagTail⟩ :=
+    h.exists_geometric_exactLagOneMeetingTail_stickyHmcRwmh gamma
+      standardQuadraticPotential standardQuadraticGradient (Real.sqrt 2) 1
+      contDiff_standardQuadraticPotential.continuous
+      measurable_standardQuadraticGradient variance hvariance
+      (Measure.dirac q₀) (standardQuadraticFiniteXuRegion (ι := ι) ell1)
+      ((Measure.dirac q₀).prod (Measure.dirac q₀)) hinitial
+      hcompact hnonempty hAcompact hAnonempty hAmeas hAvolume
+  have hp : (xuTheorem41HmcWeight gamma).1 < 1 := by
+    dsimp only [xuTheorem41HmcWeight]
+    exact tsub_lt_self zero_lt_one gamma.property.1
+  obtain ⟨meetingBound, hmeetingPos, hmeeting⟩ :=
+    exists_pos_stickyCoupledHmcRwmhMixture_exactMeetingSmallSet_on_compact
+      (xuTheorem41HmcWeight gamma) hp standardQuadraticPotential
+      standardQuadraticGradient (Real.sqrt 2) 1
+      contDiff_standardQuadraticPotential.continuous
+      measurable_standardQuadraticGradient variance hvariance
+      hcompact hnonempty hAcompact hAnonempty hAmeas hAvolume
+  have hpairMoment : (∫⁻ z,
+      Mcmc.Kernel.IsCoupling.pairedAdd h.V z
+        ∂(Measure.dirac q₀).prod
+          (standardGaussianPositionMeasure (ι := ι))) ≠ ⊤ := by
+    simpa only [hV] using
+      lintegral_pairedStandardDistance_dirac_standardGaussian_ne_top q₀
+  obtain ⟨stationaryC, stationaryRate, hstationaryC, hstationaryRate,
+      hstationaryTail⟩ :=
+    h.exists_geometric_exactMeetingTail_pairInitial
+      ((Measure.dirac q₀).prod
+        (standardGaussianPositionMeasure (ι := ι)))
+      (stickyCoupledHmcRwmhMixture (xuTheorem41HmcWeight gamma)
+        standardQuadraticPotential standardQuadraticGradient (Real.sqrt 2) 1
+        contDiff_standardQuadraticPotential.continuous.measurable
+        measurable_standardQuadraticGradient variance hvariance)
+      (stickyCoupledHmcRwmhMixture_isCoupling _ _ _ _ _ _ _ _ _)
+      hmeetingPos hmeeting
+      (stickyCoupledHmcRwmhMixture_isFaithful _ _ _ _ _ _ _ _ _)
+      hnonempty hpairMoment
+  exact ⟨gamma, lagC, lagRate, stationaryC, stationaryRate, hlagC,
+    hlagRate, hstationaryC, hstationaryRate, hlagTail, hstationaryTail⟩
+
 /-- Quantitative eventwise convergence of the concrete point-started
 standard-Gaussian HMC/RWMH mixture to its normalized invariant target. -/
 theorem exists_geometric_eventwise_convergence_standardQuadratic
@@ -1073,5 +1171,87 @@ theorem exists_standardQuadratic_boundedEstimator
       (stickyCoupledHmcRwmhMixture_isFaithful _ _ _ _ _ _ _ _ _)
   exact ⟨gamma, C₀, contractionRate, targetMean, hC₀, hrate,
     hmarginal, hend⟩
+
+/-- Final bounded-observable Xu endpoint for the standard Gaussian: the
+point-started marginal expectations converge to the normalized target
+integral, and the stopped lag-one estimator is unbiased for that same integral
+with finite variance. -/
+theorem exists_standardQuadratic_boundedEstimator_target
+    [Nonempty ι] (variance : NNReal) (hvariance : variance ≠ 0)
+    (q₀ : Position ι) (observable : Position ι → ℝ)
+    (hmeasurable : Measurable observable) {B : ℝ} (hB : 0 ≤ B)
+    (hbounded : ∀ q, ‖observable q‖ ≤ B) :
+    ∃ (gamma : Set.Ioo (0 : NNReal) 1) (C₀ contractionRate : ENNReal),
+      C₀ ≠ ⊤ ∧ contractionRate < 1 ∧
+      let transition := hmcRwmhMixture (xuTheorem41HmcWeight gamma)
+        standardQuadraticPotential standardQuadraticGradient (Real.sqrt 2) 1
+        contDiff_standardQuadraticPotential.continuous.measurable
+        measurable_standardQuadraticGradient variance hvariance
+      let coupled := stickyCoupledHmcRwmhMixture
+        (xuTheorem41HmcWeight gamma) standardQuadraticPotential
+        standardQuadraticGradient (Real.sqrt 2) 1
+        contDiff_standardQuadraticPotential.continuous.measurable
+        measurable_standardQuadraticGradient variance hvariance
+      Filter.Tendsto
+        (fun n => ∫ q, observable q
+          ∂Mcmc.Kernel.lawAtTime (Measure.dirac q₀) transition n)
+        Filter.atTop
+        (nhds (∫ q, observable q
+          ∂standardGaussianPositionMeasure (ι := ι))) ∧
+      (∫ path, Mcmc.Kernel.stoppedLaggedUnbiasedEstimator observable path
+        ∂Mcmc.Kernel.pathLaw
+          (Mcmc.Kernel.laggedInitialMeasure
+            ((Measure.dirac q₀).prod (Measure.dirac q₀)) transition)
+          coupled) =
+          ∫ q, observable q
+            ∂standardGaussianPositionMeasure (ι := ι) ∧
+      MemLp (Mcmc.Kernel.stoppedLaggedUnbiasedEstimator observable) 2
+        (Mcmc.Kernel.pathLaw
+          (Mcmc.Kernel.laggedInitialMeasure
+            ((Measure.dirac q₀).prod (Measure.dirac q₀)) transition)
+          coupled) := by
+  obtain ⟨gamma, lagC, lagRate, stationaryC, stationaryRate,
+      hlagC, hlagRate, hstationaryC, hstationaryRate,
+      hlagTail, hstationaryTail⟩ :=
+    exists_shared_geometric_tails_standardQuadratic variance hvariance q₀
+  refine ⟨gamma, lagC, lagRate, hlagC, hlagRate, ?_⟩
+  dsimp only
+  let transition := hmcRwmhMixture (xuTheorem41HmcWeight gamma)
+    (standardQuadraticPotential : Position ι → ℝ)
+    standardQuadraticGradient (Real.sqrt 2) 1
+    contDiff_standardQuadraticPotential.continuous.measurable
+    measurable_standardQuadraticGradient variance hvariance
+  let coupled := stickyCoupledHmcRwmhMixture (xuTheorem41HmcWeight gamma)
+    (standardQuadraticPotential : Position ι → ℝ)
+    standardQuadraticGradient (Real.sqrt 2) 1
+    contDiff_standardQuadraticPotential.continuous.measurable
+    measurable_standardQuadraticGradient variance hvariance
+  have hmarginal : Filter.Tendsto
+      (fun n => ∫ q, observable q
+        ∂Mcmc.Kernel.lawAtTime (Measure.dirac q₀) transition n)
+      Filter.atTop
+      (nhds (∫ q, observable q
+        ∂standardGaussianPositionMeasure (ι := ι))) := by
+    apply Mcmc.Kernel.tendsto_lawAtTime_integral_of_invariant_geometricMeeting
+      ((Measure.dirac q₀).prod (standardGaussianPositionMeasure (ι := ι)))
+      (Measure.dirac q₀) (standardGaussianPositionMeasure (ι := ι))
+      transition coupled (isMeasureCoupling_prod _ _)
+      (stickyCoupledHmcRwmhMixture_isCoupling _ _ _ _ _ _ _ _ _)
+      (stickyCoupledHmcRwmhMixture_isFaithful _ _ _ _ _ _ _ _ _)
+      (hmcRwmhMixture_invariant_standardGaussian
+        (xuTheorem41HmcWeight gamma) (Real.sqrt 2) 1 variance hvariance)
+      observable hmeasurable hB hbounded stationaryC stationaryRate
+      hstationaryC hstationaryRate
+    exact hstationaryTail
+  have hend :=
+    Mcmc.Kernel.integral_eq_and_memLp_two_stoppedLaggedUnbiasedEstimator_of_bounded_geometric
+      ((Measure.dirac q₀).prod (Measure.dirac q₀)) (Measure.dirac q₀)
+      transition coupled (isMeasureCoupling_prod _ _)
+      (stickyCoupledHmcRwmhMixture_isCoupling _ _ _ _ _ _ _ _ _)
+      observable hmeasurable hB hbounded
+      (∫ q, observable q ∂standardGaussianPositionMeasure (ι := ι))
+      hmarginal lagC lagRate hlagC hlagRate hlagTail
+      (stickyCoupledHmcRwmhMixture_isFaithful _ _ _ _ _ _ _ _ _)
+  exact ⟨hmarginal, hend⟩
 
 end Mcmc.Hamiltonian

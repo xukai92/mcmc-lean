@@ -10,6 +10,9 @@
   A general bounded-observable coupling inequality now turns such a tail into
   an explicit expectation bound and convergence theorem; the normalized
   Gaussian client instantiates it for every bounded measurable observable.
+  The lag-one and stationary-start tails are now packaged with one shared
+  mixture parameter, closing the final Gaussian unbiased-estimator theorem
+  against the normalized target integral with finite variance.
 
 - Extracted the convergence consequence latent in the coupled-estimator
   argument: a faithful geometric exact-meeting tail forces every bounded

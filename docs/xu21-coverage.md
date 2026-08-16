@@ -104,8 +104,10 @@ also normalized explicitly, proved invariant, and coupled to the Dirac-start
 chain with a geometric same-time meeting tail. This yields two-sided
 eventwise geometric convergence to the normalized target. A reusable
 coupling-integral inequality now transports the meeting bound to arbitrary
-bounded measurable observables, and the Gaussian client proves convergence
-to the corresponding normalized-target integral.
+bounded measurable observables. A shared-parameter theorem proves both the
+lag-one and stationary-target tails for one selected mixture, so the final
+Gaussian endpoint proves convergence to the normalized-target integral,
+unbiasedness for that same integral, and finite variance.
 
 The general-target endpoint is a composition theorem: regularity and local
 strong convexity establish local HMC accessibility, while a supplied
@@ -135,10 +137,8 @@ The following follow-on work remains outside the completed theorem surface:
 
 - target-specific drift certificates beyond the standard Gaussian and
   regularized-logistic families;
-- packaging the Gaussian stationary-target convergence and lag-one estimator
-  tails with one shared selected mixture parameter, plus normalized-Boltzmann
-  construction and the analogous identification for regularized logistic
-  regression;
+- normalized-Boltzmann construction and the analogous stationary-target
+  identification for regularized logistic regression;
 - full floating-point refinement and reproduction of every reported paper
   experiment. The generated Julia coupling already implements shared-event
   HMC/RWMH mixture steps, checks exact-meeting faithfulness, and now exposes a
