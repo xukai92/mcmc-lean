@@ -15,7 +15,7 @@ export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_ou
     coupled_multinomial_hmc_step!, coupled_gaussian_rwmh_step!, xu21_coupled_step!,
     IR_FORMAT_VERSION
 
-const IR_FORMAT_VERSION = 15
+const IR_FORMAT_VERSION = 16
 
 """Stable target-weighted selection from a supplied candidate index set.
 
@@ -344,7 +344,7 @@ function decode_transform(node::SList)
     length(values) == 8 && atom(values[1]) == "transform" ||
         error("invalid transform descriptor")
     descriptor = TransformDescriptor((atom(value) for value in values[2:end])...)
-    descriptor.transform == "positive-log" ||
+    descriptor.transform in ("positive-log", "open-unit-artanh") ||
         error("unsupported scalar transform: $(descriptor.transform)")
     descriptor
 end

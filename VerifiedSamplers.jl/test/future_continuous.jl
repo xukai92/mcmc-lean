@@ -696,6 +696,19 @@ end
         @test_throws ArgumentError PositiveTransformedRWMH(identity, 0.0)
         @test_throws ArgumentError step(MersenneTwister(1), sampler, 0.0)
     end
+    @testset "open-unit constrained transform" begin
+        sampler = OpenUnitTransformedRWMH(_ -> 0.0, 1.0)
+        first = sample(MersenneTwister(0x10a17), sampler, 0.5, 30_000)
+        second = sample(MersenneTwister(0x10a17), sampler, 0.5, 30_000)
+        @test first == second
+        @test all(x -> isfinite(x) && 0 < x < 1, first)
+        retained = first[3001:end]
+        @test abs(mean(retained) - 0.5) < 0.025
+        @test abs(var(retained) - 1 / 12) < 0.012
+        @test_throws ArgumentError OpenUnitTransformedRWMH(identity, 0.0)
+        @test_throws ArgumentError step(MersenneTwister(1), sampler, 0.0)
+        @test_throws ArgumentError step(MersenneTwister(1), sampler, 1.0)
+    end
     @testset "Gaussian Zig-Zag exact clock and moments" begin
         for (q, velocity, e) in ((1.2, 1, 0.7), (-1.2, 1, 0.7),
                 (0.4, -1, 1.3))

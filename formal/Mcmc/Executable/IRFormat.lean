@@ -20,7 +20,7 @@ namespace Mcmc.Executable.IRFormat
 
 open Finite.CompilerIR
 
-def version : Nat := 15
+def version : Nat := 16
 
 private def quote (value : String) : String :=
   let escapedBackslash := value.replace "\\" "\\\\"
@@ -211,6 +211,7 @@ private def scheduleDescriptorRender
 private def scalarTransformRender :
     ConstrainedTransformIR.ScalarTransform → String
   | .positiveLog => "positive-log"
+  | .openUnitArtanh => "open-unit-artanh"
 
 private def transformDescriptorRender
     (descriptor : ConstrainedTransformIR.Descriptor) : String :=
@@ -263,7 +264,8 @@ def render : String :=
     restrictedTargetRender "restricted-sinusoidal-potential"
       Mcmc.Executable.Continuous.restrictedSinusoidalPotentialArtifact,
     scheduleDescriptorRender ComposableIR.gePgHmcSchedule,
-    transformDescriptorRender ConstrainedTransformIR.positiveLog] ++
+    transformDescriptorRender ConstrainedTransformIR.positiveLog,
+    transformDescriptorRender ConstrainedTransformIR.openUnitArtanh] ++
     [dynamicTreeDescriptorRender DynamicTreeIR.checkedRecursiveDoubling] ++
     Continuous.CoupledXu21.renderedPrograms) ++ "\n"
 

@@ -1,5 +1,15 @@
 # Development log
 
+- Added an exact open-unit-interval constrained transform. Lean constructs the
+  measurable equivalence `x -> artanh(2x-1)` with inverse
+  `(tanh(y)+1)/2` and specializes the transformed-kernel invariance theorem.
+  Generated IR 16 records the inverse log-Jacobian
+  `log(1-tanh(y)^2)-log(2)`. Julia's `OpenUnitTransformedRWMH` implements that
+  convention with positional RNG dispatch, strict domain validation,
+  reproducible replay, and uniform `(0,1)` mean/variance diagnostics. The
+  formal theorem is exact-real; platform `atanh`/`tanh`/`log1p` refinement
+  remains explicit.
+
 - Added a reproducible executable particle-count experiment for positive-
   horizon particle Gibbs. On the two-state, one-step uniform HMM, the exact
   path target is uniform over four paths; 8,000 independent one-step updates

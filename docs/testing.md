@@ -143,6 +143,13 @@ are implementation regressions; the ideal marginal identities come from Lean.
 These numerical checks complement the Lean phase-volume, PMF, kernel-row, and
 invariance theorems; they do not replace them.
 
+Constrained-transform diagnostics cover both positive-log exponential-target
+sampling and the IR-16 open-unit artanh-affine convention. The latter checks
+strict `(0,1)` containment, seeded reproducibility, uniform mean and variance,
+descriptor fields, and endpoint rejection. These tests exercise the Jacobian
+implementation but do not identify platform transcendental functions with
+Lean's exact reals.
+
 ## Active and deferred diagnostics
 
 `test/future_continuous.jl` now actively checks:

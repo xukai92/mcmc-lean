@@ -87,7 +87,7 @@ bounded HMC layer gives coordinatewise trajectory certificates and a stable
 acceptance theorem outside the explicit uniform/threshold error band.
 Constant diagonal and dense metrics have exact Lean velocity maps,
 time-reversal and endpoint-invariance theorems. Their type-indexed commands are
-part of generated IR version 15 and are interpreted by Julia Reference. Lean
+part of generated IR version 16 and are interpreted by Julia Reference. Lean
 proves that applying an invertible factor to standard momentum gives the
 pushforward Gaussian law, identifies its determinant-normalized quadratic
 kinetic density, and instantiates refreshed position-target invariance.

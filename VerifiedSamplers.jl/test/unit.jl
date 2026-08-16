@@ -101,7 +101,7 @@ end
 end
 
 @testset "versioned reference IR" begin
-    @test Reference.IR_FORMAT_VERSION == 15
+    @test Reference.IR_FORMAT_VERSION == 16
     @test sort!(collect(keys(Reference.PROGRAMS))) ==
         ["categorical_index!", "certified_relativistic_multinomial_hmc_step!",
         "coupled_gaussian_rwmh_step!",
@@ -117,6 +117,13 @@ end
     @test transform.forward == "log"
     @test transform.inverse == "exp"
     @test transform.logabsdet_inverse_jacobian == "identity"
+    unit_transform = generated_transform("open-unit-artanh")
+    @test unit_transform.transform == "open-unit-artanh"
+    @test unit_transform.constrained_type == "open-unit-interval"
+    @test unit_transform.forward == "artanh-affine"
+    @test unit_transform.inverse == "tanh-affine"
+    @test unit_transform.logabsdet_inverse_jacobian ==
+        "log-one-minus-tanh-sq-minus-log-two"
     @test_throws ArgumentError generated_transform("missing")
     @test collect(keys(Reference.DYNAMIC_TREES)) ==
         ["checked-recursive-doubling"]

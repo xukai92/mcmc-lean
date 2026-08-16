@@ -11,6 +11,7 @@ namespace Mcmc.Executable.ConstrainedTransformIR
 
 inductive ScalarTransform where
   | positiveLog
+  | openUnitArtanh
 deriving DecidableEq, Repr
 
 structure Descriptor where
@@ -33,5 +34,17 @@ def positiveLog : Descriptor where
   forward := "log"
   inverse := "exp"
   logAbsDetInverseJacobian := "identity"
+
+/-- `0 < x < 1`, `y = artanh(2x-1)`,
+`x = (tanh(y)+1)/2`. The inverse log-Jacobian is
+`log(1-tanh(y)^2)-log(2)`. -/
+def openUnitArtanh : Descriptor where
+  name := "open-unit-artanh"
+  transform := .openUnitArtanh
+  constrainedType := "open-unit-interval"
+  unconstrainedType := "real"
+  forward := "artanh-affine"
+  inverse := "tanh-affine"
+  logAbsDetInverseJacobian := "log-one-minus-tanh-sq-minus-log-two"
 
 end Mcmc.Executable.ConstrainedTransformIR

@@ -9,7 +9,7 @@ include("Certificates/Certificates.jl")
 include("Reference/Reference.jl")
 include("Optimized/Optimized.jl")
 
-export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, BoundedRejectionSlice, SteppingOutSlice, ShearedBirthDeathRJ, SpatialBirthDeathRJ, sheared_birth_unshear, TwoStateMH, GaussianRWMH, PositiveTransformedRWMH,
+export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, BoundedRejectionSlice, SteppingOutSlice, ShearedBirthDeathRJ, SpatialBirthDeathRJ, sheared_birth_unshear, TwoStateMH, GaussianRWMH, PositiveTransformedRWMH, OpenUnitTransformedRWMH,
     WarmupGaussianRWMH, GaussianRWMHWarmupResult, warmup,
     ScalarHMC, VectorHMC, MultinomialHMC, CertifiedDynamicHMC,
     CheckedFirstStopDynamicHMC,
@@ -1162,6 +1162,57 @@ function sample(rng::AbstractRNG, sampler::PositiveTransformedRWMH,
 end
 
 sample(sampler::PositiveTransformedRWMH, initial::Real, count::Integer) =
+    sample(Random.default_rng(), sampler, initial, count)
+
+"""Gaussian RWMH on an open-unit-interval parameter through artanh.
+
+The exact convention matches generated descriptor `open-unit-artanh`:
+`y = atanh(2x-1)` and `x = (tanh(y)+1)/2`. The unconstrained log density adds
+`log(1-tanh(y)^2)-log(2)`, the inverse log-Jacobian.
+"""
+struct OpenUnitTransformedRWMH{F}
+    logdensity::F
+    scale::Float64
+    function OpenUnitTransformedRWMH(logdensity::F, scale::Real) where {F}
+        converted = Float64(scale)
+        isfinite(converted) && converted > 0 ||
+            throw(ArgumentError("scale must be finite and positive"))
+        new{F}(logdensity, converted)
+    end
+end
+
+function step(rng::AbstractRNG, sampler::OpenUnitTransformedRWMH, current::Real)
+    x = Float64(current)
+    isfinite(x) && 0 < x < 1 ||
+        throw(ArgumentError("open-unit transformed state must lie strictly in (0,1)"))
+    unconstrained(y) = begin
+        t = tanh(y)
+        transformed = (t + 1) / 2
+        sampler.logdensity(transformed) + log1p(-t * t) - log(2)
+    end
+    next_y = step(rng, GaussianRWMH(unconstrained, sampler.scale), atanh(2x - 1))
+    next = (tanh(next_y) + 1) / 2
+    isfinite(next) && 0 < next < 1 ||
+        throw(DomainError(next_y, "inverse transformed state left the open unit interval"))
+    next
+end
+
+step(sampler::OpenUnitTransformedRWMH, current::Real) =
+    step(Random.default_rng(), sampler, current)
+
+function sample(rng::AbstractRNG, sampler::OpenUnitTransformedRWMH,
+        initial::Real, count::Integer)
+    count >= 0 || throw(ArgumentError("sample count must be nonnegative"))
+    samples = Vector{Float64}(undef, count)
+    current = Float64(initial)
+    for index in eachindex(samples)
+        current = step(rng, sampler, current)
+        samples[index] = current
+    end
+    samples
+end
+
+sample(sampler::OpenUnitTransformedRWMH, initial::Real, count::Integer) =
     sample(Random.default_rng(), sampler, initial, count)
 
 """Bounded, warmup-only Robbins--Monro tuning for Gaussian RWMH.
