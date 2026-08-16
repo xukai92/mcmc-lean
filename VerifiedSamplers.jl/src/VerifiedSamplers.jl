@@ -9,7 +9,7 @@ include("Certificates/Certificates.jl")
 include("Reference/Reference.jl")
 include("Optimized/Optimized.jl")
 
-export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, TwoStateMH, GaussianRWMH,
+export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, BoundedRejectionSlice, TwoStateMH, GaussianRWMH,
     WarmupGaussianRWMH, GaussianRWMHWarmupResult, warmup,
     ScalarHMC, VectorHMC, MultinomialHMC, MetricMultinomialHMC,
     CategoricalDHMC,
@@ -989,6 +989,52 @@ function sample(rng::AbstractRNG, sampler::FiniteIntegerSlice,
 end
 
 sample(sampler::FiniteIntegerSlice, initial::Integer, count::Integer) =
+    sample(Random.default_rng(), sampler, initial, count)
+
+"""Bounded-domain continuous slice sampler using exact horizontal rejection.
+
+Its mathematical target is the supplied density restricted to `[lower, upper]`.
+The formal general-state slice theorem covers the ideal conditional kernel;
+Float64 callbacks, uniforms, and the finite attempt guard remain runtime
+boundaries.
+"""
+struct BoundedRejectionSlice{F}
+    logdensity::F
+    lower::Float64
+    upper::Float64
+    max_attempts::Int
+    function BoundedRejectionSlice(logdensity::F, lower::Real, upper::Real;
+            max_attempts::Integer=100_000) where {F}
+        lo, hi = Float64(lower), Float64(upper)
+        isfinite(lo) && isfinite(hi) && lo < hi ||
+            throw(ArgumentError("slice bounds must be finite and ordered"))
+        max_attempts > 0 || throw(ArgumentError("max_attempts must be positive"))
+        new{F}(logdensity, lo, hi, Int(max_attempts))
+    end
+end
+
+function step(rng::AbstractRNG, sampler::BoundedRejectionSlice, current::Real)
+    source = Runtime.RNGSource(rng)
+    Reference.bounded_slice_step!(source, sampler.logdensity, sampler.lower,
+        sampler.upper, current, sampler.max_attempts)
+end
+
+step(sampler::BoundedRejectionSlice, current::Real) =
+    step(Random.default_rng(), sampler, current)
+
+function sample(rng::AbstractRNG, sampler::BoundedRejectionSlice,
+        initial::Real, count::Integer)
+    count >= 0 || throw(ArgumentError("sample count must be nonnegative"))
+    states = Vector{Float64}(undef, count)
+    current = Float64(initial)
+    for index in eachindex(states)
+        current = step(rng, sampler, current)
+        states[index] = current
+    end
+    states
+end
+
+sample(sampler::BoundedRejectionSlice, initial::Real, count::Integer) =
     sample(Random.default_rng(), sampler, initial, count)
 
 struct FiniteKernelWeights

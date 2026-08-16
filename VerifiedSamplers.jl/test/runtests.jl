@@ -19,6 +19,7 @@ include("xu21_coupling.jl")
 include("composable.jl")
 include("particle_gibbs.jl")
 include("integer_slice.jl")
+include("bounded_slice.jl")
 
 @testset "finite categorical core" begin
     for (weights, expected) in (([1, 0, 2], [0, 2, 2]), ([2, 1], [0, 0, 1]))

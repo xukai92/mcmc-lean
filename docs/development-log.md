@@ -1798,3 +1798,18 @@ controls the exact probability that the empirical average lies outside any
 fixed positive tolerance, yielding convergence in probability as well. These
 are not central-limit theorems and do not yet establish sequential
 particle-filter asymptotics.
+
+## 2026-08-16: bounded continuous slice execution
+
+Added a public `BoundedRejectionSlice` Julia sampler for continuous densities
+restricted to a finite interval. The vertical height is sampled in log space;
+the horizontal conditional is implemented by uniform rejection over the full
+interval. Independent Reference and low-allocation Optimized loops agree on
+fixed traces, including rejection/retry, and tests cover seeded replay,
+support containment, and the exact bounded-uniform moments.
+
+The corresponding ideal general-state kernel is already proved invariant in
+Lean through under-graph disintegration. The runtime is deliberately not
+claimed as an unconditional refinement: arbitrary callbacks, Float64 uniform
+draws, and exhaustion of the finite attempt guard remain explicit execution
+boundaries.

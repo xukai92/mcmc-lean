@@ -65,6 +65,13 @@ record to Lean, checks that it is accepted, and checks that a mutated
 derivative error is rejected. Lean's checker theorem turns acceptance into the
 corresponding approximation facts.
 
+The continuous slice suite compares Reference and Optimized bounded rejection
+updates on identical uniform traces, including a forced rejection/retry path.
+It checks deterministic seeded replay, interval containment, and the known
+mean and variance of a bounded uniform target. These tests exercise the
+practical implementation; they do not identify Float64 callback evaluation or
+the finite retry guard with the disintegrated ideal slice kernel.
+
 Position-dependent generalized leapfrog now has Reference-versus-Optimized
 fixed-point tests using nonseparable derivatives, direct checks of both
 implicit residuals, public-API validation, and a check that approximate

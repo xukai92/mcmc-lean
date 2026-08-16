@@ -6,7 +6,7 @@ using ...Runtime: AbstractRandomSource, draw_below!, standard_normal!, uniform_u
 using ...Certificates: ImplicitSolveCertificate, certify_implicit_solve,
     certifies_exact_solver
 
-export categorical_index!, integer_slice_step!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!,
+export categorical_index!, integer_slice_step!, bounded_slice_step!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!,
     finite_hmm_particle_gibbs_step!,
     scalar_hmc_step!, vector_hmc_step!, metric_hmc_step!, multinomial_hmc_step!,
     metric_multinomial_hmc_step!,
@@ -65,6 +65,32 @@ function integer_slice_step!(source::AbstractRandomSource,
         end
     end
     error("unreachable integer-slice selection")
+end
+
+"""Low-allocation bounded rejection slice update."""
+function bounded_slice_step!(source::AbstractRandomSource, logdensity,
+        lower::Real, upper::Real, current::Real, max_attempts::Integer)
+    lo = Float64(lower)
+    width = Float64(upper) - lo
+    x = Float64(current)
+    isfinite(lo) && isfinite(width) && width > 0 ||
+        throw(ArgumentError("slice bounds must be finite and ordered"))
+    lo <= x <= lo + width ||
+        throw(ArgumentError("current state is outside slice bounds"))
+    max_attempts > 0 || throw(ArgumentError("max_attempts must be positive"))
+    base = Float64(logdensity(x))
+    isfinite(base) || throw(ArgumentError("current log density must be finite"))
+    threshold = base + log(uniform_unit!(source))
+    attempts = 0
+    while attempts < max_attempts
+        candidate = muladd(width, uniform_unit!(source), lo)
+        value = Float64(logdensity(candidate))
+        (isfinite(value) || value == -Inf) ||
+            throw(ArgumentError("log density must be finite or -Inf"))
+        value >= threshold && return candidate
+        attempts += 1
+    end
+    throw(ErrorException("bounded slice rejection exceeded max_attempts"))
 end
 
 """Allocation-conscious fixed-point generalized-leapfrog solver.

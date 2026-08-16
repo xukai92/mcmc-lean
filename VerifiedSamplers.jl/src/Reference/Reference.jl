@@ -6,7 +6,7 @@ using ..Runtime: AbstractRandomSource, draw_below!, standard_normal!, uniform_un
 using ..Certificates: ImplicitSolveCertificate, certify_implicit_solve,
     certifies_exact_solver
 
-export categorical_index!, integer_slice_step!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!, scalar_hmc_step!, vector_hmc_step!, metric_hmc_step!, multinomial_hmc_step!, metric_multinomial_hmc_step!, categorical_dhmc_step!,
+export categorical_index!, integer_slice_step!, bounded_slice_step!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!, scalar_hmc_step!, vector_hmc_step!, metric_hmc_step!, multinomial_hmc_step!, metric_multinomial_hmc_step!, categorical_dhmc_step!,
     finite_hmm_particle_gibbs_step!,
     relativistic_multinomial_hmc_step!,
     fixed_point_generalized_leapfrog,
@@ -63,6 +63,28 @@ function integer_slice_step!(source::AbstractRandomSource,
     candidates = findall(weight -> weight > height, weights)
     selected = Int(draw_below!(source, length(candidates))) + 1
     candidates[selected] - 1
+end
+
+"""Reference rejection implementation of exact slice selection on a bounded interval."""
+function bounded_slice_step!(source::AbstractRandomSource, logdensity,
+        lower::Real, upper::Real, current::Real, max_attempts::Integer)
+    lo, hi, x = Float64(lower), Float64(upper), Float64(current)
+    isfinite(lo) && isfinite(hi) && lo < hi ||
+        throw(ArgumentError("slice bounds must be finite and ordered"))
+    lo <= x <= hi || throw(ArgumentError("current state is outside slice bounds"))
+    max_attempts > 0 || throw(ArgumentError("max_attempts must be positive"))
+    current_logdensity = Float64(logdensity(x))
+    isfinite(current_logdensity) ||
+        throw(ArgumentError("current log density must be finite"))
+    logheight = current_logdensity + log(uniform_unit!(source))
+    for _ in 1:max_attempts
+        proposal = lo + (hi - lo) * uniform_unit!(source)
+        proposed_logdensity = Float64(logdensity(proposal))
+        (isfinite(proposed_logdensity) || proposed_logdensity == -Inf) ||
+            throw(ArgumentError("log density must be finite or -Inf"))
+        proposed_logdensity >= logheight && return proposal
+    end
+    throw(ErrorException("bounded slice rejection exceeded max_attempts"))
 end
 
 struct SList
