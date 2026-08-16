@@ -40,6 +40,7 @@ export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, Bounded
     certified_vector_uturn_partition,
     certified_spanning_uturn_partition,
     first_stop_endpoint_uturn_candidates,
+    recursive_doubling_uturn_candidates,
     generated_schedule,
     generated_transform,
     GaussianZigZag, GaussianZigZagResult, gaussian_zigzag_waiting_time,
@@ -1721,6 +1722,71 @@ first_stop_endpoint_uturn_candidates(
         positions::AbstractVector{<:Real}, momenta::AbstractVector{<:Real}) =
     first_stop_endpoint_uturn_candidates([[Float64(q)] for q in positions],
         [[Float64(p)] for p in momenta])
+
+"""Checked root-dependent recursive-doubling U-turn rows.
+
+`directions[d]` chooses the side of the size-`2^(d-1)` expansion at depth
+`d`. Every newly completed subtree and its join with the retained interval are
+tested by the endpoint U-turn rule; a failing subtree is excluded. Rows for
+all possible roots are then passed to the global reroot checker. The returned
+certificate may be invalid—this function exposes standard-NUTS-style rooted
+recursion without assuming the equivalence that still needs proof.
+"""
+function recursive_doubling_uturn_candidates(
+        positions::AbstractVector{<:AbstractVector{<:Real}},
+        momenta::AbstractVector{<:AbstractVector{<:Real}},
+        directions::AbstractVector{Bool})
+    length(positions) == length(momenta) ||
+        throw(DimensionMismatch("position and momentum trajectories must match"))
+    isempty(positions) && throw(ArgumentError("trajectory cannot be empty"))
+    dimension = length(first(positions))
+    dimension > 0 || throw(ArgumentError("phase-space dimension cannot be zero"))
+    all(q -> length(q) == dimension, positions) &&
+        all(p -> length(p) == dimension, momenta) ||
+        throw(DimensionMismatch("all phase points must have the same dimension"))
+    q = [Float64.(point) for point in positions]
+    p = [Float64.(point) for point in momenta]
+    all(point -> all(isfinite, point), q) &&
+        all(point -> all(isfinite, point), p) ||
+        throw(DomainError((positions, momenta), "trajectory must be finite"))
+
+    turns(left, right) = begin
+        displacement = q[right] .- q[left]
+        dot(displacement, p[left]) < 0 || dot(displacement, p[right]) < 0
+    end
+    function subtree_turns(left, right)
+        left == right && return false
+        turns(left, right) && return true
+        middle = (left + right) ÷ 2
+        subtree_turns(left, middle) || subtree_turns(middle + 1, right)
+    end
+
+    count = length(q)
+    rows = Vector{Vector{Int}}(undef, count)
+    for root in 1:count
+        left = right = root
+        for (depth, grow_right) in pairs(directions)
+            width = 1 << (depth - 1)
+            proposed_left = grow_right ? left : left - width
+            proposed_right = grow_right ? right + width : right
+            proposed_left >= 1 && proposed_right <= count || break
+            new_left = grow_right ? right + 1 : proposed_left
+            new_right = grow_right ? proposed_right : left - 1
+            # Exclude a turning new subtree or a turning completed join.
+            (subtree_turns(new_left, new_right) ||
+                turns(proposed_left, proposed_right)) && break
+            left, right = proposed_left, proposed_right
+        end
+        rows[root] = collect(left:right)
+    end
+    certify_dynamic_tree(rows)
+end
+
+recursive_doubling_uturn_candidates(
+        positions::AbstractVector{<:Real}, momenta::AbstractVector{<:Real},
+        directions::AbstractVector{Bool}) =
+    recursive_doubling_uturn_candidates([[Float64(q)] for q in positions],
+        [[Float64(p)] for p in momenta], directions)
 
 """Certified conservative dynamic-trajectory HMC.
 

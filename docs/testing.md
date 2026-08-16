@@ -87,6 +87,12 @@ they accept components with different candidate counts and reject missing-root
 and asymmetric-reroot outputs. They also cover no barriers, all barriers, and
 mixed canonical orbit partitions. This validates certificate and partition
 transport logic, not the geometry of a future floating-point U-turn detector.
+They now also exercise root-dependent power-of-two expansion with recursive
+subtree U-turn exclusion. The suite checks a certified zero-depth tree,
+boundary- and turn-induced global certificate failures, and verifies that a
+failed recursive family takes the no-draw identity fallback. This tests the
+safe executable boundary; it is not evidence that standard randomized NUTS
+always produces reroot-invariant rows.
 
 The Gaussian Zig-Zag suite checks the Lean-proved closed-form integrated-
 hazard inversion at representative phase states, deterministic seeded event

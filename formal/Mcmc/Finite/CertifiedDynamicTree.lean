@@ -429,12 +429,29 @@ inductive RecursiveBarrierTree where
       (right : RecursiveBarrierTree)
 deriving DecidableEq
 
+/-- Number of completed leaves represented by a recursive barrier tree. -/
+def RecursiveBarrierTree.leafCount : RecursiveBarrierTree → ℕ
+  | .leaf => 1
+  | .node left _ right => left.leafCount + right.leafCount
+
 /-- In-order barrier sequence obtained by recursively aggregating completed
 subtrees. -/
 def RecursiveBarrierTree.barriers : RecursiveBarrierTree → List Bool
   | .leaf => []
   | .node left blocked right =>
       left.barriers ++ blocked :: right.barriers
+
+/-- An in-order recursive tree has exactly one fewer joins than leaves. This
+identifies the `Fin` state space of the flattened checker with the completed
+recursive tree's leaves. -/
+@[simp] theorem RecursiveBarrierTree.length_barriers (tree : RecursiveBarrierTree) :
+    tree.barriers.length + 1 = tree.leafCount := by
+  induction tree with
+  | leaf => rfl
+  | node left blocked right ihLeft ihRight =>
+      simp only [RecursiveBarrierTree.barriers, List.length_append,
+        List.length_cons, RecursiveBarrierTree.leafCount]
+      omega
 
 /-- Candidate components represented by a completed recursive tree. -/
 def RecursiveBarrierTree.candidates (tree : RecursiveBarrierTree)

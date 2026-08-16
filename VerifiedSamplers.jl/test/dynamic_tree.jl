@@ -112,6 +112,31 @@
         [[0.0]], [[1.0], [2.0]])
     @test_throws ArgumentError first_stop_endpoint_uturn_candidates(
         Vector{Vector{Float64}}(), Vector{Vector{Float64}}())
+
+    # Rooted recursive doubling exposes its complete row family to the same
+    # checker. Zero depths is the identity partition. Boundary-dependent and
+    # U-turn-excluded rows are retained diagnostically but rejected globally.
+    recursive_identity = recursive_doubling_uturn_candidates(
+        collect(0.0:6.0), ones(7), Bool[])
+    @test recursive_identity.valid
+    @test recursive_identity.candidates == [[i] for i in 1:7]
+    recursive_boundary = recursive_doubling_uturn_candidates(
+        collect(0.0:6.0), ones(7), Bool[true, false])
+    @test !recursive_boundary.valid
+    @test recursive_boundary.candidates[3] == collect(1:4)
+    recursive_fallback_source = Runtime.TraceSource(Int[])
+    @test safe_dynamic_select!(recursive_fallback_source,
+        recursive_boundary, ones(Int, 7), 3) == 3
+    @test Runtime.remaining(recursive_fallback_source) == 0
+    recursive_turn = recursive_doubling_uturn_candidates(
+        [0.0, 1.0, 1.5, 1.25, 0.5], [1.0, 0.8, 0.2, -0.5, -0.8],
+        Bool[true, false])
+    @test !recursive_turn.valid
+    @test recursive_turn.candidates[3] == [3]
+    @test_throws DimensionMismatch recursive_doubling_uturn_candidates(
+        [0.0], [1.0, 2.0], Bool[])
+    @test_throws DomainError recursive_doubling_uturn_candidates(
+        [0.0, Inf], [1.0, 1.0], Bool[true])
 end
 
 @testset "certified conservative dynamic HMC" begin

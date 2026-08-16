@@ -1,5 +1,16 @@
 # Development log
 
+- Added an executable root-dependent recursive-doubling U-turn builder. At
+  each requested depth it constructs the new power-of-two subtree, rejects a
+  subtree with an internal endpoint U-turn, tests the completed join, and
+  retains the rooted candidate row. It constructs rows from every possible
+  root and runs the existing Lean-mirrored global reroot checker. Tests cover
+  the zero-depth certified identity, boundary-induced certification failure,
+  and genuine subtree exclusion. Lean now also proves that flattening a
+  `RecursiveBarrierTree` produces exactly one fewer barriers than leaves.
+  This is executable standard-NUTS-style recursion with a safe certificate
+  boundary, not yet a proof that ordinary random doubling always passes it.
+
 - Added the correct extended-trace endpoint for practical stepping-out and
   shrinkage. Lean now samples an independent complete trace, evolves the joint
   `(height,state,trace)` space by a deterministic measurable map, projects the

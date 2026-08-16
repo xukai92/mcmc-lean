@@ -346,8 +346,13 @@ breadth branches are:
   is now executable end to end as `CheckedFirstStopDynamicHMC`: it constructs
   every rooted row, selects only when the complete family passes the proved
   reroot condition, and otherwise takes the proved identity fallback without
-  a selection draw. Recursive random doubling and subtree exclusion remain
-  the standard-NUTS-specific gap;
+  a selection draw. Root-dependent power-of-two expansion with recursive
+  subtree U-turn exclusion is now executable and constructs every rooted row
+  for the global checker; boundary-dependent and turning examples demonstrate
+  the identity fallback boundary. Proving equivalence to the ordinary
+  randomized standard-NUTS recursion—and therefore that its completed rows
+  pass the certificate rather than merely being checked—remains the
+  standard-NUTS-specific gap;
 - stepping-out/shrinkage beyond the exact disintegration, finite integer slice,
   and bounded-interval continuous rejection implementation. A practical
   Reference/Optimized real-line stepping-out sampler is now tested; its
