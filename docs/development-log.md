@@ -7,7 +7,10 @@
   integrals to identify its reset-averaged law exactly with the previously
   computed coverage-density occupation measure. Thus normalized literal
   cycle occupation, not merely a pointwise coverage heuristic, is the exact
-  Gaussian/equal-velocity target. The remaining process-level step is the
+  Gaussian/equal-velocity target. This is also packaged as an actual
+  normalized length-biased composition-product law over two resets and an
+  occupied position; Lean proves it is a probability measure with standard-
+  Gaussian position marginal. The remaining process-level step is the
   stationary-renewal shift theorem connecting this length-biased cycle law to
   every fixed-horizon stopped endpoint.
 

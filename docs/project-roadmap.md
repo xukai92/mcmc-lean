@@ -582,7 +582,9 @@ by paper date:
   `sqrt(2π)` times the standard Gaussian and its normalized phase-space form
   is the exact target. A literal interval-time occupation kernel is now
   constructed, and Tonelli proves its reset-averaged measure equals that
-  coverage-density law. What remains is the stationary-renewal shift theorem
+  coverage-density law. The normalized length-biased reset/position joint law
+  is now a proved probability measure with the exact Gaussian marginal. What
+  remains is the stationary-renewal shift theorem
   connecting length-biased cycle occupation to the stopped horizon kernel. Splitting a horizon
   between events is still correctly treated as a law-level argument rather
   than a pointwise semigroup identity;

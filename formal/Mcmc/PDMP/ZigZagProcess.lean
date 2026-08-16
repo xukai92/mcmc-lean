@@ -2835,6 +2835,66 @@ theorem gaussianZigZagCycleIntervalKernel_comp_eq_occupation :
   intro signed _
   exact lintegral_gaussianZigZagCycleIntervalDensity signed
 
+/-- The averaged literal cycle interval has total mass equal to the mean
+cycle duration `sqrt(2π)`. -/
+theorem gaussianZigZagCycleIntervalKernel_comp_apply_univ :
+    (gaussianZigZagCycleIntervalKernel ∘ₘ
+      (gaussianZigZagNegativeRayleighMeasure.prod
+        gaussianZigZagNegativeRayleighMeasure)) Set.univ =
+      gaussianZigZagCycleMeanDuration := by
+  rw [gaussianZigZagCycleIntervalKernel_comp_eq_occupation,
+    gaussianZigZagCycleOccupationMeasure_eq_gaussian,
+    Measure.smul_apply, measure_univ, smul_eq_mul, mul_one]
+  rfl
+
+/-- Normalizing the averaged literal cycle-time measure gives the standard
+Gaussian position law. -/
+theorem gaussianZigZagNormalizedLiteralCycleOccupation_eq_gaussian :
+    gaussianZigZagCycleMeanDuration⁻¹ •
+        (gaussianZigZagCycleIntervalKernel ∘ₘ
+          (gaussianZigZagNegativeRayleighMeasure.prod
+            gaussianZigZagNegativeRayleighMeasure)) =
+      gaussianReal 0 1 := by
+  rw [gaussianZigZagCycleIntervalKernel_comp_eq_occupation]
+  exact gaussianZigZagNormalizedCycleOccupation_eq_gaussian
+
+/-- The normalized literal regenerative-cycle law, with its independent
+uniform velocity label, is exactly the signed Gaussian Zig-Zag target. -/
+theorem gaussianZigZagNormalizedLiteralCycleOccupation_phase_eq_target :
+    (gaussianZigZagCycleMeanDuration⁻¹ •
+        (gaussianZigZagCycleIntervalKernel ∘ₘ
+          (gaussianZigZagNegativeRayleighMeasure.prod
+            gaussianZigZagNegativeRayleighMeasure))).prod
+      zigZagVelocityProbability = gaussianZigZagTarget := by
+  rw [gaussianZigZagNormalizedLiteralCycleOccupation_eq_gaussian]
+  rfl
+
+/-- Length-biased stationary regenerative cycle with a literal uniformly
+time-occupied signed position, represented as a normalized composition
+product. -/
+noncomputable def gaussianZigZagStationaryCycleMeasure :
+    Measure ((ℝ × ℝ) × ℝ) :=
+  gaussianZigZagCycleMeanDuration⁻¹ •
+    ((gaussianZigZagNegativeRayleighMeasure.prod
+      gaussianZigZagNegativeRayleighMeasure) ⊗ₘ
+        gaussianZigZagCycleIntervalKernel)
+
+/-- The occupied-position marginal of the stationary regenerative cycle is
+the standard Gaussian law. -/
+theorem gaussianZigZagStationaryCycleMeasure_snd :
+    gaussianZigZagStationaryCycleMeasure.snd = gaussianReal 0 1 := by
+  unfold gaussianZigZagStationaryCycleMeasure Measure.snd
+  rw [Measure.map_smul, ← Measure.snd,
+    Measure.snd_compProd]
+  exact gaussianZigZagNormalizedLiteralCycleOccupation_eq_gaussian
+
+instance gaussianZigZagStationaryCycleMeasure.instIsProbabilityMeasure :
+    IsProbabilityMeasure gaussianZigZagStationaryCycleMeasure := by
+  constructor
+  have hmarginal := congrArg (fun measure : Measure ℝ => measure Set.univ)
+    gaussianZigZagStationaryCycleMeasure_snd
+  simpa [Measure.snd_apply MeasurableSet.univ] using hmarginal
+
 /-- Regenerative event-epoch law: negative-Rayleigh signed position and an
 independent uniform velocity label. -/
 noncomputable def gaussianZigZagSignedEventTarget : Measure ZigZagState :=
