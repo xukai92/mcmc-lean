@@ -2392,3 +2392,14 @@ theorem consumes only the transported-stratum decomposition, the weighted-
 target decomposition, and this zero-boundary fact. Concrete Zig-Zag/BPS
 clients still owe the spatial decomposition itself, but no longer need to
 repeat infinite-measure reindexing.
+
+## 2026-08-16: dynamic-tree executable conformance fix
+
+Running the complete Julia package suite activated a previously failing
+all-scales U-turn case. Julia's comma-form nested-loop `break` exited the full
+split/left/right loop nest after the first detected turn, so later splits were
+never checked and unrelated leaves were incorrectly merged. The implementation
+now accumulates every spanning endpoint test, matching Lean's
+`vectorSpanningUTurnBarriers` definition. The targeted dynamic-tree suite and
+the full Julia suite now pass, including the continuous diagnostics and
+robustness/performance test groups.

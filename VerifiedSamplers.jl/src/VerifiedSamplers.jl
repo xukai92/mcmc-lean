@@ -1500,10 +1500,11 @@ function certified_spanning_uturn_partition(
     barriers = falses(length(q) - 1)
     for split in eachindex(barriers), left in 1:split, right in split+1:length(q)
         displacement = q[right] .- q[left]
-        if dot(displacement, p[left]) < 0 || dot(displacement, p[right]) < 0
-            barriers[split] = true
-            break
-        end
+        # A `break` in Julia's comma-form nested loop exits the complete loop
+        # nest, not just the `right` loop. Accumulate instead so every split is
+        # inspected, matching Lean's all-scales barrier definition.
+        barriers[split] |= dot(displacement, p[left]) < 0 ||
+            dot(displacement, p[right]) < 0
     end
     certified_orbit_partition(barriers)
 end
