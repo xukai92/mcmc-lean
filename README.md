@@ -188,6 +188,10 @@ finite-time kernel when all measurable-set transported masses are
 differentiable on nonnegative time with zero derivative. The Gaussian
 Zig-Zag family is connected to this theorem, leaving the setwise forward
 equation—not process construction or nonexplosion—as its exact analytic input.
+The normalized Gaussian-position/equal-velocity target is now explicit and
+proved a probability measure, and the stopped horizon family is proved exactly
+the identity kernel at time zero; these parts no longer remain premises of the
+forward-equation certificate.
 An additional constant-rate telegraph client gives a nontrivial flow-driven
 stationarity instance. Lean proves that every linear flow and rate-matched
 velocity flip preserves equal velocity mass times Lebesgue position, lifts

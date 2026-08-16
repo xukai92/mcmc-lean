@@ -389,6 +389,9 @@ breadth branches are:
   family. The Gaussian horizon kernel has the concrete consumer theorem; its
   remaining stationarity task is to derive that differential certificate from
   the checked Gaussian generator identity and the constructed path law.
+  The normalized Gaussian/equal-velocity target and exact zero-time identity
+  are discharged, so the specialized certificate contains only
+  differentiability and the zero-derivative forward equation.
 
 Sequence-parallel evaluation is an execution-refinement project downstream of
 exact seeded trace semantics. Full solver convergence may refine a sequential

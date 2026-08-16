@@ -221,6 +221,33 @@ theorem gaussianZigZagIntegratedRate_waitingNNReal
   exact gaussianZigZagIntegratedRate_waitingTime state.1 state.2
     (by exact_mod_cast hhazard)
 
+theorem gaussianZigZagWaitingNNReal_pos
+    (state : ZigZagState) {hazard : NNReal} (hhazard : 0 < hazard) :
+    0 < gaussianZigZagWaitingNNReal state hazard := by
+  rw [← NNReal.coe_pos, coe_gaussianZigZagWaitingNNReal]
+  have hnonneg := gaussianZigZagWaitingTime_nonneg
+    state.1 state.2 hazard.coe_nonneg
+  by_contra hnot
+  have hzero : gaussianZigZagWaitingTime state.1 state.2 (hazard : ℝ) = 0 :=
+    le_antisymm (le_of_not_gt hnot) hnonneg
+  have hinverse := gaussianZigZagIntegratedRate_waitingTime
+    state.1 state.2 (by exact_mod_cast hhazard)
+  have hzeroRate : gaussianZigZagIntegratedRate state.1 state.2 0 =
+      (hazard : ℝ) := by
+    calc
+      _ = gaussianZigZagIntegratedRate state.1 state.2
+          (gaussianZigZagWaitingTime state.1 state.2 (hazard : ℝ)) :=
+        congrArg (gaussianZigZagIntegratedRate state.1 state.2) hzero.symm
+      _ = _ := hinverse
+  have hintegratedZero : gaussianZigZagIntegratedRate state.1 state.2 0 = 0 := by
+    let a := zigZagVelocity state.2 * state.1
+    by_cases ha : 0 ≤ a
+    · simp [gaussianZigZagIntegratedRate, a, ha]
+    · have hle : a ≤ 0 := le_of_not_ge ha
+      simp [gaussianZigZagIntegratedRate, a, ha, hle]
+  have hhazardReal : (hazard : ℝ) ≠ 0 := by exact_mod_cast hhazard.ne'
+  exact hhazardReal (hintegratedZero ▸ hzeroRate).symm
+
 /-- Position with the velocity sign folded into it. Along a linear segment it
 increases at unit speed. -/
 def zigZagSignedPosition (state : ZigZagState) : ℝ :=
@@ -777,6 +804,49 @@ noncomputable def gaussianZigZagHorizonEndpoint
       (gaussianZigZagEventElapsed initial hazards completed).toNNReal)
     (gaussianZigZagEventState initial hazards completed)
 
+theorem gaussianZigZagCrossingIndex_zero_eq_one
+    (initial : ZigZagState) (hazards : ℕ → NNReal)
+    (hhazard : 0 < hazards 0) :
+    gaussianZigZagCrossingIndex initial 0 hazards = 1 := by
+  classical
+  have hwait : 0 < gaussianZigZagEventWaitTerm initial hazards 0 := by
+    unfold gaussianZigZagEventWaitTerm gaussianZigZagEventWait
+    rw [ENNReal.ofReal_pos]
+    exact_mod_cast (gaussianZigZagWaitingNNReal_pos initial hhazard)
+  have hcrossing : gaussianZigZagEventCrossed initial 0 hazards 1 := by
+    unfold gaussianZigZagEventCrossed gaussianZigZagEventElapsed
+    simp only [ENNReal.coe_zero, Finset.sum_range_succ, Finset.sum_range_zero,
+      zero_add]
+    exact hwait
+  unfold gaussianZigZagCrossingIndex
+  apply (Nat.find_eq_iff
+    (gaussianZigZagCrossingSearchPredicate_exists initial 0 hazards)).2
+  constructor
+  · exact Or.inl hcrossing
+  · intro eventCount heventCount
+    have heq : eventCount = 0 := Nat.lt_one_iff.mp heventCount
+    subst eventCount
+    simp only [gaussianZigZagCrossingSearchPredicate, true_and]
+    push Not
+    constructor
+    · unfold gaussianZigZagEventCrossed gaussianZigZagEventElapsed
+      simp
+    · exact ⟨1, hcrossing⟩
+
+theorem gaussianZigZagHorizonEndpoint_zero
+    (initial : ZigZagState) (hazards : ℕ → NNReal)
+    (hhazard : 0 < hazards 0) :
+    gaussianZigZagHorizonEndpoint initial 0 hazards = initial := by
+  unfold gaussianZigZagHorizonEndpoint
+  rw [gaussianZigZagCrossingIndex_zero_eq_one initial hazards hhazard]
+  simp [gaussianZigZagEventElapsed, gaussianZigZagEventState, zigZagFlow]
+
+theorem gaussianZigZagHorizonEndpoint_zero_ae (initial : ZigZagState) :
+    ∀ᵐ hazards ∂gaussianZigZagHazardSequenceMeasure,
+      gaussianZigZagHorizonEndpoint initial 0 hazards = initial := by
+  filter_upwards [gaussianZigZagHazardSequence_positive_ae] with hazards hpositive
+  exact gaussianZigZagHorizonEndpoint_zero initial hazards (hpositive 0)
+
 theorem measurable_gaussianZigZagHorizonEndpoint
     (initial : ZigZagState) (horizon : NNReal) :
     Measurable (gaussianZigZagHorizonEndpoint initial horizon) := by
@@ -928,6 +998,45 @@ instance gaussianZigZagHorizonKernel.instIsMarkovKernel
   apply Kernel.IsMarkovKernel.map
   exact measurable_gaussianZigZagHorizonEndpoint_joint horizon
 
+@[simp] theorem gaussianZigZagHorizonKernel_zero :
+    gaussianZigZagHorizonKernel 0 = Kernel.id := by
+  ext initial event hevent
+  unfold gaussianZigZagHorizonKernel
+  rw [Kernel.map_apply _ (measurable_gaussianZigZagHorizonEndpoint_joint 0),
+    Kernel.prod_apply, Kernel.id_apply, Kernel.const_apply,
+    Measure.dirac_prod, Measure.map_map
+      (measurable_gaussianZigZagHorizonEndpoint_joint 0) (by fun_prop)]
+  have hae : (fun hazards => gaussianZigZagHorizonEndpoint initial 0 hazards) =ᵐ[
+      gaussianZigZagHazardSequenceMeasure] (fun _ => initial) :=
+    gaussianZigZagHorizonEndpoint_zero_ae initial
+  have hae' : ((fun input => gaussianZigZagHorizonEndpoint input.1 0 input.2) ∘
+      Prod.mk initial) =ᵐ[gaussianZigZagHazardSequenceMeasure]
+      (fun _ => initial) := hae
+  rw [Measure.map_congr hae']
+  simp [hevent]
+
+/-- The sole remaining setwise forward-equation data for the exact Gaussian
+Zig-Zag path law. Zero-time conservativity is already proved by
+`gaussianZigZagHorizonKernel_zero`. -/
+structure GaussianZigZagForwardEquation : Prop where
+  differentiable : ∀ event, MeasurableSet event →
+    DifferentiableOn ℝ
+      (transportedRealMass gaussianZigZagHorizonKernel
+        gaussianZigZagTarget event) (Set.Ici 0)
+  fderivWithin_eq_zero : ∀ event, MeasurableSet event →
+    ∀ time ∈ Set.Ici (0 : ℝ),
+      fderivWithin ℝ
+        (transportedRealMass gaussianZigZagHorizonKernel
+          gaussianZigZagTarget event) (Set.Ici 0) time = 0
+
+theorem GaussianZigZagForwardEquation.toSetwiseCertificate
+    (forward : GaussianZigZagForwardEquation) :
+    SetwiseForwardStationarityCertificate
+      gaussianZigZagHorizonKernel gaussianZigZagTarget where
+  zero := gaussianZigZagHorizonKernel_zero
+  differentiable := forward.differentiable
+  fderivWithin_eq_zero := forward.fderivWithin_eq_zero
+
 /-- The exact Gaussian Zig-Zag horizon family is stationary once its
 constructed path law is shown to solve the setwise forward equation. This is
 the precise analytic consumer of generator cancellation; infinitesimal balance
@@ -938,6 +1047,12 @@ theorem gaussianZigZagHorizonKernel_invariant_of_forwardCertificate
     (horizon : NNReal) :
     (gaussianZigZagHorizonKernel horizon).Invariant gaussianZigZagTarget :=
   certificate.invariant gaussianZigZagHorizonKernel gaussianZigZagTarget horizon
+
+theorem gaussianZigZagHorizonKernel_invariant_of_forwardEquation
+    (forward : GaussianZigZagForwardEquation) (horizon : NNReal) :
+    (gaussianZigZagHorizonKernel horizon).Invariant gaussianZigZagTarget :=
+  gaussianZigZagHorizonKernel_invariant_of_forwardCertificate
+    forward.toSetwiseCertificate horizon
 
 /-- Under the event kernel's actual exponential-hazard law, inverse-clock
 execution satisfies the integrated-hazard equation almost surely. -/

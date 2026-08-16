@@ -32,6 +32,12 @@
   theorem. Its remaining stationarity obligation is now precisely the setwise
   forward equation linking the constructed path law to the existing generator
   cancellation—not an implicit appeal to generator balance alone.
+  The concrete Gaussian/equal-velocity target is now normalized in Lean. A
+  positive hazard gives a strictly positive first wait; this identifies the
+  zero-horizon crossing index, proves the stopped endpoint equals its initial
+  state almost surely, and yields the exact kernel identity `P₀ = id`. The
+  specialized Gaussian forward-equation certificate therefore exposes only
+  its genuine differentiability/zero-derivative fields.
 
 - Proved a fixed-padded-schedule correspondence for the bounded PDMP executor:
   augmented execution retains the supplied schedule and its state marginal is
