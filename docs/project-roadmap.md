@@ -448,13 +448,13 @@ by paper date:
 1. prove weak-forward uniqueness for the constructed Gaussian Zig-Zag stopped
    path, closing Gaussian Zig-Zag and one-dimensional unit-speed Gaussian BPS
    stationarity;
-2. construct drift and local-meeting witnesses for the *bare* Gaussian
-   SoftAbs GR-HMC kernel in a positive, nondegenerate trajectory regime.
-   Length zero and, independently, zero step size are now proved to give
-   exactly the identity kernel, so no arbitrary-length or arbitrary-step
-   convergence statement is possible. The generic drift-to-meeting-tail and
-   meeting-tail-to-bounded-expectation-convergence chain is complete, including
-   the required finite-initial-moment bridge;
+2. bare Gaussian SoftAbs GR-HMC convergence -- complete for the concrete
+   one-dimensional `ε = 1`, `L = 1` chain. Lean proves affine drift, compact
+   skeleton minorization, faithful geometric meeting, the normalized target's
+   exponential moment, skeleton setwise convergence, and the finite-residue
+   lift to every unthinned time index. Length zero and zero step size remain
+   exact identity obstructions, so this result is deliberately not stated for
+   arbitrary parameters;
 3. derive the sharp positive-horizon particle-Gibbs history-density comparison
    from primitive Feynman--Kac bounds. Its coefficient and fixed-iteration
    large-particle asymptotics are already complete; and
