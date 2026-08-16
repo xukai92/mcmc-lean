@@ -1,5 +1,16 @@
 # Development log
 
+- Closed the Tonelli/Fubini half of the regenerative argument. Lean now
+  constructs the literal unit-speed interval-time occupation kernel between
+  two consecutive negative-Rayleigh resets, proves every row is Lebesgue
+  measure restricted to the open cycle interval, and swaps the reset/time
+  integrals to identify its reset-averaged law exactly with the previously
+  computed coverage-density occupation measure. Thus normalized literal
+  cycle occupation, not merely a pointwise coverage heuristic, is the exact
+  Gaussian/equal-velocity target. The remaining process-level step is the
+  stationary-renewal shift theorem connecting this length-biased cycle law to
+  every fixed-horizon stopped endpoint.
+
 - Closed the embedded-event invariant law and the pointwise regenerative
   coverage calculation. The negative-Rayleigh reset measure is normalized,
   supported on negative positions almost surely, and has exact tail
@@ -9,10 +20,9 @@
   their unit-speed cycle covers any signed position `s` is exactly
   `exp(-s²/2)`. The resulting coverage-density occupation measure is
   `sqrt(2π)` times the standard Gaussian, and its normalized phase-space form
-  is exactly the Gaussian/equal-velocity target. The remaining bridge to
-  horizon-kernel stationarity is the Tonelli/Fubini theorem identifying this
-  coverage-density measure with literal time occupation of the regenerative
-  path, followed by the stationary-renewal shift argument.
+  is exactly the Gaussian/equal-velocity target. The later Tonelli theorem
+  identifies this coverage construction with literal time occupation; the
+  stationary-renewal shift remains.
 
 - Began the regenerative event-epoch layer for the signed Gaussian process.
   Lean now has the actual embedded signed event kernel and proves it Markov.

@@ -2717,6 +2717,124 @@ theorem gaussianZigZagNormalizedCycleOccupation_phase_eq_target :
   rw [gaussianZigZagNormalizedCycleOccupation_eq_gaussian]
   rfl
 
+/-- Unit-density literal time occupation of the interval between two
+consecutive negative-Rayleigh reset positions. -/
+noncomputable def gaussianZigZagCycleIntervalDensity
+    (resets : ℝ × ℝ) (signed : ℝ) : ENNReal :=
+  if signed ∈ Set.Ioo resets.1 (-resets.2) then 1 else 0
+
+theorem measurable_uncurry_gaussianZigZagCycleIntervalDensity :
+    Measurable (Function.uncurry gaussianZigZagCycleIntervalDensity) := by
+  unfold gaussianZigZagCycleIntervalDensity Function.uncurry
+  apply Measurable.ite
+  · exact (measurableSet_lt (measurable_fst.fst) measurable_snd).inter
+      (measurableSet_lt measurable_snd (measurable_fst.snd.neg))
+  · exact measurable_const
+  · exact measurable_const
+
+/-- Kernel whose row is unnormalized Lebesgue time occupation of one
+unit-speed regenerative cycle. Invalid endpoint pairs give the zero measure;
+they are null under the negative-Rayleigh reset law. -/
+noncomputable def gaussianZigZagCycleIntervalKernel :
+    Kernel (ℝ × ℝ) ℝ :=
+  (Kernel.const (ℝ × ℝ) (volume : Measure ℝ)).withDensity
+    gaussianZigZagCycleIntervalDensity
+
+instance gaussianZigZagCycleIntervalKernel.instIsSFiniteKernel :
+    IsSFiniteKernel gaussianZigZagCycleIntervalKernel := by
+  unfold gaussianZigZagCycleIntervalKernel
+  apply Kernel.IsSFiniteKernel.withDensity
+  intro resets signed
+  unfold gaussianZigZagCycleIntervalDensity
+  split_ifs <;> simp
+
+/-- Each literal cycle-occupation row is Lebesgue measure restricted to the
+cycle interval. -/
+theorem gaussianZigZagCycleIntervalKernel_apply (resets : ℝ × ℝ) :
+    gaussianZigZagCycleIntervalKernel resets =
+      volume.restrict (Set.Ioo resets.1 (-resets.2)) := by
+  unfold gaussianZigZagCycleIntervalKernel
+  rw [Kernel.withDensity_apply _
+    measurable_uncurry_gaussianZigZagCycleIntervalDensity,
+    Kernel.const_apply]
+  rw [show gaussianZigZagCycleIntervalDensity resets =
+      (Set.Ioo resets.1 (-resets.2)).indicator (fun _ => 1) by
+    funext signed
+    by_cases hsigned : signed ∈ Set.Ioo resets.1 (-resets.2) <;>
+      simp [gaussianZigZagCycleIntervalDensity, hsigned],
+    withDensity_indicator measurableSet_Ioo]
+  change (volume.restrict (Set.Ioo resets.1 (-resets.2))).withDensity
+      (1 : ℝ → ENNReal) = _
+  exact withDensity_one
+
+/-- Integrating literal interval membership over two independent resets gives
+the previously computed cycle-coverage density. -/
+theorem lintegral_gaussianZigZagCycleIntervalDensity (signed : ℝ) :
+    (∫⁻ resets, gaussianZigZagCycleIntervalDensity resets signed
+      ∂gaussianZigZagNegativeRayleighMeasure.prod
+        gaussianZigZagNegativeRayleighMeasure) =
+      gaussianZigZagCycleCoverageDensity signed := by
+  rw [show (fun resets => gaussianZigZagCycleIntervalDensity resets signed) =
+      (gaussianZigZagCycleCoverageSet signed).indicator (fun _ => 1) by
+    funext resets
+    by_cases hresets : resets.1 < signed ∧ signed < -resets.2 <;>
+      simp [gaussianZigZagCycleIntervalDensity,
+        gaussianZigZagCycleCoverageSet, hresets]]
+  rw [lintegral_indicator]
+  · simp [gaussianZigZagCycleCoverageDensity_eq_measure]
+  · unfold gaussianZigZagCycleCoverageSet
+    exact measurableSet_Iio.prod
+      (measurableSet_lt measurable_const measurable_id.neg)
+
+/-- Tonelli identifies the average literal interval-time occupation of two
+independent consecutive resets with the coverage-density occupation measure. -/
+theorem gaussianZigZagCycleIntervalKernel_comp_eq_occupation :
+    gaussianZigZagCycleIntervalKernel ∘ₘ
+        (gaussianZigZagNegativeRayleighMeasure.prod
+          gaussianZigZagNegativeRayleighMeasure) =
+      gaussianZigZagCycleOccupationMeasure := by
+  let resetPairs := gaussianZigZagNegativeRayleighMeasure.prod
+    gaussianZigZagNegativeRayleighMeasure
+  ext event hevent
+  rw [Measure.bind_apply hevent (Kernel.aemeasurable _)]
+  simp_rw [gaussianZigZagCycleIntervalKernel,
+    Kernel.withDensity_apply'
+      (Kernel.const (ℝ × ℝ) (volume : Measure ℝ))
+      measurable_uncurry_gaussianZigZagCycleIntervalDensity,
+    Kernel.const_apply]
+  unfold gaussianZigZagCycleOccupationMeasure
+  rw [withDensity_apply _ hevent]
+  have htonelli :
+      (∫⁻ resets, ∫⁻ signed in event,
+          gaussianZigZagCycleIntervalDensity resets signed ∂volume
+        ∂resetPairs) =
+        ∫⁻ signed in event, ∫⁻ resets,
+          gaussianZigZagCycleIntervalDensity resets signed ∂resetPairs
+          ∂volume := by
+    let density : ((ℝ × ℝ) × ℝ) → ENNReal := fun input =>
+      gaussianZigZagCycleIntervalDensity input.1 input.2
+    have hdensity : Measurable density :=
+      measurable_uncurry_gaussianZigZagCycleIntervalDensity
+    calc
+      (∫⁻ resets, ∫⁻ signed in event,
+          gaussianZigZagCycleIntervalDensity resets signed ∂volume
+        ∂resetPairs) =
+          ∫⁻ input in Set.univ ×ˢ event, density input
+            ∂resetPairs.prod volume := by
+          rw [setLIntegral_prod density
+            (hdensity.aemeasurable.restrict)]
+          simp [density]
+      _ = ∫⁻ signed in event, ∫⁻ resets in Set.univ,
+          density (resets, signed) ∂resetPairs ∂volume :=
+        setLIntegral_prod_symm density (hdensity.aemeasurable.restrict)
+      _ = ∫⁻ signed in event, ∫⁻ resets,
+          gaussianZigZagCycleIntervalDensity resets signed ∂resetPairs
+          ∂volume := by simp [density]
+  rw [htonelli]
+  apply setLIntegral_congr_fun hevent
+  intro signed _
+  exact lintegral_gaussianZigZagCycleIntervalDensity signed
+
 /-- Regenerative event-epoch law: negative-Rayleigh signed position and an
 independent uniform velocity label. -/
 noncomputable def gaussianZigZagSignedEventTarget : Measure ZigZagState :=

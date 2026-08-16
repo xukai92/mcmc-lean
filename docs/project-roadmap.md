@@ -580,8 +580,10 @@ by paper date:
   independent consecutive resets cover signed position `s` with probability
   `exp(-s²/2)`, so the coverage-density occupation measure is proved to be
   `sqrt(2π)` times the standard Gaussian and its normalized phase-space form
-  is the exact target. What remains is the Tonelli identification with literal
-  cycle time occupation and the stationary-renewal shift theorem. Splitting a horizon
+  is the exact target. A literal interval-time occupation kernel is now
+  constructed, and Tonelli proves its reset-averaged measure equals that
+  coverage-density law. What remains is the stationary-renewal shift theorem
+  connecting length-biased cycle occupation to the stopped horizon kernel. Splitting a horizon
   between events is still correctly treated as a law-level argument rather
   than a pointwise semigroup identity;
 2. bare Gaussian SoftAbs GR-HMC convergence -- complete for the concrete
