@@ -2198,6 +2198,76 @@ theorem finiteExpectation_normalizedPotentialWeights
       _ = _ := by rw [Finset.sum_div]]
   field_simp
 
+omit [DecidableEq Particle] in
+/-- With empirical normalized-potential ancestor weights, a labeled child
+expectation is the corresponding self-normalized weighted population sum. -/
+theorem resamplePropagateLabelDistribution_normalized_expectation
+    {Label : Type*} [Fintype Label] [DecidableEq Label]
+    (extend : Label → Sample → Label)
+    (potential : Sample → ℝ) (hpotential : ∀ x, 0 < potential x)
+    (transition : MarkovKernel Sample)
+    (particles : Particle → Sample) (labels : Particle → Label)
+    (observable : Label → Sample → ℝ) :
+    (∑ child,
+      (resamplePropagateLabelDistribution extend
+        (normalizedPotentialWeights potential hpotential particles)
+        transition particles labels).mass child *
+          observable child.1 child.2) =
+      (∑ i, potential (particles i) *
+        ∑ y, transition.prob (particles i) y *
+          observable (extend (labels i) y) y) /
+        ∑ i, potential (particles i) := by
+  rw [resamplePropagateLabelDistribution_expectation]
+  unfold normalizedPotentialWeights
+  calc
+    (∑ i,
+        (potential (particles i) / ∑ j, potential (particles j)) *
+          ∑ y, transition.prob (particles i) y *
+            observable (extend (labels i) y) y) =
+      ∑ i,
+        (potential (particles i) *
+          ∑ y, transition.prob (particles i) y *
+            observable (extend (labels i) y) y) /
+          ∑ j, potential (particles j) := by
+      apply Finset.sum_congr rfl
+      intro i _
+      ring
+    _ = _ := by rw [Finset.sum_div]
+
+/-- Removing one nonnegative parent contribution can only decrease the
+self-normalized labeled child expectation. -/
+theorem unforcedNormalizedLabelScore_le_resamplePropagateExpectation
+    {Label : Type*} [Fintype Label] [DecidableEq Label]
+    (extend : Label → Sample → Label)
+    (potential : Sample → ℝ) (hpotential : ∀ x, 0 < potential x)
+    (transition : MarkovKernel Sample)
+    (particles : Particle → Sample) (labels : Particle → Label)
+    (retained : Particle) (observable : Label → Sample → ℝ)
+    (hobservable : ∀ label state, 0 ≤ observable label state) :
+    ((∑ i : Particle, if i = retained then 0 else
+        potential (particles i) *
+          ∑ y, transition.prob (particles i) y *
+            observable (extend (labels i) y) y) /
+        ∑ i, potential (particles i)) ≤
+      ∑ child,
+        (resamplePropagateLabelDistribution extend
+          (normalizedPotentialWeights potential hpotential particles)
+          transition particles labels).mass child *
+            observable child.1 child.2 := by
+  rw [resamplePropagateLabelDistribution_normalized_expectation]
+  apply div_le_div_of_nonneg_right
+  · apply Finset.sum_le_sum
+    intro i _
+    by_cases hi : i = retained
+    · simp [hi]
+      apply mul_nonneg (hpotential _).le
+      apply Finset.sum_nonneg
+      intro y _
+      exact mul_nonneg (transition.nonneg _ _) (hobservable _ _)
+    · simp [hi]
+  · exact (Finset.sum_pos (fun i _ => hpotential (particles i))
+      Finset.univ_nonempty).le
+
 omit [DecidableEq Sample] in
 /-- Multiplying the normalized resample--propagate expectation by the current
 average potential cancels the empirical normalizer. This is the local

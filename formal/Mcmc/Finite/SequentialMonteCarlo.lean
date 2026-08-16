@@ -1214,6 +1214,47 @@ theorem forcedLineageSuffixLabelExpectation_nonneg {Label : Type*}
       suffix)
     (particleAverage_nonneg (fun label => hobservable label) _)
 
+/-- Recursive suffix expectation averaged over a joint `(label,state)` cloud
+with one retained coordinate. This is the induction invariant used by sharp
+aggregate conditional-SMC bounds: the ordinary coordinates have one common
+law, while the retained label and state are fixed by the conditioned path. -/
+noncomputable def forcedCloudLineageSuffixLabelExpectation
+    {Label : Type*} [Fintype Label] [DecidableEq Label]
+    (extend : Label → Sample → Label)
+    (steps : List (FeynmanKacStep Sample)) (future : List Sample)
+    (hlength : future.length = steps.length)
+    (law : Distribution (Label × Sample)) (extra : ℕ)
+    (retained : Fin (extra + 1)) (retainedValue : Label × Sample)
+    (observable : Label → ℝ) : ℝ :=
+  ∑ population,
+    (forcedIndependentPopulation
+      (fun _ : Fin (extra + 1) => law) retained retainedValue).mass population *
+      forcedLineageSuffixLabelExpectation extend steps retainedValue.2 future
+        hlength (fun i => (population i).2) retained
+        (fun i => (population i).1) observable
+
+/-- The forced-cloud induction invariant is nonnegative for a nonnegative
+terminal observable. -/
+theorem forcedCloudLineageSuffixLabelExpectation_nonneg
+    {Label : Type*} [Fintype Label] [DecidableEq Label]
+    (extend : Label → Sample → Label)
+    (steps : List (FeynmanKacStep Sample)) (future : List Sample)
+    (hlength : future.length = steps.length)
+    (law : Distribution (Label × Sample)) (extra : ℕ)
+    (retained : Fin (extra + 1)) (retainedValue : Label × Sample)
+    (observable : Label → ℝ) (hobservable : ∀ label, 0 ≤ observable label) :
+    0 ≤ forcedCloudLineageSuffixLabelExpectation extend steps future hlength
+      law extra retained retainedValue observable := by
+  unfold forcedCloudLineageSuffixLabelExpectation
+  apply Finset.sum_nonneg
+  intro population _
+  exact mul_nonneg
+    ((forcedIndependentPopulation
+      (fun _ : Fin (extra + 1) => law) retained retainedValue).nonneg population)
+    (forcedLineageSuffixLabelExpectation_nonneg extend steps retainedValue.2
+      future hlength (fun i => (population i).2) retained
+      (fun i => (population i).1) observable hobservable)
+
 @[simp] theorem forcedLineageSuffixLabelExpectation_nil {Label : Type*}
     (extend : Label → Sample → Label) (current : Sample)
     (particles : Particle → Sample) (retained : Particle)
@@ -1224,6 +1265,34 @@ theorem forcedLineageSuffixLabelExpectation_nonneg {Label : Type*}
       particleAverage observable labels := by
   simp [forcedLineageSuffixLabelExpectation, forcedLineageSuffixLaw,
     terminalLabels, pointDistribution]
+
+/-- Terminal case of the forced-cloud suffix induction. Discarding the one
+retained coordinate loses exactly the factor `(N-1)/N`; all ordinary
+coordinates contribute the exact one-particle label expectation. -/
+theorem forcedCloudLineageSuffixLabelExpectation_nil_lower_bound
+    {Label : Type*} [Fintype Label] [DecidableEq Label]
+    (extend : Label → Sample → Label) (law : Distribution (Label × Sample))
+    (extra : ℕ) (retained : Fin (extra + 1))
+    (retainedValue : Label × Sample) (observable : Label → ℝ)
+    (hobservable : ∀ label, 0 ≤ observable label) :
+    (extra : ℝ) / (extra + 1) *
+        (∑ value, law.mass value * observable value.1) ≤
+      forcedCloudLineageSuffixLabelExpectation extend [] [] (by simp)
+        law extra retained retainedValue observable := by
+  have hbase :=
+    forcedIndependentPopulation_particleAverage_expectation_ge_card
+      (Particle := Fin (extra + 1))
+      (law := fun _ : Fin (extra + 1) => law) retained retainedValue
+      (fun value : Label × Sample => observable value.1)
+      (∑ value, law.mass value * observable value.1)
+      (hobservable retainedValue.1)
+      (by
+        intro i _hi
+        exact le_rfl)
+  unfold forcedCloudLineageSuffixLabelExpectation
+  simp only [forcedLineageSuffixLabelExpectation_nil]
+  simpa [particleAverage, Fintype.card_fin, Nat.add_comm, div_eq_mul_inv,
+    mul_assoc, mul_left_comm, mul_comm] using hbase
 
 /-- Recursive expansion of the aggregate label expectation through one
 forced resample--propagate stage. This is the induction-facing equation for
@@ -1311,6 +1380,46 @@ theorem forcedLineageSuffixLabelExpectation_cons_joint
         (by simpa using hlength)
         (fun i => (children i).2) nextRetained
         (fun i => (children i).1) observable)
+
+/-- Recursive expansion of the forced-cloud induction invariant. Conditional
+on the present cloud and next retained index, the child cloud is again a
+one-coordinate-forced iid cloud whose ordinary law is the labeled
+resample--propagate distribution. -/
+theorem forcedCloudLineageSuffixLabelExpectation_cons
+    {Label : Type*} [Fintype Label] [DecidableEq Label]
+    (extend : Label → Sample → Label)
+    (step : FeynmanKacStep Sample) (steps : List (FeynmanKacStep Sample))
+    (nextState : Sample) (future : List Sample)
+    (hlength : (nextState :: future).length = (step :: steps).length)
+    (law : Distribution (Label × Sample)) (extra : ℕ)
+    (retained : Fin (extra + 1)) (retainedValue : Label × Sample)
+    (observable : Label → ℝ) :
+    forcedCloudLineageSuffixLabelExpectation extend (step :: steps)
+        (nextState :: future) hlength law extra retained retainedValue observable =
+      ∑ population,
+        (forcedIndependentPopulation
+          (fun _ : Fin (extra + 1) => law) retained retainedValue).mass population *
+        ∑ nextRetained,
+          (uniformParticleDistribution (Particle := Fin (extra + 1))).mass
+              nextRetained *
+            forcedCloudLineageSuffixLabelExpectation extend steps future
+              (by simpa using hlength)
+              (resamplePropagateLabelDistribution extend
+                (normalizedPotentialWeights step.potential step.potential_pos
+                  (fun i => (population i).2))
+                step.transition (fun i => (population i).2)
+                (fun i => (population i).1))
+              extra nextRetained
+              (extend (population retained).1 nextState, nextState) observable := by
+  unfold forcedCloudLineageSuffixLabelExpectation
+  apply Finset.sum_congr rfl
+  intro population _
+  congr 1
+  rw [forcedLineageSuffixLabelExpectation_cons_joint]
+  apply Finset.sum_congr rfl
+  intro nextRetained _
+  congr 1
+  rw [forcedResamplePropagateLabelPopulation_eq_forcedIndependent]
 
 /-- Unnormalized one-particle Feynman--Kac density of a fixed path suffix,
 excluding the initial-state mass. -/

@@ -1,5 +1,17 @@
 # Development log
 
+- Introduced the correct integrated invariant for the remaining sharp
+  particle-Gibbs induction: a recursive suffix expectation averaged over a
+  joint `(label,state)` cloud with one retained coordinate. Lean proves its
+  nonnegativity, its exact recursive expansion through the common ordinary
+  labeled-child law, and its terminal `(N-1)/N` lower bound. The particle
+  estimator layer now also identifies normalized labeled-child expectations
+  with their self-normalized population ratio and proves that deleting the
+  retained nonnegative numerator contribution only decreases that expectation.
+  These results isolate the next proof as composition of the already-checked
+  sharp forced-cloud inequality with this invariant, rather than an invalid
+  pointwise comparison of conditioned populations.
+
 - Added the finite horizon-indexed path-match automaton required by the PG
   trajectory client. Its state is a bounded time index plus a Boolean prefix
   match flag, so it has genuine `Fintype`/`DecidableEq` instances unlike an
