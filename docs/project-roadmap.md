@@ -560,8 +560,13 @@ by paper date:
   and concrete horizon kernel satisfy an exact first-event renewal equation
   driven by one exponential hazard and a fresh iid tail. The next dependency
   is to use this equation to prove target-started scalar weak-forward
-  uniqueness. Splitting a horizon between events is still correctly treated
-  as a law-level argument rather than a pointwise semigroup identity;
+  uniqueness. The process and its generator are now additionally conjugated
+  to a canonical signed coordinate: the target is unchanged, flow has unit
+  speed, the rate is `max 0 signed`, and events use the explicit
+  negative-square-root reset. This removes the physical-coordinate coupling
+  from the remaining scalar renewal/transport analysis. Splitting a horizon
+  between events is still correctly treated as a law-level argument rather
+  than a pointwise semigroup identity;
 2. bare Gaussian SoftAbs GR-HMC convergence -- complete for the concrete
    one-dimensional `ε = 1`, `L = 1` chain. Lean proves affine drift, compact
    skeleton minorization, faithful geometric meeting, the normalized target's

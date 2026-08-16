@@ -40,6 +40,17 @@
   remaining weak-forward uniqueness argument; it is not merely a pointwise
   or finite-event approximation.
 
+- Reduced the remaining Gaussian weak-forward uniqueness analysis to canonical
+  signed-position coordinates. The involution `(x,v) ↦ (v*x,v)` is now a
+  measurable equivalence and is proved to preserve the normalized
+  Gaussian/equal-velocity target. In these coordinates every flow segment is
+  translation at unit speed, and the exact event update is the already checked
+  negative-square-root reset with velocity flip. Lean also proves the full
+  generator conjugacy: transport becomes the plain signed derivative and the
+  switching rate is `max 0 signed`. Thus the remaining uniqueness theorem can
+  be attacked as a scalar renewal/transport equation rather than a coupled
+  physical-position/velocity PDE.
+
 - Reconciled the Julia diagnostic inventory. Every registered property,
   Geweke, continuous/mixed-state, robustness, ESS, and callback-count test is
   active; there are no skipped or broken testsets. The formerly historical

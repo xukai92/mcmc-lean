@@ -682,6 +682,91 @@ increases at unit speed. -/
 def zigZagSignedPosition (state : ZigZagState) : ℝ :=
   zigZagVelocity state.2 * state.1
 
+/-- Fold the velocity sign into position while retaining the velocity label.
+This is an involutive measurable coordinate change. -/
+def zigZagSignedCoordinate (state : ZigZagState) : ZigZagState :=
+  (zigZagSignedPosition state, state.2)
+
+@[simp] theorem zigZagSignedCoordinate_involutive (state : ZigZagState) :
+    zigZagSignedCoordinate (zigZagSignedCoordinate state) = state := by
+  rcases state with ⟨position, velocity⟩
+  unfold zigZagSignedCoordinate zigZagSignedPosition
+  apply Prod.ext
+  · change zigZagVelocity velocity *
+        (zigZagVelocity velocity * position) = position
+    cases velocity <;> norm_num [zigZagVelocity]
+  · rfl
+
+/-- Measurable equivalence between physical and signed-position
+coordinates. -/
+def zigZagSignedCoordinateEquiv : ZigZagState ≃ᵐ ZigZagState where
+  toFun := zigZagSignedCoordinate
+  invFun := zigZagSignedCoordinate
+  left_inv := zigZagSignedCoordinate_involutive
+  right_inv := zigZagSignedCoordinate_involutive
+  measurable_toFun := show Measurable zigZagSignedCoordinate by
+    unfold zigZagSignedCoordinate zigZagSignedPosition zigZagVelocity
+    fun_prop
+  measurable_invFun := show Measurable zigZagSignedCoordinate by
+    unfold zigZagSignedCoordinate zigZagSignedPosition zigZagVelocity
+    fun_prop
+
+/-- Folding the velocity sign into position preserves the normalized
+Gaussian/equal-velocity target. -/
+theorem gaussianZigZagTarget_map_signedCoordinate :
+    gaussianZigZagTarget.map zigZagSignedCoordinate =
+      gaussianZigZagTarget := by
+  unfold gaussianZigZagTarget zigZagVelocityProbability
+  rw [Measure.prod_add,
+    Measure.prod_smul_right, Measure.prod_smul_right,
+    Measure.map_add _ _ (by
+      exact zigZagSignedCoordinateEquiv.measurable),
+    Measure.map_smul, Measure.map_smul]
+  have hfalse : Measure.map zigZagSignedCoordinate
+      ((gaussianReal 0 1).prod (Measure.dirac false)) =
+      (gaussianReal 0 1).prod (Measure.dirac false) := by
+    rw [Measure.prod_dirac, Measure.map_map
+      (g := zigZagSignedCoordinate)
+      (f := fun position : ℝ => (position, false))
+      zigZagSignedCoordinateEquiv.measurable (by fun_prop)]
+    rw [show zigZagSignedCoordinate ∘ (fun position : ℝ =>
+        (position, false)) = (fun position => (-position, false)) by
+      funext position
+      simp [zigZagSignedCoordinate, zigZagSignedPosition, zigZagVelocity]]
+    rw [show (fun position : ℝ => (-position, false)) =
+        (fun position : ℝ => (position, false)) ∘ (fun position => -position) by
+      rfl]
+    rw [← Measure.map_map (g := fun position : ℝ => (position, false))
+      (f := fun position : ℝ => -position)
+      (by fun_prop) (by fun_prop), gaussianReal_map_neg]
+    simp only [neg_zero]
+  have htrue : Measure.map zigZagSignedCoordinate
+      ((gaussianReal 0 1).prod (Measure.dirac true)) =
+      (gaussianReal 0 1).prod (Measure.dirac true) := by
+    rw [Measure.prod_dirac, Measure.map_map
+      (g := zigZagSignedCoordinate)
+      (f := fun position : ℝ => (position, true))
+      zigZagSignedCoordinateEquiv.measurable (by fun_prop)]
+    rw [show zigZagSignedCoordinate ∘ (fun position : ℝ =>
+        (position, true)) = (fun position => (position, true)) by
+      funext position
+      simp [zigZagSignedCoordinate, zigZagSignedPosition, zigZagVelocity]]
+  rw [hfalse, htrue]
+/-- In signed coordinates every deterministic segment moves right at unit
+speed, independently of velocity. -/
+theorem zigZagSignedCoordinate_flow (time : NNReal) (state : ZigZagState) :
+    zigZagSignedCoordinate (zigZagFlow time state) =
+      (zigZagSignedPosition state + (time : ℝ), state.2) := by
+  rcases state with ⟨position, velocity⟩
+  unfold zigZagSignedCoordinate zigZagSignedPosition zigZagFlow
+  apply Prod.ext
+  · change zigZagVelocity velocity *
+        (position + (time : ℝ) * zigZagVelocity velocity) =
+        zigZagVelocity velocity * position + (time : ℝ)
+    cases velocity <;> norm_num [zigZagVelocity]
+    ring
+  · rfl
+
 @[simp] theorem zigZagVelocity_not (velocity : Bool) :
     zigZagVelocity (!velocity) = -zigZagVelocity velocity := by
   cases velocity <;> simp [zigZagVelocity]
@@ -725,6 +810,44 @@ theorem zigZagSignedPosition_gaussianZigZagEventUpdate
       if 0 ≤ a then -Real.sqrt (a ^ 2 + 2 * (hazard : ℝ))
       else -Real.sqrt (2 * (hazard : ℝ))
   split_ifs <;> ring
+
+/-- In signed coordinates, an event maps to an explicit negative square-root
+location and flips the retained velocity label. -/
+theorem zigZagSignedCoordinate_gaussianZigZagEventUpdate
+    (state : ZigZagState) (hazard : NNReal) :
+    zigZagSignedCoordinate (gaussianZigZagEventUpdate state hazard) =
+      (if 0 ≤ zigZagSignedPosition state then
+          -Real.sqrt (zigZagSignedPosition state ^ 2 + 2 * (hazard : ℝ))
+        else -Real.sqrt (2 * (hazard : ℝ)), !state.2) := by
+  apply Prod.ext
+  · exact zigZagSignedPosition_gaussianZigZagEventUpdate state hazard
+  · rfl
+
+/-- Canonical Gaussian Zig-Zag generator in signed-position coordinates. Its
+transport speed is identically one and its event rate is `max 0 signed`. -/
+def gaussianZigZagSignedGenerator
+    (derivative observable : ℝ → Bool → ℝ)
+    (signed : ℝ) (velocity : Bool) : ℝ :=
+  derivative signed velocity + max 0 signed *
+    (observable (-signed) (!velocity) - observable signed velocity)
+
+/-- The physical Gaussian Zig-Zag generator is conjugate to the canonical
+unit-speed signed-coordinate generator. -/
+theorem gaussianZigZagGenerator_signedCoordinate
+    (derivative observable : ℝ → Bool → ℝ)
+    (state : ZigZagState) :
+    zigZagGenerator id
+        (fun position velocity => zigZagVelocity velocity *
+          derivative (zigZagVelocity velocity * position) velocity)
+        (fun position velocity =>
+          observable (zigZagVelocity velocity * position) velocity)
+        state.1 state.2 =
+      gaussianZigZagSignedGenerator derivative observable
+        (zigZagSignedPosition state) state.2 := by
+  rcases state with ⟨position, velocity⟩
+  cases velocity <;>
+    simp [zigZagGenerator, zigZagRate, zigZagSignedPosition,
+      zigZagVelocity, gaussianZigZagSignedGenerator]
 
 theorem zigZagSignedPosition_gaussianZigZagEventUpdate_neg
     (state : ZigZagState) {hazard : NNReal} (hhazard : 0 < hazard) :
