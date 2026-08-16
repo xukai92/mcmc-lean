@@ -1954,6 +1954,20 @@ This removes the need to repeat the measure-level change-of-variables proof
 for every product dimension. A complete three-dimensional MH client is not
 claimed here; the proved artifact is its normalized transport-density core.
 
+## 2026-08-16: concrete Gaussian Zig-Zag generator tests
+
+Instantiated the one-dimensional Zig-Zag generator with the standard Gaussian
+potential gradient. For the velocity observable, Lean reduces the summed
+generator to the odd function `-2q` and proves its Gaussian integral is zero.
+For the nontrivial position-times-velocity observable, it reduces the
+generator to `2-2q²` and closes the integral using mathlib's exact Gaussian
+mean and variance theorems.
+
+These are concrete generator-balance clients rather than a full invariant-
+semigroup result. Extending from this checked test family to an integration-
+by-parts class, and connecting it to the all-count event scheduler, remain
+explicit PDMP obligations.
+
 Julia exposes the matching guarded Float64 evaluator, including the removable
 zero-Hessian branch, and tests its algebraic outputs and invalid domains. This
 is deliberately runtime evidence rather than a platform certificate: error

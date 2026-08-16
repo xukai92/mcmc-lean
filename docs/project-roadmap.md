@@ -281,7 +281,9 @@ breadth branches are:
   including Markov validity, invariant-target preservation, and finite-count
   nonexplosion for the bounded homogeneous clock. The all-count horizon
   executor also has an adjacent-count flux cancellation theorem; concrete
-  Zig-Zag/BPS clients still need to derive its flux certificate. General bounded
+  standard-Gaussian Zig-Zag generator balance is now checked for velocity and
+  position-times-velocity observables, while Zig-Zag/BPS clients still need to
+  derive the scheduler's full flux certificate. General bounded
   state-dependent pure-jump mechanisms now have a thinned embedded kernel and
   real-time transition, with rate-biased balanced flux transported through
   accepted/rejected clock decomposition to real-time invariance. Deterministic

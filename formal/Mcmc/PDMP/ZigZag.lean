@@ -1,5 +1,6 @@
 import Mcmc.PDMP.Flow
 import Mathlib.MeasureTheory.Integral.Bochner.Basic
+import Mathlib.Probability.Distributions.Gaussian.Real
 import Mathlib.Tactic
 
 /-!
@@ -91,5 +92,75 @@ theorem zigZagGenerator_mean_zero
     funext q
     ring
   rw [heq, integral_sub hdrift hpotential, hibp, sub_self]
+
+/-- Velocity itself as a concrete Zig-Zag test observable. -/
+def zigZagVelocityObservable (_q : ℝ) (v : Bool) : ℝ := zigZagVelocity v
+
+/-- Its position derivative is identically zero. -/
+def zigZagVelocityDerivative (_q : ℝ) (_v : Bool) : ℝ := 0
+
+/-- For the standard Gaussian potential `U(q)=q²/2`, the two-velocity
+generator applied to velocity is the odd function `-2q`. -/
+theorem sum_bool_gaussian_zigZagGenerator_velocity (q : ℝ) :
+    ∑ v : Bool, zigZagGenerator id zigZagVelocityDerivative
+      zigZagVelocityObservable q v = -2 * q := by
+  rw [sum_bool_zigZagGenerator]
+  simp [zigZagVelocityDerivative, zigZagVelocityObservable,
+    zigZagVelocity]
+  ring
+
+/-- The concrete standard-Gaussian Zig-Zag generator balances the velocity
+observable exactly. This is a genuine target/test-function instance of the
+generator identity, not yet a full process-invariance theorem. -/
+theorem gaussian_zigZagGenerator_velocity_mean_zero :
+    (∫ q, (∑ v : Bool, zigZagGenerator id zigZagVelocityDerivative
+      zigZagVelocityObservable q v) ∂ProbabilityTheory.gaussianReal 0 1) = 0 := by
+  simp_rw [sum_bool_gaussian_zigZagGenerator_velocity]
+  rw [integral_const_mul, ProbabilityTheory.integral_id_gaussianReal]
+  norm_num
+
+/-- Position times velocity is a second concrete test observable. -/
+def zigZagPositionVelocityObservable (q : ℝ) (v : Bool) : ℝ :=
+  q * zigZagVelocity v
+
+/-- Exact position derivative of `zigZagPositionVelocityObservable`. -/
+def zigZagPositionVelocityDerivative (_q : ℝ) (v : Bool) : ℝ :=
+  zigZagVelocity v
+
+theorem sum_bool_gaussian_zigZagGenerator_positionVelocity (q : ℝ) :
+    ∑ v : Bool, zigZagGenerator id zigZagPositionVelocityDerivative
+      zigZagPositionVelocityObservable q v = 2 - 2 * q ^ 2 := by
+  rw [sum_bool_zigZagGenerator]
+  simp [zigZagPositionVelocityDerivative,
+    zigZagPositionVelocityObservable, zigZagVelocity]
+  ring
+
+/-- Gaussian unit variance supplies the nontrivial second-moment cancellation
+for the position-times-velocity observable. -/
+theorem gaussian_zigZagGenerator_positionVelocity_mean_zero :
+    (∫ q, (∑ v : Bool, zigZagGenerator id
+      zigZagPositionVelocityDerivative zigZagPositionVelocityObservable q v)
+      ∂ProbabilityTheory.gaussianReal 0 1) = 0 := by
+  let gaussian := ProbabilityTheory.gaussianReal 0 1
+  have hid : MemLp id 2 gaussian :=
+    ProbabilityTheory.memLp_id_gaussianReal 2
+  have hsquare : (∫ q, q ^ 2 ∂gaussian) = 1 := by
+    have hvariance := ProbabilityTheory.variance_eq_sub hid
+    dsimp [gaussian] at hvariance
+    rw [ProbabilityTheory.variance_id_gaussianReal,
+      ProbabilityTheory.integral_id_gaussianReal] at hvariance
+    simpa [Pi.pow_apply] using hvariance.symm
+  simp_rw [sum_bool_gaussian_zigZagGenerator_positionVelocity]
+  change (∫ q, 2 - 2 * q ^ 2 ∂gaussian) = 0
+  have hsqint : Integrable (fun q : ℝ => 2 * q ^ 2) gaussian := by
+    simpa [Pi.pow_apply] using hid.integrable_sq.const_mul 2
+  calc
+    _ = (∫ _q : ℝ, 2 ∂gaussian) -
+        ∫ q : ℝ, 2 * q ^ 2 ∂gaussian := by
+      simpa only [Pi.sub_apply] using
+        integral_sub (integrable_const 2) hsqint
+    _ = 0 := by
+      rw [integral_const_mul, hsquare]
+      simp
 
 end Mcmc.PDMP
