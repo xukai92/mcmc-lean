@@ -779,10 +779,11 @@ minorizes normalized central Lebesgue measure on every bounded band and has a
 faithful exact-meeting coupling there. A uniform geometric allowance bound now
 also constructs the compatible paired threshold and enclosing band, yielding
 an unconditional geometric meeting-drift certificate. Setwise convergence of
-the resulting positive skeleton is reduced to the explicitly isolated finite
-exponential moment of the normalized one-dimensional Gaussian target; proving
-that integral and then controlling all residue classes remain the outstanding
-bare-convergence obligations.
+the resulting positive skeleton is now unconditional: Lean proves the required
+exponential moment of the normalized one-dimensional Gaussian target. Bounded-
+observable convergence, Chapman--Kolmogorov, and a finite residue-class lemma
+then lift the result from the skeleton to every unthinned time index. Thus the
+actual bare `ε = 1`, `L = 1` chain converges setwise from every point mass.
 Higher-dimensional or non-Gaussian validated instances must still provide
 their own target-specific drift analysis.
 

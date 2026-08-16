@@ -14,6 +14,33 @@ open scoped ENNReal NNReal ProbabilityTheory
 
 namespace Mcmc.Kernel
 
+/-- Convergence along every residue class modulo a positive skeleton length
+implies convergence of the unthinned sequence. -/
+theorem tendsto_of_tendsto_skeleton_residues
+    {X : Type*} [TopologicalSpace X] {f : ℕ → X} {x : X}
+    (steps : ℕ) (hsteps : 0 < steps)
+    (hresidue : ∀ r : Fin steps,
+      Filter.Tendsto (fun n => f (steps * n + r.1))
+        Filter.atTop (nhds x)) :
+    Filter.Tendsto f Filter.atTop (nhds x) := by
+  rw [Filter.tendsto_def]
+  intro s hs
+  have hall : ∀ᶠ n in Filter.atTop, ∀ r : Fin steps,
+      f (steps * n + r.1) ∈ s := by
+    rw [Filter.eventually_all]
+    intro r
+    exact (hresidue r).eventually hs
+  have hdiv : Filter.Tendsto (fun n : ℕ => n / steps)
+      Filter.atTop Filter.atTop := by
+    show Filter.map (fun n : ℕ => n / steps) Filter.atTop ≤ Filter.atTop
+    rw [Filter.map_div_atTop_eq_nat steps hsteps]
+  filter_upwards [hdiv.eventually hall] with n hn
+  have hmod : n % steps < steps := Nat.mod_lt n hsteps
+  have := hn ⟨n % steps, hmod⟩
+  have hdecompose : steps * (n / steps) + n % steps = n :=
+    Nat.div_add_mod n steps
+  simpa [hdecompose] using this
+
 open ProbabilityTheory
 
 variable {α : Type*} [MeasurableSpace α]

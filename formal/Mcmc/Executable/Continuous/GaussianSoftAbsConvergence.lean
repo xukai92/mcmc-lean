@@ -2740,6 +2740,135 @@ theorem exists_gaussianSoftAbs_bare_power_setwise_convergence
   exists_gaussianSoftAbs_bare_power_setwise_convergence_of_targetMoment
     t ht (lintegral_gaussianSoftAbsExpLyapunov_finiteNormalize_ne_top t) q hs
 
+/-- The bare one-dimensional Gaussian SoftAbs chain at unit step and unit
+trajectory length converges setwise at every (unthinned) iteration. -/
+theorem gaussianSoftAbs_bare_setwise_convergence
+    (t : ℝ) (ht : 0 < t)
+    (q : Position Unit) {s : Set (Position Unit)} (hs : MeasurableSet s) :
+    Filter.Tendsto
+      (fun n => Mcmc.Kernel.lawAtTime (Measure.dirac q)
+        (gaussianSoftAbsMultinomialTransition 1 1) n s)
+      Filter.atTop
+      (nhds (Mcmc.Kernel.finiteNormalize
+        (gaussianSoftAbsPositionTarget (ι := Unit)) s)) := by
+  obtain ⟨steps, hsteps, rate, allowance, threshold, meetingBound,
+    hrate, hrateTop, hallowanceTop, hthreshold0, hthresholdTop,
+    hmeetingPos, hmeetingLe, coupled, _hmarkov, hcoupled, hfaithful,
+    hdrift, hmeeting⟩ := exists_gaussianSoftAbs_bare_power_meetingDrift t ht
+  let transition := gaussianSoftAbsMultinomialTransition (ι := Unit) 1 1
+  let skeleton := transition ^ steps
+  let target := Mcmc.Kernel.finiteNormalize
+    (gaussianSoftAbsPositionTarget (ι := Unit))
+  let initialCoupling : Measure (Position Unit × Position Unit) :=
+    (Measure.dirac q).prod target
+  letI : IsMarkovKernel transition := inferInstance
+  letI : IsMarkovKernel skeleton := inferInstance
+  letI : IsProbabilityMeasure target := inferInstance
+  letI : IsProbabilityMeasure initialCoupling := inferInstance
+  have hinitial : IsMeasureCoupling initialCoupling (Measure.dirac q) target :=
+    isMeasureCoupling_prod _ _
+  have hinvariantBase : transition.Invariant target := by
+    apply Mcmc.Kernel.invariant_finiteNormalize _ _
+      gaussianSoftAbsPositionTarget_ne_zero
+    exact gaussianSoftAbs_multinomialGRHMC_invariant 1 1
+  have hinvariant : skeleton.Invariant target :=
+    Mcmc.Kernel.invariant_pow hinvariantBase steps
+  have hVmoment : (∫⁻ z, IsCoupling.pairedAdd
+      (gaussianSoftAbsExpLyapunov t) z ∂initialCoupling) ≠ ∞ := by
+    have hv := measurable_gaussianSoftAbsExpLyapunov t
+    have hfst : Measurable (fun z : Position Unit × Position Unit =>
+        gaussianSoftAbsExpLyapunov t z.1) := hv.comp measurable_fst
+    rw [show (∫⁻ z, IsCoupling.pairedAdd
+        (gaussianSoftAbsExpLyapunov t) z ∂initialCoupling) =
+        (∫⁻ z, gaussianSoftAbsExpLyapunov t z.1 ∂initialCoupling) +
+          ∫⁻ z, gaussianSoftAbsExpLyapunov t z.2
+            ∂initialCoupling by
+      unfold IsCoupling.pairedAdd
+      rw [lintegral_add_left hfst]]
+    rw [lintegral_fst_eq_of_isMeasureCoupling hinitial hv,
+      lintegral_snd_eq_of_isMeasureCoupling hinitial hv,
+      lintegral_dirac' q hv]
+    exact ENNReal.add_ne_top.2
+      ⟨ENNReal.ofReal_ne_top,
+        lintegral_gaussianSoftAbsExpLyapunov_finiteNormalize_ne_top t⟩
+  have hdriftBudgetTop : rate * threshold + allowance ≠ ∞ :=
+    ENNReal.add_ne_top.2
+      ⟨ENNReal.mul_ne_top hrateTop hthresholdTop, hallowanceTop⟩
+  apply Mcmc.Kernel.tendsto_of_tendsto_skeleton_residues
+    steps hsteps
+  intro r
+  let f : Position Unit → ℝ := fun x => ((transition ^ r.1) x s).toReal
+  have hf : Measurable f :=
+    ENNReal.measurable_toReal.comp ((transition ^ r.1).measurable_coe hs)
+  have hbound : ∀ x, ‖f x‖ ≤ (1 : ℝ) := by
+    intro x
+    rw [Real.norm_eq_abs, abs_of_nonneg ENNReal.toReal_nonneg]
+    refine (ENNReal.toReal_le_toReal (measure_ne_top _ _)
+      ENNReal.one_ne_top).2 ?_
+    simpa using
+      (measure_mono (μ := (transition ^ r.1) x) (Set.subset_univ s))
+  have hreal := hdrift.tendsto_lawAtTime_integral_of_invariant
+    initialCoupling (Measure.dirac q) target skeleton coupled
+    hinitial hcoupled hfaithful hinvariant hmeeting hrate hmeetingPos
+    hmeetingLe hthreshold0 hthresholdTop hdriftBudgetTop hVmoment
+    f hf (by norm_num) hbound
+  have hofReal := ENNReal.tendsto_ofReal hreal
+  convert hofReal using 1
+  · funext n
+    unfold f
+    rw [integral_toReal
+      ((transition ^ r.1).measurable_coe hs).aemeasurable]
+    · rw [ENNReal.ofReal_toReal]
+      · have hlaw : Mcmc.Kernel.lawAtTime (Measure.dirac q) skeleton n =
+            (transition ^ (steps * n)) q := by
+          rw [Mcmc.Kernel.lawAtTime_dirac]
+          change ((transition ^ steps) ^ n) q = _
+          rw [pow_mul]
+        rw [hlaw]
+        rw [Mcmc.Kernel.lawAtTime_dirac]
+        change ((transition ^ (steps * n + r.1)) q) s = _
+        rw [Kernel.pow_add_apply_eq_lintegral transition (steps * n) r.1 q hs]
+      · letI : IsProbabilityMeasure
+            (Mcmc.Kernel.lawAtTime (Measure.dirac q) skeleton n) :=
+          inferInstance
+        apply ne_top_of_le_ne_top ENNReal.one_ne_top
+        calc
+          (∫⁻ x, (transition ^ r.1) x s
+              ∂Mcmc.Kernel.lawAtTime (Measure.dirac q) skeleton n) ≤
+              ∫⁻ _x, 1
+                ∂Mcmc.Kernel.lawAtTime (Measure.dirac q) skeleton n := by
+            apply lintegral_mono
+            intro x
+            simpa using
+              (measure_mono (μ := (transition ^ r.1) x)
+                (Set.subset_univ s))
+          _ = 1 := by simp
+    · filter_upwards [] with x
+      exact measure_lt_top _ _
+  · unfold f
+    rw [integral_toReal
+      ((transition ^ r.1).measurable_coe hs).aemeasurable]
+    · rw [ENNReal.ofReal_toReal]
+      · have htargetIntegral :
+            (∫⁻ x, (transition ^ r.1) x s ∂target) = target s := by
+          have h := congrArg (fun μ : Measure (Position Unit) => μ s)
+            (Mcmc.Kernel.invariant_pow hinvariantBase r.1).def
+          rw [Measure.bind_apply hs (transition ^ r.1).aemeasurable] at h
+          exact h
+        rw [htargetIntegral]
+      · apply ne_top_of_le_ne_top (measure_ne_top target Set.univ)
+        calc
+          (∫⁻ x, (transition ^ r.1) x s ∂target) ≤
+              ∫⁻ _x, 1 ∂target := by
+            apply lintegral_mono
+            intro x
+            simpa using
+              (measure_mono (μ := (transition ^ r.1) x)
+                (Set.subset_univ s))
+          _ = target Set.univ := by simp
+    · filter_upwards [] with x
+      exact measure_lt_top _ _
+
 /-- A positive exponential scale admits one fixed strict drift rate beyond a
 finite positive-tail threshold. -/
 theorem exists_gaussianSoftAbs_positiveTail_strict_drift

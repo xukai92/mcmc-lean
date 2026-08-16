@@ -17,12 +17,13 @@
   between corridor length and box radius: Lean now constructs the band,
   absorption threshold, paired rate, faithful coupling, and positive meeting
   constant unconditionally and proves the complete geometric meeting-drift
-  certificate. This yields setwise convergence of a positive bare skeleton
-  conditional only on the separately stated finiteness of the normalized
-  Gaussian target's exponential Lyapunov moment. Closing that elementary
-  Gaussian integral removes the last premise of the skeleton convergence
-  theorem; convergence of every unthinned time index remains a distinct
-  residue-class/aperiodicity step.
+  certificate. Lean now also proves finiteness of the normalized Gaussian
+  target's exponential Lyapunov moment by domination with an integrable
+  Gaussian. This closes unconditional setwise convergence of the positive
+  skeleton. A reusable finite-residue convergence lemma, bounded-observable
+  convergence, Chapman--Kolmogorov, and invariance then lift the limit to every
+  unthinned time index. The actual bare one-dimensional `ε = 1`, `L = 1`
+  chain therefore converges setwise from every point mass.
 
 - Established the one-dimensional Jacobian foundation for the Gaussian
   SoftAbs moved branch. The exact scalar relativistic velocity derivative is

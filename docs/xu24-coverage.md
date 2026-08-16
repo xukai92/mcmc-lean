@@ -157,11 +157,13 @@ finite-step compact minorization by normalized central Lebesgue measure, and a
 faithful skeleton coupling with positive exact-meeting mass. It constructs a
 finite absorption threshold and enclosing box and proves the complete
 geometric meeting-drift certificate unconditionally. A positive bare skeleton
-therefore has a setwise-convergence theorem conditional only on the explicitly
-isolated finiteness of the normalized Gaussian target's exponential Lyapunov
-moment. The elementary Gaussian integral and the subsequent passage from the
-skeleton subsequence to every time index remain open, so unrestricted bare
-convergence is not yet claimed. The separate
+therefore has a setwise-convergence theorem. Lean proves the normalized
+Gaussian target's exponential Lyapunov moment finite, uses bounded-observable
+convergence to propagate the limit through every residual kernel, and combines
+the finitely many residue classes. Consequently the concrete bare `ε = 1`,
+`L = 1` chain converges setwise from every point mass at every unthinned time
+index. This is a target-specific theorem, not a paper-wide bare-GR-HMC
+convergence claim. The separate
 `GaussianSoftAbsConvergence` client adds an explicit independent normalized-
 target refresh to the proved Gaussian SoftAbs multinomial transition. Lean
 proves the concrete Gaussian target has finite, nonzero mass, then proves
