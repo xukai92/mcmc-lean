@@ -182,9 +182,11 @@ nondegenerate shifted-sinusoidal target now has its target-specific constants
 and phase-volume proof. Its metric side has exact global ellipticity:
 Lean proves a strictly positive attained eigenvalue lower bound, a finite
 upper bound, and a uniform factor-operator bound across the removable zero
-branch. The unresolved constants are specifically the mixed Hamiltonian
-derivative bounds used by the two implicit equations.
+branch. The mixed Hamiltonian derivative bounds used by both implicit
+equations are also discharged, yielding explicit small-step contraction
+conditions and the exact selected solver.
 
-Until those are discharged, the formalized kernels are mathematical GR-HMC
-algorithms with exact conditional correctness theorems, not certification of
-the finite-iteration AdvancedHMC.jl implementation used for the experiments.
+This certifies the exact mathematical GR-HMC client, not the paper's generic
+six-iteration AdvancedHMC.jl implementation. The latter remains covered only
+when its runtime residual, primitive-error, and selection-margin certificates
+instantiate the bounded refinement layer.

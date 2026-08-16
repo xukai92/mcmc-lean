@@ -699,7 +699,12 @@ Gaussian momentum, yielding a finite explicit allowance and a strict affine
 drift theorem for the actual `L = 1` multinomial-HMC kernel. The remaining
 compact energy geometry is also proved, culminating in a fully instantiated
 exact lag-one geometric meeting-tail theorem for the concrete sticky
-regularized-logistic HMC/RWMH mixture in every nonempty finite dimension.
+regularized-logistic HMC/RWMH mixture in every nonempty finite dimension. The
+posterior is normalized explicitly and has finite distance-Lyapunov moment.
+One selected mixture supplies both the lag-one and stationary-target meeting
+tails, so bounded marginal expectations converge to the posterior integral
+and the stopped estimator is unbiased for that same integral with finite
+variance.
 
 Floating-point refinement and reproduction of the paper's experiments are
 separate goals and are not claimed as machine-checked results.
