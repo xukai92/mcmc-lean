@@ -258,6 +258,177 @@ theorem shrinkRejectedPoints_eq_of_sameSide
       intro candidate hcandidate
       exact hsame candidate (by simp [hcandidate])
 
+/-! ### Accepted-proposal affine reversal -/
+
+/-- Reciprocal scaling of two real coordinates. Its Jacobian determinant is
+one: the first coordinate is scaled by `scale`, the second by its inverse. -/
+noncomputable def reciprocalScale (scale : ℝ) (point : ℝ × ℝ) : ℝ × ℝ :=
+  (scale * point.1, scale⁻¹ * point.2)
+
+theorem reciprocalScale_measurePreserving {scale : ℝ} (hscale : scale ≠ 0) :
+    MeasurePreserving (reciprocalScale scale)
+      ((volume : Measure ℝ).prod volume) (volume.prod volume) := by
+  refine ⟨(measurable_const.mul measurable_fst).prodMk
+    (measurable_const.mul measurable_snd), ?_⟩
+  rw [show reciprocalScale scale = Prod.map (scale * ·) (scale⁻¹ * ·) by
+    funext point
+    rfl]
+  rw [← Measure.map_prod_map volume volume
+    (measurable_const_mul scale) (measurable_const_mul scale⁻¹)]
+  rw [Real.map_volume_mul_left hscale,
+    Real.map_volume_mul_left (inv_ne_zero hscale)]
+  rw [Measure.prod_smul_right, Measure.prod_smul_left, smul_smul]
+  simp only [inv_inv, abs_inv]
+  rw [ENNReal.ofReal_inv_of_pos (abs_pos.mpr hscale)]
+  have hcoeff : ENNReal.ofReal |scale| ≠ 0 := by simp [hscale]
+  rw [ENNReal.mul_inv_cancel hcoeff (by simp)]
+  exact one_smul _ _
+
+/-- Reversal of the final accepted proposal in a fixed bracket. The first
+coordinate is the current point and the second is its proposal fraction. -/
+noncomputable def acceptedProposalReverse (left right : ℝ)
+    (point : ℝ × ℝ) : ℝ × ℝ :=
+  let width := right - left
+  (left + width * point.2, (point.1 - left) / width)
+
+/-- The accepted-proposal reversal preserves planar Lebesgue measure for every
+nondegenerate bracket. This is the exact unit-Jacobian statement used in the
+joint practical-slice trace reversal. -/
+theorem acceptedProposalReverse_measurePreserving
+    {left right : ℝ} (hwidth : right - left ≠ 0) :
+    MeasurePreserving (acceptedProposalReverse left right)
+      ((volume : Measure ℝ).prod volume) (volume.prod volume) := by
+  let translateDown : ℝ × ℝ → ℝ × ℝ :=
+    Prod.map id (fun x : ℝ ↦ -left + x)
+  let translateUp : ℝ × ℝ → ℝ × ℝ :=
+    Prod.map (fun x : ℝ ↦ left + x) id
+  have hdown : MeasurePreserving translateDown
+      ((volume : Measure ℝ).prod volume) (volume.prod volume) :=
+    (MeasurePreserving.id volume).prod
+      (measurePreserving_add_left volume (-left))
+  have hup : MeasurePreserving translateUp
+      ((volume : Measure ℝ).prod volume) (volume.prod volume) :=
+    (measurePreserving_add_left volume left).prod
+      (MeasurePreserving.id volume)
+  have hall := hup.comp ((reciprocalScale_measurePreserving hwidth).comp
+    (hdown.comp (Measure.measurePreserving_swap
+      (μ := (volume : Measure ℝ)) (ν := volume))))
+  convert hall using 1
+  funext point
+  simp [acceptedProposalReverse, translateDown, translateUp,
+    reciprocalScale, Function.comp_def, div_eq_inv_mul]
+  constructor
+  all_goals ring
+
+theorem acceptedProposalReverse_involutive
+    {left right : ℝ} (hwidth : right - left ≠ 0) :
+    Function.Involutive (acceptedProposalReverse left right) := by
+  intro point
+  apply Prod.ext
+  · simp [acceptedProposalReverse]
+    field_simp
+    ring
+  · simp [acceptedProposalReverse]
+    field_simp
+
+/-- The forward coordinate encodes the accepted point and the reverse
+coordinate encodes the old point in the same fixed bracket. -/
+theorem acceptedProposalReverse_fst (left right : ℝ) (point : ℝ × ℝ) :
+    (acceptedProposalReverse left right point).1 =
+      left + (right - left) * point.2 := rfl
+
+theorem acceptedProposalReverse_snd (left right : ℝ) (point : ℝ × ℝ) :
+    (acceptedProposalReverse left right point).2 =
+      (point.1 - left) / (right - left) := rfl
+
+theorem affineProposal_mem_Ico
+    {left right fraction : ℝ} (hwidth : left < right)
+    (hfraction : fraction ∈ Set.Ico (0 : ℝ) 1) :
+    left + (right - left) * fraction ∈ Set.Ico left right := by
+  constructor
+  · nlinarith [mul_nonneg (sub_nonneg.mpr hwidth.le) hfraction.1]
+  · have hmul := mul_lt_mul_of_pos_left hfraction.2 (sub_pos.mpr hwidth)
+    nlinarith
+
+theorem reverseFraction_mem_Ico
+    {left right point : ℝ} (hwidth : left < right)
+    (hpoint : point ∈ Set.Ico left right) :
+    (point - left) / (right - left) ∈ Set.Ico (0 : ℝ) 1 := by
+  constructor
+  · exact div_nonneg (sub_nonneg.mpr hpoint.1) (sub_nonneg.mpr hwidth.le)
+  · exact (div_lt_one (sub_pos.mpr hwidth)).mpr (sub_lt_sub_right hpoint.2 left)
+
+/-- Successful accepted-proposal coordinates: both the old and proposed point
+lie in the fixed bracket and in the sampled superlevel set. -/
+def acceptedProposalSuccess (logDensity : ℝ → ℝ) (threshold left right : ℝ) :
+    Set (ℝ × ℝ) :=
+  {point |
+    point.1 ∈ Set.Ico left right ∧
+    threshold ≤ logDensity point.1 ∧
+    point.2 ∈ Set.Ico (0 : ℝ) 1 ∧
+    threshold ≤ logDensity (left + (right - left) * point.2)}
+
+theorem acceptedProposalSuccess_preimage
+    (logDensity : ℝ → ℝ) (threshold : ℝ)
+    {left right : ℝ} (hwidth : left < right) :
+    acceptedProposalReverse left right ⁻¹'
+        acceptedProposalSuccess logDensity threshold left right =
+      acceptedProposalSuccess logDensity threshold left right := by
+  ext point
+  simp only [Set.mem_preimage, acceptedProposalSuccess, Set.mem_setOf_eq]
+  let reversed := acceptedProposalReverse left right point
+  have hinvolutive := acceptedProposalReverse_involutive
+    (sub_ne_zero.mpr hwidth.ne') point
+  have hpointRecover :
+      left + (right - left) * ((point.1 - left) / (right - left)) = point.1 := by
+    field_simp [sub_ne_zero.mpr hwidth.ne']
+    ring
+  have hfractionRecover :
+      (right - left) * point.2 / (right - left) = point.2 := by
+    field_simp [sub_ne_zero.mpr hwidth.ne']
+  constructor
+  · rintro ⟨hreversedBracket, hreversedSlice, hreversedFraction,
+      holdSlice⟩
+    have holdBracket : point.1 ∈ Set.Ico left right := by
+      have := affineProposal_mem_Ico hwidth hreversedFraction
+      simpa [reversed, acceptedProposalReverse, hpointRecover] using this
+    have hfraction : point.2 ∈ Set.Ico (0 : ℝ) 1 := by
+      have := reverseFraction_mem_Ico hwidth hreversedBracket
+      simpa [reversed, acceptedProposalReverse, hfractionRecover] using this
+    refine ⟨holdBracket, ?_, hfraction, ?_⟩
+    · simpa [reversed, acceptedProposalReverse, hpointRecover] using holdSlice
+    · simpa [reversed, acceptedProposalReverse] using hreversedSlice
+  · rintro ⟨holdBracket, holdSlice, hfraction, hnewSlice⟩
+    have hnewBracket := affineProposal_mem_Ico hwidth hfraction
+    have hreverseFraction := reverseFraction_mem_Ico hwidth holdBracket
+    refine ⟨?_, ?_, ?_, ?_⟩
+    · simpa [reversed, acceptedProposalReverse] using hnewBracket
+    · simpa [reversed, acceptedProposalReverse] using hnewSlice
+    · simpa [reversed, acceptedProposalReverse] using hreverseFraction
+    · simpa [reversed, acceptedProposalReverse, hpointRecover] using holdSlice
+
+theorem measurableSet_acceptedProposalSuccess
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (threshold left right : ℝ) :
+    MeasurableSet (acceptedProposalSuccess logDensity threshold left right) := by
+  unfold acceptedProposalSuccess
+  measurability
+
+/-- The final accepted-proposal reversal preserves the planar law restricted
+to successful old/new slice points. -/
+theorem acceptedProposalReverse_restrict_measurePreserving
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (threshold : ℝ) {left right : ℝ} (hwidth : left < right) :
+    MeasurePreserving (acceptedProposalReverse left right)
+      (((volume : Measure ℝ).prod volume).restrict
+        (acceptedProposalSuccess logDensity threshold left right))
+      (((volume : Measure ℝ).prod volume).restrict
+        (acceptedProposalSuccess logDensity threshold left right)) := by
+  apply measurePreserving_restrict_of_preimage_eq
+    (acceptedProposalReverse_measurePreserving (sub_ne_zero.mpr hwidth.ne'))
+    (measurableSet_acceptedProposalSuccess hlogDensity threshold left right)
+  exact acceptedProposalSuccess_preimage logDensity threshold hwidth
+
 /-- Literal ideal-real execution of one bounded practical slice update. The
 precondition `trace.leftSteps ≤ maxSteps` is checked rather than silently
 truncating a malformed expansion-allocation trace. -/

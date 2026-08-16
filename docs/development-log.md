@@ -1,5 +1,15 @@
 # Development log
 
+- Closed the continuous Jacobian component of practical-slice trace reversal.
+  For a fixed nondegenerate bracket, Lean defines the map that swaps the old
+  and accepted points while converting each into the other's uniform bracket
+  fraction. It proves this map involutive and planar-Lebesgue preserving by
+  decomposing it into translations, a coordinate swap, and reciprocal scales
+  whose Haar factors cancel. The measurable success event requires both points
+  to lie in the bracket and sampled superlevel set; reversal preserves that
+  event and therefore preserves the planar law restricted to success. Full
+  trace assembly must still combine this with rejected proposals and expansion.
+
 - Recast the continuous bracket offset as Haar-uniform volume on the unit
   additive circle. Neal's fractional-part reversal is now proved to be the
   `[0,1)` coordinate of a measure-preserving circle translation, so endpoint
