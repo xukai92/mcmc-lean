@@ -145,4 +145,69 @@ theorem sinusoidalSoftAbsEigenvalue_nonconstant :
   rw [sinusoidalSoftAbsEigenvalue_neg_pi_div_two]
   exact ne_of_lt sinusoidalSoftAbsEigenvalue_zero_gt_one
 
+/-- The concrete sinusoidal SoftAbs eigenvalue has a uniform strictly
+positive lower bound, attained on the exact Hessian range `[0,2]`. -/
+theorem exists_uniform_lower_sinusoidalSoftAbsEigenvalue :
+    ∃ lower : ℝ, 0 < lower ∧ ∀ q : Position Unit,
+      lower ≤ diagonalSoftAbsEigenvalue 1 sinusoidalHessianDiagonal
+        q Unit.unit := by
+  have hcontinuous : Continuous (softAbs 1) :=
+    continuous_softAbs 1 (by norm_num)
+  obtain ⟨x, hx, hmin⟩ := isCompact_Icc.exists_isMinOn
+    (Set.nonempty_Icc.2 (by norm_num : (0 : ℝ) ≤ 2)) hcontinuous.continuousOn
+  refine ⟨softAbs 1 x, softAbs_pos 1 (by norm_num) x, ?_⟩
+  intro q
+  rw [diagonalSoftAbsEigenvalue]
+  apply hmin
+  constructor
+  · exact sinusoidalHessianDiagonal_nonneg q
+  · unfold sinusoidalHessianDiagonal
+    linarith [Real.sin_le_one (q Unit.unit)]
+
+/-- The same compact-range argument supplies a finite positive global upper
+bound without introducing an unverifiable decimal approximation. -/
+theorem exists_uniform_upper_sinusoidalSoftAbsEigenvalue :
+    ∃ upper : ℝ, 0 < upper ∧ ∀ q : Position Unit,
+      diagonalSoftAbsEigenvalue 1 sinusoidalHessianDiagonal
+        q Unit.unit ≤ upper := by
+  have hcontinuous : Continuous (softAbs 1) :=
+    continuous_softAbs 1 (by norm_num)
+  obtain ⟨x, hx, hmax⟩ := isCompact_Icc.exists_isMaxOn
+    (Set.nonempty_Icc.2 (by norm_num : (0 : ℝ) ≤ 2)) hcontinuous.continuousOn
+  refine ⟨softAbs 1 x, softAbs_pos 1 (by norm_num) x, ?_⟩
+  intro q
+  rw [diagonalSoftAbsEigenvalue]
+  apply hmax
+  constructor
+  · exact sinusoidalHessianDiagonal_nonneg q
+  · unfold sinusoidalHessianDiagonal
+    linarith [Real.sin_le_one (q Unit.unit)]
+
+/-- Uniform ellipticity gives a global operator bound for the actual SoftAbs
+momentum factor. -/
+theorem exists_uniform_bound_sinusoidalSoftAbsFactor :
+    ∃ bound : ℝ, 0 < bound ∧ ∀ (q : Position Unit) (p : Momentum Unit),
+      |sinusoidalSoftAbsMetric.factor q p Unit.unit| ≤
+        bound * |p Unit.unit| := by
+  obtain ⟨lower, hlower, heigen⟩ :=
+    exists_uniform_lower_sinusoidalSoftAbsEigenvalue
+  let bound := (Real.sqrt lower)⁻¹
+  have hsqrtLower : 0 < Real.sqrt lower := Real.sqrt_pos.2 hlower
+  refine ⟨bound, inv_pos.mpr hsqrtLower, ?_⟩
+  intro q p
+  rw [show sinusoidalSoftAbsMetric.factor q p Unit.unit =
+      (Real.sqrt (diagonalSoftAbsEigenvalue 1 sinusoidalHessianDiagonal
+        q Unit.unit))⁻¹ * p Unit.unit by
+    exact diagonalSoftAbsFactor_apply 1 (by norm_num)
+      sinusoidalHessianDiagonal q p Unit.unit]
+  rw [abs_mul, abs_of_pos (inv_pos.mpr
+    (Real.sqrt_pos.2 (diagonalSoftAbsEigenvalue_pos 1 (by norm_num)
+      sinusoidalHessianDiagonal q Unit.unit)))]
+  apply mul_le_mul_of_nonneg_right _ (abs_nonneg _)
+  dsimp only [bound]
+  apply (inv_le_inv₀
+    (Real.sqrt_pos.2 (diagonalSoftAbsEigenvalue_pos 1 (by norm_num)
+      sinusoidalHessianDiagonal q Unit.unit)) hsqrtLower).2
+  exact Real.sqrt_le_sqrt (heigen q)
+
 end Mcmc.Relativistic

@@ -193,6 +193,16 @@ theorem differentiableAt_softAbs
   · exact differentiableAt_softAbs_zero α hα
   · exact differentiableAt_softAbs_of_ne_zero α x hα hx
 
+/-- Global differentiability and continuity of the removable SoftAbs
+extension. -/
+theorem differentiable_softAbs (α : ℝ) (hα : 0 < α) :
+    Differentiable ℝ (softAbs α) :=
+  fun x => differentiableAt_softAbs α x hα
+
+theorem continuous_softAbs (α : ℝ) (hα : 0 < α) :
+    Continuous (softAbs α) :=
+  (differentiable_softAbs α hα).continuous
+
 @[simp]
 theorem softAbs_zero (α : ℝ) : softAbs α 0 = α⁻¹ := by
   simp [softAbs]

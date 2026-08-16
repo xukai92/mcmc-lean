@@ -179,7 +179,11 @@ global slice-Lipschitz constants and sufficiently small half steps construct
 the exact Banach-selected generalized-leapfrog solver.  This route is
 machine-checked on the genuinely nonconstant bounded scalar metric.  The
 sinusoidal Hessian SoftAbs target still needs its target-specific constants
-and phase-volume proof.
+and phase-volume proof. Its metric side now has exact global ellipticity:
+Lean proves a strictly positive attained eigenvalue lower bound, a finite
+upper bound, and a uniform factor-operator bound across the removable zero
+branch. The unresolved constants are specifically the mixed Hamiltonian
+derivative bounds used by the two implicit equations.
 
 Until those are discharged, the formalized kernels are mathematical GR-HMC
 algorithms with exact conditional correctness theorems, not certification of

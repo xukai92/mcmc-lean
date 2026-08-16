@@ -1604,6 +1604,15 @@ different SoftAbs eigenvalue at zero. The resulting metric is genuinely
 position dependent and supplies the full Equation (12) derivative certificate.
 A nonzero-step contraction/volume solver for this target remains open.
 
+Established the first global analytic bounds for that target.  SoftAbs is now
+proved globally differentiable and continuous across its removable zero
+branch.  Since the sinusoidal Hessian lies exactly in `[0,2]`, the extreme
+value theorem supplies an attained strictly positive eigenvalue lower bound
+and a finite positive upper bound.  Lean then derives a uniform operator bound
+for the actual inverse-square-root momentum factor.  The remaining solver
+step is to bound the mixed Hamiltonian derivatives (and then reuse the generic
+slice-Lipschitz constructor), followed by the phase-volume calculation.
+
 Generalized the exact implicit-solver entry point from that concrete example.
 Global Lipschitz bounds for the momentum slice of `∂H/∂q` and the position
 slice of `∂H/∂p`, together with the two explicit half-step inequalities,
