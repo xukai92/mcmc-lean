@@ -189,7 +189,11 @@ count, flows through the residual horizon, and glues the count-indexed kernels
 into one Markov kernel. Consequently every globally bounded thinning simulator
 has a complete positive-horizon transition kernel driven by the exact
 homogeneous Poisson schedule. This proves construction and Markov validity,
-not stationary-target preservation or convergence for BPS/Zig-Zag.
+not stationary-target preservation or convergence for BPS/Zig-Zag. A checked
+reduction now shows it is enough to prove target invariance after averaging
+the ordered event times separately at every Poisson count; it does not impose
+the generally false requirement that each deterministic timestamp schedule be
+invariant.
 
 For positive-horizon particle Gibbs, the finite library now proves a concrete
 arbitrary-horizon result: with any finite particle index type containing at

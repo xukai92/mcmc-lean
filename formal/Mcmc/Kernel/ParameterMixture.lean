@@ -90,4 +90,47 @@ theorem independentParameterMixture_invariant_ae
   rw [lintegral_congr_ae hfixed]
   simp
 
+/-- A countable mixture of parameter laws preserves a target when the
+parameter-averaged kernel for every component law preserves it.  This is
+strictly weaker than requiring individual parameter sections to be invariant:
+the averaging inside each component may supply an essential cancellation. -/
+theorem independentParameterMixture_measureSum_invariant
+    {Index : Type*} [Countable Index]
+    (family : Kernel (State × Parameter) State) [IsMarkovKernel family]
+    (target : Measure State) [SFinite target]
+    (weight : Index → ENNReal)
+    (componentLaw : Index → Measure Parameter)
+    [componentSFinite : ∀ index, SFinite (componentLaw index)]
+    (hweight : ∑' index, weight index = 1)
+    (hcomponent : ∀ index,
+      (independentParameterMixture family (componentLaw index)).Invariant
+        target) :
+    (independentParameterMixture family
+      (Measure.sum fun index => weight index • componentLaw index)).Invariant
+        target := by
+  unfold Kernel.Invariant independentParameterMixture
+  rw [← Measure.comp_assoc, ← Measure.compProd_eq_comp_prod,
+    Measure.compProd_const]
+  ext s hs
+  rw [Measure.bind_apply hs family.aemeasurable]
+  rw [MeasureTheory.lintegral_prod_symm _
+    (Kernel.measurable_coe family hs).aemeasurable]
+  have hfixed (index : Index) :
+      ∫⁻ parameter, ∫⁻ state, family (state, parameter) s ∂target
+          ∂componentLaw index = target s := by
+    have h := congrArg (fun measure : Measure State => measure s)
+      (hcomponent index)
+    unfold Kernel.Invariant independentParameterMixture at h
+    rw [← Measure.comp_assoc, ← Measure.compProd_eq_comp_prod,
+      Measure.compProd_const, Measure.bind_apply hs family.aemeasurable,
+      MeasureTheory.lintegral_prod_symm _
+        (Kernel.measurable_coe family hs).aemeasurable] at h
+    exact h
+  rw [lintegral_sum_measure]
+  simp_rw [lintegral_smul_measure, smul_eq_mul, hfixed]
+  calc
+    ∑' index, weight index * target s =
+        (∑' index, weight index) * target s := ENNReal.tsum_mul_right
+    _ = target s := by rw [hweight, one_mul]
+
 end Mcmc.Kernel

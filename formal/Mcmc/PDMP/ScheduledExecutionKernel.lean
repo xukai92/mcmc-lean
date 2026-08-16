@@ -333,6 +333,30 @@ theorem ThinnedFlowSimulator.horizonKernel_invariant_of_ae_sections
     (poissonCandidateSchedule
       (simulator.clock.rate * horizon.duration) horizon) hsection
 
+/-- The natural count-conditional stationarity reduction. Unlike fixed
+schedule invariance, this permits the continuous averaging over ordered event
+times at a fixed Poisson count to supply the cancellation needed by genuine
+PDMPs. -/
+theorem ThinnedFlowSimulator.horizonKernel_invariant_of_count_mixtures
+    (simulator : ThinnedFlowSimulator State) (horizon : PositiveHorizon)
+    (target : Measure State) [SFinite target]
+    (hcount : ∀ count : ℕ,
+      (Mcmc.Kernel.independentParameterMixture
+        (simulator.executeScheduled horizon.duration)
+        (horizon.fixedScheduleMeasure (timestampOrdering count))).Invariant
+          target) :
+    (simulator.horizonKernel horizon).Invariant target := by
+  rw [simulator.horizonKernel_eq_independentParameterMixture horizon]
+  unfold poissonCandidateSchedule poissonCandidateScheduleMeasure
+  exact Mcmc.Kernel.independentParameterMixture_measureSum_invariant
+    (simulator.executeScheduled horizon.duration) target
+    (fun count : ℕ => poissonMeasure
+      (simulator.clock.rate * horizon.duration) {count})
+    (fun count : ℕ =>
+      horizon.fixedScheduleMeasure (timestampOrdering count))
+    (tsum_poisson_singletons
+      (simulator.clock.rate * horizon.duration)) hcount
+
 /-- It suffices to prove invariance of the executor selected by each schedule's
 stored count. -/
 theorem ThinnedFlowSimulator.horizonKernel_invariant_of_count_sections

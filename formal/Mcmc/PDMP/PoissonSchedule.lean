@@ -267,7 +267,8 @@ instance PositiveHorizon.fixedScheduleMeasure.instIsProbabilityMeasure
   exact Measure.isProbabilityMeasure_map
     (measurable_padCandidateWaits n).aemeasurable
 
-private theorem tsum_poisson_singletons (intensity : NNReal) :
+/-- The singleton masses of a Poisson law sum to one. -/
+theorem tsum_poisson_singletons (intensity : NNReal) :
     ∑' n : ℕ, poissonMeasure intensity {n} = 1 := by
   rw [← measure_iUnion]
   · rw [show (⋃ n : ℕ, ({n} : Set ℕ)) = Set.univ by ext; simp]
