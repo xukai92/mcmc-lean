@@ -511,8 +511,14 @@ by paper date:
    The unbounded-history adaptive semantics now includes an exact finite-freeze
    theorem: arbitrary history-dependent burn-in followed by a fixed kernel
    inherits its homogeneous powers, two-sided Doeblin bounds, and setwise
-   convergence. The remaining adaptation milestone is specifically the
-   Roberts--Rosenthal regime where adaptation continues indefinitely.
+   convergence. It now also has the general-state closure for indefinite
+   adaptation: a vanishing eventwise approximation of the actual
+   history-adaptive marginal by frozen-window proxies, together with vanishing
+   containment error for those proxies, implies setwise convergence. Unlike
+   the finite proof, this interface does not sum row error over a finite state
+   space. The remaining adaptation milestone is to construct that proxy
+   certificate from Diminishing Adaptation and Containment for concrete
+   general-state adaptation rules.
 
    The general-dimensional BPS generator and its velocity-integrated
    transport-minus-normal-flux identity are now checked, including the

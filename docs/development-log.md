@@ -1,5 +1,16 @@
 # Development log
 
+- Added the general-state convergence closure needed by indefinitely adapting
+  chains. `EventwiseWithin` expresses uniform measurable-event error without a
+  finite-state sum, is symmetric, and composes by an additive triangle
+  inequality. A `ProxyConvergenceCertificate` separates the two
+  Roberts--Rosenthal inputs: approximation of the actual adaptive marginal by
+  a frozen-window proxy and containment of that proxy near the target. Lean
+  proves that vanishing errors imply setwise convergence and binds the theorem
+  directly to `HistoryAdaptiveFamily.stateKernel`. This closes the final
+  measure-level limit argument; deriving the approximation certificate from a
+  concrete rule's Diminishing Adaptation remains algorithm-specific.
+
 - Added an end-to-end conservative dynamic-trajectory HMC client. Julia now
   refreshes Gaussian momentum, constructs the complete randomized-origin
   leapfrog orbit, computes the Lean-mirrored all-scales U-turn partition, and

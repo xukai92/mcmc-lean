@@ -21,6 +21,116 @@ open ProbabilityTheory
 variable {State Parameter : Type*}
   [MeasurableSpace State] [MeasurableSpace Parameter]
 
+/-! ### Eventwise approximation of general-state laws -/
+
+/-- Two finite measures are eventwise within `error` when each measurable-event
+mass is bounded by the other plus `error`.  This is the form of total-variation
+control needed by the Roberts--Rosenthal finite-window argument, without a
+finite-state sum or a choice of density. -/
+def EventwiseWithin (first second : Measure State) (error : ENNReal) : Prop :=
+  ∀ event, MeasurableSet event →
+    first event ≤ second event + error ∧
+      second event ≤ first event + error
+
+theorem eventwiseWithin_refl (law : Measure State) :
+    EventwiseWithin law law 0 := by
+  intro event _hevent
+  simp
+
+theorem EventwiseWithin.symm {first second : Measure State} {error : ENNReal}
+    (h : EventwiseWithin first second error) :
+    EventwiseWithin second first error := by
+  intro event hevent
+  exact (h event hevent).symm
+
+/-- Eventwise errors compose additively. This is the measure-level triangle
+step used to compare an adaptive window first with its frozen proxy and then
+with the target. -/
+theorem EventwiseWithin.trans {first second third : Measure State}
+    {firstError secondError : ENNReal}
+    (hfirst : EventwiseWithin first second firstError)
+    (hsecond : EventwiseWithin second third secondError) :
+    EventwiseWithin first third (firstError + secondError) := by
+  intro event hevent
+  constructor
+  · calc
+      first event ≤ second event + firstError := (hfirst event hevent).1
+      _ ≤ (third event + secondError) + firstError := by
+        gcongr
+        exact (hsecond event hevent).1
+      _ = third event + (firstError + secondError) := by
+        ac_rfl
+  · calc
+      third event ≤ second event + secondError := (hsecond event hevent).2
+      _ ≤ (first event + firstError) + secondError := by
+        gcongr
+        exact (hfirst event hevent).2
+      _ = first event + (firstError + secondError) := by
+        ac_rfl
+
+/-- A vanishing uniform eventwise error implies setwise convergence.  This is
+the general-state replacement for the final finite sum in the finite adaptive
+proof. -/
+theorem tendsto_apply_of_eventwiseWithin_tendsto_zero
+    (laws : ℕ → Measure State) (target : Measure State)
+    [IsFiniteMeasure target] (error : ℕ → ENNReal)
+    (herror : Filter.Tendsto error Filter.atTop (nhds 0))
+    (hwithin : ∀ n, EventwiseWithin (laws n) target (error n))
+    {event : Set State} (hevent : MeasurableSet event) :
+    Filter.Tendsto (fun n ↦ laws n event) Filter.atTop
+      (nhds (target event)) := by
+  have hlower : Filter.Tendsto (fun n ↦ target event - error n)
+      Filter.atTop (nhds (target event)) := by
+    have h := ENNReal.Tendsto.sub tendsto_const_nhds herror
+      (Or.inl (measure_ne_top target event))
+    simpa only [tsub_zero] using h
+  have hupper : Filter.Tendsto (fun n ↦ target event + error n)
+      Filter.atTop (nhds (target event)) := by
+    simpa only [add_zero] using tendsto_const_nhds.add herror
+  apply tendsto_of_tendsto_of_tendsto_of_le_of_le hlower hupper
+  · intro n
+    rw [tsub_le_iff_right]
+    exact (hwithin n event hevent).2
+  · intro n
+    exact (hwithin n event hevent).1
+
+/-- A proxy-law certificate packages the two quantitative inputs in an
+indefinite-adaptation proof: the actual marginal is close to a frozen-window
+proxy, and that proxy is close to the target.  Both errors must vanish along
+the selected sequence of windows. -/
+structure ProxyConvergenceCertificate (laws : ℕ → Measure State)
+    (target : Measure State) where
+  proxy : ℕ → Measure State
+  approximationError : ℕ → ENNReal
+  containmentError : ℕ → ENNReal
+  approximationError_tendsto :
+    Filter.Tendsto approximationError Filter.atTop (nhds 0)
+  containmentError_tendsto :
+    Filter.Tendsto containmentError Filter.atTop (nhds 0)
+  approximation : ∀ n,
+    EventwiseWithin (laws n) (proxy n) (approximationError n)
+  containment : ∀ n,
+    EventwiseWithin (proxy n) target (containmentError n)
+
+/-- Proxy convergence transfers to the actual laws by the eventwise triangle
+inequality.  Algorithm-specific Diminishing Adaptation must construct
+`approximation`; Containment must construct `containment`. -/
+theorem ProxyConvergenceCertificate.tendsto_apply
+    {laws : ℕ → Measure State} {target : Measure State}
+    [IsFiniteMeasure target]
+    (certificate : ProxyConvergenceCertificate laws target)
+    {event : Set State} (hevent : MeasurableSet event) :
+    Filter.Tendsto (fun n ↦ laws n event) Filter.atTop
+      (nhds (target event)) := by
+  refine tendsto_apply_of_eventwiseWithin_tendsto_zero laws target
+    (fun n ↦ certificate.approximationError n +
+      certificate.containmentError n) ?_ ?_ hevent
+  · simpa only [zero_add] using
+      certificate.approximationError_tendsto.add
+        certificate.containmentError_tendsto
+  · intro n
+    exact (certificate.approximation n).trans (certificate.containment n)
+
 /-- A Markov-kernel family together with a measurable parameter selection rule
 that may depend on the complete history through time `n`. -/
 structure HistoryAdaptiveFamily (State Parameter : Type*)
@@ -102,6 +212,35 @@ instance HistoryAdaptiveFamily.stateKernel.instIsMarkovKernel
     exact ProbabilityTheory.Kernel.IsMarkovKernel.map finitePath
       (measurable_terminalHistory n)
   infer_instance
+
+/-- The sequence of actual state marginals of a history-adaptive process
+started from a point.  This abbreviation prevents an adaptive convergence
+certificate from being stated accidentally for an unrelated proxy chain. -/
+noncomputable def HistoryAdaptiveFamily.stateLaws
+    (adaptive : HistoryAdaptiveFamily (State := State) (Parameter := Parameter))
+    (initial : State) : ℕ → Measure State :=
+  fun n ↦ adaptive.stateKernel n initial
+
+instance HistoryAdaptiveFamily.stateLaws.instIsProbabilityMeasure
+    (adaptive : HistoryAdaptiveFamily (State := State) (Parameter := Parameter))
+    (initial : State) (n : ℕ) :
+    IsProbabilityMeasure (adaptive.stateLaws initial n) := by
+  unfold HistoryAdaptiveFamily.stateLaws
+  infer_instance
+
+/-- A vanishing frozen-window approximation and containment certificate for
+the *actual* history-adaptive marginals implies setwise convergence from the
+specified initial state.  This is the general-state Roberts--Rosenthal closure
+step; constructing the certificate remains algorithm-specific. -/
+theorem HistoryAdaptiveFamily.stateKernel_apply_tendsto_of_proxyCertificate
+    (adaptive : HistoryAdaptiveFamily (State := State) (Parameter := Parameter))
+    (initial : State) (target : Measure State) [IsProbabilityMeasure target]
+    (certificate : ProxyConvergenceCertificate
+      (adaptive.stateLaws initial) target)
+    {event : Set State} (hevent : MeasurableSet event) :
+    Filter.Tendsto (fun n ↦ adaptive.stateKernel n initial event)
+      Filter.atTop (nhds (target event)) := by
+  exact certificate.tendsto_apply hevent
 
 @[simp] theorem HistoryAdaptiveFamily.stateKernel_zero
     (adaptive : HistoryAdaptiveFamily (State := State) (Parameter := Parameter)) :
