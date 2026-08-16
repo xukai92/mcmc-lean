@@ -1,5 +1,14 @@
 # Development log
 
+- Added a machine-checked one-dimensional unit-speed Gaussian BPS/Zig-Zag
+  bridge. The state embedding is injective; nonzero-normal BPS reflection is
+  velocity negation; and the canonical BPS rate and linear flow coincide with
+  the Zig-Zag rate and flow. This transfers the existing exact unbounded-rate
+  stopped horizon kernel, zero-time identity, and almost-sure nonexplosion
+  theorem to a concrete Gaussian BPS representation. Stationarity is reduced
+  to exactly the shared setwise forward equation and is not claimed without
+  it.
+
 - Lifted bounded-rate BPS from fixed schedules to an actual positive-horizon
   Markov transition. The kernel uses the checked Poisson candidate count,
   continuous ordered uniform candidate times, exact linear flow, and thinning.

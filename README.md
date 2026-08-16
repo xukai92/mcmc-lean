@@ -169,7 +169,12 @@ also constructs the exact positive-horizon Poisson/ordered-time thinning
 kernel and the practical refresh-then-bounce composition. The latter preserves
 a product target conditional on the still-explicit bounce-horizon spatial-flux
 proof. These are not yet unbounded-rate BPS stationarity, nonexplosion, or
-convergence theorems. Fixed finite event
+convergence theorems in general dimension. In one dimension at unit speed,
+Lean now proves that Gaussian BPS reflection, rate, and flow coincide with the
+Gaussian Zig-Zag representation. Consequently the exact unbounded-rate
+horizon kernel and almost-sure nonexplosion theorem transfer to this concrete
+BPS client; its stationarity remains conditional on the same explicit setwise
+forward equation. Fixed finite event
 schedules can now be executed as general-state Markov kernels by alternating
 the semiflow with jumps; schedule concatenation and conditional invariance are
 proved. Concrete one-dimensional Zig-Zag and finite-dimensional BPS clients

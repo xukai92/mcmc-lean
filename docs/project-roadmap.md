@@ -378,6 +378,11 @@ breadth branches are:
   refresh-then-bounce composition. Product invariance of that composition is
   reduced to the explicit bounce spatial-flux obligation. Removing the global
   bound for Gaussian BPS and proving that obligation and ergodicity remain
+  open in general dimension. For the one-dimensional unit-speed Gaussian
+  client, reflection, canonical rate, and flow are now proved identical to
+  the exact Gaussian Zig-Zag representation. Its unbounded-rate horizon kernel
+  and almost-sure nonexplosion therefore reuse the checked Zig-Zag path
+  construction. The shared setwise forward equation and convergence remain
   open.
   Separately, the unbounded-rate standard-Gaussian Zig-Zag now has a genuine
   event kernel based on the closed-form inverse integrated hazard. Its unit

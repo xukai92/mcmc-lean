@@ -136,6 +136,7 @@ import Mcmc.PDMP.ZigZag
 import Mcmc.PDMP.ZigZagProcess
 import Mcmc.PDMP.BouncyParticle
 import Mcmc.PDMP.BouncyParticleProcess
+import Mcmc.PDMP.GaussianBouncyParticle
 import Mcmc.Kernel.CoupledChain
 import Mcmc.Kernel.CoupledMetropolisHastings
 import Mcmc.Kernel.DensityCoupling
