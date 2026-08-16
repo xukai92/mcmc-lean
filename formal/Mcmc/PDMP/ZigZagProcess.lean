@@ -1249,19 +1249,25 @@ theorem gaussianZigZagHorizonKernel_invariant_of_targetWeakExpectationUniqueness
 
 /-- Regular-measure version of the minimal split stationarity theorem. It
 requires smooth-test scalar uniqueness, determination only among regular
-measures, and explicit regularity of the candidate and transported curves. -/
+measures, and derives regularity of candidate and transported probability laws
+from the Gaussian state-space topology. -/
 theorem gaussianZigZagHorizonKernel_invariant_of_targetWeakExpectationUniqueness_regular
     (scalar : GaussianZigZagTargetWeakExpectationUniqueness)
     (determining : GaussianZigZagSmoothTestRegularDetermining)
-    (hcurve : ∀ (curve : NNReal → Measure ZigZagState),
+    (horizon : NNReal) :
+    (gaussianZigZagHorizonKernel horizon).Invariant gaussianZigZagTarget := by
+  have hcurve : ∀ (curve : NNReal → Measure ZigZagState),
       CompactTestWeakForwardSolution GaussianZigZagSmoothTest.observe
         GaussianZigZagSmoothTest.generator gaussianZigZagTarget curve →
-      ∀ time, (curve time).Regular)
-    (htransport : ∀ time,
-      ((gaussianZigZagHorizonKernel time) ∘ₘ gaussianZigZagTarget).Regular)
-    (horizon : NNReal) :
-    (gaussianZigZagHorizonKernel horizon).Invariant gaussianZigZagTarget :=
-  gaussianZigZagHorizonKernel_invariant_of_targetWeakForwardUniqueness
+      ∀ time, (curve time).Regular := by
+    intro curve solution time
+    letI := solution.probability time
+    infer_instance
+  have htransport : ∀ time,
+      ((gaussianZigZagHorizonKernel time) ∘ₘ gaussianZigZagTarget).Regular := by
+    intro time
+    infer_instance
+  exact gaussianZigZagHorizonKernel_invariant_of_targetWeakForwardUniqueness
     (scalar.toTargetWeakForwardUniqueness_of_regular
       gaussianZigZagHorizonKernel GaussianZigZagSmoothTest.observe
       GaussianZigZagSmoothTest.generator gaussianZigZagTarget determining

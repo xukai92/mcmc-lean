@@ -202,16 +202,10 @@ the exact unit-speed Gaussian BPS/Zig-Zag identification. -/
 theorem gaussianUnitBouncyHorizonKernel_invariant_of_targetWeakExpectationUniqueness_regular
     (scalar : GaussianUnitBouncyTargetWeakExpectationUniqueness)
     (determining : GaussianZigZagSmoothTestRegularDetermining)
-    (hcurve : ∀ (curve : NNReal → Measure ZigZagState),
-      CompactTestWeakForwardSolution GaussianZigZagSmoothTest.observe
-        GaussianZigZagSmoothTest.generator gaussianZigZagTarget curve →
-      ∀ time, (curve time).Regular)
-    (htransport : ∀ time,
-      ((gaussianZigZagHorizonKernel time) ∘ₘ gaussianZigZagTarget).Regular)
     (horizon : NNReal) :
     (gaussianUnitBouncyHorizonKernel horizon).Invariant
       gaussianUnitBouncyTarget :=
   gaussianZigZagHorizonKernel_invariant_of_targetWeakExpectationUniqueness_regular
-    scalar determining hcurve htransport horizon
+    scalar determining horizon
 
 end Mcmc.PDMP

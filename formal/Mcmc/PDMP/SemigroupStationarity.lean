@@ -146,13 +146,15 @@ noncomputable def weakCurveExpectation
     (time : ℝ) : ℝ :=
   ∫ state, observe test state ∂curve (Real.toNNReal time)
 
-/-- A measure-valued curve solves the weak forward equation for `generator`
-on a chosen test domain when observable expectations differentiate to
-generator expectations. -/
+/-- A probability-measure-valued curve solves the weak forward equation for
+`generator` on a chosen test domain when observable expectations differentiate
+to generator expectations. Requiring probability marginals is essential for
+the process interpretation and later supplies finiteness/regularity facts. -/
 structure CompactTestWeakForwardSolution
     {Test : Type*} (observe generator : Test → State → ℝ)
     (initial : Measure State) (curve : NNReal → Measure State) : Prop where
   initial_eq : curve 0 = initial
+  probability : ∀ time, IsProbabilityMeasure (curve time)
   generator_integrable : ∀ test time,
     Integrable (generator test) (curve time)
   differentiable : ∀ test,
@@ -346,11 +348,12 @@ omit [TopologicalSpace State] [BorelSpace State]
 solution. This theorem performs no process-law uniqueness step. -/
 theorem compactTestWeakForwardSolution_const
     {Test : Type*} (observe generator : Test → State → ℝ)
-    (target : Measure State)
+    (target : Measure State) [IsProbabilityMeasure target]
     (hintegrable : ∀ test, Integrable (generator test) target)
     (hbalance : ∀ test, (∫ state, generator test state ∂target) = 0) :
     CompactTestWeakForwardSolution observe generator target (fun _ => target) where
   initial_eq := rfl
+  probability := fun _ => inferInstance
   generator_integrable := fun test _ => hintegrable test
   differentiable := by
     intro test
@@ -371,7 +374,7 @@ theorem invariant_of_compactTest_generatorBalance_and_weakUniqueness
     {Test : Type*}
     (transition : NNReal → Kernel State State)
     (observe generator : Test → State → ℝ)
-    (target : Measure State)
+    (target : Measure State) [IsProbabilityMeasure target]
     (uniqueness : CompactTestWeakForwardUniqueness transition observe generator)
     (hintegrable : ∀ test, Integrable (generator test) target)
     (hbalance : ∀ test, (∫ state, generator test state ∂target) = 0)
@@ -392,7 +395,7 @@ theorem invariant_of_compactTest_generatorBalance_and_targetWeakUniqueness
     {Test : Type*}
     (transition : NNReal → Kernel State State)
     (observe generator : Test → State → ℝ)
-    (target : Measure State)
+    (target : Measure State) [IsProbabilityMeasure target]
     (uniqueness : CompactTestTargetWeakForwardUniqueness
       transition observe generator target)
     (hintegrable : ∀ test, Integrable (generator test) target)

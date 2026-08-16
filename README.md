@@ -263,8 +263,10 @@ For the measure-determination half, the API now uses the mathematically
 minimal regular-measure notion: a general Riesz bridge automatically proves
 determination whenever the generator test family represents every compactly
 supported continuous function. Target-started Gaussian Zig-Zag and unit-speed
-BPS stationarity consumers use this weaker route with explicit regularity of
-candidate and transported curves. The smooth-core representation/density
+BPS stationarity consumers use this weaker route. Weak-forward solutions now
+carry their semantically required probability-law certificate at every time;
+on the Gaussian Polish state space this discharges regularity of both candidate
+and transported curves automatically. The smooth-core representation/density
 argument itself is not yet proved.
 The normalized Gaussian-position/equal-velocity target is now explicit and
 proved a probability measure, and the stopped horizon family is proved exactly
