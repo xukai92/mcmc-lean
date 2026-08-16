@@ -893,4 +893,111 @@ theorem iidParticleDeviationProbability_tendsto_zero
     norm_num
   · exact hupper
 
+section NormalizedWeightPerturbation
+
+/-- Deterministic perturbation bound for a self-normalized particle estimate.
+It separates numerator error from denominator error and makes the necessary
+positive lower bound on the computed normalizer explicit.  This is the
+nonlinear algebraic step needed when iterating the one-step particle MSE
+identity through a normalized Feynman--Kac update. -/
+theorem abs_normalized_ratio_sub_le
+    {numerator approximateNumerator denominator approximateDenominator
+      numeratorError denominatorError observableBound lower : ℝ}
+    (hdenominator : denominator ≠ 0)
+    (hlower : 0 < lower)
+    (happroxDenominator : lower ≤ approximateDenominator)
+    (hnumerator : |approximateNumerator - numerator| ≤ numeratorError)
+    (hdenominatorError : |approximateDenominator - denominator| ≤
+      denominatorError)
+    (hobservable : |numerator / denominator| ≤ observableBound)
+    (hnumeratorError : 0 ≤ numeratorError)
+    (hdenominatorErrorNonneg : 0 ≤ denominatorError)
+    (hobservableNonneg : 0 ≤ observableBound) :
+    |approximateNumerator / approximateDenominator -
+        numerator / denominator| ≤
+      numeratorError / lower +
+        observableBound * denominatorError / lower := by
+  have happroxPos : 0 < approximateDenominator :=
+    lt_of_lt_of_le hlower happroxDenominator
+  have happroxNe : approximateDenominator ≠ 0 := ne_of_gt happroxPos
+  have hsplit :
+      approximateNumerator / approximateDenominator -
+          numerator / denominator =
+        (approximateNumerator - numerator) / approximateDenominator +
+          (numerator / denominator) *
+            ((denominator - approximateDenominator) /
+              approximateDenominator) := by
+    field_simp
+    ring
+  have hfirst :
+      |(approximateNumerator - numerator) / approximateDenominator| ≤
+        numeratorError / lower := by
+    rw [abs_div, abs_of_pos happroxPos]
+    exact div_le_div₀ hnumeratorError hnumerator hlower happroxDenominator
+  have hnormalizer :
+      |(denominator - approximateDenominator) /
+          approximateDenominator| ≤ denominatorError / lower := by
+    rw [abs_div, abs_of_pos happroxPos, abs_sub_comm]
+    exact div_le_div₀ hdenominatorErrorNonneg hdenominatorError
+      hlower happroxDenominator
+  have hsecond :
+      |(numerator / denominator) *
+          ((denominator - approximateDenominator) /
+            approximateDenominator)| ≤
+        observableBound * denominatorError / lower := by
+    rw [abs_mul]
+    calc
+      |numerator / denominator| *
+          |(denominator - approximateDenominator) /
+            approximateDenominator| ≤
+        observableBound * (denominatorError / lower) :=
+          mul_le_mul hobservable hnormalizer (abs_nonneg _) hobservableNonneg
+      _ = observableBound * denominatorError / lower := by ring
+  rw [hsplit]
+  calc
+    |(approximateNumerator - numerator) / approximateDenominator +
+        (numerator / denominator) *
+          ((denominator - approximateDenominator) /
+            approximateDenominator)| ≤
+      |(approximateNumerator - numerator) / approximateDenominator| +
+        |(numerator / denominator) *
+          ((denominator - approximateDenominator) /
+            approximateDenominator)| := abs_add_le _ _
+    _ ≤ numeratorError / lower +
+        observableBound * denominatorError / lower := add_le_add hfirst hsecond
+
+end NormalizedWeightPerturbation
+
+section SequentialErrorRecursion
+
+/-- Iteration of a one-step affine particle-error estimate.  At every fixed
+horizon this retains an explicit inverse-particle-count noise term; obtaining
+uniform-in-time consistency additionally requires a strict contraction or a
+separate stability theorem. -/
+theorem sequential_error_le_geometric_sum
+    (error : ℕ → ℝ) {rate initialError noise : ℝ}
+    (hrate : 0 ≤ rate)
+    (hinitial : error 0 ≤ initialError)
+    (hstep : ∀ n, error (n + 1) ≤ rate * error n + noise) :
+    ∀ n, error n ≤
+      rate ^ n * initialError + noise * ∑ k ∈ Finset.range n, rate ^ k := by
+  intro n
+  induction n with
+  | zero => simpa using hinitial
+  | succ n ih =>
+      calc
+        error (n + 1) ≤ rate * error n + noise := hstep n
+        _ ≤ rate *
+              (rate ^ n * initialError +
+                noise * ∑ k ∈ Finset.range n, rate ^ k) + noise := by
+            gcongr
+        _ = rate ^ (n + 1) * initialError +
+              noise * ∑ k ∈ Finset.range (n + 1), rate ^ k := by
+            rw [Finset.sum_range_succ']
+            simp only [pow_zero, pow_succ']
+            rw [← Finset.mul_sum]
+            ring
+
+end SequentialErrorRecursion
+
 end Mcmc.Finite.ParticleEstimator

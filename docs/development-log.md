@@ -2004,3 +2004,15 @@ is deliberately runtime evidence rather than a platform certificate: error
 bounds for `tanh`, `sqrt`, reciprocal, and `log` remain explicit backend
 premises, and the position-dependent implicit solver remains the next
 separate refinement obligation.
+
+## 2026-08-16: normalized particle-error recursion
+
+Added the deterministic nonlinear bridge needed beyond the exact one-step
+resample--propagate variance identity.  Lean bounds perturbation of a
+self-normalized estimate by separate numerator and normalizer errors, with an
+explicit positive lower bound on the approximate normalizer.  It also proves
+the finite-horizon geometric-sum solution of an affine one-step error
+recurrence.  Together these isolate the assumptions needed to propagate
+`O(1/N)` error through finitely many normalized Feynman--Kac stages.  A
+uniform-in-time theorem still requires a strict stability estimate and is not
+inferred from these local bounds.
