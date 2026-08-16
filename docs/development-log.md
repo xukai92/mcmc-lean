@@ -16,9 +16,11 @@
   every time. At the generic SMC layer, terminal label propagation is now
   proved to be a left fold over the selected genealogy; instantiating this
   result identifies terminal path-match labels with running the automaton over
-  the selected trajectory suffix. The remaining local obligation is the
-  fixed-length vector/list calculation identifying that run at the final time
-  with the canonical terminal label.
+  the selected trajectory suffix. The fixed-length vector/list calculation is
+  also complete: the full suffix run is the canonical terminal label, and its
+  score is exactly the indicator that the selected genealogy equals the desired
+  `Trajectory steps`. This closes the representation bridge needed to feed the
+  labeled aggregate induction into the public particle-Gibbs trajectory kernel.
 
 - Closed the representation bridge needed by recursive PG bounds. Lean proves
   that coordinatewise maps commute with independent populations, identifies

@@ -116,6 +116,21 @@ theorem advancePathMatchList_eq_foldl (horizon : ℕ)
       rw [advancePathMatchList, List.foldl_cons, ih]
 
 omit [Fintype Sample] in
+/-- Consuming concatenated suffixes is sequential composition of their two
+list runs. -/
+theorem advancePathMatchList_append (horizon : ℕ)
+    (desired : Fin (horizon + 1) → Sample)
+    (label : PathMatchLabel horizon) (first second : List Sample) :
+    advancePathMatchList horizon desired label (first ++ second) =
+      advancePathMatchList horizon desired
+        (advancePathMatchList horizon desired label first) second := by
+  induction first generalizing label with
+  | nil => rfl
+  | cons state states ih =>
+      simp only [List.cons_append, advancePathMatchList]
+      exact ih (advancePathMatchLabel horizon desired label state)
+
+omit [Fintype Sample] in
 /-- As long as the supplied suffix fits before the horizon, consuming it
 increments the automaton time by exactly its length. -/
 theorem advancePathMatchList_time_val (horizon : ℕ)
@@ -283,6 +298,56 @@ def pathMatchRun (horizon : ℕ)
         (pathMatchRun horizon desired actual time (by omega))
         (actual ⟨time + 1, htime⟩)
 
+/-- States at times `1, ..., time` of a complete path. -/
+def pathMatchPrefix (horizon : ℕ)
+    (actual : Fin (horizon + 1) → Sample)
+    (time : ℕ) (htime : time < horizon + 1) : List Sample :=
+  List.ofFn fun i : Fin time => actual ⟨i.val + 1, by omega⟩
+
+omit [Fintype Sample] in
+/-- The numeric runner is the list runner over the corresponding positive-time
+prefix. -/
+theorem advancePathMatchPrefix_eq_run (horizon : ℕ)
+    (desired actual : Fin (horizon + 1) → Sample)
+    (time : ℕ) (htime : time < horizon + 1) :
+    advancePathMatchList horizon desired
+        (initialPathMatchLabel horizon desired
+          (actual ⟨0, Nat.zero_lt_succ horizon⟩))
+        (pathMatchPrefix horizon actual time htime) =
+      pathMatchRun horizon desired actual time htime := by
+  induction time with
+  | zero => rfl
+  | succ time ih =>
+      rw [pathMatchPrefix, List.ofFn_succ']
+      rw [List.concat_eq_append]
+      rw [advancePathMatchList_append]
+      simp only [Fin.val_castSucc]
+      have hprefix :
+          (List.ofFn fun i : Fin time => actual ⟨i.val + 1, by omega⟩) =
+            pathMatchPrefix horizon actual time (by omega) := rfl
+      rw [hprefix]
+      rw [ih (by omega)]
+      simp only [advancePathMatchList]
+      congr
+
+omit [Fintype Sample] [DecidableEq Sample] in
+/-- At the full horizon the positive-time prefix is the underlying vector's
+list tail. -/
+theorem pathMatchPrefix_get_eq_tail (horizon : ℕ)
+    (actual : List.Vector Sample (horizon + 1)) :
+    pathMatchPrefix horizon actual.get horizon (by omega) =
+      actual.toList.tail := by
+  unfold pathMatchPrefix
+  change (List.ofFn fun i : Fin horizon =>
+    actual.get ⟨i.val + 1, by omega⟩) = actual.val.tail
+  rw [← List.Vector.tail_val actual]
+  rw [← List.Vector.toList_ofFn]
+  congr 1
+  apply List.Vector.ext
+  intro i
+  rw [List.Vector.get_ofFn]
+  exact (List.Vector.get_tail actual i).symm
+
 omit [Fintype Sample] in
 /-- Initialization is the canonical path-match label at time zero. -/
 theorem initialPathMatchLabel_eq_canonical {horizon : ℕ}
@@ -313,6 +378,21 @@ theorem pathMatchRun_eq_canonical (horizon : ℕ)
       simpa using
         (advance_canonicalPathMatchLabel desired actual ⟨time, by omega⟩ htime)
 
+omit [Fintype Sample] in
+/-- Running the path automaton over all coordinates of a fixed-length vector
+produces its canonical terminal comparison label. -/
+theorem advancePathMatchList_vector_tail_eq_canonical (horizon : ℕ)
+    (desired : Fin (horizon + 1) → Sample)
+    (actual : List.Vector Sample (horizon + 1)) :
+    advancePathMatchList horizon desired
+        (initialPathMatchLabel horizon desired
+          (actual.get ⟨0, Nat.zero_lt_succ horizon⟩)) actual.toList.tail =
+      canonicalPathMatchLabel desired actual.get (Fin.last horizon) := by
+  rw [← pathMatchPrefix_get_eq_tail horizon actual]
+  rw [advancePathMatchPrefix_eq_run]
+  rw [pathMatchRun_eq_canonical]
+  congr
+
 /-- Genealogical propagation of the path automaton is exactly the list runner
 on the selected trajectory suffix. -/
 theorem terminalPathMatchLabels_eq_advanceSelectedTail
@@ -329,6 +409,37 @@ theorem terminalPathMatchLabels_eq_advanceSelectedTail
         (selectedTrajectory steps particles history terminal).tail := by
   rw [terminalLabels_eq_foldl_selectedTrajectory_tail]
   rw [advancePathMatchList_eq_foldl]
+
+/-- The terminal label carried by a selected SMC genealogy is its canonical
+complete-path comparison label. -/
+theorem terminalPathMatchLabels_eq_canonical
+    {Particle : Type*} (steps : List (FeynmanKacStep Sample))
+    (desired : Trajectory steps) (particles : Particle → Sample)
+    (history : Continuation Particle Sample steps) (terminal : Particle) :
+    terminalLabels
+        (advancePathMatchLabel steps.length desired.get)
+        steps
+        (fun i => initialPathMatchLabel steps.length
+          desired.get (particles i))
+        history terminal =
+      canonicalPathMatchLabel desired.get
+        (selectedTrajectoryVector steps ((particles, history), terminal)).get
+        (Fin.last steps.length) := by
+  rw [terminalPathMatchLabels_eq_advanceSelectedTail]
+  let actual := selectedTrajectoryVector steps ((particles, history), terminal)
+  have hhead := selectedTrajectory_head? steps particles history terminal
+  have hzero : actual.get ⟨0, Nat.zero_lt_succ steps.length⟩ =
+      particles (initialAncestor steps history terminal) := by
+    change actual.get 0 = _
+    rw [List.Vector.get_zero]
+    have hvector := List.Vector.head?_toList actual
+    change (selectedTrajectory steps particles history terminal).head? =
+      some actual.head at hvector
+    rw [hhead] at hvector
+    exact Option.some.inj hvector.symm
+  rw [← hzero]
+  exact advancePathMatchList_vector_tail_eq_canonical steps.length
+    desired.get actual
 
 /-- Coordinate-function view of a fixed-length trajectory. -/
 def trajectoryCoordinates (steps : List (FeynmanKacStep Sample))
@@ -371,6 +482,23 @@ theorem pathMatchScore_canonical_trajectory_last
       exact hcoordinates
         ((canonicalPathMatchLabel_last_matched_iff _ _).mp hm)
     simp [pathMatchScore, h, Bool.eq_false_of_not_eq_true hmatched]
+
+/-- Reading the propagated terminal path label is exactly the indicator that
+the selected genealogy equals the desired fixed-length trajectory. -/
+theorem pathMatchScore_terminalLabels
+    {Particle : Type*} (steps : List (FeynmanKacStep Sample))
+    (desired : Trajectory steps) (particles : Particle → Sample)
+    (history : Continuation Particle Sample steps) (terminal : Particle) :
+    pathMatchScore
+        (terminalLabels
+          (advancePathMatchLabel steps.length desired.get) steps
+          (fun i => initialPathMatchLabel steps.length desired.get (particles i))
+          history terminal) =
+      (if selectedTrajectoryVector steps ((particles, history), terminal) = desired
+        then 1 else 0) := by
+  rw [terminalPathMatchLabels_eq_canonical]
+  exact pathMatchScore_canonical_trajectory_last steps desired
+    (selectedTrajectoryVector steps ((particles, history), terminal))
 
 /-- A strictly positive real family over a nonempty finite type has one
 strictly positive uniform lower bound. The product-of-truncations construction
