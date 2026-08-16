@@ -1,5 +1,15 @@
 # Development log
 
+- Added the correctness interface needed beyond conservative checked dynamic
+  trees. A finite root-dependent sampler now consists of a state-dependent
+  complete trace law, conditional selection law, and endpoint-indexed
+  bijection on traces. Equality of each target-weighted forward trace and its
+  reverse proves detailed balance by exact finite reindexing, hence
+  stationarity. This is the supportable route for ordinary NUTS: candidate-row
+  equality is unnecessary, but all tree-construction probabilities must be
+  retained and reversed. Instantiating the certificate for the full standard
+  recursion remains a separate algorithmic proof.
+
 - Closed the stopped-bracket rerooting calculation for practical slice
   sampling. Valid integer allocations now have checked natural left/right
   budgets; Lean handles positive and negative Neal grid displacements
