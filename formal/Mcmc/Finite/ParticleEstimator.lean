@@ -325,6 +325,53 @@ theorem forcedIndependentPopulation_bind_doublyForced
     _ = forcedIndependentPopulation law retained retainedValue := rfl
 
 omit [Nonempty Particle] in
+/-- A two-coordinate-forced product has zero mass away from either prescribed
+coordinate value. -/
+theorem doublyForcedIndependentPopulation_incompatible_zero
+    (law : Particle → Distribution Sample)
+    (first : Particle) (firstValue : Sample)
+    (second : Particle) (secondValue : Sample) (hneq : first ≠ second)
+    (samples : Particle → Sample)
+    (hincompatible : samples first ≠ firstValue ∨
+      samples second ≠ secondValue) :
+    (doublyForcedIndependentPopulation law first firstValue second secondValue).mass
+        samples = 0 := by
+  unfold doublyForcedIndependentPopulation independentPopulation
+  rcases hincompatible with hfirst | hsecond
+  · apply Finset.prod_eq_zero (Finset.mem_univ first)
+    simp [pointDistribution, hfirst]
+  · apply Finset.prod_eq_zero (Finset.mem_univ second)
+    simp [pointDistribution, Ne.symm hneq, hsecond]
+
+omit [Nonempty Particle] in
+/-- Expectations under a two-coordinate-forced product may replace an
+observable by any expression agreeing on compatible populations. -/
+theorem doublyForcedIndependentPopulation_expectation_congr
+    (law : Particle → Distribution Sample)
+    (first : Particle) (firstValue : Sample)
+    (second : Particle) (secondValue : Sample) (hneq : first ≠ second)
+    (left right : (Particle → Sample) → ℝ)
+    (hagrees : ∀ samples, samples first = firstValue →
+      samples second = secondValue → left samples = right samples) :
+    (∑ samples,
+      (doublyForcedIndependentPopulation law first firstValue second secondValue).mass
+          samples * left samples) =
+      ∑ samples,
+        (doublyForcedIndependentPopulation law first firstValue second secondValue).mass
+          samples * right samples := by
+  apply Finset.sum_congr rfl
+  intro samples _
+  by_cases hfirst : samples first = firstValue
+  · by_cases hsecond : samples second = secondValue
+    · rw [hagrees samples hfirst hsecond]
+    · rw [doublyForcedIndependentPopulation_incompatible_zero
+        law first firstValue second secondValue hneq samples (Or.inr hsecond)]
+      simp
+  · rw [doublyForcedIndependentPopulation_incompatible_zero
+      law first firstValue second secondValue hneq samples (Or.inl hfirst)]
+    simp
+
+omit [Nonempty Particle] in
 theorem forcedIndependentPopulation_incompatible_zero
     (law : Particle → Distribution Sample) (retained : Particle) (value : Sample)
     (samples : Particle → Sample) (h : samples retained ≠ value) :
@@ -627,6 +674,31 @@ theorem sum_excluding_pair_constant (extra : ℕ) (hextra : 0 < extra)
       rw [Nat.cast_sub (Nat.one_le_iff_ne_zero.mpr (Nat.ne_of_gt hextra))]
       push_cast
       ring
+
+/-- Split a finite sum into two distinct named coordinates and the remaining
+coordinates. -/
+theorem sum_eq_pair_add_remainder {α : Type*} [Fintype α] [DecidableEq α]
+    (score : α → ℝ) (first second : α) (hneq : first ≠ second) :
+    (∑ i, score i) = score first + score second +
+      ∑ i, if i = first ∨ i = second then 0 else score i := by
+  calc
+    (∑ i, score i) = ∑ i,
+        ((if i = first then score first else 0) +
+          (if i = second then score second else 0) +
+          (if i = first ∨ i = second then 0 else score i)) := by
+      apply Finset.sum_congr rfl
+      intro i _
+      by_cases hfirst : i = first
+      · subst i
+        simp [hneq]
+      · by_cases hsecond : i = second
+        · subst i
+          simp [hfirst]
+        · simp [hfirst, hsecond]
+    _ = score first + score second +
+        ∑ i, if i = first ∨ i = second then 0 else score i := by
+      rw [Finset.sum_add_distrib, Finset.sum_add_distrib]
+      simp
 
 /-- Common-law specialization of the two-coordinate remainder identity for
 `extra + 1` particles. -/
@@ -1082,6 +1154,249 @@ theorem doublyForced_reciprocal_totalPotential_lower_bound
     (doublyForcedIndependentPopulation_remainder_expectation_fin
       law extra hextra retained selected hneq retainedValue selectedValue potential)
   simpa [div_eq_mul_inv, mul_assoc, mul_comm] using h
+
+/-- One ordinary coordinate's contribution to a forced cloud dominates its
+one-particle weighted expectation divided by the leave-one-out denominator. -/
+theorem forcedIndependentPopulation_selectedNormalizedScore_lower_bound
+    (potential : Sample → ℝ) (hpotential : ∀ x, 0 < potential x)
+    (bound : ℝ) (certificate : PotentialOscillationBound potential bound)
+    (law : Distribution Sample) (extra : ℕ) (hextra : 0 < extra)
+    (retained selected : Fin (extra + 1)) (hneq : retained ≠ selected)
+    (retainedValue : Sample) (score : Sample → ℝ)
+    (hscore : ∀ x, 0 ≤ score x) :
+    (1 / ((((extra - 1 : ℕ) : ℝ) + 2 * bound) *
+        (∑ x, law.mass x * potential x))) *
+      (∑ x, law.mass x * (potential x * score x)) ≤
+      ∑ particles,
+        (forcedIndependentPopulation (fun _ : Fin (extra + 1) => law)
+          retained retainedValue).mass particles *
+          (potential (particles selected) * score (particles selected) /
+            ∑ i, potential (particles i)) := by
+  let upper := (((extra - 1 : ℕ) : ℝ) + 2 * bound) *
+    (∑ x, law.mass x * potential x)
+  have hdisintegrate := forcedIndependentPopulation_bind_doublyForced
+    (fun _ : Fin (extra + 1) => law) retained selected hneq retainedValue
+  rw [← hdisintegrate, Distribution.bind_expectation]
+  rw [Finset.mul_sum]
+  apply Finset.sum_le_sum
+  intro selectedValue _
+  calc
+    1 / ((((extra - 1 : ℕ) : ℝ) + 2 * bound) *
+          (∑ x, law.mass x * potential x)) *
+        (law.mass selectedValue *
+          (potential selectedValue * score selectedValue)) =
+        law.mass selectedValue *
+          (1 / ((((extra - 1 : ℕ) : ℝ) + 2 * bound) *
+              (∑ x, law.mass x * potential x)) *
+            (potential selectedValue * score selectedValue)) := by ring
+    _ ≤ law.mass selectedValue *
+        ∑ particles,
+          (doublyForcedIndependentPopulation
+            (fun _ : Fin (extra + 1) => law)
+            retained retainedValue selected selectedValue).mass particles *
+            (potential (particles selected) * score (particles selected) /
+              ∑ i, potential (particles i)) := by
+      apply mul_le_mul_of_nonneg_left
+      · have hreciprocal := doublyForced_reciprocal_totalPotential_lower_bound
+          potential hpotential bound certificate law extra hextra retained selected
+          hneq retainedValue selectedValue
+        have hscaled := mul_le_mul_of_nonneg_left hreciprocal
+          (mul_nonneg (hpotential selectedValue).le (hscore selectedValue))
+        have heq :
+            (∑ particles,
+              (doublyForcedIndependentPopulation
+                (fun _ : Fin (extra + 1) => law)
+                retained retainedValue selected selectedValue).mass particles *
+                (potential (particles selected) * score (particles selected) /
+                  ∑ i, potential (particles i))) =
+              potential selectedValue * score selectedValue *
+                ∑ particles,
+                  (doublyForcedIndependentPopulation
+                    (fun _ : Fin (extra + 1) => law)
+                    retained retainedValue selected selectedValue).mass particles *
+                    (1 / (potential selectedValue + potential retainedValue +
+                      ∑ i : Fin (extra + 1),
+                        if i = retained ∨ i = selected then 0
+                        else potential (particles i))) := by
+          calc
+            (∑ particles,
+                (doublyForcedIndependentPopulation
+                  (fun _ : Fin (extra + 1) => law)
+                  retained retainedValue selected selectedValue).mass particles *
+                  (potential (particles selected) * score (particles selected) /
+                    ∑ i, potential (particles i))) =
+              ∑ particles,
+                (doublyForcedIndependentPopulation
+                  (fun _ : Fin (extra + 1) => law)
+                  retained retainedValue selected selectedValue).mass particles *
+                  (potential selectedValue * score selectedValue *
+                    (1 / (potential selectedValue + potential retainedValue +
+                      ∑ i : Fin (extra + 1),
+                        if i = retained ∨ i = selected then 0
+                        else potential (particles i)))) := by
+              apply doublyForcedIndependentPopulation_expectation_congr
+                (fun _ : Fin (extra + 1) => law)
+                retained retainedValue selected selectedValue hneq
+              intro particles hretained hselected
+              rw [sum_eq_pair_add_remainder
+                (fun i => potential (particles i)) selected retained (Ne.symm hneq)]
+              rw [hselected, hretained]
+              have hremainder :
+                  (∑ i : Fin (extra + 1),
+                    if i = selected ∨ i = retained then 0
+                    else potential (particles i)) =
+                  ∑ i : Fin (extra + 1),
+                    if i = retained ∨ i = selected then 0
+                    else potential (particles i) := by
+                apply Finset.sum_congr rfl
+                intro i _
+                by_cases hi : i = selected ∨ i = retained
+                · have hi' : i = retained ∨ i = selected := hi.elim Or.inr Or.inl
+                  simp [hi, hi']
+                · have hi' : ¬(i = retained ∨ i = selected) := by
+                    intro h
+                    exact hi (h.elim Or.inr Or.inl)
+                  simp [hi, hi']
+              rw [hremainder]
+              ring
+            _ = potential selectedValue * score selectedValue *
+                ∑ particles,
+                  (doublyForcedIndependentPopulation
+                    (fun _ : Fin (extra + 1) => law)
+                    retained retainedValue selected selectedValue).mass particles *
+                    (1 / (potential selectedValue + potential retainedValue +
+                      ∑ i : Fin (extra + 1),
+                        if i = retained ∨ i = selected then 0
+                        else potential (particles i))) := by
+              rw [Finset.mul_sum]
+              apply Finset.sum_congr rfl
+              intro particles _
+              ring
+        rw [heq]
+        simpa [upper, div_eq_mul_inv, mul_assoc, mul_comm, mul_left_comm] using hscaled
+      · exact law.nonneg selectedValue
+
+/-- Summing the selected-coordinate leave-one-out estimate over all ordinary
+particles gives the sharp self-normalized forced-cloud comparison. -/
+theorem forcedIndependentPopulation_unforcedNormalizedScore_lower_bound
+    (potential : Sample → ℝ) (hpotential : ∀ x, 0 < potential x)
+    (bound : ℝ) (certificate : PotentialOscillationBound potential bound)
+    (law : Distribution Sample) (extra : ℕ) (hextra : 0 < extra)
+    (retained : Fin (extra + 1)) (retainedValue : Sample)
+    (score : Sample → ℝ) (hscore : ∀ x, 0 ≤ score x) :
+    (extra : ℝ) *
+        (1 / (((((extra - 1 : ℕ) : ℝ) + 2 * bound) *
+          (∑ x, law.mass x * potential x))) *
+          (∑ x, law.mass x * (potential x * score x))) ≤
+      ∑ particles,
+        (forcedIndependentPopulation (fun _ : Fin (extra + 1) => law)
+          retained retainedValue).mass particles *
+          ((∑ i : Fin (extra + 1),
+              if i = retained then 0
+              else potential (particles i) * score (particles i)) /
+            ∑ i, potential (particles i)) := by
+  let contribution := fun selected : Fin (extra + 1) =>
+    ∑ particles,
+      (forcedIndependentPopulation (fun _ : Fin (extra + 1) => law)
+        retained retainedValue).mass particles *
+        (potential (particles selected) * score (particles selected) /
+          ∑ i, potential (particles i))
+  let lower := 1 / (((((extra - 1 : ℕ) : ℝ) + 2 * bound) *
+    (∑ x, law.mass x * potential x))) *
+    (∑ x, law.mass x * (potential x * score x))
+  calc
+    (extra : ℝ) * lower =
+        ∑ selected : Fin (extra + 1),
+          if selected = retained then 0 else lower := by
+      rw [sum_unforced_constant]
+      simp
+    _ ≤ ∑ selected : Fin (extra + 1),
+          if selected = retained then 0 else contribution selected := by
+      apply Finset.sum_le_sum
+      intro selected _
+      by_cases hselected : selected = retained
+      · simp [hselected]
+      · simp only [hselected, if_false]
+        exact forcedIndependentPopulation_selectedNormalizedScore_lower_bound
+          potential hpotential bound certificate law extra hextra retained selected
+          (Ne.symm hselected) retainedValue score hscore
+    _ = ∑ particles,
+        (forcedIndependentPopulation (fun _ : Fin (extra + 1) => law)
+          retained retainedValue).mass particles *
+          ((∑ i : Fin (extra + 1),
+              if i = retained then 0
+              else potential (particles i) * score (particles i)) /
+            ∑ i, potential (particles i)) := by
+      calc
+        (∑ selected : Fin (extra + 1),
+            if selected = retained then 0 else contribution selected) =
+          ∑ selected : Fin (extra + 1), ∑ particles,
+            (forcedIndependentPopulation (fun _ : Fin (extra + 1) => law)
+              retained retainedValue).mass particles *
+              (if selected = retained then 0 else
+                potential (particles selected) * score (particles selected) /
+                  ∑ i, potential (particles i)) := by
+            apply Finset.sum_congr rfl
+            intro selected _
+            by_cases hselected : selected = retained <;>
+              simp [hselected, contribution]
+        _ = ∑ particles, ∑ selected : Fin (extra + 1),
+            (forcedIndependentPopulation (fun _ : Fin (extra + 1) => law)
+              retained retainedValue).mass particles *
+              (if selected = retained then 0 else
+                potential (particles selected) * score (particles selected) /
+                  ∑ i, potential (particles i)) := by
+            rw [Finset.sum_comm]
+        _ = _ := by
+          apply Finset.sum_congr rfl
+          intro particles _
+          rw [← Finset.mul_sum]
+          congr 1
+          rw [Finset.sum_div]
+          apply Finset.sum_congr rfl
+          intro selected _
+          by_cases hselected : selected = retained <;> simp [hselected]
+
+/-- Ratio form of the aggregate ordinary-cloud comparison. Its coefficient is
+`extra / (extra - 1 + 2B)`, equivalently
+`extra / (extra + (2B - 1))`, which is the candidate PG stage factor. -/
+theorem forcedIndependentPopulation_normalizedTargetScore_lower_bound
+    (potential : Sample → ℝ) (hpotential : ∀ x, 0 < potential x)
+    (bound : ℝ) (certificate : PotentialOscillationBound potential bound)
+    (law : Distribution Sample) (extra : ℕ) (hextra : 0 < extra)
+    (retained : Fin (extra + 1)) (retainedValue : Sample)
+    (score : Sample → ℝ) (hscore : ∀ x, 0 ≤ score x) :
+    (extra : ℝ) / (((extra - 1 : ℕ) : ℝ) + 2 * bound) *
+        ((∑ x, law.mass x * (potential x * score x)) /
+          ∑ x, law.mass x * potential x) ≤
+      ∑ particles,
+        (forcedIndependentPopulation (fun _ : Fin (extra + 1) => law)
+          retained retainedValue).mass particles *
+          ((∑ i : Fin (extra + 1),
+              if i = retained then 0
+              else potential (particles i) * score (particles i)) /
+            ∑ i, potential (particles i)) := by
+  have hbase := forcedIndependentPopulation_unforcedNormalizedScore_lower_bound
+    potential hpotential bound certificate law extra hextra retained retainedValue
+    score hscore
+  have hfactor : 0 < (((extra - 1 : ℕ) : ℝ) + 2 * bound) := by
+    have : 0 ≤ (((extra - 1 : ℕ) : ℝ)) := Nat.cast_nonneg _
+    linarith [certificate.bound_pos]
+  have hexpectation : 0 < ∑ x, law.mass x * potential x := by
+    have hexists : ∃ x, 0 < law.mass x := by
+      by_contra h
+      push Not at h
+      have hzero : ∀ x, law.mass x = 0 := fun x =>
+        le_antisymm (h x) (law.nonneg x)
+      have : ∑ x, law.mass x = 0 := by simp [hzero]
+      linarith [law.sum_mass]
+    obtain ⟨x, hx⟩ := hexists
+    apply Finset.sum_pos'
+    · intro y _
+      exact mul_nonneg (law.nonneg y) (hpotential y).le
+    · exact ⟨x, Finset.mem_univ x, mul_pos hx (hpotential x)⟩
+  convert hbase using 1
+  field_simp
 
 /-- Total potential carried by all particles except one retained coordinate. -/
 noncomputable def unforcedPotentialSum (potential : Sample → ℝ)

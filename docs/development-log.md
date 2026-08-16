@@ -1,5 +1,15 @@
 # Development log
 
+- Completed the finite forced-cloud self-normalization theorem underlying the
+  candidate PG stage factor. After disintegrating at each ordinary coordinate,
+  Lean applies the two-coordinate reciprocal bound and sums all `N-1`
+  contributions. For every nonnegative score, the expected ordinary-particle
+  normalized score dominates the exact potential-tilted target score by
+  `extra / (extra - 1 + 2B)`, equivalently
+  `extra / (extra + (2B-1))`. This closes the previously missing nonlinear
+  leave-one-out estimate; the remaining work is to instantiate its score with
+  recursive path-label continuation values and compose the horizon induction.
+
 - Added the conditional product structure required to apply the PG
   leave-one-out bound. Lean now defines a two-coordinate-forced independent
   population, proves that sampling and then forcing one coordinate reconstructs
