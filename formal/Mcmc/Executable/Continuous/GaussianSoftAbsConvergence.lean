@@ -566,6 +566,51 @@ theorem exists_pos_gaussianSoftAbs_corridor_power_lower_bound
         (sections (i + 1)) (hsections (i + 1))
       exact hlocal i hi (y Unit.unit) hy
 
+/-- Closed interval of radius `r` around the `i`th corridor center. -/
+def gaussianSoftAbsCorridorSection
+    (centers : ℕ → ℝ) (r : ℝ) (i : ℕ) : Set ℝ :=
+  Set.Icc (centers i - r) (centers i + r)
+
+/-- Numeric center and radius conditions imply all measurable-corridor
+obligations. This is the real-arithmetic interface used to build an evenly
+spaced path from an arbitrary bounded starting coordinate to a common
+central interval. -/
+theorem exists_pos_gaussianSoftAbs_centeredInterval_corridor_lower_bound
+    (Q : ℝ) (hQ : 0 ≤ Q) (centers : ℕ → ℝ)
+    (r : ℝ) (n : ℕ)
+    (hcenterBand : ∀ i < n,
+      -Q + r ≤ centers i ∧ centers i ≤ Q - r)
+    (hcenterStep : ∀ i < n,
+      |centers (i + 1) - centers i| + 2 * r ≤
+        gaussianSoftAbsUnitScalarVelocity 1) :
+    ∃ floor : ENNReal, 0 < floor ∧
+      ∀ q : Position Unit,
+      q Unit.unit ∈ gaussianSoftAbsCorridorSection centers r 0 →
+      (floor * ENNReal.ofReal (2 * r)) ^ n ≤
+        (gaussianSoftAbsMultinomialTransition 1 1 ^ n) q
+          {y | y Unit.unit ∈
+            gaussianSoftAbsCorridorSection centers r n} := by
+  apply exists_pos_gaussianSoftAbs_corridor_power_lower_bound
+    Q hQ (gaussianSoftAbsCorridorSection centers r)
+    (fun _ => isClosed_Icc.measurableSet) (ENNReal.ofReal (2 * r)) n
+  · intro i hi y hy
+    exact ⟨by linarith [hy.1, (hcenterBand i hi).1],
+      by linarith [hy.2, (hcenterBand i hi).2]⟩
+  · intro i _hi
+    rw [gaussianSoftAbsCorridorSection, Real.volume_Icc]
+    apply ENNReal.ofReal_le_ofReal
+    ring_nf
+    exact le_rfl
+  · intro i hi y hy z hz
+    have hstep := hcenterStep i hi
+    constructor
+    · have habs : -(centers (i + 1) - centers i) ≤
+          |centers (i + 1) - centers i| := neg_le_abs _
+      linarith [hy.2, hz.1]
+    · have habs : centers (i + 1) - centers i ≤
+          |centers (i + 1) - centers i| := le_abs_self _
+      linarith [hy.1, hz.2]
+
 /-- Exponential coordinate Lyapunov weight used for the bare one-dimensional
 Gaussian SoftAbs drift argument. -/
 noncomputable def gaussianSoftAbsExpWeight (t x : ℝ) : ENNReal :=
