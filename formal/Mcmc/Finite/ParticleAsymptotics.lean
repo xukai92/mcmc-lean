@@ -319,6 +319,213 @@ theorem independentPopulation_particleAverage_mse
   rw [← Finset.sum_div,
     independentPopulation_centered_sum_sq_expectation law score]
 
+omit [DecidableEq Sample] [Nonempty Particle] in
+theorem independentPopulation_particleAverage_centered_expectation
+    (law : Particle → Distribution Sample) (score : Sample → ℝ) :
+    ∑ samples : Particle → Sample, (independentPopulation law).mass samples *
+      (particleAverage score samples - independentPopulationMean law score) = 0 := by
+  simp_rw [mul_sub]
+  rw [Finset.sum_sub_distrib]
+  rw [independentPopulation_particleAverage_expectation]
+  rw [← Finset.sum_mul]
+  simp [independentPopulationMean, finiteExpectation,
+    (independentPopulation law).sum_mass]
+
+omit [DecidableEq Sample] in
+/-- Bias--variance decomposition around an arbitrary scalar reference for a
+heterogeneous independent population. -/
+theorem independentPopulation_particleAverage_sq_expectation
+    (law : Particle → Distribution Sample) (score : Sample → ℝ)
+    (reference : ℝ) :
+    ∑ samples : Particle → Sample, (independentPopulation law).mass samples *
+        (particleAverage score samples - reference) ^ 2 =
+      (∑ i, finiteVariance (law i) score) /
+          (Fintype.card Particle : ℝ) ^ 2 +
+        (independentPopulationMean law score - reference) ^ 2 := by
+  have hcentered :=
+    independentPopulation_particleAverage_centered_expectation law score
+  have hmiddle :
+      (∑ samples : Particle → Sample,
+        (independentPopulation law).mass samples *
+          (2 * (particleAverage score samples -
+            independentPopulationMean law score) *
+              (independentPopulationMean law score - reference))) =
+        2 * (independentPopulationMean law score - reference) *
+          (∑ samples : Particle → Sample,
+            (independentPopulation law).mass samples *
+              (particleAverage score samples -
+                independentPopulationMean law score)) := by
+    rw [Finset.mul_sum]
+    apply Finset.sum_congr rfl
+    intro samples _
+    ring
+  have hconstant :
+      (∑ samples : Particle → Sample,
+        (independentPopulation law).mass samples *
+          (independentPopulationMean law score - reference) ^ 2) =
+        (independentPopulationMean law score - reference) ^ 2 := by
+    rw [← Finset.sum_mul, (independentPopulation law).sum_mass, one_mul]
+  calc
+    _ = ∑ samples : Particle → Sample,
+        (independentPopulation law).mass samples *
+          ((particleAverage score samples - independentPopulationMean law score) ^ 2 +
+            2 * (particleAverage score samples -
+              independentPopulationMean law score) *
+                (independentPopulationMean law score - reference) +
+            (independentPopulationMean law score - reference) ^ 2) := by
+      apply Finset.sum_congr rfl
+      intro samples _
+      congr 1
+      ring
+    _ = (∑ samples : Particle → Sample,
+          (independentPopulation law).mass samples *
+            (particleAverage score samples -
+              independentPopulationMean law score) ^ 2) +
+        2 * (independentPopulationMean law score - reference) *
+          (∑ samples : Particle → Sample,
+            (independentPopulation law).mass samples *
+              (particleAverage score samples -
+                independentPopulationMean law score)) +
+        (independentPopulationMean law score - reference) ^ 2 := by
+      simp_rw [mul_add]
+      rw [Finset.sum_add_distrib, Finset.sum_add_distrib,
+        hmiddle, hconstant]
+    _ = _ := by
+      rw [independentPopulation_particleAverage_mse, hcentered]
+      simp
+
+omit [DecidableEq Sample] in
+/-- Exact one-step resample--propagate MSE. The two `1/N` terms are the
+average conditional propagation variance and the multinomial-ancestry
+variance of the propagated conditional mean. -/
+theorem resamplePropagate_particleAverage_mse
+    (weights : Distribution Particle) (particles : Particle → Sample)
+    (transition : MarkovKernel Sample) (score : Sample → ℝ) :
+    let transitionMean : Particle → ℝ := fun i =>
+      finiteExpectation (rowDistribution transition (particles i)) score
+    let transitionVariance : Particle → ℝ := fun i =>
+      finiteVariance (rowDistribution transition (particles i)) score
+    ∑ ancestors : Particle → Particle,
+        (multinomialResampling weights).mass ancestors *
+          (∑ next : Particle → Sample,
+            (propagatedPopulation transition particles ancestors).mass next *
+              (particleAverage score next -
+                finiteExpectation weights transitionMean) ^ 2) =
+      (finiteExpectation weights transitionVariance +
+        finiteVariance weights transitionMean) / Fintype.card Particle := by
+  dsimp only
+  let transitionMean : Particle → ℝ := fun i =>
+    finiteExpectation (rowDistribution transition (particles i)) score
+  let transitionVariance : Particle → ℝ := fun i =>
+    finiteVariance (rowDistribution transition (particles i)) score
+  have hcard : (Fintype.card Particle : ℝ) ≠ 0 := by
+    exact_mod_cast Fintype.card_ne_zero
+  have hconditional (ancestors : Particle → Particle) :
+      (∑ next : Particle → Sample,
+        (propagatedPopulation transition particles ancestors).mass next *
+          (particleAverage score next -
+            finiteExpectation weights transitionMean) ^ 2) =
+        (∑ j, transitionVariance (ancestors j)) /
+            (Fintype.card Particle : ℝ) ^ 2 +
+          (particleAverage transitionMean ancestors -
+            finiteExpectation weights transitionMean) ^ 2 := by
+    simpa [propagatedPopulation, independentPopulationMean,
+      particleAverage, transitionMean, transitionVariance] using
+      independentPopulation_particleAverage_sq_expectation
+        (fun j => rowDistribution transition (particles (ancestors j)))
+        score (finiteExpectation weights transitionMean)
+  have hvarianceTerm :
+      (∑ ancestors : Particle → Particle,
+        (multinomialResampling weights).mass ancestors *
+          ((∑ j, transitionVariance (ancestors j)) /
+            (Fintype.card Particle : ℝ) ^ 2)) =
+        finiteExpectation weights transitionVariance /
+          Fintype.card Particle := by
+    have hrearrange (ancestors : Particle → Particle) :
+        (∑ j, transitionVariance (ancestors j)) /
+            (Fintype.card Particle : ℝ) ^ 2 =
+          particleAverage transitionVariance ancestors /
+            Fintype.card Particle := by
+      unfold particleAverage
+      field_simp
+    simp_rw [hrearrange, ← mul_div_assoc]
+    rw [← Finset.sum_div, multinomialResampling,
+      iidPopulation_particleAverage_expectation weights transitionVariance]
+    rfl
+  have hmeanTerm :
+      (∑ ancestors : Particle → Particle,
+        (multinomialResampling weights).mass ancestors *
+          (particleAverage transitionMean ancestors -
+            finiteExpectation weights transitionMean) ^ 2) =
+        finiteVariance weights transitionMean / Fintype.card Particle := by
+    have hmean : independentPopulationMean
+        (fun _ : Particle => weights) transitionMean =
+        finiteExpectation weights transitionMean := by
+      unfold independentPopulationMean
+      simp only [Finset.sum_const, Finset.card_univ, nsmul_eq_mul]
+      field_simp
+    have hmse := independentPopulation_particleAverage_mse
+      (fun _ : Particle => weights) transitionMean
+    rw [hmean] at hmse
+    change (∑ ancestors : Particle → Particle,
+      (independentPopulation (fun _ : Particle => weights)).mass ancestors *
+        (particleAverage transitionMean ancestors -
+          finiteExpectation weights transitionMean) ^ 2) = _
+    rw [hmse]
+    simp only [Finset.sum_const, Finset.card_univ, nsmul_eq_mul]
+    field_simp
+  change (∑ ancestors : Particle → Particle,
+      (multinomialResampling weights).mass ancestors *
+        (∑ next : Particle → Sample,
+          (propagatedPopulation transition particles ancestors).mass next *
+            (particleAverage score next -
+              finiteExpectation weights transitionMean) ^ 2)) =
+    (finiteExpectation weights transitionVariance +
+      finiteVariance weights transitionMean) / Fintype.card Particle
+  simp_rw [hconditional, mul_add]
+  rw [Finset.sum_add_distrib, hvarianceTerm, hmeanTerm]
+  ring
+
+omit [DecidableEq Sample] in
+/-- A directly checkable one-step `O(1/N)` bound for bootstrap
+resample--propagate. -/
+theorem resamplePropagate_particleAverage_mse_le
+    (weights : Distribution Particle) (particles : Particle → Sample)
+    (transition : MarkovKernel Sample) (score : Sample → ℝ)
+    {propagationVariance ancestryVariance : ℝ}
+    (hpropagation : ∀ i,
+      finiteVariance (rowDistribution transition (particles i)) score ≤
+        propagationVariance)
+    (hancestry : finiteVariance weights (fun i =>
+      finiteExpectation (rowDistribution transition (particles i)) score) ≤
+        ancestryVariance) :
+    let transitionMean : Particle → ℝ := fun i =>
+      finiteExpectation (rowDistribution transition (particles i)) score
+    ∑ ancestors : Particle → Particle,
+        (multinomialResampling weights).mass ancestors *
+          (∑ next : Particle → Sample,
+            (propagatedPopulation transition particles ancestors).mass next *
+              (particleAverage score next -
+                finiteExpectation weights transitionMean) ^ 2) ≤
+      (propagationVariance + ancestryVariance) / Fintype.card Particle := by
+  dsimp only
+  rw [resamplePropagate_particleAverage_mse]
+  have hpropagationMean :
+      finiteExpectation weights (fun i =>
+        finiteVariance (rowDistribution transition (particles i)) score) ≤
+          propagationVariance := by
+    unfold finiteExpectation
+    calc
+      _ ≤ ∑ i, weights.mass i * propagationVariance := by
+        apply Finset.sum_le_sum
+        intro i _
+        exact mul_le_mul_of_nonneg_left (hpropagation i) (weights.nonneg i)
+      _ = propagationVariance := by
+        rw [← Finset.sum_mul, weights.sum_mass, one_mul]
+  exact div_le_div_of_nonneg_right
+    (add_le_add hpropagationMean hancestry)
+    (by positivity)
+
 omit [DecidableEq Sample] in
 /-- A common coordinate-variance bound gives the usual conditional `V/N`
 MSE bound even when the independently propagated particles are heterogeneous. -/

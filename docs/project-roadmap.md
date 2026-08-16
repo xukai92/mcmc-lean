@@ -206,8 +206,11 @@ the heterogeneous conditional identity `sum coordinate variances / N²` for
 independently propagated populations. Uniformly variance-bounded triangular
 arrays additionally have `V/N` MSE and converge in probability around their
 count-specific means. This supplies the local variance term for sequential
-SMC; the full recurrence must still compose it with random multinomial-
-resampling weights and previous-stage empirical error.
+SMC. A complete bootstrap resample--propagate step now has the exact sum of
+propagation-variance and ancestry-mean-variance terms divided by `N`, including
+a uniform-bound corollary. The remaining full-horizon recurrence must control
+the nonlinear normalized-weight map and propagate previous-stage empirical
+error.
 
 General-state composable inference is also complete at the common-target
 stationarity layer. `Mcmc.Kernel.ComposableInference` supplies scoped

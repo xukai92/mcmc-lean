@@ -1913,6 +1913,17 @@ term for a sequential resample--propagate recurrence. It is not yet the
 completed normalized particle-filter consistency theorem, because random
 resampling weights and previous-stage empirical error must still be composed.
 
+The random multinomial-resampling layer is now composed for one complete
+bootstrap step. Lean proves the exact conditional bias--variance identity
+
+`MSE(next average) = (mean propagation variance + ancestry-mean variance) / N`
+
+for resampling followed by heterogeneous Markov propagation, and derives a
+client-facing bound from separate uniform propagation and ancestry variance
+bounds. Thus random resampling weights are no longer missing from the local
+recurrence; iteration across horizons and control of the nonlinear normalized
+weight map remain the sequential consistency obligations.
+
 Julia exposes the matching guarded Float64 evaluator, including the removable
 zero-Hessian branch, and tests its algebraic outputs and invalid domains. This
 is deliberately runtime evidence rather than a platform certificate: error
