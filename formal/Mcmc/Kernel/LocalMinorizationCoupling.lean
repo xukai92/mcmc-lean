@@ -105,6 +105,68 @@ theorem bound_pow_le_apply_of_measurable_corridor
               ∂((transition ^ n) x) :=
           setLIntegral_le_lintegral (sets n) _
 
+/-- Allowance accumulated by iterating `Pv ≤ rate · v + allowance`. -/
+noncomputable def affineDriftAccumulatedAllowance
+    (rate allowance : ENNReal) : ℕ → ENNReal
+  | 0 => 0
+  | n + 1 => affineDriftAccumulatedAllowance rate allowance n +
+      rate ^ n * allowance
+
+theorem affineDriftAccumulatedAllowance_ne_top
+    {rate allowance : ENNReal} (hrate : rate ≠ ∞)
+    (hallowance : allowance ≠ ∞) :
+    ∀ n, affineDriftAccumulatedAllowance rate allowance n ≠ ∞ := by
+  intro n
+  induction n with
+  | zero => simp [affineDriftAccumulatedAllowance]
+  | succ n ih =>
+      rw [affineDriftAccumulatedAllowance]
+      exact ENNReal.add_ne_top.2
+        ⟨ih, ENNReal.mul_ne_top (ENNReal.pow_ne_top hrate) hallowance⟩
+
+/-- An affine one-chain drift certificate lifts to every kernel power with
+the expected powered rate and accumulated allowance. -/
+theorem HasAffineDrift.pow
+    (transition : Kernel α α) [IsMarkovKernel transition]
+    {v : α → ENNReal} {rate allowance : ENNReal}
+    (hdrift : HasAffineDrift transition v rate allowance) (n : ℕ) :
+    HasAffineDrift (transition ^ n) v (rate ^ n)
+      (affineDriftAccumulatedAllowance rate allowance n) := by
+  refine ⟨hdrift.1, ?_⟩
+  induction n with
+  | zero =>
+      intro x
+      simp only [pow_zero, affineDriftAccumulatedAllowance]
+      have hone : (1 : Kernel α α) = Kernel.id := rfl
+      rw [hone, Kernel.id_apply, lintegral_dirac' x hdrift.1]
+      simp
+  | succ n ih =>
+      intro x
+      rw [pow_succ]
+      change (∫⁻ z, v z ∂((transition ^ n) ∘ₖ transition) x) ≤ _
+      rw [Kernel.lintegral_comp _ _ _ hdrift.1]
+      calc
+        (∫⁻ y, ∫⁻ z, v z ∂(transition ^ n) y ∂transition x) ≤
+            ∫⁻ y, rate ^ n * v y +
+              affineDriftAccumulatedAllowance rate allowance n
+              ∂transition x := by
+          exact lintegral_mono ih
+        _ = rate ^ n * (∫⁻ y, v y ∂transition x) +
+            affineDriftAccumulatedAllowance rate allowance n := by
+          have hscaled : Measurable (fun y => rate ^ n * v y) :=
+            measurable_const.mul hdrift.1
+          rw [lintegral_add_left hscaled,
+            lintegral_const_mul _ hdrift.1, lintegral_const,
+            measure_univ, mul_one]
+        _ ≤ rate ^ n * (rate * v x + allowance) +
+            affineDriftAccumulatedAllowance rate allowance n := by
+          gcongr
+          exact hdrift.2 x
+        _ = rate ^ (n + 1) * v x +
+            affineDriftAccumulatedAllowance rate allowance (n + 1) := by
+          simp only [affineDriftAccumulatedAllowance, pow_succ]
+          ring
+
 /-- Normalize a finite positive restriction of a measure. -/
 noncomputable def normalizedRestriction
     (μ : Measure α) (A : Set α) : Measure α :=

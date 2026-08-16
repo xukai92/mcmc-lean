@@ -2233,6 +2233,43 @@ theorem exists_gaussianSoftAbs_hasAffineDrift
       _ ≤ rate * gaussianSoftAbsExpLyapunov t q + allowance :=
         le_add_left le_rfl
 
+/-- On every bounded band, one and the same positive SoftAbs skeleton has
+both a strict affine drift certificate and the normalized central
+minorization proved above. -/
+theorem exists_gaussianSoftAbs_power_drift_and_minorization
+    (t : ℝ) (ht : 0 < t) (Q : ℝ) (hQ : 0 ≤ Q) :
+    ∃ steps : ℕ, 0 < steps ∧ ∃ rate allowance ε : ENNReal,
+      rate < 1 ∧ rate ≠ ∞ ∧ allowance ≠ ∞ ∧ 0 < ε ∧
+      Mcmc.Kernel.HasAffineDrift
+        (gaussianSoftAbsMultinomialTransition 1 1 ^ steps)
+        (gaussianSoftAbsExpLyapunov t) rate allowance ∧
+      Mcmc.Kernel.LocallyMinorizes
+        (gaussianSoftAbsMultinomialTransition 1 1 ^ steps)
+        {q : Position Unit | q Unit.unit ∈ Set.Icc (-Q) Q} ε
+        (Mcmc.Kernel.normalizedRestriction
+          gaussianSoftAbsUnitPositionLebesgue
+          gaussianSoftAbsCentralPositionSet) := by
+  obtain ⟨baseRate, baseAllowance, hbaseRate, hbaseRateTop,
+    hbaseAllowanceTop, hbaseDrift⟩ :=
+    exists_gaussianSoftAbs_hasAffineDrift t ht
+  obtain ⟨steps, hsteps, ε, hεPos, hminor⟩ :=
+    exists_gaussianSoftAbs_power_locallyMinorizes_on_box Q hQ
+  let rate := baseRate ^ steps
+  let allowance := Mcmc.Kernel.affineDriftAccumulatedAllowance
+    baseRate baseAllowance steps
+  have hrate : rate < 1 := by
+    exact pow_lt_one₀ (bot_le : (0 : ENNReal) ≤ baseRate) hbaseRate
+      (Nat.ne_of_gt hsteps)
+  have hrateTop : rate ≠ ∞ :=
+    ENNReal.pow_ne_top hbaseRateTop
+  have hallowanceTop : allowance ≠ ∞ :=
+    Mcmc.Kernel.affineDriftAccumulatedAllowance_ne_top
+      hbaseRateTop hbaseAllowanceTop steps
+  refine ⟨steps, hsteps, rate, allowance, ε, hrate, hrateTop,
+    hallowanceTop, hεPos, ?_, hminor⟩
+  exact Mcmc.Kernel.HasAffineDrift.pow
+    (gaussianSoftAbsMultinomialTransition 1 1) hbaseDrift steps
+
 /-- A positive exponential scale admits one fixed strict drift rate beyond a
 finite positive-tail threshold. -/
 theorem exists_gaussianSoftAbs_positiveTail_strict_drift
