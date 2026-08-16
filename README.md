@@ -182,7 +182,12 @@ transition is now constructed by a measurable first-crossing search over
 cumulative event times, followed by exact residual flow. Lean proves the
 totalized endpoint jointly measurable, its fallback unused almost surely, and
 the resulting general-state kernel Markov. Stationarity, the semigroup law,
-and convergence remain open.
+and convergence remain open. The stationarity boundary is now formal rather
+than prose: a reusable forward-equation theorem proves invariance of every
+finite-time kernel when all measurable-set transported masses are
+differentiable on nonnegative time with zero derivative. The Gaussian
+Zig-Zag family is connected to this theorem, leaving the setwise forward
+equation—not process construction or nonexplosion—as its exact analytic input.
 An additional constant-rate telegraph client gives a nontrivial flow-driven
 stationarity instance. Lean proves that every linear flow and rate-matched
 velocity flip preserves equal velocity mass times Lebesgue position, lifts

@@ -384,6 +384,11 @@ breadth branches are:
   hazard, so every subsequent wait is at least `sqrt(2E)`; under the constructed
   infinite i.i.d. hazard product law, second Borel--Cantelli proves that this
   lower-bound series and hence cumulative event time diverge almost surely.
+  A new setwise forward-equation bridge turns zero time derivative of every
+  measurable-event transported mass into invariance of the whole Markov
+  family. The Gaussian horizon kernel has the concrete consumer theorem; its
+  remaining stationarity task is to derive that differential certificate from
+  the checked Gaussian generator identity and the constructed path law.
 
 Sequence-parallel evaluation is an execution-refinement project downstream of
 exact seeded trace semantics. Full solver convergence may refine a sequential

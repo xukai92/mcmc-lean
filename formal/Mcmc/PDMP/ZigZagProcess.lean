@@ -1,4 +1,5 @@
 import Mcmc.PDMP.EventSimulation
+import Mcmc.PDMP.SemigroupStationarity
 import Mcmc.PDMP.ZigZag
 import Mathlib.Probability.BorelCantelli
 import Mathlib.Probability.Independence.InfinitePi
@@ -20,6 +21,28 @@ namespace Mcmc.PDMP
 
 /-- Position and two-valued velocity for the one-dimensional Zig-Zag process. -/
 abbrev ZigZagState := ℝ × Bool
+
+/-- Equal probability on the two Zig-Zag velocities. -/
+noncomputable def zigZagVelocityProbability : Measure Bool :=
+  (2 : ENNReal)⁻¹ • Measure.dirac false +
+    (2 : ENNReal)⁻¹ • Measure.dirac true
+
+instance zigZagVelocityProbability.instIsProbabilityMeasure :
+    IsProbabilityMeasure zigZagVelocityProbability := by
+  constructor
+  simp only [zigZagVelocityProbability, Measure.add_apply,
+    Measure.smul_apply, measure_univ, smul_eq_mul, mul_one]
+  exact ENNReal.inv_two_add_inv_two
+
+/-- Normalized position--velocity target of the standard-Gaussian Zig-Zag
+process. -/
+noncomputable def gaussianZigZagTarget : Measure ZigZagState :=
+  (gaussianReal 0 1).prod zigZagVelocityProbability
+
+instance gaussianZigZagTarget.instIsProbabilityMeasure :
+    IsProbabilityMeasure gaussianZigZagTarget := by
+  unfold gaussianZigZagTarget
+  infer_instance
 
 /-- Exact linear Zig-Zag motion between velocity-switching events. -/
 def zigZagFlow (t : NNReal) (state : ZigZagState) : ZigZagState :=
@@ -904,6 +927,17 @@ instance gaussianZigZagHorizonKernel.instIsMarkovKernel
   unfold gaussianZigZagHorizonKernel
   apply Kernel.IsMarkovKernel.map
   exact measurable_gaussianZigZagHorizonEndpoint_joint horizon
+
+/-- The exact Gaussian Zig-Zag horizon family is stationary once its
+constructed path law is shown to solve the setwise forward equation. This is
+the precise analytic consumer of generator cancellation; infinitesimal balance
+alone is not silently upgraded to stationarity. -/
+theorem gaussianZigZagHorizonKernel_invariant_of_forwardCertificate
+    (certificate : SetwiseForwardStationarityCertificate
+      gaussianZigZagHorizonKernel gaussianZigZagTarget)
+    (horizon : NNReal) :
+    (gaussianZigZagHorizonKernel horizon).Invariant gaussianZigZagTarget :=
+  certificate.invariant gaussianZigZagHorizonKernel gaussianZigZagTarget horizon
 
 /-- Under the event kernel's actual exponential-hazard law, inverse-clock
 execution satisfies the integrated-hazard equation almost surely. -/

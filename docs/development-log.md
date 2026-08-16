@@ -25,6 +25,13 @@
   jointly measurable in initial state and hazard stream and the induced
   fixed-horizon kernel Markov. Stationarity, semigroup consistency, and
   convergence are not inferred from construction alone.
+  Added the missing analytic bridge explicitly: if every measurable-set mass
+  transported by a Markov family is differentiable on nonnegative time with
+  zero derivative, Lean proves it constant and hence proves target invariance
+  at every time. The exact Gaussian Zig-Zag horizon family is wired to this
+  theorem. Its remaining stationarity obligation is now precisely the setwise
+  forward equation linking the constructed path law to the existing generator
+  cancellation—not an implicit appeal to generator balance alone.
 
 - Proved a fixed-padded-schedule correspondence for the bounded PDMP executor:
   augmented execution retains the supplied schedule and its state marginal is
