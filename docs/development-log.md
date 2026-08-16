@@ -1,5 +1,14 @@
 # Development log
 
+- Began the regenerative event-epoch layer for the signed Gaussian process.
+  Lean now has the actual embedded signed event kernel and proves it Markov.
+  Every row is exactly the pushforward of one fresh exponential hazard; from
+  any negative event-start position the row forgets that position completely,
+  resets to `-sqrt(2E)`, and flips velocity. This isolates the next calculation:
+  invariance of the negative-Rayleigh/uniform event-epoch law, followed by its
+  normalized cycle-occupation identity with the Gaussian/equal-velocity
+  target.
+
 - Completed the canonical signed Gaussian event-clock law needed by the
   renewal proof. For every positive exponential draw, Lean proves that the
   horizon precedes the inverse-clock event exactly when accumulated hazard is

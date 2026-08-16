@@ -573,7 +573,11 @@ by paper date:
   the negative-square-root reset afterward. The signed inverse clock is now
   proved order-equivalent to its accumulated hazard, its exact no-event
   survival probability is checked, and that hazard is the change in the
-  positive-half quadratic potential along translation. Splitting a horizon
+  positive-half quadratic potential along translation. The embedded signed
+  event kernel is now constructed and Markov; from a negative event-start
+  state it forgets the old position, resets to `-sqrt(2E)`, and flips velocity.
+  Its negative-Rayleigh event-epoch invariance and Gaussian cycle-occupation
+  identity are the next regenerative obligations. Splitting a horizon
   between events is still correctly treated as a law-level argument rather
   than a pointwise semigroup identity;
 2. bare Gaussian SoftAbs GR-HMC convergence -- complete for the concrete

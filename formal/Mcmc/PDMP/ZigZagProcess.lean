@@ -2433,6 +2433,67 @@ theorem gaussianZigZagSignedEventUpdate_eq
     zigZagSignedPosition_signedCoordinate]
   rfl
 
+/-- At every genuine event epoch the signed position is negative, so the next
+event reset depends only on the fresh hazard draw and flips velocity. -/
+theorem gaussianZigZagSignedEventUpdate_eq_of_neg
+    (initial : ZigZagState) (hazard : NNReal) (hinitial : initial.1 < 0) :
+    gaussianZigZagSignedEventUpdate initial hazard =
+      (-Real.sqrt (2 * (hazard : ℝ)), !initial.2) := by
+  rw [gaussianZigZagSignedEventUpdate_eq, if_neg (not_le.mpr hinitial)]
+
+/-- Embedded event-to-event kernel in canonical signed coordinates. -/
+noncomputable def gaussianZigZagSignedEventKernel :
+    Kernel ZigZagState ZigZagState :=
+  Kernel.map
+    (Kernel.prod Kernel.id
+      (Kernel.const ZigZagState gaussianZigZagHazardMeasure))
+    (fun input => gaussianZigZagSignedEventUpdate input.1 input.2)
+
+instance gaussianZigZagSignedEventKernel.instIsMarkovKernel :
+    IsMarkovKernel gaussianZigZagSignedEventKernel := by
+  unfold gaussianZigZagSignedEventKernel
+  apply Kernel.IsMarkovKernel.map
+  unfold gaussianZigZagSignedEventUpdate
+  exact measurable_zigZagSignedCoordinate.comp
+    (measurable_gaussianZigZagEventUpdate.comp
+      (measurable_zigZagSignedCoordinate.comp measurable_fst |>.prodMk
+        measurable_snd))
+
+/-- A signed event-kernel row is the pushforward of one fresh exponential
+hazard through the canonical reset. -/
+theorem gaussianZigZagSignedEventKernel_apply
+    (initial : ZigZagState) :
+    gaussianZigZagSignedEventKernel initial =
+      Measure.map (gaussianZigZagSignedEventUpdate initial)
+        gaussianZigZagHazardMeasure := by
+  have hupdate : Measurable (fun input : ZigZagState × NNReal =>
+      gaussianZigZagSignedEventUpdate input.1 input.2) := by
+    unfold gaussianZigZagSignedEventUpdate
+    exact measurable_zigZagSignedCoordinate.comp
+      (measurable_gaussianZigZagEventUpdate.comp
+        (measurable_zigZagSignedCoordinate.comp measurable_fst |>.prodMk
+          measurable_snd))
+  have hmk : Measurable (Prod.mk initial : NNReal → ZigZagState × NNReal) :=
+    measurable_const.prodMk measurable_id
+  unfold gaussianZigZagSignedEventKernel
+  rw [Kernel.map_apply _ hupdate,
+    Kernel.prod_apply, Kernel.id_apply, Kernel.const_apply,
+    Measure.dirac_prod, Measure.map_map hupdate hmk]
+  rfl
+
+/-- From a negative event-start position, the embedded row forgets that
+position completely. -/
+theorem gaussianZigZagSignedEventKernel_apply_of_neg
+    (initial : ZigZagState) (hinitial : initial.1 < 0) :
+    gaussianZigZagSignedEventKernel initial =
+      Measure.map (fun hazard : NNReal =>
+        (-Real.sqrt (2 * (hazard : ℝ)), !initial.2))
+        gaussianZigZagHazardMeasure := by
+  rw [gaussianZigZagSignedEventKernel_apply]
+  apply Measure.map_congr
+  filter_upwards [] with hazard
+  exact gaussianZigZagSignedEventUpdate_eq_of_neg initial hazard hinitial
+
 /-- Exact stopped endpoint viewed from signed coordinates. -/
 noncomputable def gaussianZigZagSignedHorizonEndpoint
     (initial : ZigZagState) (horizon : NNReal)
