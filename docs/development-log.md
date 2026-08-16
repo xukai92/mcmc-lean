@@ -1,5 +1,16 @@
 # Development log
 
+- Closed the representation bridge needed by recursive PG bounds. Lean proves
+  that coordinatewise maps commute with independent populations, identifies
+  the original ancestor-plus-propagated-state construction with the packaged
+  joint `(label,state)` child cloud, and rewrites the forced suffix cons case
+  directly through that joint law. The exact normalized labeled
+  Feynman--Kac update and its potential-weighted expectation ratio are now
+  defined. Finally, potential oscillation lifts to joint states and the sharp
+  forced-cloud comparison is exposed directly against the exact
+  potential-reweighted joint target. The remaining induction composes these
+  stage facts over the list of Feynman--Kac steps.
+
 - Lifted the forced resample--propagate stage to joint `(label,state)`
   populations. A generic product-Fubini theorem proves that independently
   sampled parents followed by conditionally independent children equal an

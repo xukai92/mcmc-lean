@@ -256,6 +256,71 @@ def pointDistribution (value : Sample) : Distribution Sample where
   nonneg sample := by split <;> norm_num
   sum_mass := by simp
 
+/-- Mapping a point mass gives the point mass of the image. -/
+theorem map_pointDistribution {Output : Type*} [Fintype Output]
+    [DecidableEq Output] (value : Sample) (transform : Sample → Output) :
+    Distribution.map (pointDistribution value) transform =
+      pointDistribution (transform value) := by
+  apply Distribution.ext
+  funext output
+  simp only [Distribution.map, Distribution.bind_mass, pointDistribution]
+  rw [Finset.sum_eq_single value]
+  · simp
+  · intro other _ hother
+    simp [hother]
+  · simp
+
+omit [Nonempty Particle] in
+/-- An independent population of coordinate point masses is the point mass
+of the complete coordinate vector. -/
+theorem independentPopulation_pointDistribution
+    (value : Particle → Sample) :
+    independentPopulation (fun i => pointDistribution (value i)) =
+      pointDistribution value := by
+  classical
+  apply Distribution.ext
+  funext samples
+  unfold independentPopulation pointDistribution
+  change (∏ j : Particle, if samples j = value j then 1 else 0) =
+    (if samples = value then 1 else 0)
+  by_cases h : samples = value
+  · subst samples
+    simp
+  · have hexists : ∃ i, samples i ≠ value i := by
+      by_contra hall
+      push Not at hall
+      exact h (funext hall)
+    obtain ⟨i, hi⟩ := hexists
+    simp only [if_neg h]
+    apply Finset.prod_eq_zero (Finset.mem_univ i)
+    simp [hi]
+
+omit [Nonempty Particle] in
+/-- Coordinatewise deterministic maps commute with independent-population
+sampling. -/
+theorem map_independentPopulation_coordinatewise
+    {Output : Type*} [Fintype Output] [DecidableEq Output]
+    (law : Particle → Distribution Sample) (transform : Particle → Sample → Output) :
+    Distribution.map (independentPopulation law)
+        (fun samples i => transform i (samples i)) =
+      independentPopulation (fun i => Distribution.map (law i) (transform i)) := by
+  unfold Distribution.map
+  calc
+    Distribution.bind (independentPopulation law) (fun samples =>
+        pointDistribution (fun i => transform i (samples i))) =
+      Distribution.bind (independentPopulation law) (fun samples =>
+        independentPopulation (fun i =>
+          pointDistribution (transform i (samples i)))) := by
+            congr 1
+            funext samples
+            exact (independentPopulation_pointDistribution
+              (fun i => transform i (samples i))).symm
+    _ = independentPopulation (fun i =>
+        Distribution.bind (law i) (fun sample =>
+          pointDistribution (transform i sample))) :=
+      independentPopulation_bind_eq_independentPopulation_bind law
+        (fun i sample => pointDistribution (transform i sample))
+
 /-- Independent population with one distinguished coordinate forced to a
 specified value. All other coordinates retain their supplied laws. This is
 the elementary initialization/propagation law used by conditional SMC. -/
@@ -1080,6 +1145,97 @@ def forcedResamplePropagateLabelPopulation {Label : Type*}
         Distribution.map
           (rowDistribution transition (particles (ancestors i))) fun y =>
             (extend (labels (ancestors i)) y, y)
+
+/-- The same forced labeled stage represented in the original two-step form:
+draw ancestors, draw propagated states, then pair each state with its updated
+label. -/
+def forcedResamplePropagateLabelPopulationViaStates {Label : Type*}
+    [Fintype Label] [DecidableEq Label]
+    (extend : Label → Sample → Label)
+    (weights : Distribution Particle) (transition : MarkovKernel Sample)
+    (particles : Particle → Sample) (labels : Particle → Label)
+    (retained nextRetained : Particle) (nextState : Sample) :
+    Distribution (Particle → (Label × Sample)) :=
+  Distribution.bind
+    (forcedIndependentPopulation (fun _ : Particle => weights)
+      nextRetained retained) fun ancestors =>
+    Distribution.map
+      (forcedIndependentPopulation
+        (fun i => rowDistribution transition (particles (ancestors i)))
+        nextRetained nextState) fun next i =>
+          (extend (labels (ancestors i)) (next i), next i)
+
+omit [Nonempty Particle] in
+/-- The two-step ancestor/state representation and the packaged joint-child
+population have exactly the same law. -/
+theorem forcedResamplePropagateLabelPopulationViaStates_eq
+    {Label : Type*} [Fintype Label] [DecidableEq Label]
+    (extend : Label → Sample → Label)
+    (weights : Distribution Particle) (transition : MarkovKernel Sample)
+    (particles : Particle → Sample) (labels : Particle → Label)
+    (retained nextRetained : Particle) (nextState : Sample) :
+    forcedResamplePropagateLabelPopulationViaStates extend weights transition
+        particles labels retained nextRetained nextState =
+      forcedResamplePropagateLabelPopulation extend weights transition
+        particles labels retained nextRetained nextState := by
+  apply Distribution.ext
+  funext children
+  unfold forcedResamplePropagateLabelPopulationViaStates
+  unfold forcedResamplePropagateLabelPopulation
+  simp only [Distribution.bind_mass]
+  apply Finset.sum_congr rfl
+  intro ancestors _
+  by_cases hancestor : ancestors nextRetained = retained
+  · congr 1
+    unfold forcedIndependentPopulation
+    let stateLaw : Particle → Distribution Sample := fun i =>
+      if i = nextRetained then pointDistribution nextState
+      else rowDistribution transition (particles (ancestors i))
+    let transform : Particle → Sample → (Label × Sample) := fun i y =>
+      (extend (labels (ancestors i)) y, y)
+    change (Distribution.map (independentPopulation stateLaw)
+      (fun next i => transform i (next i))).mass children = _
+    rw [map_independentPopulation_coordinatewise stateLaw transform]
+    unfold independentPopulation
+    apply Finset.prod_congr rfl
+    intro i _
+    by_cases hi : i = nextRetained
+    · subst i
+      simp only [stateLaw, transform, if_true, hancestor]
+      rw [map_pointDistribution]
+    · simp [hi, stateLaw, transform]
+  · rw [forcedIndependentPopulation_incompatible_zero
+      (fun _ : Particle => weights) nextRetained retained ancestors hancestor]
+    simp
+
+omit [Nonempty Particle] in
+/-- Expectation bridge from the nested ancestor/state sums used by the SMC
+suffix recursion to the packaged joint-child population. -/
+theorem forcedResamplePropagateLabelPopulation_expectation
+    {Label : Type*} [Fintype Label] [DecidableEq Label]
+    (extend : Label → Sample → Label)
+    (weights : Distribution Particle) (transition : MarkovKernel Sample)
+    (particles : Particle → Sample) (labels : Particle → Label)
+    (retained nextRetained : Particle) (nextState : Sample)
+    (observable : (Particle → (Label × Sample)) → ℝ) :
+    (∑ ancestors,
+      (forcedIndependentPopulation (fun _ : Particle => weights)
+        nextRetained retained).mass ancestors *
+        ∑ next,
+          (forcedIndependentPopulation
+            (fun i => rowDistribution transition (particles (ancestors i)))
+            nextRetained nextState).mass next *
+            observable (fun i =>
+              (extend (labels (ancestors i)) (next i), next i))) =
+      ∑ children,
+        (forcedResamplePropagateLabelPopulation extend weights transition particles labels
+          retained nextRetained nextState).mass children * observable children := by
+  rw [← forcedResamplePropagateLabelPopulationViaStates_eq]
+  unfold forcedResamplePropagateLabelPopulationViaStates
+  rw [Distribution.bind_expectation]
+  apply Finset.sum_congr rfl
+  intro ancestors _
+  rw [Distribution.map_expectation]
 
 omit [Nonempty Particle] in
 /-- The forced joint labeled population is exactly an independent population
@@ -2159,6 +2315,130 @@ structure FeynmanKacStep (Sample : Type*) [Fintype Sample] where
   potential : Sample → ℝ
   potential_pos : ∀ x, 0 < potential x
   transition : MarkovKernel Sample
+
+/-- Normalize a strictly positive potential against an arbitrary finite
+probability distribution. -/
+noncomputable def positivePotentialReweight {α : Type*}
+    [Fintype α] [DecidableEq α]
+    (law : Distribution α) (potential : α → ℝ)
+    (hpotential : ∀ x, 0 < potential x) : Distribution α where
+  mass x := law.mass x * potential x / ∑ y, law.mass y * potential y
+  nonneg x := div_nonneg (mul_nonneg (law.nonneg x) (hpotential x).le)
+    (Finset.sum_nonneg fun y _ => mul_nonneg (law.nonneg y) (hpotential y).le)
+  sum_mass := by
+    rw [← Finset.sum_div]
+    apply div_self
+    intro hzero
+    have hmassZero : ∀ x, law.mass x = 0 := by
+      intro x
+      by_contra hx
+      have hxpos : 0 < law.mass x := lt_of_le_of_ne (law.nonneg x) (Ne.symm hx)
+      have hsumPos : 0 < ∑ y, law.mass y * potential y := by
+        apply Finset.sum_pos'
+        · intro y _
+          exact mul_nonneg (law.nonneg y) (hpotential y).le
+        · exact ⟨x, Finset.mem_univ x, mul_pos hxpos (hpotential x)⟩
+      exact (ne_of_gt hsumPos) hzero
+    have : ∑ x, law.mass x = 0 := by simp [hmassZero]
+    linarith [law.sum_mass]
+
+/-- Expectation under a positive-potential reweighting is the corresponding
+normalized weighted expectation. -/
+theorem positivePotentialReweight_expectation {α : Type*}
+    [Fintype α] [DecidableEq α]
+    (law : Distribution α) (potential : α → ℝ)
+    (hpotential : ∀ x, 0 < potential x) (score : α → ℝ) :
+    (∑ x, (positivePotentialReweight law potential hpotential).mass x * score x) =
+      (∑ x, law.mass x * (potential x * score x)) /
+        ∑ x, law.mass x * potential x := by
+  unfold positivePotentialReweight
+  change (∑ x, (law.mass x * potential x /
+      ∑ y, law.mass y * potential y) * score x) = _
+  calc
+    _ = ∑ x, (law.mass x * (potential x * score x)) /
+        ∑ y, law.mass y * potential y := by
+      apply Finset.sum_congr rfl
+      intro x _
+      ring
+    _ = _ := by rw [Finset.sum_div]
+
+omit [Fintype Sample] [DecidableEq Sample] in
+/-- A state-potential oscillation certificate lifts unchanged to joint
+`(label,state)` values. -/
+theorem PotentialOscillationBound.snd {Label : Type*}
+    (potential : Sample → ℝ) (bound : ℝ)
+    (certificate : PotentialOscillationBound potential bound) :
+    PotentialOscillationBound (fun z : Label × Sample => potential z.2) bound := by
+  exact ⟨certificate.bound_pos, fun x y => certificate.le_mul x.2 y.2⟩
+
+/-- Joint-label form of the sharp forced-cloud comparison. -/
+theorem forcedJointPopulation_normalizedTargetScore_lower_bound
+    {Label : Type*} [Fintype Label] [DecidableEq Label]
+    (potential : Sample → ℝ) (hpotential : ∀ x, 0 < potential x)
+    (bound : ℝ) (certificate : PotentialOscillationBound potential bound)
+    (law : Distribution (Label × Sample)) (extra : ℕ) (hextra : 0 < extra)
+    (retained : Fin (extra + 1)) (retainedValue : Label × Sample)
+    (score : Label × Sample → ℝ) (hscore : ∀ x, 0 ≤ score x) :
+    (extra : ℝ) / (((extra - 1 : ℕ) : ℝ) + 2 * bound) *
+        (∑ x,
+          (positivePotentialReweight law (fun z => potential z.2)
+            (fun z => hpotential z.2)).mass x * score x) ≤
+      ∑ particles,
+        (forcedIndependentPopulation
+          (fun _ : Fin (extra + 1) => law) retained retainedValue).mass particles *
+          ((∑ i : Fin (extra + 1),
+              if i = retained then 0
+              else potential (particles i).2 * score (particles i)) /
+            ∑ i, potential (particles i).2) := by
+  rw [positivePotentialReweight_expectation]
+  exact forcedIndependentPopulation_normalizedTargetScore_lower_bound
+    (fun z : Label × Sample => potential z.2) (fun z => hpotential z.2)
+    bound certificate.snd law extra hextra retained retainedValue score hscore
+
+/-- Exact normalized Feynman--Kac update of a joint `(label,state)` law. -/
+noncomputable def labeledFeynmanKacStepDistribution {Label : Type*}
+    [Fintype Label] [DecidableEq Label] [Nonempty Label] [Nonempty Sample]
+    (extend : Label → Sample → Label) (step : FeynmanKacStep Sample)
+    (law : Distribution (Label × Sample)) : Distribution (Label × Sample) :=
+  resamplePropagateLabelDistribution extend
+    (positivePotentialReweight law (fun z : Label × Sample => step.potential z.2)
+      (fun z => step.potential_pos z.2))
+    step.transition (fun z => z.2) (fun z => z.1)
+
+omit [Nonempty Particle] in
+/-- Expectation under the exact labeled Feynman--Kac update is the normalized
+potential-weighted transition expectation. -/
+theorem labeledFeynmanKacStepDistribution_expectation {Label : Type*}
+    [Fintype Label] [DecidableEq Label] [Nonempty Label] [Nonempty Sample]
+    (extend : Label → Sample → Label) (step : FeynmanKacStep Sample)
+    (law : Distribution (Label × Sample)) (observable : Label → Sample → ℝ) :
+    (∑ child,
+      (labeledFeynmanKacStepDistribution extend step law).mass child *
+        observable child.1 child.2) =
+      (∑ parent, law.mass parent *
+        (step.potential parent.2 *
+          ∑ y, step.transition.prob parent.2 y *
+            observable (extend parent.1 y) y)) /
+        ∑ parent, law.mass parent * step.potential parent.2 := by
+  unfold labeledFeynmanKacStepDistribution
+  rw [resamplePropagateLabelDistribution_expectation]
+  unfold positivePotentialReweight
+  change (∑ parent,
+      (law.mass parent * step.potential parent.2 /
+        ∑ z, law.mass z * step.potential z.2) *
+        ∑ y, step.transition.prob parent.2 y *
+          observable (extend parent.1 y) y) = _
+  calc
+    _ = ∑ parent,
+        (law.mass parent *
+          (step.potential parent.2 *
+            ∑ y, step.transition.prob parent.2 y *
+              observable (extend parent.1 y) y)) /
+          ∑ z, law.mass z * step.potential z.2 := by
+      apply Finset.sum_congr rfl
+      intro parent _
+      ring
+    _ = _ := by rw [Finset.sum_div]
 
 /-- Backward composition of a time-varying sequence of exact one-particle
 Feynman--Kac transforms. -/

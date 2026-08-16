@@ -1244,6 +1244,44 @@ theorem forcedLineageSuffixLabelExpectation_cons {Label : Type*}
   simp only [terminalLabels]
   rfl
 
+/-- Joint-child form of the forced suffix recursion. Each stage is exposed as
+a one-coordinate-forced iid population of `(updated label, next state)` pairs,
+which is the form consumed by the sharp self-normalization theorem. -/
+theorem forcedLineageSuffixLabelExpectation_cons_joint
+    {Label : Type*} [Fintype Label] [DecidableEq Label]
+    (extend : Label → Sample → Label)
+    (step : FeynmanKacStep Sample) (steps : List (FeynmanKacStep Sample))
+    (current nextState : Sample) (future : List Sample)
+    (hlength : (nextState :: future).length = (step :: steps).length)
+    (particles : Particle → Sample) (retained : Particle)
+    (labels : Particle → Label) (observable : Label → ℝ) :
+    forcedLineageSuffixLabelExpectation extend (step :: steps) current
+        (nextState :: future) hlength particles retained labels observable =
+      ∑ nextRetained,
+        (uniformParticleDistribution (Particle := Particle)).mass nextRetained *
+        ∑ children,
+          (forcedResamplePropagateLabelPopulation extend
+            (normalizedPotentialWeights step.potential step.potential_pos particles)
+            step.transition particles labels retained nextRetained nextState).mass
+              children *
+            forcedLineageSuffixLabelExpectation extend steps nextState future
+              (by simpa using hlength)
+              (fun i => (children i).2) nextRetained
+              (fun i => (children i).1) observable := by
+  rw [forcedLineageSuffixLabelExpectation_cons]
+  apply Finset.sum_congr rfl
+  intro nextRetained _
+  congr 1
+  exact forcedResamplePropagateLabelPopulation_expectation
+    extend
+    (normalizedPotentialWeights step.potential step.potential_pos particles)
+    step.transition particles labels retained nextRetained nextState
+    (fun children =>
+      forcedLineageSuffixLabelExpectation extend steps nextState future
+        (by simpa using hlength)
+        (fun i => (children i).2) nextRetained
+        (fun i => (children i).1) observable)
+
 /-- Unnormalized one-particle Feynman--Kac density of a fixed path suffix,
 excluding the initial-state mass. -/
 noncomputable def pathSuffixDensity :
