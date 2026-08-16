@@ -1,5 +1,13 @@
 # Development log
 
+- Added the missing continuous bracket primitive for formal stepping-out:
+  `variableIntervalKernel` samples uniformly from a measurable input-dependent
+  real interval. Lean proves joint density measurability, exact normalization
+  for every strictly ordered endpoint pair, the Markov-kernel instance, and
+  probability-one support in the declared bracket. This turns future
+  deterministic expansion/shrinkage sections into concrete kernels rather
+  than abstract conditionals.
+
 - Connected the complete three-dimensional product reversible-jump theorem to
   an executable `SpatialBirthDeathRJ` client. Birth applies the formally
   certified coordinatewise scaling transport to three independent uniform

@@ -354,9 +354,12 @@ breadth branches are:
   Independent randomized horizontal families are now included: fixed-section
   preservation, even only almost everywhere under a continuous parameter law,
   lifts to exact weighted-target invariance. This covers the bracket-offset
-  and left/right-budget mixture step. Proving each deterministic guarded Julia
-  expansion/shrinkage section satisfies that joint-preservation premise, plus
-  its Float64 refinement, remains;
+  and left/right-budget mixture step. The required continuous proposal
+  primitive is now concrete: Lean constructs a Markov kernel uniform on any
+  measurable input-dependent strictly ordered interval and proves exact
+  normalization and bracket support. Proving each deterministic guarded Julia
+  expansion/shrinkage section satisfies the resulting joint-preservation
+  premise, plus its Float64 refinement, remains;
 - reversible-jump transports beyond the checked scalar and planar
   birth/death scaling clients. Product transport-density certificates now
   compose recursively and instantiate a three-dimensional scaling transport;

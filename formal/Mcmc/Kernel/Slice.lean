@@ -80,6 +80,106 @@ instance sliceHeightKernel.instIsMarkovKernel
     ProbabilityTheory.Kernel.const_apply,
     Measure.restrict_univ, sliceHeightDensity_lintegral weight hpositive]
 
+/-! ### Uniform kernels on measurable variable intervals -/
+
+/-- Density of the uniform probability law on `(lower parameter,
+upper parameter]`. -/
+noncomputable def variableIntervalDensity {Parameter : Type*}
+    (lower upper : Parameter → ℝ) (parameter : Parameter) (x : ℝ) : ENNReal :=
+  if x ∈ Ioc (lower parameter) (upper parameter) then
+    (ENNReal.ofReal (upper parameter - lower parameter))⁻¹
+  else 0
+
+theorem measurable_uncurry_variableIntervalDensity
+    {Parameter : Type*} [MeasurableSpace Parameter]
+    {lower upper : Parameter → ℝ}
+    (hlower : Measurable lower) (hupper : Measurable upper) :
+    Measurable (Function.uncurry (variableIntervalDensity lower upper)) := by
+  have hset : MeasurableSet {p : Parameter × ℝ |
+      p.2 ∈ Ioc (lower p.1) (upper p.1)} := by
+    exact (measurableSet_lt (hlower.comp measurable_fst) measurable_snd).inter
+      (measurableSet_le measurable_snd (hupper.comp measurable_fst))
+  rw [show Function.uncurry (variableIntervalDensity lower upper) = fun p ↦
+      if p ∈ {p : Parameter × ℝ |
+          p.2 ∈ Ioc (lower p.1) (upper p.1)}
+      then (ENNReal.ofReal (upper p.1 - lower p.1))⁻¹ else 0 by rfl]
+  exact Measurable.ite hset
+    ((ENNReal.measurable_ofReal.comp
+      ((hupper.comp measurable_fst).sub
+        (hlower.comp measurable_fst))).inv)
+    measurable_const
+
+omit [MeasurableSpace State] in
+theorem variableIntervalDensity_lintegral
+    {Parameter : Type*} (lower upper : Parameter → ℝ)
+    (hordered : ∀ parameter, lower parameter < upper parameter)
+    (parameter : Parameter) :
+    ∫⁻ x, variableIntervalDensity lower upper parameter x ∂volume = 1 := by
+  rw [show variableIntervalDensity lower upper parameter =
+      (Ioc (lower parameter) (upper parameter)).indicator
+        (fun _ ↦ (ENNReal.ofReal
+          (upper parameter - lower parameter))⁻¹) by
+    funext x
+    by_cases hx : x ∈ Ioc (lower parameter) (upper parameter) <;>
+      simp [variableIntervalDensity, hx]]
+  rw [lintegral_indicator measurableSet_Ioc, MeasureTheory.lintegral_const,
+    Measure.restrict_apply_univ, Real.volume_Ioc]
+  exact ENNReal.inv_mul_cancel
+    (ENNReal.ofReal_ne_zero_iff.mpr (sub_pos.mpr (hordered parameter)))
+    ENNReal.ofReal_ne_top
+
+/-- Markov kernel that samples uniformly from a measurable interval depending
+on its input parameter. This is the exact horizontal proposal primitive needed
+by stepping-out bracket constructions. -/
+noncomputable def variableIntervalKernel {Parameter : Type*}
+    [MeasurableSpace Parameter]
+    (lower upper : Parameter → ℝ) (_hlower : Measurable lower)
+    (_hupper : Measurable upper)
+    (_hordered : ∀ parameter, lower parameter < upper parameter) :
+    Kernel Parameter ℝ :=
+  (Kernel.const Parameter (volume : Measure ℝ)).withDensity
+    (variableIntervalDensity lower upper)
+
+instance variableIntervalKernel.instIsMarkovKernel
+    {Parameter : Type*} [MeasurableSpace Parameter]
+    (lower upper : Parameter → ℝ) (hlower : Measurable lower)
+    (hupper : Measurable upper)
+    (hordered : ∀ parameter, lower parameter < upper parameter) :
+    IsMarkovKernel
+      (variableIntervalKernel lower upper hlower hupper hordered) := by
+  constructor
+  intro parameter
+  constructor
+  rw [variableIntervalKernel, ProbabilityTheory.Kernel.withDensity_apply'
+    _ (measurable_uncurry_variableIntervalDensity hlower hupper),
+    ProbabilityTheory.Kernel.const_apply, Measure.restrict_univ,
+    variableIntervalDensity_lintegral lower upper hordered]
+
+/-- The variable-interval draw lies in its declared bracket with probability
+one. -/
+theorem variableIntervalKernel_apply_interval
+    {Parameter : Type*} [MeasurableSpace Parameter]
+    (lower upper : Parameter → ℝ) (hlower : Measurable lower)
+    (hupper : Measurable upper)
+    (hordered : ∀ parameter, lower parameter < upper parameter)
+    (parameter : Parameter) :
+    variableIntervalKernel lower upper hlower hupper hordered parameter
+        (Ioc (lower parameter) (upper parameter)) = 1 := by
+  rw [variableIntervalKernel,
+    ProbabilityTheory.Kernel.withDensity_apply'
+      _ (measurable_uncurry_variableIntervalDensity hlower hupper),
+    ProbabilityTheory.Kernel.const_apply]
+  rw [← lintegral_indicator measurableSet_Ioc]
+  have hindicator :
+      (Ioc (lower parameter) (upper parameter)).indicator
+          (variableIntervalDensity lower upper parameter) =
+        variableIntervalDensity lower upper parameter := by
+    funext x
+    by_cases hx : x ∈ Ioc (lower parameter) (upper parameter) <;>
+      simp [variableIntervalDensity, hx]
+  rw [hindicator]
+  exact variableIntervalDensity_lintegral lower upper hordered parameter
+
 /-- Indicator density of the region under the graph of `weight`, in
 state--height coordinate order. -/
 noncomputable def sliceUnderGraphDensity (weight : State → ℝ)
