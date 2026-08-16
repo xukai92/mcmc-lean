@@ -1,5 +1,14 @@
 # Development log
 
+- Recast the continuous bracket offset as Haar-uniform volume on the unit
+  additive circle. Neal's fractional-part reversal is now proved to be the
+  `[0,1)` coordinate of a measure-preserving circle translation, so endpoint
+  conventions no longer obscure uniform-law preservation. The finite
+  expansion allocation is represented on its exact restricted success set;
+  adding the integer grid displacement is a constructed equivalence whose
+  inverse subtracts it. These close the continuous-offset and discrete-
+  allocation pieces of the eventual joint trace map.
+
 - Formalized the algebraic core of Neal's practical-slice reversal. The
   fractional-part offset transport is measurable, remains in `[0,1)`, and is
   involutive when the start/end states are swapped. Its expansion-allocation

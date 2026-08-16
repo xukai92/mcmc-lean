@@ -1,5 +1,6 @@
 import Mcmc.Kernel.Slice
 import Mathlib.MeasureTheory.Function.Floor
+import Mathlib.MeasureTheory.Integral.IntervalIntegral.Periodic
 
 /-!
 # Concrete finite stepping-out and shrinkage semantics
@@ -16,6 +17,36 @@ does not by itself assert stationarity.
 -/
 
 namespace Mcmc.Kernel.PracticalSlice
+
+open MeasureTheory
+
+/-- Coordinate-free law for the random initial-bracket alignment. Haar volume
+on the unit additive circle is a probability measure. -/
+abbrev Alignment := AddCircle (1 : ℝ)
+
+instance alignment.instIsProbabilityMeasure :
+    IsProbabilityMeasure (volume : Measure Alignment) :=
+  ⟨by simp [AddCircle.measure_univ]⟩
+
+/-- Neal's offset reversal before choosing the `[0,1)` coordinate chart. -/
+noncomputable def reverseAlignment (width old new : ℝ) (offset : Alignment) :
+    Alignment :=
+  ((new - old) / width : ℝ) + offset
+
+/-- Translation of the circle preserves the exact uniform alignment law. -/
+theorem reverseAlignment_measurePreserving (width old new : ℝ) :
+    MeasurePreserving (reverseAlignment width old new)
+      (volume : Measure Alignment) volume := by
+  exact measurePreserving_add_left volume (((new - old) / width : ℝ) : Alignment)
+
+/-- Canonical runtime coordinate for a circle-valued alignment. -/
+noncomputable def alignmentCoordinate (offset : Alignment) : ℝ :=
+  (AddCircle.equivIco (1 : ℝ) 0 offset).1
+
+theorem alignmentCoordinate_mem (offset : Alignment) :
+    alignmentCoordinate offset ∈ Set.Ico (0 : ℝ) 1 := by
+  simpa [alignmentCoordinate] using
+    (AddCircle.equivIco (1 : ℝ) 0 offset).2
 
 /-- Random choices consumed before shrinkage. `offset` positions the initial
 width-sized bracket and `leftSteps` allocates the finite expansion budget. -/
@@ -36,6 +67,34 @@ noncomputable def reverseOffset (width old new offset : ℝ) : ℝ :=
 theorem reverseOffset_mem_Ico (width old new offset : ℝ) :
     reverseOffset width old new offset ∈ Set.Ico (0 : ℝ) 1 :=
   ⟨Int.fract_nonneg _, Int.fract_lt_one _⟩
+
+/-- The coordinate-free Haar translation is exactly the fractional-part
+formula used by the concrete real-valued semantics. -/
+theorem alignmentCoordinate_reverseAlignment
+    (width old new : ℝ) (offset : Alignment) :
+    alignmentCoordinate (reverseAlignment width old new offset) =
+      reverseOffset width old new (alignmentCoordinate offset) := by
+  change (AddCircle.equivIco (1 : ℝ) 0
+      (((new - old) / width : ℝ) + offset)).1 = _
+  rw [show offset = ((alignmentCoordinate offset : ℝ) : Alignment) by
+    exact (AddCircle.coe_equivIco
+      (p := (1 : ℝ)) (a := 0) (y := offset)).symm]
+  rw [show (((new - old) / width : ℝ) : Alignment) +
+        ((alignmentCoordinate offset : ℝ) : Alignment) =
+      (((new - old) / width + alignmentCoordinate offset : ℝ) : Alignment) by
+    exact (AddCircle.coe_add (p := (1 : ℝ)) _ _).symm]
+  have hcoordinate :
+      alignmentCoordinate
+          ((alignmentCoordinate offset : ℝ) : Alignment) =
+        alignmentCoordinate offset := by
+    unfold alignmentCoordinate
+    rw [AddCircle.equivIco_coe_of_mem
+      (show (AddCircle.equivIco (1 : ℝ) 0 offset).1 ∈
+          Set.Ico (0 : ℝ) (0 + 1) from
+        (AddCircle.equivIco (1 : ℝ) 0 offset).2)]
+  simpa [reverseOffset, hcoordinate, add_comm] using
+    (AddCircle.coe_equivIco_mk_apply
+      (p := (1 : ℝ)) (x := (new - old) / width + alignmentCoordinate offset))
 
 theorem measurable_reverseOffset (width old new : ℝ) :
     Measurable (reverseOffset width old new) := by
@@ -95,6 +154,37 @@ theorem alignmentShift_reverse
   rw [reverseOffset_reverseOffset hwidth hoffset]
   field_simp
   ring
+
+/-- Expansion allocations for which Neal's integer displacement stays inside
+the finite uniform allocation range. This is exactly the allocation component
+of the successful reversible-trace event. -/
+def ValidAllocation (intervals : ℕ) (shift : ℤ) :=
+  {allocation : ℤ //
+    0 ≤ allocation ∧ allocation < intervals ∧
+    0 ≤ allocation + shift ∧ allocation + shift < intervals}
+
+/-- On the restricted success event, adding the grid displacement is a
+bijection; the reverse trace uses the negated displacement. -/
+def reverseAllocation (intervals : ℕ) (shift : ℤ) :
+    ValidAllocation intervals shift ≃ ValidAllocation intervals (-shift) where
+  toFun allocation :=
+    ⟨allocation.1 + shift,
+      allocation.2.2.2.1,
+      allocation.2.2.2.2,
+      by simpa [add_assoc] using allocation.2.1,
+      by simpa [add_assoc] using allocation.2.2.1⟩
+  invFun allocation :=
+    ⟨allocation.1 - shift,
+      by simpa [sub_eq_add_neg] using allocation.2.2.2.1,
+      by simpa [sub_eq_add_neg] using allocation.2.2.2.2,
+      by simpa [sub_eq_add_neg, add_assoc] using allocation.2.1,
+      by simpa [sub_eq_add_neg, add_assoc] using allocation.2.2.1⟩
+  left_inv allocation := by
+    apply Subtype.ext
+    simp
+  right_inv allocation := by
+    apply Subtype.ext
+    simp
 
 /-- Expand the left endpoint by at most `steps` widths, stopping once the
 endpoint is outside the strict superlevel set. -/
