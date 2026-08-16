@@ -195,7 +195,11 @@ The pre-Xu dependency order is:
    and its `toMinorization` constructor transports that bound through exact
    conditional lift, uniform terminal-index refresh, and trajectory projection.
    Primitive full support separately proves every trajectory fiber positive,
-   so only the quantitative history-density comparison remains.
+   so only the quantitative history-density comparison remains. A parallel
+   scheduled certificate now retains distinct per-time penalties, proves its
+   product coefficient is in `(0,1)`, and supplies the refresh decomposition,
+   geometric TV estimate, and convergence theorem without a worst-case
+   constant-penalty reduction.
 7. adaptive-MCMC boundary -- finite state-dependent kernel selection and a
    counterexample where two frozen target-invariant kernels combine into a
    non-invariant selected kernel are complete. Predetermined nonhomogeneous law

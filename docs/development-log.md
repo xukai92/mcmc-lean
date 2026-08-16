@@ -25,6 +25,14 @@ definitionally to the original power coefficient for a replicated penalty.
 This matches the shape of published PG bounds without claiming that the
 model-specific penalty sequence has already been derived.
 
+The time-inhomogeneous coefficient now has its full convergence consumer.
+Positive per-time penalties and at least one non-retained particle prove the
+product lies strictly between zero and one. A
+`ScheduledPotentialParticleGibbsMinorization` constructs the exact stationary
+refresh residual and yields both the geometric finite-time TV bound and TV
+convergence, retaining the complete penalty schedule instead of collapsing it
+to a global maximum.
+
 ## 2026-08-16: nonlinear particle-normalization MSE bridge
 
 Strengthened the deterministic self-normalized estimate from an absolute

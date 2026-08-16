@@ -65,6 +65,25 @@ theorem particleGibbsScheduleCoefficient_pos
   have hpenalty := hpenalties penalty hmem
   positivity
 
+theorem particleGibbsScheduleCoefficient_lt_one
+    {extra : ℕ} {penalties : List ℝ} (hextra : 0 < extra)
+    (hne : penalties ≠ [])
+    (hpenalties : ∀ penalty ∈ penalties, 0 < penalty) :
+    particleGibbsScheduleCoefficient extra penalties < 1 := by
+  unfold particleGibbsScheduleCoefficient
+  have hproduct := List.prod_map_lt_prod_map hne
+    (fun penalty : ℝ => (extra : ℝ) / ((extra : ℝ) + penalty))
+    (fun _ : ℝ => (1 : ℝ))
+    (fun penalty hmem => by
+      have hpenalty := hpenalties penalty hmem
+      positivity)
+    (fun penalty hmem => by
+      have hpenalty := hpenalties penalty hmem
+      have hdenom : 0 < (extra : ℝ) + penalty := by positivity
+      rw [div_lt_one hdenom]
+      linarith)
+  simpa using hproduct
+
 theorem particleGibbsCountCoefficient_pos
     {extra horizon : ℕ} {bound : ℝ} (hextra : 0 < extra)
     (hbound : 0 < bound) :
@@ -125,6 +144,77 @@ structure BoundedPotentialParticleGibbsMinorization
         (countedTrajectoryTarget initial steps hnormalizer extra).mass proposed ≤
       (countedTrajectoryParticleGibbsKernel initial steps hnormalizer extra).prob
         current proposed
+
+/-- Time-inhomogeneous PG minorization retaining one explicit penalty per
+Feynman--Kac time slice. -/
+structure ScheduledPotentialParticleGibbsMinorization
+    (initial : Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (hnormalizer : 0 < normalizingConstant initial steps) (extra : ℕ) where
+  penalties : List ℝ
+  penalties_length : penalties.length = steps.length + 1
+  extra_pos : 0 < extra
+  penalties_pos : ∀ penalty ∈ penalties, 0 < penalty
+  minorization : ∀ current proposed,
+    particleGibbsScheduleCoefficient extra penalties *
+        (countedTrajectoryTarget initial steps hnormalizer extra).mass proposed ≤
+      (countedTrajectoryParticleGibbsKernel initial steps hnormalizer extra).prob
+        current proposed
+
+/-- A per-time penalty certificate directly yields the exact refresh/residual
+decomposition, without first replacing the schedule by a worst-case bound. -/
+noncomputable def ScheduledPotentialParticleGibbsMinorization.toRefresh
+    {initial : Distribution Sample} {steps : List (FeynmanKacStep Sample)}
+    {hnormalizer : 0 < normalizingConstant initial steps} {extra : ℕ}
+    (certificate : ScheduledPotentialParticleGibbsMinorization
+      initial steps hnormalizer extra) :
+    RefreshDecomposition
+      (countedTrajectoryParticleGibbsKernel initial steps hnormalizer extra)
+      (countedTrajectoryTarget initial steps hnormalizer extra) := by
+  apply RefreshDecomposition.ofMinorization
+    (particleGibbsScheduleCoefficient extra certificate.penalties)
+  · exact (particleGibbsScheduleCoefficient_pos certificate.extra_pos
+      certificate.penalties_pos).le
+  · apply particleGibbsScheduleCoefficient_lt_one certificate.extra_pos
+    · intro hempty
+      have := certificate.penalties_length
+      simp [hempty] at this
+    · exact certificate.penalties_pos
+  · exact certificate.minorization
+  · exact trajectoryParticleGibbsKernel_stationary
+      (Particle := Fin (extra + 1)) initial steps hnormalizer
+
+/-- Geometric TV bound retaining all time-specific PG penalties. -/
+theorem scheduledPotentialParticleGibbs_totalVariation_le
+    {initial : Distribution Sample} {steps : List (FeynmanKacStep Sample)}
+    {hnormalizer : 0 < normalizingConstant initial steps} {extra : ℕ}
+    (certificate : ScheduledPotentialParticleGibbsMinorization
+      initial steps hnormalizer extra)
+    (initialLaw : Distribution (Trajectory steps)) (iterations : ℕ) :
+    Nonhomogeneous.distributionTotalVariation
+      (Nonhomogeneous.iterateLaw initialLaw
+        (countedTrajectoryParticleGibbsKernel initial steps hnormalizer extra)
+        iterations)
+      (countedTrajectoryTarget initial steps hnormalizer extra) ≤
+      (1 - particleGibbsScheduleCoefficient extra certificate.penalties) ^
+        iterations := by
+  exact certificate.toRefresh.iterateLaw_totalVariation_le initialLaw iterations
+
+theorem scheduledPotentialParticleGibbs_totalVariation_tendsto_zero
+    {initial : Distribution Sample} {steps : List (FeynmanKacStep Sample)}
+    {hnormalizer : 0 < normalizingConstant initial steps} {extra : ℕ}
+    (certificate : ScheduledPotentialParticleGibbsMinorization
+      initial steps hnormalizer extra)
+    (initialLaw : Distribution (Trajectory steps)) :
+    Filter.Tendsto (fun iterations =>
+      Nonhomogeneous.distributionTotalVariation
+        (Nonhomogeneous.iterateLaw initialLaw
+          (countedTrajectoryParticleGibbsKernel initial steps hnormalizer extra)
+          iterations)
+        (countedTrajectoryTarget initial steps hnormalizer extra))
+      Filter.atTop (nhds 0) := by
+  apply certificate.toRefresh.iterateLaw_totalVariation_tendsto_zero
+  exact particleGibbsScheduleCoefficient_pos certificate.extra_pos
+    certificate.penalties_pos
 
 /-- A model-facing forced-lineage certificate for the displayed PG
 minorization.  Unlike a bound on the already-collapsed kernel, its inequality
