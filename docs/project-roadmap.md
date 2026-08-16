@@ -134,7 +134,11 @@ the required scalar mixed identity. The remaining volume step is the inverse-
 stage differentiability for the Banach selection. The determinant composition
 is now a generic theorem: differentiable inverse selections plus their two
 left-inverse identities and the mixed-partial condition imply determinant one.
-The contraction bounds also imply nonsingularity of both triangular maps.
+The contraction bounds also imply nonsingularity of both triangular maps. The
+generic Banach selections, their continuity, left-inverse identities,
+differentiability, and final determinant-one theorem are now complete. The
+remaining target binding is scalar-coordinate callback packaging and linear
+conjugation back to `PhaseSpace Unit`.
 
 ## Track C: later breadth branches
 

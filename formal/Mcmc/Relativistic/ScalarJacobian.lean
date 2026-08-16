@@ -382,4 +382,226 @@ theorem det_scalarHorizontalShearFDeriv_ne_zero_of_lipschitz
   rw [this, abs_neg, abs_one] at hproduct
   exact (lt_irrefl 1 hproduct)
 
+noncomputable def scalarSliceRate (a : ℝ) (K : NNReal) : NNReal :=
+  ⟨|a| * K, mul_nonneg (abs_nonneg _) K.2⟩
+
+noncomputable def scalarIncomingInverseUpdate
+    (a : ℝ) (F : ℝ × ℝ → ℝ) (z : ℝ × ℝ) (r : ℝ) : ℝ :=
+  z.2 - a * F (z.1, r)
+
+theorem scalarIncomingInverseUpdate_contracting
+    (a : ℝ) (F : ℝ × ℝ → ℝ) (K : NNReal)
+    (hlip : ∀ q, LipschitzWith K (fun p => F (q, p)))
+    (hstep : |a| * K < 1) (z : ℝ × ℝ) :
+    ContractingWith (scalarSliceRate a K)
+      (scalarIncomingInverseUpdate a F z) := by
+  constructor
+  · exact hstep
+  · apply LipschitzWith.of_dist_le_mul
+    intro p r
+    rw [Real.dist_eq]
+    unfold scalarIncomingInverseUpdate scalarSliceRate
+    rw [show (z.2 - a * F (z.1, p)) - (z.2 - a * F (z.1, r)) =
+      -a * (F (z.1, p) - F (z.1, r)) by ring, abs_mul, abs_neg]
+    calc
+      |a| * |F (z.1, p) - F (z.1, r)| ≤
+          |a| * (K * |p - r|) := by
+        gcongr
+        simpa [Real.dist_eq] using (hlip z.1).dist_le_mul p r
+      _ = (⟨|a| * K, mul_nonneg (abs_nonneg _) K.2⟩ : NNReal) *
+          |p - r| := by
+        change |a| * ((K : ℝ) * |p - r|) =
+          (|a| * (K : ℝ)) * |p - r|
+        ring
+
+/-- Banach-selected inverse of the incoming vertical shear. -/
+noncomputable def scalarIncomingInverse
+    (a : ℝ) (F : ℝ × ℝ → ℝ) (K : NNReal)
+    (hlip : ∀ q, LipschitzWith K (fun p => F (q, p)))
+    (hstep : |a| * K < 1) (z : ℝ × ℝ) : ℝ × ℝ :=
+  (z.1, (scalarIncomingInverseUpdate_contracting a F K hlip hstep z).fixedPoint
+    (scalarIncomingInverseUpdate a F z))
+
+theorem scalarVerticalShear_leftInverse_scalarIncomingInverse
+    (a : ℝ) (F : ℝ × ℝ → ℝ) (K : NNReal)
+    (hlip : ∀ q, LipschitzWith K (fun p => F (q, p)))
+    (hstep : |a| * K < 1) :
+    Function.LeftInverse (scalarVerticalShear a F)
+      (scalarIncomingInverse a F K hlip hstep) := by
+  intro z
+  let r := (scalarIncomingInverseUpdate_contracting a F K hlip hstep z).fixedPoint
+    (scalarIncomingInverseUpdate a F z)
+  have hfixed :=
+    (scalarIncomingInverseUpdate_contracting a F K hlip hstep z).fixedPoint_isFixedPt
+  apply Prod.ext
+  · rfl
+  · change r + a * F (z.1, r) = z.2
+    have hr : r = z.2 - a * F (z.1, r) := by
+      simpa [r, scalarIncomingInverseUpdate] using hfixed.symm
+    linarith
+
+theorem continuous_scalarIncomingInverse
+    (a : ℝ) (F : ℝ × ℝ → ℝ) (K : NNReal)
+    (hF : Continuous F)
+    (hlip : ∀ q, LipschitzWith K (fun p => F (q, p)))
+    (hstep : |a| * K < 1) :
+    Continuous (scalarIncomingInverse a F K hlip hstep) := by
+  let update := scalarIncomingInverseUpdate a F
+  have hjoint : Continuous fun z : (ℝ × ℝ) × ℝ => update z.1 z.2 := by
+    unfold update scalarIncomingInverseUpdate
+    exact continuous_fst.snd.sub (continuous_const.mul
+      (hF.comp (continuous_fst.fst.prodMk continuous_snd)))
+  have hfixed := continuous_fixedPoint_of_continuous_uniform_contracting
+    (scalarSliceRate a K) hstep update hjoint
+      (fun z => (scalarIncomingInverseUpdate_contracting
+        a F K hlip hstep z).2)
+  unfold scalarIncomingInverse
+  exact continuous_fst.prodMk hfixed
+
+noncomputable def scalarLeftInverseUpdate
+    (a : ℝ) (G : ℝ × ℝ → ℝ) (y : ℝ × ℝ) (q : ℝ) : ℝ :=
+  y.1 + a * G (q, y.2)
+
+theorem scalarLeftInverseUpdate_contracting
+    (a : ℝ) (G : ℝ × ℝ → ℝ) (K : NNReal)
+    (hlip : ∀ p, LipschitzWith K (fun q => G (q, p)))
+    (hstep : |a| * K < 1) (y : ℝ × ℝ) :
+    ContractingWith (scalarSliceRate a K)
+      (scalarLeftInverseUpdate a G y) := by
+  constructor
+  · exact hstep
+  · apply LipschitzWith.of_dist_le_mul
+    intro q r
+    rw [Real.dist_eq]
+    unfold scalarLeftInverseUpdate scalarSliceRate
+    rw [show (y.1 + a * G (q, y.2)) - (y.1 + a * G (r, y.2)) =
+      a * (G (q, y.2) - G (r, y.2)) by ring, abs_mul]
+    calc
+      |a| * |G (q, y.2) - G (r, y.2)| ≤
+          |a| * (K * |q - r|) := by
+        gcongr
+        simpa [Real.dist_eq] using (hlip y.2).dist_le_mul q r
+      _ = (⟨|a| * K, mul_nonneg (abs_nonneg _) K.2⟩ : NNReal) *
+          |q - r| := by
+        change |a| * ((K : ℝ) * |q - r|) =
+          (|a| * (K : ℝ)) * |q - r|
+        ring
+
+/-- Banach-selected inverse of the left horizontal shear. -/
+noncomputable def scalarLeftInverse
+    (a : ℝ) (G : ℝ × ℝ → ℝ) (K : NNReal)
+    (hlip : ∀ p, LipschitzWith K (fun q => G (q, p)))
+    (hstep : |a| * K < 1) (y : ℝ × ℝ) : ℝ × ℝ :=
+  ((scalarLeftInverseUpdate_contracting a G K hlip hstep y).fixedPoint
+    (scalarLeftInverseUpdate a G y), y.2)
+
+theorem scalarHorizontalShear_leftInverse_scalarLeftInverse
+    (a : ℝ) (G : ℝ × ℝ → ℝ) (K : NNReal)
+    (hlip : ∀ p, LipschitzWith K (fun q => G (q, p)))
+    (hstep : |a| * K < 1) :
+    Function.LeftInverse (scalarHorizontalShear (-a) G)
+      (scalarLeftInverse a G K hlip hstep) := by
+  intro y
+  let q := (scalarLeftInverseUpdate_contracting a G K hlip hstep y).fixedPoint
+    (scalarLeftInverseUpdate a G y)
+  have hfixed :=
+    (scalarLeftInverseUpdate_contracting a G K hlip hstep y).fixedPoint_isFixedPt
+  unfold scalarHorizontalShear scalarLeftInverse
+  simp only [neg_mul]
+  change (q - a * G (q, y.2), y.2) = y
+  apply Prod.ext
+  · change q - a * G (q, y.2) = y.1
+    have hq : q = y.1 + a * G (q, y.2) := by
+      simpa [q, scalarLeftInverseUpdate] using hfixed.symm
+    linarith
+  · rfl
+
+theorem continuous_scalarLeftInverse
+    (a : ℝ) (G : ℝ × ℝ → ℝ) (K : NNReal)
+    (hG : Continuous G)
+    (hlip : ∀ p, LipschitzWith K (fun q => G (q, p)))
+    (hstep : |a| * K < 1) :
+    Continuous (scalarLeftInverse a G K hlip hstep) := by
+  let update := scalarLeftInverseUpdate a G
+  have hjoint : Continuous fun z : (ℝ × ℝ) × ℝ => update z.1 z.2 := by
+    unfold update scalarLeftInverseUpdate
+    exact continuous_fst.fst.add (continuous_const.mul
+      (hG.comp (continuous_snd.prodMk continuous_fst.snd)))
+  have hfixed := continuous_fixedPoint_of_continuous_uniform_contracting
+    (scalarSliceRate a K) hstep update hjoint
+      (fun y => (scalarLeftInverseUpdate_contracting
+        a G K hlip hstep y).2)
+  unfold scalarLeftInverse
+  exact hfixed.prodMk continuous_snd
+
+theorem differentiable_scalarIncomingInverse
+    (a : ℝ) (F : ℝ × ℝ → ℝ) (K : NNReal)
+    (hF : Differentiable ℝ F)
+    (hlip : ∀ q, LipschitzWith K (fun p => F (q, p)))
+    (hstep : |a| * K < 1) :
+    Differentiable ℝ (scalarIncomingInverse a F K hlip hstep) := by
+  apply differentiable_of_continuous_leftInverse_of_det_fderiv_ne_zero
+    (scalarVerticalShear a F) (scalarIncomingInverse a F K hlip hstep)
+    (by unfold scalarVerticalShear; fun_prop)
+    (continuous_scalarIncomingInverse a F K hF.continuous hlip hstep)
+    (scalarVerticalShear_leftInverse_scalarIncomingInverse a F K hlip hstep)
+  intro z
+  rw [(hasFDerivAt_scalarVerticalShear a F hF z).fderiv]
+  exact det_scalarVerticalShearFDeriv_ne_zero_of_lipschitz
+    a F K hF hlip hstep z
+
+theorem differentiable_scalarLeftInverse
+    (a : ℝ) (G : ℝ × ℝ → ℝ) (K : NNReal)
+    (hG : Differentiable ℝ G)
+    (hlip : ∀ p, LipschitzWith K (fun q => G (q, p)))
+    (hstep : |a| * K < 1) :
+    Differentiable ℝ (scalarLeftInverse a G K hlip hstep) := by
+  apply differentiable_of_continuous_leftInverse_of_det_fderiv_ne_zero
+    (scalarHorizontalShear (-a) G) (scalarLeftInverse a G K hlip hstep)
+    (by unfold scalarHorizontalShear; fun_prop)
+    (continuous_scalarLeftInverse a G K hG.continuous hlip hstep)
+    (scalarHorizontalShear_leftInverse_scalarLeftInverse a G K hlip hstep)
+  intro z
+  rw [(hasFDerivAt_scalarHorizontalShear (-a) G hG z).fderiv]
+  apply det_scalarHorizontalShearFDeriv_ne_zero_of_lipschitz
+    (-a) G K hG hlip
+  · simpa only [abs_neg] using hstep
+
+/-- Fully constructed scalar exact generalized-leapfrog step from the two
+global slice-Lipschitz bounds. -/
+noncomputable def scalarBanachGeneralizedLeapfrogStep
+    (a : ℝ) (F G : ℝ × ℝ → ℝ) (KF KG : NNReal)
+    (hlipF : ∀ q, LipschitzWith KF (fun p => F (q, p)))
+    (hlipG : ∀ p, LipschitzWith KG (fun q => G (q, p)))
+    (hstepF : |a| * KF < 1) (hstepG : |a| * KG < 1) :
+    ℝ × ℝ → ℝ × ℝ :=
+  scalarGeneralizedLeapfrogStep a F G
+    (scalarIncomingInverse a F KF hlipF hstepF)
+    (scalarLeftInverse a G KG hlipG hstepG)
+
+/-- End-to-end determinant-one theorem for the Banach-selected scalar step. -/
+theorem det_fderiv_scalarBanachGeneralizedLeapfrogStep_eq_one
+    (a : ℝ) (F G : ℝ × ℝ → ℝ) (KF KG : NNReal)
+    (hF : Differentiable ℝ F) (hG : Differentiable ℝ G)
+    (hlipF : ∀ q, LipschitzWith KF (fun p => F (q, p)))
+    (hlipG : ∀ p, LipschitzWith KG (fun q => G (q, p)))
+    (hstepF : |a| * KF < 1) (hstepG : |a| * KG < 1)
+    (hmixed : ∀ z,
+      fderiv ℝ F z (0, 1) = fderiv ℝ G z (1, 0))
+    (z : ℝ × ℝ) :
+    (fderiv ℝ (scalarBanachGeneralizedLeapfrogStep a F G KF KG
+      hlipF hlipG hstepF hstepG) z).det = 1 := by
+  exact det_fderiv_scalarGeneralizedLeapfrogStep_eq_one
+    a F G
+    (scalarIncomingInverse a F KF hlipF hstepF)
+    (scalarLeftInverse a G KG hlipG hstepG)
+    hF hG
+    (differentiable_scalarIncomingInverse a F KF hF hlipF hstepF)
+    (differentiable_scalarLeftInverse a G KG hG hlipG hstepG)
+    (scalarVerticalShear_leftInverse_scalarIncomingInverse
+      a F KF hlipF hstepF)
+    (scalarHorizontalShear_leftInverse_scalarLeftInverse
+      a G KG hlipG hstepG)
+    hmixed z
+
 end Mcmc.Relativistic

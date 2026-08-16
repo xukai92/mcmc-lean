@@ -2167,3 +2167,16 @@ that the strict slice-contraction inequalities make the incoming and left-map
 Jacobians nonsingular. The target-specific residue is therefore narrowed to
 constructing the scalar-coordinate inverse selections from the existing
 Banach solver and proving their continuity/differentiability.
+
+That generic inverse-selection layer is now complete. For arbitrary scalar
+callbacks with uniform slice-Lipschitz constants, Lean constructs both global
+Banach fixed-point selections, proves the triangular maps are their left
+inverses, and derives continuity from the uniform fixed-point theorem. The
+strict contraction bounds make the triangular Jacobians nonsingular, so the
+global inverse theorem proves both selections differentiable. Combining these
+results with the generic determinant composition yields an end-to-end
+determinant-one theorem for a fully constructed scalar Banach generalized-
+leapfrog step. The SoftAbs client still needs a lightweight opaque callback
+binding to this generic real-coordinate theorem and conjugation back to
+`PhaseSpace Unit`; this is an elaboration/interface task rather than another
+Jacobian calculation.
