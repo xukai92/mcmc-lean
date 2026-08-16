@@ -1,5 +1,6 @@
 import Mcmc.PDMP.Flow
 import Mcmc.Hamiltonian.Leapfrog
+import Mcmc.Hamiltonian.MomentumRefresh
 import Mathlib.MeasureTheory.Integral.Bochner.Basic
 import Mathlib.Analysis.InnerProductSpace.Projection.Reflection
 import Mathlib.Probability.Distributions.Gaussian.Multivariate
@@ -428,6 +429,16 @@ theorem l2StandardGaussianPosition_eq_pi :
   · exact (MeasurableEquiv.toLp 2 (Position ι)).symm.measurable
   · exact (MeasurableEquiv.toLp 2 (Position ι)).measurable
 
+/-- The transported Euclidean Gaussian agrees with the independently
+density-defined standard momentum law used throughout the HMC code. -/
+theorem l2StandardGaussianPosition_eq_standardMomentumMeasure :
+    l2StandardGaussianPosition (ι := ι) =
+      Mcmc.Hamiltonian.standardMomentumMeasure := by
+  rw [l2StandardGaussianPosition_eq_pi,
+    ← Mcmc.Kernel.densityTarget_isotropicGaussianPDF_eq_pi
+      (ι := ι) 1 (by norm_num)]
+  rfl
+
 /-- Conjugate a Euclidean reflection back to the coordinate `Position` space. -/
 noncomputable def conjugatedEuclideanReflection
     (subspace : Submodule ℝ (EuclideanSpace ℝ ι)) : Position ι → Position ι :=
@@ -504,6 +515,15 @@ theorem bouncyReflection_l2StandardGaussian_measurePreserving
   rw [bouncyReflection_eq_conjugatedEuclideanReflection normal hnormal]
   exact l2StandardGaussianPosition_reflection_measurePreserving
     ((ℝ ∙ (MeasurableEquiv.toLp 2 (Position ι) normal))ᗮ)
+
+/-- Canonical HMC/BPS formulation of Gaussian reflection invariance. -/
+theorem bouncyReflection_standardMomentumMeasure_measurePreserving
+    (normal : Position ι) (hnormal : normal ≠ 0) :
+    MeasurePreserving (bouncyReflection normal)
+      Mcmc.Hamiltonian.standardMomentumMeasure
+      Mcmc.Hamiltonian.standardMomentumMeasure := by
+  rw [← l2StandardGaussianPosition_eq_standardMomentumMeasure]
+  exact bouncyReflection_l2StandardGaussian_measurePreserving normal hnormal
 
 /-- Standard-Gaussian velocity specialization of the product-space BPS
 generator theorem. Reflection invariance is discharged internally; clients

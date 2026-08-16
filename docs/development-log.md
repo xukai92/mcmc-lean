@@ -23,11 +23,12 @@
   transports that law through the measurable `L²` equivalence, proves the
   repository's coordinate Householder bounce equals the conjugated orthogonal
   hyperplane reflection, and obtains its exact measure-preservation theorem on
-  `Position`. Identifying this transported Gaussian with the independently
-  density-defined `standardMomentumMeasure` remains a compatibility lemma.
-  Lean now simplifies the transported law exactly to the finite product
-  `Measure.pi (gaussianReal 0 1)`, reducing that compatibility lemma to the
-  product-density factorization used by `isotropicGaussianPDF`.
+  `Position`. Lean simplifies the transported law exactly to the finite product
+  `Measure.pi (gaussianReal 0 1)`. A rectangle/Fubini theorem proves that every
+  nondegenerate density-defined `isotropicGaussianPDF` law equals the
+  corresponding product of one-dimensional Gaussians, closing equality with
+  `standardMomentumMeasure`. Consequently the coordinate Householder bounce
+  now has an exact preservation theorem for the canonical HMC momentum law.
   The full product-space generator theorem now consumes this result directly:
   for transported standard-Gaussian velocities, reflection invariance is no
   longer a client premise, leaving only integrability and the multidimensional

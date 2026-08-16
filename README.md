@@ -190,7 +190,9 @@ jump-generator form, isolating the exact pointwise cancellation used after a
 reflection-invariant velocity change of variables. Reflection is packaged as
 a measurable involutive equivalence, and a measure-level theorem proves that
 any velocity law preserved by it turns the integrated bounce term into minus
-the normal transport-flux term. Lean now also integrates the full
+the normal transport-flux term. The coordinate bounce is identified with an
+orthogonal hyperplane reflection and proved to preserve the canonical standard
+Gaussian momentum law exactly. Lean now also integrates the full
 position-dependent phase-space generator and reduces mean-zero exactly to an
 explicit multidimensional spatial integration-by-parts premise. This is
 infinitesimal balance, not process stationarity or convergence. For globally bounded bounce intensities, Lean now

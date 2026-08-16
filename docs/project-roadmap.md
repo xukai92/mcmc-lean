@@ -512,10 +512,10 @@ by paper date:
    reflection invariance of mathlib's finite-dimensional standard Gaussian is
    now proved coordinate-free and transported to `Position`; the coordinate
    Householder formula is proved equal to that conjugated reflection and hence
-   preserves the transported probability law. Equality with the separately
-   density-defined standard momentum law is now reduced to the finite-product
-   Gaussian density factorization: the transported law is proved exactly equal
-   to `Measure.pi (gaussianReal 0 1)`. Target-specific integration by parts,
+   preserves the transported probability law. The finite-product Gaussian
+   density factorization is now proved, closing equality with the canonical
+   density-defined `standardMomentumMeasure` and yielding its direct reflection
+   preservation theorem. Target-specific integration by parts,
    construction of the unbounded-rate process,
    weak-forward uniqueness, and ergodicity remain.
    The standard-Gaussian specialization of the product generator theorem now

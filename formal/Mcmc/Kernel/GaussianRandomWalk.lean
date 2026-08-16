@@ -71,6 +71,57 @@ theorem lintegral_isotropicGaussianPDF_eq_one
   rw [volume_pi, integral_fintype_prod_eq_prod]
   simp [integral_gaussianPDFReal_eq_one 0 hvariance]
 
+/-- The density-defined isotropic Gaussian is exactly the finite product of
+its one-dimensional Gaussian coordinate laws. -/
+theorem densityTarget_isotropicGaussianPDF_eq_pi
+    (variance : ℝ≥0) (hvariance : variance ≠ 0) :
+    densityTarget (volume : Measure (ι → ℝ))
+        (isotropicGaussianPDF (ι := ι) variance) =
+      Measure.pi (fun _ : ι => gaussianReal 0 variance) := by
+  symm
+  apply Measure.pi_eq
+  intro s hs
+  rw [densityTarget, withDensity_apply'
+    (isotropicGaussianPDF (ι := ι) variance) (Set.pi Set.univ s)]
+  simp_rw [gaussianReal_apply_eq_integral 0 hvariance]
+  let f : ι → ℝ → ℝ := fun i => (s i).indicator (gaussianPDFReal 0 variance)
+  have hfi (i : ι) : Integrable (f i) :=
+    (integrable_gaussianPDFReal 0 variance).indicator (hs i)
+  have hf : Integrable (fun z : ι → ℝ => ∏ i, f i (z i)) :=
+    Integrable.fintype_prod hfi
+  have hf_nonneg : 0 ≤ᵐ[volume] (fun z : ι → ℝ => ∏ i, f i (z i)) :=
+    ae_of_all _ fun z => Finset.prod_nonneg fun i _ => by
+      by_cases hzi : z i ∈ s i
+      · simp [f, hzi, gaussianPDFReal_nonneg]
+      · simp [f, hzi]
+  have hpointwise : (Set.pi Set.univ s).indicator
+      (isotropicGaussianPDF (ι := ι) variance) =
+      fun z => ENNReal.ofReal (∏ i, f i (z i)) := by
+    funext z
+    by_cases hz : z ∈ Set.pi Set.univ s
+    · have hzi : ∀ i, z i ∈ s i := by
+        simpa [Set.mem_pi] using hz
+      simp [hz, isotropicGaussianPDF_eq_ofReal_prod, f, hzi]
+    · have hzi : ∃ i, z i ∉ s i := by
+        simpa [Set.mem_pi] using hz
+      obtain ⟨i, hi⟩ := hzi
+      have hzprod : (∏ x, f x (z x)) = 0 := by
+        apply Finset.prod_eq_zero (Finset.mem_univ i)
+        simp [f, hi]
+      simp [hz, hzprod]
+  rw [← lintegral_indicator (MeasurableSet.univ_pi hs), hpointwise,
+    ← ofReal_integral_eq_lintegral_ofReal hf hf_nonneg,
+    integral_fintype_prod_volume_eq_prod]
+  rw [ENNReal.ofReal_prod_of_nonneg]
+  · apply Finset.prod_congr rfl
+    intro i _
+    simp [f, integral_indicator (hs i)]
+  · intro i _
+    exact integral_nonneg_of_ae (ae_of_all _ fun x => by
+      by_cases hx : x ∈ s i
+      · simp [f, hx, gaussianPDFReal_nonneg]
+      · simp [f, hx])
+
 /-- The centered product Gaussian density is even. -/
 theorem isotropicGaussianPDF_even (variance : ℝ≥0) (z : ι → ℝ) :
     isotropicGaussianPDF variance (-z) = isotropicGaussianPDF variance z := by
