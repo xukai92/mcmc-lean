@@ -15,7 +15,7 @@ implementation features and experiments.
 | Selected subsets may overlap and their union should cover the model variables | `Covers` records union coverage; `schedule_stationary` deliberately needs neither coverage nor disjointness | Corrected separation: coverage is an inference-configuration condition, while stationarity follows from preservation by every full-state operator |
 | Operators can be composed into a Gibbs-style schedule | `schedule` and `schedule_stationary` prove that every finite schedule of common-target-stationary operators preserves the target | Machine checked |
 | A runtime engine executes scoped operators in user-specified order | Lean-generated IR version 12 includes a coverage-checked PG--HMC schedule descriptor; Julia `generated_schedule`, `ScopedInferenceOperator`, and `ComposableSampler` preserve its names, scopes, and ordering | Executable metadata refinement; target correctness remains conditional on matching each named callback to its proved full-state kernel |
-| Particle Gibbs can update latent/discrete variables and HMC can update differentiable continuous variables | `pgHmcKernel` and `pgHmcKernel_stationary` formalize the two-block pattern in Equations (7)--(8) through explicit slice-preservation hypotheses; `Mcmc.Examples.ComposableInference` gives a nonidentity two-block finite instance | Machine checked at the finite product-state level; the example deliberately does not call a finite refresh transition numerical HMC |
+| Particle Gibbs can update latent/discrete variables and HMC can update differentiable continuous variables | The finite `pgHmcKernel` proves the product-state schedule. General-state `Mcmc.Kernel.ComposableInference.pgHmcKernel` composes common-target kernels; `Examples.GeneralStatePgHmc` constructs dependent sign/quadrant auxiliaries by disintegration and follows them with the actual Gaussian SoftAbs multinomial GR-HMC kernel | Machine checked at both finite and general-state measure-kernel levels. The general-state client proves invariance; its explicit target-refresh augmentation additionally has setwise convergence, while the unaugmented schedule has no convergence claim |
 | PG, PMMH, and SMC are available component engines | Finite SMC, concrete conditional SMC, PIMH, state-indexed PMMH, and particle Gibbs are proved in the particle-MCMC layer; Julia exposes an exact-integer finite-HMM PG runner | Machine checked for fixed finite state, horizon, and particle count; PG execution is differentially tested |
 | HMC/NUTS is not directly applicable to discrete variables | The current HMC interfaces act on Euclidean coordinates; no claim is made that ordinary gradient HMC updates discrete coordinates | Scope restriction, not a universal impossibility theorem |
 | Candidate-based trajectory selection preserves a target | `candidateMixture_stationary` handles state-independent mixtures; `dynamicCandidateKernel_stationary` handles target-weighted state-dependent sets; `CertifiedDynamicTree` derives its premises directly from completed candidate finsets | Machine checked static and dynamic structural cores, including variable-depth stopped doubling components; a numerical U-turn builder must refine the completed-tree certificate |
@@ -123,6 +123,11 @@ metadata.
    builders are adjacent endpoint barriers and a
    conservative all-scales detector that checks every endpoint pair spanning
    each split. Both have Lean stationarity theorems and Julia implementations.
+   Julia now also executes root-dependent power-of-two expansion with
+   recursive subtree exclusion and checks the resulting row family globally;
+   failed families take the no-draw identity fallback. What remains is the
+   stronger equivalence theorem showing that ordinary randomized standard
+   NUTS produces a reroot-valid family, not construction of another checker.
    Equivalence to the usual root-dependent recursive first-stop NUTS algorithm
    remains intentionally unclaimed.
 4. Extend generated trace-state descriptions if richer source programs need
