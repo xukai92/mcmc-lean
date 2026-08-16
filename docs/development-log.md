@@ -59,7 +59,14 @@
   bind expansion, and rewrites the aggregate PG kernel entry as an initial
   forced cloud followed by precisely that suffix expectation. The remaining
   induction no longer has to unfold the collapsed kernel or reconstruct
-  backward genealogies.
+  backward genealogies. The sharp normalizer comparison is also now proved.
+  Summed potential oscillation gives
+  `N−1 · G(retained) ≤ B · Σ(unforced G)`, hence the full normalizer is
+  at most `(N−1+B)/(N−1)` times the unforced normalizer. Lean packages the
+  resulting ratio inequality and instantiates it for marked transition mass,
+  yielding the desired `(N−1)/(N−1+B)` resampling comparison before the
+  remaining recursion bookkeeping. This replaces the earlier crude
+  pointwise-weight route that would have left a permanent `1/B` loss.
 
 - Completed the compact-minorization and faithful-coupling foundation for the
   actual bare one-dimensional Gaussian SoftAbs multinomial kernel at

@@ -755,6 +755,226 @@ structure PotentialOscillationBound (potential : Sample → ℝ) (bound : ℝ) :
   bound_pos : 0 < bound
   le_mul : ∀ x y, potential x ≤ bound * potential y
 
+/-- Total potential carried by all particles except one retained coordinate. -/
+noncomputable def unforcedPotentialSum (potential : Sample → ℝ)
+    {Particle : Type*} [Fintype Particle] [DecidableEq Particle]
+    (particles : Particle → Sample) (retained : Particle) : ℝ :=
+  ∑ i, if i = retained then 0 else potential (particles i)
+
+omit [Fintype Sample] [DecidableEq Sample] in
+/-- Summing the oscillation comparison over every unforced coordinate bounds
+the retained potential by the aggregate ordinary-particle potential. For
+`N = extra + 1`, exactly `extra` comparisons are accumulated. -/
+theorem retainedPotential_mul_extra_le_bound_mul_unforcedPotentialSum
+    (potential : Sample → ℝ) (bound : ℝ)
+    (certificate : PotentialOscillationBound potential bound)
+    (extra : ℕ) (particles : Fin (extra + 1) → Sample)
+    (retained : Fin (extra + 1)) :
+    (extra : ℝ) * potential (particles retained) ≤
+      bound * unforcedPotentialSum potential particles retained := by
+  calc
+    (extra : ℝ) * potential (particles retained) =
+        ∑ i : Fin (extra + 1),
+          if i = retained then 0 else potential (particles retained) := by
+      rw [sum_unforced_constant]
+      simp
+    _ ≤ ∑ i : Fin (extra + 1),
+          if i = retained then 0 else bound * potential (particles i) := by
+      apply Finset.sum_le_sum
+      intro i _
+      by_cases hi : i = retained
+      · simp [hi]
+      · simpa [hi] using certificate.le_mul (particles retained) (particles i)
+    _ = bound * unforcedPotentialSum potential particles retained := by
+      unfold unforcedPotentialSum
+      rw [Finset.mul_sum]
+      apply Finset.sum_congr rfl
+      intro i _
+      by_cases hi : i = retained <;> simp [hi]
+
+omit [Fintype Sample] [DecidableEq Sample] in
+/-- The complete potential normalizer is the retained term plus the unforced
+sum. -/
+theorem sum_potential_eq_retained_add_unforcedPotentialSum
+    (potential : Sample → ℝ) {Particle : Type*}
+    [Fintype Particle] [DecidableEq Particle]
+    (particles : Particle → Sample) (retained : Particle) :
+    (∑ i, potential (particles i)) =
+      potential (particles retained) +
+        unforcedPotentialSum potential particles retained := by
+  unfold unforcedPotentialSum
+  calc
+    (∑ i, potential (particles i)) =
+        ∑ i, ((if i = retained then potential (particles retained) else 0) +
+          (if i = retained then 0 else potential (particles i))) := by
+      apply Finset.sum_congr rfl
+      intro i _
+      by_cases hi : i = retained <;> simp [hi]
+    _ = (∑ i, if i = retained then potential (particles retained) else 0) +
+        ∑ i, if i = retained then 0 else potential (particles i) := by
+      rw [Finset.sum_add_distrib]
+    _ = potential (particles retained) +
+        ∑ i, if i = retained then 0 else potential (particles i) := by simp
+
+omit [Fintype Sample] [DecidableEq Sample] in
+/-- Oscillation converts the full normalization denominator into the standard
+particle-Gibbs penalty: the retained particle enlarges the ordinary-particle
+sum by at most the factor `(extra + bound) / extra`. -/
+theorem sum_potential_le_penalty_mul_unforcedPotentialSum
+    (potential : Sample → ℝ) (bound : ℝ)
+    (certificate : PotentialOscillationBound potential bound)
+    (extra : ℕ) (hextra : 0 < extra)
+    (particles : Fin (extra + 1) → Sample)
+    (retained : Fin (extra + 1)) :
+    (∑ i, potential (particles i)) ≤
+      ((extra : ℝ) + bound) / extra *
+        unforcedPotentialSum potential particles retained := by
+  have hextraReal : 0 < (extra : ℝ) := by exact_mod_cast hextra
+  have hretained :=
+    retainedPotential_mul_extra_le_bound_mul_unforcedPotentialSum
+      potential bound certificate extra particles retained
+  rw [sum_potential_eq_retained_add_unforcedPotentialSum]
+  rw [div_mul_eq_mul_div]
+  apply (le_div_iff₀ hextraReal).2
+  nlinarith
+
+omit [Fintype Sample] [DecidableEq Sample] in
+/-- With at least one ordinary particle and positive potentials, the unforced
+normalizer is strictly positive. -/
+theorem unforcedPotentialSum_pos
+    (potential : Sample → ℝ) (hpotential : ∀ x, 0 < potential x)
+    (extra : ℕ) (hextra : 0 < extra)
+    (particles : Fin (extra + 1) → Sample)
+    (retained : Fin (extra + 1)) :
+    0 < unforcedPotentialSum potential particles retained := by
+  obtain ⟨ordinary, hordinary⟩ := Fintype.exists_ne_of_one_lt_card
+    (show 1 < Fintype.card (Fin (extra + 1)) by simp; omega) retained
+  unfold unforcedPotentialSum
+  apply Finset.sum_pos'
+  · intro i _
+    by_cases hi : i = retained
+    · simp [hi]
+    · simpa [hi] using (hpotential (particles i)).le
+  · refine ⟨ordinary, Finset.mem_univ ordinary, ?_⟩
+    simp [hordinary, hpotential]
+
+/-- Algebraic denominator-comparison lemma underlying the sharp PG factor. -/
+theorem penalty_ratio_mul_div_le_div
+    {extra bound unforcedDenominator fullDenominator
+      unforcedNumerator fullNumerator : ℝ}
+    (hextra : 0 < extra) (hbound : 0 < bound)
+    (hunforcedDenominator : 0 < unforcedDenominator)
+    (hfullDenominator : 0 < fullDenominator)
+    (hunforcedNumerator : 0 ≤ unforcedNumerator)
+    (hnumerator : unforcedNumerator ≤ fullNumerator)
+    (hdenominator : fullDenominator ≤
+      (extra + bound) / extra * unforcedDenominator) :
+    extra / (extra + bound) *
+        (unforcedNumerator / unforcedDenominator) ≤
+      fullNumerator / fullDenominator := by
+  apply (le_div_iff₀ hfullDenominator).2
+  calc
+    extra / (extra + bound) *
+          (unforcedNumerator / unforcedDenominator) * fullDenominator ≤
+        extra / (extra + bound) *
+          (unforcedNumerator / unforcedDenominator) *
+            ((extra + bound) / extra * unforcedDenominator) := by
+      apply mul_le_mul_of_nonneg_left hdenominator
+      positivity
+    _ = unforcedNumerator := by field_simp
+    _ ≤ fullNumerator := hnumerator
+
+/-- Unnormalized marked transition mass contributed by ordinary (unforced)
+particles. -/
+noncomputable def unforcedPotentialTransitionMass
+    (potential : Sample → ℝ) (transition : MarkovKernel Sample)
+    {Particle : Type*} [Fintype Particle] [DecidableEq Particle]
+    (particles : Particle → Sample) (retained : Particle)
+    (marked : Particle → Prop) [DecidablePred marked]
+    (desired : Sample) : ℝ :=
+  ∑ i, if i = retained then 0 else
+    potential (particles i) *
+      (if marked i then transition.prob (particles i) desired else 0)
+
+omit [DecidableEq Sample] in
+/-- Sharp deterministic resampling comparison. Normalizing with the retained
+particle loses only `extra / (extra + bound)` relative to normalizing the
+ordinary particles among themselves. -/
+theorem normalizedPotentialWeights_markedTransition_ge_unforced
+    (potential : Sample → ℝ) (hpotential : ∀ x, 0 < potential x)
+    (transition : MarkovKernel Sample) (bound : ℝ)
+    (certificate : PotentialOscillationBound potential bound)
+    (extra : ℕ) (hextra : 0 < extra)
+    (particles : Fin (extra + 1) → Sample)
+    (retained : Fin (extra + 1))
+    (marked : Fin (extra + 1) → Prop) [DecidablePred marked]
+    (desired : Sample) :
+    (extra : ℝ) / ((extra : ℝ) + bound) *
+        (unforcedPotentialTransitionMass potential transition particles retained
+          marked desired /
+          unforcedPotentialSum potential particles retained) ≤
+      ∑ parent,
+        (normalizedPotentialWeights potential hpotential particles).mass parent *
+          (if marked parent then
+            transition.prob (particles parent) desired else 0) := by
+  let unforcedNumerator := unforcedPotentialTransitionMass potential transition
+    particles retained marked desired
+  let fullNumerator := ∑ parent,
+    potential (particles parent) *
+      (if marked parent then transition.prob (particles parent) desired else 0)
+  let unforcedDenominator := unforcedPotentialSum potential particles retained
+  let fullDenominator := ∑ i, potential (particles i)
+  have hextraReal : 0 < (extra : ℝ) := by exact_mod_cast hextra
+  have hfullDenominator : 0 < fullDenominator := by
+    dsimp only [fullDenominator]
+    exact Finset.sum_pos (fun i _ => hpotential (particles i)) Finset.univ_nonempty
+  have hunforcedDenominator : 0 < unforcedDenominator := by
+    exact unforcedPotentialSum_pos potential hpotential extra hextra particles retained
+  have hunforcedNumerator : 0 ≤ unforcedNumerator := by
+    dsimp only [unforcedNumerator, unforcedPotentialTransitionMass]
+    apply Finset.sum_nonneg
+    intro i _
+    by_cases hi : i = retained
+    · simp [hi]
+    · simp only [hi, if_false]
+      by_cases hm : marked i
+      · simp only [hm, if_true]
+        exact mul_nonneg (hpotential _).le (transition.nonneg _ _)
+      · simp [hm]
+  have hnumerator : unforcedNumerator ≤ fullNumerator := by
+    dsimp only [unforcedNumerator, fullNumerator,
+      unforcedPotentialTransitionMass]
+    apply Finset.sum_le_sum
+    intro i _
+    by_cases hi : i = retained
+    · simp only [hi, if_true]
+      by_cases hm : marked retained
+      · simp only [hm, if_true]
+        exact mul_nonneg (hpotential _).le (transition.nonneg _ _)
+      · simp [hm]
+    · simp [hi]
+  have hdenominator : fullDenominator ≤
+      ((extra : ℝ) + bound) / extra * unforcedDenominator := by
+    exact sum_potential_le_penalty_mul_unforcedPotentialSum
+      potential bound certificate extra hextra particles retained
+  have halgebra := penalty_ratio_mul_div_le_div
+    hextraReal certificate.bound_pos hunforcedDenominator hfullDenominator
+    hunforcedNumerator hnumerator hdenominator
+  change (extra : ℝ) / ((extra : ℝ) + bound) *
+      (unforcedNumerator / unforcedDenominator) ≤ _
+  calc
+    _ ≤ fullNumerator / fullDenominator := halgebra
+    _ = ∑ parent,
+        (normalizedPotentialWeights potential hpotential particles).mass parent *
+          (if marked parent then
+            transition.prob (particles parent) desired else 0) := by
+      dsimp only [fullNumerator, fullDenominator]
+      unfold normalizedPotentialWeights
+      rw [Finset.sum_div]
+      apply Finset.sum_congr rfl
+      intro parent _
+      ring
+
 /-- Explicit finite oscillation constant, chosen as the sum of every ordered
 potential ratio. It is conservative but depends only on the model, never on
 the particle count. -/
