@@ -232,6 +232,94 @@ structure ContractiveGeneralizedLeapfrogSolverAt
     ContractingWith (positionRate q pHalf)
       (positionFixedPointUpdate momentumDerivative ε q pHalf)
 
+/-- Contraction rate induced by a global slice-Lipschitz bound and one half
+step. -/
+noncomputable def generalizedLeapfrogSliceRate (ε : ℝ) (L : NNReal) : NNReal :=
+  ⟨|ε / 2| * L, mul_nonneg (abs_nonneg _) L.2⟩
+
+theorem halfMomentum_contracting_of_lipschitz
+    (positionDerivative : PhaseSpace ι → Position ι)
+    (ε : ℝ) (L : NNReal)
+    (hlipschitz : ∀ q, LipschitzWith L
+      (fun p => positionDerivative (q, p)))
+    (hstep : |ε / 2| * L < 1) (z : PhaseSpace ι) :
+    ContractingWith (generalizedLeapfrogSliceRate ε L)
+      (halfMomentumFixedPointUpdate positionDerivative ε z) := by
+  constructor
+  · exact hstep
+  · apply LipschitzWith.of_dist_le_mul
+    intro p r
+    rw [dist_eq_norm, dist_eq_norm]
+    change ‖(z.2 - (ε / 2) • positionDerivative (z.1, p)) -
+        (z.2 - (ε / 2) • positionDerivative (z.1, r))‖ ≤
+      (|ε / 2| * L) * ‖p - r‖
+    rw [show (z.2 - (ε / 2) • positionDerivative (z.1, p)) -
+        (z.2 - (ε / 2) • positionDerivative (z.1, r)) =
+      -(ε / 2) • (positionDerivative (z.1, p) -
+        positionDerivative (z.1, r)) by module,
+      norm_smul, Real.norm_eq_abs, abs_neg]
+    calc
+      |ε / 2| * ‖positionDerivative (z.1, p) -
+          positionDerivative (z.1, r)‖ ≤
+        |ε / 2| * (L * ‖p - r‖) := by
+          gcongr
+          exact (hlipschitz z.1).dist_le_mul p r
+      _ = _ := by ring
+
+theorem nextPosition_contracting_of_lipschitz
+    (momentumDerivative : PhaseSpace ι → Position ι)
+    (ε : ℝ) (L : NNReal)
+    (hlipschitz : ∀ p, LipschitzWith L
+      (fun q => momentumDerivative (q, p)))
+    (hstep : |ε / 2| * L < 1) (q : Position ι) (p : Momentum ι) :
+    ContractingWith (generalizedLeapfrogSliceRate ε L)
+      (positionFixedPointUpdate momentumDerivative ε q p) := by
+  constructor
+  · exact hstep
+  · apply LipschitzWith.of_dist_le_mul
+    intro x y
+    rw [dist_eq_norm, dist_eq_norm]
+    change ‖(q + (ε / 2) •
+        (momentumDerivative (q, p) + momentumDerivative (x, p))) -
+      (q + (ε / 2) •
+        (momentumDerivative (q, p) + momentumDerivative (y, p)))‖ ≤
+      (|ε / 2| * L) * ‖x - y‖
+    rw [show (q + (ε / 2) •
+        (momentumDerivative (q, p) + momentumDerivative (x, p))) -
+      (q + (ε / 2) •
+        (momentumDerivative (q, p) + momentumDerivative (y, p))) =
+      (ε / 2) • (momentumDerivative (x, p) -
+        momentumDerivative (y, p)) by module,
+      norm_smul, Real.norm_eq_abs]
+    calc
+      |ε / 2| * ‖momentumDerivative (x, p) -
+          momentumDerivative (y, p)‖ ≤
+        |ε / 2| * (L * ‖x - y‖) := by
+          gcongr
+          exact (hlipschitz p).dist_le_mul x y
+      _ = _ := by ring
+
+/-- Global slice-Lipschitz constants construct both exact implicit solves at
+a fixed sufficiently small step. This is the client-facing route for the
+actual SoftAbs derivative fields once their analytic constants are bounded. -/
+noncomputable def contractiveGeneralizedLeapfrogSolverAtOfLipschitz
+    (positionDerivative momentumDerivative : PhaseSpace ι → Position ι)
+    (ε : ℝ) (positionLipschitz momentumLipschitz : NNReal)
+    (hposition : ∀ q, LipschitzWith positionLipschitz
+      (fun p => positionDerivative (q, p)))
+    (hmomentum : ∀ p, LipschitzWith momentumLipschitz
+      (fun q => momentumDerivative (q, p)))
+    (hpositionStep : |ε / 2| * positionLipschitz < 1)
+    (hmomentumStep : |ε / 2| * momentumLipschitz < 1) :
+    ContractiveGeneralizedLeapfrogSolverAt positionDerivative
+      momentumDerivative ε where
+  halfRate _ := generalizedLeapfrogSliceRate ε positionLipschitz
+  halfContracting := halfMomentum_contracting_of_lipschitz
+    positionDerivative ε positionLipschitz hposition hpositionStep
+  positionRate _ _ := generalizedLeapfrogSliceRate ε momentumLipschitz
+  positionContracting := nextPosition_contracting_of_lipschitz
+    momentumDerivative ε momentumLipschitz hmomentum hmomentumStep
+
 /-- Exact half momentum at the certified fixed step size. -/
 noncomputable def ContractiveGeneralizedLeapfrogSolverAt.halfMomentum
     {positionDerivative momentumDerivative : PhaseSpace ι → Position ι}

@@ -212,6 +212,11 @@ log-determinant term. Lean proves the exact implicit maps contract for
 `3|ε|/2 < 1`; Julia's Reference and Optimized loops are differential-tested
 for residual convergence and reversal. Their measured nonzero residuals are
 still approximation evidence, not equality with the Banach-selected point.
+The reusable `contractiveGeneralizedLeapfrogSolverAtOfLipschitz` constructor
+now derives this exact selection from global slice-Lipschitz constants alone;
+the bounded scalar client is proved step-equivalent to that generic route.
+This is the intended entry point for target-specific SoftAbs derivative
+bounds.
 
 A small positive residual is not reclassified as equality. Consequently the
 practical Float64 solver is useful for diagnostics and convergence testing but

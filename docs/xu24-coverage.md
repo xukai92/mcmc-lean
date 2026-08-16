@@ -174,6 +174,13 @@ coordinatewise differentiable and measurable Hessian diagonal, all remaining
 SoftAbs obligations are therefore solver-specific rather than metric or
 kernel-measure obligations.
 
+The solver-specific contraction premise now has a reusable concrete shape:
+global slice-Lipschitz constants and sufficiently small half steps construct
+the exact Banach-selected generalized-leapfrog solver.  This route is
+machine-checked on the genuinely nonconstant bounded scalar metric.  The
+sinusoidal Hessian SoftAbs target still needs its target-specific constants
+and phase-volume proof.
+
 Until those are discharged, the formalized kernels are mathematical GR-HMC
 algorithms with exact conditional correctness theorems, not certification of
 the finite-iteration AdvancedHMC.jl implementation used for the experiments.

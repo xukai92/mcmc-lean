@@ -987,6 +987,31 @@ noncomputable def boundedScalarContractiveSolverAt (ε : ℝ)
   positionRate _ _ := boundedScalarPositionRate ε
   positionContracting := boundedScalar_nextPosition_contracting ε hstep
 
+/-- The bounded scalar client obtained solely through the reusable global
+slice-Lipschitz constructor.  This witnesses that the generic constructor is
+strong enough for a nonconstant position-dependent metric, rather than only
+for synthetic derivative fields. -/
+noncomputable def boundedScalarContractiveSolverAtOfLipschitz (ε : ℝ)
+    (hstep : |ε / 2| * 3 < 1) :
+    ContractiveGeneralizedLeapfrogSolverAt
+      boundedScalarPositionDerivative boundedScalarMomentumDerivative ε := by
+  apply contractiveGeneralizedLeapfrogSolverAtOfLipschitz
+    boundedScalarPositionDerivative boundedScalarMomentumDerivative ε 3 2
+  · exact boundedScalarPositionDerivative_lipschitz_momentum
+  · exact boundedScalarMomentumDerivative_lipschitz_position
+  · simpa using hstep
+  · have hnonneg : 0 ≤ |ε / 2| := abs_nonneg _
+    norm_num at hstep ⊢
+    nlinarith
+
+/-- The generic Lipschitz construction selects exactly the same generalized
+leapfrog step as the specialized bounded-scalar proof. -/
+theorem boundedScalarContractiveSolverAtOfLipschitz_step_eq (ε : ℝ)
+    (hstep : |ε / 2| * 3 < 1) :
+    (boundedScalarContractiveSolverAtOfLipschitz ε hstep).step =
+      (boundedScalarContractiveSolverAt ε hstep).step :=
+  ContractiveGeneralizedLeapfrogSolverAt.step_eq _ _
+
 theorem boundedScalar_finiteHalfMomentum_tendsto (ε : ℝ)
     (hstep : |ε / 2| * 3 < 1) (z : PhaseSpace Unit) :
     Tendsto (fun n => finiteHalfMomentum boundedScalarPositionDerivative n ε z)

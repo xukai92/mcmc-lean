@@ -1604,6 +1604,16 @@ different SoftAbs eigenvalue at zero. The resulting metric is genuinely
 position dependent and supplies the full Equation (12) derivative certificate.
 A nonzero-step contraction/volume solver for this target remains open.
 
+Generalized the exact implicit-solver entry point from that concrete example.
+Global Lipschitz bounds for the momentum slice of `∂H/∂q` and the position
+slice of `∂H/∂p`, together with the two explicit half-step inequalities,
+now construct a `ContractiveGeneralizedLeapfrogSolverAt` directly.  The
+bounded nonconstant `2 + sin(q)` Hamiltonian instantiates this constructor
+with constants three and two, and Lean proves that it selects the same step as
+the earlier specialized solver.  A paper-style SoftAbs client can therefore
+enter the exact solver stack by proving concrete slice bounds; its remaining
+volume argument is still a separate obligation.
+
 Closed the first executable polynomial Float64 certificate. The generated
 restricted Gaussian target can now be evaluated by Julia together with an
 exact dyadic record: `Rational{BigInt}` conversions preserve the precise
