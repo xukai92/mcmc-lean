@@ -350,6 +350,65 @@ theorem momentumMeasure_mul_le_positionMultinomialGRHMC_apply
         exact hphase p hp
       · simp [Set.indicator, hp]
 
+/-- A uniform selected-index floor pushes the refreshed momentum mass of all
+momenta whose selected endpoint lands in a position event into the
+position-space transition. This is the integral-level selected-branch bridge
+used by local-minorization arguments. -/
+theorem uniform_mul_floor_mul_selectedMomentumSet_le_positionMultinomialGRHMC_apply
+    [Nonempty ι] [DecidableEq ι]
+    {positionDerivative momentumDerivative : PhaseSpace ι → Position ι}
+    (potential : Position ι → ℝ)
+    (metric : FactoredRiemannianMetric ι) (m c : ℝ)
+    (hm : 0 < m) (hc : 0 < c)
+    (selection : GeneralizedLeapfrogSelection
+      positionDerivative momentumDerivative)
+    (hvalid : selection.IsValid)
+    (hH : Measurable
+      (generalRelativisticHamiltonian potential metric m c))
+    (hmeasurableMomentum :
+      IsMeasurableRiemannianMomentumFamily metric m c hm hc)
+    (ε : ℝ) {L : ℕ} (origin selected : Fin (L + 1))
+    (q : Position ι) {momentumSet : Set (Momentum ι)}
+    (hmomentumSet : MeasurableSet momentumSet)
+    (hcandidate : Measurable (fun p : Momentum ι =>
+      (orbitPoint (generalizedLeapfrogPerm selection hvalid.unique ε)
+        origin (q, p) selected).1))
+    {positionSet : Set (Position ι)}
+    (hpositionSet : MeasurableSet positionSet) (floor : ENNReal)
+    (hfloor : ∀ p ∈ momentumSet, floor ≤
+      orbitIndexProbability
+        (generalRelativisticBoltzmannWeight potential metric m c)
+        (generalizedLeapfrogPerm selection hvalid.unique ε)
+        origin selected (q, p)) :
+    riemannianMomentumKernel metric m c hm hc hmeasurableMomentum q
+        (momentumSet ∩ {p | (orbitPoint
+          (generalizedLeapfrogPerm selection hvalid.unique ε)
+          origin (q, p) selected).1 ∈ positionSet}) *
+          (PMF.uniformOfFintype (Fin (L + 1)) origin * floor) ≤
+      positionMultinomialGRHMC potential metric m c hm hc selection hvalid hH
+        hmeasurableMomentum ε L q positionSet := by
+  let selectedMomentumSet : Set (Momentum ι) :=
+    momentumSet ∩ {p | (orbitPoint
+      (generalizedLeapfrogPerm selection hvalid.unique ε)
+      origin (q, p) selected).1 ∈ positionSet}
+  have hselectedMomentumSet : MeasurableSet selectedMomentumSet :=
+    hmomentumSet.inter (hpositionSet.preimage hcandidate)
+  apply momentumMeasure_mul_le_positionMultinomialGRHMC_apply
+    potential metric m c hm hc selection hvalid hH hmeasurableMomentum
+    ε L q hselectedMomentumSet hpositionSet
+  intro p hp
+  have hbranch :=
+    uniform_mul_indexProbability_le_orbitMultinomialKernel_apply
+      (generalRelativisticBoltzmannWeight potential metric m c)
+      (generalizedLeapfrogPerm selection hvalid.unique ε)
+      (generalRelativisticBoltzmannWeight_ne_zero potential metric m c)
+      (generalRelativisticBoltzmannWeight_ne_top potential metric m c)
+      (measurable_generalRelativisticBoltzmannWeight potential metric m c hH)
+      (hvalid.measurable ε) (hvalid.measurable (-ε))
+      origin selected (q, p) (measurable_fst hpositionSet) hp.2
+  exact (mul_le_mul_right (hfloor p hp.1)
+    (PMF.uniformOfFintype (Fin (L + 1)) origin)).trans hbranch
+
 /-- Momentum refresh cannot create position movement when the multinomial
 orbit has length zero: the user-facing position transition is identity. -/
 theorem positionMultinomialGRHMC_zero
