@@ -470,4 +470,157 @@ theorem suspensionEndpoint_mem_fundamentalDomain
       exact sub_nonneg.mpr (le_of_not_gt hnot)
   exact ⟨hlower, hupper⟩
 
+omit [MeasurableSpace Base] in
+theorem suspensionCrossingIndex_eq_zero_of_lt_roof
+    (baseMap : Base → Base) (roof : Base → ℝ)
+    (shift : ℝ) (input : Base × ℝ)
+    (hbefore : input.2 + shift < roof input.1) :
+    suspensionCrossingIndex baseMap roof shift input = 0 := by
+  classical
+  change Nat.find (suspensionCrossingSearchPredicate_exists
+    baseMap roof shift input) = 0
+  apply (Nat.find_eq_zero _).2
+  exact Or.inl (by
+    simpa [suspensionCrossed, suspensionRoofElapsed] using hbefore)
+
+omit [MeasurableSpace Base] in
+/-- Before the first roof boundary, the countable executor is ordinary
+vertical translation in the current fiber. -/
+theorem suspensionEndpoint_eq_translate_of_lt_roof
+    (baseMap : Base → Base) (roof : Base → ℝ)
+    (shift : ℝ) (input : Base × ℝ)
+    (hbefore : input.2 + shift < roof input.1) :
+    suspensionEndpoint baseMap roof shift input =
+      (input.1, input.2 + shift) := by
+  unfold suspensionEndpoint
+  rw [suspensionCrossingIndex_eq_zero_of_lt_roof
+    baseMap roof shift input hbefore]
+  simp [suspensionRoofElapsed]
+
+omit [MeasurableSpace Base] in
+/-- Cumulative roofs split into the current roof and the elapsed roofs of the
+base-shifted environment. -/
+theorem suspensionRoofElapsed_succ_eq_first_add_tail
+    (baseMap : Base → Base) (roof : Base → ℝ)
+    (initial : Base) (eventCount : ℕ) :
+    suspensionRoofElapsed baseMap roof initial (eventCount + 1) =
+      roof initial + suspensionRoofElapsed baseMap roof
+        (baseMap initial) eventCount := by
+  induction eventCount with
+  | zero => simp [suspensionRoofElapsed]
+  | succ eventCount ih =>
+      have hit : (baseMap^[eventCount + 1]) initial =
+          (baseMap^[eventCount]) (baseMap initial) := by
+        rw [Function.iterate_succ_apply]
+      calc
+        suspensionRoofElapsed baseMap roof initial (eventCount + 2) =
+            suspensionRoofElapsed baseMap roof initial (eventCount + 1) +
+              roof ((baseMap^[eventCount + 1]) initial) :=
+          suspensionRoofElapsed_succ _ _ _ _
+        _ = (roof initial + suspensionRoofElapsed baseMap roof
+              (baseMap initial) eventCount) +
+              roof ((baseMap^[eventCount + 1]) initial) := by rw [ih]
+        _ = roof initial +
+            (suspensionRoofElapsed baseMap roof (baseMap initial) eventCount +
+              roof ((baseMap^[eventCount]) (baseMap initial))) := by
+          rw [hit]
+          ring
+        _ = roof initial + suspensionRoofElapsed baseMap roof
+            (baseMap initial) (eventCount + 1) := by
+          rw [suspensionRoofElapsed_succ]
+
+omit [MeasurableSpace Base] in
+/-- Once the first roof is reached, later crossing is exactly crossing of the
+shifted base environment with the residual horizon. -/
+theorem suspensionCrossed_succ_iff_tail
+    (baseMap : Base → Base) (roof : Base → ℝ)
+    (input : Base × ℝ) (shift : ℝ)
+    (eventCount : ℕ) :
+    suspensionCrossed baseMap roof input.1 input.2 shift
+        (eventCount + 1) ↔
+      suspensionCrossed baseMap roof (baseMap input.1) 0
+        (input.2 + shift - roof input.1) eventCount := by
+  unfold suspensionCrossed
+  rw [suspensionRoofElapsed_succ_eq_first_add_tail]
+  constructor <;> intro h <;> linarith
+
+omit [MeasurableSpace Base] in
+theorem suspensionEndpoint_crossing_recursion
+    (baseMap : Base → Base) (roof : Base → ℝ)
+    (input : Base × ℝ) (shift : ℝ)
+    (hcrossFirst : roof input.1 ≤ input.2 + shift)
+    (hexists : ∃ eventCount,
+      suspensionCrossed baseMap roof input.1 input.2 shift eventCount) :
+    suspensionEndpoint baseMap roof shift input =
+      suspensionEndpoint baseMap roof
+        (input.2 + shift - roof input.1) (baseMap input.1, 0) := by
+  let residual := input.2 + shift - roof input.1
+  have hresidual : 0 ≤ residual := sub_nonneg.mpr hcrossFirst
+  have htailExists : ∃ eventCount,
+      suspensionCrossed baseMap roof (baseMap input.1) 0 residual eventCount := by
+    obtain ⟨eventCount, hcrossed⟩ := hexists
+    cases eventCount with
+    | zero =>
+        unfold suspensionCrossed suspensionRoofElapsed at hcrossed
+        simp at hcrossed
+        linarith
+    | succ eventCount =>
+        exact ⟨eventCount,
+          (suspensionCrossed_succ_iff_tail
+            baseMap roof input shift eventCount).mp hcrossed⟩
+  let originalIndex := suspensionCrossingIndex baseMap roof shift input
+  let tailIndex := suspensionCrossingIndex baseMap roof residual
+    (baseMap input.1, 0)
+  have horiginalCrossed : suspensionCrossed baseMap roof input.1 input.2
+      shift originalIndex :=
+    suspensionCrossingIndex_crossed baseMap roof shift input hexists
+  have horiginalPos : 0 < originalIndex := by
+    by_contra hnot
+    have hzero : originalIndex = 0 := Nat.eq_zero_of_not_pos hnot
+    rw [hzero] at horiginalCrossed
+    have hbefore : input.2 + shift < roof input.1 := by
+      simpa [suspensionCrossed, suspensionRoofElapsed] using horiginalCrossed
+    linarith
+  have htailCrossed : suspensionCrossed baseMap roof (baseMap input.1) 0
+      residual tailIndex :=
+    suspensionCrossingIndex_crossed baseMap roof residual
+      (baseMap input.1, 0) htailExists
+  have horiginalFromTail : suspensionCrossed baseMap roof input.1 input.2
+      shift (tailIndex + 1) :=
+    (suspensionCrossed_succ_iff_tail
+      baseMap roof input shift tailIndex).mpr htailCrossed
+  have horiginalLe : originalIndex ≤ tailIndex + 1 := by
+    by_contra hnot
+    have hlt : tailIndex + 1 < originalIndex := Nat.lt_of_not_ge hnot
+    exact (suspensionCrossingIndex_not_crossed_of_lt
+      baseMap roof shift input hlt) horiginalFromTail
+  have htailFromOriginal : suspensionCrossed baseMap roof
+      (baseMap input.1) 0 residual (originalIndex - 1) := by
+    have heq : originalIndex - 1 + 1 = originalIndex :=
+      Nat.sub_add_cancel horiginalPos
+    apply (suspensionCrossed_succ_iff_tail
+      baseMap roof input shift (originalIndex - 1)).mp
+    rwa [heq]
+  have htailLe : tailIndex ≤ originalIndex - 1 := by
+    by_contra hnot
+    have hlt : originalIndex - 1 < tailIndex := Nat.lt_of_not_ge hnot
+    exact (suspensionCrossingIndex_not_crossed_of_lt
+      baseMap roof residual (baseMap input.1, 0) hlt) htailFromOriginal
+  have hindex : originalIndex = tailIndex + 1 := by omega
+  have hiterate : (baseMap^[tailIndex + 1]) input.1 =
+      (baseMap^[tailIndex]) (baseMap input.1) := by
+    rw [Function.iterate_succ_apply]
+  have hfinal : ((baseMap^[originalIndex]) input.1,
+        input.2 + shift - suspensionRoofElapsed
+          baseMap roof input.1 originalIndex) =
+      ((baseMap^[tailIndex]) (baseMap input.1),
+        residual - suspensionRoofElapsed
+          baseMap roof (baseMap input.1) tailIndex) := by
+    rw [hindex, suspensionRoofElapsed_succ_eq_first_add_tail,
+      hiterate]
+    unfold residual
+    congr 1
+    ring
+  simpa [suspensionEndpoint, originalIndex, tailIndex, residual] using hfinal
+
 end Mcmc.PDMP

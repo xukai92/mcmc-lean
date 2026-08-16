@@ -3630,3 +3630,15 @@ literal cycle-interval kernel (open versus half-open endpoints are discharged
 as a volume-null distinction). The next proof is the crossing-count
 truncation identity and vanishing nonexplosive remainder, after which the
 generic endpoint preserves normalized occupation.
+
+## 2026-08-16: suspension crossing recursion
+
+Completed the pathwise recursion needed for the countable crossing proof.
+Lean now splits cumulative roofs into the current roof plus the shifted-base
+tail, proves the corresponding equivalence of later crossing predicates, and
+shows that whenever the horizon reaches the current boundary, the total
+special-flow endpoint is exactly the endpoint obtained by restarting from the
+base-shifted environment at age zero with the residual horizon. Before the
+first boundary it is exactly vertical translation. These two exhaustive
+equations are the induction interface for the remaining finite-crossing
+measure identity and nonexplosive limit.
