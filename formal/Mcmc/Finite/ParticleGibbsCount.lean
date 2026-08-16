@@ -651,6 +651,56 @@ noncomputable def feynmanKacOscillationPenalties
   1 :: steps.map fun step =>
     finitePotentialParticleGibbsCandidatePenalty step.potential
 
+/-- Positive backward Feynman--Kac potential of an entire remaining suffix. -/
+noncomputable def feynmanKacBackwardPotential
+    (steps : List (FeynmanKacStep Sample)) : Sample → ℝ :=
+  feynmanKacSequence steps (fun _ => 1)
+
+omit [DecidableEq Sample] in
+theorem feynmanKacBackwardPotential_pos
+    (steps : List (FeynmanKacStep Sample)) (state : Sample) :
+    0 < feynmanKacBackwardPotential steps state := by
+  unfold feynmanKacBackwardPotential
+  rw [← labeledFeynmanKacValue_one_eq_feynmanKacSequence
+    (Sample := Sample) (Label := Unit) (fun _ _ => ()) steps () state]
+  exact labeledFeynmanKacValue_one_pos
+    (Sample := Sample) (Label := Unit) (fun _ _ => ()) steps () state
+
+/-- Valid cumulative penalty schedule for the sharp multi-step induction.
+Each propagation uses the oscillation of its full remaining backward
+potential; the final entry is the terminal-index penalty. -/
+noncomputable def feynmanKacBackwardOscillationPenalties :
+    List (FeynmanKacStep Sample) → List ℝ
+  | [] => [1]
+  | step :: steps =>
+      finitePotentialParticleGibbsCandidatePenalty
+          (feynmanKacBackwardPotential (step :: steps)) ::
+        feynmanKacBackwardOscillationPenalties steps
+
+omit [DecidableEq Sample] in
+@[simp] theorem length_feynmanKacBackwardOscillationPenalties
+    (steps : List (FeynmanKacStep Sample)) :
+    (feynmanKacBackwardOscillationPenalties steps).length = steps.length + 1 := by
+  induction steps with
+  | nil => simp [feynmanKacBackwardOscillationPenalties]
+  | cons step steps ih =>
+      simp [feynmanKacBackwardOscillationPenalties, ih]
+
+omit [DecidableEq Sample] in
+theorem feynmanKacBackwardOscillationPenalties_pos [Nonempty Sample]
+    (steps : List (FeynmanKacStep Sample)) :
+    ∀ penalty ∈ feynmanKacBackwardOscillationPenalties steps, 0 < penalty := by
+  induction steps with
+  | nil => simp [feynmanKacBackwardOscillationPenalties]
+  | cons step steps ih =>
+      intro penalty hpenalty
+      simp only [feynmanKacBackwardOscillationPenalties, List.mem_cons] at hpenalty
+      rcases hpenalty with rfl | htail
+      · exact finitePotentialParticleGibbsCandidatePenalty_pos
+          (feynmanKacBackwardPotential (step :: steps))
+          (feynmanKacBackwardPotential_pos (step :: steps))
+      · exact ih penalty htail
+
 omit [DecidableEq Sample] in
 @[simp] theorem length_feynmanKacOscillationPenalties
     (steps : List (FeynmanKacStep Sample)) :

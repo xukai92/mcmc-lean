@@ -655,6 +655,24 @@ noncomputable def labeledFeynmanKacValue {Label : Type*}
         labeledFeynmanKacValue extend steps observable (extend label y) y
 
 omit [DecidableEq Sample] in
+/-- Nonnegative terminal observables have nonnegative labeled continuation
+values. -/
+theorem labeledFeynmanKacValue_nonneg {Label : Type*}
+    (extend : Label → Sample → Label)
+    (steps : List (FeynmanKacStep Sample)) (observable : Label → ℝ)
+    (hobservable : ∀ label, 0 ≤ observable label)
+    (label : Label) (state : Sample) :
+    0 ≤ labeledFeynmanKacValue extend steps observable label state := by
+  induction steps generalizing label state with
+  | nil => exact hobservable label
+  | cons step steps ih =>
+      unfold labeledFeynmanKacValue
+      apply mul_nonneg (step.potential_pos state).le
+      apply Finset.sum_nonneg
+      intro y _
+      exact mul_nonneg (step.transition.nonneg state y) (ih _ _)
+
+omit [DecidableEq Sample] in
 /-- With the constant-one terminal observable, every finite labeled
 Feynman--Kac continuation value is strictly positive. -/
 theorem labeledFeynmanKacValue_one_pos {Label : Type*}
@@ -744,6 +762,89 @@ theorem labeledFeynmanKacIntegral_step {Label : Type*}
   rw [labeledFeynmanKacStepDistribution_expectation]
   rfl
 
+/-- Normalized backward continuation score after one transition. -/
+noncomputable def labeledFeynmanKacContinuationScore {Label : Type*}
+    (extend : Label → Sample → Label) (step : FeynmanKacStep Sample)
+    (steps : List (FeynmanKacStep Sample)) (observable : Label → ℝ)
+    (parent : Label × Sample) : ℝ :=
+  (∑ y, step.transition.prob parent.2 y *
+      labeledFeynmanKacValue extend steps observable (extend parent.1 y) y) /
+    ∑ y, step.transition.prob parent.2 y *
+      labeledFeynmanKacValue extend steps (fun _ => 1) (extend parent.1 y) y
+
+omit [DecidableEq Sample] in
+theorem labeledFeynmanKacContinuationScore_nonneg {Label : Type*}
+    (extend : Label → Sample → Label) (step : FeynmanKacStep Sample)
+    (steps : List (FeynmanKacStep Sample)) (observable : Label → ℝ)
+    (hobservable : ∀ label, 0 ≤ observable label) (parent : Label × Sample) :
+    0 ≤ labeledFeynmanKacContinuationScore extend step steps observable parent := by
+  unfold labeledFeynmanKacContinuationScore
+  apply div_nonneg
+  · apply Finset.sum_nonneg
+    intro y _
+    exact mul_nonneg (step.transition.nonneg _ _)
+      (labeledFeynmanKacValue_nonneg extend steps observable hobservable _ _)
+  · apply Finset.sum_nonneg
+    intro y _
+    exact mul_nonneg (step.transition.nonneg _ _)
+      (labeledFeynmanKacValue_one_pos extend steps _ _).le
+
+/-- A complete normalized labeled Feynman--Kac ratio is a one-step positive
+reweighting by the full backward potential, evaluated at the normalized
+continuation score. -/
+theorem labeledFeynmanKacIntegral_ratio_eq_backwardReweight
+    {Label : Type*} [Fintype Label] [DecidableEq Label]
+    (extend : Label → Sample → Label) (law : Distribution (Label × Sample))
+    (step : FeynmanKacStep Sample) (steps : List (FeynmanKacStep Sample))
+    (observable : Label → ℝ) :
+    labeledFeynmanKacIntegral extend law (step :: steps) observable /
+        labeledFeynmanKacIntegral extend law (step :: steps) (fun _ => 1) =
+      ∑ parent,
+        (positivePotentialReweight law
+          (feynmanKacSequence (step :: steps) (fun _ => 1) ∘ Prod.snd)
+          (fun parent => by
+            change 0 < feynmanKacSequence (step :: steps) (fun _ => 1) parent.2
+            rw [← labeledFeynmanKacValue_one_eq_feynmanKacSequence
+              extend (step :: steps) parent.1 parent.2]
+            exact labeledFeynmanKacValue_one_pos extend (step :: steps)
+              parent.1 parent.2)).mass parent *
+          labeledFeynmanKacContinuationScore extend step steps observable parent := by
+  rw [positivePotentialReweight_expectation]
+  unfold labeledFeynmanKacIntegral labeledFeynmanKacValue
+  simp_rw [labeledFeynmanKacValue_one_eq_feynmanKacSequence]
+  unfold Function.comp labeledFeynmanKacContinuationScore
+  congr 1
+  · apply Finset.sum_congr rfl
+    intro parent _
+    have hden : 0 < ∑ y, step.transition.prob parent.2 y *
+        feynmanKacSequence steps (fun _ => 1) y := by
+      have hexists : ∃ y, 0 < step.transition.prob parent.2 y := by
+        by_contra h
+        push Not at h
+        have hzero : ∀ y, step.transition.prob parent.2 y = 0 := fun y =>
+          le_antisymm (h y) (step.transition.nonneg parent.2 y)
+        have : ∑ y, step.transition.prob parent.2 y = 0 := by simp [hzero]
+        linarith [step.transition.sum_prob parent.2]
+      obtain ⟨y, hy⟩ := hexists
+      apply Finset.sum_pos'
+      · intro z _
+        exact mul_nonneg (step.transition.nonneg _ _)
+          (by
+            rw [← labeledFeynmanKacValue_one_eq_feynmanKacSequence
+              (Label := Unit) (fun _ _ => ()) steps () z]
+            exact (labeledFeynmanKacValue_one_pos
+              (fun _ _ => ()) steps () z).le)
+      · refine ⟨y, Finset.mem_univ y, mul_pos hy ?_⟩
+        rw [← labeledFeynmanKacValue_one_eq_feynmanKacSequence
+          (Label := Unit) (fun _ _ => ()) steps () y]
+        exact labeledFeynmanKacValue_one_pos (fun _ _ => ()) steps () y
+    simp_rw [labeledFeynmanKacValue_one_eq_feynmanKacSequence]
+    rw [show feynmanKacSequence (step :: steps) (fun _ => 1) parent.2 =
+      step.potential parent.2 *
+        ∑ y, step.transition.prob parent.2 y *
+          feynmanKacSequence steps (fun _ => 1) y by rfl]
+    field_simp
+
 /-- The iterated normalized labeled law is exactly the normalized
 unnormalized Feynman--Kac integral. This identity exposes all intermediate
 normalizers as a telescoping ratio. -/
@@ -781,6 +882,60 @@ theorem labeledFeynmanKacLawFrom_expectation_eq_integral_ratio
           0 < labeledFeynmanKacIntegral extend law (step :: steps) (fun _ => 1) :=
         labeledFeynmanKacIntegral_one_pos extend law (step :: steps)
       field_simp
+
+omit [DecidableEq Particle] in
+/-- Exact continuation expectation from an empirical labeled child law is the
+ratio of backward unnormalized scores over the parent population. -/
+theorem labeledChildLaw_tail_expectation_eq_parent_ratio
+    {Label : Type*} [Fintype Label] [DecidableEq Label]
+    [Nonempty Label] [Nonempty Sample]
+    (extend : Label → Sample → Label) (step : FeynmanKacStep Sample)
+    (steps : List (FeynmanKacStep Sample))
+    (particles : Particle → Sample) (labels : Particle → Label)
+    (observable : Label → ℝ) :
+    (∑ value,
+      (labeledFeynmanKacLawFrom extend
+        (resamplePropagateLabelDistribution extend
+          (normalizedPotentialWeights step.potential step.potential_pos particles)
+          step.transition particles labels) steps).mass value *
+        observable value.1) =
+      (∑ i, step.potential (particles i) *
+        ∑ y, step.transition.prob (particles i) y *
+          labeledFeynmanKacValue extend steps observable (extend (labels i) y) y) /
+      ∑ i, step.potential (particles i) *
+        ∑ y, step.transition.prob (particles i) y *
+          labeledFeynmanKacValue extend steps (fun _ => 1)
+            (extend (labels i) y) y := by
+  rw [labeledFeynmanKacLawFrom_expectation_eq_integral_ratio]
+  unfold labeledFeynmanKacIntegral
+  rw [resamplePropagateLabelDistribution_normalized_expectation]
+  rw [resamplePropagateLabelDistribution_normalized_expectation]
+  have hcurrent : 0 < ∑ i, step.potential (particles i) :=
+    Finset.sum_pos (fun i _ => step.potential_pos (particles i))
+      Finset.univ_nonempty
+  have hfuture : 0 < ∑ i, step.potential (particles i) *
+      ∑ y, step.transition.prob (particles i) y *
+        labeledFeynmanKacValue extend steps (fun _ => 1)
+          (extend (labels i) y) y := by
+    apply Finset.sum_pos
+    · intro i _
+      apply mul_pos (step.potential_pos _)
+      have hexists : ∃ y, 0 < step.transition.prob (particles i) y := by
+        by_contra h
+        push Not at h
+        have hzero : ∀ y, step.transition.prob (particles i) y = 0 := fun y =>
+          le_antisymm (h y) (step.transition.nonneg _ _)
+        have : ∑ y, step.transition.prob (particles i) y = 0 := by simp [hzero]
+        linarith [step.transition.sum_prob (particles i)]
+      obtain ⟨y, hy⟩ := hexists
+      apply Finset.sum_pos'
+      · intro z _
+        exact mul_nonneg (step.transition.nonneg _ _)
+          (labeledFeynmanKacValue_one_pos extend steps _ _).le
+      · exact ⟨y, Finset.mem_univ y,
+          mul_pos hy (labeledFeynmanKacValue_one_pos extend steps _ _)⟩
+    · exact Finset.univ_nonempty
+  field_simp
 
 /-- Attach an arbitrary deterministic initial label to a sampled initial
 state. -/

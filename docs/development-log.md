@@ -1,5 +1,18 @@
 # Development log
 
+- Added the backward-potential formulation needed for a valid arbitrary-horizon
+  PG bound. Lean proves nonnegativity of arbitrary labeled continuation values,
+  positivity of every constant-one backward potential, and positivity/length
+  of the cumulative oscillation schedule (one full-suffix backward potential
+  per propagation plus the terminal-index entry). A normalized complete
+  labeled Feynman--Kac ratio is now rewritten as positive reweighting by that
+  backward potential and a nonnegative continuation score. For empirical
+  resample--propagate child laws, the exact remaining-law expectation is also
+  reduced to the corresponding parent-population ratio. These are the two
+  algebraic forms required to carry the sharp forced-cloud comparison through
+  the general schedule induction. This cumulative schedule is deliberately
+  distinguished from the earlier raw-per-potential candidate schedule.
+
 - Introduced the correct integrated invariant for the remaining sharp
   particle-Gibbs induction: a recursive suffix expectation averaged over a
   joint `(label,state)` cloud with one retained coordinate. Lean proves its
