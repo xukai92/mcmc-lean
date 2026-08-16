@@ -2995,6 +2995,46 @@ theorem lintegral_gaussianZigZagCycleIntervalDensity (signed : ℝ) :
     exact measurableSet_Iio.prod
       (measurableSet_lt measurable_const measurable_id.neg)
 
+/-- Set-integral form of the pointwise Palm fiber identity. -/
+theorem setLIntegral_gaussianZigZagCycleResidualHazard
+    (signed : ℝ) {event : Set NNReal} (hevent : MeasurableSet event) :
+    (∫⁻ resets in
+        (fun resets : ℝ × ℝ =>
+          gaussianZigZagCycleResidualHazard signed resets.2) ⁻¹' event,
+        gaussianZigZagCycleIntervalDensity resets signed
+      ∂gaussianZigZagNegativeRayleighMeasure.prod
+        gaussianZigZagNegativeRayleighMeasure) =
+      gaussianZigZagCycleCoverageDensity signed *
+        gaussianZigZagHazardMeasure event := by
+  let resetPairs := gaussianZigZagNegativeRayleighMeasure.prod
+    gaussianZigZagNegativeRayleighMeasure
+  have hpre : MeasurableSet
+      ((fun resets : ℝ × ℝ =>
+        gaussianZigZagCycleResidualHazard signed resets.2) ⁻¹' event) :=
+    ((measurable_gaussianZigZagCycleResidualHazard signed).comp
+      (measurable_snd : Measurable (Prod.snd : ℝ × ℝ → ℝ))) hevent
+  have hmeas : Measurable (fun resets : ℝ × ℝ =>
+      gaussianZigZagCycleResidualHazard signed resets.2) :=
+    (measurable_gaussianZigZagCycleResidualHazard signed).comp
+      (measurable_snd : Measurable (Prod.snd : ℝ × ℝ → ℝ))
+  have hfiber := congrArg (fun measure : Measure NNReal => measure event)
+    (gaussianZigZagCycleResidualHazard_fiber signed)
+  rw [Measure.map_apply hmeas hevent,
+    Measure.restrict_apply hpre, Measure.smul_apply, smul_eq_mul] at hfiber
+  rw [show (fun resets => gaussianZigZagCycleIntervalDensity resets signed) =
+      (gaussianZigZagCycleCoverageSet signed).indicator (fun _ => 1) by
+    funext resets
+    by_cases hresets : resets.1 < signed ∧ signed < -resets.2 <;>
+      simp [gaussianZigZagCycleIntervalDensity,
+        gaussianZigZagCycleCoverageSet, hresets]]
+  have hcoverage : MeasurableSet (gaussianZigZagCycleCoverageSet signed) := by
+    unfold gaussianZigZagCycleCoverageSet
+    exact measurableSet_Iio.prod
+      (measurableSet_lt measurable_const measurable_id.neg)
+  rw [lintegral_indicator hcoverage]
+  simp only [lintegral_one]
+  simpa [Measure.restrict_apply, hcoverage, hpre, Set.inter_comm] using hfiber
+
 /-- Tonelli identifies the average literal interval-time occupation of two
 independent consecutive resets with the coverage-density occupation measure. -/
 theorem gaussianZigZagCycleIntervalKernel_comp_eq_occupation :
@@ -3137,6 +3177,171 @@ instance gaussianZigZagStationaryPositionResidualMeasure.instIsProbabilityMeasur
   rw [Measure.map_apply
     measurable_gaussianZigZagStationaryCycleResidualMap
     MeasurableSet.univ, Set.preimage_univ, measure_univ]
+
+set_option maxHeartbeats 1600000 in
+/-- Under stationary length-biased cycle occupation, signed position and
+remaining integrated hazard are independent, with standard Gaussian and unit
+exponential laws respectively. -/
+theorem gaussianZigZagStationaryPositionResidualMeasure_eq_prod :
+    gaussianZigZagStationaryPositionResidualMeasure =
+      (gaussianReal 0 1).prod gaussianZigZagHazardMeasure := by
+  apply Measure.ext_prod
+  intro positions hazards hpositions hhazards
+  let resetPairs := gaussianZigZagNegativeRayleighMeasure.prod
+    gaussianZigZagNegativeRayleighMeasure
+  let jointEvent : Set ((ℝ × ℝ) × ℝ) :=
+    gaussianZigZagStationaryCycleResidualMap ⁻¹' (positions ×ˢ hazards)
+  have hjointEvent : MeasurableSet jointEvent :=
+    measurable_gaussianZigZagStationaryCycleResidualMap
+      (hpositions.prod hhazards)
+  rw [Measure.prod_prod]
+  unfold gaussianZigZagStationaryPositionResidualMeasure
+  rw [Measure.map_apply measurable_gaussianZigZagStationaryCycleResidualMap
+    (hpositions.prod hhazards)]
+  unfold gaussianZigZagStationaryCycleMeasure
+  rw [Measure.smul_apply, smul_eq_mul,
+    Measure.compProd_apply hjointEvent]
+  have hrow (resets : ℝ × ℝ) :
+      gaussianZigZagCycleIntervalKernel resets
+          (Prod.mk resets ⁻¹' jointEvent) =
+        ∫⁻ signed in positions ∩
+            (fun signed : ℝ =>
+              gaussianZigZagCycleResidualHazard signed resets.2) ⁻¹' hazards,
+          gaussianZigZagCycleIntervalDensity resets signed ∂volume := by
+    rw [gaussianZigZagCycleIntervalKernel,
+      Kernel.withDensity_apply'
+        (Kernel.const (ℝ × ℝ) (volume : Measure ℝ))
+        measurable_uncurry_gaussianZigZagCycleIntervalDensity,
+      Kernel.const_apply]
+    congr 1
+  simp_rw [hrow]
+  have htonelli :
+      (∫⁻ resets, ∫⁻ signed in positions ∩
+          (fun signed : ℝ =>
+            gaussianZigZagCycleResidualHazard signed resets.2) ⁻¹' hazards,
+          gaussianZigZagCycleIntervalDensity resets signed ∂volume
+        ∂resetPairs) =
+        ∫⁻ signed in positions,
+          ∫⁻ resets in
+            (fun resets : ℝ × ℝ =>
+              gaussianZigZagCycleResidualHazard signed resets.2) ⁻¹' hazards,
+            gaussianZigZagCycleIntervalDensity resets signed ∂resetPairs
+          ∂volume := by
+    let density : ((ℝ × ℝ) × ℝ) → ENNReal := fun input =>
+      gaussianZigZagCycleIntervalDensity input.1 input.2
+    have hdensity : Measurable density :=
+      measurable_uncurry_gaussianZigZagCycleIntervalDensity
+    have hresidual : Measurable (fun input : (ℝ × ℝ) × ℝ =>
+        gaussianZigZagCycleResidualHazard input.2 input.1.2) := by
+      unfold gaussianZigZagCycleResidualHazard
+      have henergy : Measurable (fun input : (ℝ × ℝ) × ℝ =>
+          gaussianZigZagNegativeRayleighEnergy input.1.2) :=
+        measurable_gaussianZigZagNegativeRayleighEnergy.comp
+          measurable_fst.snd
+      have hspent : Measurable (fun input : (ℝ × ℝ) × ℝ =>
+          Real.toNNReal ((max 0 input.2) ^ 2 / 2)) := by
+        fun_prop
+      exact henergy.sub hspent
+    let event : Set ((ℝ × ℝ) × ℝ) :=
+      {input | input.2 ∈ positions ∧
+        gaussianZigZagCycleResidualHazard input.2 input.1.2 ∈ hazards}
+    have hevent : MeasurableSet event :=
+      (hpositions.preimage measurable_snd).inter
+        (hhazards.preimage hresidual)
+    let integrand : ((ℝ × ℝ) × ℝ) → ENNReal :=
+      event.indicator density
+    have hintegrand : Measurable integrand :=
+      hdensity.indicator hevent
+    have hswap := lintegral_lintegral_swap
+      (μ := resetPairs) (ν := (volume : Measure ℝ))
+      (f := fun resets signed => integrand (resets, signed))
+      hintegrand.aemeasurable
+    have hleft :
+        (∫⁻ resets, ∫⁻ signed in positions ∩
+            (fun signed : ℝ =>
+              gaussianZigZagCycleResidualHazard signed resets.2) ⁻¹' hazards,
+            gaussianZigZagCycleIntervalDensity resets signed ∂volume
+          ∂resetPairs) =
+          ∫⁻ resets, ∫⁻ signed, integrand (resets, signed) ∂volume
+            ∂resetPairs := by
+      apply lintegral_congr
+      intro resets
+      have hfixed : Measurable (fun signed : ℝ =>
+          gaussianZigZagCycleResidualHazard signed resets.2) :=
+        hresidual.comp
+          ((measurable_const : Measurable (fun _ : ℝ => resets)).prodMk
+            measurable_id)
+      have hset : MeasurableSet (positions ∩
+          (fun signed : ℝ =>
+            gaussianZigZagCycleResidualHazard signed resets.2) ⁻¹' hazards) :=
+        hpositions.inter (hhazards.preimage hfixed)
+      rw [← lintegral_indicator hset]
+      apply lintegral_congr
+      intro signed
+      by_cases hsigned : signed ∈ positions <;>
+        by_cases hresidualMem :
+          gaussianZigZagCycleResidualHazard signed resets.2 ∈ hazards <;>
+        simp [integrand, event, density, hsigned, hresidualMem]
+    have hright :
+        (∫⁻ signed, ∫⁻ resets, integrand (resets, signed) ∂resetPairs
+          ∂volume) =
+        ∫⁻ signed in positions,
+          ∫⁻ resets in
+            (fun resets : ℝ × ℝ =>
+              gaussianZigZagCycleResidualHazard signed resets.2) ⁻¹' hazards,
+            gaussianZigZagCycleIntervalDensity resets signed ∂resetPairs
+          ∂volume := by
+      rw [← lintegral_indicator hpositions]
+      apply lintegral_congr
+      intro signed
+      by_cases hsigned : signed ∈ positions
+      · simp only [Set.indicator_of_mem hsigned]
+        have hset : MeasurableSet
+            ((fun resets : ℝ × ℝ =>
+              gaussianZigZagCycleResidualHazard signed resets.2) ⁻¹' hazards) :=
+          hhazards.preimage
+            ((measurable_gaussianZigZagCycleResidualHazard signed).comp
+              (measurable_snd : Measurable (Prod.snd : ℝ × ℝ → ℝ)))
+        rw [← lintegral_indicator hset]
+        apply lintegral_congr
+        intro resets
+        by_cases hresidualMem :
+            gaussianZigZagCycleResidualHazard signed resets.2 ∈ hazards <;>
+          simp [integrand, event, density, hsigned, hresidualMem]
+      · simp [integrand, event, density, hsigned]
+    calc
+      _ = ∫⁻ resets, ∫⁻ signed, integrand (resets, signed) ∂volume
+          ∂resetPairs := hleft
+      _ = ∫⁻ signed, ∫⁻ resets, integrand (resets, signed) ∂resetPairs
+          ∂volume := hswap
+      _ = _ := hright
+  rw [htonelli]
+  dsimp [resetPairs]
+  simp_rw [setLIntegral_gaussianZigZagCycleResidualHazard _ hhazards]
+  rw [lintegral_mul_const _ (by
+    unfold gaussianZigZagCycleCoverageDensity
+    fun_prop)]
+  have hcoverage :
+      (∫⁻ signed in positions,
+        gaussianZigZagCycleCoverageDensity signed ∂volume) =
+        gaussianZigZagCycleOccupationMeasure positions := by
+    unfold gaussianZigZagCycleOccupationMeasure
+    rw [withDensity_apply _ hpositions]
+  rw [hcoverage]
+  rw [gaussianZigZagCycleOccupationMeasure_eq_gaussian,
+    Measure.smul_apply, smul_eq_mul]
+  change gaussianZigZagCycleMeanDuration⁻¹ *
+      ((gaussianZigZagCycleMeanDuration * gaussianReal 0 1 positions) *
+        gaussianZigZagHazardMeasure hazards) = _
+  calc
+    _ = (gaussianZigZagCycleMeanDuration⁻¹ *
+          gaussianZigZagCycleMeanDuration) *
+        (gaussianReal 0 1 positions *
+          gaussianZigZagHazardMeasure hazards) := by ac_rfl
+    _ = _ := by
+      rw [ENNReal.inv_mul_cancel
+        gaussianZigZagCycleMeanDuration_ne_zero
+        gaussianZigZagCycleMeanDuration_ne_top, one_mul]
 
 /-- Regenerative event-epoch law: negative-Rayleigh signed position and an
 independent uniform velocity label. -/

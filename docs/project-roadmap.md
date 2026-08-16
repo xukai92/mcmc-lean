@@ -590,10 +590,11 @@ by paper date:
   give the scaled fresh exponential law; and at nonpositive positions the
   future reset energy is already fresh exponential. These cases are now
   combined pointwise: conditional reset mass at every occupied `s`, pushed to
-  residual hazard, is `exp(-s²/2)` times the exponential law. The next theorem
-  acts on the now-defined probability pushforward of the stationary cycle to
-  position/residual pairs, integrates these fibers into Gaussian/residual independence, and identifies the shift
-  connecting length-biased cycle occupation to the stopped horizon kernel. Splitting a horizon
+  residual hazard, is `exp(-s²/2)` times the exponential law. Integrating these
+  fibers now proves that the stationary-cycle pushforward to occupied position
+  and residual hazard is exactly standard Gaussian times an independent unit
+  exponential law. The next theorem identifies the renewal shift connecting
+  length-biased cycle occupation to the stopped horizon kernel. Splitting a horizon
   between events is still correctly treated as a law-level argument rather
   than a pointwise semigroup identity;
 2. bare Gaussian SoftAbs GR-HMC convergence -- complete for the concrete

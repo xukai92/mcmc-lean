@@ -3551,3 +3551,15 @@ tends to one, and Lean now proves an eventual strict scalar budget comparing
 the band-complement probability with the inward displacement.  What remains
 is to convert these eventwise bounds into a checked Lyapunov expectation
 inequality and supply a local small-set/coupling certificate.
+
+## 2026-08-16: stationary Gaussian Zig-Zag Palm product law
+
+Completed the Palm input for the scalar Gaussian Zig-Zag renewal proof. Lean
+first rewrites the pointwise residual-hazard fiber identity as a set integral,
+then uses Tonelli over the literal regenerative-cycle occupation law. The
+resulting probability pushforward of occupied signed position and remaining
+integrated hazard is exactly the product of the standard Gaussian law and an
+independent unit exponential law. This is a joint-law theorem, not merely two
+marginal calculations. The remaining scalar process obligation is the
+stationary renewal-shift/horizon identification and its transfer through the
+already-proved signed/physical conjugacy.
