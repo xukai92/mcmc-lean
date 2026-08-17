@@ -1,5 +1,7 @@
 import Mcmc.Finite.MarkovKernel
 import Mathlib.Algebra.BigOperators.Field
+import Mathlib.Tactic.FieldSimp
+import Mathlib.Tactic.Ring
 
 /-!
 # Finite rooted random-trace reversals
@@ -441,5 +443,78 @@ theorem uniformDirectionRootedTraceKernel_stationary
       hselection).toCertified.kernel).Stationary target :=
   (uniformDirectionRootedTraceSampler target depth selection reverseTrace
     hselection).stationary
+
+/-! ### Streaming candidate selection
+
+Algorithm 3 of Hoffman--Gelman does not materialize the complete candidate
+set.  Each recursive subtree returns one representative and its eligible
+count; representatives are merged with probability proportional to those
+counts.  The following exact distribution is that merge operation.
+-/
+
+/-- Merge representatives from two recursive subtrees with probability
+proportional to their nonnegative total candidate weights. -/
+noncomputable def weightedMergeDistribution
+    (left right : Distribution State) (leftWeight rightWeight : ℝ)
+    (hleft : 0 ≤ leftWeight) (hright : 0 ≤ rightWeight)
+    (htotal : 0 < leftWeight + rightWeight) : Distribution State where
+  mass state :=
+    (leftWeight * left.mass state + rightWeight * right.mass state) /
+      (leftWeight + rightWeight)
+  nonneg state := div_nonneg
+    (add_nonneg (mul_nonneg hleft (left.nonneg state))
+      (mul_nonneg hright (right.nonneg state))) htotal.le
+  sum_mass := by
+    rw [← Finset.sum_div, Finset.sum_add_distrib]
+    simp_rw [← Finset.mul_sum, left.sum_mass, right.sum_mass, mul_one]
+    exact div_self htotal.ne'
+
+@[simp] theorem weightedMergeDistribution_mass
+    (left right : Distribution State) (leftWeight rightWeight : ℝ)
+    (hleft : 0 ≤ leftWeight) (hright : 0 ≤ rightWeight)
+    (htotal : 0 < leftWeight + rightWeight) (state : State) :
+    (weightedMergeDistribution left right leftWeight rightWeight hleft hright
+      htotal).mass state =
+      (leftWeight * left.mass state + rightWeight * right.mass state) /
+        (leftWeight + rightWeight) := rfl
+
+/-- Count-proportional recursive merging preserves the normalized combined
+endpoint weights.  For indicator weights this is precisely the paper's
+incremental uniform-selection argument. -/
+theorem weightedMergeDistribution_mass_of_normalized_weights
+    (left right : Distribution State) (leftWeight rightWeight : ℝ)
+    (hleft : 0 < leftWeight) (hright : 0 < rightWeight)
+    (leftEndpointWeight rightEndpointWeight : State → ℝ)
+    (hleftMass : ∀ state,
+      left.mass state = leftEndpointWeight state / leftWeight)
+    (hrightMass : ∀ state,
+      right.mass state = rightEndpointWeight state / rightWeight)
+    (state : State) :
+    (weightedMergeDistribution left right leftWeight rightWeight hleft.le
+      hright.le (add_pos hleft hright)).mass state =
+      (leftEndpointWeight state + rightEndpointWeight state) /
+        (leftWeight + rightWeight) := by
+  simp only [weightedMergeDistribution_mass, hleftMass, hrightMass]
+  field_simp [hleft.ne', hright.ne']
+
+/-- Recursive count-proportional selection is independent of binary-tree
+parenthesization.  Hence streaming `BuildTree` selection has the same law as
+one weighted selection over all completed subtree leaves. -/
+theorem weightedMergeDistribution_assoc
+    (first second third : Distribution State)
+    (a b c : ℝ) (ha : 0 ≤ a) (hb : 0 ≤ b) (hc : 0 ≤ c)
+    (hab : 0 < a + b) (hbc : 0 < b + c)
+    (habc : 0 < a + b + c) :
+    weightedMergeDistribution
+        (weightedMergeDistribution first second a b ha hb hab) third
+        (a + b) c hab.le hc habc =
+      weightedMergeDistribution first
+        (weightedMergeDistribution second third b c hb hc hbc)
+        a (b + c) ha hbc.le (by simpa [add_assoc] using habc) := by
+  apply Distribution.ext
+  funext state
+  simp only [weightedMergeDistribution_mass]
+  field_simp [hab.ne', hbc.ne', habc.ne']
+  ring
 
 end Mcmc.Finite.MarkovKernel

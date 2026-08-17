@@ -3910,3 +3910,15 @@ factorized construction law into the public detailed-balance and stationarity
 certificate. Raw candidate rows are allowed to differ; the theorem compares
 the particular forward trace with its bijectively reversed trace, avoiding the
 known-false universal row-equality premise.
+
+Matched the efficient candidate-selection step in Hoffman--Gelman Algorithm 3.
+`weightedMergeDistribution` is the exact law obtained by retaining one
+representative from each completed subtree and choosing between them with
+probability proportional to their eligible counts. Lean proves that merging
+two already normalized subtree laws yields the normalized law on their
+combined endpoint weights. It also proves associativity, so the final law is
+independent of the recursive binary-tree parenthesization. This closes the
+paper's incremental-uniform-selection argument for positive completed
+subtrees. The full standard-NUTS trace still has to encode and reverse skipped
+zero-eligible subtrees, U-turn continuation flags, and the outer doubling
+stopping decisions.
