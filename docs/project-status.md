@@ -23,6 +23,13 @@ floating-point code.
 | PDMP foundations | General infrastructure and the stationary-suspension theorem are present. Exact Gaussian Zig-Zag nonexplosion/stationarity and unit-speed one-dimensional Gaussian BPS stationarity are complete. For general unbounded rates, Lean has proof-bearing total and partial inverse-integrated-hazard clocks tied to the integrated canonical BPS rate. The inactive-aware repeated executor uses fresh unit-exponential marks, restarts after exact events, absorbs after residual flow, and yields Markov truncated-horizon kernels for every event budget. Deterministic hazard-prefix replay is append-compatible and stable after completion; `CompletesFiniteHorizons` states the exact almost-sure finite-prefix obligation under the iid infinite hazard law. A concrete multidimensional Gaussian inverse, proof of this completion condition, construction of the untruncated limit kernel, stationarity, semigroup, and convergence remain open. |
 | Diagnostics | All registered Julia suites are active and passing. Statistical and finite-difference tests are diagnostics, not replacements for formal or refinement theorems. |
 
+Practical-slice status update: the log-under-graph state weighting, completed
+joint decomposition, and sampler projection previously listed as remaining
+are now complete. `practicalRuntimeSliceSampler_invariant` proves exact
+invariance of the `exp ∘ logDensity` target for the bounded practical runtime,
+including exhaustion as an identity update. Platform callback, `log`, RNG,
+and arithmetic refinement remain explicit executable boundaries.
+
 ## Release evidence
 
 The complete release gate is:

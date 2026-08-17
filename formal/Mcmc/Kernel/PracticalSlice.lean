@@ -7926,6 +7926,106 @@ theorem measurable_completedRuntimeFailureEmbedding :
     Measurable completedRuntimeFailureEmbedding :=
   measurable_id.prodMk (measurable_inr.comp measurable_const)
 
+theorem measurableEmbedding_completedRuntimeFailureEmbedding :
+    MeasurableEmbedding completedRuntimeFailureEmbedding where
+  injective left right equality := by
+    exact congrArg Prod.fst equality
+  measurable := measurable_completedRuntimeFailureEmbedding
+  measurableSet_image' := by
+    intro set hset
+    have himage : completedRuntimeFailureEmbedding '' set =
+        set ×ˢ Set.range (Sum.inr : Unit → RuntimeRandomTrace ⊕ Unit) := by
+      ext point
+      constructor
+      · rintro ⟨state, hstate, rfl⟩
+        exact ⟨hstate, ⟨(), rfl⟩⟩
+      · rintro ⟨hstate, ⟨unitValue, hunit⟩⟩
+        cases unitValue
+        exact ⟨point.1, hstate, by
+          cases point
+          simp only [completedRuntimeFailureEmbedding] at hunit ⊢
+          cases hunit
+          rfl⟩
+    rw [himage]
+    exact hset.prod measurableSet_range_inr
+
+/-- The actual completed-kernel joint law splits into the embedded successful
+joint law and the state-weighted exhaustion atom. -/
+theorem compProd_completedRuntimeTraceKernelFromFibers
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (width : ℝ) (intervals maxShrink : ℕ) :
+    let stateLaw :=
+      (Mcmc.Kernel.logSliceUnderGraph (volume : Measure ℝ) logDensity).map
+        Prod.swap
+    let successful := guardedSuccessfulRuntimeTraceKernel logDensity hlogDensity
+      width intervals maxShrink
+    let failureState := stateLaw.withDensity
+      (fun state => 1 - successful state Set.univ)
+    Measure.compProd stateLaw
+        (completedRuntimeTraceKernelFromFibers logDensity hlogDensity width
+          intervals maxShrink) =
+      Measure.map completedRuntimeSuccessEmbedding
+          (Measure.compProd stateLaw successful) +
+        Measure.map completedRuntimeFailureEmbedding failureState := by
+  dsimp only
+  let stateLaw :=
+    (Mcmc.Kernel.logSliceUnderGraph (volume : Measure ℝ) logDensity).map
+      Prod.swap
+  let successful := guardedSuccessfulRuntimeTraceKernel logDensity hlogDensity
+    width intervals maxShrink
+  letI : SFinite stateLaw := by
+    unfold stateLaw Mcmc.Kernel.logSliceUnderGraph
+    infer_instance
+  let failureDensity := fun state : ℝ × ℝ =>
+    1 - successful state Set.univ
+  let failureKernel : ProbabilityTheory.Kernel (ℝ × ℝ)
+      (Mcmc.Kernel.CompletedTrace RuntimeRandomTrace) :=
+    (ProbabilityTheory.Kernel.const (ℝ × ℝ)
+      (Measure.dirac (Sum.inr ()))).withDensity
+        (fun state _ => failureDensity state)
+  letI : ProbabilityTheory.IsSFiniteKernel successful :=
+    guardedSuccessfulRuntimeTraceKernel_isSFinite logDensity hlogDensity width
+      intervals maxShrink
+  have hfailureDensity : Measurable (Function.uncurry
+      (fun state : ℝ × ℝ => fun _ : Mcmc.Kernel.CompletedTrace RuntimeRandomTrace =>
+        failureDensity state)) :=
+    measurable_const.sub
+      ((ProbabilityTheory.Kernel.measurable_coe successful MeasurableSet.univ).comp
+        measurable_fst)
+  letI : ProbabilityTheory.IsSFiniteKernel failureKernel := by
+    unfold failureKernel
+    apply ProbabilityTheory.Kernel.IsSFiniteKernel.withDensity
+    intro state outcome
+    simp [failureDensity]
+  rw [show completedRuntimeTraceKernelFromFibers logDensity hlogDensity width
+      intervals maxShrink = successful.map Sum.inl + failureKernel by rfl,
+    Measure.compProd_add_right]
+  rw [Measure.compProd_map measurable_inl]
+  have hsuccessMap : Prod.map id Sum.inl = completedRuntimeSuccessEmbedding := by
+    funext point
+    rcases point with ⟨state, trace⟩
+    simp only [Prod.map, id_eq, completedRuntimeSuccessEmbedding]
+  rw [hsuccessMap]
+  rw [show failureKernel =
+      (ProbabilityTheory.Kernel.const (ℝ × ℝ)
+        (Measure.dirac (Sum.inr ()))).withDensity
+          (fun state _ => failureDensity state) by rfl,
+    Measure.compProd_withDensity hfailureDensity,
+    Measure.compProd_const]
+  have hprod : stateLaw.prod (Measure.dirac (Sum.inr ())) =
+      Measure.map completedRuntimeFailureEmbedding stateLaw := by
+    rw [Measure.prod_dirac]
+    congr 1
+  rw [hprod]
+  rw [← map_withDensity_comp_runtime completedRuntimeFailureEmbedding stateLaw
+    (fun point : (ℝ × ℝ) × Mcmc.Kernel.CompletedTrace RuntimeRandomTrace =>
+      failureDensity point.1)
+    measurableEmbedding_completedRuntimeFailureEmbedding]
+  · congr 2
+  · change Measurable failureDensity
+    exact measurable_const.sub
+      (ProbabilityTheory.Kernel.measurable_coe successful MeasurableSet.univ)
+
 /-- Completion is measure-theoretically harmless: any preserved successful
 joint law may be combined with any state law assigned to exhaustion, because
 the latter branch is literally the identity. -/
@@ -7994,6 +8094,280 @@ theorem completedRuntimeAugmentedReverse_explicit_measurePreserving
     hlogDensity width intervals maxShrink _ failureState
     (guardedRuntimeAugmentedReverse_jointLaw_measurePreserving hlogDensity
       hwidth intervals maxShrink)
+
+/-- Guarded replay never changes the sampled log-height coordinate. -/
+theorem guardedRuntimeAugmentedReverse_threshold
+    (logDensity : ℝ → ℝ) (width : ℝ) (intervals maxShrink : ℕ)
+    (point : (ℝ × ℝ) × RuntimeRandomTrace) :
+    (guardedRuntimeAugmentedReverse logDensity width intervals maxShrink
+      point).1.1 = point.1.1 := by
+  classical
+  rw [guardedRuntimeAugmentedReverse,
+    Mcmc.Kernel.guardedTraceTransform]
+  by_cases hsuccess : point ∈
+      runtimeSuccessSet logDensity width intervals maxShrink
+  · simp only [Set.piecewise, hsuccess, if_true]
+    rfl
+  · simp only [Set.piecewise, hsuccess, if_false, id_eq]
+
+/-- The log-height weight retained by slice sampling is invariant under the
+runtime reversal. -/
+theorem guardedRuntimeAugmentedReverse_logHeightWeight
+    (logDensity : ℝ → ℝ) (width : ℝ) (intervals maxShrink : ℕ)
+    (point : (ℝ × ℝ) × RuntimeRandomTrace) :
+    ENNReal.ofReal
+        (Real.exp
+          (guardedRuntimeAugmentedReverse logDensity width intervals maxShrink
+            point).1.1) =
+      ENNReal.ofReal (Real.exp point.1.1) := by
+  rw [guardedRuntimeAugmentedReverse_threshold]
+
+/-- Successful runtime replay remains measure preserving after attaching the
+actual `exp threshold` log-under-graph weight. -/
+theorem guardedRuntimeAugmentedReverse_logWeightedJoint_measurePreserving
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    {width : ℝ} (hwidth : 0 < width) (intervals maxShrink : ℕ) :
+    let successfulJoint :=
+      ((((volume : Measure ℝ).prod volume).prod runtimeRandomTraceBase).withDensity
+        (fun point => guardedRuntimeTraceDensity logDensity width intervals
+          maxShrink point.1 point.2))
+    MeasurePreserving
+      (guardedRuntimeAugmentedReverse logDensity width intervals maxShrink)
+      (successfulJoint.withDensity
+        (fun point => ENNReal.ofReal (Real.exp point.1.1)))
+      (successfulJoint.withDensity
+        (fun point => ENNReal.ofReal (Real.exp point.1.1))) := by
+  apply measurePreserving_withDensity_of_invariant
+    (guardedRuntimeAugmentedReverse_guardedJoint_measurePreserving hlogDensity
+      hwidth intervals maxShrink)
+  · exact ENNReal.measurable_ofReal.comp
+      (Real.measurable_exp.comp (measurable_fst.comp measurable_fst))
+  · exact guardedRuntimeAugmentedReverse_logHeightWeight logDensity width
+      intervals maxShrink
+
+/-- Density of the log-under-graph law in `(threshold, current)` order. -/
+noncomputable def runtimeLogSliceStateWeight
+    (logDensity : ℝ → ℝ) (state : ℝ × ℝ) : ENNReal :=
+  by
+    classical
+    exact if state ∈ runtimeSliceDomain logDensity then
+      ENNReal.ofReal (Real.exp state.1)
+    else 0
+
+theorem measurable_runtimeLogSliceStateWeight
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity) :
+    Measurable (runtimeLogSliceStateWeight logDensity) := by
+  classical
+  have h : Measurable (fun state : ℝ × ℝ =>
+      if state.1 ≤ logDensity state.2 then
+        ENNReal.ofReal (Real.exp state.1)
+      else 0) :=
+    Measurable.ite (measurableSet_runtimeSliceDomain hlogDensity)
+      (ENNReal.measurable_ofReal.comp (Real.measurable_exp.comp measurable_fst))
+      measurable_const
+  convert h using 1
+  funext state
+  rfl
+
+/-- The abstract log-under-graph measure is exactly the concrete augmented
+state density used by the practical runtime, after swapping coordinates. -/
+theorem logSliceUnderGraph_map_swap_eq_runtimeState
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity) :
+    (Mcmc.Kernel.logSliceUnderGraph (volume : Measure ℝ) logDensity).map
+        Prod.swap =
+      (((volume : Measure ℝ).prod volume).withDensity
+        (runtimeLogSliceStateWeight logDensity)) := by
+  let density := fun point : ℝ × ℝ =>
+    if point.2 ≤ logDensity point.1 then
+      ENNReal.ofReal (Real.exp point.2)
+    else 0
+  have hdensity : Measurable density := by
+    classical
+    exact Measurable.ite
+      (measurableSet_le measurable_snd (hlogDensity.comp measurable_fst))
+      (ENNReal.measurable_ofReal.comp (Real.measurable_exp.comp measurable_snd))
+      measurable_const
+  unfold Mcmc.Kernel.logSliceUnderGraph
+  rw [Mcmc.Kernel.map_swap_prod_withDensity (volume : Measure ℝ) volume
+    density hdensity]
+  congr 1
+
+/-- The successful part of the actual state-dependent trace joint law is the
+log-height-weighted runtime law certified above. -/
+theorem compProd_guardedSuccessfulRuntimeTraceKernel_eq_logWeighted
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (width : ℝ) (intervals maxShrink : ℕ) :
+    let successfulJoint :=
+      ((((volume : Measure ℝ).prod volume).prod runtimeRandomTraceBase).withDensity
+        (fun point => guardedRuntimeTraceDensity logDensity width intervals
+          maxShrink point.1 point.2))
+    Measure.compProd
+        ((Mcmc.Kernel.logSliceUnderGraph (volume : Measure ℝ) logDensity).map
+          Prod.swap)
+        (guardedSuccessfulRuntimeTraceKernel logDensity hlogDensity width intervals
+          maxShrink) =
+      successfulJoint.withDensity
+        (fun point => ENNReal.ofReal (Real.exp point.1.1)) := by
+  let stateBase : Measure (ℝ × ℝ) := (volume : Measure ℝ).prod volume
+  let traceDensity := guardedRuntimeTraceDensity logDensity width intervals
+    maxShrink
+  let stateWeight := runtimeLogSliceStateWeight logDensity
+  have htraceDensity := measurable_uncurry_guardedRuntimeTraceDensity hlogDensity
+    width intervals maxShrink
+  have hstateWeight := measurable_runtimeLogSliceStateWeight hlogDensity
+  rw [logSliceUnderGraph_map_swap_eq_runtimeState hlogDensity,
+    guardedSuccessfulRuntimeTraceKernel_eq_commonBase hlogDensity width intervals
+      maxShrink]
+  rw [Mcmc.Kernel.compProd_normalizedTraceKernel _ runtimeRandomTraceBase
+    traceDensity htraceDensity]
+  · dsimp only
+    rw [prod_withDensity_left hstateWeight]
+    change ((((volume : Measure ℝ).prod volume).prod runtimeRandomTraceBase).withDensity
+        (fun point => runtimeLogSliceStateWeight logDensity point.1)).withDensity
+          (fun point => guardedRuntimeTraceDensity logDensity width intervals
+            maxShrink point.1 point.2) =
+      ((((volume : Measure ℝ).prod volume).prod runtimeRandomTraceBase).withDensity
+        (fun point => guardedRuntimeTraceDensity logDensity width intervals
+          maxShrink point.1 point.2)).withDensity
+            (fun point => ENNReal.ofReal (Real.exp point.1.1))
+    rw [← withDensity_mul
+      (((volume : Measure ℝ).prod volume).prod runtimeRandomTraceBase)
+      (f := fun point => runtimeLogSliceStateWeight logDensity point.1)
+      (g := fun point => guardedRuntimeTraceDensity logDensity width intervals
+        maxShrink point.1 point.2)
+      (hstateWeight.comp measurable_fst) htraceDensity]
+    rw [← withDensity_mul
+      (((volume : Measure ℝ).prod volume).prod runtimeRandomTraceBase)
+      (f := fun point => guardedRuntimeTraceDensity logDensity width intervals
+        maxShrink point.1 point.2)
+      (g := fun point => ENNReal.ofReal (Real.exp point.1.1)) htraceDensity
+      (ENNReal.measurable_ofReal.comp
+        (Real.measurable_exp.comp (measurable_fst.comp measurable_fst)))]
+    congr 1
+    funext point
+    classical
+    by_cases hstate : point.1 ∈ runtimeSliceDomain logDensity
+    · simp [runtimeLogSliceStateWeight,
+        guardedRuntimeTraceDensity, hstate, mul_comm]
+    · simp [runtimeLogSliceStateWeight,
+        guardedRuntimeTraceDensity, hstate]
+  · intro state trace
+    classical
+    unfold traceDensity guardedRuntimeTraceDensity
+    split
+    · exact runtimeTraceDensity_ne_top logDensity width intervals maxShrink state
+        trace
+    · simp
+
+/-- The successful component of the actual practical trace kernel preserves
+the abstract log-under-graph augmented state law. -/
+theorem guardedRuntimeAugmentedReverse_compProd_success_measurePreserving
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    {width : ℝ} (hwidth : 0 < width) (intervals maxShrink : ℕ) :
+    let stateLaw :=
+      (Mcmc.Kernel.logSliceUnderGraph (volume : Measure ℝ) logDensity).map
+        Prod.swap
+    let successful := guardedSuccessfulRuntimeTraceKernel logDensity hlogDensity
+      width intervals maxShrink
+    MeasurePreserving
+      (guardedRuntimeAugmentedReverse logDensity width intervals maxShrink)
+      (Measure.compProd stateLaw successful)
+      (Measure.compProd stateLaw successful) := by
+  dsimp only
+  rw [compProd_guardedSuccessfulRuntimeTraceKernel_eq_logWeighted hlogDensity
+    width intervals maxShrink]
+  exact guardedRuntimeAugmentedReverse_logWeightedJoint_measurePreserving
+    hlogDensity hwidth intervals maxShrink
+
+/-- The completed runtime reversal preserves the actual state-dependent
+completed-trace joint law, including exact exhaustion probability. -/
+theorem completedRuntimeAugmentedReverse_compProd_measurePreserving
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    {width : ℝ} (hwidth : 0 < width) (intervals maxShrink : ℕ) :
+    let stateLaw :=
+      (Mcmc.Kernel.logSliceUnderGraph (volume : Measure ℝ) logDensity).map
+        Prod.swap
+    let completed := completedRuntimeTraceKernelFromFibers logDensity hlogDensity
+      width intervals maxShrink
+    MeasurePreserving
+      (completedRuntimeAugmentedReverse logDensity width intervals maxShrink)
+      (Measure.compProd stateLaw completed)
+      (Measure.compProd stateLaw completed) := by
+  dsimp only
+  let stateLaw :=
+    (Mcmc.Kernel.logSliceUnderGraph (volume : Measure ℝ) logDensity).map
+      Prod.swap
+  let successful := guardedSuccessfulRuntimeTraceKernel logDensity hlogDensity
+    width intervals maxShrink
+  let failureState := stateLaw.withDensity
+    (fun state => 1 - successful state Set.univ)
+  have hsuccess :=
+    guardedRuntimeAugmentedReverse_compProd_success_measurePreserving
+      hlogDensity hwidth intervals maxShrink
+  have hcompleted :=
+    completedRuntimeAugmentedReverse_measurePreserving_of_success
+      hlogDensity width intervals maxShrink
+      (Measure.compProd stateLaw successful) failureState hsuccess
+  rw [compProd_completedRuntimeTraceKernelFromFibers hlogDensity width intervals
+    maxShrink]
+  exact hcompleted
+
+/-- Horizontal practical-slice update driven by the certified completed
+runtime trace kernel. -/
+noncomputable def practicalRuntimeHorizontalKernel
+    (logDensity : ℝ → ℝ) (hlogDensity : Measurable logDensity)
+    (width : ℝ) (intervals maxShrink : ℕ) :
+    ProbabilityTheory.Kernel (ℝ × ℝ) (ℝ × ℝ) :=
+  Mcmc.Kernel.dependentTraceDrivenHorizontalKernel
+    (completedRuntimeTraceKernelFromFibers logDensity hlogDensity width intervals
+      maxShrink)
+    (completedRuntimeAugmentedReverse logDensity width intervals maxShrink)
+    (measurable_completedRuntimeAugmentedReverse hlogDensity width intervals
+      maxShrink)
+
+/-- End-to-end practical runtime sampler on the original state coordinate. -/
+noncomputable def practicalRuntimeSliceSampler
+    (logDensity : ℝ → ℝ) (hlogDensity : Measurable logDensity)
+    (width : ℝ) (intervals maxShrink : ℕ) :
+    ProbabilityTheory.Kernel ℝ ℝ :=
+  Mcmc.Kernel.logWithinSliceSampler logDensity hlogDensity
+    (practicalRuntimeHorizontalKernel logDensity hlogDensity width intervals
+      maxShrink)
+
+/-- End-to-end exact invariance of the bounded practical stepping-out and
+shrinkage runtime, including budget exhaustion as an identity update. -/
+theorem practicalRuntimeSliceSampler_invariant
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    [SFinite (Mcmc.Kernel.logSliceUnderGraph
+      (volume : Measure ℝ) logDensity)]
+    {width : ℝ} (hwidth : 0 < width)
+    {intervals : ℕ} (hintervals : 0 < intervals) (maxShrink : ℕ) :
+    (practicalRuntimeSliceSampler logDensity hlogDensity width intervals
+      maxShrink).Invariant
+      ((volume : Measure ℝ).withDensity
+        (fun x => ENNReal.ofReal (Real.exp (logDensity x)))) := by
+  let completed := completedRuntimeTraceKernelFromFibers logDensity hlogDensity
+    width intervals maxShrink
+  letI : ProbabilityTheory.IsMarkovKernel completed :=
+    completedRuntimeTraceKernelFromFibers_isMarkovKernel hlogDensity hwidth
+      hintervals maxShrink
+  let horizontal := practicalRuntimeHorizontalKernel logDensity hlogDensity width
+    intervals maxShrink
+  letI : ProbabilityTheory.IsMarkovKernel horizontal := by
+    unfold horizontal practicalRuntimeHorizontalKernel
+    infer_instance
+  apply Mcmc.Kernel.logWithinSliceSampler_invariant_underGraph
+    (volume : Measure ℝ) logDensity hlogDensity horizontal
+  unfold horizontal practicalRuntimeHorizontalKernel
+  apply Mcmc.Kernel.dependentTraceDrivenHorizontalKernel_invariant
+    ((Mcmc.Kernel.logSliceUnderGraph (volume : Measure ℝ) logDensity).map
+      Prod.swap)
+    completed
+    (completedRuntimeAugmentedReverse logDensity width intervals maxShrink)
+    (measurable_completedRuntimeAugmentedReverse hlogDensity width intervals
+      maxShrink)
+  exact completedRuntimeAugmentedReverse_compProd_measurePreserving hlogDensity
+    hwidth intervals maxShrink
 
 /-- Integration against the variable-length base decomposes into the sum of
 finite-dimensional Lebesgue integrals. -/

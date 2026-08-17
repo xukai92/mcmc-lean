@@ -19,10 +19,15 @@
   length beyond the shrink budget contributes exactly zero. Its domain-guarded
   version equals `guardedSuccessfulRuntimeTraceKernel`, and
   `completedRuntimeTraceKernelFromFibers` is proved equal to the corresponding
-  common-base `completedTraceKernel`. The guarded successful joint law is also
-  measure preserving. The remaining end-to-end step is to attach the
-  log-under-graph state weight, decompose the completed joint kernel, and
-  project the certified horizontal update to target invariance.
+  common-base `completedTraceKernel`. The concrete `(threshold, current)` state
+  density is now identified with the abstract log-under-graph law, and its
+  retained `exp threshold` factor is invariant under replay. Lean decomposes
+  the actual completed joint kernel into its preserved success and identity
+  exhaustion components. The resulting horizontal kernel and original-state
+  sampler culminate in `practicalRuntimeSliceSampler_invariant`, which proves
+  exact invariance of the `exp ∘ logDensity` target even with bounded-budget
+  exhaustion. Platform callback, `log`, RNG, and arithmetic refinement remain
+  explicit executable obligations, not gaps in the ideal-real theorem.
 
 - Built the repeated finite-horizon executor above the partial inverse clock.
   One capped step carries remaining time in the state, draws a fresh unit
