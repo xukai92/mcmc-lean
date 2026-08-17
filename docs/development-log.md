@@ -4370,6 +4370,21 @@ scalar interval-integral identity equating accumulated `max 0 (a + tb)` with
 that square increment. Almost-sure finite-horizon completion remains a later
 nonexplosion argument and is not inferred from this algebra.
 
+## 2026-08-17: exact multidimensional Gaussian BPS partial inverse
+
+Closed the scalar calculus and clock-packaging obligations. Lean proves the
+interval integral of `max 0 (a + bt)` for `b > 0` by splitting at its unique
+zero and identifying the affine antiderivative. Substitution of the
+closed-form wait gives exactly the supplied integrated-hazard mark.
+`standardGaussianBPSPartialInverseHazardData` now packages the measurable
+standard-Gaussian bounce, active predicate, wait, positivity, inverse, and
+inactive proof in every finite dimension. Zero velocity with positive mark is
+the certified no-event branch; the zero mark remains active, avoiding the
+logically impossible strict inequality `0 < 0`. This completes the concrete
+partial inverse clock, but not `CompletesFiniteHorizons`: almost-sure exclusion
+of infinitely many bounces in finite time remains the separate nonexplosion
+theorem.
+
 ## 2026-08-17: practical-slice stratum measure preservation
 
 Upgraded allocation rerooting from a finite-sum identity to preservation of

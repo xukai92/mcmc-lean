@@ -248,6 +248,120 @@ theorem BouncyParticleBounceData.refreshedHorizonKernel_invariant
 
 /-! ### Standard-Gaussian finite-dimensional clock algebra -/
 
+/-- Elementary affine interval integral, recorded locally for the Gaussian
+clock calculation. -/
+theorem intervalIntegral_affine (a b left right : ℝ) :
+    (∫ time in left..right, (a + b * time)) =
+      a * (right - left) + b * (right ^ 2 - left ^ 2) / 2 := by
+  let primitive : ℝ → ℝ := fun time => a * time + b * time ^ 2 / 2
+  have hderiv : ∀ time : ℝ,
+      HasDerivAt primitive (a + b * time) time := by
+    intro time
+    dsimp [primitive]
+    have hraw := ((hasDerivAt_id time).const_mul a).add
+      ((((hasDerivAt_id time).pow 2).const_mul b).div_const 2)
+    have hderiv' := hraw.congr_deriv (show
+      a * 1 + b * (2 * time ^ (2 - 1) * 1) / 2 = a + b * time by
+        norm_num
+        ring)
+    apply hderiv'.congr_of_eventuallyEq
+    filter_upwards [] with y
+    rfl
+  rw [intervalIntegral.integral_eq_sub_of_hasDerivAt
+    (fun time _ => hderiv time)]
+  · dsimp [primitive]
+    ring
+  · exact (continuous_const.add
+      (continuous_const.mul continuous_id)).intervalIntegrable left right
+
+/-- On an interval where an affine function is nonnegative, taking its
+positive part does not change its integral. -/
+theorem intervalIntegral_max_zero_affine_of_nonneg
+    (a b left right : ℝ)
+    (hnonneg : ∀ time ∈ Set.uIcc left right, 0 ≤ a + b * time) :
+    (∫ time in left..right, max 0 (a + b * time)) =
+      a * (right - left) + b * (right ^ 2 - left ^ 2) / 2 := by
+  rw [intervalIntegral.integral_congr (fun time htime =>
+    max_eq_right (hnonneg time htime)), intervalIntegral_affine]
+
+/-- On an interval where an affine function is nonpositive, its positive-part
+integral vanishes. -/
+theorem intervalIntegral_max_zero_affine_of_nonpos
+    (a b left right : ℝ)
+    (hnonpos : ∀ time ∈ Set.uIcc left right, a + b * time ≤ 0) :
+    (∫ time in left..right, max 0 (a + b * time)) = 0 := by
+  rw [intervalIntegral.integral_congr (fun time htime =>
+    max_eq_left (hnonpos time htime)), intervalIntegral.integral_zero]
+
+/-- Closed form for accumulated positive affine hazard on a nonnegative time
+horizon. -/
+theorem intervalIntegral_max_zero_affine
+    (a b horizon : ℝ) (hb : 0 < b) (hhorizon : 0 ≤ horizon) :
+    (∫ time in (0 : ℝ)..horizon, max 0 (a + b * time)) =
+      ((max 0 (a + b * horizon)) ^ 2 - (max 0 a) ^ 2) / (2 * b) := by
+  by_cases ha : 0 ≤ a
+  · rw [intervalIntegral_max_zero_affine_of_nonneg]
+    · rw [max_eq_right ha]
+      have hend : 0 ≤ a + b * horizon := by positivity
+      rw [max_eq_right hend]
+      field_simp
+      ring
+    · intro time htime
+      have ht : 0 ≤ time := by
+        rw [Set.uIcc_of_le hhorizon] at htime
+        exact htime.1
+      positivity
+  · have ha' : a < 0 := lt_of_not_ge ha
+    by_cases hend : a + b * horizon ≤ 0
+    · rw [intervalIntegral_max_zero_affine_of_nonpos]
+      · rw [max_eq_left hend, max_eq_left ha'.le]
+        simp
+      · intro time htime
+        have ht : time ≤ horizon := by
+          rw [Set.uIcc_of_le hhorizon] at htime
+          exact htime.2
+        nlinarith
+    · have hend' : 0 < a + b * horizon := lt_of_not_ge hend
+      let crossing : ℝ := -a / b
+      have hcrossing0 : 0 ≤ crossing := by
+        dsimp [crossing]
+        exact div_nonneg (neg_nonneg.mpr ha'.le) hb.le
+      have hcrossingH : crossing ≤ horizon := by
+        dsimp [crossing]
+        rw [div_le_iff₀ hb]
+        nlinarith
+      have hint : IntervalIntegrable (fun time : ℝ => max 0 (a + b * time))
+          volume (0 : ℝ) crossing :=
+        (continuous_const.max
+          (continuous_const.add (continuous_const.mul continuous_id))).intervalIntegrable
+            0 crossing
+      have hint' : IntervalIntegrable (fun time : ℝ => max 0 (a + b * time))
+          volume crossing horizon :=
+        (continuous_const.max
+          (continuous_const.add (continuous_const.mul continuous_id))).intervalIntegrable
+            crossing horizon
+      rw [← intervalIntegral.integral_add_adjacent_intervals hint hint']
+      rw [intervalIntegral_max_zero_affine_of_nonpos,
+        intervalIntegral_max_zero_affine_of_nonneg]
+      · rw [max_eq_left ha'.le, max_eq_right hend'.le]
+        dsimp [crossing]
+        field_simp
+        ring
+      · intro time htime
+        have ht : crossing ≤ time := by
+          rw [Set.uIcc_of_le hcrossingH] at htime
+          exact htime.1
+        dsimp [crossing] at ht
+        rw [div_le_iff₀ hb] at ht
+        nlinarith
+      · intro time htime
+        have ht : time ≤ crossing := by
+          rw [Set.uIcc_of_le hcrossing0] at htime
+          exact htime.2
+        dsimp [crossing] at ht
+        rw [le_div_iff₀ hb] at ht
+        nlinarith
+
 /-- For the standard Gaussian position target, the BPS event normal is the
 current position itself. -/
 noncomputable def standardGaussianBouncyParticleBounceData :
@@ -393,6 +507,65 @@ theorem gaussianBPS_positivePartSquare_waitingTimeReal
   rw [max_eq_right (Real.sqrt_nonneg _), Real.sq_sqrt hinside]
   ring
 
+/-- Exact accumulated standard-Gaussian BPS hazard over any nonnegative
+duration, expressed by the positive-part square increment. -/
+theorem standardGaussianBPS_accumulated
+    (state : BouncyParticleState ι) (time : NNReal)
+    (hvelocity : state.2 ≠ 0) :
+    (∫ elapsed in (0 : ℝ)..(time : ℝ),
+      standardGaussianBouncyParticleBounceData.stateRate
+        (bouncyParticleFlow (Real.toNNReal elapsed) state)) =
+      ((max 0 (gaussianBPSLinearCoefficient state +
+          (time : ℝ) * gaussianBPSQuadraticCoefficient state)) ^ 2 -
+        (max 0 (gaussianBPSLinearCoefficient state)) ^ 2) /
+          (2 * gaussianBPSQuadraticCoefficient state) := by
+  calc
+    (∫ elapsed in (0 : ℝ)..(time : ℝ),
+      standardGaussianBouncyParticleBounceData.stateRate
+        (bouncyParticleFlow (Real.toNNReal elapsed) state)) =
+        ∫ elapsed in (0 : ℝ)..(time : ℝ),
+          max 0 (gaussianBPSLinearCoefficient state +
+            gaussianBPSQuadraticCoefficient state * elapsed) := by
+      apply intervalIntegral.integral_congr
+      intro elapsed helapsed
+      change standardGaussianBouncyParticleBounceData.stateRate
+        (bouncyParticleFlow (Real.toNNReal elapsed) state) = _
+      rw [standardGaussianBPS_stateRate_flow]
+      have helapsed0 : 0 ≤ elapsed := by
+        rw [Set.uIcc_of_le (show (0 : ℝ) ≤ (time : ℝ) by positivity)] at helapsed
+        exact helapsed.1
+      rw [Real.coe_toNNReal _ helapsed0]
+      simp only [mul_comm]
+    _ = _ := by
+      simpa [mul_comm] using intervalIntegral_max_zero_affine
+        (gaussianBPSLinearCoefficient state)
+        (gaussianBPSQuadraticCoefficient state) (time : ℝ)
+        (gaussianBPSQuadraticCoefficient_pos state hvelocity) (by positivity)
+
+/-- The closed-form nonzero-velocity wait exactly inverts the integrated
+canonical Gaussian BPS rate. -/
+theorem standardGaussianBPS_waitingTime_inverse
+    (state : BouncyParticleState ι) {hazard : NNReal}
+    (hvelocity : state.2 ≠ 0) (hhazard : 0 < hazard) :
+    (∫ elapsed in (0 : ℝ)..(gaussianBPSWaitingTime state hazard : ℝ),
+      standardGaussianBouncyParticleBounceData.stateRate
+        (bouncyParticleFlow (Real.toNNReal elapsed) state)) =
+      (hazard : ℝ) := by
+  rw [standardGaussianBPS_accumulated state
+    (gaussianBPSWaitingTime state hazard) hvelocity]
+  rw [gaussianBPSWaitingTime_coe state hvelocity hhazard]
+  rw [show gaussianBPSLinearCoefficient state +
+      gaussianBPSWaitingTimeReal state hazard *
+        gaussianBPSQuadraticCoefficient state =
+      gaussianBPSLinearCoefficient state +
+        gaussianBPSQuadraticCoefficient state *
+          gaussianBPSWaitingTimeReal state hazard by ring]
+  rw [gaussianBPS_positivePartSquare_waitingTimeReal state hvelocity]
+  have hb : gaussianBPSQuadraticCoefficient state ≠ 0 :=
+    ne_of_gt (gaussianBPSQuadraticCoefficient_pos state hvelocity)
+  apply (div_eq_iff (mul_ne_zero (by norm_num) hb)).2
+  ring
+
 /-! ### Exact unbounded-rate inverse clocks -/
 
 /-- Target-specific exact inverse of the integrated BPS rate. This is the
@@ -481,6 +654,59 @@ structure BouncyParticlePartialInverseHazardData (ι : Type*) [Fintype ι] where
     (∫ elapsed in (0 : ℝ)..(time : ℝ),
       bounce.stateRate
         (bouncyParticleFlow (Real.toNNReal elapsed) state)) < (hazard : ℝ)
+
+/-- Exact partial inverse clock data for finite-dimensional standard-Gaussian
+BPS. Nonzero velocity reaches every positive hazard at the closed-form wait;
+zero velocity is the genuine inactive no-event state. -/
+noncomputable def standardGaussianBPSPartialInverseHazardData :
+    BouncyParticlePartialInverseHazardData ι where
+  bounce := standardGaussianBouncyParticleBounceData
+  active state hazard := if hazard = 0 then true
+    else if state.2 = 0 then false else true
+  waitingTime := gaussianBPSWaitingTime
+  measurable_active := by
+    apply Measurable.ite
+    · exact (measurableSet_singleton (0 : NNReal)).preimage measurable_snd
+    · exact measurable_const
+    · apply Measurable.ite
+      · exact (measurableSet_singleton (0 : Position ι)).preimage
+          (measurable_snd.comp measurable_fst)
+      · exact measurable_const
+      · exact measurable_const
+  measurable_waitingTime := by
+    unfold gaussianBPSWaitingTime gaussianBPSWaitingTimeReal
+      gaussianBPSLinearCoefficient gaussianBPSQuadraticCoefficient
+      squaredEuclideanNorm euclideanInner
+    fun_prop
+  waitingTime_pos := by
+    intro state hazard hhazard hactive
+    have hvelocity : state.2 ≠ 0 := by
+      simpa [ne_of_gt hhazard] using hactive
+    exact gaussianBPSWaitingTime_pos state hvelocity hhazard
+  inverse := by
+    intro state hazard hhazard hactive
+    have hvelocity : state.2 ≠ 0 := by
+      simpa [ne_of_gt hhazard] using hactive
+    exact standardGaussianBPS_waitingTime_inverse state hvelocity hhazard
+  inactive := by
+    intro state hazard hactive time
+    have hhazard : hazard ≠ 0 := by
+      intro heq
+      subst hazard
+      simp at hactive
+    have hvelocity : state.2 = 0 := by
+      by_contra hne
+      simp [hhazard, hne] at hactive
+    have hrate : ∀ elapsed : ℝ,
+        standardGaussianBouncyParticleBounceData.stateRate
+          (bouncyParticleFlow (Real.toNNReal elapsed) state) = 0 := by
+      intro elapsed
+      unfold BouncyParticleBounceData.stateRate
+        standardGaussianBouncyParticleBounceData bouncyRate
+      simp [bouncyParticleFlow, hvelocity, euclideanInner]
+    rw [intervalIntegral.integral_congr (fun elapsed _ => hrate elapsed),
+      intervalIntegral.integral_zero]
+    exact_mod_cast (pos_iff_ne_zero.mpr hhazard)
 
 noncomputable def BouncyParticlePartialInverseHazardData.clock
     (data : BouncyParticlePartialInverseHazardData ι) :
