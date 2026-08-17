@@ -319,6 +319,30 @@ structure EuclideanLeapfrogVectorCertificate
   coordinate_positionError : ∀ i, (coordinate i).positionError = positionError
   coordinate_momentumError : ∀ i, (coordinate i).momentumError = momentumError
 
+noncomputable def EuclideanLeapfrogVectorCertificate.computedInputPosition
+    {parameters : EuclideanLeapfrogErrorParameters} {dimension : ℕ}
+    (certificate : EuclideanLeapfrogVectorCertificate parameters dimension) :
+    List ℝ :=
+  List.ofFn fun i => (certificate.coordinate i).computedPosition
+
+noncomputable def EuclideanLeapfrogVectorCertificate.idealInputPosition
+    {parameters : EuclideanLeapfrogErrorParameters} {dimension : ℕ}
+    (certificate : EuclideanLeapfrogVectorCertificate parameters dimension) :
+    List ℝ :=
+  List.ofFn fun i => (certificate.coordinate i).idealPosition
+
+noncomputable def EuclideanLeapfrogVectorCertificate.computedInputMomentum
+    {parameters : EuclideanLeapfrogErrorParameters} {dimension : ℕ}
+    (certificate : EuclideanLeapfrogVectorCertificate parameters dimension) :
+    List ℝ :=
+  List.ofFn fun i => (certificate.coordinate i).computedMomentum
+
+noncomputable def EuclideanLeapfrogVectorCertificate.idealInputMomentum
+    {parameters : EuclideanLeapfrogErrorParameters} {dimension : ℕ}
+    (certificate : EuclideanLeapfrogVectorCertificate parameters dimension) :
+    List ℝ :=
+  List.ofFn fun i => (certificate.coordinate i).idealMomentum
+
 /-- Aggregate coordinate proofs into the existing vector endpoint interface. -/
 noncomputable def EuclideanLeapfrogVectorCertificate.toStepCertificate
     {parameters : EuclideanLeapfrogErrorParameters} {dimension : ℕ}
@@ -450,6 +474,36 @@ noncomputable def EuclideanLeapfrogVectorTrajectoryCertificate.toErrorCertificat
     rw [certificate.step_positionError stepIndex,
       certificate.step_momentumError stepIndex]
     rfl
+
+/-- A recurrence-certified family is a genuine sequential trajectory when
+every vector step consumes the preceding stored endpoint, in both computed
+and ideal semantics. -/
+structure LinkedEuclideanLeapfrogVectorTrajectoryCertificate
+    (parameters : EuclideanLeapfrogErrorParameters) (dimension steps : ℕ)
+    (initialPositionError initialMomentumError : ℝ) where
+  errorCertificate : EuclideanLeapfrogVectorTrajectoryCertificate parameters
+    dimension steps initialPositionError initialMomentumError
+  computedPosition_link : ∀ index,
+    (errorCertificate.step index).computedInputPosition =
+      (errorCertificate.toErrorCertificate.endpoint index.castSucc).computedPosition
+  idealPosition_link : ∀ index,
+    (errorCertificate.step index).idealInputPosition =
+      (errorCertificate.toErrorCertificate.endpoint index.castSucc).idealPosition
+  computedMomentum_link : ∀ index,
+    (errorCertificate.step index).computedInputMomentum =
+      (errorCertificate.toErrorCertificate.endpoint index.castSucc).computedMomentum
+  idealMomentum_link : ∀ index,
+    (errorCertificate.step index).idealInputMomentum =
+      (errorCertificate.toErrorCertificate.endpoint index.castSucc).idealMomentum
+
+noncomputable def LinkedEuclideanLeapfrogVectorTrajectoryCertificate.toErrorCertificate
+    {parameters : EuclideanLeapfrogErrorParameters} {dimension steps : ℕ}
+    {initialPositionError initialMomentumError : ℝ}
+    (certificate : LinkedEuclideanLeapfrogVectorTrajectoryCertificate parameters
+      dimension steps initialPositionError initialMomentumError) :
+    LeapfrogTrajectoryErrorCertificate parameters.toErrorModel
+      initialPositionError initialMomentumError steps :=
+  certificate.errorCertificate.toErrorCertificate
 
 /-- Complete endpoint-HMC numeric certificate after a fixed trajectory. -/
 structure HmcErrorCertificate where

@@ -257,6 +257,22 @@ noncomputable def CertifiedLeapfrogPhaseTrajectory.ofPrimitiveCertificate
       simp [EuclideanLeapfrogVectorTrajectoryCertificate.toErrorCertificate,
         EuclideanLeapfrogVectorCertificate.toStepCertificate]) index)
 
+/-- A sequentially linked primitive trajectory feeds the same dynamic-tree
+phase interface while retaining its state-threading proof for clients that
+need to audit that successive primitive records form one trajectory. -/
+noncomputable def CertifiedLeapfrogPhaseTrajectory.ofLinkedPrimitiveCertificate
+    {parameters : EuclideanLeapfrogErrorParameters} {dimension steps : ℕ}
+    {initialPositionError initialMomentumError : ℝ}
+    (certificate : LinkedEuclideanLeapfrogVectorTrajectoryCertificate parameters
+      dimension steps initialPositionError initialMomentumError)
+    (initialPositionLength :
+      certificate.errorCertificate.initial.computedPosition.length = dimension)
+    (initialMomentumLength :
+      certificate.errorCertificate.initial.computedMomentum.length = dimension) :
+    CertifiedLeapfrogPhaseTrajectory (steps + 1) dimension :=
+  CertifiedLeapfrogPhaseTrajectory.ofPrimitiveCertificate
+    certificate.errorCertificate initialPositionLength initialMomentumLength
+
 noncomputable def CertifiedLeapfrogPhaseEndpoint.computedPosition
     {dimension : ℕ} (endpoint : CertifiedLeapfrogPhaseEndpoint dimension) :
     Fin dimension → ℝ :=

@@ -4187,6 +4187,18 @@ errors equal the preceding recurrence schedule; Lean forgets the primitive
 details into `LeapfrogTrajectoryErrorCertificate`, then converts it directly
 to `CertifiedLeapfrogPhaseTrajectory` for the NUTS decision layer. Julia's
 vector checker validates every coordinate against the same schedule. This
-error-only sequence deliberately does not yet assert that each record's input
-state is the previous record's output; that state-linkage equation and concrete
-callback/platform budgets remain explicit obligations.
+error-only sequence remains useful as a projection, while the linked wrapper
+below discharges its separate state-threading obligation.
+
+## 2026-08-17: linked primitive leapfrog trajectories
+
+Added the missing sequential invariant to primitive multi-step certificates.
+`LinkedEuclideanLeapfrogVectorTrajectoryCertificate` requires each vector
+step's computed and ideal position and momentum inputs to equal the preceding
+stored endpoint. It retains the recurrence proof and has a direct adapter to
+the phase trajectory consumed by bounded NUTS decisions. Julia mirrors this
+as an exact replay check: a collection of individually valid primitive steps
+is rejected if its initial state or any successive computed/ideal state does
+not connect. Positive, wrong-initial-state, and broken-successor tests cover
+the boundary. Concrete gradient callback, arithmetic-reduction, libm, and
+platform-specific budgets remain explicit backend obligations.

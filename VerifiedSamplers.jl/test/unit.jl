@@ -92,6 +92,16 @@ end
     @test length(vector_step.coordinates) == 2
     @test vector_step.next_position_error == leapfrog_schedule[2].position
     @test vector_step.next_momentum_error == leapfrog_schedule[2].momentum
+    linked_trajectory = Certificates.certify_linked_leapfrog_vector_trajectory(
+        [0.0, 0.0], BigFloat[0, 0], [1.0, 2.0], BigFloat[1, 2],
+        [vector_step])
+    @test length(linked_trajectory.steps) == 1
+    @test_throws ArgumentError Certificates.certify_linked_leapfrog_vector_trajectory(
+            [1.0, 0.0], BigFloat[0, 0], [1.0, 2.0], BigFloat[1, 2],
+            [vector_step])
+    @test_throws ArgumentError Certificates.certify_linked_leapfrog_vector_trajectory(
+            [0.0, 0.0], BigFloat[0, 0], [1.0, 2.0], BigFloat[1, 2],
+            [vector_step, vector_step])
     @test_throws DimensionMismatch Certificates.certify_leapfrog_vector_step(
         leapfrog_parameters;
         signed_step=0.1,

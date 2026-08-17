@@ -17,6 +17,8 @@ export BoundWitness, DecisionCertificate, certify_bound, certify_decision,
     EuclideanLeapfrogErrorParameters, leapfrog_error_schedule,
     LeapfrogCoordinateCertificate, certify_leapfrog_coordinate_step,
     LeapfrogVectorCertificate, certify_leapfrog_vector_step,
+    LinkedLeapfrogVectorTrajectoryCertificate,
+    certify_linked_leapfrog_vector_trajectory,
     CompletedTreeDecisionCertificate,
     NUTSLeafEnergyCertificate, certify_nuts_leaf_energy,
     certified_nuts_leaf_decisions,
@@ -86,6 +88,7 @@ end
 
 """Checked primitive witnesses for one scalar kick-drift-kick coordinate."""
 struct LeapfrogCoordinateCertificate
+    signed_step::Float64
     position::BoundWitness
     momentum::BoundWitness
     current_gradient::BoundWitness
@@ -145,7 +148,7 @@ function certify_leapfrog_coordinate_step(parameters::EuclideanLeapfrogErrorPara
         parameters.kick_rounding; precision=precision)
     next_momentum_error = half_error + parameters.step_magnitude / 2 *
         next_gradient_budget + parameters.kick_rounding
-    LeapfrogCoordinateCertificate(position, momentum, current_gradient, half,
+    LeapfrogCoordinateCertificate(step, position, momentum, current_gradient, half,
         next_gradient, drift, final, next_position_error, next_momentum_error)
 end
 
@@ -194,6 +197,80 @@ function certify_leapfrog_vector_step(parameters::EuclideanLeapfrogErrorParamete
     LeapfrogVectorCertificate(coordinates,
         first(coordinates).next_position_error,
         first(coordinates).next_momentum_error)
+end
+
+_ideal_half_momentum(certificate::LeapfrogCoordinateCertificate) =
+    certificate.momentum.ideal + BigFloat(certificate.signed_step) / 2 *
+        certificate.current_gradient.ideal
+_ideal_next_position(certificate::LeapfrogCoordinateCertificate) =
+    certificate.position.ideal + BigFloat(certificate.signed_step) *
+        _ideal_half_momentum(certificate)
+_ideal_next_momentum(certificate::LeapfrogCoordinateCertificate) =
+    _ideal_half_momentum(certificate) + BigFloat(certificate.signed_step) / 2 *
+        certificate.next_gradient.ideal
+
+"""A checked sequence of primitive vector certificates forming one trajectory.
+
+Each step must consume exactly the computed and ideal endpoint produced by its
+predecessor. This is an exact state-threading check, distinct from the error
+bounds already checked inside each step certificate.
+"""
+struct LinkedLeapfrogVectorTrajectoryCertificate
+    initial_computed_position::Vector{Float64}
+    initial_ideal_position::Vector{BigFloat}
+    initial_computed_momentum::Vector{Float64}
+    initial_ideal_momentum::Vector{BigFloat}
+    steps::Vector{LeapfrogVectorCertificate}
+end
+
+function certify_linked_leapfrog_vector_trajectory(
+        initial_computed_position::AbstractVector{<:Real},
+        initial_ideal_position::AbstractVector{<:Real},
+        initial_computed_momentum::AbstractVector{<:Real},
+        initial_ideal_momentum::AbstractVector{<:Real},
+        steps::AbstractVector{LeapfrogVectorCertificate})
+    dimension = length(initial_computed_position)
+    dimension > 0 || throw(ArgumentError("leapfrog dimension must be positive"))
+    all(length(values) == dimension for values in (initial_ideal_position,
+        initial_computed_momentum, initial_ideal_momentum)) ||
+        throw(DimensionMismatch("initial leapfrog vectors must match"))
+
+    computed_position = Float64.(initial_computed_position)
+    ideal_position = BigFloat.(initial_ideal_position)
+    computed_momentum = Float64.(initial_computed_momentum)
+    ideal_momentum = BigFloat.(initial_ideal_momentum)
+    checked_steps = collect(steps)
+    for (index, step) in enumerate(checked_steps)
+        length(step.coordinates) == dimension || throw(DimensionMismatch(
+            "leapfrog step $index has the wrong dimension"))
+        step_computed_position = [coordinate.position.computed
+            for coordinate in step.coordinates]
+        step_ideal_position = [coordinate.position.ideal
+            for coordinate in step.coordinates]
+        step_computed_momentum = [coordinate.momentum.computed
+            for coordinate in step.coordinates]
+        step_ideal_momentum = [coordinate.momentum.ideal
+            for coordinate in step.coordinates]
+        step_computed_position == computed_position || throw(ArgumentError(
+            "leapfrog step $index does not consume the preceding computed position"))
+        step_ideal_position == ideal_position || throw(ArgumentError(
+            "leapfrog step $index does not consume the preceding ideal position"))
+        step_computed_momentum == computed_momentum || throw(ArgumentError(
+            "leapfrog step $index does not consume the preceding computed momentum"))
+        step_ideal_momentum == ideal_momentum || throw(ArgumentError(
+            "leapfrog step $index does not consume the preceding ideal momentum"))
+        computed_position = [coordinate.drift_rounding.computed
+            for coordinate in step.coordinates]
+        ideal_position = [_ideal_next_position(coordinate)
+            for coordinate in step.coordinates]
+        computed_momentum = [coordinate.final_kick_rounding.computed
+            for coordinate in step.coordinates]
+        ideal_momentum = [_ideal_next_momentum(coordinate)
+            for coordinate in step.coordinates]
+    end
+    LinkedLeapfrogVectorTrajectoryCertificate(Float64.(initial_computed_position),
+        BigFloat.(initial_ideal_position), Float64.(initial_computed_momentum),
+        BigFloat.(initial_ideal_momentum), checked_steps)
 end
 
 """Bounded sign decision used by a dynamic-tree callback.
