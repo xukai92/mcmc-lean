@@ -4297,6 +4297,25 @@ remaining production boundary is concrete backend budgets and a
 machine-checked refinement/extraction argument for the Julia interpreter, not
 an unproved gap between certified callback bits and the full Lean kernel.
 
+## 2026-08-17: continuous history-dependent warmup certificates
+
+Connected finite warmup to the general proxy/containment interface.
+`proxyCertificate_of_freezesAfter` packages an arbitrary history-dependent
+burn-in followed by a uniformly minorized frozen kernel: the exact frozen-tail
+law has zero approximation error and its containment error is the explicit
+geometric Doeblin remainder. The existing setwise convergence theorem now
+factors through this certificate.
+
+Added `ContinuousWarmupAdaptation`, a real-valued client whose tuning parameter
+is `1 +` the empirical second moment of the complete trajectory during warmup
+and a fixed production value afterward. Lean proves measurability, demonstrates
+that distinct continuous histories select distinct scales, proves exact
+freezing, constructs the proxy certificate for any jointly measurable sampler
+family, and derives post-warmup setwise convergence when the frozen section
+supplies invariant-target and minorization proofs. This is a concrete
+continuous history-dependent warmup result; it does not discharge the stronger
+never-freezing continuous adaptation milestone.
+
 ## 2026-08-17: practical-slice stratum measure preservation
 
 Upgraded allocation rerooting from a finite-sum identity to preservation of

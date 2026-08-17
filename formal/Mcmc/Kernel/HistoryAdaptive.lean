@@ -580,6 +580,44 @@ theorem HistoryAdaptiveFamily.target_apply_le_stateKernel_add_geometric_of_freez
   exact target_apply_le_lawAtTime_add_geometric transition target
     (adaptive.stateKernel burnIn initial) ε hε hminor hinvariant steps hevent
 
+/-- Arbitrary history-dependent warmup followed by a uniformly minorized
+frozen kernel canonically supplies the proxy/containment certificate used by
+the general indefinite-adaptation interface. The proxy is the exact frozen
+tail law, so its approximation error is zero; containment is the geometric
+Doeblin bound. -/
+noncomputable def HistoryAdaptiveFamily.proxyCertificate_of_freezesAfter
+    (adaptive : HistoryAdaptiveFamily (State := State) (Parameter := Parameter))
+    (burnIn : ℕ) (parameter : Parameter)
+    (hfreeze : adaptive.FreezesAfter burnIn parameter)
+    (target : Measure State) [IsProbabilityMeasure target]
+    (ε : Set.Icc (0 : NNReal) 1) (hε : ε.1 < 1) (hεpos : 0 < ε.1)
+    (hminor : UniformlyMinorizes
+      (fixedParameterSection adaptive.family parameter) ε.1 target)
+    (hinvariant : (fixedParameterSection adaptive.family parameter).Invariant
+      target)
+    (initial : State) :
+    ProxyConvergenceCertificate
+      (fun steps => adaptive.stateKernel (burnIn + steps) initial) target where
+  proxy steps := adaptive.stateKernel (burnIn + steps) initial
+  approximationError _ := 0
+  containmentError steps := (((1 - ε.1) ^ steps : NNReal) : ENNReal)
+  approximationError_tendsto := tendsto_const_nhds
+  containmentError_tendsto := by
+    have hrateNN : 1 - ε.1 < 1 := tsub_lt_self (by simp) hεpos
+    have hrate : ((1 - ε.1 : NNReal) : ENNReal) < 1 := by
+      exact_mod_cast hrateNN
+    simpa only [ENNReal.coe_pow] using
+      ENNReal.tendsto_pow_atTop_nhds_zero_of_lt_one hrate
+  approximation _ := eventwiseWithin_refl _
+  containment steps event hevent := by
+    exact ⟨
+      adaptive.stateKernel_apply_le_target_add_geometric_of_freezesAfter
+        burnIn parameter hfreeze target ε hε hminor hinvariant initial steps
+        hevent,
+      adaptive.target_apply_le_stateKernel_add_geometric_of_freezesAfter
+        burnIn parameter hfreeze target ε hε hminor hinvariant initial steps
+        hevent⟩
+
 /-- Finite adaptation followed by a genuinely minorized frozen kernel
 converges setwise to the frozen kernel's invariant target. This is a concrete
 general-state adaptive convergence theorem, with arbitrary history dependence
@@ -598,31 +636,7 @@ theorem HistoryAdaptiveFamily.stateKernel_apply_tendsto_of_freezesAfter
     Filter.Tendsto
       (fun steps => adaptive.stateKernel (burnIn + steps) initial event)
       Filter.atTop (nhds (target event)) := by
-  let remainder : ℕ → ENNReal := fun steps =>
-    (((1 - ε.1) ^ steps : NNReal) : ENNReal)
-  have hrateNN : 1 - ε.1 < 1 := tsub_lt_self (by simp) hεpos
-  have hrate : ((1 - ε.1 : NNReal) : ENNReal) < 1 := by
-    exact_mod_cast hrateNN
-  have hremainder : Filter.Tendsto remainder Filter.atTop (nhds 0) := by
-    simpa only [remainder, ENNReal.coe_pow] using
-      ENNReal.tendsto_pow_atTop_nhds_zero_of_lt_one hrate
-  have hlower : Filter.Tendsto (fun steps => target event - remainder steps)
-      Filter.atTop (nhds (target event)) := by
-    have h := ENNReal.Tendsto.sub tendsto_const_nhds hremainder
-      (Or.inl (measure_ne_top target event))
-    simpa only [tsub_zero] using h
-  have hupper : Filter.Tendsto (fun steps => target event + remainder steps)
-      Filter.atTop (nhds (target event)) := by
-    simpa only [add_zero] using tendsto_const_nhds.add hremainder
-  apply tendsto_of_tendsto_of_tendsto_of_le_of_le hlower hupper
-  · intro steps
-    rw [tsub_le_iff_right]
-    exact adaptive.target_apply_le_stateKernel_add_geometric_of_freezesAfter
-      burnIn parameter hfreeze target ε hε hminor hinvariant initial steps
-      hevent
-  · intro steps
-    exact adaptive.stateKernel_apply_le_target_add_geometric_of_freezesAfter
-      burnIn parameter hfreeze target ε hε hminor hinvariant initial steps
-      hevent
+  exact (adaptive.proxyCertificate_of_freezesAfter burnIn parameter hfreeze
+    target ε hε hεpos hminor hinvariant initial).tendsto_apply hevent
 
 end Mcmc.Kernel
