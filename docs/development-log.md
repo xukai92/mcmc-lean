@@ -5079,3 +5079,15 @@ is exposed as a reusable theorem. The remaining smooth-certificate fields are
 the fiberwise Gaussian moment bounds, reflected bounce-term integrability, and
 the coordinate Gaussian integration-by-parts identity; none is inferred from
 the new transport lemmas alone.
+
+The fiberwise bounds are now substantially closed. Restriction to every fixed
+position is proved to preserve compact support. This supplies both levels of
+integrability for the coordinate derivative and position-flux terms: first on
+each Gaussian velocity fiber and then for the velocity integral as a function
+of Gaussian position. All three fixed-position bounce terms are integrable;
+the incoming term is transported from the reflected-rate term by exact
+Gaussian reflection invariance. The outgoing and reflected-rate terms are
+also jointly integrable on phase space. A new certificate constructor fills
+the four transport fields automatically from compact `C¹` regularity. The
+remaining core obligations are joint incoming/full-generator integrability
+and the coordinate Gaussian integration-by-parts identity.

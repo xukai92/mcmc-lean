@@ -3509,6 +3509,224 @@ theorem coordinateDirectionalDerivative_eq_streamingDerivative
   coordinateDirectionalDerivative_standardGaussianBPSCoordinatePartial
     function state.1 state.2
 
+omit [Fintype ι] in
+/-- Restricting a compactly supported phase observable to any fixed-position
+velocity fiber preserves compact support. -/
+theorem hasCompactSupport_fixedPositionSlice
+    {function : BouncyParticleState ι → ℝ}
+    (hcompact : HasCompactSupport function) (position : Position ι) :
+    HasCompactSupport (fun velocity => function (position, velocity)) := by
+  apply HasCompactSupport.intro (hcompact.image continuous_snd)
+  intro velocity houtside
+  by_contra hne
+  apply houtside
+  exact ⟨(position, velocity), subset_tsupport _ hne, rfl⟩
+
+/-- A coordinate-weighted canonical partial is integrable on every fixed
+Gaussian velocity fiber. -/
+theorem integrable_velocity_mul_standardGaussianBPSCoordinatePartial
+    {function : BouncyParticleState ι → ℝ}
+    (hsmooth : ContDiff ℝ 1 function)
+    (hcompact : HasCompactSupport function)
+    (position : Position ι) (i : ι) :
+    Integrable (fun velocity => velocity i *
+      standardGaussianBPSCoordinatePartial function position i velocity)
+      standardMomentumMeasure := by
+  apply Continuous.integrable_of_hasCompactSupport
+  · exact (continuous_apply i).mul
+      ((continuous_standardGaussianBPSCoordinatePartial hsmooth i).comp
+        (continuous_const.prodMk continuous_id))
+  · exact HasCompactSupport.mul_left
+      (hasCompactSupport_fixedPositionSlice
+        (hasCompactSupport_standardGaussianBPSCoordinatePartial hcompact i)
+        position)
+
+/-- The coordinate-weighted canonical partial is integrable jointly over
+Gaussian position and velocity. -/
+theorem integrable_phase_velocity_mul_standardGaussianBPSCoordinatePartial
+    {function : BouncyParticleState ι → ℝ}
+    (hsmooth : ContDiff ℝ 1 function)
+    (hcompact : HasCompactSupport function) (i : ι) :
+    Integrable (fun state : BouncyParticleState ι => state.2 i *
+      standardGaussianBPSCoordinatePartial function state.1 i state.2)
+      (standardMomentumMeasure.prod standardMomentumMeasure) := by
+  apply Continuous.integrable_of_hasCompactSupport
+  · exact (continuous_apply i |>.comp continuous_snd).mul
+      (continuous_standardGaussianBPSCoordinatePartial hsmooth i)
+  · exact HasCompactSupport.mul_left
+      (hasCompactSupport_standardGaussianBPSCoordinatePartial hcompact i)
+
+/-- Integrating a coordinate-weighted canonical partial over velocity gives
+an integrable function of Gaussian position. -/
+theorem integrable_positionIntegral_velocity_mul_standardGaussianBPSCoordinatePartial
+    {function : BouncyParticleState ι → ℝ}
+    (hsmooth : ContDiff ℝ 1 function)
+    (hcompact : HasCompactSupport function) (i : ι) :
+    Integrable (fun position => ∫ velocity, velocity i *
+      standardGaussianBPSCoordinatePartial function position i velocity
+        ∂standardMomentumMeasure) standardMomentumMeasure := by
+  exact (integrable_phase_velocity_mul_standardGaussianBPSCoordinatePartial
+    hsmooth hcompact i).integral_prod_left
+
+/-- A position-flux-weighted compact observable is integrable on every fixed
+Gaussian velocity fiber. -/
+theorem integrable_velocity_mul_position_mul_fixedPositionSlice
+    {function : BouncyParticleState ι → ℝ}
+    (hsmooth : ContDiff ℝ 1 function)
+    (hcompact : HasCompactSupport function)
+    (position : Position ι) (i : ι) :
+    Integrable (fun velocity =>
+      velocity i * position i * function (position, velocity))
+      standardMomentumMeasure := by
+  apply Continuous.integrable_of_hasCompactSupport
+  · exact ((continuous_apply i).mul continuous_const).mul
+      (hsmooth.continuous.comp (continuous_const.prodMk continuous_id))
+  · exact HasCompactSupport.mul_left
+      (hasCompactSupport_fixedPositionSlice hcompact position)
+
+/-- The position-flux-weighted observable is jointly integrable under the
+Gaussian phase target. -/
+theorem integrable_phase_velocity_mul_position_mul_observable
+    {function : BouncyParticleState ι → ℝ}
+    (hsmooth : ContDiff ℝ 1 function)
+    (hcompact : HasCompactSupport function) (i : ι) :
+    Integrable (fun state : BouncyParticleState ι =>
+      state.2 i * state.1 i * function state)
+      (standardMomentumMeasure.prod standardMomentumMeasure) := by
+  apply Continuous.integrable_of_hasCompactSupport
+  · exact (((continuous_apply i).comp continuous_snd).mul
+      ((continuous_apply i).comp continuous_fst)).mul hsmooth.continuous
+  · exact HasCompactSupport.mul_left hcompact
+
+/-- Integrating the position-flux-weighted observable over velocity gives an
+integrable function of Gaussian position. -/
+theorem integrable_positionIntegral_velocity_mul_position_mul_observable
+    {function : BouncyParticleState ι → ℝ}
+    (hsmooth : ContDiff ℝ 1 function)
+    (hcompact : HasCompactSupport function) (i : ι) :
+    Integrable (fun position => ∫ velocity,
+      velocity i * position i * function (position, velocity)
+        ∂standardMomentumMeasure) standardMomentumMeasure := by
+  exact (integrable_phase_velocity_mul_position_mul_observable
+    hsmooth hcompact i).integral_prod_left
+
+/-- At a fixed position, the Gaussian-BPS event rate is continuous in
+velocity. -/
+theorem continuous_bouncyRate_fixedPosition (position : Position ι) :
+    Continuous (bouncyRate position) := by
+  unfold bouncyRate euclideanInner
+  fun_prop
+
+/-- At a fixed position, the reflected Gaussian-BPS event rate is continuous
+in velocity. -/
+theorem continuous_reflectedBouncyRate_fixedPosition
+    (position : Position ι) :
+    Continuous (fun velocity =>
+      bouncyRate position (bouncyReflection position velocity)) := by
+  unfold bouncyRate bouncyReflection squaredEuclideanNorm euclideanInner
+  fun_prop
+
+/-- Reflection changes the positive normal component into the negative normal
+component, including the degenerate zero-normal case. -/
+theorem bouncyRate_reflection_eq_max_neg_inner
+    (position velocity : Position ι) :
+    bouncyRate position (bouncyReflection position velocity) =
+      max 0 (-euclideanInner velocity position) := by
+  by_cases hposition : position = 0
+  · subst position
+    simp [euclideanInner]
+  · exact bouncyRate_reflection position velocity hposition
+
+/-- The reflected Gaussian-BPS rate is jointly continuous even though the
+reflection map itself is singular at the zero normal. -/
+theorem continuous_reflectedBouncyRate :
+    Continuous (fun state : BouncyParticleState ι =>
+      bouncyRate state.1 (bouncyReflection state.1 state.2)) := by
+  simp_rw [bouncyRate_reflection_eq_max_neg_inner]
+  unfold euclideanInner
+  fun_prop
+
+/-- The outgoing bounce term of a compact `C¹` observable is integrable on
+every Gaussian velocity fiber. -/
+theorem integrable_standardGaussianBPS_outgoing
+    {function : BouncyParticleState ι → ℝ}
+    (hsmooth : ContDiff ℝ 1 function)
+    (hcompact : HasCompactSupport function)
+    (position : Position ι) :
+    Integrable (fun velocity => bouncyRate position velocity *
+      function (position, velocity)) standardMomentumMeasure := by
+  apply Continuous.integrable_of_hasCompactSupport
+  · exact (continuous_bouncyRate_fixedPosition position).mul
+      (hsmooth.continuous.comp (continuous_const.prodMk continuous_id))
+  · exact HasCompactSupport.mul_left
+      (hasCompactSupport_fixedPositionSlice hcompact position)
+
+/-- The reflected-rate bounce term of a compact `C¹` observable is integrable
+on every Gaussian velocity fiber. -/
+theorem integrable_standardGaussianBPS_reflected
+    {function : BouncyParticleState ι → ℝ}
+    (hsmooth : ContDiff ℝ 1 function)
+    (hcompact : HasCompactSupport function)
+    (position : Position ι) :
+    Integrable (fun velocity =>
+      bouncyRate position (bouncyReflection position velocity) *
+        function (position, velocity)) standardMomentumMeasure := by
+  apply Continuous.integrable_of_hasCompactSupport
+  · exact (continuous_reflectedBouncyRate_fixedPosition position).mul
+      (hsmooth.continuous.comp (continuous_const.prodMk continuous_id))
+  · exact HasCompactSupport.mul_left
+      (hasCompactSupport_fixedPositionSlice hcompact position)
+
+/-- The outgoing bounce term is jointly integrable under the Gaussian phase
+target. -/
+theorem integrable_standardGaussianBPS_phaseOutgoing
+    {function : BouncyParticleState ι → ℝ}
+    (hsmooth : ContDiff ℝ 1 function)
+    (hcompact : HasCompactSupport function) :
+    Integrable (fun state : BouncyParticleState ι =>
+      bouncyRate state.1 state.2 * function state)
+      (standardMomentumMeasure.prod standardMomentumMeasure) := by
+  apply Continuous.integrable_of_hasCompactSupport
+  · unfold bouncyRate euclideanInner
+    fun_prop
+  · exact HasCompactSupport.mul_left hcompact
+
+/-- The reflected-rate bounce term is jointly integrable under the Gaussian
+phase target. -/
+theorem integrable_standardGaussianBPS_phaseReflected
+    {function : BouncyParticleState ι → ℝ}
+    (hsmooth : ContDiff ℝ 1 function)
+    (hcompact : HasCompactSupport function) :
+    Integrable (fun state : BouncyParticleState ι =>
+      bouncyRate state.1 (bouncyReflection state.1 state.2) * function state)
+      (standardMomentumMeasure.prod standardMomentumMeasure) := by
+  apply Continuous.integrable_of_hasCompactSupport
+  · exact continuous_reflectedBouncyRate.mul hsmooth.continuous
+  · exact HasCompactSupport.mul_left hcompact
+
+/-- Gaussian reflection invariance transports reflected-rate integrability to
+the incoming bounce term. -/
+theorem integrable_standardGaussianBPS_incoming
+    {function : BouncyParticleState ι → ℝ}
+    (hsmooth : ContDiff ℝ 1 function)
+    (hcompact : HasCompactSupport function)
+    (position : Position ι) :
+    Integrable (fun velocity => bouncyRate position velocity *
+      function (position, bouncyReflection position velocity))
+      standardMomentumMeasure := by
+  by_cases hposition : position = 0
+  · subst position
+    simp only [bouncyRate_zero, zero_mul]
+    exact integrable_zero (Position ι) ℝ standardMomentumMeasure
+  let reflection := bouncyReflectionMeasurableEquiv position hposition
+  have hreflected := integrable_standardGaussianBPS_reflected
+    hsmooth hcompact position
+  have hcomp :=
+    (bouncyReflection_standardMomentumMeasure_measurePreserving
+      position hposition).integrable_comp_of_integrable hreflected
+  simpa [Function.comp_def, reflection,
+    bouncyReflection_involutive position _ hposition] using hcomp
+
 /-- Concrete analytic certificate for one smooth phase observable. Its fields
 are exactly the coordinatewise Gaussian-Stein and integrability premises of
 `integral_standardGaussian_bouncyPhaseGenerator_of_coordinatewise_eq_zero`. -/
@@ -3549,6 +3767,57 @@ structure StandardGaussianBPSSmoothObservableCertificate
       ∫ position, ∫ velocity,
         velocity i * position i * function (position, velocity)
           ∂standardMomentumMeasure ∂standardMomentumMeasure
+
+/-- Compact `C¹` regularity automatically supplies all four transport-side
+integrability fields of a smooth Gaussian-BPS certificate. Thus clients need
+only discharge bounce integrability, full-generator integrability, and the
+coordinate Gaussian integration-by-parts identities. -/
+noncomputable def standardGaussianBPSSmoothObservableCertificate_of_bounce
+    {function : BouncyParticleState ι → ℝ}
+    (hsmooth : ContDiff ℝ 1 function)
+    (hcompact : HasCompactSupport function)
+    (incoming : ∀ position, Integrable (fun velocity =>
+      bouncyRate position velocity *
+        function (position, bouncyReflection position velocity))
+      standardMomentumMeasure)
+    (outgoing : ∀ position, Integrable (fun velocity =>
+      bouncyRate position velocity * function (position, velocity))
+      standardMomentumMeasure)
+    (reflected : ∀ position, Integrable (fun velocity =>
+      bouncyRate position (bouncyReflection position velocity) *
+        function (position, velocity)) standardMomentumMeasure)
+    (phase : Integrable
+      (bouncyPhaseGenerator id
+        (coordinateDirectionalDerivative
+          (standardGaussianBPSCoordinatePartial function))
+        (fun position velocity => function (position, velocity)))
+      (standardMomentumMeasure.prod standardMomentumMeasure))
+    (coordinate_stein : ∀ i,
+      (∫ position, ∫ velocity,
+        velocity i * standardGaussianBPSCoordinatePartial
+          function position i velocity
+          ∂standardMomentumMeasure ∂standardMomentumMeasure) =
+        ∫ position, ∫ velocity,
+          velocity i * position i * function (position, velocity)
+            ∂standardMomentumMeasure ∂standardMomentumMeasure) :
+    StandardGaussianBPSSmoothObservableCertificate (ι := ι) function where
+  coordinatePartial := standardGaussianBPSCoordinatePartial function
+  partial_velocity :=
+    integrable_velocity_mul_standardGaussianBPSCoordinatePartial
+      hsmooth hcompact
+  partial_position :=
+    integrable_positionIntegral_velocity_mul_standardGaussianBPSCoordinatePartial
+      hsmooth hcompact
+  position_velocity :=
+    integrable_velocity_mul_position_mul_fixedPositionSlice hsmooth hcompact
+  position_position :=
+    integrable_positionIntegral_velocity_mul_position_mul_observable
+      hsmooth hcompact
+  incoming := incoming
+  outgoing := outgoing
+  reflected := reflected
+  phase := phase
+  coordinate_stein := coordinate_stein
 
 /-- Package one fully discharged smooth-observable certificate as an element
 of the generator test domain. -/
