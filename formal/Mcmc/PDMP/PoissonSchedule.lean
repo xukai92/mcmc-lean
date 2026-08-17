@@ -552,4 +552,18 @@ theorem poissonCandidateSchedule_map_fst
       poissonMeasure intensity :=
   poissonCandidateScheduleMeasure_map_fst intensity horizon timestampOrdering
 
+/-- Independent Poisson refresh counts on adjacent horizons add to the
+Poisson count on the concatenated horizon. -/
+theorem poissonRefreshCount_add (refreshRate : NNReal)
+    (first second : PositiveHorizon) :
+    Measure.map (fun counts : ℕ × ℕ => counts.1 + counts.2)
+        ((poissonMeasure (refreshRate * first.duration)).prod
+          (poissonMeasure (refreshRate * second.duration))) =
+      poissonMeasure (refreshRate * (first.add second).duration) := by
+  change (poissonMeasure (refreshRate * first.duration)).conv
+      (poissonMeasure (refreshRate * second.duration)) = _
+  rw [poissonMeasure_conv_poissonMeasure]
+  congr 2
+  rw [PositiveHorizon.add_duration, mul_add]
+
 end Mcmc.PDMP

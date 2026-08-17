@@ -58,6 +58,10 @@
   exact Gaussian-BPS timed family instantiates this interface from its existing
   horizon semigroup theorem. Only the pushforward convolution law for the two
   independent random schedules remains before the refreshed semigroup result.
+  Its discrete marginal is now closed: independent Poisson refresh counts on
+  adjacent horizons are proved to add to the Poisson count at rate times the
+  summed horizon. The remaining convolution work concerns the conditional
+  ordered continuous event times, not the event count.
 
 - Closed the rejected-length sigma assembly for the practical-slice joint
   law. The variable-dimensional runtime base is now proved equal to the
