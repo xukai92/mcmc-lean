@@ -1180,6 +1180,50 @@ theorem guardedTraceTransform_measurePreserving_of_invariant
     transform hpreserving.measurable
     (measurePreserving_restrict_of_preimage_eq hpreserving hsuccess hinvariant)
 
+/-- A state-dependent trace kernel specified by a density against one common
+s-finite base measure. The density may encode deterministic success guards,
+variable stopped brackets, and shrink-trace likelihoods. -/
+noncomputable def normalizedTraceKernel
+    {Trace : Type*} [MeasurableSpace Trace]
+    (base : Measure Trace) [SFinite base]
+    (density : (ℝ × State) → Trace → ENNReal) :
+    Kernel (ℝ × State) Trace :=
+  (Kernel.const (ℝ × State) base).withDensity density
+
+theorem normalizedTraceKernel_isMarkovKernel
+    {Trace : Type*} [MeasurableSpace Trace]
+    (base : Measure Trace) [SFinite base]
+    (density : (ℝ × State) → Trace → ENNReal)
+    (hdensity : Measurable (Function.uncurry density))
+    (hnormalized : ∀ state, ∫⁻ trace, density state trace ∂base = 1) :
+    IsMarkovKernel (normalizedTraceKernel base density) := by
+  constructor
+  intro state
+  constructor
+  rw [normalizedTraceKernel,
+    ProbabilityTheory.Kernel.withDensity_apply' _ hdensity,
+    ProbabilityTheory.Kernel.const_apply, Measure.restrict_univ,
+    hnormalized]
+
+/-- Joint-law formula for a normalized density trace kernel. This is the
+bridge from a concrete runtime trace likelihood to the measure-preserving
+augmented-space theorem. -/
+theorem compProd_normalizedTraceKernel
+    {Trace : Type*} [MeasurableSpace Trace]
+    (joint : Measure (ℝ × State)) [SFinite joint]
+    (base : Measure Trace) [SFinite base]
+    (density : (ℝ × State) → Trace → ENNReal)
+    (hdensity : Measurable (Function.uncurry density))
+    (hfinite : ∀ state trace, density state trace ≠ ∞) :
+    joint ⊗ₘ normalizedTraceKernel base density =
+      (joint.prod base).withDensity (Function.uncurry density) := by
+  letI : IsSFiniteKernel
+      ((Kernel.const (ℝ × State) base).withDensity density) :=
+    ProbabilityTheory.Kernel.IsSFiniteKernel.withDensity _ hfinite
+  rw [normalizedTraceKernel, Measure.compProd_withDensity hdensity,
+    Measure.compProd_const]
+  rfl
+
 /-- Horizontal update obtained by sampling a complete independent execution
 trace, applying a deterministic map on augmented-state--trace space, and
 discarding the transformed trace. This is the appropriate semantics when the
@@ -1313,6 +1357,40 @@ theorem dependentTraceDrivenWithinSliceSampler_invariant_underGraph
   exact dependentTraceDrivenHorizontalKernel_invariant
     ((sliceUnderGraph base weight).map Prod.swap)
     traceKernel transform htransform hpreserving
+
+/-- Density-level end-to-end interface for a concrete dependent trace
+implementation. Once its density is measurable, normalized, finite, and its
+augmented reversal preserves the displayed weighted product measure, the
+resulting practical slice kernel preserves the weighted target. -/
+theorem normalizedTraceDrivenWithinSliceSampler_invariant_underGraph
+    {Trace : Type*} [MeasurableSpace Trace]
+    (base : Measure State) [SFinite base]
+    (weight : State → ℝ) (hweight : Measurable weight)
+    [SFinite (sliceUnderGraph base weight)]
+    (hpositive : ∀ x, 0 < weight x)
+    (traceBase : Measure Trace) [SFinite traceBase]
+    (density : (ℝ × State) → Trace → ENNReal)
+    (hdensity : Measurable (Function.uncurry density))
+    (hfinite : ∀ state trace, density state trace ≠ ∞)
+    (hnormalized : ∀ state, ∫⁻ trace, density state trace ∂traceBase = 1)
+    (transform : ((ℝ × State) × Trace) → ((ℝ × State) × Trace))
+    (htransform : Measurable transform)
+    (hpreserving : MeasurePreserving transform
+      (((((sliceUnderGraph base weight).map Prod.swap).prod traceBase).withDensity
+        (Function.uncurry density)))
+      (((((sliceUnderGraph base weight).map Prod.swap).prod traceBase).withDensity
+        (Function.uncurry density)))) :
+    (withinSliceSampler weight hweight hpositive
+      (dependentTraceDrivenHorizontalKernel
+        (normalizedTraceKernel traceBase density) transform htransform)).Invariant
+        (base.withDensity (fun x ↦ ENNReal.ofReal (weight x))) := by
+  letI : IsMarkovKernel (normalizedTraceKernel traceBase density) :=
+    normalizedTraceKernel_isMarkovKernel traceBase density hdensity hnormalized
+  apply dependentTraceDrivenWithinSliceSampler_invariant_underGraph
+    base weight hweight hpositive
+      (normalizedTraceKernel traceBase density) transform htransform
+  rw [compProd_normalizedTraceKernel _ traceBase density hdensity hfinite]
+  exact hpreserving
 
 /-- Guarded end-to-end variant for state-dependent practical traces. The
 non-success branch is the identity, while the reversal only needs to preserve

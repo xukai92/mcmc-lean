@@ -349,6 +349,29 @@ theorem alignmentAllocationReverse_measurePreserving (width old new : ℝ) :
     exact map_add_right_eq_self Measure.count
       (integerAlignmentShift width old new offset)
 
+/-- Joint measurability when both endpoint states vary. This is needed by the
+actual augmented slice transform, where the proposed endpoint is computed
+from the accepted fraction. -/
+theorem measurable_alignmentAllocationReverse_parameterized (width : ℝ) :
+    Measurable (fun point : (ℝ × ℝ) × (Alignment × ℤ) =>
+      alignmentAllocationReverse width point.1.1 point.1.2 point.2) := by
+  have htranslation : Measurable (fun point : (ℝ × ℝ) × (Alignment × ℤ) =>
+      ((((point.1.2 - point.1.1) / width : ℝ) : Alignment) + point.2.1)) := by
+    exact (AddCircle.measurable_mk'.comp
+      ((measurable_snd.comp measurable_fst).sub
+        (measurable_fst.comp measurable_fst) |>.div measurable_const)).add
+      (measurable_fst.comp measurable_snd)
+  have hshift : Measurable (fun point : (ℝ × ℝ) × (Alignment × ℤ) =>
+      integerAlignmentShift width point.1.1 point.1.2 point.2.1) := by
+    unfold integerAlignmentShift
+    exact Int.measurable_floor.comp
+      (((measurable_alignmentCoordinate.comp
+          (measurable_fst.comp measurable_snd)).add
+        (((measurable_snd.comp measurable_fst).sub
+          (measurable_fst.comp measurable_fst)).div measurable_const)))
+  exact htranslation.prodMk
+    ((measurable_snd.comp measurable_snd).add hshift)
+
 /-- The ambient grid rerooting is an involution after exchanging the old and
 new states. -/
 theorem alignmentAllocationReverse_reverse
@@ -1517,6 +1540,78 @@ theorem globalStoppedTraceReverse_withDensity_measurePreserving
     (globalStoppedTraceReverse_measurePreserving hlogDensity threshold intervals
       hgridWidth)
     htargetDensity hinvariant
+
+/-- Runtime trace carrier for the auxiliary slice kernel. The current point
+is deliberately absent: it is the state coordinate of `(height, current)`.
+The final real coordinate is only the accepted uniform fraction. -/
+abbrev PracticalTrace :=
+  RejectedSequence ×
+    ((Alignment × ℤ) × (StoppedBracket × ℝ))
+
+/-- Actual augmented-state reversal for practical slice sampling. It retains
+the sampled height, turns the accepted fraction into the new current point,
+reroots the grid allocation, and records the reverse fraction. -/
+noncomputable def practicalAugmentedReverse (width : ℝ)
+    (point : (ℝ × ℝ) × PracticalTrace) : (ℝ × ℝ) × PracticalTrace :=
+  let bracket := point.2.2.2.1
+  let accepted := acceptedProposalReverse bracket.1.1 bracket.1.2
+    (point.1.2, point.2.2.2.2)
+  ((point.1.1, accepted.1),
+    (point.2.1,
+      (alignmentAllocationReverse width point.1.2 accepted.1 point.2.2.1,
+        (bracket, accepted.2))))
+
+theorem measurable_practicalAugmentedReverse (width : ℝ) :
+    Measurable (practicalAugmentedReverse width) := by
+  let accepted : ((ℝ × ℝ) × PracticalTrace) → ℝ × ℝ := fun point =>
+    acceptedProposalReverse point.2.2.2.1.1.1 point.2.2.2.1.1.2
+      (point.1.2, point.2.2.2.2)
+  have haccepted : Measurable accepted := by
+    unfold accepted acceptedProposalReverse
+    fun_prop
+  have hgridInput : Measurable (fun point : (ℝ × ℝ) × PracticalTrace =>
+      ((point.1.2, (accepted point).1), point.2.2.1)) :=
+    (measurable_snd.comp measurable_fst).prodMk
+      (measurable_fst.comp haccepted) |>.prodMk
+        (measurable_fst.comp (measurable_snd.comp measurable_snd))
+  have hgrid : Measurable (fun point : (ℝ × ℝ) × PracticalTrace =>
+      alignmentAllocationReverse width point.1.2 (accepted point).1
+        point.2.2.1) :=
+    (measurable_alignmentAllocationReverse_parameterized width).comp hgridInput
+  exact ((measurable_fst.comp measurable_fst).prodMk
+      (measurable_fst.comp haccepted)).prodMk
+    ((measurable_fst.comp measurable_snd).prodMk
+      (hgrid.prodMk
+        ((measurable_fst.comp (measurable_snd.comp
+            (measurable_snd.comp measurable_snd))).prodMk
+          (measurable_snd.comp haccepted))))
+
+/-- The runtime augmented reversal is a genuine involution. This establishes
+the exact checked-trace replay law before attaching the joint trace density. -/
+theorem practicalAugmentedReverse_involutive
+    {width : ℝ} (hwidth : width ≠ 0) :
+    Function.Involutive (practicalAugmentedReverse width) := by
+  intro point
+  rcases point with ⟨⟨threshold, old⟩,
+    ⟨rejected, ⟨grid, ⟨bracket, fraction⟩⟩⟩⟩
+  let accepted := acceptedProposalReverse bracket.1.1 bracket.1.2
+    (old, fraction)
+  have haccepted := acceptedProposalReverse_involutive
+    (sub_ne_zero.mpr bracket.2.ne') (old, fraction)
+  have hgrid := alignmentAllocationReverse_reverse
+    (old := old) (new := accepted.1) hwidth grid
+  change practicalAugmentedReverse width
+      ((threshold, accepted.1),
+        (rejected,
+          (alignmentAllocationReverse width old accepted.1 grid,
+            (bracket, accepted.2)))) =
+      ((threshold, old), (rejected, (grid, (bracket, fraction))))
+  unfold practicalAugmentedReverse
+  simp only
+  rw [show acceptedProposalReverse bracket.1.1 bracket.1.2
+      (accepted.1, accepted.2) = (old, fraction) by
+    exact haccepted]
+  rw [hgrid]
 
 /-- Successful trace reversal leaves every rejected point and its length
 unchanged; only alignment, allocation, and accepted coordinates are rerooted. -/

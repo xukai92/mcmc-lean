@@ -4332,3 +4332,22 @@ the checked identity fallback from preservation on the successful restriction.
 This is the correct auxiliary-kernel bridge for practical stepping out. The
 remaining client obligation is construction of the measurable runtime trace
 kernel and equality of its joint law with the global trace density above.
+
+## 2026-08-17: normalized practical trace-kernel carrier
+
+Added a reusable normalized-density construction for state-dependent trace
+kernels. A measurable everywhere-finite density integrating to one produces a
+Markov kernel, and its composition product with the auxiliary state law is
+definitionally identified with the product base measure carrying that density.
+An end-to-end theorem feeds precisely that measure-preservation obligation into
+the dependent-trace slice invariance wrapper.
+
+Defined the correctly factored runtime practical trace: the current point
+belongs only to the `(height, current)` auxiliary state, while the trace stores
+the variable rejected sequence, grid alignment/allocation, stopped bracket,
+and final uniform fraction. Its augmented reversal is measurable, turns that
+fraction into the next state, records the reverse fraction, reroots the grid,
+and is proved involutive. This avoids an invalid duplicated-current encoding,
+which would impose equality on a planar Lebesgue coordinate and hence describe
+a measure-zero event. The next client step is the concrete normalized runtime
+density and the log-height coordinate law used by `run`.
