@@ -484,7 +484,12 @@ breadth branches are:
   such stratum, and the measurable residual stream carries the unused terminal
   mark into the second interval with exactly the same inverse wait and bounce.
   The remaining semigroup task is the stratum-wise product-measure change of
-  variables and countable gluing across the time split, followed by target
+  variables and countable gluing across the time split. Its input
+  factorization is now exact: finite prefix, terminal mark, and suffix have a
+  three-factor product law; terminal survival plus residual subtraction gives
+  a fresh iid stream in every fixed-prefix fiber; and genuine completion
+  strata are almost surely exactly active-prefix/terminal-survival sets.
+  Integrating those fibers and summing over counts remain, followed by target
   invariance and convergence.
   Separately, the unbounded-rate standard-Gaussian Zig-Zag now has a genuine
   event kernel based on the closed-form inverse integrated hazard. Its unit

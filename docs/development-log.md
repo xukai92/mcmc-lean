@@ -4952,3 +4952,20 @@ suffix thereafter. Its head inverse wait and reflected event state are proved
 pointwise identical to the unsplit terminal clock. What remains for the
 semigroup law is the measure-level triangular change of variables on each
 stratum and countable gluing over completion counts.
+
+The measure-level factorization needed for that change of variables is now
+formalized. An iid infinite hazard stream splits exactly into the product of
+its first `n` coordinates, coordinate `n`, and the untouched infinite suffix.
+Exponential memorylessness is lifted from a scalar residual mark to the stream
+obtained by consing that residual onto the suffix: for every deterministic
+threshold this is a fresh iid stream scaled by the exact survival mass. The
+Gaussian-BPS split stream is proved equal to this block transformation, and
+the fixed-prefix fiber law instantiates the generic result.
+
+Lean also now characterizes each genuine `(n+1)` completion stratum almost
+surely as an active finite prefix followed by a terminal mark strictly above
+its accumulated-hazard threshold. Both implications are checked: the reverse
+direction proves that the next no-event step finishes and that no earlier
+prefix could have been selected. Remaining is to integrate the fixed-prefix
+fiber identity over this active-prefix set, obtaining the stratum-level
+product law, and then sum those laws over `n`.

@@ -1774,6 +1774,224 @@ theorem measurable_standardGaussianBPSSplitResidualStream
       unfold standardGaussianBPSSplitResidualStream
       exact measurable_pi_apply (count + index + 1)
 
+/-- Block-coordinate form of the split residual stream: retain the finite
+prefix as context, subtract its terminal-flight threshold from the next mark,
+and cons that residual onto the untouched suffix. -/
+noncomputable def standardGaussianBPSSplitResidualFromBlocks
+    (horizon : NNReal) (initial : BouncyParticleState ι) (count : ℕ)
+    (blocks : (Fin count → NNReal) × (NNReal × (ℕ → NNReal))) :
+    ℕ → NNReal :=
+  unitHazardCons
+    (blocks.2.1 - standardGaussianBPSTerminalThreshold
+      (ι := ι) horizon initial count blocks.1, blocks.2.2)
+
+set_option maxHeartbeats 800000 in
+theorem measurable_standardGaussianBPSSplitResidualFromBlocks
+    (horizon : NNReal) (initial : BouncyParticleState ι) (count : ℕ) :
+    Measurable (standardGaussianBPSSplitResidualFromBlocks
+      (ι := ι) horizon initial count) := by
+  unfold standardGaussianBPSSplitResidualFromBlocks
+  apply measurable_unitHazardCons.comp
+  exact ((measurable_fst.comp measurable_snd).sub
+      ((measurable_standardGaussianBPSTerminalThreshold horizon initial count)
+        |>.comp measurable_fst)).prodMk
+    (measurable_snd.comp measurable_snd)
+
+/-- The stream-level splice is exactly the finite-prefix/terminal/suffix block
+transformation under the deterministic iid factorization. -/
+theorem standardGaussianBPSSplitResidualStream_eq_fromBlocks
+    (horizon : NNReal) (initial : BouncyParticleState ι) (count : ℕ)
+    (hazards : ℕ → NNReal) :
+    standardGaussianBPSSplitResidualStream (ι := ι)
+        horizon initial count hazards =
+      standardGaussianBPSSplitResidualFromBlocks (ι := ι)
+        horizon initial count (unitHazardPrefixHeadTail count hazards) := by
+  funext index
+  cases index with
+  | zero =>
+      change gaussianBPSResidualHazard
+          (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+            |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+              ((horizon, initial), hazards)).2)
+          (hazards count)
+          (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+            |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+              ((horizon, initial), hazards)).1) =
+        hazards count - standardGaussianBPSTerminalThreshold (ι := ι)
+          horizon initial count (fun index : Fin count => hazards index)
+      rw [standardGaussianBPSTerminalThreshold_apply]
+      rfl
+  | succ index =>
+      change hazards (count + index + 1) = hazards (count + (index + 1))
+      congr 1
+
+/-- Finite-prefix block on which the first `count` candidates have all rung
+before the horizon, so the replay is still active immediately before the
+terminal candidate. -/
+def standardGaussianBPSActivePrefixSet
+    (horizon : NNReal) (initial : BouncyParticleState ι) (count : ℕ) :
+    Set (Fin count → NNReal) :=
+  {marks |
+    (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+      |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+        ((horizon, initial), finiteHazardPrefixExtension count marks)).1) ≠ 0}
+
+theorem measurableSet_standardGaussianBPSActivePrefixSet
+    (horizon : NNReal) (initial : BouncyParticleState ι) (count : ℕ) :
+    MeasurableSet
+      (standardGaussianBPSActivePrefixSet (ι := ι) horizon initial count) := by
+  change MeasurableSet
+    ({marks |
+      (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+        |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+          ((horizon, initial), finiteHazardPrefixExtension count marks)).1) =
+        0}ᶜ)
+  apply MeasurableSet.compl
+  exact (measurableSet_singleton (0 : NNReal)).preimage
+    (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+      |>.measurable_replayPrefix measurable_standardGaussianBPSJump count).fst
+      |>.comp ((measurable_const.prodMk measurable_const).prodMk
+        (measurable_finiteHazardPrefixExtension count)))
+
+theorem standardGaussianBPSActivePrefixSet_apply
+    (horizon : NNReal) (initial : BouncyParticleState ι) (count : ℕ)
+    (hazards : ℕ → NNReal) :
+    (fun index : Fin count => hazards index) ∈
+        standardGaussianBPSActivePrefixSet (ι := ι) horizon initial count ↔
+      (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+        |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+          ((horizon, initial), hazards)).1) ≠ 0 := by
+  unfold standardGaussianBPSActivePrefixSet
+  change
+    (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+      |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+        ((horizon, initial), finiteHazardPrefixExtension count
+          (fun index : Fin count => hazards index))).1 ≠ 0) ↔ _
+  rw [(standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+    |>.replayPrefix_eq_executeHazards]
+  rw [(standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+    |>.replayPrefix_eq_executeHazards]
+  simp [hazardPrefix, finiteHazardPrefixExtension]
+
+/-- Up to the already excluded zero-mark and exact-boundary null sets, a
+genuine `(count+1)` completion stratum is exactly an active finite prefix
+followed by a terminal mark above its accumulated-hazard threshold. -/
+theorem standardGaussianBPS_mem_stratum_iff_prefix_survival_ae
+    (horizon : NNReal) (initial : BouncyParticleState ι)
+    (hvelocity : initial.2 ≠ 0) (count : ℕ) :
+    ∀ᵐ hazards ∂unitHazardSequenceMeasure,
+      (hazards ∈
+          ((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+            |>.genuineCompletionStratum (standardGaussianBPSJump (ι := ι))
+              horizon initial (count + 1)) ↔
+        (fun index : Fin count => hazards index) ∈
+            standardGaussianBPSActivePrefixSet (ι := ι)
+              horizon initial count ∧
+          standardGaussianBPSTerminalThreshold (ι := ι)
+              horizon initial count
+                (fun index : Fin count => hazards index) < hazards count) := by
+  filter_upwards [unitHazardSequence_coordinate_pos_ae count,
+    standardGaussianBPS_terminal_noEvent_ae
+      (ι := ι) horizon initial hvelocity count] with hazards hpositive hterminal
+  let clock := (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+  let jump := standardGaussianBPSJump (ι := ι)
+  let before := clock.replayPrefix jump count ((horizon, initial), hazards)
+  have hbeforeVelocity : before.2.2 ≠ 0 :=
+    standardGaussianBPS_replayPrefix_velocity_ne_zero count
+      ((horizon, initial), hazards) hvelocity
+  have hactiveMark :
+      (standardGaussianBPSPartialInverseHazardData (ι := ι)).active
+        before.2 (hazards count) = true := by
+    simp [standardGaussianBPSPartialInverseHazardData,
+      hpositive.ne', hbeforeVelocity]
+  constructor
+  · intro hmem
+    have hbeforeNe := clock.replayPrefix_fst_ne_zero_on_succ_stratum jump
+      horizon initial count hmem
+    refine ⟨(standardGaussianBPSActivePrefixSet_apply
+      horizon initial count hazards).2 hbeforeNe, ?_⟩
+    have hremaining : 0 < before.1 := (pos_iff_ne_zero).2 hbeforeNe
+    have hnle : ¬gaussianBPSWaitingTime before.2 (hazards count) ≤ before.1 :=
+      fun hle => hterminal hmem ⟨hremaining, hactiveMark, hle⟩
+    have hthresholdNotGe : ¬hazards count ≤
+        gaussianBPSConsumedHazard before.2 before.1 := by
+      intro hle
+      have hnonneg := standardGaussianBPS_accumulated_nonneg
+        before.2 hbeforeVelocity before.1
+      have hleReal : (hazards count : ℝ) ≤
+          (∫ elapsed in (0 : ℝ)..(before.1 : ℝ),
+            standardGaussianBouncyParticleBounceData.stateRate
+              (bouncyParticleFlow (Real.toNNReal elapsed) before.2)) := by
+        have hleCoe : (hazards count : ℝ) ≤
+            (gaussianBPSConsumedHazard before.2 before.1 : ℝ) := by
+          exact_mod_cast hle
+        unfold gaussianBPSConsumedHazard at hleCoe
+        rwa [Real.coe_toNNReal _ hnonneg] at hleCoe
+      have hwait := (gaussianBPSWaitingTime_le_iff before.2
+        hbeforeVelocity (hazards count) hpositive before.1).2 (by
+          exact hleReal)
+      exact hnle hwait
+    rw [standardGaussianBPSTerminalThreshold_apply]
+    exact lt_of_not_ge hthresholdNotGe
+  · rintro ⟨hprefix, hsurvival⟩
+    have hbeforeNe := (standardGaussianBPSActivePrefixSet_apply
+      horizon initial count hazards).1 hprefix
+    have hremaining : 0 < before.1 := (pos_iff_ne_zero).2 hbeforeNe
+    rw [standardGaussianBPSTerminalThreshold_apply] at hsurvival
+    change gaussianBPSConsumedHazard before.2 before.1 < hazards count
+      at hsurvival
+    have hnle : ¬gaussianBPSWaitingTime before.2 (hazards count) ≤ before.1 := by
+      rw [gaussianBPSWaitingTime_le_iff before.2 hbeforeVelocity
+        (hazards count) hpositive before.1]
+      have hnonneg := standardGaussianBPS_accumulated_nonneg
+        before.2 hbeforeVelocity before.1
+      have hsurvivalReal :
+          (∫ elapsed in (0 : ℝ)..(before.1 : ℝ),
+            standardGaussianBouncyParticleBounceData.stateRate
+              (bouncyParticleFlow (Real.toNNReal elapsed) before.2)) <
+            (hazards count : ℝ) := by
+        have hcoe : (gaussianBPSConsumedHazard before.2 before.1 : ℝ) <
+            (hazards count : ℝ) := by
+          exact_mod_cast hsurvival
+        unfold gaussianBPSConsumedHazard at hcoe
+        rwa [Real.coe_toNNReal _ hnonneg] at hcoe
+      exact not_le_of_gt hsurvivalReal
+    have hnoevent : ¬(0 < before.1 ∧
+        (standardGaussianBPSPartialInverseHazardData (ι := ι)).active
+          before.2 (hazards count) = true ∧
+        gaussianBPSWaitingTime before.2 (hazards count) ≤ before.1) := by
+      exact fun condition => hnle condition.2.2
+    have hfinished : (clock.replayPrefix jump (count + 1)
+        ((horizon, initial), hazards)).1 = 0 := by
+      change (clock.cappedStepUpdate jump
+        (before, hazards count)).1 = 0
+      rw [clock.cappedStepUpdate_of_no_event jump hnoevent]
+    exact clock.mem_genuineCompletionStratum_of_prefix_active jump horizon
+      initial count hbeforeNe hfinished
+
+/-- Conditional on a fixed finite replay prefix and survival of its terminal
+mark, the transformed residual head plus untouched suffix is a fresh iid
+hazard stream, scaled by the exact Gaussian-BPS survival mass. -/
+theorem standardGaussianBPSSplitResidualFromBlocks_fiberLaw
+    (horizon : NNReal) (initial : BouncyParticleState ι) (count : ℕ)
+    (marks : Fin count → NNReal) :
+    Measure.map
+        (fun headTail : NNReal × (ℕ → NNReal) =>
+          standardGaussianBPSSplitResidualFromBlocks (ι := ι)
+            horizon initial count (marks, headTail))
+        ((unitHazardMeasure.prod unitHazardSequenceMeasure).restrict
+          {headTail |
+            standardGaussianBPSTerminalThreshold (ι := ι)
+              horizon initial count marks < headTail.1}) =
+      ENNReal.ofReal (Real.exp
+          (-(standardGaussianBPSTerminalThreshold (ι := ι)
+            horizon initial count marks : ℝ))) •
+        unitHazardSequenceMeasure := by
+  simpa [standardGaussianBPSSplitResidualFromBlocks] using
+    unitHazardMeasure_prod_sequence_residual_map_cons
+      (standardGaussianBPSTerminalThreshold (ι := ι)
+        horizon initial count marks)
+
 /-- On a genuine no-event terminal branch, the residual stream's head clock
 is exactly the unused portion of the original terminal clock. -/
 theorem standardGaussianBPSSplitResidualStream_waitingTime

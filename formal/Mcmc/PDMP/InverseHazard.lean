@@ -126,6 +126,27 @@ theorem unitHazardMeasure_conditional_residual (elapsed : NNReal) :
     (ENNReal.ofReal_pos.mpr (Real.exp_pos _)).ne'
   rw [ENNReal.inv_mul_cancel hne ENNReal.ofReal_ne_top, one_smul]
 
+/-- Fiber form of exponential memorylessness on an arbitrary measurable
+residual event.  This is the pointwise identity integrated over finite replay
+prefixes in the Gaussian-BPS time-split proof. -/
+theorem unitHazardMeasure_residual_fiber
+    (elapsed : NNReal) (event : Set NNReal) (hevent : MeasurableSet event) :
+    unitHazardMeasure
+        {hazard | elapsed < hazard ∧ hazard - elapsed ∈ event} =
+      ENNReal.ofReal (Real.exp (-(elapsed : ℝ))) *
+        unitHazardMeasure event := by
+  have h := congrArg (fun measure : Measure NNReal => measure event)
+    (unitHazardMeasure_residual_memoryless elapsed)
+  rw [Measure.map_apply (by fun_prop) hevent,
+    Measure.restrict_apply (hevent.preimage (by fun_prop)),
+    Measure.smul_apply] at h
+  have hset :
+      (fun hazard : NNReal => hazard - elapsed) ⁻¹' event ∩ Set.Ioi elapsed =
+        {hazard | elapsed < hazard ∧ hazard - elapsed ∈ event} := by
+    ext hazard
+    simp [and_comm]
+  rwa [hset] at h
+
 theorem unitHazardMeasure_singleton_zero :
     unitHazardMeasure {0} = 0 := by
   have hset : ({0} : Set NNReal) = Set.Iic 0 := by
@@ -837,6 +858,246 @@ theorem unitHazardMeasure_prod_sequence_map_cons :
     exact unitHazardCons_headTail hazards,
     Measure.map_id]
 
+/-- Subtracting a deterministic consumed hazard from a surviving head mark
+and consing it back onto an untouched iid suffix gives a fresh iid stream,
+scaled by the corresponding survival probability. -/
+theorem unitHazardMeasure_prod_sequence_residual_map_cons
+    (elapsed : NNReal) :
+    Measure.map
+        (fun headTail : NNReal × (ℕ → NNReal) =>
+          unitHazardCons (headTail.1 - elapsed, headTail.2))
+        ((unitHazardMeasure.prod unitHazardSequenceMeasure).restrict
+          {headTail | elapsed < headTail.1}) =
+      ENNReal.ofReal (Real.exp (-(elapsed : ℝ))) •
+        unitHazardSequenceMeasure := by
+  have hsurvival : {headTail : NNReal × (ℕ → NNReal) |
+      elapsed < headTail.1} = Set.Ioi elapsed ×ˢ Set.univ := by
+    ext headTail
+    simp
+  rw [hsurvival, ← Measure.restrict_prod_eq_prod_univ]
+  have hpair : Measure.map
+      (Prod.map (fun hazard : NNReal => hazard - elapsed) id)
+      ((unitHazardMeasure.restrict (Set.Ioi elapsed)).prod
+        unitHazardSequenceMeasure) =
+      (ENNReal.ofReal (Real.exp (-(elapsed : ℝ))) • unitHazardMeasure).prod
+        unitHazardSequenceMeasure := by
+    rw [← Measure.map_prod_map
+      (unitHazardMeasure.restrict (Set.Ioi elapsed))
+      unitHazardSequenceMeasure (by fun_prop)
+      (measurable_id : Measurable (id : (ℕ → NNReal) → ℕ → NNReal)),
+      unitHazardMeasure_residual_memoryless, Measure.map_id]
+  rw [show (fun headTail : NNReal × (ℕ → NNReal) =>
+      unitHazardCons (headTail.1 - elapsed, headTail.2)) =
+      unitHazardCons ∘
+        Prod.map (fun hazard : NNReal => hazard - elapsed) id by rfl]
+  rw [← Measure.map_map measurable_unitHazardCons (by fun_prop), hpair]
+  rw [Measure.prod_smul_left, Measure.map_smul,
+    unitHazardMeasure_prod_sequence_map_cons]
+
+/-! ### Deterministic finite-prefix factorization -/
+
+/-- Product law of a finite block of iid unit hazards. -/
+noncomputable def unitHazardPrefixMeasure (count : ℕ) :
+    Measure (Fin count → NNReal) :=
+  Measure.infinitePi (fun _ : Fin count => unitHazardMeasure)
+
+instance unitHazardPrefixMeasure.instIsProbabilityMeasure (count : ℕ) :
+    IsProbabilityMeasure (unitHazardPrefixMeasure count) := by
+  unfold unitHazardPrefixMeasure
+  infer_instance
+
+/-- Split a stream after a deterministic finite prefix. -/
+def unitHazardPrefixTail (count : ℕ) (hazards : ℕ → NNReal) :
+    (Fin count → NNReal) × (ℕ → NNReal) :=
+  (fun index => hazards index, fun index => hazards (count + index))
+
+theorem measurable_unitHazardPrefixTail (count : ℕ) :
+    Measurable (unitHazardPrefixTail count) := by
+  unfold unitHazardPrefixTail
+  fun_prop
+
+abbrev UnitHazardPrefixTailIndex (count : ℕ) : Bool → Type
+  | false => Fin count
+  | true => ℕ
+
+private def unitHazardPrefixTailIndexToNat (count : ℕ) :
+    (block : Bool) → UnitHazardPrefixTailIndex count block → ℕ
+  | false, index => index
+  | true, index => count + index
+
+private def unitHazardPrefixTailIndexFromNat (count index : ℕ) :
+    Σ block, UnitHazardPrefixTailIndex count block :=
+  if hindex : index < count then
+    ⟨false, ⟨index, hindex⟩⟩ else ⟨true, index - count⟩
+
+private theorem unitHazardPrefixTailIndexFromNat_of_lt
+    (count index : ℕ) (hindex : index < count) :
+    unitHazardPrefixTailIndexFromNat count index =
+      ⟨false, ⟨index, hindex⟩⟩ := by
+  simp [unitHazardPrefixTailIndexFromNat, hindex]
+
+private theorem unitHazardPrefixTailIndexFromNat_of_not_lt
+    (count index : ℕ) (hindex : ¬index < count) :
+    unitHazardPrefixTailIndexFromNat count index =
+      ⟨true, index - count⟩ := by
+  simp [unitHazardPrefixTailIndexFromNat, hindex]
+
+def unitHazardPrefixTailIndexEquiv (count : ℕ) :
+    (Σ block, UnitHazardPrefixTailIndex count block) ≃ ℕ where
+  toFun value := unitHazardPrefixTailIndexToNat count value.1 value.2
+  invFun index := unitHazardPrefixTailIndexFromNat count index
+  left_inv value := by
+    rcases value with ⟨block, index⟩
+    cases block
+    · change unitHazardPrefixTailIndexFromNat count index = ⟨false, index⟩
+      rw [unitHazardPrefixTailIndexFromNat_of_lt count index index.isLt]
+    · change unitHazardPrefixTailIndexFromNat count (count + index) =
+        ⟨true, index⟩
+      rw [unitHazardPrefixTailIndexFromNat_of_not_lt count (count + index)
+        (Nat.not_lt.mpr (Nat.le_add_right count index))]
+      simp
+  right_inv index := by
+    dsimp only
+    by_cases hindex : index < count
+    · rw [unitHazardPrefixTailIndexFromNat_of_lt count index hindex]
+      rfl
+    · rw [unitHazardPrefixTailIndexFromNat_of_not_lt count index hindex]
+      exact Nat.add_sub_of_le (Nat.le_of_not_gt hindex)
+
+/-- Reindexing and currying group the iid stream into a deterministic finite
+prefix and an independent infinite suffix. -/
+theorem unitHazardSequenceMeasure_map_prefixTail (count : ℕ) :
+    unitHazardSequenceMeasure.map (unitHazardPrefixTail count) =
+      (unitHazardPrefixMeasure count).prod unitHazardSequenceMeasure := by
+  let reindex := MeasurableEquiv.piCongrLeft
+    (fun _ : (Σ block, UnitHazardPrefixTailIndex count block) => NNReal)
+    (unitHazardPrefixTailIndexEquiv count).symm
+  let regroup := MeasurableEquiv.piCurry
+    (fun block (index : UnitHazardPrefixTailIndex count block) => NNReal)
+  let groupedMeasure := Measure.infinitePi (fun block : Bool =>
+    Measure.infinitePi
+      (fun _ : UnitHazardPrefixTailIndex count block => unitHazardMeasure))
+  have hgrouped : unitHazardSequenceMeasure.map
+      (fun hazards block index => hazards
+        (unitHazardPrefixTailIndexEquiv count ⟨block, index⟩)) =
+      groupedMeasure := by
+    rw [show (fun hazards block index => hazards
+        (unitHazardPrefixTailIndexEquiv count ⟨block, index⟩)) =
+        regroup ∘ reindex by
+      funext hazards block index
+      have h := MeasurableEquiv.piCongrLeft_apply_apply
+        (β := fun _ : (Σ block, UnitHazardPrefixTailIndex count block) =>
+          NNReal)
+        (unitHazardPrefixTailIndexEquiv count).symm hazards
+        (unitHazardPrefixTailIndexEquiv count ⟨block, index⟩)
+      change hazards (unitHazardPrefixTailIndexEquiv count ⟨block, index⟩) =
+        reindex hazards ⟨block, index⟩
+      simpa [reindex] using h.symm]
+    rw [← Measure.map_map regroup.measurable reindex.measurable]
+    unfold unitHazardSequenceMeasure
+    dsimp [reindex]
+    rw [Measure.infinitePi_map_piCongrLeft
+      (μ := fun _ : (Σ block, UnitHazardPrefixTailIndex count block) =>
+        unitHazardMeasure)
+      (unitHazardPrefixTailIndexEquiv count).symm]
+    dsimp [regroup, groupedMeasure]
+    convert Measure.infinitePi_map_piCurry
+      (fun block (index : UnitHazardPrefixTailIndex count block) =>
+        unitHazardMeasure) using 1
+  let ungroup := fun grouped :
+      (block : Bool) → UnitHazardPrefixTailIndex count block → NNReal =>
+    (grouped false, grouped true)
+  have hungroup : Measurable ungroup := by
+    unfold ungroup
+    fun_prop
+  have hfactor : Measure.map ungroup groupedMeasure =
+      (unitHazardPrefixMeasure count).prod unitHazardSequenceMeasure := by
+    symm
+    apply Measure.prod_eq
+    intro prefixSet tailSet hprefix htail
+    rw [Measure.map_apply hungroup (hprefix.prod htail)]
+    let coordinateSet : (block : Bool) →
+        Set (UnitHazardPrefixTailIndex count block → NNReal)
+      | false => prefixSet
+      | true => tailSet
+    have hpre : ungroup ⁻¹' (prefixSet ×ˢ tailSet) =
+        Set.pi (↑(Finset.univ : Finset Bool)) coordinateSet := by
+      ext grouped
+      simp only [Set.mem_preimage, Set.mem_prod, Set.mem_pi,
+        Finset.mem_coe, Finset.mem_univ, true_implies]
+      change grouped false ∈ prefixSet ∧ grouped true ∈ tailSet ↔
+        ∀ block, grouped block ∈ coordinateSet block
+      constructor
+      · rintro ⟨hfalse, htrue⟩ block
+        cases block
+        · exact hfalse
+        · exact htrue
+      · intro hall
+        exact ⟨hall false, hall true⟩
+    rw [hpre]
+    have hcoordinate : ∀ block, MeasurableSet (coordinateSet block) := by
+      intro block
+      cases block
+      · exact hprefix
+      · exact htail
+    rw [Measure.infinitePi_pi _ (fun block _ => hcoordinate block),
+      Fintype.prod_bool]
+    change unitHazardSequenceMeasure tailSet *
+        unitHazardPrefixMeasure count prefixSet = _
+    ac_rfl
+  rw [show unitHazardPrefixTail count = ungroup ∘
+      (fun hazards block index => hazards
+        (unitHazardPrefixTailIndexEquiv count ⟨block, index⟩)) by
+    funext hazards
+    apply Prod.ext
+    · funext index
+      rfl
+    · funext index
+      rfl]
+  rw [← Measure.map_map hungroup (by fun_prop), hgrouped]
+  exact hfactor
+
+/-- Split a stream into the first `count` marks, coordinate `count`, and the
+untouched suffix after that coordinate. -/
+def unitHazardPrefixHeadTail (count : ℕ) (hazards : ℕ → NNReal) :
+    (Fin count → NNReal) × (NNReal × (ℕ → NNReal)) :=
+  (fun index => hazards index,
+    (hazards count, fun index => hazards (count + index + 1)))
+
+theorem measurable_unitHazardPrefixHeadTail (count : ℕ) :
+    Measurable (unitHazardPrefixHeadTail count) := by
+  unfold unitHazardPrefixHeadTail
+  fun_prop
+
+/-- The finite prefix, its next mark, and the infinite suffix have their exact
+three-factor iid product law. -/
+theorem unitHazardSequenceMeasure_map_prefixHeadTail (count : ℕ) :
+    unitHazardSequenceMeasure.map (unitHazardPrefixHeadTail count) =
+      (unitHazardPrefixMeasure count).prod
+        (unitHazardMeasure.prod unitHazardSequenceMeasure) := by
+  have hfactor := Measure.map_prod_map
+    (unitHazardPrefixMeasure count) unitHazardSequenceMeasure
+    (measurable_id : Measurable (id : (Fin count → NNReal) →
+      Fin count → NNReal)) measurable_unitHazardHeadTail
+  rw [Measure.map_id, unitHazardSequenceMeasure_map_headTail] at hfactor
+  rw [show unitHazardPrefixHeadTail count =
+      Prod.map id unitHazardHeadTail ∘ unitHazardPrefixTail count by
+    funext hazards
+    apply Prod.ext
+    · rfl
+    · apply Prod.ext
+      · rfl
+      · funext index
+        change hazards (count + (index + 1)) =
+          hazards (count + index + 1)
+        congr 1]
+  rw [← Measure.map_map
+      ((measurable_id : Measurable (id : (Fin count → NNReal) →
+        Fin count → NNReal)).prodMap measurable_unitHazardHeadTail)
+      (measurable_unitHazardPrefixTail count),
+    unitHazardSequenceMeasure_map_prefixTail]
+  exact hfactor.symm
+
 /-- Coordinate event on which a unit-exponential mark exceeds one. -/
 def unitLargeHazardEvent (index : ℕ) : Set (ℕ → NNReal) :=
   (fun hazards => hazards index) ⁻¹' Set.Ioi (1 : NNReal)
@@ -1280,6 +1541,35 @@ theorem PartialInverseHazardClock.measurableSet_genuineCompletionStratum
         ((measurable_const.prodMk measurable_const).prodMk measurable_id))
   · exact (clock.measurableSet_replayFinished hjump count).preimage
       ((measurable_const.prodMk measurable_const).prodMk measurable_id)
+
+/-- A still-active prefix followed by a finished next prefix characterizes
+the corresponding genuine completion stratum. -/
+theorem PartialInverseHazardClock.mem_genuineCompletionStratum_of_prefix_active
+    (clock : PartialInverseHazardClock State) (jump : State → State)
+    (horizon : NNReal) (initial : State) (count : ℕ)
+    {hazards : ℕ → NNReal}
+    (hactive : (clock.replayPrefix jump count
+      ((horizon, initial), hazards)).1 ≠ 0)
+    (hfinished : (clock.replayPrefix jump (count + 1)
+      ((horizon, initial), hazards)).1 = 0) :
+    hazards ∈ clock.genuineCompletionStratum jump horizon initial
+      (count + 1) := by
+  classical
+  let input := ((horizon, initial), hazards)
+  have hsearch : clock.completionSearch jump input (count + 1) :=
+    Or.inl hfinished
+  have hminimal : ∀ candidate < count + 1,
+      ¬clock.completionSearch jump input candidate := by
+    intro candidate hcandidate hcandidateSearch
+    rcases hcandidateSearch with hcandidateFinished | hfallback
+    · have hstable := clock.replayPrefix_stable_of_finished jump input
+        hcandidateFinished (by omega : candidate ≤ count)
+      exact hactive ((congrArg Prod.fst hstable).trans hcandidateFinished)
+    · exact hfallback.2 ⟨count + 1, hfinished⟩
+  refine ⟨?_, hfinished⟩
+  unfold PartialInverseHazardClock.completionCount
+  exact (Nat.find_eq_iff (clock.completionSearch_exists jump input)).2
+    ⟨hsearch, hminimal⟩
 
 theorem PartialInverseHazardClock.genuineCompletionStratum_pairwiseDisjoint
     (clock : PartialInverseHazardClock State) (jump : State → State)
