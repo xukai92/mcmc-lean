@@ -16,6 +16,149 @@ namespace Mcmc.PDMP
 
 variable {State : Type*} [MeasurableSpace State]
 
+/-- Concatenate padded wait schedules across adjacent horizons. The first
+wait of the second schedule is joined to the unused residual of the first
+horizon, because no refresh occurs at the deterministic horizon boundary. -/
+def concatenateRefreshSchedules (firstHorizon : NNReal)
+    (firstCount secondCount : ℕ)
+    (schedules : CandidateScheduleSample × CandidateScheduleSample) :
+    CandidateScheduleSample :=
+  let first := schedules.1
+  let second := schedules.2
+  (firstCount + secondCount, fun index =>
+    if _hfirst : index < firstCount then first.2 index
+    else if _hsecond : index - firstCount < secondCount then
+      if index = firstCount then
+        (firstHorizon - scheduleElapsed firstCount first) + second.2 0
+      else second.2 (index - firstCount)
+    else 0)
+
+theorem concatenateRefreshSchedules_fst (firstHorizon : NNReal)
+    (firstCount secondCount : ℕ)
+    (first second : CandidateScheduleSample) :
+    (concatenateRefreshSchedules firstHorizon firstCount secondCount
+      (first, second)).1 = firstCount + secondCount := rfl
+
+/-- Schedule concatenation is measurable jointly in both padded schedules. -/
+theorem measurable_concatenateRefreshSchedules (firstHorizon : NNReal)
+    (firstCount secondCount : ℕ) :
+    Measurable
+      (concatenateRefreshSchedules firstHorizon firstCount secondCount) := by
+  apply measurable_const.prodMk
+  apply measurable_pi_lambda
+  intro index
+  have hbridge : Measurable (fun schedules :
+      CandidateScheduleSample × CandidateScheduleSample =>
+      (firstHorizon - scheduleElapsed firstCount schedules.1) +
+        schedules.2.2 0) :=
+    (measurable_const.sub
+      ((measurable_scheduleElapsed firstCount).comp measurable_fst)).add
+        ((measurable_pi_apply 0).comp (measurable_snd.comp measurable_snd))
+  split_ifs
+  · fun_prop
+  · exact hbridge
+  · fun_prop
+  · fun_prop
+
+theorem concatenateRefreshSchedules_first
+    (firstHorizon : NNReal) (firstCount secondCount index : ℕ)
+    (first second : CandidateScheduleSample) (hindex : index < firstCount) :
+    (concatenateRefreshSchedules firstHorizon firstCount secondCount
+      (first, second)).2 index = first.2 index := by
+  simp [concatenateRefreshSchedules, hindex]
+
+theorem concatenateRefreshSchedules_bridge
+    (firstHorizon : NNReal) (firstCount secondCount : ℕ)
+    (first second : CandidateScheduleSample) (hsecond : 0 < secondCount) :
+    (concatenateRefreshSchedules firstHorizon firstCount secondCount
+      (first, second)).2 firstCount =
+        (firstHorizon - scheduleElapsed firstCount first) + second.2 0 := by
+  simp [concatenateRefreshSchedules, hsecond]
+
+theorem concatenateRefreshSchedules_second_succ
+    (firstHorizon : NNReal) (firstCount secondCount index : ℕ)
+    (first second : CandidateScheduleSample)
+    (hindex : index + 1 < secondCount) :
+    (concatenateRefreshSchedules firstHorizon firstCount secondCount
+      (first, second)).2 (firstCount + index + 1) =
+        second.2 (index + 1) := by
+  simp only [concatenateRefreshSchedules]
+  split_ifs with hfirst hactive hbridge
+  · omega
+  · omega
+  · rw [show firstCount + index + 1 = firstCount + (index + 1) by omega,
+      Nat.add_sub_cancel_left]
+  · omega
+
+/-- On valid schedules with a nonempty second block, concatenation consumes
+exactly the first horizon plus the elapsed part of the second schedule. -/
+theorem scheduleElapsed_concatenateRefreshSchedules_of_pos
+    (firstHorizon : NNReal) (firstCount secondCount : ℕ)
+    (first second : CandidateScheduleSample)
+    (hsecond : 0 < secondCount)
+    (hfirst : scheduleElapsed firstCount first ≤ firstHorizon) :
+    scheduleElapsed (firstCount + secondCount)
+      (concatenateRefreshSchedules firstHorizon firstCount secondCount
+        (first, second)) =
+      firstHorizon + scheduleElapsed secondCount second := by
+  obtain ⟨remaining, rfl⟩ := Nat.exists_eq_succ_of_ne_zero
+    (Nat.ne_of_gt hsecond)
+  unfold scheduleElapsed
+  rw [Finset.sum_range_add]
+  have hfirstSum :
+      (∑ index ∈ Finset.range firstCount,
+        (concatenateRefreshSchedules firstHorizon firstCount (remaining + 1)
+          (first, second)).2 index) =
+        ∑ index ∈ Finset.range firstCount, first.2 index := by
+    apply Finset.sum_congr rfl
+    intro index hindex
+    exact concatenateRefreshSchedules_first _ _ _ _ _ _
+      (Finset.mem_range.mp hindex)
+  rw [hfirstSum, Finset.sum_range_succ']
+  rw [show firstCount + 0 = firstCount by omega,
+    concatenateRefreshSchedules_bridge _ _ _ _ _ (by omega)]
+  have htailSum :
+      (∑ index ∈ Finset.range remaining,
+        (concatenateRefreshSchedules firstHorizon firstCount (remaining + 1)
+          (first, second)).2 (firstCount + (index + 1))) =
+        ∑ index ∈ Finset.range remaining, second.2 (index + 1) := by
+    apply Finset.sum_congr rfl
+    intro index hindex
+    rw [show firstCount + (index + 1) = firstCount + index + 1 by omega]
+    exact concatenateRefreshSchedules_second_succ _ _ _ _ _ _
+      (Nat.succ_lt_succ (Finset.mem_range.mp hindex))
+  rw [htailSum, Finset.sum_range_succ']
+  have hfirst' :
+      (∑ index ∈ Finset.range firstCount, first.2 index) ≤ firstHorizon := by
+    simpa only [scheduleElapsed] using hfirst
+  calc
+    (∑ index ∈ Finset.range firstCount, first.2 index) +
+        ((∑ index ∈ Finset.range remaining, second.2 (index + 1)) +
+          ((firstHorizon - scheduleElapsed firstCount first) + second.2 0)) =
+      ((∑ index ∈ Finset.range firstCount, first.2 index) +
+        (firstHorizon - scheduleElapsed firstCount first)) +
+          ((∑ index ∈ Finset.range remaining, second.2 (index + 1)) +
+            second.2 0) := by ac_rfl
+    _ = firstHorizon +
+          ((∑ index ∈ Finset.range remaining, second.2 (index + 1)) +
+            second.2 0) := by
+      rw [show scheduleElapsed firstCount first =
+        ∑ index ∈ Finset.range firstCount, first.2 index by rfl]
+      rw [add_tsub_cancel_of_le hfirst']
+
+theorem scheduleElapsed_concatenateRefreshSchedules_zero
+    (firstHorizon : NNReal) (firstCount : ℕ)
+    (first second : CandidateScheduleSample) :
+    scheduleElapsed (firstCount + 0)
+      (concatenateRefreshSchedules firstHorizon firstCount 0
+        (first, second)) = scheduleElapsed firstCount first := by
+  unfold scheduleElapsed
+  apply Finset.sum_congr
+  · simp
+  · intro index hindex
+    exact concatenateRefreshSchedules_first _ _ _ _ _ _
+      (Finset.mem_range.mp hindex)
+
 /-- A jointly timed Markov transition and the refresh applied at scheduled
 times.  Semigroup laws are intentionally separate: schedule execution only
 needs joint measurability and Markovness. -/

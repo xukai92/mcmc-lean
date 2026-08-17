@@ -40,6 +40,15 @@
   Poisson-count mixture satisfy the corresponding elapsed-time bound. Thus
   residual subtraction is genuine subtraction almost surely under the actual
   schedule law, rather than merely a totalized truncation.
+  Adjacent fixed-count schedules now have a canonical measurable
+  concatenation map. It retains the first active waits, joins the first
+  horizon's residual to the second schedule's first wait (so no artificial
+  refresh is inserted at the boundary), shifts the remaining second waits,
+  and records the summed count. For a valid first schedule, Lean proves that a
+  nonempty concatenation has elapsed time exactly `firstHorizon +
+  secondElapsed`; the empty-second case returns the first elapsed time. The
+  next deterministic theorem is equality of the concatenated executor with
+  sequential execution under the timed-family semigroup law.
 
 - Closed the rejected-length sigma assembly for the practical-slice joint
   law. The variable-dimensional runtime base is now proved equal to the

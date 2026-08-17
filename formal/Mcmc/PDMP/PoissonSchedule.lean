@@ -23,6 +23,15 @@ structure PositiveHorizon where
   duration : NNReal
   positive : 0 < duration
 
+/-- Concatenation of two strictly positive horizons. -/
+def PositiveHorizon.add (first second : PositiveHorizon) : PositiveHorizon where
+  duration := first.duration + second.duration
+  positive := add_pos first.positive second.positive
+
+@[simp] theorem PositiveHorizon.add_duration
+    (first second : PositiveHorizon) :
+    (first.add second).duration = first.duration + second.duration := rfl
+
 /-- Continuous uniform probability measure on `(0, horizon]`. -/
 noncomputable def PositiveHorizon.uniformTimeMeasure
     (horizon : PositiveHorizon) : Measure ℝ :=
