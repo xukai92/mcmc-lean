@@ -668,8 +668,10 @@ by paper date:
    The capped replay now carries a finite potential equal to remaining time
    times the current envelope; every accepted mark is paid by its decrease.
    This proves almost-sure finite-horizon completion for finite-dimensional
-   standard-Gaussian BPS. Constructing the measurable completed endpoint and
-   horizon kernel, followed by stationarity and ergodicity, remains.
+   standard-Gaussian BPS. The generic layer now selects the first completed
+   prefix measurably, totalizes only on the null explosive set, and constructs
+   the exact Markov horizon kernel. Its semigroup law, target stationarity,
+   and ergodicity remain.
 
    The nonlinear reversible-jump branch is complete at the exact theorem and
    executable-client levels; only the shared Float64 primitive boundary

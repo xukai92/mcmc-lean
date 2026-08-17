@@ -259,8 +259,10 @@ finite-flight rate envelope. Turning that envelope and the iid exponential
 marks into pathwise finite-horizon nonexplosion is now complete: Lean uses the
 finite potential “remaining time × current envelope” to pay every accepted
 hazard, while iid exponential prefix sums exceed every finite bound almost
-surely. Construction of the measurable completed horizon endpoint/kernel,
-and then stationarity and convergence, remain open in general dimension.
+surely. A measurable first-completed-prefix selector now totalizes the exact
+endpoint, its fallback is proved null, and the resulting finite-horizon
+transition is a Markov kernel. Its semigroup law, target stationarity, and
+convergence remain open in general dimension.
 
 In one dimension at unit speed,
 Lean now proves that Gaussian BPS reflection, rate, and flow coincide with the

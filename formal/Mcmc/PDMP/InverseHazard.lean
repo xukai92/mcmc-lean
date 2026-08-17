@@ -469,6 +469,45 @@ def hazardPrefix (count : ℕ) (hazards : ℕ → NNReal) : List NNReal :=
     hazardPrefix 0 hazards = [] := by
   simp [hazardPrefix]
 
+theorem hazardPrefix_succ (count : ℕ) (hazards : ℕ → NNReal) :
+    hazardPrefix (count + 1) hazards =
+      hazardPrefix count hazards ++ [hazards count] := by
+  simpa [hazardPrefix] using
+    (List.ofFn_succ_last (f := fun index : Fin (count + 1) => hazards index))
+
+/-- Joint replay of the first `count` coordinates of a hazard stream. The
+recursive presentation makes measurability transparent; the theorem below
+identifies it with `executeHazards (hazardPrefix count hazards)`. -/
+noncomputable def PartialInverseHazardClock.replayPrefix
+    (clock : PartialInverseHazardClock State) (jump : State → State) :
+    ℕ → ((NNReal × State) × (ℕ → NNReal)) → NNReal × State
+  | 0, input => input.1
+  | count + 1, input => clock.cappedStepUpdate jump
+      (clock.replayPrefix jump count input, input.2 count)
+
+theorem PartialInverseHazardClock.measurable_replayPrefix
+    (clock : PartialInverseHazardClock State) {jump : State → State}
+    (hjump : Measurable jump) (count : ℕ) :
+    Measurable (clock.replayPrefix jump count) := by
+  induction count with
+  | zero => exact measurable_fst
+  | succ count ih =>
+      exact clock.measurable_cappedStepUpdate hjump |>.comp
+        (ih.prodMk (measurable_pi_apply count |>.comp measurable_snd))
+
+theorem PartialInverseHazardClock.replayPrefix_eq_executeHazards
+    (clock : PartialInverseHazardClock State) (jump : State → State)
+    (count : ℕ) (input : (NNReal × State) × (ℕ → NNReal)) :
+    clock.replayPrefix jump count input =
+      clock.executeHazards jump (hazardPrefix count input.2) input.1 := by
+  induction count with
+  | zero => rfl
+  | succ count ih =>
+      rw [show count + 1 = Nat.succ count from rfl,
+        hazardPrefix_succ, clock.executeHazards_append]
+      simp only [PartialInverseHazardClock.replayPrefix, ih,
+        PartialInverseHazardClock.executeHazards]
+
 /-- Exact nonexplosion/completion obligation for a partial inverse clock: at
 every finite horizon and initial state, almost every iid hazard stream has a
 finite prefix after which no time remains. Stability then makes every longer
@@ -574,6 +613,150 @@ theorem PartialInverseHazardClock.hasBoundedActivePrefixHazard_of_potential
       (Fin.sum_univ_eq_sum_range hazards count)
   rw [hprefix] at hsum
   exact_mod_cast hsum
+
+/-! ### Measurable completed-horizon endpoint -/
+
+def PartialInverseHazardClock.replayFinished
+    (clock : PartialInverseHazardClock State) (jump : State → State)
+    (input : (NNReal × State) × (ℕ → NNReal)) (count : ℕ) : Prop :=
+  (clock.replayPrefix jump count input).1 = 0
+
+theorem PartialInverseHazardClock.measurableSet_replayFinished
+    (clock : PartialInverseHazardClock State) {jump : State → State}
+    (hjump : Measurable jump) (count : ℕ) :
+    MeasurableSet {input | clock.replayFinished jump input count} := by
+  exact (measurableSet_singleton (0 : NNReal)).preimage
+    (clock.measurable_replayPrefix hjump count).fst
+
+/-- Total search predicate: use genuine completion when it exists, and index
+zero only as a measurable fallback on explosive streams. -/
+def PartialInverseHazardClock.completionSearch
+    (clock : PartialInverseHazardClock State) (jump : State → State)
+    (input : (NNReal × State) × (ℕ → NNReal)) (count : ℕ) : Prop :=
+  clock.replayFinished jump input count ∨
+    (count = 0 ∧ ¬∃ candidate, clock.replayFinished jump input candidate)
+
+theorem PartialInverseHazardClock.completionSearch_exists
+    (clock : PartialInverseHazardClock State) (jump : State → State)
+    (input : (NNReal × State) × (ℕ → NNReal)) :
+    ∃ count, clock.completionSearch jump input count := by
+  by_cases hcomplete : ∃ count, clock.replayFinished jump input count
+  · obtain ⟨count, hcount⟩ := hcomplete
+    exact ⟨count, Or.inl hcount⟩
+  · exact ⟨0, Or.inr ⟨rfl, hcomplete⟩⟩
+
+theorem PartialInverseHazardClock.measurableSet_completionSearch
+    (clock : PartialInverseHazardClock State) {jump : State → State}
+    (hjump : Measurable jump) (count : ℕ) :
+    MeasurableSet {input | clock.completionSearch jump input count} := by
+  have hexists : MeasurableSet {input |
+      ∃ candidate, clock.replayFinished jump input candidate} := by
+    simp only [Set.setOf_exists]
+    exact MeasurableSet.iUnion fun candidate =>
+      clock.measurableSet_replayFinished hjump candidate
+  by_cases hcount : count = 0
+  · subst count
+    have hfinished := clock.measurableSet_replayFinished hjump 0
+    have hset : {input | clock.completionSearch jump input 0} =
+        {input | clock.replayFinished jump input 0} ∪
+          {input | ¬∃ candidate,
+            clock.replayFinished jump input candidate} := by
+      ext input
+      simp [PartialInverseHazardClock.completionSearch]
+    rw [hset]
+    exact hfinished.union hexists.compl
+  · simpa [PartialInverseHazardClock.completionSearch, hcount] using
+      clock.measurableSet_replayFinished hjump count
+
+/-- First completed replay prefix, with the total fallback predicate above on
+streams for which no finite prefix completes. -/
+noncomputable def PartialInverseHazardClock.completionCount
+    (clock : PartialInverseHazardClock State) (jump : State → State)
+    (input : (NNReal × State) × (ℕ → NNReal)) : ℕ := by
+  classical
+  exact Nat.find (clock.completionSearch_exists jump input)
+
+theorem PartialInverseHazardClock.measurable_completionCount
+    (clock : PartialInverseHazardClock State) {jump : State → State}
+    (hjump : Measurable jump) :
+    Measurable (clock.completionCount jump) := by
+  classical
+  exact measurable_find (clock.completionSearch_exists jump)
+    (clock.measurableSet_completionSearch hjump)
+
+theorem PartialInverseHazardClock.completionCount_spec
+    (clock : PartialInverseHazardClock State) (jump : State → State)
+    (input : (NNReal × State) × (ℕ → NNReal)) :
+    clock.completionSearch jump input (clock.completionCount jump input) :=
+  by
+    classical
+    exact Nat.find_spec (clock.completionSearch_exists jump input)
+
+theorem PartialInverseHazardClock.replayFinished_completionCount
+    (clock : PartialInverseHazardClock State) (jump : State → State)
+    (input : (NNReal × State) × (ℕ → NNReal))
+    (hcomplete : ∃ count, clock.replayFinished jump input count) :
+    clock.replayFinished jump input (clock.completionCount jump input) := by
+  classical
+  rcases clock.completionCount_spec jump input with hfinished | hfallback
+  · exact hfinished
+  · exact (hfallback.2 hcomplete).elim
+
+/-- Under the nonexplosion obligation, the selected completion count is a
+genuine finished prefix almost surely; the total fallback is therefore null. -/
+theorem PartialInverseHazardClock.replayFinished_completionCount_ae
+    (clock : PartialInverseHazardClock State) (jump : State → State)
+    (hcomplete : clock.CompletesFiniteHorizons jump)
+    (horizon : NNReal) (initial : State) :
+    ∀ᵐ hazards ∂unitHazardSequenceMeasure,
+      clock.replayFinished jump ((horizon, initial), hazards)
+        (clock.completionCount jump ((horizon, initial), hazards)) := by
+  filter_upwards [hcomplete horizon initial] with hazards hhazards
+  apply clock.replayFinished_completionCount jump
+  obtain ⟨count, terminal, hcount⟩ := hhazards
+  refine ⟨count, ?_⟩
+  unfold PartialInverseHazardClock.replayFinished
+  rw [clock.replayPrefix_eq_executeHazards]
+  rw [hcount]
+
+/-- Totalized endpoint selected at the first completed prefix. On the null
+explosive set it returns the zero-prefix state. -/
+noncomputable def PartialInverseHazardClock.completedReplayEndpoint
+    (clock : PartialInverseHazardClock State) (jump : State → State)
+    (input : (NNReal × State) × (ℕ → NNReal)) : State :=
+  (clock.replayPrefix jump (clock.completionCount jump input) input).2
+
+theorem PartialInverseHazardClock.measurable_completedReplayEndpoint
+    (clock : PartialInverseHazardClock State) {jump : State → State}
+    (hjump : Measurable jump) :
+    Measurable (clock.completedReplayEndpoint jump) := by
+  classical
+  exact Measurable.find
+    (fun count => (clock.measurable_replayPrefix hjump count).snd)
+    (clock.measurableSet_completionSearch hjump)
+    (clock.completionSearch_exists jump)
+
+/-- Exact totalized finite-horizon kernel driven by an infinite iid hazard
+stream. `CompletesFiniteHorizons` proves that its fallback branch is null. -/
+noncomputable def PartialInverseHazardClock.completedHorizonKernel
+    (clock : PartialInverseHazardClock State)
+    (jump : State → State) (_hjump : Measurable jump)
+    (horizon : NNReal) : Kernel State State :=
+  Kernel.map
+    (Kernel.prod Kernel.id
+      (Kernel.const State unitHazardSequenceMeasure))
+    (fun input => clock.completedReplayEndpoint jump
+      ((horizon, input.1), input.2))
+
+instance PartialInverseHazardClock.completedHorizonKernel.instIsMarkovKernel
+    (clock : PartialInverseHazardClock State)
+    (jump : State → State) (hjump : Measurable jump)
+    (horizon : NNReal) :
+    IsMarkovKernel (clock.completedHorizonKernel jump hjump horizon) := by
+  unfold PartialInverseHazardClock.completedHorizonKernel
+  apply Kernel.IsMarkovKernel.map
+  exact clock.measurable_completedReplayEndpoint hjump |>.comp
+    ((measurable_const.prodMk measurable_fst).prodMk measurable_snd)
 
 /-- One restart candidate with a fresh unit-exponential hazard mark. -/
 noncomputable def PartialInverseHazardClock.cappedStepKernel

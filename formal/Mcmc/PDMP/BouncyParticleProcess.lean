@@ -497,6 +497,14 @@ noncomputable def standardGaussianBPSJump
     (state : BouncyParticleState ι) : BouncyParticleState ι :=
   (state.1, bouncyReflection state.1 state.2)
 
+theorem measurable_standardGaussianBPSJump :
+    Measurable (standardGaussianBPSJump :
+      BouncyParticleState ι → BouncyParticleState ι) := by
+  change Measurable (fun state : Position ι × Position ι =>
+    (state.1, bouncyReflection state.1 state.2))
+  exact (standardGaussianBouncyParticleBounceData
+    (ι := ι)).measurable_bounce
+
 /-- Uniform rate envelope over all flight time still available from a capped
 state. -/
 noncomputable def standardGaussianBPSRateEnvelope
@@ -1013,6 +1021,37 @@ theorem standardGaussianBPS_completesFiniteHorizons :
     |>.completesFiniteHorizons_of_boundedActivePrefixHazard
       (standardGaussianBPSJump (ι := ι))
         (standardGaussianBPS_hasBoundedActivePrefixHazard (ι := ι))
+
+/-- Exact totalized finite-horizon kernel for finite-dimensional
+standard-Gaussian BPS. The nonexplosion theorem above proves that the
+totalization fallback is unused almost surely. -/
+noncomputable def standardGaussianBPSHorizonKernel (horizon : NNReal) :
+    Kernel (BouncyParticleState ι) (BouncyParticleState ι) :=
+  (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+    |>.completedHorizonKernel (standardGaussianBPSJump (ι := ι))
+      measurable_standardGaussianBPSJump horizon
+
+instance standardGaussianBPSHorizonKernel.instIsMarkovKernel
+    (horizon : NNReal) :
+    IsMarkovKernel (standardGaussianBPSHorizonKernel (ι := ι) horizon) := by
+  unfold standardGaussianBPSHorizonKernel
+  infer_instance
+
+/-- The completion count used by the exact Gaussian-BPS horizon kernel is a
+genuine finished prefix almost surely. -/
+theorem standardGaussianBPS_completionCount_finished_ae
+    (horizon : NNReal) (initial : BouncyParticleState ι) :
+    ∀ᵐ hazards ∂unitHazardSequenceMeasure,
+      (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+        |>.replayFinished (standardGaussianBPSJump (ι := ι))
+          ((horizon, initial), hazards)
+          ((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+            |>.completionCount (standardGaussianBPSJump (ι := ι))
+              ((horizon, initial), hazards)) :=
+  (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+    |>.replayFinished_completionCount_ae
+      (standardGaussianBPSJump (ι := ι))
+        (standardGaussianBPS_completesFiniteHorizons (ι := ι)) horizon initial
 
 /-- First-event-or-residual-flow BPS kernel on a finite horizon. This kernel
 handles a certified inactive state without imposing a fictitious event. It is

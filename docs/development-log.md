@@ -4861,5 +4861,8 @@ For deterministic replay, the potential “remaining time × current rate
 envelope” pays every accepted hazard mark and cannot increase after a flight
 and bounce. Consequently every finite horizon completes after a finite hazard
 prefix almost surely. This proves `CompletesFiniteHorizons`; construction and
-measurability of the totalized completed endpoint/kernel, its semigroup and
-stationarity laws, and multidimensional ergodicity remain separate milestones.
+measurability of the totalized completed endpoint/kernel are now also closed:
+the generic layer measurably selects the first completed prefix, proves the
+fallback branch null under `CompletesFiniteHorizons`, and packages the result
+as a Markov kernel. Its semigroup and stationarity laws and multidimensional
+ergodicity remain separate milestones.
