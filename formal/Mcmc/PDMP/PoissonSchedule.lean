@@ -18,6 +18,33 @@ open scoped ENNReal NNReal ProbabilityTheory
 
 namespace Mcmc.PDMP
 
+/-- A finite product of a sum of two s-finite measures expands as the sum over
+all Boolean coordinate assignments. This is the measure-theoretic binomial
+identity used by adjacent Poisson schedule convolution. -/
+theorem pi_add_eq_sum_bool {α : Type*} [MeasurableSpace α]
+    (μ ν : Measure α) [SigmaFinite μ] [SigmaFinite ν] (n : ℕ) :
+    Measure.pi (fun _ : Fin n => μ + ν) =
+      Measure.sum fun assignment : Fin n → Bool =>
+        Measure.pi fun i => if assignment i then μ else ν := by
+  apply Measure.pi_eq
+  intro sets hsets
+  rw [Measure.sum_apply _
+    (MeasurableSet.pi Set.countable_univ fun i _ => hsets i)]
+  rw [tsum_fintype]
+  rw [show (∏ i, (μ + ν) (sets i)) =
+      ∏ i, ∑ choice : Bool, (if choice then μ else ν) (sets i) by
+    apply Finset.prod_congr rfl
+    intro i _
+    rw [Measure.add_apply μ ν (sets i)]
+    simp]
+  rw [Fintype.prod_sum]
+  apply Finset.sum_congr rfl
+  intro assignment _
+  letI : ∀ i, SigmaFinite (if assignment i then μ else ν) := by
+    intro i
+    split <;> infer_instance
+  rw [Measure.pi_pi]
+
 /-- A finite horizon with strictly positive duration. -/
 structure PositiveHorizon where
   duration : NNReal
@@ -37,6 +64,12 @@ measure beneath the normalized uniform timestamp and Poisson Janossy weights. -/
 noncomputable def PositiveHorizon.timestampMassMeasure
     (horizon : PositiveHorizon) : Measure ℝ :=
   volume.restrict (Set.Ioc 0 (horizon.duration : ℝ))
+
+instance PositiveHorizon.timestampMassMeasure.instIsFiniteMeasure
+    (horizon : PositiveHorizon) :
+    IsFiniteMeasure horizon.timestampMassMeasure := by
+  unfold PositiveHorizon.timestampMassMeasure
+  infer_instance
 
 /-- Translation of the second horizon's timestamp mass occupies exactly the
 adjacent interval after the first horizon. -/
@@ -135,6 +168,22 @@ theorem PositiveHorizon.scaledUniformTimeMeasure_add
     first.ofReal_duration_smul_uniformTimeMeasure,
     second.ofReal_duration_smul_uniformTimeMeasure]
   exact first.timestampMassMeasure_add second
+
+/-- The `n`-event timestamp mass on adjacent horizons expands into all
+Boolean assignments of labeled coordinates to the first or shifted-second
+interval. -/
+theorem PositiveHorizon.pi_timestampMassMeasure_add
+    (first second : PositiveHorizon) (n : ℕ) :
+    Measure.pi (fun _ : Fin n => (first.add second).timestampMassMeasure) =
+      Measure.sum fun assignment : Fin n → Bool =>
+        Measure.pi fun i =>
+          if assignment i then first.timestampMassMeasure
+          else Measure.map (fun time : ℝ => (first.duration : ℝ) + time)
+            second.timestampMassMeasure := by
+  rw [first.timestampMassMeasure_add second]
+  exact pi_add_eq_sum_bool first.timestampMassMeasure
+    (Measure.map (fun time : ℝ => (first.duration : ℝ) + time)
+      second.timestampMassMeasure) n
 
 /-- A draw from the continuous horizon law lies in `(0, horizon]` almost
 surely. -/

@@ -67,8 +67,14 @@
   proves that horizon length times the normalized uniform law equals this
   mass, proves translation of the second mass onto `(T,T+S]`, and decomposes
   the combined mass into the disjoint first and translated-second intervals.
-  The remaining general-count proof is the symmetric tensor-power/binomial
-  shuffle followed by sorting and conversion to waits.
+  The general tensor expansion is now machine checked too: for arbitrary
+  sigma-finite `μ` and `ν`, the finite product of `μ + ν` equals the measure
+  sum over every Boolean coordinate assignment of the corresponding mixed
+  product. The proof reduces rectangle masses to `Fintype.prod_sum`. Applied
+  to adjacent timestamp masses, this gives the full labeled-coordinate
+  binomial expansion at every event count. Remaining are regrouping
+  assignments by first-interval count, proving sorting erases their labels,
+  and conversion to concatenated waits.
 
 - Closed the rejected-length sigma assembly for the practical-slice joint
   law. The variable-dimensional runtime base is now proved equal to the
