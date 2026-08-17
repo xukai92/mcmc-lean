@@ -3889,3 +3889,24 @@ existing complete trace-reversal certificate, detailed balance, and
 stationarity.  This is a proved compositional reduction, not yet a proof of
 standard NUTS: the remaining obligation is to define the exact recursive
 direction/subtree/candidate trace and discharge these two identities.
+
+The construction side is now refined further. `LocalChoiceRootedTraceSampler`
+proves that a finite product of local random-choice reversal ratios supplies
+the global trace-law ratio automatically. The concrete law of a bounded vector
+of independent fair Boolean doubling directions is defined and normalized,
+and Lean proves that every endpoint-dependent bijection of those traces
+preserves its mass. Consequently the fair direction coins used by the Julia
+recursive builder are no longer part of the open balance argument. What
+remains is to retain subtree-validity and streaming candidate choices in the
+trace and prove their target-weighted conditional selection reversal.
+
+Added the normalization theorem for that remaining endpoint step.
+`ReversibleTraceSelection` accepts nonnegative endpoint weights on a complete
+rooted trace, positivity of their total, equality of that total after complete
+trace reversal, and a pointwise target-weighted endpoint-flow equation. Lean
+constructs the normalized conditional distribution and proves its exact
+selection-reversal identity. `withTraceSelection` then assembles it with the
+factorized construction law into the public detailed-balance and stationarity
+certificate. Raw candidate rows are allowed to differ; the theorem compares
+the particular forward trace with its bijectively reversed trace, avoiding the
+known-false universal row-equality premise.
