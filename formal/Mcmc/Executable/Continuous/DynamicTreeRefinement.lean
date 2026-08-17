@@ -1,5 +1,5 @@
 import Mcmc.Executable.Continuous.BoundedHMC
-import Mcmc.Finite.CertifiedDynamicTree
+import Mcmc.Executable.DynamicTreeIR
 
 /-!
 # Bounded decision refinement for dynamic NUTS trees
@@ -793,5 +793,49 @@ theorem LinkedEuclideanLeapfrogVectorTrajectoryCertificate.certifiedBuildFlagTre
           (trajectory.idealPhase left) (trajectory.idealPhase right)) := by
   exact CertifiedLeapfrogPhaseTrajectory.certifiedBuildFlagTree_eq_ideal
     _ leafCertificate leftSeparated rightSeparated tree
+
+/-- Strict endpoint margins refine every row of the executable recursive
+builder: computed floating-point U-turn bits and ideal-real U-turn bits drive
+identical interval expansion and early stopping for every direction trace and
+root. -/
+theorem CertifiedLeapfrogPhaseTrajectory.recursiveDoublingCandidateRow_eq_ideal
+    {count dimension depth : ℕ}
+    (trajectory : CertifiedLeapfrogPhaseTrajectory count dimension)
+    (leftSeparated : ∀ left right,
+      let leftEndpoint := trajectory.endpoint left
+      let rightEndpoint := trajectory.endpoint right
+      let computed := endpointDot leftEndpoint.computedPosition
+        rightEndpoint.computedPosition leftEndpoint.computedMomentum
+      let error := endpointDotError leftEndpoint.idealPosition
+        rightEndpoint.idealPosition leftEndpoint.computedMomentum
+        (fun _ => leftEndpoint.step.positionError)
+        (fun _ => rightEndpoint.step.positionError)
+        (fun _ => leftEndpoint.step.momentumError)
+      computed < -error ∨ error < computed)
+    (rightSeparated : ∀ left right,
+      let leftEndpoint := trajectory.endpoint left
+      let rightEndpoint := trajectory.endpoint right
+      let computed := endpointDot leftEndpoint.computedPosition
+        rightEndpoint.computedPosition rightEndpoint.computedMomentum
+      let error := endpointDotError leftEndpoint.idealPosition
+        rightEndpoint.idealPosition rightEndpoint.computedMomentum
+        (fun _ => leftEndpoint.step.positionError)
+        (fun _ => rightEndpoint.step.positionError)
+        (fun _ => rightEndpoint.step.momentumError)
+      computed < -error ∨ error < computed)
+    (trace : Fin depth → Bool) (root : Fin count) :
+    Mcmc.Executable.DynamicTreeIR.recursiveDoublingCandidateRow count depth
+        (fun left right => vectorAdjacentUTurn
+          (trajectory.computedPhase left) (trajectory.computedPhase right))
+        trace root =
+      Mcmc.Executable.DynamicTreeIR.recursiveDoublingCandidateRow count depth
+        (fun left right => vectorAdjacentUTurn
+          (trajectory.idealPhase left) (trajectory.idealPhase right))
+        trace root := by
+  apply Mcmc.Executable.DynamicTreeIR.recursiveDoublingCandidateRow_congr
+  intro left right
+  exact ((trajectory.endpoint left).vectorUTurnCertificate
+    (trajectory.endpoint right) (leftSeparated left right)
+    (rightSeparated left right)).vectorAdjacentUTurn_eq
 
 end Mcmc.Executable.Continuous

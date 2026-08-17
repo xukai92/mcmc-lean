@@ -4242,3 +4242,15 @@ is retained independently for conformance checks. Boundary and curved U-turn
 examples agree exactly. This is strong implementation evidence, but not a
 machine-checked Julia extraction theorem; numerical dot-product agreement also
 still depends on the existing strict-margin certificates and backend budgets.
+
+## 2026-08-17: recursive candidate-row numerical refinement
+
+Lifted bounded U-turn agreement through the newly executable recursive row
+builder. `recursiveDoublingCandidateRow_congr` proves pointwise equality of
+turn callbacks makes every interval expansion, early stop, and final candidate
+row identical for every root and direction trace. The phase-trajectory theorem
+then derives that callback equality from componentwise endpoint bounds and
+strict dot-product margins. Consequently the computed and ideal recursive
+candidate rows—not only their flag trees—are now machine-checked equal at the
+declared numerical boundary. Concrete backend budgets and machine-checked
+Julia extraction remain separate obligations.

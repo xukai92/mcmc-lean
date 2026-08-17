@@ -218,6 +218,29 @@ def recursiveDoublingProgram
     CheckedRecursiveDoublingProgram (Fin count) depth where
   candidates trace root := recursiveDoublingCandidateRow count depth turns trace root
 
+/-- Pointwise callback agreement is sufficient for equality of every emitted
+candidate row. Thus numerical refinement need only certify the U-turn bits;
+all interval and early-stop control flow is shared exactly. -/
+theorem recursiveDoublingCandidateRow_congr
+    (count depth : ℕ) (computedTurns idealTurns : Fin count → Fin count → Bool)
+    (hagrees : ∀ left right, computedTurns left right = idealTurns left right)
+    (trace : Fin depth → Bool) (root : Fin count) :
+    recursiveDoublingCandidateRow count depth computedTurns trace root =
+      recursiveDoublingCandidateRow count depth idealTurns trace root := by
+  have hturns : computedTurns = idealTurns := by
+    funext left right
+    exact hagrees left right
+  rw [hturns]
+
+theorem recursiveDoublingProgram_candidates_eq
+    (count depth : ℕ) (computedTurns idealTurns : Fin count → Fin count → Bool)
+    (hagrees : ∀ left right, computedTurns left right = idealTurns left right) :
+    (recursiveDoublingProgram count depth computedTurns).candidates =
+      (recursiveDoublingProgram count depth idealTurns).candidates := by
+  funext trace root
+  exact recursiveDoublingCandidateRow_congr count depth computedTurns idealTurns
+    hagrees trace root
+
 @[simp] theorem recursiveDoublingCandidateRow_zero_depth
     (count : ℕ) (turns : Fin count → Fin count → Bool) (root : Fin count) :
     recursiveDoublingCandidateRow count 0 turns (fun index => nomatch index) root =
