@@ -238,6 +238,25 @@ noncomputable def CertifiedLeapfrogPhaseTrajectory.ofErrorCertificate
     positionLength := positionLength index
     momentumLength := momentumLength index }
 
+/-- Direct path from primitive vector-step witnesses through the concrete
+recurrence into the phase trajectory consumed by NUTS certificates. -/
+noncomputable def CertifiedLeapfrogPhaseTrajectory.ofPrimitiveCertificate
+    {parameters : EuclideanLeapfrogErrorParameters} {dimension steps : ℕ}
+    {initialPositionError initialMomentumError : ℝ}
+    (certificate : EuclideanLeapfrogVectorTrajectoryCertificate parameters
+      dimension steps initialPositionError initialMomentumError)
+    (initialPositionLength : certificate.initial.computedPosition.length = dimension)
+    (initialMomentumLength : certificate.initial.computedMomentum.length = dimension) :
+    CertifiedLeapfrogPhaseTrajectory (steps + 1) dimension :=
+  CertifiedLeapfrogPhaseTrajectory.ofErrorCertificate
+    certificate.toErrorCertificate
+    (fun index => Fin.cases initialPositionLength (fun _ => by
+      simp [EuclideanLeapfrogVectorTrajectoryCertificate.toErrorCertificate,
+        EuclideanLeapfrogVectorCertificate.toStepCertificate]) index)
+    (fun index => Fin.cases initialMomentumLength (fun _ => by
+      simp [EuclideanLeapfrogVectorTrajectoryCertificate.toErrorCertificate,
+        EuclideanLeapfrogVectorCertificate.toStepCertificate]) index)
+
 noncomputable def CertifiedLeapfrogPhaseEndpoint.computedPosition
     {dimension : ℕ} (endpoint : CertifiedLeapfrogPhaseEndpoint dimension) :
     Fin dimension → ℝ :=

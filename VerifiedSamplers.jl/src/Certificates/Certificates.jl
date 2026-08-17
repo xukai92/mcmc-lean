@@ -15,6 +15,8 @@ export BoundWitness, DecisionCertificate, certify_bound, certify_decision,
     certified_uturn_decisions,
     NUTSCompletedTreeCertificate, certified_nuts_completed_tree,
     EuclideanLeapfrogErrorParameters, leapfrog_error_schedule,
+    LeapfrogCoordinateCertificate, certify_leapfrog_coordinate_step,
+    LeapfrogVectorCertificate, certify_leapfrog_vector_step,
     CompletedTreeDecisionCertificate,
     NUTSLeafEnergyCertificate, certify_nuts_leaf_energy,
     certified_nuts_leaf_decisions,
@@ -80,6 +82,118 @@ function leapfrog_error_schedule(parameters::EuclideanLeapfrogErrorParameters,
         schedule[index + 1] = (; position=ep, momentum=em)
     end
     schedule
+end
+
+"""Checked primitive witnesses for one scalar kick-drift-kick coordinate."""
+struct LeapfrogCoordinateCertificate
+    position::BoundWitness
+    momentum::BoundWitness
+    current_gradient::BoundWitness
+    half_kick_rounding::BoundWitness
+    next_gradient::BoundWitness
+    drift_rounding::BoundWitness
+    final_kick_rounding::BoundWitness
+    next_position_error::BigFloat
+    next_momentum_error::BigFloat
+end
+
+"""Check the primitive premises consumed by Lean's coordinate-step theorem.
+
+Ideal inputs/gradients and local budgets remain analytic premises. BigFloat is
+used to evaluate exact-real affine expressions on the supplied Float64 values.
+"""
+function certify_leapfrog_coordinate_step(parameters::EuclideanLeapfrogErrorParameters;
+        signed_step::Real,
+        computed_position::Real, ideal_position::Real,
+        computed_momentum::Real, ideal_momentum::Real,
+        computed_current_gradient::Real, ideal_current_gradient::Real,
+        computed_half_momentum::Real, computed_next_position::Real,
+        computed_next_gradient::Real, ideal_next_gradient::Real,
+        computed_next_momentum::Real,
+        position_error::Real, momentum_error::Real,
+        precision::Integer=256)
+    step = Float64(signed_step)
+    abs(BigFloat(step)) <= parameters.step_magnitude || throw(ArgumentError(
+        "signed step exceeds the declared step magnitude"))
+    position = certify_bound(computed_position, ideal_position, position_error;
+        precision=precision)
+    momentum = certify_bound(computed_momentum, ideal_momentum, momentum_error;
+        precision=precision)
+    gradient_budget = parameters.gradient_lipschitz * BigFloat(position_error) +
+        parameters.gradient_error
+    current_gradient = certify_bound(computed_current_gradient,
+        ideal_current_gradient, gradient_budget; precision=precision)
+    half_ideal = BigFloat(computed_momentum) + BigFloat(step) / 2 *
+        BigFloat(computed_current_gradient)
+    half = certify_bound(computed_half_momentum, half_ideal,
+        parameters.kick_rounding; precision=precision)
+    half_error = BigFloat(momentum_error) + parameters.step_magnitude / 2 *
+        gradient_budget + parameters.kick_rounding
+    next_position_error = BigFloat(position_error) +
+        parameters.step_magnitude * half_error + parameters.drift_rounding
+    drift_ideal = BigFloat(computed_position) + BigFloat(step) *
+        BigFloat(computed_half_momentum)
+    drift = certify_bound(computed_next_position, drift_ideal,
+        parameters.drift_rounding; precision=precision)
+    next_gradient_budget = parameters.gradient_lipschitz * next_position_error +
+        parameters.gradient_error
+    next_gradient = certify_bound(computed_next_gradient, ideal_next_gradient,
+        next_gradient_budget; precision=precision)
+    final_ideal = BigFloat(computed_half_momentum) + BigFloat(step) / 2 *
+        BigFloat(computed_next_gradient)
+    final = certify_bound(computed_next_momentum, final_ideal,
+        parameters.kick_rounding; precision=precision)
+    next_momentum_error = half_error + parameters.step_magnitude / 2 *
+        next_gradient_budget + parameters.kick_rounding
+    LeapfrogCoordinateCertificate(position, momentum, current_gradient, half,
+        next_gradient, drift, final, next_position_error, next_momentum_error)
+end
+
+"""Dimension-generic collection of coordinate-step primitive witnesses."""
+struct LeapfrogVectorCertificate
+    coordinates::Vector{LeapfrogCoordinateCertificate}
+    next_position_error::BigFloat
+    next_momentum_error::BigFloat
+end
+
+function certify_leapfrog_vector_step(parameters::EuclideanLeapfrogErrorParameters;
+        signed_step::Real,
+        computed_position::AbstractVector{<:Real},
+        ideal_position::AbstractVector{<:Real},
+        computed_momentum::AbstractVector{<:Real},
+        ideal_momentum::AbstractVector{<:Real},
+        computed_current_gradient::AbstractVector{<:Real},
+        ideal_current_gradient::AbstractVector{<:Real},
+        computed_half_momentum::AbstractVector{<:Real},
+        computed_next_position::AbstractVector{<:Real},
+        computed_next_gradient::AbstractVector{<:Real},
+        ideal_next_gradient::AbstractVector{<:Real},
+        computed_next_momentum::AbstractVector{<:Real},
+        position_error::Real, momentum_error::Real,
+        precision::Integer=256)
+    dimension = length(computed_position)
+    dimension > 0 || throw(ArgumentError("leapfrog dimension must be positive"))
+    all(length(values) == dimension for values in (ideal_position,
+        computed_momentum, ideal_momentum, computed_current_gradient,
+        ideal_current_gradient, computed_half_momentum, computed_next_position,
+        computed_next_gradient, ideal_next_gradient, computed_next_momentum)) ||
+        throw(DimensionMismatch("leapfrog coordinate vectors must match"))
+    coordinates = [certify_leapfrog_coordinate_step(parameters;
+        signed_step=signed_step,
+        computed_position=computed_position[i], ideal_position=ideal_position[i],
+        computed_momentum=computed_momentum[i], ideal_momentum=ideal_momentum[i],
+        computed_current_gradient=computed_current_gradient[i],
+        ideal_current_gradient=ideal_current_gradient[i],
+        computed_half_momentum=computed_half_momentum[i],
+        computed_next_position=computed_next_position[i],
+        computed_next_gradient=computed_next_gradient[i],
+        ideal_next_gradient=ideal_next_gradient[i],
+        computed_next_momentum=computed_next_momentum[i],
+        position_error=position_error, momentum_error=momentum_error,
+        precision=precision) for i in 1:dimension]
+    LeapfrogVectorCertificate(coordinates,
+        first(coordinates).next_position_error,
+        first(coordinates).next_momentum_error)
 end
 
 """Bounded sign decision used by a dynamic-tree callback.

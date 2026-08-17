@@ -4162,3 +4162,31 @@ schedule into common-dimensional certified phases. Julia evaluates the same
 recurrence in BigFloat and tests nonnegativity, schedule length, and invalid
 parameters. This is a proved composition rule, not evidence that arbitrary
 Float64 gradients or arithmetic satisfy the supplied local constants.
+
+## 2026-08-17: primitive leapfrog operation certificates
+
+Reduced the recurrence premise to operation-local witnesses.
+`roundedAffineUpdate_approximates` composes bounded base/direction operands, a
+coefficient-magnitude bound, and a final rounding witness for
+`base + coefficient * direction`. A
+`EuclideanLeapfrogCoordinateCertificate` records bounded current/next gradient
+evaluations and the rounded first half-kick, drift, and second half-kick.
+Applying the affine lemma three times proves its output position and momentum
+meet exactly the concrete recurrence budgets. The result converts to the
+existing one-dimensional `LeapfrogStepCertificate`, so all trajectory and NUTS
+adapters apply unchanged. Julia checks the same primitive expressions in
+BigFloat and confirms its derived errors match the recurrence schedule. The
+ideal gradients, Lipschitz constant, and local rounding budgets remain trusted
+analytic/backend inputs.
+
+The primitive construction is now dimension-generic and recurrence-indexed.
+`VectorApproximates.ofFn` aggregates the coordinate theorems into a vector
+endpoint certificate. `EuclideanLeapfrogVectorTrajectoryCertificate` stores
+an initial endpoint plus a finite family of vector-step witnesses whose input
+errors equal the preceding recurrence schedule; Lean forgets the primitive
+details into `LeapfrogTrajectoryErrorCertificate`, then converts it directly
+to `CertifiedLeapfrogPhaseTrajectory` for the NUTS decision layer. Julia's
+vector checker validates every coordinate against the same schedule. This
+error-only sequence deliberately does not yet assert that each record's input
+state is the previous record's output; that state-linkage equation and concrete
+callback/platform budgets remain explicit obligations.

@@ -37,6 +37,25 @@ theorem VectorApproximates.mono
     VectorApproximates computed ideal larger :=
   ⟨h.1, fun i hc hi => (h.2 i hc hi).trans hle⟩
 
+theorem VectorApproximates.singleton
+    {computed ideal error : ℝ} (h : Approximates computed ideal error) :
+    VectorApproximates [computed] [ideal] error := by
+  refine ⟨rfl, ?_⟩
+  intro i hcomputed _
+  simp only [List.length_cons, List.length_nil] at hcomputed
+  have hi : i = 0 := by omega
+  subst i
+  simpa [Approximates] using h
+
+theorem VectorApproximates.ofFn
+    {dimension : ℕ} {computed ideal : Fin dimension → ℝ} {error : ℝ}
+    (h : ∀ i, Approximates (computed i) (ideal i) error) :
+    VectorApproximates (List.ofFn computed) (List.ofFn ideal) error := by
+  refine ⟨by simp, ?_⟩
+  intro i hcomputed _
+  have hi : i < dimension := by simpa using hcomputed
+  simpa [Approximates] using h ⟨i, hi⟩
+
 /-- One leapfrog step's abstract rounding contract. It deliberately isolates
 the backend-specific arithmetic and gradient evaluation bounds. -/
 structure LeapfrogStepCertificate where
@@ -139,6 +158,193 @@ noncomputable def EuclideanLeapfrogErrorParameters.toErrorModel
     exact add_nonneg (add_nonneg hhalf (mul_nonneg hhalfStep hnextGradient))
       parameters.kickRounding_nonneg
 
+/-! ### Primitive affine-operation witnesses -/
+
+/-- A rounded `base + coefficient * direction` update inherits the operand
+bounds plus the supplied final arithmetic-rounding budget. -/
+theorem roundedAffineUpdate_approximates
+    {computedResult computedBase idealBase computedDirection idealDirection
+      coefficient coefficientMagnitude baseError directionError
+      roundingError : ℝ}
+    (hbase : Approximates computedBase idealBase baseError)
+    (hdirection : Approximates computedDirection idealDirection directionError)
+    (hcoefficient : |coefficient| ≤ coefficientMagnitude)
+    (hrounding : Approximates computedResult
+      (computedBase + coefficient * computedDirection) roundingError) :
+    Approximates computedResult (idealBase + coefficient * idealDirection)
+      (roundingError + baseError + coefficientMagnitude * directionError) := by
+  have hscaledRaw := (Approximates.refl coefficient).mul hdirection
+  have hscaled : Approximates (coefficient * computedDirection)
+      (coefficient * idealDirection) (coefficientMagnitude * directionError) := by
+    apply hscaledRaw.mono
+    simp only [zero_mul, zero_add]
+    exact mul_le_mul_of_nonneg_right hcoefficient hdirection.nonneg
+  have hsum := hbase.add hscaled
+  have hcomposed := hrounding.compose hsum
+  simpa [add_assoc] using hcomposed
+
+/-- Primitive scalar witnesses for one kick-drift-kick coordinate. Gradient
+evaluation and each rounded arithmetic update are exposed separately. -/
+structure EuclideanLeapfrogCoordinateCertificate
+    (parameters : EuclideanLeapfrogErrorParameters) where
+  signedStep : ℝ
+  signedStep_le : |signedStep| ≤ parameters.stepMagnitude
+  computedPosition : ℝ
+  idealPosition : ℝ
+  computedMomentum : ℝ
+  idealMomentum : ℝ
+  computedCurrentGradient : ℝ
+  idealCurrentGradient : ℝ
+  computedHalfMomentum : ℝ
+  computedNextPosition : ℝ
+  computedNextGradient : ℝ
+  idealNextGradient : ℝ
+  computedNextMomentum : ℝ
+  positionError : ℝ
+  momentumError : ℝ
+  positionBound : Approximates computedPosition idealPosition positionError
+  momentumBound : Approximates computedMomentum idealMomentum momentumError
+  currentGradientBound : Approximates computedCurrentGradient idealCurrentGradient
+    (parameters.gradientLipschitz * positionError + parameters.gradientError)
+  halfKickRoundingBound : Approximates computedHalfMomentum
+    (computedMomentum + signedStep / 2 * computedCurrentGradient)
+    parameters.kickRounding
+  nextGradientBound : Approximates computedNextGradient idealNextGradient
+    (parameters.gradientLipschitz *
+      parameters.positionGrowth positionError momentumError +
+      parameters.gradientError)
+  driftRoundingBound : Approximates computedNextPosition
+    (computedPosition + signedStep * computedHalfMomentum)
+    parameters.driftRounding
+  finalKickRoundingBound : Approximates computedNextMomentum
+    (computedHalfMomentum + signedStep / 2 * computedNextGradient)
+    parameters.kickRounding
+
+noncomputable def EuclideanLeapfrogCoordinateCertificate.idealHalfMomentum
+    {parameters : EuclideanLeapfrogErrorParameters}
+    (certificate : EuclideanLeapfrogCoordinateCertificate parameters) : ℝ :=
+  certificate.idealMomentum + certificate.signedStep / 2 *
+    certificate.idealCurrentGradient
+
+noncomputable def EuclideanLeapfrogCoordinateCertificate.idealNextPosition
+    {parameters : EuclideanLeapfrogErrorParameters}
+    (certificate : EuclideanLeapfrogCoordinateCertificate parameters) : ℝ :=
+  certificate.idealPosition + certificate.signedStep *
+    certificate.idealHalfMomentum
+
+noncomputable def EuclideanLeapfrogCoordinateCertificate.idealNextMomentum
+    {parameters : EuclideanLeapfrogErrorParameters}
+    (certificate : EuclideanLeapfrogCoordinateCertificate parameters) : ℝ :=
+  certificate.idealHalfMomentum + certificate.signedStep / 2 *
+    certificate.idealNextGradient
+
+theorem EuclideanLeapfrogCoordinateCertificate.halfMomentum_approximates
+    {parameters : EuclideanLeapfrogErrorParameters}
+    (certificate : EuclideanLeapfrogCoordinateCertificate parameters) :
+    Approximates certificate.computedHalfMomentum
+      certificate.idealHalfMomentum
+      (parameters.halfKickError certificate.positionError
+        certificate.momentumError) := by
+  have hcoefficient : |certificate.signedStep / 2| ≤
+      parameters.stepMagnitude / 2 := by
+    rw [abs_div]
+    norm_num
+    exact div_le_div_of_nonneg_right certificate.signedStep_le
+      (show (0 : ℝ) ≤ 2 by norm_num)
+  have h := roundedAffineUpdate_approximates certificate.momentumBound
+    certificate.currentGradientBound hcoefficient
+    certificate.halfKickRoundingBound
+  simpa [EuclideanLeapfrogCoordinateCertificate.idealHalfMomentum,
+    EuclideanLeapfrogErrorParameters.halfKickError, add_assoc, add_comm,
+    add_left_comm] using h
+
+theorem EuclideanLeapfrogCoordinateCertificate.nextPosition_approximates
+    {parameters : EuclideanLeapfrogErrorParameters}
+    (certificate : EuclideanLeapfrogCoordinateCertificate parameters) :
+    Approximates certificate.computedNextPosition certificate.idealNextPosition
+      (parameters.positionGrowth certificate.positionError
+        certificate.momentumError) := by
+  have h := roundedAffineUpdate_approximates certificate.positionBound
+    certificate.halfMomentum_approximates certificate.signedStep_le
+    certificate.driftRoundingBound
+  simpa [EuclideanLeapfrogCoordinateCertificate.idealNextPosition,
+    EuclideanLeapfrogErrorParameters.positionGrowth, add_assoc, add_comm,
+    add_left_comm] using h
+
+theorem EuclideanLeapfrogCoordinateCertificate.nextMomentum_approximates
+    {parameters : EuclideanLeapfrogErrorParameters}
+    (certificate : EuclideanLeapfrogCoordinateCertificate parameters) :
+    Approximates certificate.computedNextMomentum certificate.idealNextMomentum
+      (parameters.momentumGrowth certificate.positionError
+        certificate.momentumError) := by
+  have hcoefficient : |certificate.signedStep / 2| ≤
+      parameters.stepMagnitude / 2 := by
+    rw [abs_div]
+    norm_num
+    exact div_le_div_of_nonneg_right certificate.signedStep_le
+      (show (0 : ℝ) ≤ 2 by norm_num)
+  have h := roundedAffineUpdate_approximates
+    certificate.halfMomentum_approximates certificate.nextGradientBound
+    hcoefficient certificate.finalKickRoundingBound
+  simpa [EuclideanLeapfrogCoordinateCertificate.idealNextMomentum,
+    EuclideanLeapfrogErrorParameters.momentumGrowth, add_assoc, add_comm,
+    add_left_comm] using h
+
+/-- Package the proved coordinate result as the existing one-dimensional
+endpoint certificate, ready for recurrence-indexed trajectory composition. -/
+noncomputable def EuclideanLeapfrogCoordinateCertificate.toStepCertificate
+    {parameters : EuclideanLeapfrogErrorParameters}
+    (certificate : EuclideanLeapfrogCoordinateCertificate parameters) :
+    LeapfrogStepCertificate where
+  computedPosition := [certificate.computedNextPosition]
+  idealPosition := [certificate.idealNextPosition]
+  computedMomentum := [certificate.computedNextMomentum]
+  idealMomentum := [certificate.idealNextMomentum]
+  positionError := parameters.positionGrowth certificate.positionError
+    certificate.momentumError
+  momentumError := parameters.momentumGrowth certificate.positionError
+    certificate.momentumError
+  position_bound := VectorApproximates.singleton
+    certificate.nextPosition_approximates
+  momentum_bound := VectorApproximates.singleton
+    certificate.nextMomentum_approximates
+
+/-- Dimension-generic family of coordinate witnesses sharing the same input
+error budget. -/
+structure EuclideanLeapfrogVectorCertificate
+    (parameters : EuclideanLeapfrogErrorParameters) (dimension : ℕ) where
+  positionError : ℝ
+  momentumError : ℝ
+  coordinate : Fin dimension → EuclideanLeapfrogCoordinateCertificate parameters
+  coordinate_positionError : ∀ i, (coordinate i).positionError = positionError
+  coordinate_momentumError : ∀ i, (coordinate i).momentumError = momentumError
+
+/-- Aggregate coordinate proofs into the existing vector endpoint interface. -/
+noncomputable def EuclideanLeapfrogVectorCertificate.toStepCertificate
+    {parameters : EuclideanLeapfrogErrorParameters} {dimension : ℕ}
+    (certificate : EuclideanLeapfrogVectorCertificate parameters dimension) :
+    LeapfrogStepCertificate where
+  computedPosition := List.ofFn fun i =>
+    (certificate.coordinate i).computedNextPosition
+  idealPosition := List.ofFn fun i =>
+    (certificate.coordinate i).idealNextPosition
+  computedMomentum := List.ofFn fun i =>
+    (certificate.coordinate i).computedNextMomentum
+  idealMomentum := List.ofFn fun i =>
+    (certificate.coordinate i).idealNextMomentum
+  positionError := parameters.positionGrowth certificate.positionError
+    certificate.momentumError
+  momentumError := parameters.momentumGrowth certificate.positionError
+    certificate.momentumError
+  position_bound := VectorApproximates.ofFn fun i => by
+    simpa [certificate.coordinate_positionError i,
+      certificate.coordinate_momentumError i] using
+      (certificate.coordinate i).nextPosition_approximates
+  momentum_bound := VectorApproximates.ofFn fun i => by
+    simpa [certificate.coordinate_positionError i,
+      certificate.coordinate_momentumError i] using
+      (certificate.coordinate i).nextMomentum_approximates
+
 def iterateLeapfrogError (model : LeapfrogErrorModel) : Nat → ℝ × ℝ → ℝ × ℝ
   | 0, errors => errors
   | steps + 1, errors =>
@@ -193,6 +399,57 @@ noncomputable def LeapfrogTrajectoryErrorCertificate.scheduledEndpoint
     (certificate.positionError_le index)
   momentum_bound := (certificate.endpoint index).momentum_bound.mono
     (certificate.momentumError_le index)
+
+/-- A sequence of primitive vector-step certificates aligned with the
+concrete recurrence. State-linkage between successive records is deliberately
+explicitly outside this error-only structure. -/
+structure EuclideanLeapfrogVectorTrajectoryCertificate
+    (parameters : EuclideanLeapfrogErrorParameters) (dimension steps : ℕ)
+    (initialPositionError initialMomentumError : ℝ) where
+  initial : LeapfrogStepCertificate
+  initialPositionError_le : initial.positionError ≤ initialPositionError
+  initialMomentumError_le : initial.momentumError ≤ initialMomentumError
+  step : Fin steps → EuclideanLeapfrogVectorCertificate parameters dimension
+  step_positionError : ∀ index,
+    (step index).positionError =
+      (iterateLeapfrogError parameters.toErrorModel index.val
+        (initialPositionError, initialMomentumError)).1
+  step_momentumError : ∀ index,
+    (step index).momentumError =
+      (iterateLeapfrogError parameters.toErrorModel index.val
+        (initialPositionError, initialMomentumError)).2
+
+/-- Forget primitive details and obtain the generic recurrence-indexed
+trajectory certificate used by the NUTS phase adapter. -/
+noncomputable def EuclideanLeapfrogVectorTrajectoryCertificate.toErrorCertificate
+    {parameters : EuclideanLeapfrogErrorParameters} {dimension steps : ℕ}
+    {initialPositionError initialMomentumError : ℝ}
+    (certificate : EuclideanLeapfrogVectorTrajectoryCertificate parameters
+      dimension steps initialPositionError initialMomentumError) :
+    LeapfrogTrajectoryErrorCertificate parameters.toErrorModel
+      initialPositionError initialMomentumError steps where
+  endpoint index := Fin.cases certificate.initial
+    (fun stepIndex => (certificate.step stepIndex).toStepCertificate) index
+  positionError_le := by
+    intro index
+    refine Fin.cases certificate.initialPositionError_le (fun stepIndex => ?_)
+      index
+    simp only [Fin.cases_succ,
+      EuclideanLeapfrogVectorCertificate.toStepCertificate, Fin.val_succ,
+      iterateLeapfrogError]
+    rw [certificate.step_positionError stepIndex,
+      certificate.step_momentumError stepIndex]
+    rfl
+  momentumError_le := by
+    intro index
+    refine Fin.cases certificate.initialMomentumError_le (fun stepIndex => ?_)
+      index
+    simp only [Fin.cases_succ,
+      EuclideanLeapfrogVectorCertificate.toStepCertificate, Fin.val_succ,
+      iterateLeapfrogError]
+    rw [certificate.step_positionError stepIndex,
+      certificate.step_momentumError stepIndex]
+    rfl
 
 /-- Complete endpoint-HMC numeric certificate after a fixed trajectory. -/
 structure HmcErrorCertificate where

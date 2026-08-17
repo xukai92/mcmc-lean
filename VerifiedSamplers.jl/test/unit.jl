@@ -63,6 +63,54 @@ end
         -0.1, 1.0, 0.01, 1e-4, 2e-4)
     @test_throws ArgumentError Certificates.leapfrog_error_schedule(
         leapfrog_parameters, -1)
+    coordinate_step = Certificates.certify_leapfrog_coordinate_step(
+        leapfrog_parameters;
+        signed_step=0.1,
+        computed_position=0.0, ideal_position=big"0",
+        computed_momentum=1.0, ideal_momentum=big"1",
+        computed_current_gradient=0.0, ideal_current_gradient=big"0",
+        computed_half_momentum=1.0, computed_next_position=0.1,
+        computed_next_gradient=-0.1,
+        ideal_next_gradient=BigFloat(-0.1),
+        computed_next_momentum=0.995,
+        position_error=0, momentum_error=0)
+    @test coordinate_step.next_position_error == leapfrog_schedule[2].position
+    @test coordinate_step.next_momentum_error == leapfrog_schedule[2].momentum
+    vector_step = Certificates.certify_leapfrog_vector_step(
+        leapfrog_parameters;
+        signed_step=0.1,
+        computed_position=[0.0, 0.0], ideal_position=BigFloat[0, 0],
+        computed_momentum=[1.0, 2.0], ideal_momentum=BigFloat[1, 2],
+        computed_current_gradient=[0.0, 0.0],
+        ideal_current_gradient=BigFloat[0, 0],
+        computed_half_momentum=[1.0, 2.0],
+        computed_next_position=[0.1, 0.2],
+        computed_next_gradient=[-0.1, -0.2],
+        ideal_next_gradient=BigFloat[BigFloat(-0.1), BigFloat(-0.2)],
+        computed_next_momentum=[0.995, 1.99],
+        position_error=0, momentum_error=0)
+    @test length(vector_step.coordinates) == 2
+    @test vector_step.next_position_error == leapfrog_schedule[2].position
+    @test vector_step.next_momentum_error == leapfrog_schedule[2].momentum
+    @test_throws DimensionMismatch Certificates.certify_leapfrog_vector_step(
+        leapfrog_parameters;
+        signed_step=0.1,
+        computed_position=[0.0], ideal_position=BigFloat[0, 0],
+        computed_momentum=[1.0], ideal_momentum=BigFloat[1],
+        computed_current_gradient=[0.0], ideal_current_gradient=BigFloat[0],
+        computed_half_momentum=[1.0], computed_next_position=[0.1],
+        computed_next_gradient=[-0.1], ideal_next_gradient=BigFloat[-0.1],
+        computed_next_momentum=[0.995], position_error=0, momentum_error=0)
+    @test_throws ArgumentError Certificates.certify_leapfrog_coordinate_step(
+        leapfrog_parameters;
+        signed_step=0.2,
+        computed_position=0.0, ideal_position=0.0,
+        computed_momentum=1.0, ideal_momentum=1.0,
+        computed_current_gradient=0.0, ideal_current_gradient=0.0,
+        computed_half_momentum=1.0, computed_next_position=0.2,
+        computed_next_gradient=-0.2, ideal_next_gradient=-0.2,
+        computed_next_momentum=0.98,
+        position_error=0, momentum_error=0)
 
     negative_sign = Certificates.certify_zero_decision(
         -2.0, big"-1.9", big"0.11")
