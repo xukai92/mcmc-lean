@@ -1,6 +1,8 @@
 import Mcmc.PDMP.EventSimulation
 import Mathlib.Probability.BorelCantelli
 import Mathlib.Probability.Independence.InfinitePi
+import Mathlib.Probability.Kernel.CompProdEqIff
+import Mathlib.Probability.Kernel.WithDensity
 
 /-!
 # Exact inverse-integrated-hazard event construction
@@ -893,6 +895,145 @@ theorem unitHazardMeasure_prod_sequence_residual_map_cons
   rw [← Measure.map_map measurable_unitHazardCons (by fun_prop), hpair]
   rw [Measure.prod_smul_left, Measure.map_smul,
     unitHazardMeasure_prod_sequence_map_cons]
+
+/-- Joint prefix/residual-stream kernel obtained by retaining the prefix,
+restricting the next exponential mark to survival of a measurable threshold,
+subtracting that threshold, and consing the residual onto an iid suffix. -/
+noncomputable def unitHazardPrefixResidualJointKernel
+    {Prefix : Type*} [MeasurableSpace Prefix]
+    (threshold : Prefix → NNReal) : Kernel Prefix (Prefix × (ℕ → NNReal)) :=
+  let source : Kernel Prefix (NNReal × (ℕ → NNReal)) :=
+    Kernel.withDensity
+      (Kernel.const Prefix
+        (unitHazardMeasure.prod unitHazardSequenceMeasure))
+      (fun prefixValue headTail =>
+        ↑(if threshold prefixValue < headTail.1 then (1 : NNReal) else 0))
+  Kernel.map (Kernel.prod Kernel.id source)
+    (fun prefixHeadTail =>
+      (prefixHeadTail.1,
+        unitHazardCons
+          (prefixHeadTail.2.1 - threshold prefixHeadTail.1,
+            prefixHeadTail.2.2)))
+
+/-- Equivalent survival-weighted kernel with an explicitly fresh iid output
+stream. -/
+noncomputable def unitHazardPrefixFreshJointKernel
+    {Prefix : Type*} [MeasurableSpace Prefix]
+    (threshold : Prefix → NNReal) : Kernel Prefix (Prefix × (ℕ → NNReal)) :=
+  Kernel.prod Kernel.id
+    (Kernel.withDensity
+      (Kernel.const Prefix unitHazardSequenceMeasure)
+      (fun prefixValue _ =>
+        ↑(Real.toNNReal (Real.exp (-(threshold prefixValue : ℝ))))))
+
+/-- Integrated-kernel form of residual memorylessness: the prefix-dependent
+survival/remainder construction equals a survival-weighted prefix paired with
+an independent fresh iid stream. -/
+theorem unitHazardPrefixResidualJointKernel_eq_fresh
+    {Prefix : Type*} [MeasurableSpace Prefix]
+    (threshold : Prefix → NNReal) (hthreshold : Measurable threshold) :
+    unitHazardPrefixResidualJointKernel threshold =
+      unitHazardPrefixFreshJointKernel threshold := by
+  let sourceDensity : Prefix → (NNReal × (ℕ → NNReal)) → NNReal :=
+    fun prefixValue headTail =>
+      if threshold prefixValue < headTail.1 then 1 else 0
+  let residualMap : Prefix × (NNReal × (ℕ → NNReal)) →
+      Prefix × (ℕ → NNReal) := fun prefixHeadTail =>
+    (prefixHeadTail.1,
+      unitHazardCons
+        (prefixHeadTail.2.1 - threshold prefixHeadTail.1,
+          prefixHeadTail.2.2))
+  have hsourceDensity : Measurable (Function.uncurry sourceDensity) := by
+    unfold sourceDensity Function.uncurry
+    apply Measurable.ite
+    · exact measurableSet_lt
+        (hthreshold.comp measurable_fst)
+        (measurable_fst.comp measurable_snd)
+    · exact measurable_const
+    · exact measurable_const
+  have hsourceDensityCoe : Measurable (Function.uncurry
+      (fun prefixValue headTail => (sourceDensity prefixValue headTail : ENNReal))) :=
+    hsourceDensity.coe_nnreal_ennreal
+  have hresidualMap : Measurable residualMap := by
+    unfold residualMap
+    exact measurable_fst.prodMk <| measurable_unitHazardCons.comp <|
+      ((measurable_fst.comp measurable_snd).sub
+        (hthreshold.comp measurable_fst)).prodMk
+          (measurable_snd.comp measurable_snd)
+  ext prefixValue event hevent
+  unfold unitHazardPrefixResidualJointKernel
+    unitHazardPrefixFreshJointKernel
+  dsimp only
+  rw [Kernel.map_apply _ hresidualMap,
+    Kernel.prod_apply, Kernel.id_apply,
+    Kernel.withDensity_apply _ hsourceDensityCoe,
+    Kernel.const_apply]
+  let survival : Set (NNReal × (ℕ → NNReal)) :=
+    {headTail | threshold prefixValue < headTail.1}
+  have hsurvival : MeasurableSet survival :=
+    measurableSet_lt measurable_const measurable_fst
+  have hsource :
+      (unitHazardMeasure.prod unitHazardSequenceMeasure).withDensity
+          (fun headTail => (sourceDensity prefixValue headTail : ENNReal)) =
+        (unitHazardMeasure.prod unitHazardSequenceMeasure).restrict
+          survival := by
+    have hdensity : (fun headTail =>
+        (sourceDensity prefixValue headTail : ENNReal)) =
+        survival.indicator 1 := by
+      funext headTail
+      by_cases hmem : headTail ∈ survival
+      · have hlt : threshold prefixValue < headTail.1 := hmem
+        simp [sourceDensity, hmem, hlt]
+      · have hnlt : ¬threshold prefixValue < headTail.1 := hmem
+        simp [sourceDensity, hmem, hnlt]
+    rw [hdensity, withDensity_indicator_one hsurvival]
+  rw [hsource, Measure.dirac_prod]
+  let residual : NNReal × (ℕ → NNReal) → ℕ → NNReal :=
+    fun headTail =>
+      unitHazardCons (headTail.1 - threshold prefixValue, headTail.2)
+  have hresidual : Measurable residual := by
+    unfold residual
+    exact measurable_unitHazardCons.comp
+      ((measurable_fst.sub measurable_const).prodMk measurable_snd)
+  rw [Measure.map_map hresidualMap measurable_prodMk_left]
+  have hcomposition : residualMap ∘ Prod.mk prefixValue =
+      Prod.mk prefixValue ∘ residual := by
+    funext headTail
+    rfl
+  rw [hcomposition, ← Measure.map_map measurable_prodMk_left hresidual]
+  have hfiber := unitHazardMeasure_prod_sequence_residual_map_cons
+    (threshold prefixValue)
+  change Measure.map residual
+      ((unitHazardMeasure.prod unitHazardSequenceMeasure).restrict survival) =
+    _ at hfiber
+  rw [hfiber, Measure.map_smul]
+  rw [Kernel.prod_apply, Kernel.id_apply,
+    Kernel.withDensity_apply _ (by
+      unfold Function.uncurry
+      exact ((Real.measurable_exp.comp
+        (hthreshold.coe_nnreal_real.neg)).real_toNNReal.coe_nnreal_ennreal).comp
+          measurable_fst),
+    Kernel.const_apply, withDensity_const,
+    Measure.dirac_prod]
+  rw [Measure.map_smul]
+  have hweight : ENNReal.ofReal (Real.exp (-(threshold prefixValue : ℝ))) =
+      (Real.toNNReal (Real.exp (-(threshold prefixValue : ℝ))) : ENNReal) :=
+    rfl
+  rw [hweight]
+
+/-- Integrating the prefix-dependent residual construction against any
+s-finite prefix law (and any measurable active-prefix restriction) preserves
+the fresh-stream factorization. -/
+theorem unitHazardPrefixResidualJointMeasure_eq_fresh
+    {Prefix : Type*} [MeasurableSpace Prefix]
+    (prefixMeasure : Measure Prefix) [SFinite prefixMeasure]
+    (active : Set Prefix)
+    (threshold : Prefix → NNReal) (hthreshold : Measurable threshold) :
+    (prefixMeasure.restrict active) ⊗ₘ
+        unitHazardPrefixResidualJointKernel threshold =
+      (prefixMeasure.restrict active) ⊗ₘ
+        unitHazardPrefixFreshJointKernel threshold := by
+  rw [unitHazardPrefixResidualJointKernel_eq_fresh threshold hthreshold]
 
 /-! ### Deterministic finite-prefix factorization -/
 

@@ -489,8 +489,10 @@ breadth branches are:
   three-factor product law; terminal survival plus residual subtraction gives
   a fresh iid stream in every fixed-prefix fiber; and genuine completion
   strata are almost surely exactly active-prefix/terminal-survival sets.
-  Integrating those fibers and summing over counts remain, followed by target
-  invariance and convergence.
+  Those fibers are now integrated over the full active-prefix measure through
+  a reusable survival-weighted joint-kernel theorem. Identifying each original
+  restricted stratum with that integrated kernel and summing over counts
+  remain, followed by target invariance and convergence.
   Separately, the unbounded-rate standard-Gaussian Zig-Zag now has a genuine
   event kernel based on the closed-form inverse integrated hazard. Its unit
   exponential draw is positive almost surely, the inversion equation is

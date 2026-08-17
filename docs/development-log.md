@@ -4969,3 +4969,13 @@ direction proves that the next no-event step finishes and that no earlier
 prefix could have been selected. Remaining is to integrate the fixed-prefix
 fiber identity over this active-prefix set, obtaining the stratum-level
 product law, and then sum those laws over `n`.
+
+The fiber integration is now complete in a reusable kernel form. A generic
+prefix-dependent residual joint kernel restricts a unit-exponential head to
+survival, subtracts the measurable threshold, and retains the prefix. Lean
+proves this kernel equals a survival-weighted prefix kernel paired with an
+explicitly fresh iid stream. Composition with any s-finite prefix measure and
+measurable prefix restriction preserves that equality. The Gaussian-BPS
+active-prefix law instantiates it directly. Remaining is to identify the
+restriction of the original iid stream to each genuine completion stratum
+with this integrated active-prefix kernel, then sum over completion counts.

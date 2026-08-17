@@ -1992,6 +1992,29 @@ theorem standardGaussianBPSSplitResidualFromBlocks_fiberLaw
       (standardGaussianBPSTerminalThreshold (ι := ι)
         horizon initial count marks)
 
+/-- The fixed-prefix fiber laws integrate over the complete active-prefix
+region.  The resulting joint law retains the survival-weighted prefix and has
+an explicitly fresh iid residual hazard stream. -/
+theorem standardGaussianBPSActivePrefixResidualJointMeasure_eq_fresh
+    (horizon : NNReal) (initial : BouncyParticleState ι) (count : ℕ) :
+    ((unitHazardPrefixMeasure count).restrict
+        (standardGaussianBPSActivePrefixSet (ι := ι)
+          horizon initial count)) ⊗ₘ
+      unitHazardPrefixResidualJointKernel
+        (standardGaussianBPSTerminalThreshold (ι := ι)
+          horizon initial count) =
+    ((unitHazardPrefixMeasure count).restrict
+        (standardGaussianBPSActivePrefixSet (ι := ι)
+          horizon initial count)) ⊗ₘ
+      unitHazardPrefixFreshJointKernel
+        (standardGaussianBPSTerminalThreshold (ι := ι)
+          horizon initial count) := by
+  exact unitHazardPrefixResidualJointMeasure_eq_fresh
+    (unitHazardPrefixMeasure count)
+    (standardGaussianBPSActivePrefixSet (ι := ι) horizon initial count)
+    (standardGaussianBPSTerminalThreshold (ι := ι) horizon initial count)
+    (measurable_standardGaussianBPSTerminalThreshold horizon initial count)
+
 /-- On a genuine no-event terminal branch, the residual stream's head clock
 is exactly the unused portion of the original terminal clock. -/
 theorem standardGaussianBPSSplitResidualStream_waitingTime
