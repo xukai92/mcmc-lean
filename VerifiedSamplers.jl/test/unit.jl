@@ -49,6 +49,40 @@ end
     @test_throws ArgumentError Certificates.certify_bound(0.5, big"0.6", big"0.01")
     @test_throws ArgumentError Certificates.certify_bound(Inf, big"1.0", big"1.0")
 
+    negative_sign = Certificates.certify_zero_decision(
+        -2.0, big"-1.9", big"0.11")
+    positive_sign = Certificates.certify_zero_decision(
+        2.0, big"1.9", big"0.11")
+    boundary_sign = Certificates.certify_zero_decision(
+        0.125, big"0.125", big"0.125")
+    @test Certificates.is_stable(negative_sign)
+    @test Certificates.is_stable(positive_sign)
+    @test !Certificates.is_stable(boundary_sign)
+
+    separated_comparison = Certificates.certify_comparison(
+        0.5, big"0.51", big"0.02", 1.0, big"0.99", big"0.02")
+    ambiguous_comparison = Certificates.certify_comparison(
+        0.99, big"0.99", big"0.01", 1.0, big"1.0", big"0.01")
+    @test Certificates.is_stable(separated_comparison)
+    @test !Certificates.is_stable(ambiguous_comparison)
+
+    uturn = Certificates.certify_uturn_decision(
+        -2.0, big"-1.9", big"0.11", 3.0, big"2.9", big"0.11")
+    ambiguous_uturn = Certificates.certify_uturn_decision(
+        -2.0, big"-1.9", big"0.11", 0.125, big"0.125", big"0.125")
+    @test Certificates.is_stable(uturn)
+    @test !Certificates.is_stable(ambiguous_uturn)
+    completed_tree = Certificates.CompletedTreeDecisionCertificate(
+        [separated_comparison], [uturn])
+    ambiguous_tree = Certificates.CompletedTreeDecisionCertificate(
+        [separated_comparison, ambiguous_comparison], [uturn])
+    @test Certificates.is_stable(completed_tree)
+    @test !Certificates.is_stable(ambiguous_tree)
+    @test Certificates.is_stable(
+        Certificates.CompletedTreeDecisionCertificate(
+            Certificates.SeparatedComparisonCertificate[],
+            Certificates.UTurnDecisionCertificate[]))
+
     rwmh = Certificates.certify_rwmh_decision(
         computed_current_logdensity=-0.5, ideal_current_logdensity=big"-0.5",
         current_logdensity_bound=0,

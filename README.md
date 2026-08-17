@@ -162,7 +162,12 @@ to be connected to the Julia tree/slice generator. The discrete representative
 step is now generated as IR policy `eligible-count-streaming`: Lean proves its
 normalized retained-endpoint law, while Julia Reference and Optimized exercise
 independent recursive and flattened implementations. Floating-point phase,
-slice, and U-turn callback refinement remains explicit.
+slice, and U-turn callback refinement remains explicit. A bounded refinement
+layer now certifies slice/divergence comparisons and both endpoint U-turn dot
+products whenever their computed values strictly clear supplied absolute-error
+bands; Lean proves these local decisions reproduce the complete ideal recursive
+flag trace. Supplying trustworthy trajectory-wide ideal witnesses and error
+bounds remains the backend obligation.
 For example:
 
 ```julia

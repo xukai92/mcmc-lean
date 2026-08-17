@@ -4083,3 +4083,19 @@ tests cover both execution shapes, and empirical/reproducibility tests cover
 their common law. This discharges the executable discrete selection rule, not
 the floating-point claim that production phase, slice, divergence, and U-turn
 callbacks produce the Lean-declared tree auxiliary and eligibility data.
+
+## 2026-08-17: bounded dynamic-tree decision refinement
+
+Added the numerical decision layer between floating-point callbacks and the
+ideal completed-tree flags. `SeparatedZeroCertificate` proves a computed sign
+equals its ideal sign when an absolute-error interval lies strictly on one side
+of zero. `SeparatedComparisonCertificate` composes two operand bounds for
+slice/divergence comparisons, and `UTurnDecisionCertificate` composes both
+endpoint dot-product signs. A structural theorem lifts pointwise leaf and
+endpoint agreement through the full recursive `NUTSBuildFlagTree`, so its
+continuation result agrees exactly. Julia mirrors these execution-specific
+certificates with BigFloat checks and tests stable negative/positive,
+two-sided comparison, U-turn, and exact-boundary rejection cases. As elsewhere
+in the numerical layer, supplied ideal values and analytic bounds remain proof
+inputs; these records do not establish arbitrary callback or platform error
+bounds by observation alone.

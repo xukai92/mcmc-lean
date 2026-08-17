@@ -6,6 +6,10 @@ export BoundWitness, DecisionCertificate, certify_bound, certify_decision,
     SliceComparisonCertificate, certify_slice_comparisons,
     ImplicitSolveCertificate, certify_implicit_solve, certifies_exact_solver,
     ContractionErrorBound, contraction_error_bound,
+    SeparatedZeroDecisionCertificate, certify_zero_decision,
+    SeparatedComparisonCertificate, certify_comparison,
+    UTurnDecisionCertificate, certify_uturn_decision,
+    CompletedTreeDecisionCertificate,
     is_stable, uncertainty_band
 
 """A checked, execution-specific absolute-error claim.
@@ -21,6 +25,98 @@ struct BoundWitness
     bound::BigFloat
     observed_error::BigFloat
 end
+
+"""Bounded sign decision used by a dynamic-tree callback.
+
+Stability means the computed scalar lies strictly outside `[-bound, bound]`.
+As with `BoundWitness`, the supplied ideal value and analytic error budget are
+premises; construction only checks their observed numerical consistency.
+"""
+struct SeparatedZeroDecisionCertificate
+    witness::BoundWitness
+    separation::BigFloat
+end
+
+is_stable(certificate::SeparatedZeroDecisionCertificate) =
+    certificate.separation > 0
+uncertainty_band(certificate::SeparatedZeroDecisionCertificate) =
+    certificate.witness.bound
+
+function certify_zero_decision(computed::Real, ideal::Real, bound::Real;
+        precision::Integer=256)
+    witness = certify_bound(computed, ideal, bound; precision=precision)
+    setprecision(BigFloat, precision) do
+        separation = abs(BigFloat(witness.computed)) - witness.bound
+        SeparatedZeroDecisionCertificate(witness, separation)
+    end
+end
+
+"""Two-sided comparison certificate with summed operand uncertainty."""
+struct SeparatedComparisonCertificate
+    left::BoundWitness
+    right::BoundWitness
+    separation::BigFloat
+end
+
+is_stable(certificate::SeparatedComparisonCertificate) =
+    certificate.separation > 0
+uncertainty_band(certificate::SeparatedComparisonCertificate) =
+    certificate.left.bound + certificate.right.bound
+
+function certify_comparison(computed_left::Real, ideal_left::Real,
+        left_bound::Real, computed_right::Real, ideal_right::Real,
+        right_bound::Real; precision::Integer=256)
+    left = certify_bound(computed_left, ideal_left, left_bound;
+        precision=precision)
+    right = certify_bound(computed_right, ideal_right, right_bound;
+        precision=precision)
+    setprecision(BigFloat, precision) do
+        computed_difference = BigFloat(left.computed) - BigFloat(right.computed)
+        separation = abs(computed_difference) - (left.bound + right.bound)
+        SeparatedComparisonCertificate(left, right, separation)
+    end
+end
+
+"""Certificate for the two endpoint dot-product signs in a U-turn test."""
+struct UTurnDecisionCertificate
+    left_momentum::SeparatedZeroDecisionCertificate
+    right_momentum::SeparatedZeroDecisionCertificate
+end
+
+is_stable(certificate::UTurnDecisionCertificate) =
+    is_stable(certificate.left_momentum) &&
+    is_stable(certificate.right_momentum)
+uncertainty_band(certificate::UTurnDecisionCertificate) = max(
+    uncertainty_band(certificate.left_momentum),
+    uncertainty_band(certificate.right_momentum))
+
+function certify_uturn_decision(computed_left::Real, ideal_left::Real,
+        left_bound::Real, computed_right::Real, ideal_right::Real,
+        right_bound::Real; precision::Integer=256)
+    UTurnDecisionCertificate(
+        certify_zero_decision(computed_left, ideal_left, left_bound;
+            precision=precision),
+        certify_zero_decision(computed_right, ideal_right, right_bound;
+            precision=precision))
+end
+
+"""All primitive comparison certificates visited by one completed tree.
+
+The recursive topology and ordering are supplied by the caller. Stability
+means every recorded leaf and internal U-turn decision clears its uncertainty
+band, matching Lean's tree-local `DecisionsAgree` interface.
+"""
+struct CompletedTreeDecisionCertificate
+    leaf_comparisons::Vector{SeparatedComparisonCertificate}
+    uturn_decisions::Vector{UTurnDecisionCertificate}
+end
+
+is_stable(certificate::CompletedTreeDecisionCertificate) =
+    all(is_stable, certificate.leaf_comparisons) &&
+    all(is_stable, certificate.uturn_decisions)
+uncertainty_band(certificate::CompletedTreeDecisionCertificate) = max(
+    maximum(uncertainty_band, certificate.leaf_comparisons; init=big"0"),
+    maximum(uncertainty_band, certificate.uturn_decisions; init=big"0"))
 
 """Checked comparison margins for one finite stepping-out/shrinkage trace.
 
