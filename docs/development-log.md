@@ -4693,3 +4693,27 @@ reversal equals the contextual anchored transform using the
 signature-controlled final bracket.  The remaining local obligation is only
 the exact product-measure reassociation law for this runtime chart, followed by
 restriction and countable gluing.
+
+## 2026-08-17: fixed-length practical joint-law closure
+
+Closed the raw product-measure argument on every fixed rejected-vector length.
+The full runtime anchor chart is proved measure preserving by an explicit
+composition of product associators, a current/grid-to-anchor/grid triangular
+map, and final reassociation.  A measurable globally nondegenerate bracket
+extension uses `(0,1)` only outside ordered replay contexts and agrees exactly
+with the derived final bracket on successful pieces.
+
+Pulling the safe contextual transform back through the chart gives a global
+measure-preserving involution.  Lean proves it equals the concrete primitive
+runtime reversal on each successful replay piece, that forward and reverse
+signatures induce the same surrogate, and that the preimage of each reversed
+piece is exactly its source piece.  Thus the concrete reversal preserves raw
+product measure between every inhabited pair.  Summing over the subtype of
+inhabited signatures—where reversal is a genuine permutation—proves raw
+preservation on the entire fixed-length success set.  The existing likelihood
+symmetry then lifts this to the complete weighted fixed-length joint law.
+
+The remaining practical measure assembly is now only the sigma-type sum over
+rejected-vector lengths and identification with the already-defined
+variable-length successful/completed runtime kernels; the within-length
+affine and signature obligations are closed.

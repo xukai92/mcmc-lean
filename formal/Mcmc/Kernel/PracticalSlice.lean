@@ -2568,6 +2568,42 @@ theorem acceptedProposalReverse_involutive
   · simp [acceptedProposalReverse]
     field_simp
 
+theorem anchoredAcceptedGridReverse_involutive
+    {width : ℝ} (hwidth : width ≠ 0) (anchor : ℝ)
+    {left right : ℝ} (hbracket : right - left ≠ 0) :
+    Function.Involutive
+      (anchoredAcceptedGridReverse width anchor left right) := by
+  let gridEquiv := anchoredGridStateMeasurableEquiv width anchor hwidth
+  let proposalEquiv := MeasurableEquiv.prodCongr gridEquiv
+    (MeasurableEquiv.refl ℝ)
+  have hconjugate : anchoredAcceptedGridReverse width anchor left right =
+      proposalEquiv.symm ∘ acceptedProposalReverse left right ∘ proposalEquiv := by
+    funext point
+    apply Prod.ext
+    · apply gridEquiv.injective
+      change anchoredGridState width anchor
+          (alignmentAllocationReverse width
+            (anchoredGridState width anchor point.1)
+            (acceptedProposalReverse left right
+              (anchoredGridState width anchor point.1, point.2)).1 point.1) = _
+      rw [anchoredGridState_alignmentAllocationReverse_eq_new hwidth anchor
+        (anchoredGridState width anchor point.1)
+        (acceptedProposalReverse left right
+          (anchoredGridState width anchor point.1, point.2)).1 point.1 rfl]
+      change (acceptedProposalReverse left right
+          (anchoredGridState width anchor point.1, point.2)).1 =
+        gridEquiv (gridEquiv.symm
+          (acceptedProposalReverse left right
+            (anchoredGridState width anchor point.1, point.2)).1)
+      exact (gridEquiv.apply_symm_apply _).symm
+    · rfl
+  rw [hconjugate]
+  intro point
+  simp only [Function.comp_apply]
+  rw [proposalEquiv.apply_symm_apply]
+  rw [acceptedProposalReverse_involutive hbracket]
+  exact proposalEquiv.symm_apply_apply point
+
 /-- The forward coordinate encodes the accepted point and the reverse
 coordinate encodes the old point in the same fixed bracket. -/
 theorem acceptedProposalReverse_fst (left right : ℝ) (point : ℝ × ℝ) :
@@ -3795,6 +3831,115 @@ noncomputable def fixedRuntimeAnchorMeasurableEquiv (width : ℝ) (length : ℕ)
   measurable_toFun := measurable_fixedRuntimeAnchorChart width
   measurable_invFun := measurable_fixedRuntimeAnchorChartInverse width
 
+/-- The fixed runtime anchor chart sends the original raw product law to the
+reassociated anchor-context product law exactly. -/
+theorem fixedRuntimeAnchorChart_measurePreserving (width : ℝ) (length : ℕ) :
+    MeasurePreserving (fixedRuntimeAnchorChart width (length := length))
+      (((volume : Measure ℝ).prod volume).prod
+        ((Measure.pi fun _ : Fin length => (volume : Measure ℝ)).prod
+          (((volume : Measure Alignment).prod (Measure.count : Measure ℤ)).prod
+            (volume : Measure ℝ))))
+      ((((volume : Measure ℝ).prod
+          (Measure.pi fun _ : Fin length => (volume : Measure ℝ))).prod volume).prod
+        (((volume : Measure Alignment).prod (Measure.count : Measure ℤ)).prod
+          (volume : Measure ℝ))) := by
+  let rejectedMeasure := Measure.pi fun _ : Fin length => (volume : Measure ℝ)
+  let gridMeasure :=
+    (volume : Measure Alignment).prod (Measure.count : Measure ℤ)
+  let tailMeasure := gridMeasure.prod (volume : Measure ℝ)
+  let sourceReassoc : ((ℝ × ℝ) × FixedRuntimeTrace length) →
+      (ℝ × (Fin length → ℝ)) × ((ℝ × (Alignment × ℤ)) × ℝ) :=
+    fun point => ((point.1.1, point.2.1),
+      ((point.1.2, point.2.2.1), point.2.2.2))
+  have hassoc₁ := MeasureTheory.measurePreserving_prodAssoc
+    (volume : Measure ℝ) (volume : Measure ℝ)
+    (rejectedMeasure.prod tailMeasure)
+  have hinnerAssoc₁ := (MeasureTheory.measurePreserving_prodAssoc
+    (volume : Measure ℝ) rejectedMeasure tailMeasure).symm
+  have hinnerSwap : MeasurePreserving
+      (Prod.map Prod.swap id)
+      (((volume : Measure ℝ).prod rejectedMeasure).prod tailMeasure)
+      ((rejectedMeasure.prod (volume : Measure ℝ)).prod tailMeasure) :=
+    (Measure.measurePreserving_swap (μ := (volume : Measure ℝ))
+      (ν := rejectedMeasure)).prod (MeasurePreserving.id tailMeasure)
+  have hinnerAssoc₂ := MeasureTheory.measurePreserving_prodAssoc
+    rejectedMeasure (volume : Measure ℝ) tailMeasure
+  have htailAssoc := (MeasureTheory.measurePreserving_prodAssoc
+    (volume : Measure ℝ) gridMeasure (volume : Measure ℝ)).symm
+  have hinnerTail : MeasurePreserving
+      (Prod.map id (MeasurableEquiv.prodAssoc.symm))
+      (rejectedMeasure.prod ((volume : Measure ℝ).prod tailMeasure))
+      (rejectedMeasure.prod
+        (((volume : Measure ℝ).prod gridMeasure).prod (volume : Measure ℝ))) :=
+    (MeasurePreserving.id rejectedMeasure).prod htailAssoc
+  have hinner := hinnerTail.comp
+    (hinnerAssoc₂.comp (hinnerSwap.comp hinnerAssoc₁))
+  have hretainThreshold := (MeasurePreserving.id (volume : Measure ℝ)).prod hinner
+  have hfinalAssoc := (MeasureTheory.measurePreserving_prodAssoc
+    (volume : Measure ℝ) rejectedMeasure
+      (((volume : Measure ℝ).prod gridMeasure).prod
+        (volume : Measure ℝ))).symm
+  have hsourceReassoc : MeasurePreserving sourceReassoc
+      (((volume : Measure ℝ).prod volume).prod
+        (rejectedMeasure.prod tailMeasure))
+      (((volume : Measure ℝ).prod rejectedMeasure).prod
+        (((volume : Measure ℝ).prod gridMeasure).prod
+          (volume : Measure ℝ))) := by
+    have hall := hfinalAssoc.comp (hretainThreshold.comp hassoc₁)
+    convert hall using 1
+    funext point
+    rfl
+  let anchorFiber : ((ℝ × (Alignment × ℤ)) × ℝ) →
+      ((ℝ × (Alignment × ℤ)) × ℝ) :=
+    Prod.map (gridAnchorCoordinates width) id
+  have hanchorFiber : MeasurePreserving anchorFiber
+      (((volume : Measure ℝ).prod gridMeasure).prod (volume : Measure ℝ))
+      (((volume : Measure ℝ).prod gridMeasure).prod (volume : Measure ℝ)) :=
+    (gridAnchorCoordinates_measurePreserving width).prod
+      (MeasurePreserving.id (volume : Measure ℝ))
+  let retainContext :
+      ((ℝ × (Fin length → ℝ)) × ((ℝ × (Alignment × ℤ)) × ℝ)) →
+      ((ℝ × (Fin length → ℝ)) × ((ℝ × (Alignment × ℤ)) × ℝ)) :=
+    Prod.map id anchorFiber
+  have hretainContext : MeasurePreserving retainContext
+      (((volume : Measure ℝ).prod rejectedMeasure).prod
+        (((volume : Measure ℝ).prod gridMeasure).prod (volume : Measure ℝ)))
+      (((volume : Measure ℝ).prod rejectedMeasure).prod
+        (((volume : Measure ℝ).prod gridMeasure).prod (volume : Measure ℝ))) :=
+    (MeasurePreserving.id ((volume : Measure ℝ).prod rejectedMeasure)).prod
+      hanchorFiber
+  let targetReassoc :
+      ((ℝ × (Fin length → ℝ)) × ((ℝ × (Alignment × ℤ)) × ℝ)) →
+      FixedRuntimeAnchorSpace length := fun point =>
+    ((point.1, point.2.1.1), (point.2.1.2, point.2.2))
+  have htargetInner := MeasureTheory.measurePreserving_prodAssoc
+    (volume : Measure ℝ) gridMeasure (volume : Measure ℝ)
+  have htargetStep :=
+    (MeasurePreserving.id ((volume : Measure ℝ).prod rejectedMeasure)).prod
+      htargetInner
+  have htargetOuter := (MeasureTheory.measurePreserving_prodAssoc
+    ((volume : Measure ℝ).prod rejectedMeasure) (volume : Measure ℝ)
+      (gridMeasure.prod (volume : Measure ℝ))).symm
+  have htargetReassoc : MeasurePreserving targetReassoc
+      (((volume : Measure ℝ).prod rejectedMeasure).prod
+        (((volume : Measure ℝ).prod gridMeasure).prod (volume : Measure ℝ)))
+      ((((volume : Measure ℝ).prod rejectedMeasure).prod volume).prod
+        (gridMeasure.prod (volume : Measure ℝ))) := by
+    have hall := htargetOuter.comp htargetStep
+    convert hall using 1
+    funext point
+    rfl
+  have hall := htargetReassoc.comp
+    (hretainContext.comp hsourceReassoc)
+  change MeasurePreserving (fixedRuntimeAnchorChart width (length := length))
+    (((volume : Measure ℝ).prod volume).prod
+      (rejectedMeasure.prod (gridMeasure.prod (volume : Measure ℝ))))
+    ((((volume : Measure ℝ).prod rejectedMeasure).prod volume).prod
+      (gridMeasure.prod (volume : Measure ℝ)))
+  convert hall using 1
+  funext point
+  rfl
+
 /-- After using the discrete measurable structure on integers, the density is
 jointly measurable in state and all trace coordinates at a fixed length. -/
 theorem measurable_uncurry_runtimeTraceDensity_fixedLength
@@ -3830,6 +3975,17 @@ instance fixedRuntimeTraceBase.instSFinite (length : ℕ) :
     SFinite (fixedRuntimeTraceBase length) := by
   unfold fixedRuntimeTraceBase
   infer_instance
+
+theorem fixedRuntimeAnchorChart_runtimeBase_measurePreserving
+    (width : ℝ) (length : ℕ) :
+    MeasurePreserving (fixedRuntimeAnchorChart width (length := length))
+      (((volume : Measure ℝ).prod volume).prod (fixedRuntimeTraceBase length))
+      ((((volume : Measure ℝ).prod
+          (Measure.pi fun _ : Fin length => (volume : Measure ℝ))).prod volume).prod
+        (((volume : Measure Alignment).prod (Measure.count : Measure ℤ)).prod
+          (volume : Measure ℝ))) := by
+  simpa only [fixedRuntimeTraceBase] using
+    fixedRuntimeAnchorChart_measurePreserving width length
 
 /-- Successful subkernel on one rejected-length fiber. -/
 noncomputable def fixedSuccessfulRuntimeTraceKernel
@@ -5597,6 +5753,15 @@ noncomputable def fixedRuntimeReplayFinalBracket {length : ℕ}
   shrinkRejectedVectorBySides length rejected signature.rejectedLeft
     (fixedRuntimeReplaySteppedBracket width anchor signature)
 
+/-- Globally nondegenerate extension of a signature-controlled final bracket.
+It agrees with the replay bracket wherever that bracket is ordered and uses a
+fixed unit fallback elsewhere. -/
+noncomputable def safeFixedRuntimeReplayFinalBracket {length : ℕ}
+    (width anchor : ℝ) (rejected : Fin length → ℝ)
+    (signature : FixedRuntimeReplaySignature length) : ℝ × ℝ :=
+  let bracket := fixedRuntimeReplayFinalBracket width anchor rejected signature
+  if bracket.1 < bracket.2 then bracket else (0, 1)
+
 theorem measurable_fixedRuntimeReplayFinalBracket {length : ℕ}
     (width : ℝ) (signature : FixedRuntimeReplaySignature length) :
     Measurable (fun point : ℝ × (Fin length → ℝ) =>
@@ -5608,6 +5773,34 @@ theorem measurable_fixedRuntimeReplayFinalBracket {length : ℕ}
   exact (measurable_shrinkRejectedVectorBySides length
       signature.rejectedLeft).comp
     (measurable_snd.prodMk (hstepped.comp measurable_fst))
+
+theorem measurable_safeFixedRuntimeReplayFinalBracket {length : ℕ}
+    (width : ℝ) (signature : FixedRuntimeReplaySignature length) :
+    Measurable (fun point : ℝ × (Fin length → ℝ) =>
+      safeFixedRuntimeReplayFinalBracket width point.1 point.2 signature) := by
+  have hbracket := measurable_fixedRuntimeReplayFinalBracket width signature
+  unfold safeFixedRuntimeReplayFinalBracket
+  exact Measurable.ite
+    (measurableSet_lt (measurable_fst.comp hbracket)
+      (measurable_snd.comp hbracket)) hbracket measurable_const
+
+theorem safeFixedRuntimeReplayFinalBracket_lt {length : ℕ}
+    (width anchor : ℝ) (rejected : Fin length → ℝ)
+    (signature : FixedRuntimeReplaySignature length) :
+    (safeFixedRuntimeReplayFinalBracket width anchor rejected signature).1 <
+      (safeFixedRuntimeReplayFinalBracket width anchor rejected signature).2 := by
+  dsimp only [safeFixedRuntimeReplayFinalBracket]
+  split <;> simp_all
+
+theorem safeFixedRuntimeReplayFinalBracket_eq_of_lt {length : ℕ}
+    (width anchor : ℝ) (rejected : Fin length → ℝ)
+    (signature : FixedRuntimeReplaySignature length)
+    (hbracket : (fixedRuntimeReplayFinalBracket width anchor rejected
+      signature).1 <
+      (fixedRuntimeReplayFinalBracket width anchor rejected signature).2) :
+    safeFixedRuntimeReplayFinalBracket width anchor rejected signature =
+      fixedRuntimeReplayFinalBracket width anchor rejected signature := by
+  simp [safeFixedRuntimeReplayFinalBracket, hbracket]
 
 instance (length : ℕ) : Countable (FixedRuntimeReplaySignature length) := by
   let encode : FixedRuntimeReplaySignature length →
@@ -6230,6 +6423,128 @@ theorem fixedRuntimeReplayFinalBracket_reverse_of_mem
     intervals maxShrink length signature witness hwitness anchor]
   rfl
 
+theorem safeFixedRuntimeReplayFinalBracket_reverse_of_mem
+    (logDensity : ℝ → ℝ) {width : ℝ} (hwidth : 0 < width)
+    (intervals maxShrink length : ℕ)
+    (signature : FixedRuntimeReplaySignature length)
+    (witness : (ℝ × ℝ) × FixedRuntimeTrace length)
+    (hwitness : witness ∈ fixedRuntimeReplayPiece logDensity width intervals
+      maxShrink length signature)
+    (anchor : ℝ) (rejected : Fin length → ℝ) :
+    safeFixedRuntimeReplayFinalBracket width anchor rejected
+        (reverseFixedRuntimeReplaySignature signature) =
+      safeFixedRuntimeReplayFinalBracket width anchor rejected signature := by
+  unfold safeFixedRuntimeReplayFinalBracket
+  rw [fixedRuntimeReplayFinalBracket_reverse_of_mem logDensity hwidth intervals
+    maxShrink length signature witness hwitness anchor rejected]
+
+theorem safeFixedRuntimeReplayFinalBracket_eq_on_piece
+    (logDensity : ℝ → ℝ) {width : ℝ} (hwidth : 0 < width)
+    (intervals maxShrink length : ℕ)
+    (signature : FixedRuntimeReplaySignature length)
+    (point : (ℝ × ℝ) × FixedRuntimeTrace length)
+    (hpoint : point ∈ fixedRuntimeReplayPiece logDensity width intervals
+      maxShrink length signature) :
+    safeFixedRuntimeReplayFinalBracket width
+        (maximalLeftGridAnchor width point.1.2 point.2.2.1)
+        point.2.1 signature =
+      runtimeFinalBracket logDensity point.1.1 width point.1.2 intervals
+        (Sigma.mk length point.2.1, point.2.2) := by
+  rw [safeFixedRuntimeReplayFinalBracket_eq_of_lt width _ _ signature
+    (fixedRuntimeReplayFinalBracket_lt_of_mem logDensity hwidth intervals
+      maxShrink length signature point hpoint)]
+  exact (runtimeFinalBracket_eq_fixedRuntimeReplayFinalBracket logDensity width
+    intervals maxShrink length signature point hpoint).symm
+
+/-- Globally safe contextual transform associated with one replay signature. -/
+noncomputable def fixedRuntimeSafeAnchorReverse {length : ℕ}
+    (width : ℝ) (signature : FixedRuntimeReplaySignature length) :
+    FixedRuntimeAnchorSpace length → FixedRuntimeAnchorSpace length :=
+  contextualAnchoredAcceptedGridReverse width
+    (fun context : FixedRuntimeAnchorContext length => context.2)
+    (fun context => safeFixedRuntimeReplayFinalBracket width context.2
+      context.1.2 signature)
+
+theorem fixedRuntimeSafeAnchorReverse_measurePreserving {length : ℕ}
+    {width : ℝ} (hwidth : width ≠ 0)
+    (signature : FixedRuntimeReplaySignature length) :
+    MeasurePreserving (fixedRuntimeSafeAnchorReverse width signature)
+      ((((volume : Measure ℝ).prod
+          (Measure.pi fun _ : Fin length => (volume : Measure ℝ))).prod volume).prod
+        (((volume : Measure Alignment).prod (Measure.count : Measure ℤ)).prod
+          (volume : Measure ℝ)))
+      ((((volume : Measure ℝ).prod
+          (Measure.pi fun _ : Fin length => (volume : Measure ℝ))).prod volume).prod
+        (((volume : Measure Alignment).prod (Measure.count : Measure ℤ)).prod
+          (volume : Measure ℝ))) := by
+  let contextMeasure := ((volume : Measure ℝ).prod
+    (Measure.pi fun _ : Fin length => (volume : Measure ℝ))).prod
+      (volume : Measure ℝ)
+  apply contextualAnchoredAcceptedGridReverse_measurePreserving contextMeasure
+    hwidth (fun context : FixedRuntimeAnchorContext length => context.2)
+    measurable_snd
+    (fun context => safeFixedRuntimeReplayFinalBracket width context.2
+      context.1.2 signature)
+  · exact (measurable_safeFixedRuntimeReplayFinalBracket width signature).comp
+      (measurable_snd.prodMk (measurable_snd.comp measurable_fst))
+  · intro context
+    exact ne_of_gt (sub_pos.mpr
+      (safeFixedRuntimeReplayFinalBracket_lt width context.2
+        context.1.2 signature))
+
+theorem fixedRuntimeSafeAnchorReverse_involutive {length : ℕ}
+    {width : ℝ} (hwidth : width ≠ 0)
+    (signature : FixedRuntimeReplaySignature length) :
+    Function.Involutive (fixedRuntimeSafeAnchorReverse width signature) := by
+  intro point
+  apply Prod.ext
+  · rfl
+  · exact anchoredAcceptedGridReverse_involutive hwidth point.1.2
+      (ne_of_gt (sub_pos.mpr
+        (safeFixedRuntimeReplayFinalBracket_lt width point.1.2 point.1.1.2
+          signature))) point.2
+
+/-- Pull the globally safe anchored transform back to the original fixed
+runtime carrier. -/
+noncomputable def fixedRuntimeReplaySurrogateReverse {length : ℕ}
+    (width : ℝ) (signature : FixedRuntimeReplaySignature length)
+    (point : (ℝ × ℝ) × FixedRuntimeTrace length) :
+    (ℝ × ℝ) × FixedRuntimeTrace length :=
+  fixedRuntimeAnchorChartInverse width
+    (fixedRuntimeSafeAnchorReverse width signature
+      (fixedRuntimeAnchorChart width point))
+
+theorem fixedRuntimeReplaySurrogateReverse_measurePreserving {length : ℕ}
+    {width : ℝ} (hwidth : width ≠ 0)
+    (signature : FixedRuntimeReplaySignature length) :
+    MeasurePreserving (fixedRuntimeReplaySurrogateReverse width signature)
+      (((volume : Measure ℝ).prod volume).prod (fixedRuntimeTraceBase length))
+      (((volume : Measure ℝ).prod volume).prod (fixedRuntimeTraceBase length)) := by
+  have hchart := fixedRuntimeAnchorChart_runtimeBase_measurePreserving width length
+  have hchartInverse := hchart.symm
+    (fixedRuntimeAnchorMeasurableEquiv width length)
+  have hall := hchartInverse.comp
+    ((fixedRuntimeSafeAnchorReverse_measurePreserving hwidth signature).comp
+      hchart)
+  convert hall using 1
+  funext point
+  rfl
+
+theorem fixedRuntimeReplaySurrogateReverse_involutive {length : ℕ}
+    {width : ℝ} (hwidth : width ≠ 0)
+    (signature : FixedRuntimeReplaySignature length) :
+    Function.Involutive (fixedRuntimeReplaySurrogateReverse width signature) := by
+  let chartEquiv := fixedRuntimeAnchorMeasurableEquiv width length
+  intro point
+  change chartEquiv.symm
+      (fixedRuntimeSafeAnchorReverse width signature
+        (chartEquiv (chartEquiv.symm
+          (fixedRuntimeSafeAnchorReverse width signature (chartEquiv point))))) =
+    point
+  rw [chartEquiv.apply_symm_apply]
+  rw [fixedRuntimeSafeAnchorReverse_involutive hwidth signature]
+  exact chartEquiv.symm_apply_apply point
+
 /-- On one replay piece, the actual primitive runtime reversal is exactly the
 contextual fixed-anchor transform after applying the runtime anchor chart. -/
 theorem fixedRuntimeAnchorChart_reverse_eq_contextual
@@ -6295,6 +6610,104 @@ theorem fixedRuntimeAnchorChart_reverse_eq_contextual
       rw [← hfinal]
       rfl
 
+/-- The globally measure-preserving surrogate is definitionally faithful on
+its successful replay piece. -/
+theorem fixedRuntimeReplaySurrogateReverse_eq_on_piece
+    (logDensity : ℝ → ℝ) {width : ℝ} (hwidth : 0 < width)
+    (intervals maxShrink length : ℕ)
+    (signature : FixedRuntimeReplaySignature length)
+    (point : (ℝ × ℝ) × FixedRuntimeTrace length)
+    (hpoint : point ∈ fixedRuntimeReplayPiece logDensity width intervals
+      maxShrink length signature) :
+    fixedRuntimeReplaySurrogateReverse width signature point =
+      fixedPrimitiveRuntimeAugmentedReverse logDensity width intervals length
+        point := by
+  let chartEquiv := fixedRuntimeAnchorMeasurableEquiv width length
+  apply chartEquiv.injective
+  have hsurrogate : chartEquiv
+      (fixedRuntimeReplaySurrogateReverse width signature point) =
+      fixedRuntimeSafeAnchorReverse width signature (chartEquiv point) := by
+    exact chartEquiv.apply_symm_apply _
+  rw [hsurrogate]
+  change fixedRuntimeSafeAnchorReverse width signature
+      (fixedRuntimeAnchorChart width point) =
+    fixedRuntimeAnchorChart width
+      (fixedPrimitiveRuntimeAugmentedReverse logDensity width intervals length
+        point)
+  rw [fixedRuntimeAnchorChart_reverse_eq_contextual logDensity hwidth intervals
+    maxShrink length signature point hpoint]
+  have hbracket : safeFixedRuntimeReplayFinalBracket width
+      (maximalLeftGridAnchor width point.1.2 point.2.2.1) point.2.1 signature =
+      fixedRuntimeReplayFinalBracket width
+        (maximalLeftGridAnchor width point.1.2 point.2.2.1)
+        point.2.1 signature :=
+    (safeFixedRuntimeReplayFinalBracket_eq_on_piece logDensity hwidth intervals
+      maxShrink length signature point hpoint).trans
+      (runtimeFinalBracket_eq_fixedRuntimeReplayFinalBracket logDensity width
+        intervals maxShrink length signature point hpoint)
+  apply Prod.ext
+  · rfl
+  · change anchoredAcceptedGridReverse width
+        (maximalLeftGridAnchor width point.1.2 point.2.2.1)
+        (safeFixedRuntimeReplayFinalBracket width
+          (maximalLeftGridAnchor width point.1.2 point.2.2.1)
+          point.2.1 signature).1
+        (safeFixedRuntimeReplayFinalBracket width
+          (maximalLeftGridAnchor width point.1.2 point.2.2.1)
+          point.2.1 signature).2 point.2.2 =
+      anchoredAcceptedGridReverse width
+        (maximalLeftGridAnchor width point.1.2 point.2.2.1)
+        (fixedRuntimeReplayFinalBracket width
+          (maximalLeftGridAnchor width point.1.2 point.2.2.1)
+          point.2.1 signature).1
+        (fixedRuntimeReplayFinalBracket width
+          (maximalLeftGridAnchor width point.1.2 point.2.2.1)
+          point.2.1 signature).2 point.2.2
+    rw [hbracket]
+
+theorem fixedRuntimeSafeAnchorReverse_reverseSignature_eq_of_mem
+    (logDensity : ℝ → ℝ) {width : ℝ} (hwidth : 0 < width)
+    (intervals maxShrink length : ℕ)
+    (signature : FixedRuntimeReplaySignature length)
+    (witness : (ℝ × ℝ) × FixedRuntimeTrace length)
+    (hwitness : witness ∈ fixedRuntimeReplayPiece logDensity width intervals
+      maxShrink length signature) :
+    fixedRuntimeSafeAnchorReverse width
+        (reverseFixedRuntimeReplaySignature signature) =
+      fixedRuntimeSafeAnchorReverse width signature := by
+  funext point
+  unfold fixedRuntimeSafeAnchorReverse contextualAnchoredAcceptedGridReverse
+  apply Prod.ext
+  · rfl
+  · change anchoredAcceptedGridReverse width point.1.2
+        (safeFixedRuntimeReplayFinalBracket width point.1.2 point.1.1.2
+          (reverseFixedRuntimeReplaySignature signature)).1
+        (safeFixedRuntimeReplayFinalBracket width point.1.2 point.1.1.2
+          (reverseFixedRuntimeReplaySignature signature)).2 point.2 =
+      anchoredAcceptedGridReverse width point.1.2
+        (safeFixedRuntimeReplayFinalBracket width point.1.2 point.1.1.2
+          signature).1
+        (safeFixedRuntimeReplayFinalBracket width point.1.2 point.1.1.2
+          signature).2 point.2
+    rw [safeFixedRuntimeReplayFinalBracket_reverse_of_mem logDensity hwidth
+      intervals maxShrink length signature witness hwitness point.1.2
+      point.1.1.2]
+
+theorem fixedRuntimeReplaySurrogateReverse_reverseSignature_eq_of_mem
+    (logDensity : ℝ → ℝ) {width : ℝ} (hwidth : 0 < width)
+    (intervals maxShrink length : ℕ)
+    (signature : FixedRuntimeReplaySignature length)
+    (witness : (ℝ × ℝ) × FixedRuntimeTrace length)
+    (hwitness : witness ∈ fixedRuntimeReplayPiece logDensity width intervals
+      maxShrink length signature) :
+    fixedRuntimeReplaySurrogateReverse width
+        (reverseFixedRuntimeReplaySignature signature) =
+      fixedRuntimeReplaySurrogateReverse width signature := by
+  funext point
+  unfold fixedRuntimeReplaySurrogateReverse
+  rw [fixedRuntimeSafeAnchorReverse_reverseSignature_eq_of_mem logDensity
+    hwidth intervals maxShrink length signature witness hwitness]
+
 /-- The fixed-dimensional successful rerooting is an involution. -/
 theorem fixedPrimitiveRuntimeAugmentedReverse_involutive
     (logDensity : ℝ → ℝ) {width : ℝ} (hwidth : 0 < width)
@@ -6358,6 +6771,219 @@ theorem reverseFixedRuntimeReplaySignature_reverse_of_mem
   have hdisjoint := pairwise_disjoint_fixedRuntimeReplayPiece logDensity
     hwidth.ne' intervals maxShrink length hne
   exact Set.disjoint_left.mp hdisjoint htwicePiece hpoint
+
+theorem fixedRuntimeReplaySurrogateReverse_preimage_replayPiece
+    (logDensity : ℝ → ℝ) {width : ℝ} (hwidth : 0 < width)
+    (intervals maxShrink length : ℕ)
+    (signature : FixedRuntimeReplaySignature length)
+    (witness : (ℝ × ℝ) × FixedRuntimeTrace length)
+    (hwitness : witness ∈ fixedRuntimeReplayPiece logDensity width intervals
+      maxShrink length signature) :
+    fixedRuntimeReplaySurrogateReverse width signature ⁻¹'
+        fixedRuntimeReplayPiece logDensity width intervals maxShrink length
+          (reverseFixedRuntimeReplaySignature signature) =
+      fixedRuntimeReplayPiece logDensity width intervals maxShrink length
+        signature := by
+  ext point
+  constructor
+  · intro htarget
+    let transformed := fixedRuntimeReplaySurrogateReverse width signature point
+    have hreverseActual :=
+      fixedRuntimeReplaySurrogateReverse_eq_on_piece logDensity hwidth intervals
+        maxShrink length (reverseFixedRuntimeReplaySignature signature)
+        transformed htarget
+    have hbackPiece := fixedRuntimeReverse_mem_replayPiece logDensity hwidth
+      intervals maxShrink length (reverseFixedRuntimeReplaySignature signature)
+      transformed htarget
+    rw [reverseFixedRuntimeReplaySignature_reverse_of_mem logDensity hwidth
+      intervals maxShrink length signature witness hwitness] at hbackPiece
+    have hsignatureEq :=
+      fixedRuntimeReplaySurrogateReverse_reverseSignature_eq_of_mem logDensity
+        hwidth intervals maxShrink length signature witness hwitness
+    have hback : fixedPrimitiveRuntimeAugmentedReverse logDensity width intervals
+        length transformed = point := by
+      rw [← hreverseActual, hsignatureEq]
+      exact fixedRuntimeReplaySurrogateReverse_involutive hwidth.ne' signature
+        point
+    rwa [hback] at hbackPiece
+  · intro hsource
+    change fixedRuntimeReplaySurrogateReverse width signature point ∈
+      fixedRuntimeReplayPiece logDensity width intervals maxShrink length
+        (reverseFixedRuntimeReplaySignature signature)
+    rw [fixedRuntimeReplaySurrogateReverse_eq_on_piece logDensity hwidth intervals
+      maxShrink length signature point hsource]
+    exact fixedRuntimeReverse_mem_replayPiece logDensity hwidth intervals
+      maxShrink length signature point hsource
+
+theorem fixedRuntimeReplaySurrogateReverse_restrict_measurePreserving
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    {width : ℝ} (hwidth : 0 < width)
+    (intervals maxShrink length : ℕ)
+    (signature : FixedRuntimeReplaySignature length)
+    (witness : (ℝ × ℝ) × FixedRuntimeTrace length)
+    (hwitness : witness ∈ fixedRuntimeReplayPiece logDensity width intervals
+      maxShrink length signature) :
+    MeasurePreserving (fixedRuntimeReplaySurrogateReverse width signature)
+      ((((volume : Measure ℝ).prod volume).prod (fixedRuntimeTraceBase length)).restrict
+        (fixedRuntimeReplayPiece logDensity width intervals maxShrink length
+          signature))
+      ((((volume : Measure ℝ).prod volume).prod (fixedRuntimeTraceBase length)).restrict
+        (fixedRuntimeReplayPiece logDensity width intervals maxShrink length
+          (reverseFixedRuntimeReplaySignature signature))) := by
+  have hall := (fixedRuntimeReplaySurrogateReverse_measurePreserving hwidth.ne'
+    signature).restrict_preimage
+      (measurableSet_fixedRuntimeReplayPiece hlogDensity width intervals
+        maxShrink length (reverseFixedRuntimeReplaySignature signature))
+  rw [fixedRuntimeReplaySurrogateReverse_preimage_replayPiece logDensity hwidth
+    intervals maxShrink length signature witness hwitness] at hall
+  exact hall
+
+/-- The concrete primitive runtime reversal preserves raw product measure
+between every inhabited paired replay signature. -/
+theorem fixedPrimitiveRuntimeAugmentedReverse_replayPiece_measurePreserving
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    {width : ℝ} (hwidth : 0 < width)
+    (intervals maxShrink length : ℕ)
+    (signature : FixedRuntimeReplaySignature length)
+    (witness : (ℝ × ℝ) × FixedRuntimeTrace length)
+    (hwitness : witness ∈ fixedRuntimeReplayPiece logDensity width intervals
+      maxShrink length signature) :
+    MeasurePreserving
+      (fixedPrimitiveRuntimeAugmentedReverse logDensity width intervals length)
+      ((((volume : Measure ℝ).prod volume).prod (fixedRuntimeTraceBase length)).restrict
+        (fixedRuntimeReplayPiece logDensity width intervals maxShrink length
+          signature))
+      ((((volume : Measure ℝ).prod volume).prod (fixedRuntimeTraceBase length)).restrict
+        (fixedRuntimeReplayPiece logDensity width intervals maxShrink length
+          (reverseFixedRuntimeReplaySignature signature))) := by
+  have hsurrogate :=
+    fixedRuntimeReplaySurrogateReverse_restrict_measurePreserving hlogDensity
+      hwidth intervals maxShrink length signature witness hwitness
+  apply hsurrogate.congr
+    (measurable_fixedPrimitiveRuntimeAugmentedReverse hlogDensity width intervals
+      length)
+  filter_upwards [ae_restrict_mem
+    (μ := ((volume : Measure ℝ).prod volume).prod (fixedRuntimeTraceBase length))
+    (measurableSet_fixedRuntimeReplayPiece hlogDensity width intervals maxShrink
+      length signature)] with point hpoint
+  exact fixedRuntimeReplaySurrogateReverse_eq_on_piece logDensity hwidth intervals
+    maxShrink length signature point hpoint
+
+/-- Summing the inhabited replay-signature pairs gives raw product-measure
+preservation on the complete fixed-length successful support. -/
+theorem fixedPrimitiveRuntimeAugmentedReverse_successSet_measurePreserving
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    {width : ℝ} (hwidth : 0 < width)
+    (intervals maxShrink length : ℕ) :
+    MeasurePreserving
+      (fixedPrimitiveRuntimeAugmentedReverse logDensity width intervals length)
+      ((((volume : Measure ℝ).prod volume).prod (fixedRuntimeTraceBase length)).restrict
+        (fixedRuntimeSuccessSet logDensity width intervals maxShrink length))
+      ((((volume : Measure ℝ).prod volume).prod (fixedRuntimeTraceBase length)).restrict
+        (fixedRuntimeSuccessSet logDensity width intervals maxShrink length)) := by
+  let Piece := fun signature : FixedRuntimeReplaySignature length =>
+    fixedRuntimeReplayPiece logDensity width intervals maxShrink length signature
+  let InhabitedSignature :=
+    {signature : FixedRuntimeReplaySignature length // (Piece signature).Nonempty}
+  let sourcePieces : InhabitedSignature →
+      Set ((ℝ × ℝ) × FixedRuntimeTrace length) := fun signature =>
+    Piece signature.1
+  let targetPieces : InhabitedSignature →
+      Set ((ℝ × ℝ) × FixedRuntimeTrace length) := fun signature =>
+    Piece (reverseFixedRuntimeReplaySignature signature.1)
+  have hsourceMeasurable : ∀ signature, MeasurableSet (sourcePieces signature) := by
+    intro signature
+    exact measurableSet_fixedRuntimeReplayPiece hlogDensity width intervals
+      maxShrink length signature.1
+  have htargetMeasurable : ∀ signature, MeasurableSet (targetPieces signature) := by
+    intro signature
+    exact measurableSet_fixedRuntimeReplayPiece hlogDensity width intervals
+      maxShrink length (reverseFixedRuntimeReplaySignature signature.1)
+  have hsourceDisjoint : Pairwise (Disjoint on sourcePieces) := by
+    intro first second hne
+    apply pairwise_disjoint_fixedRuntimeReplayPiece logDensity hwidth.ne'
+      intervals maxShrink length
+    intro heq
+    apply hne
+    exact Subtype.ext heq
+  have hreverseInjective : Function.Injective
+      (fun signature : InhabitedSignature =>
+        reverseFixedRuntimeReplaySignature signature.1) := by
+    intro first second heq
+    obtain ⟨firstWitness, hfirstWitness⟩ := first.2
+    obtain ⟨secondWitness, hsecondWitness⟩ := second.2
+    have hfirstDouble := reverseFixedRuntimeReplaySignature_reverse_of_mem
+      logDensity hwidth intervals maxShrink length first.1 firstWitness
+      hfirstWitness
+    have hsecondDouble := reverseFixedRuntimeReplaySignature_reverse_of_mem
+      logDensity hwidth intervals maxShrink length second.1 secondWitness
+      hsecondWitness
+    apply Subtype.ext
+    exact hfirstDouble.symm.trans
+      ((congrArg reverseFixedRuntimeReplaySignature heq).trans hsecondDouble)
+  have htargetDisjoint : Pairwise (Disjoint on targetPieces) := by
+    intro first second hne
+    apply pairwise_disjoint_fixedRuntimeReplayPiece logDensity hwidth.ne'
+      intervals maxShrink length
+    exact fun heq => hne (hreverseInjective heq)
+  have hsourceCover : (⋃ signature, sourcePieces signature) =
+      fixedRuntimeSuccessSet logDensity width intervals maxShrink length := by
+    ext point
+    constructor
+    · intro hpoint
+      rcases Set.mem_iUnion.mp hpoint with ⟨signature, hsignature⟩
+      exact hsignature.1
+    · intro hpoint
+      rw [← iUnion_fixedRuntimeReplayPiece logDensity width intervals maxShrink
+        length] at hpoint
+      rcases Set.mem_iUnion.mp hpoint with ⟨signature, hsignature⟩
+      apply Set.mem_iUnion.mpr
+      exact ⟨⟨signature, ⟨point, hsignature⟩⟩, hsignature⟩
+  have htargetCover : (⋃ signature, targetPieces signature) =
+      fixedRuntimeSuccessSet logDensity width intervals maxShrink length := by
+    ext point
+    constructor
+    · intro hpoint
+      rcases Set.mem_iUnion.mp hpoint with ⟨signature, hsignature⟩
+      exact hsignature.1
+    · intro hpoint
+      rw [← iUnion_fixedRuntimeReplayPiece logDensity width intervals maxShrink
+        length] at hpoint
+      rcases Set.mem_iUnion.mp hpoint with ⟨signature, hsignature⟩
+      let reversed := fixedPrimitiveRuntimeAugmentedReverse logDensity width
+        intervals length point
+      have hreversed := fixedRuntimeReverse_mem_replayPiece logDensity hwidth
+        intervals maxShrink length signature point hsignature
+      let index : InhabitedSignature :=
+        ⟨reverseFixedRuntimeReplaySignature signature, ⟨reversed, hreversed⟩⟩
+      apply Set.mem_iUnion.mpr
+      refine ⟨index, ?_⟩
+      change point ∈ Piece
+        (reverseFixedRuntimeReplaySignature
+          (reverseFixedRuntimeReplaySignature signature))
+      rw [reverseFixedRuntimeReplaySignature_reverse_of_mem logDensity hwidth
+        intervals maxShrink length signature point hsignature]
+      exact hsignature
+  have hpiece : ∀ signature : InhabitedSignature,
+      MeasurePreserving
+        (fixedPrimitiveRuntimeAugmentedReverse logDensity width intervals length)
+        ((((volume : Measure ℝ).prod volume).prod
+          (fixedRuntimeTraceBase length)).restrict (sourcePieces signature))
+        ((((volume : Measure ℝ).prod volume).prod
+          (fixedRuntimeTraceBase length)).restrict (targetPieces signature)) := by
+    intro signature
+    obtain ⟨witness, hwitness⟩ := signature.2
+    exact fixedPrimitiveRuntimeAugmentedReverse_replayPiece_measurePreserving
+      hlogDensity hwidth intervals maxShrink length signature.1 witness hwitness
+  have hall := measurePreserving_restrict_iUnion₂
+    (((volume : Measure ℝ).prod volume).prod (fixedRuntimeTraceBase length))
+    (((volume : Measure ℝ).prod volume).prod (fixedRuntimeTraceBase length))
+    sourcePieces targetPieces hsourceMeasurable htargetMeasurable hsourceDisjoint
+    htargetDisjoint
+    (fixedPrimitiveRuntimeAugmentedReverse logDensity width intervals length)
+    (measurable_fixedPrimitiveRuntimeAugmentedReverse hlogDensity width intervals
+      length) hpiece
+  rwa [hsourceCover, htargetCover] at hall
 
 /-- Each inhabited replay piece is measurably equivalent to its reversed
 piece, with the same runtime rerooting serving as both directions. -/
@@ -6434,6 +7060,28 @@ theorem fixedGuardedRuntimeReverse_withDensity_measurePreserving
   intro point hpoint
   exact fixedRuntimeTraceDensity_reverse logDensity hwidth intervals maxShrink
     length point hpoint
+
+/-- Concrete weighted joint-law preservation on one rejected-vector length. -/
+theorem fixedGuardedRuntimeReverse_volume_measurePreserving
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    {width : ℝ} (hwidth : 0 < width)
+    (intervals maxShrink length : ℕ) :
+    MeasurePreserving
+      (Mcmc.Kernel.guardedTraceTransform
+        (fixedRuntimeSuccessSet logDensity width intervals maxShrink length)
+        (fixedPrimitiveRuntimeAugmentedReverse logDensity width intervals length))
+      (((((volume : Measure ℝ).prod volume).prod
+        (fixedRuntimeTraceBase length)).withDensity
+          (fun point => runtimeTraceDensity logDensity width intervals maxShrink
+            point.1 (Sigma.mk length point.2.1, point.2.2))))
+      (((((volume : Measure ℝ).prod volume).prod
+        (fixedRuntimeTraceBase length)).withDensity
+          (fun point => runtimeTraceDensity logDensity width intervals maxShrink
+            point.1 (Sigma.mk length point.2.1, point.2.2)))) := by
+  exact fixedGuardedRuntimeReverse_withDensity_measurePreserving hlogDensity
+    hwidth intervals maxShrink length ((volume : Measure ℝ).prod volume)
+    (fixedPrimitiveRuntimeAugmentedReverse_successSet_measurePreserving
+      hlogDensity hwidth intervals maxShrink length)
 
 /-- Integration against the variable-length base decomposes into the sum of
 finite-dimensional Lebesgue integrals. -/
