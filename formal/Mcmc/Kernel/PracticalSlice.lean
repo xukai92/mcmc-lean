@@ -405,6 +405,86 @@ noncomputable def alignmentAllocationReverse
   (reverseAlignment width old new point.1,
     point.2 + integerAlignmentShift width old new point.1)
 
+/-- Canonical maximal-left endpoint of the infinite aligned grid.  Unlike the
+initial bracket endpoint, this coordinate also absorbs the integer allocation
+and is therefore invariant when the practical trace is rerooted. -/
+noncomputable def maximalLeftGridAnchor
+    (width current : ℝ) (grid : Alignment × ℤ) : ℝ :=
+  current - width * alignmentCoordinate grid.1 - width * (grid.2 : ℝ)
+
+theorem measurable_maximalLeftGridAnchor (width : ℝ) :
+    Measurable (fun point : ℝ × (Alignment × ℤ) =>
+      maximalLeftGridAnchor width point.1 point.2) := by
+  unfold maximalLeftGridAnchor
+  exact (measurable_fst.sub (measurable_const.mul
+      (measurable_alignmentCoordinate.comp
+        (measurable_fst.comp measurable_snd)))).sub
+    (measurable_const.mul
+      ((measurable_of_countable (fun value : ℤ => (value : ℝ))).comp
+        (measurable_snd.comp measurable_snd)))
+
+/-- The concrete Haar-alignment/integer-allocation rerooting leaves the
+maximal-left grid anchor unchanged. -/
+theorem maximalLeftGridAnchor_reverse
+    {width old new : ℝ} (hwidth : width ≠ 0) (grid : Alignment × ℤ) :
+    maximalLeftGridAnchor width new
+        (alignmentAllocationReverse width old new grid) =
+      maximalLeftGridAnchor width old grid := by
+  unfold maximalLeftGridAnchor alignmentAllocationReverse
+  rw [alignmentCoordinate_reverseAlignment]
+  rw [Int.cast_add, cast_integerAlignmentShift hwidth]
+  exact maximalLeftEndpoint_reverse hwidth
+
+/-- Replace the current-state coordinate by the maximal-left grid anchor while
+retaining the Haar alignment and integer allocation. -/
+noncomputable def gridAnchorCoordinates
+    (width : ℝ) (point : ℝ × (Alignment × ℤ)) :
+    ℝ × (Alignment × ℤ) :=
+  (maximalLeftGridAnchor width point.1 point.2, point.2)
+
+/-- Passing from current state to the invariant grid anchor is a triangular
+unit-Jacobian change of variables over Haar alignment and counting measure. -/
+theorem gridAnchorCoordinates_measurePreserving (width : ℝ) :
+    MeasurePreserving (gridAnchorCoordinates width)
+      ((volume : Measure ℝ).prod
+        ((volume : Measure Alignment).prod (Measure.count : Measure ℤ)))
+      ((volume : Measure ℝ).prod
+        ((volume : Measure Alignment).prod (Measure.count : Measure ℤ))) := by
+  let gridMeasure :=
+    (volume : Measure Alignment).prod (Measure.count : Measure ℤ)
+  let displacement : Alignment × ℤ → ℝ := fun grid =>
+    width * alignmentCoordinate grid.1 + width * (grid.2 : ℝ)
+  have hdisplacement : Measurable displacement := by
+    exact (measurable_const.mul
+      (measurable_alignmentCoordinate.comp measurable_fst)).add
+      (measurable_const.mul
+        ((measurable_of_countable (fun value : ℤ => (value : ℝ))).comp
+          measurable_snd))
+  have hfiber : ∀ grid : Alignment × ℤ,
+      Measure.map (fun current : ℝ => current - displacement grid) volume =
+        (volume : Measure ℝ) := by
+    intro grid
+    simpa [sub_eq_add_neg] using
+      (measurePreserving_add_right (volume : Measure ℝ)
+        (-displacement grid)).map_eq
+  have hskew : MeasurePreserving
+      (fun point : (Alignment × ℤ) × ℝ =>
+        (point.1, point.2 - displacement point.1))
+      (gridMeasure.prod (volume : Measure ℝ))
+      (gridMeasure.prod (volume : Measure ℝ)) :=
+    (MeasurePreserving.id gridMeasure).skew_product
+      (measurable_snd.sub (hdisplacement.comp measurable_fst))
+      (Filter.Eventually.of_forall hfiber)
+  have hall := Measure.measurePreserving_swap.comp
+    (hskew.comp Measure.measurePreserving_swap)
+  convert hall using 1
+  funext point
+  rcases point with ⟨current, offset, allocation⟩
+  simp only [Function.comp_apply, Prod.swap_prod_mk, gridAnchorCoordinates,
+    maximalLeftGridAnchor, displacement]
+  congr 1
+  ring
+
 /-- Haar alignment volume times integer counting measure is invariant under
 the state-dependent grid rerooting. This global theorem packages the
 countable shift-stratum sum as a single skew-product statement. -/
@@ -1139,6 +1219,25 @@ noncomputable def initialLeft (width current offset : ℝ) : ℝ :=
 /-- Right endpoint of the initial width-sized aligned bracket. -/
 noncomputable def initialRight (width current offset : ℝ) : ℝ :=
   initialLeft width current offset + width
+
+/-- The initial left endpoint is the invariant anchor translated by the
+integer allocation coordinate. -/
+theorem initialLeft_eq_maximalLeftGridAnchor_add
+    (width current : ℝ) (grid : Alignment × ℤ) :
+    initialLeft width current (alignmentCoordinate grid.1) =
+      maximalLeftGridAnchor width current grid + width * (grid.2 : ℝ) := by
+  unfold initialLeft maximalLeftGridAnchor
+  ring
+
+/-- The initial right endpoint is one grid width to the right of the
+allocation-indexed initial left endpoint. -/
+theorem initialRight_eq_maximalLeftGridAnchor_add
+    (width current : ℝ) (grid : Alignment × ℤ) :
+    initialRight width current (alignmentCoordinate grid.1) =
+      maximalLeftGridAnchor width current grid +
+        width * ((grid.2 : ℝ) + 1) := by
+  rw [initialRight, initialLeft_eq_maximalLeftGridAnchor_add]
+  ring
 
 /-- Rerooting translates the initial left endpoint by exactly the integer grid
 shift encoded by Neal's fractional offset reversal. -/
@@ -4593,6 +4692,25 @@ noncomputable def fixedPrimitiveRuntimeAugmentedReverse
     (point.1, (Sigma.mk length point.2.1, point.2.2))
   (reversed.1, (point.2.1, reversed.2.2))
 
+/-- Fixed-dimensional primitive rerooting retains the canonical grid anchor.
+This is the coordinate in which paired replay strata have the same outer
+geometric context. -/
+theorem fixedPrimitiveRuntimeAugmentedReverse_maximalLeftGridAnchor
+    (logDensity : ℝ → ℝ) {width : ℝ} (hwidth : width ≠ 0)
+    (intervals length : ℕ)
+    (point : (ℝ × ℝ) × FixedRuntimeTrace length) :
+    let reversed := fixedPrimitiveRuntimeAugmentedReverse logDensity width
+      intervals length point
+    maximalLeftGridAnchor width reversed.1.2 reversed.2.2.1 =
+      maximalLeftGridAnchor width point.1.2 point.2.2.1 := by
+  change maximalLeftGridAnchor width
+      (runtimeAcceptedPoint logDensity point.1.1 width point.1.2 intervals
+        (Sigma.mk length point.2.1, point.2.2))
+      (alignmentAllocationReverse width point.1.2
+        (runtimeAcceptedPoint logDensity point.1.1 width point.1.2 intervals
+          (Sigma.mk length point.2.1, point.2.2)) point.2.2.1) = _
+  exact maximalLeftGridAnchor_reverse hwidth point.2.2.1
+
 /-- Successful support on a fixed rejected length, including validity of the
 current height/state pair. -/
 def fixedRuntimeSuccessSet
@@ -4738,6 +4856,16 @@ structure FixedRuntimeReplaySignature (length : ℕ) where
   rightConsumed : ℕ
   rejectedLeft : Fin length → Bool
 
+/-- The stopped stepping-out bracket expressed entirely in the invariant
+grid anchor and a replay signature. -/
+noncomputable def fixedRuntimeReplaySteppedBracket {length : ℕ}
+    (width anchor : ℝ) (signature : FixedRuntimeReplaySignature length) :
+    ℝ × ℝ :=
+  (anchor + width *
+      ((signature.allocation : ℝ) - signature.leftConsumed),
+    anchor + width *
+      ((signature.allocation : ℝ) + 1 + signature.rightConsumed))
+
 instance (length : ℕ) : Countable (FixedRuntimeReplaySignature length) := by
   let encode : FixedRuntimeReplaySignature length →
       ℤ × ℤ × ℕ × ℕ × (Fin length → Bool) := fun signature =>
@@ -4782,6 +4910,32 @@ def fixedRuntimeReplayPiece
         initialRight width point.1.2 (alignmentCoordinate point.2.2.1.1) +
           (signature.rightConsumed : ℝ) * width ∧
     ∀ index, (point.2.1 index < point.1.2) = signature.rejectedLeft index}
+
+/-- On a replay piece, the algorithmically stopped bracket is the affine
+bracket determined by the invariant anchor and the discrete signature. -/
+theorem runtimeSteppedBracket_eq_fixedRuntimeReplaySteppedBracket
+    (logDensity : ℝ → ℝ) (width : ℝ) (intervals maxShrink length : ℕ)
+    (signature : FixedRuntimeReplaySignature length)
+    (point : (ℝ × ℝ) × FixedRuntimeTrace length)
+    (hpoint : point ∈ fixedRuntimeReplayPiece logDensity width intervals
+      maxShrink length signature) :
+    runtimeSteppedBracket logDensity point.1.1 width point.1.2 intervals
+        point.2.2.1.2 point.2.2.1.1 =
+      fixedRuntimeReplaySteppedBracket width
+        (maximalLeftGridAnchor width point.1.2 point.2.2.1) signature := by
+  apply Prod.ext
+  · rw [hpoint.2.2.2.1]
+    unfold fixedRuntimeReplaySteppedBracket
+    rw [initialLeft_eq_maximalLeftGridAnchor_add]
+    rw [hpoint.2.1]
+    norm_num
+    ring
+  · rw [hpoint.2.2.2.2.1]
+    unfold fixedRuntimeReplaySteppedBracket
+    rw [initialRight_eq_maximalLeftGridAnchor_add]
+    rw [hpoint.2.1]
+    norm_num
+    ring
 
 theorem measurableSet_fixedRuntimeReplayPiece
     {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)

@@ -4610,3 +4610,22 @@ with the appropriate anchored cell restriction, and express the final bracket
 as a function of the retained anchor, rejected vector, and replay signature.
 The contextual skew-product law can then be restricted to the paired source
 and reverse cells and glued over signatures.
+
+## 2026-08-17: invariant practical grid-anchor chart
+
+Introduced `maximalLeftGridAnchor`, the maximal-left endpoint of the infinite
+aligned grid after absorbing the integer allocation coordinate.  The concrete
+Haar-alignment/integer-allocation rerooting preserves this anchor exactly.
+The fixed-dimensional primitive reversal inherits that invariant, and on each
+replay signature Lean now rewrites the stopped stepping-out bracket as an
+explicit affine function of only the anchor, allocation, and consumed left and
+right expansion counts.
+
+The coordinate map replacing the current state by this anchor is itself proved
+measure preserving for `Lebesgue × Haar × count`.  The proof is a measurable
+triangular translation, conjugated by product swaps, so it does not require an
+unavailable special theorem for the `[0,1)` coordinate chart.  What remains in
+the local practical-slice argument is to extend this chart through the retained
+threshold/rejected-vector coordinates, identify each replay-piece restriction
+in the chart, and conjugate the accepted/grid skew-product theorem across the
+paired restrictions.
