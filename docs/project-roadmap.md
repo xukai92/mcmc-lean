@@ -673,9 +673,11 @@ by paper date:
    the exact Markov horizon kernel. The zero-horizon member is now proved
    exactly equal to the identity kernel. The generic iid stream now also has
    measurable inverse head/tail constructors, and dropping its first mark is
-   proved measure preserving. The joint head/tail product law and resulting
-   positive-time renewal/composition law, target stationarity, and ergodicity
-   remain.
+   proved measure preserving. Reindexing and currying the infinite product now
+   proves that the head and tail have exactly the unit-hazard × iid-tail
+   product law, with cons reconstructing the original stream law. The
+   resulting positive-time endpoint renewal/composition law, target
+   stationarity, and ergodicity remain.
 
    The nonlinear reversible-jump branch is complete at the exact theorem and
    executable-client levels; only the shared Float64 primitive boundary

@@ -415,6 +415,139 @@ theorem measurable_unitHazardCons : Measurable unitHazardCons := by
   · funext index
     rfl
 
+/-- Two-block index separating coordinate zero from the strict tail. -/
+abbrev UnitHazardHeadTailIndex : Bool → Type
+  | false => PUnit
+  | true => ℕ
+
+private def unitHazardHeadTailIndexToNat :
+    (block : Bool) → UnitHazardHeadTailIndex block → ℕ
+  | false, _ => 0
+  | true, index => index + 1
+
+def unitHazardHeadTailIndexEquiv :
+    (Σ block, UnitHazardHeadTailIndex block) ≃ ℕ where
+  toFun value := unitHazardHeadTailIndexToNat value.1 value.2
+  invFun
+    | 0 => ⟨false, PUnit.unit⟩
+    | index + 1 => ⟨true, index⟩
+  left_inv value := by
+    rcases value with ⟨block, index⟩
+    cases block
+    · change (⟨false, PUnit.unit⟩ :
+        Σ block, UnitHazardHeadTailIndex block) = ⟨false, index⟩
+      cases index
+      rfl
+    · simp [unitHazardHeadTailIndexToNat]
+  right_inv index := by
+    cases index <;> simp [unitHazardHeadTailIndexToNat]
+
+/-- Reindexing and currying group the iid product into its singleton head and
+infinite tail blocks. -/
+theorem unitHazardSequenceMeasure_map_grouped :
+    unitHazardSequenceMeasure.map
+        (fun hazards block index => hazards
+          (unitHazardHeadTailIndexEquiv ⟨block, index⟩)) =
+      Measure.infinitePi (fun block : Bool =>
+        Measure.infinitePi (fun _ : UnitHazardHeadTailIndex block =>
+          unitHazardMeasure)) := by
+  let reindex := MeasurableEquiv.piCongrLeft
+    (fun _ : (Σ block, UnitHazardHeadTailIndex block) => NNReal)
+    unitHazardHeadTailIndexEquiv.symm
+  let regroup := MeasurableEquiv.piCurry
+    (fun block (index : UnitHazardHeadTailIndex block) => NNReal)
+  rw [show (fun hazards block index => hazards
+      (unitHazardHeadTailIndexEquiv ⟨block, index⟩)) =
+      regroup ∘ reindex by
+    funext hazards block index
+    have h := MeasurableEquiv.piCongrLeft_apply_apply
+      (β := fun _ : (Σ block, UnitHazardHeadTailIndex block) => NNReal)
+      unitHazardHeadTailIndexEquiv.symm hazards
+      (unitHazardHeadTailIndexEquiv ⟨block, index⟩)
+    change hazards (unitHazardHeadTailIndexEquiv ⟨block, index⟩) =
+      reindex hazards ⟨block, index⟩
+    simpa [reindex] using h.symm]
+  rw [← Measure.map_map regroup.measurable reindex.measurable]
+  unfold unitHazardSequenceMeasure
+  dsimp [reindex]
+  rw [Measure.infinitePi_map_piCongrLeft
+    (μ := fun _ : (Σ block, UnitHazardHeadTailIndex block) =>
+      unitHazardMeasure)
+    unitHazardHeadTailIndexEquiv.symm]
+  dsimp [regroup]
+  convert Measure.infinitePi_map_piCurry
+    (fun block (index : UnitHazardHeadTailIndex block) =>
+      unitHazardMeasure) using 1
+
+/-- The first unit-exponential hazard and the strict iid tail have the exact
+product law. -/
+theorem unitHazardSequenceMeasure_map_headTail :
+    unitHazardSequenceMeasure.map unitHazardHeadTail =
+      unitHazardMeasure.prod unitHazardSequenceMeasure := by
+  let groupedMeasure := Measure.infinitePi (fun block : Bool =>
+    Measure.infinitePi (fun _ : UnitHazardHeadTailIndex block =>
+      unitHazardMeasure))
+  let ungroup := fun grouped :
+      (block : Bool) → UnitHazardHeadTailIndex block → NNReal =>
+    (grouped false PUnit.unit, grouped true)
+  have hungroup : Measurable ungroup := by
+    unfold ungroup
+    fun_prop
+  have hfactor : Measure.map ungroup groupedMeasure =
+      unitHazardMeasure.prod unitHazardSequenceMeasure := by
+    symm
+    apply Measure.prod_eq
+    intro headSet tailSet hhead htail
+    rw [Measure.map_apply hungroup (hhead.prod htail)]
+    let coordinateSet : (block : Bool) →
+        Set (UnitHazardHeadTailIndex block → NNReal)
+      | false => (fun head => head PUnit.unit) ⁻¹' headSet
+      | true => tailSet
+    have hpre : ungroup ⁻¹' (headSet ×ˢ tailSet) =
+        Set.pi (↑(Finset.univ : Finset Bool)) coordinateSet := by
+      ext grouped
+      simp [ungroup, coordinateSet, and_comm]
+    rw [hpre]
+    have hcoordinate : ∀ block, MeasurableSet (coordinateSet block) := by
+      intro block
+      cases block
+      · exact hhead.preimage (measurable_pi_apply PUnit.unit)
+      · exact htail
+    rw [Measure.infinitePi_pi _ (fun block _ => hcoordinate block)]
+    have hheadMeasure :
+        Measure.infinitePi (fun _ : PUnit => unitHazardMeasure)
+            ((fun head => head PUnit.unit) ⁻¹' headSet) =
+          unitHazardMeasure headSet := by
+      rw [← Measure.map_apply (measurable_pi_apply PUnit.unit) hhead,
+        Measure.infinitePi_map_eval]
+    rw [Fintype.prod_bool]
+    change unitHazardSequenceMeasure tailSet *
+        Measure.infinitePi (fun _ : PUnit => unitHazardMeasure)
+          ((fun head => head PUnit.unit) ⁻¹' headSet) = _
+    rw [hheadMeasure]
+    ac_rfl
+  rw [show unitHazardHeadTail = ungroup ∘
+      (fun hazards block index => hazards
+        (unitHazardHeadTailIndexEquiv ⟨block, index⟩)) by
+    funext hazards
+    rfl]
+  rw [← Measure.map_map hungroup (by fun_prop),
+    unitHazardSequenceMeasure_map_grouped]
+  exact hfactor
+
+/-- Consing an independent unit-exponential head onto an iid tail reconstructs
+the iid hazard-stream law. -/
+theorem unitHazardMeasure_prod_sequence_map_cons :
+    Measure.map unitHazardCons
+        (unitHazardMeasure.prod unitHazardSequenceMeasure) =
+      unitHazardSequenceMeasure := by
+  rw [← unitHazardSequenceMeasure_map_headTail,
+    Measure.map_map measurable_unitHazardCons measurable_unitHazardHeadTail]
+  rw [show unitHazardCons ∘ unitHazardHeadTail = id by
+    funext hazards
+    exact unitHazardCons_headTail hazards,
+    Measure.map_id]
+
 /-- Coordinate event on which a unit-exponential mark exceeds one. -/
 def unitLargeHazardEvent (index : ℕ) : Set (ℕ → NNReal) :=
   (fun hazards => hazards index) ⁻¹' Set.Ioi (1 : NNReal)
