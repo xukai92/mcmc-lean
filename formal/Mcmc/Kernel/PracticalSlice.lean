@@ -103,6 +103,53 @@ theorem guardedTraceTransform_withDensity_measurePreserving
       hinvariant point hpoint
   · simp [Mcmc.Kernel.guardedTraceTransform, hpoint]
 
+/-- Glue a countable disjoint family of restricted preservation theorems.
+This is the measure-theoretic engine for algorithms whose execution trace
+selects one of countably many affine replay strata. -/
+theorem measurePreserving_restrict_iUnion
+    {Space Index : Type*} [MeasurableSpace Space] [Countable Index]
+    (measure : Measure Space) (pieces : Index → Set Space)
+    (hmeasurable : ∀ index, MeasurableSet (pieces index))
+    (hdisjoint : Pairwise (Disjoint on pieces))
+    (transform : Space → Space) (htransform : Measurable transform)
+    (hpiece : ∀ index, MeasurePreserving transform
+      (measure.restrict (pieces index)) (measure.restrict (pieces index))) :
+    MeasurePreserving transform (measure.restrict (⋃ index, pieces index))
+      (measure.restrict (⋃ index, pieces index)) := by
+  refine ⟨htransform, ?_⟩
+  rw [Measure.restrict_iUnion hdisjoint hmeasurable]
+  rw [Measure.map_sum htransform.aemeasurable]
+  apply congrArg Measure.sum
+  funext index
+  exact (hpiece index).map_eq
+
+/-- Source/target version of `measurePreserving_restrict_iUnion`. The same
+index may describe different forward and reverse replay signatures, provided
+both families disjointly cover their respective successful domains. -/
+theorem measurePreserving_restrict_iUnion₂
+    {Source Target Index : Type*}
+    [MeasurableSpace Source] [MeasurableSpace Target] [Countable Index]
+    (sourceMeasure : Measure Source) (targetMeasure : Measure Target)
+    (sourcePieces : Index → Set Source) (targetPieces : Index → Set Target)
+    (hsourceMeasurable : ∀ index, MeasurableSet (sourcePieces index))
+    (htargetMeasurable : ∀ index, MeasurableSet (targetPieces index))
+    (hsourceDisjoint : Pairwise (Disjoint on sourcePieces))
+    (htargetDisjoint : Pairwise (Disjoint on targetPieces))
+    (transform : Source → Target) (htransform : Measurable transform)
+    (hpiece : ∀ index, MeasurePreserving transform
+      (sourceMeasure.restrict (sourcePieces index))
+      (targetMeasure.restrict (targetPieces index))) :
+    MeasurePreserving transform
+      (sourceMeasure.restrict (⋃ index, sourcePieces index))
+      (targetMeasure.restrict (⋃ index, targetPieces index)) := by
+  refine ⟨htransform, ?_⟩
+  rw [Measure.restrict_iUnion hsourceDisjoint hsourceMeasurable,
+    Measure.restrict_iUnion htargetDisjoint htargetMeasurable]
+  rw [Measure.map_sum htransform.aemeasurable]
+  apply congrArg Measure.sum
+  funext index
+  exact (hpiece index).map_eq
+
 /-- Coordinate-free law for the random initial-bracket alignment. Haar volume
 on the unit additive circle is a probability measure. -/
 abbrev Alignment := AddCircle (1 : ℝ)
@@ -915,6 +962,55 @@ theorem expandRight_crossed_inside_of_lt
                 convert hi using 1
                 push_cast
                 ring_nf
+
+/-- Every bounded left expansion endpoint is an integral number of widths
+from its start; the witness also records that the consumed count is within
+the supplied budget. -/
+theorem exists_expandLeft_eq_sub_nat_mul
+    (logDensity : ℝ → ℝ) (threshold width left : ℝ) (steps : ℕ) :
+    ∃ consumed ≤ steps,
+      expandLeft logDensity threshold width steps left =
+        left - (consumed : ℝ) * width := by
+  induction steps generalizing left with
+  | zero => exact ⟨0, le_rfl, by simp [expandLeft]⟩
+  | succ steps ih =>
+      simp only [expandLeft]
+      by_cases hstop : logDensity left ≤ threshold
+      · rw [if_pos hstop]
+        exact ⟨0, Nat.zero_le _, by simp⟩
+      · rw [if_neg hstop]
+        obtain ⟨consumed, hconsumed, heq⟩ := ih (left - width)
+        refine ⟨consumed + 1, by omega, ?_⟩
+        rw [heq]
+        push_cast
+        ring
+
+/-- Rightward counterpart of `exists_expandLeft_eq_sub_nat_mul`. -/
+theorem exists_expandRight_eq_add_nat_mul
+    (logDensity : ℝ → ℝ) (threshold width right : ℝ) (steps : ℕ) :
+    ∃ consumed ≤ steps,
+      expandRight logDensity threshold width steps right =
+        right + (consumed : ℝ) * width := by
+  induction steps generalizing right with
+  | zero => exact ⟨0, le_rfl, by simp [expandRight]⟩
+  | succ steps ih =>
+      simp only [expandRight]
+      by_cases hstop : logDensity right ≤ threshold
+      · rw [if_pos hstop]
+        exact ⟨0, Nat.zero_le _, by simp⟩
+      · rw [if_neg hstop]
+        obtain ⟨consumed, hconsumed, heq⟩ := ih (right + width)
+        refine ⟨consumed + 1, by omega, ?_⟩
+        rw [heq]
+        push_cast
+        ring
+
+theorem nat_mul_width_injective {width : ℝ} (hwidth : width ≠ 0)
+    {first second : ℕ}
+    (heq : (first : ℝ) * width = (second : ℝ) * width) : first = second := by
+  have hcast : (first : ℝ) = second := by
+    exact mul_right_cancel₀ hwidth heq
+  exact_mod_cast hcast
 
 /-- Fixed-budget left expansion is jointly measurable in threshold and its
 current endpoint. -/
@@ -4456,6 +4552,27 @@ theorem measurable_runtimeAcceptedPoint_fixedLength
       (measurable_fst.comp hbracket)).mul
         hfraction)
 
+theorem measurable_runtimeSteppedBracket_fixedLength
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (width : ℝ) (intervals length : ℕ) :
+    Measurable (fun point : (ℝ × ℝ) × FixedRuntimeTrace length =>
+      runtimeSteppedBracket logDensity point.1.1 width point.1.2 intervals
+        point.2.2.1.2 point.2.2.1.1) := by
+  have hallocation : Measurable (fun point :
+      (((ℝ × ℝ) × Alignment) × ℝ) × ℤ =>
+      runtimeSteppedBracket logDensity point.1.1.1.1 width point.1.1.1.2
+        intervals point.2 point.1.1.2) := by
+    apply measurable_from_prod_countable_left
+    intro allocation
+    exact (measurable_runtimeSteppedBracket_fixedAllocation hlogDensity width
+      intervals allocation).comp (by fun_prop)
+  have hpack : Measurable (fun point :
+      (ℝ × ℝ) × FixedRuntimeTrace length =>
+      ((((point.1, point.2.2.1.1), point.2.2.2), point.2.2.1.2) :
+        (((ℝ × ℝ) × Alignment) × ℝ) × ℤ)) := by
+    fun_prop
+  exact hallocation.comp hpack
+
 theorem measurable_fixedPrimitiveRuntimeAugmentedReverse
     {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
     (width : ℝ) (intervals length : ℕ) :
@@ -4505,6 +4622,208 @@ theorem measurableSet_fixedRuntimeSuccessSet
       (hlogDensity.comp (measurable_snd.comp measurable_fst))).inter
     (measurableSet_singleton (0 : ENNReal) |>.preimage hdensity).compl
 
+/-- Countable combinatorial data that makes one fixed-length practical replay
+affine: allocation and rerooting shift, the two consumed expansion counts,
+and every shrink-side decision. -/
+structure FixedRuntimeReplaySignature (length : ℕ) where
+  allocation : ℤ
+  shift : ℤ
+  leftConsumed : ℕ
+  rightConsumed : ℕ
+  rejectedLeft : Fin length → Bool
+
+instance (length : ℕ) : Countable (FixedRuntimeReplaySignature length) := by
+  let encode : FixedRuntimeReplaySignature length →
+      ℤ × ℤ × ℕ × ℕ × (Fin length → Bool) := fun signature =>
+    (signature.allocation, signature.shift, signature.leftConsumed,
+      signature.rightConsumed, signature.rejectedLeft)
+  exact (show Function.Injective encode by
+    intro first second heq
+    cases first
+    cases second
+    simp only [encode, Prod.mk.injEq] at heq
+    simp_all).countable
+
+/-- Combinatorial signature expected after rerooting. Expansion counts are
+translated by the integer grid displacement; `toNat` is justified on actual
+successful pieces by stopped-bracket membership. -/
+def reverseFixedRuntimeReplaySignature {length : ℕ}
+    (signature : FixedRuntimeReplaySignature length) :
+    FixedRuntimeReplaySignature length :=
+  { allocation := signature.allocation + signature.shift
+    shift := -signature.shift
+    leftConsumed := ((signature.leftConsumed : ℤ) + signature.shift).toNat
+    rightConsumed := ((signature.rightConsumed : ℤ) - signature.shift).toNat
+    rejectedLeft := signature.rejectedLeft }
+
+/-- Measurable replay stratum selected by a complete combinatorial signature. -/
+def fixedRuntimeReplayPiece
+    (logDensity : ℝ → ℝ) (width : ℝ) (intervals maxShrink length : ℕ)
+    (signature : FixedRuntimeReplaySignature length) :
+    Set ((ℝ × ℝ) × FixedRuntimeTrace length) :=
+  {point |
+    point ∈ fixedRuntimeSuccessSet logDensity width intervals maxShrink length ∧
+    point.2.2.1.2 = signature.allocation ∧
+    integerAlignmentShift width point.1.2
+      (runtimeAcceptedPoint logDensity point.1.1 width point.1.2 intervals
+        (Sigma.mk length point.2.1, point.2.2)) point.2.2.1.1 = signature.shift ∧
+    (runtimeSteppedBracket logDensity point.1.1 width point.1.2 intervals
+      point.2.2.1.2 point.2.2.1.1).1 =
+        initialLeft width point.1.2 (alignmentCoordinate point.2.2.1.1) -
+          (signature.leftConsumed : ℝ) * width ∧
+    (runtimeSteppedBracket logDensity point.1.1 width point.1.2 intervals
+      point.2.2.1.2 point.2.2.1.1).2 =
+        initialRight width point.1.2 (alignmentCoordinate point.2.2.1.1) +
+          (signature.rightConsumed : ℝ) * width ∧
+    ∀ index, (point.2.1 index < point.1.2) = signature.rejectedLeft index}
+
+theorem measurableSet_fixedRuntimeReplayPiece
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (width : ℝ) (intervals maxShrink length : ℕ)
+    (signature : FixedRuntimeReplaySignature length) :
+    MeasurableSet (fixedRuntimeReplayPiece logDensity width intervals maxShrink
+      length signature) := by
+  have haccepted := measurable_runtimeAcceptedPoint_fixedLength hlogDensity width
+    intervals length
+  have hstepped := measurable_runtimeSteppedBracket_fixedLength hlogDensity width
+    intervals length
+  have hold : Measurable (fun point : (ℝ × ℝ) × FixedRuntimeTrace length =>
+      point.1.2) := by fun_prop
+  have hoffset : Measurable (fun point :
+      (ℝ × ℝ) × FixedRuntimeTrace length => point.2.2.1.1) := by fun_prop
+  have hshift : Measurable (fun point :
+      (ℝ × ℝ) × FixedRuntimeTrace length =>
+      integerAlignmentShift width point.1.2
+        (runtimeAcceptedPoint logDensity point.1.1 width point.1.2 intervals
+          (Sigma.mk length point.2.1, point.2.2)) point.2.2.1.1) := by
+    unfold integerAlignmentShift
+    exact Int.measurable_floor.comp
+      ((measurable_alignmentCoordinate.comp hoffset).add
+        ((haccepted.sub hold).div measurable_const))
+  have hinitialLeft : Measurable (fun point :
+      (ℝ × ℝ) × FixedRuntimeTrace length =>
+      initialLeft width point.1.2 (alignmentCoordinate point.2.2.1.1)) := by
+    unfold initialLeft
+    exact hold.sub (measurable_const.mul
+      (measurable_alignmentCoordinate.comp hoffset))
+  have hinitialRight : Measurable (fun point :
+      (ℝ × ℝ) × FixedRuntimeTrace length =>
+      initialRight width point.1.2 (alignmentCoordinate point.2.2.1.1)) := by
+    unfold initialRight
+    exact hinitialLeft.add measurable_const
+  have hleftTarget : Measurable (fun point :
+      (ℝ × ℝ) × FixedRuntimeTrace length =>
+      initialLeft width point.1.2 (alignmentCoordinate point.2.2.1.1) -
+        (signature.leftConsumed : ℝ) * width) :=
+    hinitialLeft.sub measurable_const
+  have hrightTarget : Measurable (fun point :
+      (ℝ × ℝ) × FixedRuntimeTrace length =>
+      initialRight width point.1.2 (alignmentCoordinate point.2.2.1.1) +
+        (signature.rightConsumed : ℝ) * width) :=
+    hinitialRight.add measurable_const
+  have hvalues : Measurable (fun point :
+      (ℝ × ℝ) × FixedRuntimeTrace length => point.2.1) := by fun_prop
+  have hallocation : Measurable (fun point :
+      (ℝ × ℝ) × FixedRuntimeTrace length => point.2.2.1.2) := by fun_prop
+  have hrejected : MeasurableSet {point :
+      (ℝ × ℝ) × FixedRuntimeTrace length |
+      ∀ index, (point.2.1 index < point.1.2) = signature.rejectedLeft index} := by
+    rw [show {point : (ℝ × ℝ) × FixedRuntimeTrace length |
+        ∀ index, (point.2.1 index < point.1.2) = signature.rejectedLeft index} =
+        ⋂ index, {point | (point.2.1 index < point.1.2) =
+          signature.rejectedLeft index} by
+      ext point
+      simp]
+    apply MeasurableSet.iInter
+    intro index
+    cases hvalue : signature.rejectedLeft index with
+    | false =>
+        simpa [Function.comp_apply] using measurableSet_le hold
+          ((measurable_pi_apply index).comp hvalues)
+    | true =>
+        simpa [Function.comp_apply] using measurableSet_lt
+          ((measurable_pi_apply index).comp hvalues) hold
+  unfold fixedRuntimeReplayPiece
+  exact ((measurableSet_fixedRuntimeSuccessSet hlogDensity width intervals
+      maxShrink length).mem.and
+    ((hallocation.eq measurable_const).and
+      ((hshift.eq measurable_const).and
+        (((measurable_fst.comp hstepped).eq hleftTarget).and
+          (((measurable_snd.comp hstepped).eq hrightTarget).and
+            hrejected.mem))))).setOf
+
+theorem iUnion_fixedRuntimeReplayPiece
+    (logDensity : ℝ → ℝ) (width : ℝ) (intervals maxShrink length : ℕ) :
+    (⋃ signature : FixedRuntimeReplaySignature length,
+      fixedRuntimeReplayPiece logDensity width intervals maxShrink length
+        signature) =
+      fixedRuntimeSuccessSet logDensity width intervals maxShrink length := by
+  ext point
+  constructor
+  · intro hpoint
+    rcases Set.mem_iUnion.mp hpoint with ⟨signature, hsignature⟩
+    exact hsignature.1
+  · intro hpoint
+    obtain ⟨leftConsumed, _hleftBudget, hleft⟩ :=
+      exists_expandLeft_eq_sub_nat_mul logDensity point.1.1 width
+        (initialLeft width point.1.2 (alignmentCoordinate point.2.2.1.1))
+        point.2.2.1.2.toNat
+    obtain ⟨rightConsumed, _hrightBudget, hright⟩ :=
+      exists_expandRight_eq_add_nat_mul logDensity point.1.1 width
+        (initialRight width point.1.2 (alignmentCoordinate point.2.2.1.1))
+        (intervals - 1 - point.2.2.1.2.toNat)
+    let signature : FixedRuntimeReplaySignature length :=
+      { allocation := point.2.2.1.2
+        shift := integerAlignmentShift width point.1.2
+          (runtimeAcceptedPoint logDensity point.1.1 width point.1.2 intervals
+            (Sigma.mk length point.2.1, point.2.2)) point.2.2.1.1
+        leftConsumed := leftConsumed
+        rightConsumed := rightConsumed
+        rejectedLeft := fun index => decide (point.2.1 index < point.1.2) }
+    apply Set.mem_iUnion.mpr
+    refine ⟨signature, hpoint, rfl, rfl, ?_, ?_, ?_⟩
+    · exact hleft
+    · exact hright
+    · intro index
+      simp [signature]
+
+theorem pairwise_disjoint_fixedRuntimeReplayPiece
+    (logDensity : ℝ → ℝ) {width : ℝ} (hwidth : width ≠ 0)
+    (intervals maxShrink length : ℕ) :
+    Pairwise (Disjoint on fun signature : FixedRuntimeReplaySignature length =>
+      fixedRuntimeReplayPiece logDensity width intervals maxShrink length
+        signature) := by
+  intro first second hne
+  change Disjoint
+    (fixedRuntimeReplayPiece logDensity width intervals maxShrink length first)
+    (fixedRuntimeReplayPiece logDensity width intervals maxShrink length second)
+  rw [Set.disjoint_left]
+  intro point hfirst hsecond
+  apply hne
+  have hallocation : first.allocation = second.allocation :=
+    hfirst.2.1.symm.trans hsecond.2.1
+  have hshift : first.shift = second.shift :=
+    hfirst.2.2.1.symm.trans hsecond.2.2.1
+  have hleft : first.leftConsumed = second.leftConsumed := by
+    apply nat_mul_width_injective hwidth
+    have hfirstEq := hfirst.2.2.2.1
+    have hsecondEq := hsecond.2.2.2.1
+    nlinarith
+  have hright : first.rightConsumed = second.rightConsumed := by
+    apply nat_mul_width_injective hwidth
+    have hfirstEq := hfirst.2.2.2.2.1
+    have hsecondEq := hsecond.2.2.2.2.1
+    nlinarith
+  have hsides : first.rejectedLeft = second.rejectedLeft := by
+    funext index
+    have hfirstSide := hfirst.2.2.2.2.2 index
+    have hsecondSide := hsecond.2.2.2.2.2 index
+    cases hfirstBool : first.rejectedLeft index <;>
+      cases hsecondBool : second.rejectedLeft index <;> simp_all
+  cases first
+  cases second
+  simp_all
+
 /-- The fixed-length rerooting is exactly the primitive rerooting after
 embedding the rejected vector into the variable-length carrier. -/
 theorem fixedPrimitiveRuntimeAugmentedReverse_embed
@@ -4548,6 +4867,105 @@ theorem fixedRuntimeTraceDensity_reverse
   rw [fixedPrimitiveRuntimeAugmentedReverse_embed logDensity width intervals
     length point] at hinvariant
   exact hinvariant
+
+/-- Successful support is carried to successful support by the fixed-length
+rerooting; this includes validity of the newly accepted slice state. -/
+theorem fixedRuntimeSuccessSet_reverse_mem
+    (logDensity : ℝ → ℝ) {width : ℝ} (hwidth : 0 < width)
+    (intervals maxShrink length : ℕ)
+    (point : (ℝ × ℝ) × FixedRuntimeTrace length)
+    (hpoint : point ∈ fixedRuntimeSuccessSet logDensity width intervals
+      maxShrink length) :
+    fixedPrimitiveRuntimeAugmentedReverse logDensity width intervals length
+        point ∈
+      fixedRuntimeSuccessSet logDensity width intervals maxShrink length := by
+  let embedded : (ℝ × ℝ) × RuntimeRandomTrace :=
+    (point.1, (Sigma.mk length point.2.1, point.2.2))
+  have hsuccess := primitiveRuntimeSuccess_of_density_ne_zero logDensity hwidth
+    intervals maxShrink embedded hpoint.1 hpoint.2
+  constructor
+  · exact hsuccess.new_in_slice
+  · rw [fixedRuntimeTraceDensity_reverse logDensity hwidth intervals maxShrink
+      length point hpoint]
+    exact hpoint.2
+
+/-- The reverse allocation and integer alignment shift carried by a fixed
+successful point are the expected translated and negated values. -/
+theorem fixedRuntimeReverse_allocation_shift
+    (logDensity : ℝ → ℝ) {width : ℝ} (hwidth : 0 < width)
+    (intervals maxShrink length : ℕ)
+    (signature : FixedRuntimeReplaySignature length)
+    (point : (ℝ × ℝ) × FixedRuntimeTrace length)
+    (hpoint : point ∈ fixedRuntimeReplayPiece logDensity width intervals
+      maxShrink length signature) :
+    let reversed := fixedPrimitiveRuntimeAugmentedReverse logDensity width
+      intervals length point
+    reversed.2.2.1.2 = signature.allocation + signature.shift ∧
+      integerAlignmentShift width reversed.1.2
+        (runtimeAcceptedPoint logDensity reversed.1.1 width reversed.1.2 intervals
+          (Sigma.mk length reversed.2.1, reversed.2.2)) reversed.2.2.1.1 =
+        -signature.shift := by
+  let embedded : (ℝ × ℝ) × RuntimeRandomTrace :=
+    (point.1, (Sigma.mk length point.2.1, point.2.2))
+  let reversed := fixedPrimitiveRuntimeAugmentedReverse logDensity width
+    intervals length point
+  have hembed := fixedPrimitiveRuntimeAugmentedReverse_embed logDensity width
+    intervals length point
+  have hsuccess := primitiveRuntimeSuccess_of_density_ne_zero logDensity hwidth
+    intervals maxShrink embedded hpoint.1.1 hpoint.1.2
+  have hinvolution := hsuccess.reverse_involutive hwidth.ne'
+  have hallocation : reversed.2.2.1.2 =
+      signature.allocation + signature.shift := by
+    change (primitiveRuntimeAugmentedReverse logDensity width intervals
+      embedded).2.2.1.2 = _
+    rw [primitiveRuntimeAugmentedReverse_grid]
+    exact congrArg₂ (· + ·) hpoint.2.1 hpoint.2.2.1
+  refine ⟨hallocation, ?_⟩
+  have hrecover := primitiveRuntimeAcceptedPoint_reverse logDensity intervals
+    embedded (lt_of_le_of_lt hsuccess.old_mem.1 hsuccess.old_mem.2)
+    hsuccess.finalBracket_reverse
+  have hreverseShift := integerAlignmentShift_reverse
+    (width := width) (old := point.1.2)
+    (new := runtimeAcceptedPoint logDensity point.1.1 width point.1.2 intervals
+      embedded.2) hwidth.ne' point.2.2.1.1
+  change integerAlignmentShift width
+      (runtimeAcceptedPoint logDensity point.1.1 width point.1.2 intervals
+        embedded.2)
+      (runtimeAcceptedPoint logDensity point.1.1 width
+        (runtimeAcceptedPoint logDensity point.1.1 width point.1.2 intervals
+          embedded.2) intervals
+        (primitiveRuntimeAugmentedReverse logDensity width intervals embedded).2)
+      (reverseAlignment width point.1.2
+        (runtimeAcceptedPoint logDensity point.1.1 width point.1.2 intervals
+          embedded.2) point.2.2.1.1) = _
+  rw [hrecover, hreverseShift, hpoint.2.2.1]
+
+/-- Rerooting preserves every recorded shrink-side decision. -/
+theorem fixedRuntimeReverse_rejectedSides
+    (logDensity : ℝ → ℝ) {width : ℝ} (hwidth : 0 < width)
+    (intervals maxShrink length : ℕ)
+    (signature : FixedRuntimeReplaySignature length)
+    (point : (ℝ × ℝ) × FixedRuntimeTrace length)
+    (hpoint : point ∈ fixedRuntimeReplayPiece logDensity width intervals
+      maxShrink length signature) :
+    let reversed := fixedPrimitiveRuntimeAugmentedReverse logDensity width
+      intervals length point
+    ∀ index, (reversed.2.1 index < reversed.1.2) =
+      (reverseFixedRuntimeReplaySignature signature).rejectedLeft index := by
+  let embedded : (ℝ × ℝ) × RuntimeRandomTrace :=
+    (point.1, (Sigma.mk length point.2.1, point.2.2))
+  have hsuccess := primitiveRuntimeSuccess_of_density_ne_zero logDensity hwidth
+    intervals maxShrink embedded hpoint.1.1 hpoint.1.2
+  simp only [fixedPrimitiveRuntimeAugmentedReverse,
+    reverseFixedRuntimeReplaySignature]
+  intro index
+  have hsame := hsuccess.rejected_same_side (point.2.1 index)
+    (List.mem_ofFn.mpr ⟨index, rfl⟩)
+  change (point.2.1 index <
+      runtimeAcceptedPoint logDensity point.1.1 width point.1.2 intervals
+        embedded.2) = signature.rejectedLeft index
+  rw [← hsame]
+  exact hpoint.2.2.2.2.2 index
 
 /-- The fixed-dimensional successful rerooting is an involution. -/
 theorem fixedPrimitiveRuntimeAugmentedReverse_involutive

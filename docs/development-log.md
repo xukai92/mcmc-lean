@@ -4559,3 +4559,23 @@ symmetry argument is needed. The resulting
 the remaining core precisely as unweighted product-measure preservation of
 the finite-dimensional rerooting. Summing those strata and connecting them to
 the completed trace kernel remain subsequent steps.
+
+## 2026-08-17: countable practical replay stratification
+
+Added reusable measure-preservation gluing theorems for countable disjoint
+restrictions, including a source/target version whose replay signatures may
+change under reversal. Every bounded expansion endpoint is now proved to be
+an integral number of widths from its initial endpoint, with a consumed count
+within budget and uniqueness for nonzero width.
+
+For each rejected length, `FixedRuntimeReplaySignature` records the integer
+allocation and rerooting shift, actual left/right consumed counts, and every
+rejected-point side decision. Lean proves that the associated replay pieces
+are measurable, pairwise disjoint for positive width, and have union exactly
+the successful support. Successful fixed rerooting maps support back into
+support, translates allocation by the recorded shift, negates the reverse
+shift, and preserves every rejected-side decision. The remaining stratum
+calculation is the translated expansion-count formula and affine
+product-volume preservation on each source/target replay pair; the countable
+gluing theorem can then assemble the raw base law required by the prior
+weighted lift.
