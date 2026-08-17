@@ -45,9 +45,10 @@ byte-for-byte, and runs every Julia testset.
 3. Extend the concrete indefinitely state-selected finite certificate to a
    realistic continuous and genuinely history-dependent rule through the
    existing diminishing-adaptation/containment proxy interface.
-4. Extend the exact complete-refresh uniform particle result to partially
-   mixing Feynman--Kac models, then derive particle-count-uniform PG mixing
-   and stronger particle-MCMC asymptotics.
+4. Extend the fixed-horizon partial-refresh and particle-count-uniform PG
+   results to horizon-uniform or joint growing-horizon/count regimes under
+   explicit stability hypotheses; the current fixed-horizon claims are
+   complete.
 5. Instantiate the partial inverse-integrated-hazard interface for a concrete
    multidimensional Gaussian BPS and prove `CompletesFiniteHorizons`; then
    identify the stabilized limit of the truncated kernels and prove
