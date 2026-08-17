@@ -4414,3 +4414,13 @@ coordinate to prove the derived stopped bracket measurable for every fixed
 integer allocation. The remaining assembly uses the discrete allocation
 partition and the finite-dimensional rejected-point recursion before lifting
 through the variable-length sigma measure.
+
+## 2026-08-17: fixed-fiber practical trace measurability
+
+Introduced finite-vector versions of rejected-bracket replay and its successive
+conditional likelihood. They are proved equal to the existing `List.ofFn`
+semantics and jointly measurable in all continuous inputs by induction on the
+rejected length. Combining these results with fixed-allocation stopped-bracket
+measurability proves `runtimeTraceDensity` measurable on every pair of fixed
+rejected dimension and integer allocation fibers. The remaining assembly is
+now purely the countable/disjoint-union measurable-space lift.

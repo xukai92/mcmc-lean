@@ -989,6 +989,70 @@ noncomputable def shrinkRejectedPoints (current : ℝ) :
       shrinkRejectedPoints current remaining
         (shrinkBracket current rejected bracket)
 
+/-- Finite-dimensional presentation of rejected-point replay. This avoids a
+list measurable-space detour on each fiber `Fin n → ℝ`. -/
+noncomputable def shrinkRejectedVector (current : ℝ) :
+    (length : ℕ) → (Fin length → ℝ) → (ℝ × ℝ) → (ℝ × ℝ)
+  | 0, _, bracket => bracket
+  | length + 1, rejected, bracket =>
+      shrinkRejectedVector current length (fun index => rejected index.succ)
+        (shrinkBracket current (rejected 0) bracket)
+
+theorem shrinkRejectedVector_eq_shrinkRejectedPoints
+    (current : ℝ) (length : ℕ) (rejected : Fin length → ℝ)
+    (bracket : ℝ × ℝ) :
+    shrinkRejectedVector current length rejected bracket =
+      shrinkRejectedPoints current (List.ofFn rejected) bracket := by
+  induction length generalizing bracket with
+  | zero => simp [shrinkRejectedVector, shrinkRejectedPoints]
+  | succ length ih =>
+      rw [List.ofFn_succ]
+      simp only [shrinkRejectedVector, shrinkRejectedPoints]
+      exact ih (fun index => rejected index.succ) _
+
+theorem measurable_shrinkBracket :
+    Measurable (fun point : (ℝ × ℝ) × (ℝ × ℝ) =>
+      shrinkBracket point.1.1 point.1.2 point.2) := by
+  unfold shrinkBracket
+  exact Measurable.ite
+    (measurableSet_lt
+      (measurable_snd.comp measurable_fst)
+      (measurable_fst.comp measurable_fst))
+    ((measurable_snd.comp measurable_fst).prodMk
+      (measurable_snd.comp measurable_snd))
+    ((measurable_fst.comp measurable_snd).prodMk
+      (measurable_snd.comp measurable_fst))
+
+/-- Replaying a fixed-dimensional rejected vector is jointly measurable in
+the current point, rejected coordinates, and starting bracket. -/
+theorem measurable_shrinkRejectedVector (length : ℕ) :
+    Measurable (fun point : (ℝ × (Fin length → ℝ)) × (ℝ × ℝ) =>
+      shrinkRejectedVector point.1.1 length point.1.2 point.2) := by
+  induction length with
+  | zero => exact measurable_snd
+  | succ length ih =>
+      have hcurrent : Measurable
+          (fun point : (ℝ × (Fin (length + 1) → ℝ)) × (ℝ × ℝ) => point.1.1) :=
+        measurable_fst.comp measurable_fst
+      have hrejected : Measurable
+          (fun point : (ℝ × (Fin (length + 1) → ℝ)) × (ℝ × ℝ) => point.1.2) :=
+        measurable_snd.comp measurable_fst
+      have hhead : Measurable
+          (fun point : (ℝ × (Fin (length + 1) → ℝ)) × (ℝ × ℝ) => point.1.2 0) :=
+        (measurable_pi_apply 0).comp hrejected
+      have htail : Measurable
+          (fun point : (ℝ × (Fin (length + 1) → ℝ)) × (ℝ × ℝ) =>
+            fun index : Fin length => point.1.2 index.succ) := by
+        exact measurable_pi_lambda _ fun index =>
+          (measurable_pi_apply index.succ).comp hrejected
+      have hupdated : Measurable
+          (fun point : (ℝ × (Fin (length + 1) → ℝ)) × (ℝ × ℝ) =>
+            shrinkBracket point.1.1 (point.1.2 0) point.2) :=
+        measurable_shrinkBracket.comp
+          ((hcurrent.prodMk hhead).prodMk measurable_snd)
+      simp only [shrinkRejectedVector]
+      exact ih.comp ((hcurrent.prodMk htail).prodMk hupdated)
+
 /-- If a rejected point lies on the same side of the old and new states, both
 directions perform exactly the same bracket update. -/
 theorem shrinkBracket_eq_of_sameSide
@@ -1030,6 +1094,81 @@ noncomputable def rejectedTraceWeight (logDensity : ℝ → ℝ) (threshold curr
           rejectedTraceWeight logDensity threshold current remaining
             (shrinkBracket current rejected bracket)
       else 0
+
+/-- Finite-dimensional form of the rejected-point likelihood. -/
+noncomputable def rejectedTraceVectorWeight
+    (logDensity : ℝ → ℝ) (threshold current : ℝ) :
+    (length : ℕ) → (Fin length → ℝ) → (ℝ × ℝ) → ENNReal
+  | 0, _, _ => 1
+  | length + 1, rejected, bracket =>
+      if rejected 0 ∈ Set.Ico bracket.1 bracket.2 ∧
+          logDensity (rejected 0) < threshold then
+        ENNReal.ofReal (bracket.2 - bracket.1)⁻¹ *
+          rejectedTraceVectorWeight logDensity threshold current length
+            (fun index => rejected index.succ)
+            (shrinkBracket current (rejected 0) bracket)
+      else 0
+
+theorem rejectedTraceVectorWeight_eq_rejectedTraceWeight
+    (logDensity : ℝ → ℝ) (threshold current : ℝ)
+    (length : ℕ) (rejected : Fin length → ℝ) (bracket : ℝ × ℝ) :
+    rejectedTraceVectorWeight logDensity threshold current length rejected bracket =
+      rejectedTraceWeight logDensity threshold current (List.ofFn rejected) bracket := by
+  induction length generalizing bracket with
+  | zero => simp [rejectedTraceVectorWeight, rejectedTraceWeight]
+  | succ length ih =>
+      rw [List.ofFn_succ]
+      simp only [rejectedTraceVectorWeight, rejectedTraceWeight]
+      split
+      · congr 1
+        exact ih (fun index => rejected index.succ) _
+      · rfl
+
+/-- On each fixed rejected length, the full successive conditional likelihood
+is jointly measurable in threshold, current point, rejected coordinates, and
+starting bracket. -/
+theorem measurable_rejectedTraceVectorWeight
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (length : ℕ) :
+    Measurable (fun point : ((ℝ × ℝ) × (Fin length → ℝ)) × (ℝ × ℝ) =>
+      rejectedTraceVectorWeight logDensity point.1.1.1 point.1.1.2
+        length point.1.2 point.2) := by
+  induction length with
+  | zero => exact measurable_const
+  | succ length ih =>
+      have hstate : Measurable
+          (fun point : ((ℝ × ℝ) × (Fin (length + 1) → ℝ)) × (ℝ × ℝ) =>
+            point.1.1) := measurable_fst.comp measurable_fst
+      have hthreshold := measurable_fst.comp hstate
+      have hcurrent := measurable_snd.comp hstate
+      have hrejected : Measurable
+          (fun point : ((ℝ × ℝ) × (Fin (length + 1) → ℝ)) × (ℝ × ℝ) =>
+            point.1.2) := measurable_snd.comp measurable_fst
+      have hhead := (measurable_pi_apply (0 : Fin (length + 1))).comp hrejected
+      have htail : Measurable
+          (fun point : ((ℝ × ℝ) × (Fin (length + 1) → ℝ)) × (ℝ × ℝ) =>
+            fun index : Fin length => point.1.2 index.succ) := by
+        exact measurable_pi_lambda _ fun index =>
+          (measurable_pi_apply index.succ).comp hrejected
+      have hupdated : Measurable
+          (fun point : ((ℝ × ℝ) × (Fin (length + 1) → ℝ)) × (ℝ × ℝ) =>
+            shrinkBracket point.1.1.2 (point.1.2 0) point.2) :=
+        measurable_shrinkBracket.comp
+          ((hcurrent.prodMk hhead).prodMk measurable_snd)
+      have hcondition : MeasurableSet
+          {point : ((ℝ × ℝ) × (Fin (length + 1) → ℝ)) × (ℝ × ℝ) |
+            point.1.2 0 ∈ Set.Ico point.2.1 point.2.2 ∧
+              logDensity (point.1.2 0) < point.1.1.1} := by
+        exact ((measurableSet_le (measurable_fst.comp measurable_snd) hhead).inter
+          (measurableSet_lt hhead (measurable_snd.comp measurable_snd))).inter
+            (measurableSet_lt (hlogDensity.comp hhead) hthreshold)
+      simp only [rejectedTraceVectorWeight]
+      apply Measurable.ite hcondition
+      · exact (ENNReal.measurable_ofReal.comp
+          (((measurable_snd.comp measurable_snd).sub
+            (measurable_fst.comp measurable_snd)).inv)).mul
+          (ih.comp (((hthreshold.prodMk hcurrent).prodMk htail).prodMk hupdated))
+      · exact measurable_const
 
 /-- Replaying same-side rejected points from either possible endpoint has
 exactly the same finite conditional density. -/
@@ -1552,6 +1691,92 @@ noncomputable def runtimeTraceDensity
     ENNReal.ofReal ((intervals : ℝ)⁻¹) *
       rejectedTraceWeight logDensity threshold current rejected stepped
   else 0
+
+/-- The concrete successful density is measurable on every fixed rejected
+dimension and integer-allocation fiber. -/
+theorem measurable_runtimeTraceDensity_fixedFiber
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (width : ℝ) (intervals length : ℕ) (allocation : ℤ) :
+    Measurable (fun point : ((ℝ × ℝ) × (Fin length → ℝ)) × (Alignment × ℝ) =>
+      runtimeTraceDensity logDensity width intervals point.1.1
+        (Sigma.mk length point.1.2,
+          ((point.2.1, allocation), point.2.2))) := by
+  have hstate : Measurable
+      (fun point : ((ℝ × ℝ) × (Fin length → ℝ)) × (Alignment × ℝ) =>
+        point.1.1) := measurable_fst.comp measurable_fst
+  have hthreshold := measurable_fst.comp hstate
+  have hcurrent := measurable_snd.comp hstate
+  have hvalues : Measurable
+      (fun point : ((ℝ × ℝ) × (Fin length → ℝ)) × (Alignment × ℝ) =>
+        point.1.2) := measurable_snd.comp measurable_fst
+  have halignment : Measurable
+      (fun point : ((ℝ × ℝ) × (Fin length → ℝ)) × (Alignment × ℝ) =>
+        point.2.1) := measurable_fst.comp measurable_snd
+  have hfraction : Measurable
+      (fun point : ((ℝ × ℝ) × (Fin length → ℝ)) × (Alignment × ℝ) =>
+        point.2.2) := measurable_snd.comp measurable_snd
+  have hstepped : Measurable
+      (fun point : ((ℝ × ℝ) × (Fin length → ℝ)) × (Alignment × ℝ) =>
+        runtimeSteppedBracket logDensity point.1.1.1 width point.1.1.2
+          intervals allocation point.2.1) :=
+    (measurable_runtimeSteppedBracket_fixedAllocation hlogDensity width
+      intervals allocation).comp (hstate.prodMk halignment)
+  have hfinal : Measurable
+      (fun point : ((ℝ × ℝ) × (Fin length → ℝ)) × (Alignment × ℝ) =>
+        shrinkRejectedVector point.1.1.2 length point.1.2
+          (runtimeSteppedBracket logDensity point.1.1.1 width point.1.1.2
+            intervals allocation point.2.1)) :=
+    (measurable_shrinkRejectedVector length).comp
+      ((hcurrent.prodMk hvalues).prodMk hstepped)
+  have haccepted : Measurable
+      (fun point : ((ℝ × ℝ) × (Fin length → ℝ)) × (Alignment × ℝ) =>
+        let bracket := shrinkRejectedVector point.1.1.2 length point.1.2
+          (runtimeSteppedBracket logDensity point.1.1.1 width point.1.1.2
+            intervals allocation point.2.1)
+        bracket.1 + (bracket.2 - bracket.1) * point.2.2) :=
+    (measurable_fst.comp hfinal).add
+      (((measurable_snd.comp hfinal).sub
+        (measurable_fst.comp hfinal)).mul hfraction)
+  have hweight : Measurable
+      (fun point : ((ℝ × ℝ) × (Fin length → ℝ)) × (Alignment × ℝ) =>
+        rejectedTraceVectorWeight logDensity point.1.1.1 point.1.1.2
+          length point.1.2
+          (runtimeSteppedBracket logDensity point.1.1.1 width point.1.1.2
+            intervals allocation point.2.1)) :=
+    (measurable_rejectedTraceVectorWeight hlogDensity length).comp
+      (((hstate.prodMk hvalues).prodMk hstepped))
+  have hcondition : Measurable
+      (fun point : ((ℝ × ℝ) × (Fin length → ℝ)) × (Alignment × ℝ) =>
+        0 ≤ allocation ∧ allocation < intervals ∧
+          point.2.2 ∈ Set.Ico (0 : ℝ) 1 ∧
+          point.1.1.1 ≤ logDensity
+            (let bracket := shrinkRejectedVector point.1.1.2 length point.1.2
+              (runtimeSteppedBracket logDensity point.1.1.1 width point.1.1.2
+                intervals allocation point.2.1)
+             bracket.1 + (bracket.2 - bracket.1) * point.2.2)) := by
+    exact measurable_const.and (measurable_const.and
+      ((measurableSet_Ico.mem.comp hfraction).and
+        (measurableSet_le hthreshold (hlogDensity.comp haccepted)).mem))
+  have hall : Measurable
+      (fun point : ((ℝ × ℝ) × (Fin length → ℝ)) × (Alignment × ℝ) =>
+        if 0 ≤ allocation ∧ allocation < intervals ∧
+            point.2.2 ∈ Set.Ico (0 : ℝ) 1 ∧
+            point.1.1.1 ≤ logDensity
+              (let bracket := shrinkRejectedVector point.1.1.2 length point.1.2
+                (runtimeSteppedBracket logDensity point.1.1.1 width point.1.1.2
+                  intervals allocation point.2.1)
+               bracket.1 + (bracket.2 - bracket.1) * point.2.2) then
+          ENNReal.ofReal ((intervals : ℝ)⁻¹) *
+            rejectedTraceVectorWeight logDensity point.1.1.1 point.1.1.2
+              length point.1.2
+              (runtimeSteppedBracket logDensity point.1.1.1 width point.1.1.2
+                intervals allocation point.2.1)
+        else 0) :=
+    Measurable.ite hcondition.setOf (measurable_const.mul hweight)
+      measurable_const
+  simpa only [runtimeTraceDensity,
+    shrinkRejectedVector_eq_shrinkRejectedPoints,
+    rejectedTraceVectorWeight_eq_rejectedTraceWeight] using hall
 
 theorem rejectedTraceWeight_ne_top
     (logDensity : ℝ → ℝ) (threshold current : ℝ)
