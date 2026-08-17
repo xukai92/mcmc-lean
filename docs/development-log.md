@@ -4464,3 +4464,18 @@ proves the exact pushforward identity taking Lebesgue measure on `[0,1)` under
 bracket. The next step is to instantiate the one-step partition with the
 target's superlevel set and identify the fixed-length trace sum with this
 recursion.
+
+## 2026-08-17: concrete shrink accept/reject partition
+
+Instantiated the one-step mass law for practical shrinkage. Lean now defines
+the normalized bracket law, proves it has unit mass, and proves exactly that
+the target superlevel acceptance mass plus the integral of the strict-sublevel
+rejection density is one on every positive bracket. A validity invariant says
+that the current accepted point remains in the bracket; nonzero rejection
+branches preserve it, while zero-density malformed coordinates require no
+successor obligation. Stepping out from any circle alignment and integer
+allocation establishes this invariant whenever `width > 0` and the sampled
+height is below the current log density. Consequently the abstract bounded
+recursion has successful mass at most one for every runtime stepping-out
+bracket. Remaining is the finite-dimensional Fubini identification between
+that recursion and the sum of the concrete `Fin n → ℝ` trace fibers.

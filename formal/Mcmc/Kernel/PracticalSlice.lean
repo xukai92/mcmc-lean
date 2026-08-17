@@ -658,6 +658,32 @@ noncomputable def expandRight (logDensity : ℝ → ℝ) (threshold width : ℝ)
       if logDensity right ≤ threshold then right
       else expandRight logDensity threshold width steps (right + width)
 
+/-- With nonnegative width, left stepping-out never moves its endpoint to the
+right. -/
+theorem expandLeft_le (logDensity : ℝ → ℝ) (threshold : ℝ)
+    {width : ℝ} (hwidth : 0 ≤ width) (steps : ℕ) (left : ℝ) :
+    expandLeft logDensity threshold width steps left ≤ left := by
+  induction steps generalizing left with
+  | zero => rfl
+  | succ steps ih =>
+      simp only [expandLeft]
+      split
+      · exact le_rfl
+      · exact (ih (left - width)).trans (sub_le_self left hwidth)
+
+/-- With nonnegative width, right stepping-out never moves its endpoint to the
+left. -/
+theorem le_expandRight (logDensity : ℝ → ℝ) (threshold : ℝ)
+    {width : ℝ} (hwidth : 0 ≤ width) (steps : ℕ) (right : ℝ) :
+    right ≤ expandRight logDensity threshold width steps right := by
+  induction steps generalizing right with
+  | zero => rfl
+  | succ steps ih =>
+      simp only [expandRight]
+      split
+      · exact le_rfl
+      · exact (le_add_of_nonneg_right hwidth).trans (ih (right + width))
+
 /-- Fixed-budget left expansion is jointly measurable in threshold and its
 current endpoint. -/
 theorem measurable_expandLeft
@@ -1810,6 +1836,145 @@ theorem map_restrict_unitIco_bracketAffine
     simp [e, width, add_comm]]
   rw [← hpreimage, ← e.restrict_map, hmap, Measure.restrict_smul]
 
+/-- The normalized Lebesgue law on a real bracket. Degenerate or reversed
+brackets carry the zero measure; the practical algorithm maintains positive
+brackets. -/
+noncomputable def normalizedBracketMeasure (bracket : ℝ × ℝ) : Measure ℝ :=
+  ENNReal.ofReal (bracket.2 - bracket.1)⁻¹ •
+    volume.restrict (Set.Ico bracket.1 bracket.2)
+
+theorem normalizedBracketMeasure_eq_map
+    {bracket : ℝ × ℝ} (hlt : bracket.1 < bracket.2) :
+    normalizedBracketMeasure bracket =
+      Measure.map
+        (fun fraction : ℝ => bracket.1 +
+          (bracket.2 - bracket.1) * fraction)
+        (volume.restrict (Set.Ico (0 : ℝ) 1)) := by
+  exact (map_restrict_unitIco_bracketAffine hlt).symm
+
+/-- A positive normalized bracket has total mass one. -/
+theorem normalizedBracketMeasure_apply_univ
+    {bracket : ℝ × ℝ} (hlt : bracket.1 < bracket.2) :
+    normalizedBracketMeasure bracket Set.univ = 1 := by
+  rw [normalizedBracketMeasure_eq_map hlt,
+    Measure.map_apply (by fun_prop) MeasurableSet.univ]
+  simp [Real.volume_Ico]
+
+/-- Any measurable accept/reject partition of a positive bracket has total
+mass one. This is the measure-theoretic one-step telescoping identity. -/
+theorem normalizedBracketMeasure_accept_add_reject
+    {bracket : ℝ × ℝ} (hlt : bracket.1 < bracket.2)
+    {accepted : Set ℝ} (haccepted : MeasurableSet accepted) :
+    normalizedBracketMeasure bracket accepted +
+      normalizedBracketMeasure bracket acceptedᶜ = 1 := by
+  rw [measure_add_measure_compl haccepted,
+    normalizedBracketMeasure_apply_univ hlt]
+
+/-- Target superlevel set selected by a sampled log height. -/
+def shrinkAcceptedSet (logDensity : ℝ → ℝ) (threshold : ℝ) : Set ℝ :=
+  {point | threshold ≤ logDensity point}
+
+theorem measurableSet_shrinkAcceptedSet
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (threshold : ℝ) :
+    MeasurableSet (shrinkAcceptedSet logDensity threshold) := by
+  exact measurableSet_le measurable_const hlogDensity
+
+/-- Probability that the next uniform proposal in a bracket is accepted. -/
+noncomputable def shrinkAcceptMass (logDensity : ℝ → ℝ)
+    (threshold : ℝ) (bracket : ℝ × ℝ) : ENNReal :=
+  normalizedBracketMeasure bracket (shrinkAcceptedSet logDensity threshold)
+
+/-- Point-coordinate density of drawing a proposal in the current bracket and
+rejecting it. -/
+noncomputable def shrinkRejectDensity (logDensity : ℝ → ℝ)
+    (threshold : ℝ) (bracket : ℝ × ℝ) (point : ℝ) : ENNReal :=
+  if point ∈ Set.Ico bracket.1 bracket.2 ∧ logDensity point < threshold then
+    ENNReal.ofReal (bracket.2 - bracket.1)⁻¹
+  else 0
+
+/-- Integrating the rejected-point density gives the normalized mass of the
+complement of the target superlevel set. -/
+theorem lintegral_shrinkRejectDensity
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (threshold : ℝ) (bracket : ℝ × ℝ) :
+    (∫⁻ point, shrinkRejectDensity logDensity threshold bracket point ∂volume) =
+      normalizedBracketMeasure bracket
+        (shrinkAcceptedSet logDensity threshold)ᶜ := by
+  let rejected := Set.Ico bracket.1 bracket.2 ∩
+    (shrinkAcceptedSet logDensity threshold)ᶜ
+  have hrejected : MeasurableSet rejected :=
+    measurableSet_Ico.inter
+      (measurableSet_shrinkAcceptedSet hlogDensity threshold).compl
+  have hdensity : shrinkRejectDensity logDensity threshold bracket =
+      rejected.indicator
+        (fun _ => ENNReal.ofReal (bracket.2 - bracket.1)⁻¹) := by
+    funext point
+    by_cases hpoint : point ∈ rejected
+    · rw [Set.indicator_of_mem hpoint]
+      simp only [rejected, Set.mem_inter_iff, Set.mem_compl_iff,
+        shrinkAcceptedSet, Set.mem_setOf_eq, not_le] at hpoint
+      rw [shrinkRejectDensity, if_pos hpoint]
+    · rw [Set.indicator_of_notMem hpoint]
+      simp only [rejected, Set.mem_inter_iff, Set.mem_compl_iff,
+        shrinkAcceptedSet, Set.mem_setOf_eq, not_le] at hpoint
+      rw [shrinkRejectDensity, if_neg hpoint]
+  rw [hdensity, lintegral_indicator hrejected,
+    MeasureTheory.lintegral_const, Measure.restrict_apply_univ]
+  rw [normalizedBracketMeasure, Measure.smul_apply,
+    Measure.restrict_apply
+      (measurableSet_shrinkAcceptedSet hlogDensity threshold).compl]
+  simp only [rejected, Set.inter_comm, smul_eq_mul]
+
+/-- Concrete one-step shrinkage acceptance and rejection masses sum to one in
+every positive bracket. -/
+theorem shrinkAcceptMass_add_lintegral_reject
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (threshold : ℝ) {bracket : ℝ × ℝ} (hlt : bracket.1 < bracket.2) :
+    shrinkAcceptMass logDensity threshold bracket +
+        ∫⁻ point, shrinkRejectDensity logDensity threshold bracket point ∂volume = 1 := by
+  rw [shrinkAcceptMass, lintegral_shrinkRejectDensity hlogDensity]
+  exact normalizedBracketMeasure_accept_add_reject hlt
+    (measurableSet_shrinkAcceptedSet hlogDensity threshold)
+
+/-- Bracket invariant maintained during shrinkage: the current accepted state
+lies in the half-open bracket, and its log density is above the sampled
+height. -/
+def ValidShrinkBracket (logDensity : ℝ → ℝ) (threshold current : ℝ)
+    (bracket : ℝ × ℝ) : Prop :=
+  bracket.1 ≤ current ∧ current < bracket.2 ∧ threshold ≤ logDensity current
+
+theorem ValidShrinkBracket.lt
+    {logDensity : ℝ → ℝ} {threshold current : ℝ} {bracket : ℝ × ℝ}
+    (hbracket : ValidShrinkBracket logDensity threshold current bracket) :
+    bracket.1 < bracket.2 :=
+  hbracket.1.trans_lt hbracket.2.1
+
+/-- A nonzero-probability rejection preserves the valid-bracket invariant. -/
+theorem ValidShrinkBracket.preserved_by_shrinkBracket
+    {logDensity : ℝ → ℝ} {threshold current point : ℝ}
+    {bracket : ℝ × ℝ}
+    (hbracket : ValidShrinkBracket logDensity threshold current bracket)
+    (hnonzero : shrinkRejectDensity logDensity threshold bracket point ≠ 0) :
+    ValidShrinkBracket logDensity threshold current
+      (shrinkBracket current point bracket) := by
+  have hpoint : point ∈ Set.Ico bracket.1 bracket.2 ∧
+      logDensity point < threshold := by
+    by_contra hcondition
+    rw [shrinkRejectDensity, if_neg hcondition] at hnonzero
+    exact hnonzero rfl
+  unfold Mcmc.Kernel.PracticalSlice.shrinkBracket
+  by_cases hside : point < current
+  · rw [if_pos hside]
+    exact ⟨hside.le, hbracket.2.1, hbracket.2.2⟩
+  · rw [if_neg hside]
+    have hne : point ≠ current := by
+      intro heq
+      subst point
+      exact (not_lt_of_ge hbracket.2.2) hpoint.2
+    have hcurrentPoint : current < point := lt_of_le_of_ne (not_lt.mp hside) hne.symm
+    exact ⟨hbracket.1, hcurrentPoint, hbracket.2.2⟩
+
 /-- Total probability of accepting within a bounded number of shrink
 attempts.  `acceptMass bracket` is the probability of accepting at the next
 attempt, while `rejectDensity bracket point` is the density of a rejection
@@ -1863,6 +2028,102 @@ theorem boundedShrinkSuccessMass_le_one
               mul_le_mul_right (ih (nextBracket bracket point)) _
             _ = rejectDensity bracket point := mul_one _
         _ ≤ 1 := hone bracket
+
+/-- Invariant-aware form of the bounded telescoping argument. Only branches
+with nonzero rejection density must preserve the invariant, so zero-density
+coordinates need no artificial valid successor state. -/
+theorem boundedShrinkSuccessMass_le_one_of_invariant
+    {Bracket Point : Type*} [MeasurableSpace Point]
+    (base : Measure Point) (acceptMass : Bracket → ENNReal)
+    (rejectDensity : Bracket → Point → ENNReal)
+    (nextBracket : Bracket → Point → Bracket)
+    (Invariant : Bracket → Prop)
+    (hone : ∀ bracket, Invariant bracket →
+      acceptMass bracket + ∫⁻ point, rejectDensity bracket point ∂base ≤ 1)
+    (hnext : ∀ bracket point, Invariant bracket →
+      rejectDensity bracket point ≠ 0 → Invariant (nextBracket bracket point)) :
+    ∀ attempts bracket, Invariant bracket →
+      boundedShrinkSuccessMass base acceptMass rejectDensity nextBracket
+        attempts bracket ≤ 1 := by
+  intro attempts
+  induction attempts with
+  | zero => simp [boundedShrinkSuccessMass]
+  | succ attempts ih =>
+      intro bracket hbracket
+      rw [boundedShrinkSuccessMass]
+      calc
+        acceptMass bracket + ∫⁻ point,
+            rejectDensity bracket point *
+              boundedShrinkSuccessMass base acceptMass rejectDensity
+                nextBracket attempts (nextBracket bracket point) ∂base ≤
+            acceptMass bracket +
+              ∫⁻ point, rejectDensity bracket point ∂base := by
+          gcongr with point
+          by_cases hzero : rejectDensity bracket point = 0
+          · simp [hzero]
+          · calc
+              rejectDensity bracket point *
+                  boundedShrinkSuccessMass base acceptMass rejectDensity
+                    nextBracket attempts (nextBracket bracket point) ≤
+                  rejectDensity bracket point * 1 :=
+                mul_le_mul_right
+                  (ih (nextBracket bracket point) (hnext bracket point hbracket hzero)) _
+              _ = rejectDensity bracket point := mul_one _
+        _ ≤ 1 := hone bracket hbracket
+
+/-- Every runtime stepping-out bracket starts with the current accepted point
+inside it and can only expand outward. -/
+theorem validShrinkBracket_runtimeSteppedBracket
+    (logDensity : ℝ → ℝ) (threshold current : ℝ)
+    {width : ℝ} (hwidth : 0 < width) (intervals : ℕ)
+    (allocation : ℤ) (offset : Alignment)
+    (hcurrent : threshold ≤ logDensity current) :
+    ValidShrinkBracket logDensity threshold current
+      (runtimeSteppedBracket logDensity threshold width current intervals
+        allocation offset) := by
+  rcases alignmentCoordinate_mem offset with ⟨hoffsetNonneg, hoffsetLt⟩
+  have hinitialLeft : initialLeft width current (alignmentCoordinate offset) ≤
+      current := by
+    unfold initialLeft
+    exact sub_le_self current (mul_nonneg hwidth.le hoffsetNonneg)
+  have hcurrentInitialRight : current <
+      initialRight width current (alignmentCoordinate offset) := by
+    unfold initialRight initialLeft
+    have hremaining : 0 < width * (1 - alignmentCoordinate offset) :=
+      mul_pos hwidth (sub_pos.mpr hoffsetLt)
+    nlinarith
+  unfold runtimeSteppedBracket
+  exact ⟨
+    (expandLeft_le logDensity threshold hwidth.le allocation.toNat
+      (initialLeft width current (alignmentCoordinate offset))).trans hinitialLeft,
+    hcurrentInitialRight.trans_le
+      (le_expandRight logDensity threshold hwidth.le
+        (intervals - 1 - allocation.toNat)
+        (initialRight width current (alignmentCoordinate offset))),
+    hcurrent⟩
+
+/-- Bounded practical shrinkage has successful mass at most one from every
+valid initial bracket. -/
+theorem practicalBoundedShrinkSuccessMass_le_one
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (threshold current : ℝ) (attempts : ℕ) (bracket : ℝ × ℝ)
+    (hbracket : ValidShrinkBracket logDensity threshold current bracket) :
+    boundedShrinkSuccessMass volume
+      (shrinkAcceptMass logDensity threshold)
+      (shrinkRejectDensity logDensity threshold)
+      (fun bracket point => shrinkBracket current point bracket)
+      attempts bracket ≤ 1 := by
+  apply boundedShrinkSuccessMass_le_one_of_invariant volume
+    (shrinkAcceptMass logDensity threshold)
+    (shrinkRejectDensity logDensity threshold)
+    (fun candidate point => shrinkBracket current point candidate)
+    (ValidShrinkBracket logDensity threshold current)
+  · intro candidate hcandidate
+    exact (shrinkAcceptMass_add_lintegral_reject hlogDensity threshold
+      hcandidate.lt).le
+  · intro candidate point hcandidate hnonzero
+    exact hcandidate.preserved_by_shrinkBracket hnonzero
+  · exact hbracket
 
 theorem rejectedTraceWeight_ne_top
     (logDensity : ℝ → ℝ) (threshold current : ℝ)
