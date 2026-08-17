@@ -4280,3 +4280,17 @@ gives both restricted-volume and symmetric-density preservation on the true
 dependent stratum. The unresolved gluing is now confined to the sigma-type of
 varying rejected-point sequence dimensions and stopped brackets, rather than
 the offset/allocation dependence.
+
+## 2026-08-17: variable-length rejected slice traces
+
+Introduced the actual sigma type `RejectedSequence = Σ n, Fin n → ℝ`, so a
+successful shrink trace retains its dimension instead of padding to a fixed
+budget. The dependent stratum reversal is the identity on this sequence and
+therefore preserves any s-finite rejected-sequence law while simultaneously
+rerooting alignment, allocation, and accepted-point coordinates. A generalized
+two-space density transport lemma attaches different forward and reverse
+trace likelihoods whenever the target density after reversal equals the source
+density. This is precisely the pointwise obligation supplied by the existing
+successful stepping-out/shrinkage symmetry theorem. The remaining global
+construction is the measure sum across integer shifts and stopped brackets,
+followed by the auxiliary-kernel invariance wrapper.

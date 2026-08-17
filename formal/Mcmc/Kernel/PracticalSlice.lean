@@ -49,6 +49,35 @@ theorem measurePreserving_withDensity_of_invariant
   · have hpreimage : point ∉ transform ⁻¹' event := hmem
     simp [Set.indicator, hmem, hpreimage]
 
+/-- A measure-preserving map between different spaces transports two
+measurable densities when their values agree pointwise along the map. -/
+theorem measurePreserving_withDensity_of_map_invariant
+    {Source Target : Type*} [MeasurableSpace Source] [MeasurableSpace Target]
+    {sourceMeasure : Measure Source} {targetMeasure : Measure Target}
+    {transform : Source → Target}
+    {sourceDensity : Source → ENNReal} {targetDensity : Target → ENNReal}
+    (htransform : MeasurePreserving transform sourceMeasure targetMeasure)
+    (htargetDensity : Measurable targetDensity)
+    (hinvariant : ∀ point, targetDensity (transform point) = sourceDensity point) :
+    MeasurePreserving transform
+      (sourceMeasure.withDensity sourceDensity)
+      (targetMeasure.withDensity targetDensity) := by
+  refine ⟨htransform.measurable, ?_⟩
+  ext event hevent
+  rw [Measure.map_apply htransform.measurable hevent,
+    withDensity_apply _ (htransform.measurable hevent),
+    withDensity_apply _ hevent,
+    ← lintegral_indicator (htransform.measurable hevent),
+    ← lintegral_indicator hevent,
+    ← htransform.lintegral_comp (htargetDensity.indicator hevent)]
+  apply lintegral_congr
+  intro point
+  by_cases hmem : transform point ∈ event
+  · have hpreimage : point ∈ transform ⁻¹' event := hmem
+    simp [Set.indicator, hmem, hpreimage, hinvariant]
+  · have hpreimage : point ∉ transform ⁻¹' event := hmem
+    simp [Set.indicator, hmem, hpreimage]
+
 /-- Coordinate-free law for the random initial-bracket alignment. Haar volume
 on the unit additive circle is a probability measure. -/
 abbrev Alignment := AddCircle (1 : ℝ)
@@ -1116,6 +1145,25 @@ noncomputable def successfulTraceStratumReverse
       reverseAllocation intervals shift trace.1.2),
     acceptedProposalReverse left right trace.2)
 
+/-- Variable-dimensional rejected shrink sequences. The length is retained as
+part of the trace instead of padding to an artificial global budget. -/
+abbrev RejectedSequence := Σ length : ℕ, Fin length → ℝ
+
+abbrev RejectedTraceStratum (intervals : ℕ) (shift : ℤ) :=
+  RejectedSequence ×
+    ((Alignment × ValidAllocation intervals shift) × (ℝ × ℝ))
+
+/-- Successful trace reversal leaves every rejected point and its length
+unchanged; only alignment, allocation, and accepted coordinates are rerooted. -/
+noncomputable def rejectedSequenceTraceReverse
+    (intervals : ℕ) (shift : ℤ) (width old new left right : ℝ)
+    (trace : RejectedSequence ×
+      ((Alignment × ValidAllocation intervals shift) × (ℝ × ℝ))) :
+    RejectedSequence ×
+      ((Alignment × ValidAllocation intervals (-shift)) × (ℝ × ℝ)) :=
+  (trace.1,
+    successfulTraceStratumReverse intervals shift width old new left right trace.2)
+
 /-- The complete alignment/allocation/accepted-point reversal preserves the
 restricted product law on each fixed stopped-bracket stratum. This combines
 the continuous Haar, discrete counting, and planar restricted-volume pieces
@@ -1172,6 +1220,77 @@ theorem dependentSuccessfulTraceStratumReverse_measurePreserving
   convert hall using 1
   funext trace
   rfl
+
+/-- Add the full variable-length rejected sequence to a dependent successful
+stratum. Any chosen law on that sigma type is preserved because reversal
+replays the sequence exactly. -/
+theorem rejectedSequenceTraceReverse_measurePreserving
+    {rejectedLaw : Measure RejectedSequence}
+    [SFinite rejectedLaw]
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (threshold : ℝ) (intervals : ℕ) (shift : ℤ)
+    {width old new : ℝ} (hgridWidth : width ≠ 0)
+    {left right : ℝ} (hbracketWidth : left < right) :
+    MeasurePreserving
+      (rejectedSequenceTraceReverse intervals shift width old new left right)
+      (rejectedLaw.prod
+        ((((volume : Measure Alignment).restrict
+            (alignmentShiftStratum width old new shift)).prod
+            (Measure.count : Measure (ValidAllocation intervals shift))).prod
+          (((volume : Measure ℝ).prod volume).restrict
+            (acceptedProposalSuccess logDensity threshold left right))))
+      (rejectedLaw.prod
+        ((((volume : Measure Alignment).restrict
+            (alignmentShiftStratum width new old (-shift))).prod
+            (Measure.count : Measure (ValidAllocation intervals (-shift)))).prod
+          (((volume : Measure ℝ).prod volume).restrict
+            (acceptedProposalSuccess logDensity threshold left right)))) := by
+  have hall := (MeasurePreserving.id rejectedLaw).prod
+    (dependentSuccessfulTraceStratumReverse_measurePreserving hlogDensity
+      threshold intervals shift (old := old) (new := new) hgridWidth
+      hbracketWidth)
+  convert hall using 1
+  funext trace
+  rfl
+
+/-- Attach the complete successful shrink-trace likelihood to the
+variable-length dependent stratum. Forward and reverse densities may live on
+different allocation types; pointwise reversal equality is the exact
+likelihood obligation discharged by the stepping-out/shrinkage symmetry
+lemmas. -/
+theorem rejectedSequenceTraceReverse_withDensity_measurePreserving
+    {rejectedLaw : Measure RejectedSequence} [SFinite rejectedLaw]
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (threshold : ℝ) (intervals : ℕ) (shift : ℤ)
+    {width old new : ℝ} (hgridWidth : width ≠ 0)
+    {left right : ℝ} (hbracketWidth : left < right)
+    (sourceDensity : RejectedTraceStratum intervals shift → ENNReal)
+    (targetDensity : RejectedTraceStratum intervals (-shift) → ENNReal)
+    (htargetDensity : Measurable targetDensity)
+    (hinvariant : ∀ trace,
+      targetDensity
+          (rejectedSequenceTraceReverse intervals shift width old new left right
+            trace) = sourceDensity trace) :
+    MeasurePreserving
+      (rejectedSequenceTraceReverse intervals shift width old new left right)
+      ((rejectedLaw.prod
+        ((((volume : Measure Alignment).restrict
+            (alignmentShiftStratum width old new shift)).prod
+            (Measure.count : Measure (ValidAllocation intervals shift))).prod
+          (((volume : Measure ℝ).prod volume).restrict
+            (acceptedProposalSuccess logDensity threshold left right)))).withDensity
+        sourceDensity)
+      ((rejectedLaw.prod
+        ((((volume : Measure Alignment).restrict
+            (alignmentShiftStratum width new old (-shift))).prod
+            (Measure.count : Measure (ValidAllocation intervals (-shift)))).prod
+          (((volume : Measure ℝ).prod volume).restrict
+            (acceptedProposalSuccess logDensity threshold left right)))).withDensity
+        targetDensity) :=
+  measurePreserving_withDensity_of_map_invariant
+    (rejectedSequenceTraceReverse_measurePreserving hlogDensity threshold
+      intervals shift (old := old) (new := new) hgridWidth hbracketWidth)
+    htargetDensity hinvariant
 
 /-- Lift any density on the old/proposed pair to current-point/uniform-fraction
 coordinates in a fixed bracket. -/
