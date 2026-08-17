@@ -475,6 +475,14 @@ breadth branches are:
   and almost-sure nonexplosion therefore reuse the checked Zig-Zag path
   construction. The regenerative suspension argument now also proves exact
   target stationarity for both concrete kernels; convergence remains open.
+  In arbitrary finite dimension, the exact Gaussian BPS clock now additionally
+  has a completed measurable finite-horizon executor, nonexplosion, renewal
+  and residual-memorylessness laws, and a countwise terminal-boundary theorem.
+  The iid terminal coordinate is independent of its finite replay prefix and
+  atomless, so exact ringing at the horizon is null on every genuine
+  completion stratum. The remaining semigroup task is countable gluing of
+  these strata across a time split, followed by target invariance and
+  convergence.
   Separately, the unbounded-rate standard-Gaussian Zig-Zag now has a genuine
   event kernel based on the closed-form inverse integrated hazard. Its unit
   exponential draw is positive almost surely, the inversion equation is

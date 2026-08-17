@@ -503,6 +503,86 @@ theorem unitHazard_head_ne_measurable_tail_ae
   apply (Measure.ae_prod_iff_ae_ae hmeasurable).2
   exact (Measure.ae_ae_comm hmeasurable).mpr htailHead
 
+/-- A unit-exponential variable independent of a measurable prefix almost
+surely avoids every threshold computed from that prefix.  This coordinate-free
+form is useful at an arbitrary event number in an iid hazard stream. -/
+theorem unitHazard_independent_ne_measurable_ae
+    {Ω Prefix : Type*} [MeasurableSpace Ω] [MeasurableSpace Prefix]
+    (probability : Measure Ω) [IsProbabilityMeasure probability]
+    (prefixData : Ω → Prefix) (hazard : Ω → NNReal)
+    (hprefix : Measurable prefixData) (hhazard : Measurable hazard)
+    (hindependent : IndepFun prefixData hazard probability)
+    (hhazardLaw : probability.map hazard = unitHazardMeasure)
+    (threshold : Prefix → NNReal) (hthreshold : Measurable threshold) :
+    ∀ᵐ sample ∂probability, hazard sample ≠ threshold (prefixData sample) := by
+  have hmeasurable : MeasurableSet
+      {pair : Prefix × NNReal | pair.2 ≠ threshold pair.1} := by
+    change MeasurableSet
+      ({pair : Prefix × NNReal | pair.2 = threshold pair.1}ᶜ)
+    exact (measurableSet_eq_fun measurable_snd
+      (hthreshold.comp measurable_fst)).compl
+  have hproduct : ∀ᵐ pair ∂(probability.map prefixData).prod unitHazardMeasure,
+      pair.2 ≠ threshold pair.1 := by
+    apply (Measure.ae_prod_iff_ae_ae hmeasurable).2
+    filter_upwards [] with prefixValue
+    rw [ae_iff]
+    have hset : {mark : NNReal | ¬mark ≠ threshold prefixValue} =
+        {threshold prefixValue} := by
+      ext mark
+      simp
+    rw [hset]
+    exact unitHazardMeasure_singleton _
+  have hpairLaw := hindependent.map_prod_eq_prod_map_map
+    hprefix.aemeasurable hhazard.aemeasurable
+  rw [hhazardLaw] at hpairLaw
+  rw [← hpairLaw] at hproduct
+  exact (ae_map_iff (hprefix.prodMk hhazard).aemeasurable hmeasurable).mp
+    hproduct
+
+/-- The first `count` iid hazard coordinates are independent of coordinate
+`count`. -/
+theorem unitHazardSequence_prefix_indep_coordinate (count : ℕ) :
+    IndepFun
+      (fun hazards : ℕ → NNReal => fun index : Fin count => hazards index)
+      (fun hazards : ℕ → NNReal => hazards count)
+      unitHazardSequenceMeasure := by
+  have hall : iIndepFun
+      (fun index : ℕ => fun hazards : ℕ → NNReal => hazards index)
+      unitHazardSequenceMeasure := by
+    unfold unitHazardSequenceMeasure
+    simpa using
+      (iIndepFun_infinitePi
+        (P := fun _ : ℕ => unitHazardMeasure)
+        (X := fun (_ : ℕ) (mark : NNReal) => mark) (by fun_prop))
+  have hblocks := hall.indepFun_finset (Finset.range count) {count}
+    (Finset.disjoint_singleton_right.mpr Finset.notMem_range_self)
+    (fun _ => measurable_pi_apply _)
+  have hcomposed := hblocks.comp
+    (show Measurable
+      (fun values : (index : ↥(Finset.range count)) → NNReal =>
+        fun index : Fin count =>
+          values ⟨index, Finset.mem_range.mpr index.isLt⟩) by fun_prop)
+    (show Measurable
+      (fun values : (index : ↥({count} : Finset ℕ)) → NNReal =>
+        values ⟨count, Finset.mem_singleton_self count⟩) by fun_prop)
+  simpa [Function.comp_def] using hcomposed
+
+/-- Every fixed coordinate of the iid hazard stream is strictly positive
+almost surely. -/
+theorem unitHazardSequence_coordinate_pos_ae (count : ℕ) :
+    ∀ᵐ hazards ∂unitHazardSequenceMeasure, 0 < hazards count := by
+  have hcoordinateLaw : unitHazardSequenceMeasure.map
+      (fun hazards : ℕ → NNReal => hazards count) = unitHazardMeasure := by
+    unfold unitHazardSequenceMeasure
+    simpa using Measure.infinitePi_map_eval
+      (fun _ : ℕ => unitHazardMeasure) count
+  have hpositive : ∀ᵐ mark ∂unitHazardSequenceMeasure.map
+      (fun hazards : ℕ → NNReal => hazards count), 0 < mark := by
+    rw [hcoordinateLaw]
+    exact unitHazardMeasure_positive_ae
+  exact (ae_map_iff (measurable_pi_apply count).aemeasurable
+    measurableSet_Ioi).mp hpositive
+
 /-- Removing the first coordinate from an iid unit-hazard stream leaves the
 same infinite-product law. -/
 theorem unitHazardSequenceMeasure_map_tail :

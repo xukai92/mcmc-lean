@@ -4927,3 +4927,15 @@ an independent head mark almost surely differs from any measurable threshold
 computed from the iid tail. The next stratum step is to reindex an arbitrary
 terminal coordinate as that independent head while retaining the finite
 prefix context that determines its threshold.
+
+That stratum step is now complete. The iid product coordinates are proved
+mutually independent through mathlib's infinite-product API; consequently the
+first `n` coordinates are independent of coordinate `n`, whose law is the
+atomless unit exponential. Gaussian-BPS replay preserves nonzero velocity,
+and its accumulated terminal-flight hazard is a measurable function of
+exactly those first `n` coordinates. Lean identifies an exact wait at the
+remaining horizon with equality to this accumulated-hazard threshold and
+therefore proves that, on every genuine positive completion stratum, the
+terminal candidate takes the no-event branch almost surely. The countwise
+boundary-null obstruction to the time-split/semigroup gluing argument is thus
+closed; constructing that gluing is the next step.

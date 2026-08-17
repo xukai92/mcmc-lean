@@ -1014,10 +1014,77 @@ noncomputable def gaussianBPSConsumedHazard
       standardGaussianBouncyParticleBounceData.stateRate
         (bouncyParticleFlow (Real.toNNReal elapsed) state))
 
+theorem measurable_gaussianBPSConsumedHazard :
+    Measurable (fun input : BouncyParticleState ι × NNReal =>
+      gaussianBPSConsumedHazard input.1 input.2) := by
+  let formula : BouncyParticleState ι × NNReal → NNReal := fun input =>
+    if input.1.2 = 0 then 0 else Real.toNNReal
+      (((max 0 (gaussianBPSLinearCoefficient input.1 +
+          (input.2 : ℝ) * gaussianBPSQuadraticCoefficient input.1)) ^ 2 -
+        (max 0 (gaussianBPSLinearCoefficient input.1)) ^ 2) /
+          (2 * gaussianBPSQuadraticCoefficient input.1))
+  have hformula : (fun input : BouncyParticleState ι × NNReal =>
+      gaussianBPSConsumedHazard input.1 input.2) = formula := by
+    funext input
+    by_cases hvelocity : input.1.2 = 0
+    · unfold gaussianBPSConsumedHazard formula
+      simp only [hvelocity, if_pos]
+      have hrate : ∀ elapsed : ℝ,
+          standardGaussianBouncyParticleBounceData.stateRate
+            (bouncyParticleFlow (Real.toNNReal elapsed) input.1) = 0 := by
+        intro elapsed
+        unfold BouncyParticleBounceData.stateRate
+          standardGaussianBouncyParticleBounceData bouncyRate
+        simp [bouncyParticleFlow, hvelocity, euclideanInner]
+      simp_rw [hrate]
+      simp
+    · unfold gaussianBPSConsumedHazard formula
+      rw [if_neg hvelocity,
+        standardGaussianBPS_accumulated input.1 input.2 hvelocity]
+  rw [hformula]
+  unfold formula gaussianBPSLinearCoefficient gaussianBPSQuadraticCoefficient
+    squaredEuclideanNorm euclideanInner
+  apply Measurable.ite
+  · exact (measurableSet_singleton (0 : Position ι)).preimage
+      (measurable_snd.comp measurable_fst)
+  · exact measurable_const
+  · fun_prop
+
 /-- Residual integrated-hazard mark after a finite split. -/
 noncomputable def gaussianBPSResidualHazard
     (state : BouncyParticleState ι) (hazard time : NNReal) : NNReal :=
   hazard - gaussianBPSConsumedHazard state time
+
+/-- Exact-boundary ringing is equivalently equality of the sampled mark with
+the accumulated hazard threshold. -/
+theorem gaussianBPSWaitingTime_eq_iff
+    (state : BouncyParticleState ι) (hvelocity : state.2 ≠ 0)
+    (hazard : NNReal) (hhazard : 0 < hazard) (horizon : NNReal) :
+    gaussianBPSWaitingTime state hazard = horizon ↔
+      hazard = gaussianBPSConsumedHazard state horizon := by
+  have hnonneg := standardGaussianBPS_accumulated_nonneg
+    state hvelocity horizon
+  constructor
+  · intro hwait
+    have hinverse := standardGaussianBPS_waitingTime_inverse
+      state hvelocity hhazard
+    rw [hwait] at hinverse
+    apply NNReal.eq
+    unfold gaussianBPSConsumedHazard
+    rw [Real.coe_toNNReal _ hnonneg]
+    exact hinverse.symm
+  · intro hhazardEq
+    have htime :
+        (∫ elapsed in (0 : ℝ)..(horizon : ℝ),
+          standardGaussianBouncyParticleBounceData.stateRate
+            (bouncyParticleFlow (Real.toNNReal elapsed) state)) =
+          (hazard : ℝ) := by
+      have hcoe := congrArg (fun value : NNReal => (value : ℝ)) hhazardEq
+      unfold gaussianBPSConsumedHazard at hcoe
+      rw [Real.coe_toNNReal _ hnonneg] at hcoe
+      exact hcoe.symm
+    exact (gaussianBPSWaitingTime_unique state hvelocity hazard hhazard
+      horizon htime).symm
 
 /-- Exact no-event survival probability over a finite Gaussian-BPS flight. -/
 theorem unitHazardMeasure_gaussianBPSWaitingTime_gt
@@ -1411,6 +1478,231 @@ theorem standardGaussianBPS_clock_accumulated_add
         (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock.accumulated
           (bouncyParticleFlow first state) second := by
   exact standardGaussianBPS_accumulated_add state first second
+
+/-- Every capped Gaussian-BPS step preserves nonzero velocity, whether it
+takes an event branch or finishes by residual flow. -/
+theorem standardGaussianBPS_cappedStep_velocity_ne_zero
+    (remainingState : NNReal × BouncyParticleState ι) (hazard : NNReal)
+    (hvelocity : remainingState.2.2 ≠ 0) :
+    ((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+      |>.cappedStepUpdate (standardGaussianBPSJump (ι := ι))
+        (remainingState, hazard)).2.2 ≠ 0 := by
+  unfold PartialInverseHazardClock.cappedStepUpdate
+  dsimp only [Prod.fst, Prod.snd]
+  split_ifs with hcondition
+  · dsimp only [Prod.snd]
+    intro hzero
+    change bouncyReflection
+      (bouncyParticleFlow
+        (gaussianBPSWaitingTime remainingState.2 hazard)
+        remainingState.2).1
+      (bouncyParticleFlow
+        (gaussianBPSWaitingTime remainingState.2 hazard)
+        remainingState.2).2 = 0 at hzero
+    have hnorm := squaredEuclideanNorm_bouncyReflection_total
+      (bouncyParticleFlow
+        (gaussianBPSWaitingTime remainingState.2 hazard)
+        remainingState.2).1
+      (bouncyParticleFlow
+        (gaussianBPSWaitingTime remainingState.2 hazard)
+        remainingState.2).2
+    rw [hzero, squaredEuclideanNorm_eq_zero.mpr rfl,
+      bouncyParticleFlow_velocity] at hnorm
+    exact hvelocity (squaredEuclideanNorm_eq_zero.mp hnorm.symm)
+  · change remainingState.2.2 ≠ 0
+    exact hvelocity
+
+/-- Hence every finite Gaussian-BPS replay prefix preserves nonzero
+velocity. -/
+theorem standardGaussianBPS_replayPrefix_velocity_ne_zero
+    (count : ℕ)
+    (input : (NNReal × BouncyParticleState ι) × (ℕ → NNReal))
+    (hvelocity : input.1.2.2 ≠ 0) :
+    (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+      |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count input).2.2) ≠
+      0 := by
+  induction count with
+  | zero => exact hvelocity
+  | succ count ih =>
+      exact standardGaussianBPS_cappedStep_velocity_ne_zero _ _ ih
+
+/-- Extend a finite hazard prefix by zero.  Only the first `count`
+coordinates are inspected when replaying `count` candidates. -/
+def finiteHazardPrefixExtension (count : ℕ) (marks : Fin count → NNReal) :
+    ℕ → NNReal := fun index =>
+  if hindex : index < count then marks ⟨index, hindex⟩ else 0
+
+theorem measurable_finiteHazardPrefixExtension (count : ℕ) :
+    Measurable (finiteHazardPrefixExtension count) := by
+  apply measurable_pi_lambda
+  intro index
+  by_cases hindex : index < count
+  · simpa [finiteHazardPrefixExtension, hindex] using
+      (measurable_pi_apply (⟨index, hindex⟩ : Fin count))
+  · simp [finiteHazardPrefixExtension, hindex]
+
+/-- Accumulated terminal-flight hazard as a measurable function of exactly
+the preceding finite iid prefix. -/
+noncomputable def standardGaussianBPSTerminalThreshold
+    (horizon : NNReal) (initial : BouncyParticleState ι) (count : ℕ)
+    (marks : Fin count → NNReal) : NNReal :=
+  let before :=
+    (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+      |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+        ((horizon, initial), finiteHazardPrefixExtension count marks)
+  gaussianBPSConsumedHazard before.2 before.1
+
+set_option maxHeartbeats 800000 in
+theorem measurable_standardGaussianBPSTerminalThreshold
+    (horizon : NNReal) (initial : BouncyParticleState ι) (count : ℕ) :
+    Measurable
+      (standardGaussianBPSTerminalThreshold (ι := ι) horizon initial count) := by
+  unfold standardGaussianBPSTerminalThreshold
+  let before : (Fin count → NNReal) → NNReal × BouncyParticleState ι :=
+    fun marks =>
+      (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+        |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+          ((horizon, initial), finiteHazardPrefixExtension count marks)
+  have hbefore : Measurable before :=
+    ((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+      |>.measurable_replayPrefix measurable_standardGaussianBPSJump count).comp
+        ((measurable_const.prodMk measurable_const).prodMk
+          (measurable_finiteHazardPrefixExtension count))
+  exact measurable_gaussianBPSConsumedHazard.comp
+    (hbefore.snd.prodMk hbefore.fst)
+
+theorem standardGaussianBPSTerminalThreshold_apply
+    (horizon : NNReal) (initial : BouncyParticleState ι) (count : ℕ)
+    (hazards : ℕ → NNReal) :
+    standardGaussianBPSTerminalThreshold (ι := ι) horizon initial count
+        (fun index : Fin count => hazards index) =
+      gaussianBPSConsumedHazard
+        (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+          |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+            ((horizon, initial), hazards)).2)
+        (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+          |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+            ((horizon, initial), hazards)).1) := by
+  unfold standardGaussianBPSTerminalThreshold
+  rw [(standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+    |>.replayPrefix_eq_executeHazards]
+  rw [(standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+    |>.replayPrefix_eq_executeHazards]
+  simp [hazardPrefix, finiteHazardPrefixExtension]
+
+/-- The next iid hazard mark almost surely misses the accumulated-hazard
+threshold determined by all preceding Gaussian-BPS candidates. -/
+theorem standardGaussianBPS_terminal_boundary_ae
+    (horizon : NNReal) (initial : BouncyParticleState ι) (count : ℕ) :
+    ∀ᵐ hazards ∂unitHazardSequenceMeasure,
+      hazards count ≠ gaussianBPSConsumedHazard
+        (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+          |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+            ((horizon, initial), hazards)).2)
+        (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+          |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+            ((horizon, initial), hazards)).1) := by
+  have hcoordinateLaw : unitHazardSequenceMeasure.map
+      (fun hazards : ℕ → NNReal => hazards count) = unitHazardMeasure := by
+    unfold unitHazardSequenceMeasure
+    simpa using Measure.infinitePi_map_eval
+      (fun _ : ℕ => unitHazardMeasure) count
+  filter_upwards [unitHazard_independent_ne_measurable_ae
+      unitHazardSequenceMeasure
+      (fun hazards : ℕ → NNReal => fun index : Fin count => hazards index)
+      (fun hazards : ℕ → NNReal => hazards count)
+      (by fun_prop) (by fun_prop)
+      (unitHazardSequence_prefix_indep_coordinate count)
+      hcoordinateLaw
+      (standardGaussianBPSTerminalThreshold (ι := ι) horizon initial count)
+      (measurable_standardGaussianBPSTerminalThreshold horizon initial count)]
+      with hazards havoid
+  rwa [standardGaussianBPSTerminalThreshold_apply] at havoid
+
+/-- On a positive completion stratum, the exceptional exact-boundary branch
+forces the terminal hazard coordinate to equal the measurable accumulated
+hazard threshold determined by the preceding prefix. -/
+theorem standardGaussianBPS_terminal_noEvent_or_hazard_eq_consumed
+    (horizon : NNReal) (initial : BouncyParticleState ι)
+    (hvelocity : initial.2 ≠ 0) (count : ℕ)
+    {hazards : ℕ → NNReal}
+    (hmem : hazards ∈
+      ((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+        |>.genuineCompletionStratum (standardGaussianBPSJump (ι := ι))
+          horizon initial (count + 1)))
+    (hhazard : 0 < hazards count) :
+    (¬(0 < (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+            |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+              ((horizon, initial), hazards)).1) ∧
+        (standardGaussianBPSPartialInverseHazardData (ι := ι)).active
+            (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+              |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+                ((horizon, initial), hazards)).2)
+            (hazards count) = true ∧
+        gaussianBPSWaitingTime
+            (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+              |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+                ((horizon, initial), hazards)).2)
+            (hazards count) ≤
+          (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+            |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+              ((horizon, initial), hazards)).1))) ∨
+      hazards count = gaussianBPSConsumedHazard
+        (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+          |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+            ((horizon, initial), hazards)).2)
+        (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+          |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+            ((horizon, initial), hazards)).1) := by
+  let clock := (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+  let jump := standardGaussianBPSJump (ι := ι)
+  let before := clock.replayPrefix jump count ((horizon, initial), hazards)
+  rcases clock.terminal_noEvent_or_wait_eq_remaining jump horizon initial count
+      hmem with hnoevent | hwait
+  · exact Or.inl hnoevent
+  · right
+    have hbeforeVelocity : before.2.2 ≠ 0 :=
+      standardGaussianBPS_replayPrefix_velocity_ne_zero count
+        ((horizon, initial), hazards) hvelocity
+    exact (gaussianBPSWaitingTime_eq_iff before.2 hbeforeVelocity
+      (hazards count) hhazard before.1).mp hwait
+
+/-- On every genuine positive completion stratum, the capped terminal
+candidate takes the no-event branch almost surely.  Thus exact ringing at the
+horizon is removed from subsequent semigroup arguments, rather than resolved
+by an arbitrary tie convention. -/
+theorem standardGaussianBPS_terminal_noEvent_ae
+    (horizon : NNReal) (initial : BouncyParticleState ι)
+    (hvelocity : initial.2 ≠ 0) (count : ℕ) :
+    ∀ᵐ hazards ∂unitHazardSequenceMeasure,
+      hazards ∈
+          ((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+            |>.genuineCompletionStratum (standardGaussianBPSJump (ι := ι))
+              horizon initial (count + 1)) →
+        ¬(0 < (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+                |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+                  ((horizon, initial), hazards)).1) ∧
+            (standardGaussianBPSPartialInverseHazardData (ι := ι)).active
+                (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+                  |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+                    ((horizon, initial), hazards)).2)
+                (hazards count) = true ∧
+            gaussianBPSWaitingTime
+                (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+                  |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+                    ((horizon, initial), hazards)).2)
+                (hazards count) ≤
+              (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+                |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+                  ((horizon, initial), hazards)).1)) := by
+  filter_upwards [standardGaussianBPS_terminal_boundary_ae
+      (ι := ι) horizon initial count,
+    unitHazardSequence_coordinate_pos_ae count] with hazards hboundary hpositive
+  intro hmem
+  rcases standardGaussianBPS_terminal_noEvent_or_hazard_eq_consumed
+      horizon initial hvelocity count hmem hpositive with hnoevent | hequal
+  · exact hnoevent
+  · exact (hboundary hequal).elim
 
 /-- The Gaussian replay potential satisfies the accepted-step payment
 inequality required by the generic inverse-clock nonexplosion theorem. -/
