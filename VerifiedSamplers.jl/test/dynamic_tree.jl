@@ -128,6 +128,9 @@
         collect(0.0:6.0), ones(7), Bool[true, false])
     @test !recursive_boundary.valid
     @test recursive_boundary.candidates[3] == collect(1:4)
+    reference_boundary_rows = Reference.recursive_doubling_rows(
+        collect(0.0:6.0), ones(7), Bool[true, false])
+    @test reference_boundary_rows == recursive_boundary.candidates
     recursive_fallback_source = Runtime.TraceSource(Int[])
     @test safe_dynamic_select!(recursive_fallback_source,
         recursive_boundary, ones(Int, 7), 3) == 3
@@ -137,6 +140,9 @@
         Bool[true, false])
     @test !recursive_turn.valid
     @test recursive_turn.candidates[3] == [3]
+    @test Reference.recursive_doubling_rows(
+        [0.0, 1.0, 1.5, 1.25, 0.5], [1.0, 0.8, 0.2, -0.5, -0.8],
+        Bool[true, false]) == recursive_turn.candidates
     @test_throws DimensionMismatch recursive_doubling_uturn_candidates(
         [0.0], [1.0, 2.0], Bool[])
     @test_throws DomainError recursive_doubling_uturn_candidates(

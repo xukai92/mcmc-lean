@@ -4228,3 +4228,17 @@ to that literal finite mixture and proves stationarity for every candidate-row
 builder. The remaining cross-language obligation is now narrower and explicit:
 show that the runtime recursion produces the declared candidate function for
 each trace (subject to its bounded numerical callback certificates).
+
+## 2026-08-17: executable recursive candidate rows
+
+Replaced the abstract recursive candidate function with an executable Lean
+definition. It models zero-based closed intervals, depth-indexed powers-of-two
+expansion, boundary stopping, recursive completed-subtree U-turn exclusion,
+completed-join exclusion, and permanent early stopping. A native-decided Lean
+regression recovers the same four-state row used by the seven-point Julia
+boundary example. Julia Reference now contains a direct interpreter of these
+rules; the generated runtime path uses it, while the previous manual builder
+is retained independently for conformance checks. Boundary and curved U-turn
+examples agree exactly. This is strong implementation evidence, but not a
+machine-checked Julia extraction theorem; numerical dot-product agreement also
+still depends on the existing strict-margin certificates and backend budgets.

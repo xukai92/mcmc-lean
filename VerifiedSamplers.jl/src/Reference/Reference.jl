@@ -11,7 +11,7 @@ export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_ou
     relativistic_multinomial_hmc_step!,
     fixed_point_generalized_leapfrog,
     certified_relativistic_multinomial_hmc_step!,
-    dynamic_select_float!, streaming_eligible_select!,
+    dynamic_select_float!, streaming_eligible_select!, recursive_doubling_rows,
     coupled_multinomial_hmc_step!, coupled_gaussian_rwmh_step!, xu21_coupled_step!,
     IR_FORMAT_VERSION
 
@@ -67,6 +67,67 @@ function streaming_eligible_select!(source::AbstractRandomSource,
     end
     representative
 end
+
+"""Direct interpreter for the generated recursive-doubling row builder.
+
+Indices in the returned rows are Julia's one-based counterpart of the Lean
+builder's `Fin count` indices. Global reroot certification remains a separate
+operation so rejected diagnostic rows stay observable.
+"""
+function recursive_doubling_rows(
+        positions::AbstractVector{<:AbstractVector{<:Real}},
+        momenta::AbstractVector{<:AbstractVector{<:Real}},
+        directions::AbstractVector{Bool})
+    length(positions) == length(momenta) ||
+        throw(DimensionMismatch("position and momentum trajectories must match"))
+    isempty(positions) && throw(ArgumentError("trajectory cannot be empty"))
+    dimension = length(first(positions))
+    dimension > 0 || throw(ArgumentError("phase-space dimension cannot be zero"))
+    all(point -> length(point) == dimension, positions) &&
+        all(point -> length(point) == dimension, momenta) ||
+        throw(DimensionMismatch("all phase points must have the same dimension"))
+    q = [Float64.(point) for point in positions]
+    p = [Float64.(point) for point in momenta]
+    all(point -> all(isfinite, point), q) &&
+        all(point -> all(isfinite, point), p) ||
+        throw(DomainError((positions, momenta), "trajectory must be finite"))
+
+    turns(left, right) = begin
+        displacement = q[right] .- q[left]
+        dot(displacement, p[left]) < 0 || dot(displacement, p[right]) < 0
+    end
+    function subtree_turns(left, right)
+        left == right && return false
+        turns(left, right) && return true
+        middle = (left + right) ÷ 2
+        subtree_turns(left, middle) || subtree_turns(middle + 1, right)
+    end
+
+    count = length(q)
+    rows = Vector{Vector{Int}}(undef, count)
+    for root in 1:count
+        left = right = root
+        for depth in eachindex(directions)
+            width = 1 << (depth - 1)
+            grow_right = directions[depth]
+            proposed_left = grow_right ? left : left - width
+            proposed_right = grow_right ? right + width : right
+            proposed_left >= 1 && proposed_right <= count || break
+            new_left = grow_right ? right + 1 : proposed_left
+            new_right = grow_right ? proposed_right : left - 1
+            (subtree_turns(new_left, new_right) ||
+                turns(proposed_left, proposed_right)) && break
+            left, right = proposed_left, proposed_right
+        end
+        rows[root] = collect(left:right)
+    end
+    rows
+end
+
+recursive_doubling_rows(positions::AbstractVector{<:Real},
+        momenta::AbstractVector{<:Real}, directions::AbstractVector{Bool}) =
+    recursive_doubling_rows([[Float64(value)] for value in positions],
+        [[Float64(value)] for value in momenta], directions)
 
 """Reference coordinate-wise DHMC update for a categorical law on a cycle.
 

@@ -134,4 +134,103 @@ theorem CheckedRecursiveDoublingProgram.stationary
   CertifiedDynamicTree.randomizedCheckedOrIdentityKernel_stationary
     (uniformDirectionTraceLaw depth) target program.candidates htarget
 
+/-! ### Deterministic recursive candidate-row builder -/
+
+/-- Zero-based closed interval retained by one rooted recursive-doubling run. -/
+structure DoublingInterval where
+  left : ℕ
+  right : ℕ
+deriving DecidableEq, Repr
+
+/-- Once a subtree or completed join turns, later direction bits are ignored,
+matching the production builder's early `break`. -/
+structure DoublingBuilderState where
+  interval : DoublingInterval
+  active : Bool
+deriving DecidableEq, Repr
+
+/-- Fuel-bounded structural endpoint test for one completed binary subtree.
+Calling it with fuel at least the state count reproduces the finite recursive
+test while making termination explicit. -/
+def recursiveSubtreeTurns (turns : ℕ → ℕ → Bool) : ℕ → ℕ → ℕ → Bool
+  | 0, _, _ => false
+  | fuel + 1, left, right =>
+      if left < right then
+        let middle := (left + right) / 2
+        turns left right ||
+          recursiveSubtreeTurns turns fuel left middle ||
+          recursiveSubtreeTurns turns fuel (middle + 1) right
+      else false
+
+/-- Execute one depth-indexed left/right expansion. Out-of-range expansions
+and U-turns both stop the row permanently at its preceding interval. -/
+def advanceRecursiveDoubling
+    (count : ℕ) (turns : ℕ → ℕ → Bool) (depth : ℕ)
+    (state : DoublingBuilderState) (growRight : Bool) : DoublingBuilderState :=
+  if !state.active then state
+  else
+    let width := 2 ^ depth
+    let withinBounds := if growRight then
+      state.interval.right + width < count
+    else
+      width ≤ state.interval.left
+    if !withinBounds then { state with active := false }
+    else
+      let proposedLeft := if growRight then state.interval.left
+        else state.interval.left - width
+      let proposedRight := if growRight then state.interval.right + width
+        else state.interval.right
+      let newLeft := if growRight then state.interval.right + 1 else proposedLeft
+      let newRight := if growRight then proposedRight else state.interval.left - 1
+      if recursiveSubtreeTurns turns count newLeft newRight ||
+          turns proposedLeft proposedRight then
+        { state with active := false }
+      else
+        { interval := { left := proposedLeft, right := proposedRight },
+          active := true }
+
+def runRecursiveDoubling
+    (count : ℕ) (turns : ℕ → ℕ → Bool) :
+    ℕ → DoublingBuilderState → List Bool → DoublingBuilderState
+  | _, state, [] => state
+  | depth, state, direction :: rest =>
+      runRecursiveDoubling count turns (depth + 1)
+        (advanceRecursiveDoubling count turns depth state direction) rest
+
+/-- Candidate row emitted for one root and one complete direction trace. -/
+def recursiveDoublingCandidateRow
+    (count depth : ℕ) (turns : Fin count → Fin count → Bool)
+    (trace : Fin depth → Bool) (root : Fin count) : Finset (Fin count) :=
+  let turnsNat := fun left right =>
+    if hleft : left < count then
+      if hright : right < count then turns ⟨left, hleft⟩ ⟨right, hright⟩
+      else true
+    else true
+  let final := runRecursiveDoubling count turnsNat 0
+    { interval := { left := root.val, right := root.val }, active := true }
+    (List.ofFn trace)
+  Finset.univ.filter fun state =>
+    final.interval.left ≤ state.val ∧ state.val ≤ final.interval.right
+
+/-- Concrete candidate function denoted by the generated recursive builder. -/
+def recursiveDoublingProgram
+    (count depth : ℕ) (turns : Fin count → Fin count → Bool) :
+    CheckedRecursiveDoublingProgram (Fin count) depth where
+  candidates trace root := recursiveDoublingCandidateRow count depth turns trace root
+
+@[simp] theorem recursiveDoublingCandidateRow_zero_depth
+    (count : ℕ) (turns : Fin count → Fin count → Bool) (root : Fin count) :
+    recursiveDoublingCandidateRow count 0 turns (fun index => nomatch index) root =
+      {root} := by
+  ext state
+  simp only [recursiveDoublingCandidateRow, List.ofFn_zero,
+    runRecursiveDoubling, Finset.mem_filter, Finset.mem_univ, true_and,
+    Finset.mem_singleton]
+  constructor
+  · intro h
+    exact Fin.eq_of_val_eq (Nat.le_antisymm h.2 h.1)
+  · intro h
+    subst state
+    exact ⟨Nat.le_refl _, Nat.le_refl _⟩
+
 end Mcmc.Executable.DynamicTreeIR

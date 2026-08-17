@@ -1897,7 +1897,8 @@ function generated_dynamic_tree(name::AbstractString, positions, momenta,
         descriptor.selection_policy == "eligible-count-streaming" &&
         descriptor.failure_policy == "checked-or-identity" ||
         error("unsupported generated dynamic-tree descriptor")
-    recursive_doubling_uturn_candidates(positions, momenta, directions)
+    certify_dynamic_tree(
+        Reference.recursive_doubling_rows(positions, momenta, directions))
 end
 
 """Draw from completed eligible subtrees using the Lean-generated policy."""
