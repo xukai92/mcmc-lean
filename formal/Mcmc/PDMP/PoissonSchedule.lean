@@ -32,6 +32,64 @@ def PositiveHorizon.add (first second : PositiveHorizon) : PositiveHorizon where
     (first second : PositiveHorizon) :
     (first.add second).duration = first.duration + second.duration := rfl
 
+/-- Unnormalized Lebesgue timestamp mass on a horizon. This is the analytic
+measure beneath the normalized uniform timestamp and Poisson Janossy weights. -/
+noncomputable def PositiveHorizon.timestampMassMeasure
+    (horizon : PositiveHorizon) : Measure ℝ :=
+  volume.restrict (Set.Ioc 0 (horizon.duration : ℝ))
+
+/-- Translation of the second horizon's timestamp mass occupies exactly the
+adjacent interval after the first horizon. -/
+theorem PositiveHorizon.map_add_duration_timestampMassMeasure
+    (first second : PositiveHorizon) :
+    Measure.map (fun time : ℝ => (first.duration : ℝ) + time)
+        second.timestampMassMeasure =
+      volume.restrict
+        (Set.Ioc (first.duration : ℝ)
+          ((first.duration + second.duration : NNReal) : ℝ)) := by
+  let shift : ℝ ≃ᵐ ℝ := MeasurableEquiv.addLeft (first.duration : ℝ)
+  have himage : shift '' Set.Ioc 0 (second.duration : ℝ) =
+      Set.Ioc (first.duration : ℝ)
+        ((first.duration + second.duration : NNReal) : ℝ) := by
+    ext time
+    simp only [Set.mem_image, Set.mem_Ioc, NNReal.coe_add]
+    constructor
+    · rintro ⟨source, ⟨hsource0, hsourceT⟩, rfl⟩
+      change (first.duration : ℝ) < (first.duration : ℝ) + source ∧
+        (first.duration : ℝ) + source ≤
+          (first.duration : ℝ) + (second.duration : ℝ)
+      constructor <;> linarith
+    · intro htime
+      refine ⟨time - (first.duration : ℝ), ?_, ?_⟩
+      constructor <;> linarith
+      change (first.duration : ℝ) +
+        (time - (first.duration : ℝ)) = time
+      ring
+  change Measure.map shift
+      (volume.restrict (Set.Ioc 0 (second.duration : ℝ))) = _
+  rw [← himage]
+  have hrestrict := shift.restrict_map volume
+    (shift '' Set.Ioc 0 (second.duration : ℝ))
+  rw [show Measure.map shift volume = volume by
+      exact map_add_left_eq_self volume (first.duration : ℝ),
+    Set.preimage_image_eq _ shift.injective] at hrestrict
+  exact hrestrict.symm
+
+/-- Timestamp mass is additive across adjacent horizons. -/
+theorem PositiveHorizon.timestampMassMeasure_add
+    (first second : PositiveHorizon) :
+    (first.add second).timestampMassMeasure =
+      first.timestampMassMeasure +
+        Measure.map (fun time : ℝ => (first.duration : ℝ) + time)
+          second.timestampMassMeasure := by
+  rw [first.map_add_duration_timestampMassMeasure second]
+  unfold PositiveHorizon.timestampMassMeasure
+  rw [PositiveHorizon.add_duration, NNReal.coe_add]
+  rw [← Measure.restrict_union
+    (Set.Ioc_disjoint_Ioc_of_le le_rfl) measurableSet_Ioc]
+  rw [Set.Ioc_union_Ioc_eq_Ioc (NNReal.coe_nonneg first.duration)
+    (by linarith [NNReal.coe_nonneg second.duration])]
+
 /-- Continuous uniform probability measure on `(0, horizon]`. -/
 noncomputable def PositiveHorizon.uniformTimeMeasure
     (horizon : PositiveHorizon) : Measure ℝ :=
@@ -49,6 +107,34 @@ instance PositiveHorizon.uniformTimeMeasure.instIsProbabilityMeasure
   exact ENNReal.inv_mul_cancel
     (ne_of_gt (ENNReal.ofReal_pos.2 (by exact_mod_cast horizon.positive)))
     ENNReal.ofReal_ne_top
+
+/-- Multiplying the normalized uniform timestamp law by the horizon length
+recovers unnormalized Lebesgue timestamp mass. -/
+theorem PositiveHorizon.ofReal_duration_smul_uniformTimeMeasure
+    (horizon : PositiveHorizon) :
+    ENNReal.ofReal (horizon.duration : ℝ) • horizon.uniformTimeMeasure =
+      horizon.timestampMassMeasure := by
+  unfold PositiveHorizon.uniformTimeMeasure
+    PositiveHorizon.timestampMassMeasure
+  rw [smul_smul, ENNReal.mul_inv_cancel]
+  · simp
+  · exact ne_of_gt (ENNReal.ofReal_pos.2 (by exact_mod_cast horizon.positive))
+  · exact ENNReal.ofReal_ne_top
+
+/-- The unnormalized one-event law on a combined horizon is the sum of the
+first-interval law and the translated second-interval law. -/
+theorem PositiveHorizon.scaledUniformTimeMeasure_add
+    (first second : PositiveHorizon) :
+    ENNReal.ofReal ((first.add second).duration : ℝ) •
+        (first.add second).uniformTimeMeasure =
+      ENNReal.ofReal (first.duration : ℝ) • first.uniformTimeMeasure +
+        Measure.map (fun time : ℝ => (first.duration : ℝ) + time)
+          (ENNReal.ofReal (second.duration : ℝ) •
+            second.uniformTimeMeasure) := by
+  rw [(first.add second).ofReal_duration_smul_uniformTimeMeasure,
+    first.ofReal_duration_smul_uniformTimeMeasure,
+    second.ofReal_duration_smul_uniformTimeMeasure]
+  exact first.timestampMassMeasure_add second
 
 /-- A draw from the continuous horizon law lies in `(0, horizon]` almost
 surely. -/

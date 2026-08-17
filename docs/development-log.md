@@ -62,6 +62,13 @@
   adjacent horizons are proved to add to the Poisson count at rate times the
   summed horizon. The remaining convolution work concerns the conditional
   ordered continuous event times, not the event count.
+  The continuous one-event base is now closed as well. Lean defines the
+  unnormalized timestamp mass as Lebesgue measure restricted to `(0,T]`,
+  proves that horizon length times the normalized uniform law equals this
+  mass, proves translation of the second mass onto `(T,T+S]`, and decomposes
+  the combined mass into the disjoint first and translated-second intervals.
+  The remaining general-count proof is the symmetric tensor-power/binomial
+  shuffle followed by sorting and conversion to waits.
 
 - Closed the rejected-length sigma assembly for the practical-slice joint
   law. The variable-dimensional runtime base is now proved equal to the
