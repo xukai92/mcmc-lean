@@ -1,4 +1,5 @@
 import Mcmc.PDMP.EventSimulation
+import Mathlib.Probability.BorelCantelli
 import Mathlib.Probability.Independence.InfinitePi
 
 /-!
@@ -12,7 +13,7 @@ nonexplosion remain explicit additional obligations.
 -/
 
 open MeasureTheory ProbabilityTheory
-open scoped NNReal ProbabilityTheory
+open scoped ENNReal NNReal ProbabilityTheory
 
 namespace Mcmc.PDMP
 
@@ -26,6 +27,41 @@ instance unitHazardMeasure.instIsProbabilityMeasure :
     IsProbabilityMeasure unitHazardMeasure := by
   unfold unitHazardMeasure
   infer_instance
+
+/-- Survival function of the canonical unit-exponential hazard law. -/
+theorem unitHazardMeasure_Ioi (elapsed : NNReal) :
+    unitHazardMeasure (Set.Ioi elapsed) =
+      ENNReal.ofReal (Real.exp (-(elapsed : ℝ))) := by
+  have hic : unitHazardMeasure (Set.Iic elapsed) =
+      ENNReal.ofReal (1 - Real.exp (-(elapsed : ℝ))) := by
+    unfold unitHazardMeasure HomogeneousClock.waitMeasure
+    change (Measure.map Real.toNNReal (expMeasure (1 : ℝ)))
+      (Set.Iic elapsed) = _
+    rw [Measure.map_apply measurable_real_toNNReal measurableSet_Iic]
+    have hpre : Real.toNNReal ⁻¹' (Set.Iic elapsed : Set NNReal) =
+        Set.Iic (elapsed : ℝ) := by
+      ext value
+      simp only [Set.mem_preimage, Set.mem_Iic,
+        Real.toNNReal_le_iff_le_coe]
+    rw [hpre]
+    letI : IsProbabilityMeasure (expMeasure (1 : ℝ)) :=
+      isProbabilityMeasure_expMeasure zero_lt_one
+    have hcdf := cdf_expMeasure_eq (r := (1 : ℝ)) zero_lt_one (elapsed : ℝ)
+    rw [cdf_eq_real] at hcdf
+    simp only [NNReal.coe_nonneg, if_pos, one_mul] at hcdf
+    apply (ENNReal.toReal_eq_toReal_iff'
+      (measure_ne_top _ _) ENNReal.ofReal_ne_top).mp
+    rw [ENNReal.toReal_ofReal]
+    · exact hcdf
+    · exact sub_nonneg.mpr (Real.exp_le_one_iff.mpr
+        (neg_nonpos.mpr elapsed.coe_nonneg))
+  rw [← Set.compl_Iic,
+    measure_compl measurableSet_Iic (measure_ne_top _ _), measure_univ, hic]
+  rw [← ENNReal.ofReal_one, ← ENNReal.ofReal_sub _
+    (sub_nonneg.mpr (Real.exp_le_one_iff.mpr
+      (neg_nonpos.mpr elapsed.coe_nonneg)))]
+  congr 1
+  ring
 
 /-- Proof-bearing inverse clock for a possibly unbounded state-dependent
 intensity along a deterministic flow. -/
@@ -288,6 +324,107 @@ instance unitHazardSequenceMeasure.instIsProbabilityMeasure :
     IsProbabilityMeasure unitHazardSequenceMeasure := by
   unfold unitHazardSequenceMeasure
   infer_instance
+
+/-- Coordinate event on which a unit-exponential mark exceeds one. -/
+def unitLargeHazardEvent (index : ℕ) : Set (ℕ → NNReal) :=
+  (fun hazards => hazards index) ⁻¹' Set.Ioi (1 : NNReal)
+
+theorem measurableSet_unitLargeHazardEvent (index : ℕ) :
+    MeasurableSet (unitLargeHazardEvent index) :=
+  measurableSet_Ioi.preimage (measurable_pi_apply index)
+
+theorem unitHazardSequenceMeasure_largeHazardEvent (index : ℕ) :
+    unitHazardSequenceMeasure (unitLargeHazardEvent index) =
+      unitHazardMeasure (Set.Ioi 1) := by
+  unfold unitHazardSequenceMeasure unitLargeHazardEvent
+  have hmap := Measure.infinitePi_map_eval
+    (μ := fun _ : ℕ => unitHazardMeasure) index
+  calc
+    _ = (Measure.map (fun hazards : ℕ → NNReal => hazards index)
+        (Measure.infinitePi fun _ : ℕ => unitHazardMeasure))
+        (Set.Ioi 1) := by
+      rw [Measure.map_apply (by fun_prop) measurableSet_Ioi]
+    _ = _ := congrArg (fun measure : Measure NNReal => measure (Set.Ioi 1)) hmap
+
+theorem unitLargeHazardEvent_iIndepSet :
+    iIndepSet unitLargeHazardEvent unitHazardSequenceMeasure := by
+  apply (iIndepSet_iff_meas_biInter
+    measurableSet_unitLargeHazardEvent).2
+  intro indices
+  have hset : (⋂ index ∈ indices, unitLargeHazardEvent index) =
+      Set.pi (indices : Set ℕ) (fun _ => Set.Ioi (1 : NNReal)) := by
+    ext hazards
+    simp [unitLargeHazardEvent]
+  rw [hset]
+  change (Measure.infinitePi fun _ : ℕ => unitHazardMeasure)
+      (Set.pi (indices : Set ℕ) (fun _ => Set.Ioi (1 : NNReal))) = _
+  rw [Measure.infinitePi_pi
+    (μ := fun _ : ℕ => unitHazardMeasure)
+    (s := indices) (t := fun _ => Set.Ioi (1 : NNReal))
+    (fun _ _ => measurableSet_Ioi)]
+  simp_rw [unitHazardSequenceMeasure_largeHazardEvent]
+
+/-- An iid unit-exponential stream contains infinitely many marks larger than
+one, almost surely. -/
+theorem unitLargeHazardEvent_limsup_measure_eq_one :
+    unitHazardSequenceMeasure
+      (Filter.limsup unitLargeHazardEvent Filter.atTop) = 1 := by
+  apply measure_limsup_eq_one
+    measurableSet_unitLargeHazardEvent unitLargeHazardEvent_iIndepSet
+  simp_rw [unitHazardSequenceMeasure_largeHazardEvent,
+    unitHazardMeasure_Ioi]
+  exact ENNReal.tsum_const_eq_top_of_ne_zero
+    (ENNReal.ofReal_pos.mpr (Real.exp_pos _)).ne'
+
+theorem unitLargeHazardEvent_mem_limsup_ae :
+    ∀ᵐ hazards ∂unitHazardSequenceMeasure,
+      hazards ∈ Filter.limsup unitLargeHazardEvent Filter.atTop := by
+  rw [ae_iff]
+  have hmeasurable : MeasurableSet
+      (Filter.limsup unitLargeHazardEvent Filter.atTop) :=
+    MeasurableSet.measurableSet_limsup measurableSet_unitLargeHazardEvent
+  have hset : {hazards | ¬hazards ∈
+      Filter.limsup unitLargeHazardEvent Filter.atTop} =
+      (Filter.limsup unitLargeHazardEvent Filter.atTop)ᶜ := rfl
+  rw [hset, measure_compl hmeasurable (measure_ne_top _ _),
+    unitLargeHazardEvent_limsup_measure_eq_one, measure_univ, tsub_self]
+
+/-- The sum of iid unit-exponential hazard marks is infinite almost surely.
+This reusable fact is the probabilistic half of bounded-on-finite-horizons
+nonexplosion arguments. -/
+theorem unitHazard_tsum_eq_top_ae :
+    ∀ᵐ hazards ∂unitHazardSequenceMeasure,
+      (∑' index, (hazards index : ENNReal)) = ∞ := by
+  filter_upwards [unitLargeHazardEvent_mem_limsup_ae] with hazards hlimsup
+  have hfrequent : ∃ᶠ index in Filter.atTop,
+      hazards ∈ unitLargeHazardEvent index :=
+    Filter.mem_limsup_iff_frequently_mem.mp hlimsup
+  have hinfiniteLarge : Set.Infinite
+      {index | hazards ∈ unitLargeHazardEvent index} :=
+    Nat.frequently_atTop_iff_infinite.mp hfrequent
+  have hinfiniteTerm : Set.Infinite
+      {index | 1 ≤ (hazards index : ENNReal)} :=
+    hinfiniteLarge.mono fun index hindex => by
+      exact_mod_cast (show (1 : NNReal) < hazards index from hindex).le
+  by_contra hfiniteSum
+  exact hinfiniteTerm
+    (ENNReal.finite_const_le_of_tsum_ne_top hfiniteSum one_ne_zero)
+
+/-- Almost every iid hazard stream has a finite prefix whose accumulated mark
+exceeds any prescribed finite bound. -/
+theorem unitHazard_prefix_sum_unbounded_ae :
+    ∀ᵐ hazards ∂unitHazardSequenceMeasure,
+      ∀ bound : NNReal, ∃ count : ℕ,
+        (bound : ENNReal) <
+          ∑ index ∈ Finset.range count, (hazards index : ENNReal) := by
+  filter_upwards [unitHazard_tsum_eq_top_ae] with hazards hsum
+  intro bound
+  have hlt : (bound : ENNReal) <
+      ⨆ count : ℕ,
+        ∑ index ∈ Finset.range count, (hazards index : ENNReal) := by
+    rw [← ENNReal.tsum_eq_iSup_nat, hsum]
+    exact ENNReal.coe_lt_top
+  exact lt_iSup_iff.mp hlt
 
 /-- First `count` marks of an infinite hazard stream, in execution order. -/
 def hazardPrefix (count : ℕ) (hazards : ℕ → NNReal) : List NNReal :=

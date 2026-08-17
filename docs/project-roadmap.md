@@ -662,8 +662,11 @@ by paper date:
    position norm by at most elapsed time times speed, and the Gaussian bounce
    rate is bounded by position norm times speed. These deterministic bounds
    are the pathwise envelope needed for the remaining finite-horizon
-   nonexplosion proof; they do not by themselves construct the completed
-   horizon kernel.
+   nonexplosion proof. The generic inverse-clock layer now supplies its
+   probabilistic counterpart: iid unit-exponential hazards have infinite sum
+   almost surely, equivalently some finite prefix exceeds every finite bound.
+   Lifting the deterministic envelope through repeated capped execution is
+   still required before constructing the completed horizon kernel.
 
    The nonlinear reversible-jump branch is complete at the exact theorem and
    executable-client levels; only the shared Float64 primitive boundary
