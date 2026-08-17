@@ -1708,6 +1708,67 @@ noncomputable def runtimeTraceDensity
       rejectedTraceWeight logDensity threshold current rejected stepped
   else 0
 
+/-- Density of the uniform finite allocation, represented on integer counting
+measure. -/
+noncomputable def allocationWeight (intervals : ℕ) (allocation : ℤ) : ENNReal :=
+  if 0 ≤ allocation ∧ allocation < intervals then
+    ENNReal.ofReal ((intervals : ℝ)⁻¹)
+  else 0
+
+theorem allocationWeight_lintegral
+    {intervals : ℕ} (hintervals : 0 < intervals) :
+    ∫⁻ allocation : ℤ, allocationWeight intervals allocation ∂Measure.count = 1 := by
+  rw [show allocationWeight intervals =
+      (Set.Ico (0 : ℤ) intervals).indicator
+        (fun _ => ENNReal.ofReal ((intervals : ℝ)⁻¹)) by
+    funext allocation
+    by_cases h : allocation ∈ Set.Ico (0 : ℤ) intervals
+    · rw [Set.indicator_of_mem h]
+      simp only [Set.mem_Ico] at h
+      rw [allocationWeight, if_pos h]
+    · rw [Set.indicator_of_notMem h]
+      simp only [Set.mem_Ico] at h
+      rw [allocationWeight, if_neg h]]
+  rw [lintegral_indicator measurableSet_Ico,
+    MeasureTheory.lintegral_const, Measure.restrict_apply_univ,
+    Measure.count_apply measurableSet_Ico]
+  have hcard : (Set.Ico (0 : ℤ) intervals).toFinset.card = intervals := by
+    rw [Set.toFinset_Ico, Int.card_Ico]
+    simp
+  have hencard : (Set.Ico (0 : ℤ) intervals).encard = intervals := by
+    rw [Set.encard_eq_coe_toFinset_card, hcard]
+  rw [hencard]
+  rw [ENNReal.ofReal_inv_of_pos (by positivity : 0 < (intervals : ℝ))]
+  simp only [ENNReal.ofReal_natCast]
+  apply ENNReal.inv_mul_cancel
+  · exact_mod_cast hintervals.ne'
+  · simp
+
+/-- Adding any measurable acceptance condition to a uniform final fraction
+cannot contribute more than unit mass. -/
+theorem lintegral_finalFraction_accept_le
+    (accepted : Set ℝ) (coefficient : ENNReal) :
+    (∫⁻ fraction : ℝ,
+      ((Set.Ico (0 : ℝ) 1) ∩ accepted).indicator
+        (fun _ => coefficient) fraction ∂volume) ≤ coefficient := by
+  classical
+  calc
+    (∫⁻ fraction : ℝ,
+      ((Set.Ico (0 : ℝ) 1) ∩ accepted).indicator
+        (fun _ => coefficient) fraction ∂volume) ≤
+        ∫⁻ fraction : ℝ, (Set.Ico (0 : ℝ) 1).indicator
+          (fun _ => coefficient) fraction ∂volume := by
+      apply lintegral_mono
+      intro fraction
+      by_cases hfraction : fraction ∈ Set.Ico (0 : ℝ) 1 <;>
+        by_cases haccept : fraction ∈ accepted <;>
+          simp [hfraction, haccept]
+    _ = coefficient := by
+      rw [lintegral_indicator measurableSet_Ico,
+        MeasureTheory.lintegral_const, Measure.restrict_apply_univ,
+        Real.volume_Ico]
+      simp
+
 theorem rejectedTraceWeight_ne_top
     (logDensity : ℝ → ℝ) (threshold current : ℝ)
     (rejected : List ℝ) (bracket : ℝ × ℝ) :

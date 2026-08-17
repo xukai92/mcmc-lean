@@ -4439,3 +4439,15 @@ the finite sum over `Fin maxShrink` of fixed-length density kernels, each
 mapped into the variable-length carrier. Lean proves every component and the
 finite sum s-finite. This gives a genuine measurable kernel for exactly the
 allowed success lengths; the next obligation is its row mass at most one.
+
+## 2026-08-17: practical trace mass-factor normalization
+
+Closed the independent factors in the successful row-mass calculation. The
+integer allocation density `1 / intervals` integrates exactly to one over
+counting measure on `0,…,intervals-1` whenever `intervals > 0`; the proof
+accounts explicitly for the integer interval cardinality and the nonzero
+normalizer. Haar alignment was already a probability measure. A separate
+Lebesgue lemma proves that intersecting the final uniform fraction with any
+acceptance event contributes at most unit mass. The remaining mass proof is
+therefore the telescoping finite shrink recursion: acceptance at one of the
+allowed rejected lengths plus exhaustion has total mass one.
