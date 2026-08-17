@@ -4543,3 +4543,19 @@ derived-bracket reversal, reverse-fraction validity, involution, and exact
 forward/reverse density equality. The remaining obligation is measure-level
 preservation of the successful joint law and its completion by the explicit
 exhaustion atom.
+
+## 2026-08-17: fixed-dimensional practical joint-law reduction
+
+Lifted the intrinsic runtime support theorem to every fixed rejected-sequence
+dimension. The derived final bracket, accepted state, primitive rerooting, and
+successful support set are now all proved measurable on
+`FixedRuntimeTrace n`. On that set the fixed transform is an involution and
+preserves the exact runtime likelihood without any client-supplied replay
+certificate. A generic guarded-with-density theorem proves that an identity
+fallback automatically preserves the full weighted law once the raw base law
+is preserved on the successful restriction; no separate exhaustion-mass
+symmetry argument is needed. The resulting
+`fixedGuardedRuntimeReverse_withDensity_measurePreserving` theorem isolates
+the remaining core precisely as unweighted product-measure preservation of
+the finite-dimensional rerooting. Summing those strata and connecting them to
+the completed trace kernel remain subsequent steps.

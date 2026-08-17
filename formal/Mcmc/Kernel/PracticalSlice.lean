@@ -78,6 +78,31 @@ theorem measurePreserving_withDensity_of_map_invariant
   · have hpreimage : point ∉ transform ⁻¹' event := hmem
     simp [Set.indicator, hmem, hpreimage]
 
+/-- A checked identity fallback can be lifted through a density without any
+separate argument for the failure branch. It suffices that the raw base law is
+preserved on the success restriction and that the density agrees there; off
+the success set both state and density are unchanged definitionally. -/
+theorem guardedTraceTransform_withDensity_measurePreserving
+    {Space : Type*} [MeasurableSpace Space]
+    (measure : Measure Space) (success : Set Space)
+    (hsuccess : MeasurableSet success) (transform : Space → Space)
+    (htransform : Measurable transform) (density : Space → ENNReal)
+    (hdensity : Measurable density)
+    (hbase : MeasurePreserving transform
+      (measure.restrict success) (measure.restrict success))
+    (hinvariant : ∀ point ∈ success,
+      density (transform point) = density point) :
+    MeasurePreserving (Mcmc.Kernel.guardedTraceTransform success transform)
+      (measure.withDensity density) (measure.withDensity density) := by
+  have hguardedBase := Mcmc.Kernel.guardedTraceTransform_measurePreserving
+    measure success hsuccess transform htransform hbase
+  apply measurePreserving_withDensity_of_invariant hguardedBase hdensity
+  intro point
+  by_cases hpoint : point ∈ success
+  · simpa [Mcmc.Kernel.guardedTraceTransform, hpoint] using
+      hinvariant point hpoint
+  · simp [Mcmc.Kernel.guardedTraceTransform, hpoint]
+
 /-- Coordinate-free law for the random initial-bracket alignment. Haar volume
 on the unit additive circle is a probability measure. -/
 abbrev Alignment := AddCircle (1 : ℝ)
@@ -4323,6 +4348,283 @@ theorem primitiveRuntimeSuccess_of_density_ne_zero
       (show point.1.2 ∈ Set.Ico final.1 final.2 from
         ⟨hfinalValid.1, hfinalValid.2.1⟩)
   · simpa [new] using htrace.sameSide_of_final_mem hnewSlice hnewFinal
+
+/-- Runtime likelihood symmetry now requires no separately supplied replay
+certificate: every nonzero forward-density point carries its own proof. -/
+theorem runtimeTraceDensity_primitiveReverse_of_ne_zero
+    (logDensity : ℝ → ℝ) {width : ℝ} (hwidth : 0 < width)
+    (intervals maxShrink : ℕ) (point : (ℝ × ℝ) × RuntimeRandomTrace)
+    (hold : point.1.1 ≤ logDensity point.1.2)
+    (hnonzero : runtimeTraceDensity logDensity width intervals maxShrink
+      point.1 point.2 ≠ 0) :
+    runtimeTraceDensity logDensity width intervals maxShrink
+        (primitiveRuntimeAugmentedReverse logDensity width intervals point).1
+        (primitiveRuntimeAugmentedReverse logDensity width intervals point).2 =
+      runtimeTraceDensity logDensity width intervals maxShrink point.1 point.2 := by
+  exact (primitiveRuntimeSuccess_of_density_ne_zero logDensity hwidth intervals
+    maxShrink point hold hnonzero).density_invariant hwidth.ne'
+
+/-- The same intrinsic support proof makes the primitive rerooting an
+involution at every nonzero-density point in the valid slice domain. -/
+theorem primitiveRuntimeAugmentedReverse_involutive_of_density_ne_zero
+    (logDensity : ℝ → ℝ) {width : ℝ} (hwidth : 0 < width)
+    (intervals maxShrink : ℕ) (point : (ℝ × ℝ) × RuntimeRandomTrace)
+    (hold : point.1.1 ≤ logDensity point.1.2)
+    (hnonzero : runtimeTraceDensity logDensity width intervals maxShrink
+      point.1 point.2 ≠ 0) :
+    primitiveRuntimeAugmentedReverse logDensity width intervals
+        (primitiveRuntimeAugmentedReverse logDensity width intervals point) =
+      point := by
+  exact (primitiveRuntimeSuccess_of_density_ne_zero logDensity hwidth intervals
+    maxShrink point hold hnonzero).reverse_involutive hwidth.ne'
+
+/-! ### Fixed-length successful reversal strata -/
+
+/-- Primitive rerooting restricted to one rejected-sequence dimension. The
+rejected vector is definitionally retained, so the result stays in the same
+finite-dimensional carrier. -/
+noncomputable def fixedPrimitiveRuntimeAugmentedReverse
+    (logDensity : ℝ → ℝ) (width : ℝ) (intervals length : ℕ)
+    (point : (ℝ × ℝ) × FixedRuntimeTrace length) :
+    (ℝ × ℝ) × FixedRuntimeTrace length :=
+  let reversed := primitiveRuntimeAugmentedReverse logDensity width intervals
+    (point.1, (Sigma.mk length point.2.1, point.2.2))
+  (reversed.1, (point.2.1, reversed.2.2))
+
+/-- Successful support on a fixed rejected length, including validity of the
+current height/state pair. -/
+def fixedRuntimeSuccessSet
+    (logDensity : ℝ → ℝ) (width : ℝ) (intervals maxShrink length : ℕ) :
+    Set ((ℝ × ℝ) × FixedRuntimeTrace length) :=
+  {point | point.1.1 ≤ logDensity point.1.2 ∧
+    runtimeTraceDensity logDensity width intervals maxShrink point.1
+      (Sigma.mk length point.2.1, point.2.2) ≠ 0}
+
+/-- The bracket derived by a fixed-dimensional runtime trace is jointly
+measurable in the augmented state and every trace coordinate. -/
+theorem measurable_runtimeFinalBracket_fixedLength
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (width : ℝ) (intervals length : ℕ) :
+    Measurable (fun point : (ℝ × ℝ) × FixedRuntimeTrace length =>
+      runtimeFinalBracket logDensity point.1.1 width point.1.2 intervals
+        (Sigma.mk length point.2.1, point.2.2)) := by
+  let DenseDomain := ((ℝ × ℝ) × (Fin length → ℝ)) × (Alignment × ℝ)
+  have hallocation : Measurable (fun point : DenseDomain × ℤ =>
+      shrinkRejectedVector point.1.1.1.2 length point.1.1.2
+        (runtimeSteppedBracket logDensity point.1.1.1.1 width point.1.1.1.2
+          intervals point.2 point.1.2.1)) := by
+    apply measurable_from_prod_countable_left
+    intro allocation
+    have hstate : Measurable (fun point : DenseDomain => point.1.1) :=
+      measurable_fst.comp measurable_fst
+    have hvalues : Measurable (fun point : DenseDomain => point.1.2) :=
+      measurable_snd.comp measurable_fst
+    have halignment : Measurable (fun point : DenseDomain => point.2.1) :=
+      measurable_fst.comp measurable_snd
+    have hstepped : Measurable (fun point : DenseDomain =>
+        runtimeSteppedBracket logDensity point.1.1.1 width point.1.1.2
+          intervals allocation point.2.1) :=
+      (measurable_runtimeSteppedBracket_fixedAllocation hlogDensity width
+        intervals allocation).comp (hstate.prodMk halignment)
+    exact (measurable_shrinkRejectedVector length).comp
+      (((measurable_snd.comp hstate).prodMk hvalues).prodMk hstepped)
+  have hpack : Measurable (fun point : (ℝ × ℝ) × FixedRuntimeTrace length =>
+      ((((point.1, point.2.1), (point.2.2.1.1, point.2.2.2)),
+        point.2.2.1.2) : DenseDomain × ℤ)) := by
+    fun_prop
+  convert hallocation.comp hpack using 1
+  funext point
+  simp only [runtimeFinalBracket, Function.comp_apply]
+  exact (shrinkRejectedVector_eq_shrinkRejectedPoints point.1.2 length
+    point.2.1
+    (runtimeSteppedBracket logDensity point.1.1 width point.1.2 intervals
+      point.2.2.1.2 point.2.2.1.1)).symm
+
+theorem measurable_runtimeAcceptedPoint_fixedLength
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (width : ℝ) (intervals length : ℕ) :
+    Measurable (fun point : (ℝ × ℝ) × FixedRuntimeTrace length =>
+      runtimeAcceptedPoint logDensity point.1.1 width point.1.2 intervals
+        (Sigma.mk length point.2.1, point.2.2)) := by
+  have hbracket := measurable_runtimeFinalBracket_fixedLength hlogDensity width
+    intervals length
+  have hfraction : Measurable
+      (fun point : (ℝ × ℝ) × FixedRuntimeTrace length => point.2.2.2) := by
+    fun_prop
+  exact (measurable_fst.comp hbracket).add
+    (((measurable_snd.comp hbracket).sub
+      (measurable_fst.comp hbracket)).mul
+        hfraction)
+
+theorem measurable_fixedPrimitiveRuntimeAugmentedReverse
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (width : ℝ) (intervals length : ℕ) :
+    Measurable
+      (fixedPrimitiveRuntimeAugmentedReverse logDensity width intervals length) := by
+  have hbracket := measurable_runtimeFinalBracket_fixedLength hlogDensity width
+    intervals length
+  have haccepted := measurable_runtimeAcceptedPoint_fixedLength hlogDensity width
+    intervals length
+  have hold : Measurable (fun point : (ℝ × ℝ) × FixedRuntimeTrace length =>
+      point.1.2) := measurable_snd.comp measurable_fst
+  have hgridInput : Measurable (fun point :
+      (ℝ × ℝ) × FixedRuntimeTrace length =>
+      ((point.1.2,
+          runtimeAcceptedPoint logDensity point.1.1 width point.1.2 intervals
+            (Sigma.mk length point.2.1, point.2.2)), point.2.2.1)) :=
+    (hold.prodMk haccepted).prodMk
+      (measurable_fst.comp (measurable_snd.comp measurable_snd))
+  have hgrid : Measurable (fun point :
+      (ℝ × ℝ) × FixedRuntimeTrace length =>
+      alignmentAllocationReverse width point.1.2
+        (runtimeAcceptedPoint logDensity point.1.1 width point.1.2 intervals
+          (Sigma.mk length point.2.1, point.2.2)) point.2.2.1) :=
+    (measurable_alignmentAllocationReverse_parameterized width).comp hgridInput
+  have hfraction : Measurable (fun point :
+      (ℝ × ℝ) × FixedRuntimeTrace length =>
+      (point.1.2 -
+        (runtimeFinalBracket logDensity point.1.1 width point.1.2 intervals
+          (Sigma.mk length point.2.1, point.2.2)).1) /
+        ((runtimeFinalBracket logDensity point.1.1 width point.1.2 intervals
+          (Sigma.mk length point.2.1, point.2.2)).2 -
+        (runtimeFinalBracket logDensity point.1.1 width point.1.2 intervals
+          (Sigma.mk length point.2.1, point.2.2)).1)) :=
+    (hold.sub (measurable_fst.comp hbracket)).div
+      ((measurable_snd.comp hbracket).sub (measurable_fst.comp hbracket))
+  exact ((measurable_fst.comp measurable_fst).prodMk haccepted).prodMk
+    ((measurable_fst.comp measurable_snd).prodMk (hgrid.prodMk hfraction))
+
+theorem measurableSet_fixedRuntimeSuccessSet
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (width : ℝ) (intervals maxShrink length : ℕ) :
+    MeasurableSet
+      (fixedRuntimeSuccessSet logDensity width intervals maxShrink length) := by
+  have hdensity := measurable_uncurry_runtimeTraceDensity_fixedLength
+    hlogDensity width intervals maxShrink length
+  exact (measurableSet_le (measurable_fst.comp measurable_fst)
+      (hlogDensity.comp (measurable_snd.comp measurable_fst))).inter
+    (measurableSet_singleton (0 : ENNReal) |>.preimage hdensity).compl
+
+/-- The fixed-length rerooting is exactly the primitive rerooting after
+embedding the rejected vector into the variable-length carrier. -/
+theorem fixedPrimitiveRuntimeAugmentedReverse_embed
+    (logDensity : ℝ → ℝ) (width : ℝ) (intervals length : ℕ)
+    (point : (ℝ × ℝ) × FixedRuntimeTrace length) :
+    let reversed := fixedPrimitiveRuntimeAugmentedReverse logDensity width
+      intervals length point
+    primitiveRuntimeAugmentedReverse logDensity width intervals
+        (point.1, (Sigma.mk length point.2.1, point.2.2)) =
+      (reversed.1, (Sigma.mk length reversed.2.1, reversed.2.2)) := by
+  let embedded : (ℝ × ℝ) × RuntimeRandomTrace :=
+    (point.1, (Sigma.mk length point.2.1, point.2.2))
+  let reversed := primitiveRuntimeAugmentedReverse logDensity width intervals embedded
+  change reversed = (reversed.1, (Sigma.mk length point.2.1, reversed.2.2))
+  apply Prod.ext
+  · rfl
+  · apply Prod.ext
+    · exact primitiveRuntimeAugmentedReverse_rejected logDensity width intervals embedded
+    · rfl
+
+/-- Pointwise likelihood symmetry on a fixed successful stratum. -/
+theorem fixedRuntimeTraceDensity_reverse
+    (logDensity : ℝ → ℝ) {width : ℝ} (hwidth : 0 < width)
+    (intervals maxShrink length : ℕ)
+    (point : (ℝ × ℝ) × FixedRuntimeTrace length)
+    (hpoint : point ∈ fixedRuntimeSuccessSet logDensity width intervals
+      maxShrink length) :
+    runtimeTraceDensity logDensity width intervals maxShrink
+        (fixedPrimitiveRuntimeAugmentedReverse logDensity width intervals length
+          point).1
+        (Sigma.mk length
+          (fixedPrimitiveRuntimeAugmentedReverse logDensity width intervals length
+            point).2.1,
+          (fixedPrimitiveRuntimeAugmentedReverse logDensity width intervals length
+            point).2.2) =
+      runtimeTraceDensity logDensity width intervals maxShrink point.1
+        (Sigma.mk length point.2.1, point.2.2) := by
+  have hinvariant := runtimeTraceDensity_primitiveReverse_of_ne_zero logDensity
+    hwidth intervals maxShrink
+    (point.1, (Sigma.mk length point.2.1, point.2.2)) hpoint.1 hpoint.2
+  rw [fixedPrimitiveRuntimeAugmentedReverse_embed logDensity width intervals
+    length point] at hinvariant
+  exact hinvariant
+
+/-- The fixed-dimensional successful rerooting is an involution. -/
+theorem fixedPrimitiveRuntimeAugmentedReverse_involutive
+    (logDensity : ℝ → ℝ) {width : ℝ} (hwidth : 0 < width)
+    (intervals maxShrink length : ℕ)
+    (point : (ℝ × ℝ) × FixedRuntimeTrace length)
+    (hpoint : point ∈ fixedRuntimeSuccessSet logDensity width intervals
+      maxShrink length) :
+    fixedPrimitiveRuntimeAugmentedReverse logDensity width intervals length
+        (fixedPrimitiveRuntimeAugmentedReverse logDensity width intervals length
+          point) = point := by
+  have hinvolution :=
+    primitiveRuntimeAugmentedReverse_involutive_of_density_ne_zero logDensity
+      hwidth intervals maxShrink
+      (point.1, (Sigma.mk length point.2.1, point.2.2)) hpoint.1 hpoint.2
+  let reverse := fixedPrimitiveRuntimeAugmentedReverse logDensity width intervals
+    length
+  let embed : ((ℝ × ℝ) × FixedRuntimeTrace length) →
+      ((ℝ × ℝ) × RuntimeRandomTrace) := fun value =>
+    (value.1, (Sigma.mk length value.2.1, value.2.2))
+  have hfirst : primitiveRuntimeAugmentedReverse logDensity width intervals
+      (embed point) = embed (reverse point) := by
+    exact fixedPrimitiveRuntimeAugmentedReverse_embed logDensity width intervals
+      length point
+  have hsecond : primitiveRuntimeAugmentedReverse logDensity width intervals
+      (embed (reverse point)) = embed (reverse (reverse point)) := by
+    exact fixedPrimitiveRuntimeAugmentedReverse_embed logDensity width intervals
+      length (reverse point)
+  have hembed : embed (reverse (reverse point)) = embed point := by
+    rw [← hsecond, ← hfirst]
+    exact hinvolution
+  apply Prod.ext
+  · exact congrArg (fun value => value.1) hembed
+  · apply Prod.ext
+    · have hsigma := congrArg (fun value => value.2.1) hembed
+      exact eq_of_heq (Sigma.mk.inj_iff.mp hsigma |>.2)
+    · exact congrArg (fun value => value.2.2) hembed
+
+/-- On each finite rejected-length stratum, the already-proved likelihood
+symmetry lifts any raw restricted-base preservation theorem to preservation of
+the complete weighted successful/fallback law. Thus the sole remaining
+change-of-variables obligation is explicitly the unweighted product measure. -/
+theorem fixedGuardedRuntimeReverse_withDensity_measurePreserving
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    {width : ℝ} (hwidth : 0 < width) (intervals maxShrink length : ℕ)
+    (stateBase : Measure (ℝ × ℝ))
+    (hbase : MeasurePreserving
+      (fixedPrimitiveRuntimeAugmentedReverse logDensity width intervals length)
+      ((stateBase.prod (fixedRuntimeTraceBase length)).restrict
+        (fixedRuntimeSuccessSet logDensity width intervals maxShrink length))
+      ((stateBase.prod (fixedRuntimeTraceBase length)).restrict
+        (fixedRuntimeSuccessSet logDensity width intervals maxShrink length))) :
+    MeasurePreserving
+      (Mcmc.Kernel.guardedTraceTransform
+        (fixedRuntimeSuccessSet logDensity width intervals maxShrink length)
+        (fixedPrimitiveRuntimeAugmentedReverse logDensity width intervals length))
+      ((stateBase.prod (fixedRuntimeTraceBase length)).withDensity
+        (fun point => runtimeTraceDensity logDensity width intervals maxShrink
+          point.1 (Sigma.mk length point.2.1, point.2.2)))
+      ((stateBase.prod (fixedRuntimeTraceBase length)).withDensity
+        (fun point => runtimeTraceDensity logDensity width intervals maxShrink
+          point.1 (Sigma.mk length point.2.1, point.2.2))) := by
+  apply guardedTraceTransform_withDensity_measurePreserving
+    (stateBase.prod (fixedRuntimeTraceBase length))
+    (fixedRuntimeSuccessSet logDensity width intervals maxShrink length)
+    (measurableSet_fixedRuntimeSuccessSet hlogDensity width intervals maxShrink
+      length)
+    (fixedPrimitiveRuntimeAugmentedReverse logDensity width intervals length)
+    (measurable_fixedPrimitiveRuntimeAugmentedReverse hlogDensity width intervals
+      length)
+    (fun point => runtimeTraceDensity logDensity width intervals maxShrink
+      point.1 (Sigma.mk length point.2.1, point.2.2))
+    (measurable_uncurry_runtimeTraceDensity_fixedLength hlogDensity width
+      intervals maxShrink length) hbase
+  intro point hpoint
+  exact fixedRuntimeTraceDensity_reverse logDensity hwidth intervals maxShrink
+    length point hpoint
 
 /-- Integration against the variable-length base decomposes into the sum of
 finite-dimensional Lebesgue integrals. -/
