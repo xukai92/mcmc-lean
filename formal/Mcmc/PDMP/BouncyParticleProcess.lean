@@ -3376,6 +3376,68 @@ theorem integral_generator_eq_zero (test : StandardGaussianBPSGeneratorTest ι) 
 
 end StandardGaussianBPSGeneratorTest
 
+/-- Concrete analytic certificate for one smooth phase observable. Its fields
+are exactly the coordinatewise Gaussian-Stein and integrability premises of
+`integral_standardGaussian_bouncyPhaseGenerator_of_coordinatewise_eq_zero`. -/
+structure StandardGaussianBPSSmoothObservableCertificate
+    (function : BouncyParticleState ι → ℝ) where
+  coordinatePartial : Position ι → ι → Position ι → ℝ
+  partial_velocity : ∀ position i, Integrable
+    (fun velocity => velocity i * coordinatePartial position i velocity)
+    standardMomentumMeasure
+  partial_position : ∀ i, Integrable (fun position =>
+    ∫ velocity, velocity i * coordinatePartial position i velocity
+      ∂standardMomentumMeasure) standardMomentumMeasure
+  position_velocity : ∀ position i, Integrable
+    (fun velocity => velocity i * position i * function (position, velocity))
+    standardMomentumMeasure
+  position_position : ∀ i, Integrable (fun position =>
+    ∫ velocity, velocity i * position i * function (position, velocity)
+      ∂standardMomentumMeasure) standardMomentumMeasure
+  incoming : ∀ position, Integrable (fun velocity =>
+    bouncyRate position velocity *
+      function (position, bouncyReflection position velocity))
+    standardMomentumMeasure
+  outgoing : ∀ position, Integrable (fun velocity =>
+    bouncyRate position velocity * function (position, velocity))
+    standardMomentumMeasure
+  reflected : ∀ position, Integrable (fun velocity =>
+    bouncyRate position (bouncyReflection position velocity) *
+      function (position, velocity)) standardMomentumMeasure
+  phase : Integrable
+    (bouncyPhaseGenerator id
+      (coordinateDirectionalDerivative coordinatePartial)
+      (fun position velocity => function (position, velocity)))
+    (standardMomentumMeasure.prod standardMomentumMeasure)
+  coordinate_stein : ∀ i,
+    (∫ position, ∫ velocity,
+      velocity i * coordinatePartial position i velocity
+        ∂standardMomentumMeasure ∂standardMomentumMeasure) =
+      ∫ position, ∫ velocity,
+        velocity i * position i * function (position, velocity)
+          ∂standardMomentumMeasure ∂standardMomentumMeasure
+
+/-- Package one fully discharged smooth-observable certificate as an element
+of the generator test domain. -/
+noncomputable def StandardGaussianBPSSmoothObservableCertificate.toGeneratorTest
+    {function : BouncyParticleState ι → ℝ}
+    (certificate : StandardGaussianBPSSmoothObservableCertificate
+      (ι := ι) function) :
+    StandardGaussianBPSGeneratorTest ι where
+  observable := function
+  coordinatePartial := certificate.coordinatePartial
+  generator_integrable := by
+    simpa [standardGaussianBPSTarget] using certificate.phase
+  generator_mean_zero := by
+    unfold standardGaussianBPSTarget
+    exact integral_standardGaussian_bouncyPhaseGenerator_of_coordinatewise_eq_zero
+      certificate.coordinatePartial
+      (fun position velocity => function (position, velocity))
+      certificate.partial_velocity certificate.partial_position
+      certificate.position_velocity certificate.position_position
+      certificate.incoming certificate.outgoing certificate.reflected
+      certificate.phase certificate.coordinate_stein
+
 /-- Target-started weak-forward uniqueness for the constructed exact
 Gaussian-BPS semigroup on its checked generator test domain. This is the
 remaining process-level analytic obligation between generator cancellation
@@ -3401,6 +3463,36 @@ marginals on the finite-dimensional phase space. -/
 abbrev StandardGaussianBPSGeneratorTestFiniteRegularDetermining :=
   CompactTestFiniteRegularExpectationDetermining
     (StandardGaussianBPSGeneratorTest.observe (ι := ι))
+
+/-- A complete smooth generator core represents every compactly supported
+`C¹` phase observable by a checked Gaussian-BPS generator test. Establishing
+this certificate consists precisely of the multivariate Gaussian
+integration-by-parts and compact-support integrability calculations. -/
+structure StandardGaussianBPSSmoothCore (ι : Type*) [Fintype ι] : Prop where
+  represent : ∀ function : BouncyParticleState ι → ℝ,
+    ContDiff ℝ 1 function → HasCompactSupport function →
+      ∃ test : StandardGaussianBPSGeneratorTest ι,
+        test.observable = function
+
+/-- Building the coordinatewise Gaussian-Stein certificate for every compact
+`C¹` phase observable constructs the represented smooth core automatically. -/
+theorem standardGaussianBPSSmoothCore_of_observableCertificates
+    (certify : ∀ function : BouncyParticleState ι → ℝ,
+      ContDiff ℝ 1 function → HasCompactSupport function →
+        StandardGaussianBPSSmoothObservableCertificate (ι := ι) function) :
+    StandardGaussianBPSSmoothCore ι where
+  represent function hsmooth hcompact :=
+    ⟨(certify function hsmooth hcompact).toGeneratorTest, rfl⟩
+
+/-- A complete smooth Gaussian-BPS core is automatically measure determining
+for all finite regular phase-space measures. -/
+theorem StandardGaussianBPSSmoothCore.finiteRegularDetermining
+    (core : StandardGaussianBPSSmoothCore ι) :
+    StandardGaussianBPSGeneratorTestFiniteRegularDetermining (ι := ι) := by
+  apply compactTestFiniteRegularExpectationDetermining_of_represents_contDiff
+  intro function hsmooth hcompact
+  obtain ⟨test, htest⟩ := core.represent function hsmooth hcompact
+  exact ⟨test, htest⟩
 
 /-- Once target-started weak-forward uniqueness is established, the exact
 generator balance stored by every test proves target invariance of the
@@ -3442,6 +3534,18 @@ theorem standardGaussianBPSHorizonKernel_invariant_of_targetWeakExpectationUniqu
     infer_instance
   · intro time
     infer_instance
+
+/-- With a represented smooth core, scalar weak-expectation uniqueness is the
+only remaining stationarity premise. -/
+theorem standardGaussianBPSHorizonKernel_invariant_of_smoothCore
+    (core : StandardGaussianBPSSmoothCore ι)
+    (scalar :
+      StandardGaussianBPSTargetWeakExpectationUniqueness (ι := ι))
+    (horizon : NNReal) :
+    (standardGaussianBPSHorizonKernel (ι := ι) horizon).Invariant
+      (standardGaussianBPSTarget (ι := ι)) :=
+  standardGaussianBPSHorizonKernel_invariant_of_targetWeakExpectationUniqueness
+    scalar core.finiteRegularDetermining horizon
 
 theorem standardGaussianBPSHorizonKernel_apply_positiveFirstEvent
     (horizon : NNReal) (initial : BouncyParticleState ι)

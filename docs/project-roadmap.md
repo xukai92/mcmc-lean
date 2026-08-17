@@ -738,7 +738,10 @@ by paper date:
    further decomposed in Lean into scalar weak-expectation uniqueness and
    finite-regular measure determination; probability regularity/finiteness is
    already discharged, leaving the smooth-core determining and
-   backward/resolvent arguments themselves.
+   backward/resolvent arguments themselves. Finite-dimensional compact `C¹`
+   functions are now proved measure determining generically; the BPS layer
+   reduces smooth-core construction to explicit coordinatewise Gaussian-Stein
+   and integrability certificates for every such observable.
 
    The nonlinear reversible-jump branch is complete at the exact theorem and
    executable-client levels; only the shared Float64 primitive boundary

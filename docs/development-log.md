@@ -5044,3 +5044,20 @@ weak solutions and the constructed Markov marginals, and the new split
 invariance theorem assembles the two certificates. Neither certificate is
 silently assumed: formalizing a determining smooth core and its backward or
 resolvent uniqueness argument remains the active stationarity work.
+
+The measure-determination foundation is now finite-dimensional and reusable.
+`exists_contDiff_compactSupport_uniformApprox_finiteDimensional` smooths
+compact continuous tests uniformly without losing compact support, and
+`Measure.ext_of_integral_eq_on_contDiff_compactSupport_finiteDimensional`
+proves that compact `C¹` tests determine finite regular measures on any
+finite-dimensional real normed space. A generic representation theorem turns
+coverage of those tests into the exact finite-regular determining certificate.
+
+The Gaussian-BPS client now exposes `StandardGaussianBPSSmoothCore` and proves
+that such a represented core discharges the determining half automatically.
+For construction, `StandardGaussianBPSSmoothObservableCertificate` lists the
+coordinatewise Gaussian-Stein and integrability premises for one observable;
+its `toGeneratorTest` theorem invokes the existing multidimensional generator
+balance result, and certificates for every compact `C¹` observable assemble
+the full core. Discharging those fields uniformly from compact smoothness, and
+then the scalar backward/resolvent uniqueness theorem, remain open.

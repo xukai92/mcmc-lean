@@ -1,5 +1,6 @@
 import Mcmc.PDMP.Generator
 import Mathlib.Analysis.Calculus.MeanValue
+import Mathlib.Geometry.Manifold.SmoothApprox
 import Mathlib.MeasureTheory.Integral.RieszMarkovKakutani.Real
 import Mathlib.MeasureTheory.Measure.RegularityCompacts
 import Mathlib.Probability.Kernel.Invariance
@@ -82,6 +83,107 @@ section CompactTests
 
 variable [TopologicalSpace State] [BorelSpace State]
   [LocallyCompactSpace State] [T2Space State]
+
+/-! ### Finite-dimensional smooth test determination -/
+
+/-- A compactly supported continuous function on a finite-dimensional real
+normed space admits uniformly close `C¹` compactly supported approximants. -/
+theorem exists_contDiff_compactSupport_uniformApprox_finiteDimensional
+    {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
+    [FiniteDimensional ℝ E]
+    (observable : E → ℝ) (hcontinuous : Continuous observable)
+    (hcompact : HasCompactSupport observable)
+    {ε : ℝ} (hε : 0 < ε) :
+    ∃ smooth : E → ℝ, ContDiff ℝ 1 smooth ∧
+      HasCompactSupport smooth ∧
+      ∀ x, |smooth x - observable x| < ε := by
+  obtain ⟨smooth, hsmooth, hclose, hsupport⟩ :=
+    hcontinuous.exists_contDiff_approx 1
+      (ε := fun _ => ε) continuous_const (fun _ => hε)
+  refine ⟨smooth, hsmooth,
+    hcompact.mono' (hsupport.trans (subset_tsupport observable)), ?_⟩
+  intro x
+  simpa [Real.dist_eq] using hclose x
+
+/-- Finite regular measures on a finite-dimensional real normed space are
+determined by compactly supported `C¹` functions. -/
+theorem Measure.ext_of_integral_eq_on_contDiff_compactSupport_finiteDimensional
+    {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
+    [FiniteDimensional ℝ E] [MeasurableSpace E] [BorelSpace E]
+    (left right : Measure E) [IsFiniteMeasure left] [IsFiniteMeasure right]
+    [left.Regular] [right.Regular]
+    (heq : ∀ test : E → ℝ, ContDiff ℝ 1 test →
+      HasCompactSupport test →
+      (∫ x, test x ∂left) = ∫ x, test x ∂right) :
+    left = right := by
+  apply Measure.ext_of_integral_eq_on_compactlySupported
+  intro test
+  apply eq_of_abs_sub_le_all
+  intro ε hε
+  let mass : ℝ := left.real Set.univ + right.real Set.univ
+  have hmass : 0 ≤ mass := by
+    dsimp [mass]
+    positivity
+  have hmassOne : 0 < mass + 1 := by linarith
+  let tolerance : ℝ := ε / (mass + 1)
+  have htolerance : 0 < tolerance := div_pos hε hmassOne
+  obtain ⟨smooth, hsmooth, hcompact, hclose⟩ :=
+    exists_contDiff_compactSupport_uniformApprox_finiteDimensional
+      test test.continuous test.hasCompactSupport htolerance
+  have htestLeft : Integrable test left :=
+    test.continuous.integrable_of_hasCompactSupport test.hasCompactSupport
+  have htestRight : Integrable test right :=
+    test.continuous.integrable_of_hasCompactSupport test.hasCompactSupport
+  have hsmoothLeft : Integrable smooth left :=
+    hsmooth.continuous.integrable_of_hasCompactSupport hcompact
+  have hsmoothRight : Integrable smooth right :=
+    hsmooth.continuous.integrable_of_hasCompactSupport hcompact
+  have hleft : |(∫ x, test x ∂left) - ∫ x, smooth x ∂left| ≤
+      left.real Set.univ * tolerance := by
+    rw [← integral_sub htestLeft hsmoothLeft]
+    calc
+      |∫ x, test x - smooth x ∂left| ≤
+          ∫ x, |test x - smooth x| ∂left :=
+        abs_integral_le_integral_abs
+      _ ≤ ∫ _x, tolerance ∂left := by
+        apply integral_mono_ae (htestLeft.sub hsmoothLeft).abs
+          (integrable_const tolerance)
+        filter_upwards [] with x
+        simpa [abs_sub_comm] using (hclose x).le
+      _ = left.real Set.univ * tolerance := by
+        rw [integral_const]
+        simp [smul_eq_mul]
+  have hright : |(∫ x, smooth x ∂right) - ∫ x, test x ∂right| ≤
+      right.real Set.univ * tolerance := by
+    rw [← integral_sub hsmoothRight htestRight]
+    calc
+      |∫ x, smooth x - test x ∂right| ≤
+          ∫ x, |smooth x - test x| ∂right :=
+        abs_integral_le_integral_abs
+      _ ≤ ∫ _x, tolerance ∂right := by
+        apply integral_mono_ae (hsmoothRight.sub htestRight).abs
+          (integrable_const tolerance)
+        filter_upwards [] with x
+        exact (hclose x).le
+      _ = right.real Set.univ * tolerance := by
+        rw [integral_const]
+        simp [smul_eq_mul]
+  have hsmoothEq := heq smooth hsmooth hcompact
+  have hfirst := abs_sub_le (∫ x, test x ∂left)
+    (∫ x, smooth x ∂left) (∫ x, test x ∂right)
+  have htotal : |(∫ x, test x ∂left) - ∫ x, test x ∂right| ≤
+      mass * tolerance := by
+    rw [hsmoothEq] at hfirst hleft
+    dsimp [mass]
+    nlinarith
+  calc
+    |(∫ x, test x ∂left) - ∫ x, test x ∂right| ≤
+        mass * tolerance := htotal
+    _ ≤ (mass + 1) * tolerance := by
+      exact mul_le_mul_of_nonneg_right (by linarith) htolerance.le
+    _ = ε := by
+      dsimp [tolerance]
+      field_simp
 
 /-- Expectation of a compactly supported continuous test after transporting
 the target through a nonnegative-time kernel family. -/
@@ -229,6 +331,25 @@ structure CompactTestFiniteRegularExpectationDetermining
     IsFiniteMeasure left → IsFiniteMeasure right →
     (∀ test, (∫ state, observe test state ∂left) =
       ∫ state, observe test state ∂right) → left = right
+
+/-- A test domain determines finite regular measures on a finite-dimensional
+space as soon as it represents every compactly supported `C¹` function. -/
+theorem compactTestFiniteRegularExpectationDetermining_of_represents_contDiff
+    {E Test : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
+    [FiniteDimensional ℝ E] [MeasurableSpace E] [BorelSpace E]
+    (observe : Test → E → ℝ)
+    (represent : ∀ function : E → ℝ, ContDiff ℝ 1 function →
+      HasCompactSupport function → ∃ test, observe test = function) :
+    CompactTestFiniteRegularExpectationDetermining observe where
+  eq_of_expectations left right hleft hright hleftFinite hrightFinite heq := by
+    letI : left.Regular := hleft
+    letI : right.Regular := hright
+    letI : IsFiniteMeasure left := hleftFinite
+    letI : IsFiniteMeasure right := hrightFinite
+    apply Measure.ext_of_integral_eq_on_contDiff_compactSupport_finiteDimensional
+    intro function hsmooth hcompact
+    obtain ⟨test, htest⟩ := represent function hsmooth hcompact
+    simpa [htest] using heq test
 
 /-- A test family is determining for regular measures whenever it represents
 every compactly supported continuous real function. This discharges the
