@@ -4019,3 +4019,20 @@ target on those roots. This closes selection conditional on a completed
 `B,C`; full original NUTS still requires composing the state-dependent law of
 completed trees and slice augmentation (or proving the production multinomial
 variant refines this conditional decomposition), plus runtime draw refinement.
+
+Added the outer auxiliary-augmentation theorem in
+`Mcmc.Finite.NUTSAugmentation`. `auxiliaryCollapsedKernel` draws an arbitrary
+state-dependent finite completed-tree/slice auxiliary, applies its indexed
+conditional root kernel, and discards the auxiliary. Pointwise balance of each
+unnormalized joint slice proves detailed balance of the collapsed transition;
+the weaker summed slice equation independently proves stationarity.
+`ConditionalAuxiliaryReversibility` reduces the obligation to reversibility
+with respect to the normalized state target on every positive auxiliary
+fiber, and proves all terms on zero-mass fibers vanish. The construction is
+fully instantiated by an exact conditional-refresh Gibbs sampler for every
+finite target and state-dependent auxiliary law. For NUTS, this closes the
+general composition theorem from a completed-tree/slice conditional proof to
+the marginal state kernel. Remaining algorithm-specific work is to embed each
+tree's varying C.4-admissible root subtype into a common phase-state kernel
+with the prescribed fallback and verify the production tree law and runtime
+draw against that certificate.
