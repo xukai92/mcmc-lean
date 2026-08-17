@@ -295,6 +295,11 @@ noncomputable instance validAllocation.instFintype
   Fintype.ofEquiv (FiniteValidAllocation intervals shift)
     (validAllocationEquivFinite intervals shift).symm
 
+/-- Allocation strata carry the discrete measurable structure. -/
+instance validAllocation.instMeasurableSpace
+    (intervals : ℕ) (shift : ℤ) : MeasurableSpace (ValidAllocation intervals shift) :=
+  ⊤
+
 /-- Allocation rerooting preserves every finite counting sum exactly. This is
 the discrete measure-preservation component of successful trace reversal. -/
 theorem sum_reverseAllocation
@@ -305,6 +310,23 @@ theorem sum_reverseAllocation
       weight (reverseAllocation intervals shift allocation)) =
       ∑ allocation, weight allocation :=
   Equiv.sum_comp (reverseAllocation intervals shift) weight
+
+/-- The finite allocation bijection preserves counting measure, upgrading the
+sum identity to the measure-theoretic interface needed for product trace
+spaces. The source and target are the opposite displacement strata. -/
+theorem reverseAllocation_measurePreserving
+    (intervals : ℕ) (shift : ℤ) :
+    MeasurePreserving (reverseAllocation intervals shift)
+      (Measure.count : Measure (ValidAllocation intervals shift))
+      (Measure.count : Measure (ValidAllocation intervals (-shift))) := by
+  let equivalence := reverseAllocation intervals shift
+  have hmeasurable : Measurable equivalence := measurable_of_finite _
+  refine ⟨hmeasurable, ?_⟩
+  ext event hevent
+  rw [Measure.map_apply hmeasurable hevent,
+    Measure.count_apply (hevent.preimage hmeasurable),
+    Measure.count_apply hevent,
+    Set.encard_preimage_of_bijective equivalence.bijective]
 
 /-- Integration rule for a pair of forward/reverse allocation-stratum
 weights. Pointwise trace reversal plus this theorem yields equality of the
@@ -1003,6 +1025,43 @@ theorem acceptedProposalReverse_restrict_measurePreserving
     (measurableSet_acceptedProposalSuccess hlogDensity threshold left right)
   exact acceptedProposalSuccess_preimage logDensity threshold hwidth
 
+/-- Reversal on one successful trace stratum: translate the Haar alignment,
+reroot the finite expansion allocation, and swap old/accepted proposal
+coordinates inside their common stopped bracket. -/
+noncomputable def successfulTraceStratumReverse
+    (intervals : ℕ) (shift : ℤ) (width old new left right : ℝ)
+    (trace : (Alignment × ValidAllocation intervals shift) × (ℝ × ℝ)) :
+    (Alignment × ValidAllocation intervals (-shift)) × (ℝ × ℝ) :=
+  ((reverseAlignment width old new trace.1.1,
+      reverseAllocation intervals shift trace.1.2),
+    acceptedProposalReverse left right trace.2)
+
+/-- The complete alignment/allocation/accepted-point reversal preserves the
+restricted product law on each fixed stopped-bracket stratum. This combines
+the continuous Haar, discrete counting, and planar restricted-volume pieces
+that were previously available only as separate lemmas. -/
+theorem successfulTraceStratumReverse_measurePreserving
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (threshold : ℝ) (intervals : ℕ) (shift : ℤ)
+    (width old new : ℝ) {left right : ℝ} (hwidth : left < right) :
+    MeasurePreserving
+      (successfulTraceStratumReverse intervals shift width old new left right)
+      (((volume : Measure Alignment).prod
+          (Measure.count : Measure (ValidAllocation intervals shift))).prod
+        (((volume : Measure ℝ).prod volume).restrict
+          (acceptedProposalSuccess logDensity threshold left right)))
+      (((volume : Measure Alignment).prod
+          (Measure.count : Measure (ValidAllocation intervals (-shift)))).prod
+        (((volume : Measure ℝ).prod volume).restrict
+          (acceptedProposalSuccess logDensity threshold left right))) := by
+  have hfirst := (reverseAlignment_measurePreserving width old new).prod
+    (reverseAllocation_measurePreserving intervals shift)
+  have hall := hfirst.prod
+    (acceptedProposalReverse_restrict_measurePreserving hlogDensity threshold hwidth)
+  convert hall using 1
+  funext trace
+  rfl
+
 /-- Lift any density on the old/proposed pair to current-point/uniform-fraction
 coordinates in a fixed bracket. -/
 noncomputable def acceptedProposalPairDensity (left right : ℝ)
@@ -1050,6 +1109,34 @@ theorem acceptedProposalReverse_withDensity_measurePreserving
     (acceptedProposalReverse_measurePreserving (sub_ne_zero.mpr hwidth.ne'))
     (measurable_acceptedProposalPairDensity hpairDensity left right)
   exact acceptedProposalPairDensity_invariant hwidth pairDensity hsymmetric
+
+/-- Weighted successful-trace stratum theorem. Any measurable old/new trace
+likelihood proved symmetric by the stepping-out/shrinkage lemmas can be used
+as `pairDensity`; the Haar alignment and finite allocation law are then
+preserved simultaneously with that likelihood. -/
+theorem successfulTraceStratumReverse_withDensity_measurePreserving
+    (intervals : ℕ) (shift : ℤ) (width old new : ℝ)
+    {left right : ℝ} (hwidth : left < right)
+    {pairDensity : ℝ × ℝ → ENNReal} (hpairDensity : Measurable pairDensity)
+    (hsymmetric : ∀ old new, pairDensity (old, new) = pairDensity (new, old)) :
+    MeasurePreserving
+      (successfulTraceStratumReverse intervals shift width old new left right)
+      (((volume : Measure Alignment).prod
+          (Measure.count : Measure (ValidAllocation intervals shift))).prod
+        (((volume : Measure ℝ).prod volume).withDensity
+          (acceptedProposalPairDensity left right pairDensity)))
+      (((volume : Measure Alignment).prod
+          (Measure.count : Measure (ValidAllocation intervals (-shift)))).prod
+        (((volume : Measure ℝ).prod volume).withDensity
+          (acceptedProposalPairDensity left right pairDensity))) := by
+  have hfirst := (reverseAlignment_measurePreserving width old new).prod
+    (reverseAllocation_measurePreserving intervals shift)
+  have hall := hfirst.prod
+    (acceptedProposalReverse_withDensity_measurePreserving hwidth hpairDensity
+      hsymmetric)
+  convert hall using 1
+  funext trace
+  rfl
 
 /-- Literal ideal-real execution of one bounded practical slice update. The
 precondition `trace.leftSteps ≤ maxSteps` is checked rather than silently

@@ -4254,3 +4254,16 @@ strict dot-product margins. Consequently the computed and ideal recursive
 candidate rows—not only their flag trees—are now machine-checked equal at the
 declared numerical boundary. Concrete backend budgets and machine-checked
 Julia extraction remain separate obligations.
+
+## 2026-08-17: practical-slice stratum measure preservation
+
+Upgraded allocation rerooting from a finite-sum identity to preservation of
+counting measure on the discrete valid-allocation strata. Combined it with
+Haar alignment translation and the accepted old/proposal affine reversal.
+`successfulTraceStratumReverse_measurePreserving` now preserves the complete
+restricted product law on a fixed successful stopped-bracket stratum, while
+the weighted variant preserves any measurable symmetric old/new trace
+likelihood, including the shape established by the shrink-trace symmetry
+theorems. The remaining global step is a dependent sum over offset-derived
+integer shifts, stopped brackets, and rejected-trace lengths; this commit does
+not collapse those varying types into a fictitious ordinary product.
