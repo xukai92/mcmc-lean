@@ -17,6 +17,12 @@
   proved atomless in every positive finite dimension, and a BPS velocity
   refresh is proved to return the exact old velocity with probability zero.
   This does not by itself constitute irreducibility or a minorization.
+  The refreshed horizon law is now also decomposed exactly by its Poisson
+  refresh count into conditional ordered-time kernels. The zero-count executor
+  is proved pointwise equal to pure residual evolution for every unused padded
+  schedule. These are the count-stratum interfaces needed for the refreshed
+  time-split law and later positive-refresh minorization; they do not yet prove
+  either result.
 
 - Closed the rejected-length sigma assembly for the practical-slice joint
   law. The variable-dimensional runtime base is now proved equal to the

@@ -296,6 +296,57 @@ instance TimedRefreshProcess.poissonHorizonKernel.instIsMarkovKernel
   unfold TimedRefreshProcess.poissonHorizonKernel
   infer_instance
 
+/-- Conditional horizon kernel given an exact refresh count. The conditional
+wait law is the ordered-uniform Poisson schedule at that count. -/
+noncomputable def TimedRefreshProcess.countHorizonKernel
+    (process : TimedRefreshProcess State) (horizon : PositiveHorizon)
+    (count : ℕ) : Kernel State State :=
+  Mcmc.Kernel.independentParameterMixture
+    (process.executeScheduled horizon.duration)
+    (horizon.fixedScheduleMeasure (timestampOrdering count))
+
+instance TimedRefreshProcess.countHorizonKernel.instIsMarkovKernel
+    (process : TimedRefreshProcess State) (horizon : PositiveHorizon)
+    (count : ℕ) :
+    IsMarkovKernel (process.countHorizonKernel horizon count) := by
+  unfold TimedRefreshProcess.countHorizonKernel
+  infer_instance
+
+/-- Exact decomposition of every transported law by the Poisson number of
+refreshes. This retains the zero-refresh and positive-refresh strata needed
+by later semigroup and minorization arguments. -/
+theorem TimedRefreshProcess.poissonHorizonKernel_comp_eq_sum_count
+    (process : TimedRefreshProcess State) (refreshRate : NNReal)
+    (horizon : PositiveHorizon) (source : Measure State) [SFinite source] :
+    process.poissonHorizonKernel refreshRate horizon ∘ₘ source =
+      Measure.sum fun count : ℕ =>
+        poissonMeasure (refreshRate * horizon.duration) {count} •
+          (process.countHorizonKernel horizon count ∘ₘ source) := by
+  unfold TimedRefreshProcess.poissonHorizonKernel
+    TimedRefreshProcess.countHorizonKernel poissonCandidateSchedule
+    poissonCandidateScheduleMeasure
+  exact Mcmc.Kernel.measure_comp_independentParameterMixture_measureSum
+    (process.executeScheduled horizon.duration) source
+    (fun count : ℕ =>
+      poissonMeasure (refreshRate * horizon.duration) {count})
+    (fun count : ℕ =>
+      horizon.fixedScheduleMeasure (timestampOrdering count))
+
+/-- A schedule carrying zero refreshes executes only the residual timed
+transition, independently of its unused padding coordinates. -/
+theorem TimedRefreshProcess.executeScheduled_zero
+    (process : TimedRefreshProcess State) (horizon : NNReal)
+    (padding : ℕ → NNReal) (state : State) :
+    process.executeScheduled horizon (state, (0, padding)) =
+      process.evolve (state, horizon) := by
+  rw [process.executeScheduled_apply]
+  simp only [TimedRefreshProcess.executeScheduledCount,
+    TimedRefreshProcess.executeScheduledRange, Kernel.comp_apply,
+    Kernel.id_apply, TimedRefreshProcess.scheduledResidual,
+    scheduleElapsed, Finset.range_zero, Finset.sum_empty,
+    tsub_zero]
+  rw [Measure.dirac_bind (Kernel.measurable _), Kernel.comap_apply]
+
 /-- Every fixed coordinate preserves a common target when both the timed
 evolution section and refresh do. -/
 theorem TimedRefreshProcess.fixedCoordinateStep_invariant
