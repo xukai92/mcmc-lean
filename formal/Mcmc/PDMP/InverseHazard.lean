@@ -360,6 +360,61 @@ instance unitHazardSequenceMeasure.instIsProbabilityMeasure :
   unfold unitHazardSequenceMeasure
   infer_instance
 
+/-- Removing the first coordinate from an iid unit-hazard stream leaves the
+same infinite-product law. -/
+theorem unitHazardSequenceMeasure_map_tail :
+    unitHazardSequenceMeasure.map
+        (fun hazards index => hazards (index + 1)) =
+      unitHazardSequenceMeasure := by
+  unfold unitHazardSequenceMeasure
+  simpa using Measure.map_infinitePi_infinitePi_of_inj
+    (P := fun _ : ℕ => unitHazardMeasure)
+    (f := fun index : ℕ => index + 1) (by
+      intro left right heq
+      exact Nat.add_right_cancel heq)
+
+theorem unitHazardSequenceMeasure_preserving_tail :
+    MeasurePreserving (fun hazards : ℕ → NNReal =>
+      fun index => hazards (index + 1))
+      unitHazardSequenceMeasure unitHazardSequenceMeasure where
+  measurable := by fun_prop
+  map_eq := unitHazardSequenceMeasure_map_tail
+
+/-- Split an infinite hazard stream into its first mark and strict tail. -/
+def unitHazardHeadTail
+    (hazards : ℕ → NNReal) : NNReal × (ℕ → NNReal) :=
+  (hazards 0, fun index => hazards (index + 1))
+
+/-- Reconstruct an infinite hazard stream from an explicit head and tail. -/
+def unitHazardCons
+    (headTail : NNReal × (ℕ → NNReal)) : ℕ → NNReal
+  | 0 => headTail.1
+  | index + 1 => headTail.2 index
+
+theorem measurable_unitHazardHeadTail : Measurable unitHazardHeadTail := by
+  unfold unitHazardHeadTail
+  fun_prop
+
+theorem measurable_unitHazardCons : Measurable unitHazardCons := by
+  rw [measurable_pi_iff]
+  intro index
+  cases index with
+  | zero => exact measurable_fst
+  | succ index => exact (measurable_pi_apply index).comp measurable_snd
+
+@[simp] theorem unitHazardCons_headTail (hazards : ℕ → NNReal) :
+    unitHazardCons (unitHazardHeadTail hazards) = hazards := by
+  funext index
+  cases index <;> rfl
+
+@[simp] theorem unitHazardHeadTail_cons
+    (headTail : NNReal × (ℕ → NNReal)) :
+    unitHazardHeadTail (unitHazardCons headTail) = headTail := by
+  apply Prod.ext
+  · rfl
+  · funext index
+    rfl
+
 /-- Coordinate event on which a unit-exponential mark exceeds one. -/
 def unitLargeHazardEvent (index : ℕ) : Set (ℕ → NNReal) :=
   (fun hazards => hazards index) ⁻¹' Set.Ioi (1 : NNReal)
