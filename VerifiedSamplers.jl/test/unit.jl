@@ -268,7 +268,7 @@ end
 end
 
 @testset "versioned reference IR" begin
-    @test Reference.IR_FORMAT_VERSION == 17
+    @test Reference.IR_FORMAT_VERSION == 18
     @test sort!(collect(keys(Reference.PROGRAMS))) ==
         ["categorical_index!", "certified_relativistic_multinomial_hmc_step!",
         "coupled_gaussian_rwmh_step!",
@@ -296,6 +296,7 @@ end
         ["checked-recursive-doubling"]
     dynamic = Reference.DYNAMIC_TREES["checked-recursive-doubling"]
     @test dynamic.builder == "recursive-doubling"
+    @test dynamic.trace_policy == "fair-direction-bits"
     @test dynamic.stop_rule == "endpoint-uturn"
     @test dynamic.subtree_policy == "recursive-exclusion"
     @test dynamic.selection_policy == "eligible-count-streaming"

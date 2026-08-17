@@ -20,7 +20,7 @@ namespace Mcmc.Executable.IRFormat
 
 open Finite.CompilerIR
 
-def version : Nat := 17
+def version : Nat := 18
 
 private def quote (value : String) : String :=
   let escapedBackslash := value.replace "\\" "\\\\"
@@ -225,6 +225,10 @@ private def dynamicTreeBuilderRender :
     DynamicTreeIR.Builder → String
   | .recursiveDoubling => "recursive-doubling"
 
+private def dynamicTreeTracePolicyRender :
+    DynamicTreeIR.TracePolicy → String
+  | .fairDirectionBits => "fair-direction-bits"
+
 private def dynamicTreeStopRuleRender :
     DynamicTreeIR.StopRule → String
   | .endpointUTurn => "endpoint-uturn"
@@ -245,6 +249,7 @@ private def dynamicTreeDescriptorRender
     (descriptor : DynamicTreeIR.Descriptor) : String :=
   list ["dynamic-tree", quote descriptor.name,
     dynamicTreeBuilderRender descriptor.builder,
+    dynamicTreeTracePolicyRender descriptor.tracePolicy,
     dynamicTreeStopRuleRender descriptor.stopRule,
     dynamicTreeSubtreePolicyRender descriptor.subtreePolicy,
     dynamicTreeSelectionPolicyRender descriptor.selectionPolicy,

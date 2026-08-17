@@ -15,7 +15,7 @@ export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_ou
     coupled_multinomial_hmc_step!, coupled_gaussian_rwmh_step!, xu21_coupled_step!,
     IR_FORMAT_VERSION
 
-const IR_FORMAT_VERSION = 17
+const IR_FORMAT_VERSION = 18
 
 """Stable target-weighted selection from a supplied candidate index set.
 
@@ -380,6 +380,7 @@ end
 struct DynamicTreeDescriptor
     name::String
     builder::String
+    trace_policy::String
     stop_rule::String
     subtree_policy::String
     selection_policy::String
@@ -388,11 +389,13 @@ end
 
 function decode_dynamic_tree(node::SList)
     values = items(node)
-    length(values) == 7 && atom(values[1]) == "dynamic-tree" ||
+    length(values) == 8 && atom(values[1]) == "dynamic-tree" ||
         error("invalid dynamic-tree descriptor")
     descriptor = DynamicTreeDescriptor((atom(value) for value in values[2:end])...)
     descriptor.builder == "recursive-doubling" ||
         error("unsupported dynamic-tree builder: $(descriptor.builder)")
+    descriptor.trace_policy == "fair-direction-bits" ||
+        error("unsupported dynamic-tree trace policy: $(descriptor.trace_policy)")
     descriptor.stop_rule == "endpoint-uturn" ||
         error("unsupported dynamic-tree stop rule: $(descriptor.stop_rule)")
     descriptor.subtree_policy == "recursive-exclusion" ||

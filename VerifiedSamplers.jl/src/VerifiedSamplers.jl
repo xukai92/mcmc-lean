@@ -1891,8 +1891,9 @@ function generated_dynamic_tree(name::AbstractString, positions, momenta,
     descriptor === nothing &&
         throw(ArgumentError("unknown generated dynamic tree: $name"))
     descriptor.builder == "recursive-doubling" &&
+        descriptor.trace_policy == "fair-direction-bits" &&
         descriptor.stop_rule == "endpoint-uturn" &&
-    descriptor.subtree_policy == "recursive-exclusion" &&
+        descriptor.subtree_policy == "recursive-exclusion" &&
         descriptor.selection_policy == "eligible-count-streaming" &&
         descriptor.failure_policy == "checked-or-identity" ||
         error("unsupported generated dynamic-tree descriptor")

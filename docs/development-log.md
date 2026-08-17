@@ -4215,3 +4215,16 @@ state-dependent auxiliary-slice reversibility and marginal stationarity are
 already proved in `NUTSAugmentation`; what is still absent is a refinement
 theorem identifying a production recursion's generated auxiliary distribution
 with that finite completed-tree law, plus concrete callback/platform budgets.
+
+## 2026-08-17: generated recursive direction law
+
+Made the randomized recursion's auxiliary distribution part of the generated
+contract instead of a Julia-side convention. IR version 18 adds the
+`fair-direction-bits` trace policy; the Julia decoder and runtime reject any
+other policy. `CheckedRecursiveDoublingProgram.interpret` denotes the exact
+uniform distribution over all finite direction traces followed by the proved
+global checked-or-identity row kernel. Lean expands its transition probability
+to that literal finite mixture and proves stationarity for every candidate-row
+builder. The remaining cross-language obligation is now narrower and explicit:
+show that the runtime recursion produces the declared candidate function for
+each trace (subject to its bounded numerical callback certificates).
