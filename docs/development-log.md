@@ -23,6 +23,11 @@
   schedule. These are the count-stratum interfaces needed for the refreshed
   time-split law and later positive-refresh minorization; they do not yet prove
   either result.
+  At the deterministic layer, execution of two adjacent coordinate ranges is
+  now proved equal to composition of their fixed-schedule kernels. Thus the
+  refreshed semigroup proof has been narrowed to bridging the residual wait
+  across the split and proving the corresponding concatenation law for two
+  independent ordered Poisson schedules.
 
 - Closed the rejected-length sigma assembly for the practical-slice joint
   law. The variable-dimensional runtime base is now proved equal to the

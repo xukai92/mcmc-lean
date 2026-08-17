@@ -121,6 +121,23 @@ instance TimedRefreshProcess.executeFixedRange.instIsMarkovKernel
         ih (start + 1)
       infer_instance
 
+/-- Fixed-schedule execution composes when adjacent coordinate ranges are
+concatenated. -/
+theorem TimedRefreshProcess.executeFixedRange_add
+    (process : TimedRefreshProcess State)
+    (schedule : CandidateScheduleSample) (start first second : ℕ) :
+    process.executeFixedRange schedule start (first + second) =
+      process.executeFixedRange schedule (start + first) second ∘ₖ
+        process.executeFixedRange schedule start first := by
+  induction first generalizing start with
+  | zero => simp [TimedRefreshProcess.executeFixedRange]
+  | succ first ih =>
+      rw [Nat.succ_add]
+      simp only [TimedRefreshProcess.executeFixedRange]
+      rw [ih (start + 1), Kernel.comp_assoc]
+      congr 2
+      omega
+
 /-- Scheduled execution retains its fixed schedule and has exactly the
 state-only fixed-range law. -/
 theorem TimedRefreshProcess.executeScheduledRange_apply_fixed
