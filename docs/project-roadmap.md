@@ -734,7 +734,11 @@ by paper date:
    remain separate subsequent milestones. The stationarity interface is now
    instantiated at the exact product-Gaussian target and checked generator
    domain: target-started weak-forward uniqueness is the single explicit
-   process-level premise consumed by the conditional invariance theorem.
+   process-level premise consumed by the conditional invariance theorem. It is
+   further decomposed in Lean into scalar weak-expectation uniqueness and
+   finite-regular measure determination; probability regularity/finiteness is
+   already discharged, leaving the smooth-core determining and
+   backward/resolvent arguments themselves.
 
    The nonlinear reversible-jump branch is complete at the exact theorem and
    executable-client levels; only the shared Float64 primitive boundary

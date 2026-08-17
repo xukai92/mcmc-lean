@@ -3387,6 +3387,21 @@ abbrev StandardGaussianBPSTargetWeakForwardUniqueness :=
     StandardGaussianBPSGeneratorTest.generator
     (standardGaussianBPSTarget (ι := ι))
 
+/-- Scalar-expectation half of target-started weak-forward uniqueness. -/
+abbrev StandardGaussianBPSTargetWeakExpectationUniqueness :=
+  CompactTestTargetWeakExpectationUniqueness
+    (standardGaussianBPSHorizonKernel (ι := ι))
+    StandardGaussianBPSGeneratorTest.observe
+    StandardGaussianBPSGeneratorTest.generator
+    (standardGaussianBPSTarget (ι := ι))
+
+/-- Measure-determination half of the Gaussian-BPS weak-forward obligation,
+restricted to the finite regular measures that actually occur as Markov
+marginals on the finite-dimensional phase space. -/
+abbrev StandardGaussianBPSGeneratorTestFiniteRegularDetermining :=
+  CompactTestFiniteRegularExpectationDetermining
+    (StandardGaussianBPSGeneratorTest.observe (ι := ι))
+
 /-- Once target-started weak-forward uniqueness is established, the exact
 generator balance stored by every test proves target invariance of the
 constructed horizon kernel at every time. -/
@@ -3402,6 +3417,31 @@ theorem standardGaussianBPSHorizonKernel_invariant_of_targetWeakForwardUniquenes
     (standardGaussianBPSTarget (ι := ι)) uniqueness
   · exact StandardGaussianBPSGeneratorTest.integrable_generator
   · exact StandardGaussianBPSGeneratorTest.integral_generator_eq_zero
+
+/-- The split analytic obligations—scalar weak-expectation uniqueness and
+finite-regular measure determination—already imply exact Gaussian-BPS
+stationarity. Regularity and finiteness of both candidate curves and the
+constructed semigroup marginals are discharged from the finite-dimensional
+Borel probability setting. -/
+theorem standardGaussianBPSHorizonKernel_invariant_of_targetWeakExpectationUniqueness
+    (scalar :
+      StandardGaussianBPSTargetWeakExpectationUniqueness (ι := ι))
+    (determining :
+      StandardGaussianBPSGeneratorTestFiniteRegularDetermining (ι := ι))
+    (horizon : NNReal) :
+    (standardGaussianBPSHorizonKernel (ι := ι) horizon).Invariant
+      (standardGaussianBPSTarget (ι := ι)) := by
+  apply standardGaussianBPSHorizonKernel_invariant_of_targetWeakForwardUniqueness
+  apply scalar.toTargetWeakForwardUniqueness_of_finiteRegular
+    (standardGaussianBPSHorizonKernel (ι := ι))
+    StandardGaussianBPSGeneratorTest.observe
+    StandardGaussianBPSGeneratorTest.generator
+    (standardGaussianBPSTarget (ι := ι)) determining
+  · intro curve solution time
+    letI : IsProbabilityMeasure (curve time) := solution.probability time
+    infer_instance
+  · intro time
+    infer_instance
 
 theorem standardGaussianBPSHorizonKernel_apply_positiveFirstEvent
     (horizon : NNReal) (initial : BouncyParticleState ι)

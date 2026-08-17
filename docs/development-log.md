@@ -5033,3 +5033,14 @@ proves exact invariance at every horizon through the generic forward-equation
 bridge. This is deliberately a conditional theorem: target-started
 weak-forward uniqueness itself remains to be proved and is not inferred from
 the generator identity or semigroup law alone.
+
+That uniqueness boundary is now split into its two independent analytic
+parts. `StandardGaussianBPSTargetWeakExpectationUniqueness` asks only for
+uniqueness of scalar test expectations, while
+`StandardGaussianBPSGeneratorTestFiniteRegularDetermining` asks that the
+checked observables determine finite regular phase-space measures. Lean
+automatically discharges regularity and finiteness for both probability-valued
+weak solutions and the constructed Markov marginals, and the new split
+invariance theorem assembles the two certificates. Neither certificate is
+silently assumed: formalizing a determining smooth core and its backward or
+resolvent uniqueness argument remains the active stationarity work.
