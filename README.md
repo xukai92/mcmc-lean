@@ -276,6 +276,13 @@ probability one. Any multidimensional ergodicity milestone must therefore add
 an explicit velocity-refresh clock (or restrict its claim to invariant
 components); stationarity of the Gaussian mixture remains meaningful without
 refreshment.
+The completed endpoint is also packaged as a kernel jointly measurable in the
+initial state and elapsed time, the prerequisite for random refresh-time
+interleaving. A concrete discrete-time refresh-augmented skeleton redraws a
+Gaussian velocity before each exact BPS horizon and is proved Markov;
+conditional on the same remaining scalar weak-forward uniqueness premise, it
+preserves the canonical product-Gaussian target. This skeleton is not yet a
+continuously timed Poisson-refresh process or an ergodicity theorem.
 
 In one dimension at unit speed,
 Lean now proves that Gaussian BPS reflection, rate, and flow coincide with the

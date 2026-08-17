@@ -2327,6 +2327,30 @@ noncomputable def PartialInverseHazardClock.completedHorizonKernel
     (fun input => clock.completedReplayEndpoint jump
       ((horizon, input.1), input.2))
 
+/-- The completed finite-horizon transition as one jointly measurable kernel
+of `(initial state, horizon)`.  Keeping time in the input is essential when a
+second random mechanism (for example a refresh clock) supplies inter-event
+durations. -/
+noncomputable def PartialInverseHazardClock.completedJointHorizonKernel
+    (clock : PartialInverseHazardClock State)
+    (jump : State → State) (_hjump : Measurable jump) :
+    Kernel (State × NNReal) State :=
+  Kernel.map
+    (Kernel.prod Kernel.id
+      (Kernel.const (State × NNReal) unitHazardSequenceMeasure))
+    (fun input => clock.completedReplayEndpoint jump
+      ((input.1.2, input.1.1), input.2))
+
+instance PartialInverseHazardClock.completedJointHorizonKernel.instIsMarkovKernel
+    (clock : PartialInverseHazardClock State)
+    (jump : State → State) (hjump : Measurable jump) :
+    IsMarkovKernel (clock.completedJointHorizonKernel jump hjump) := by
+  unfold PartialInverseHazardClock.completedJointHorizonKernel
+  apply Kernel.IsMarkovKernel.map
+  exact clock.measurable_completedReplayEndpoint hjump |>.comp
+    (((measurable_snd.comp measurable_fst).prodMk
+      (measurable_fst.comp measurable_fst)).prodMk measurable_snd)
+
 instance PartialInverseHazardClock.completedHorizonKernel.instIsMarkovKernel
     (clock : PartialInverseHazardClock State)
     (jump : State → State) (hjump : Measurable jump)
@@ -2336,6 +2360,27 @@ instance PartialInverseHazardClock.completedHorizonKernel.instIsMarkovKernel
   apply Kernel.IsMarkovKernel.map
   exact clock.measurable_completedReplayEndpoint hjump |>.comp
     ((measurable_const.prodMk measurable_fst).prodMk measurable_snd)
+
+/-- Pointwise law of the jointly time-parameterized completed kernel. -/
+theorem PartialInverseHazardClock.completedJointHorizonKernel_apply
+    (clock : PartialInverseHazardClock State) {jump : State → State}
+    (hjump : Measurable jump) (initial : State) (horizon : NNReal) :
+    clock.completedJointHorizonKernel jump hjump (initial, horizon) =
+      Measure.map
+        (fun hazards => clock.completedReplayEndpoint jump
+          ((horizon, initial), hazards)) unitHazardSequenceMeasure := by
+  unfold PartialInverseHazardClock.completedJointHorizonKernel
+  have hendpoint : Measurable
+      (fun input : (State × NNReal) × (ℕ → NNReal) =>
+        clock.completedReplayEndpoint jump
+          ((input.1.2, input.1.1), input.2)) :=
+    clock.measurable_completedReplayEndpoint hjump |>.comp
+      (((measurable_snd.comp measurable_fst).prodMk
+        (measurable_fst.comp measurable_fst)).prodMk measurable_snd)
+  rw [Kernel.map_apply _ hendpoint, Kernel.prod_apply, Kernel.id_apply,
+    Kernel.const_apply, Measure.dirac_prod,
+    Measure.map_map hendpoint (by fun_prop)]
+  rfl
 
 /-- Pointwise law of the completed horizon kernel as the pushforward of its
 iid hazard-stream input. -/
@@ -2355,6 +2400,20 @@ theorem PartialInverseHazardClock.completedHorizonKernel_apply
     Kernel.const_apply, Measure.dirac_prod,
     Measure.map_map hendpoint (by fun_prop)]
   rfl
+
+/-- Fixing the time input of the joint completed kernel recovers the original
+finite-horizon kernel exactly. -/
+theorem PartialInverseHazardClock.comap_completedJointHorizonKernel
+    (clock : PartialInverseHazardClock State)
+    (jump : State → State) (hjump : Measurable jump) (horizon : NNReal) :
+    Kernel.comap (clock.completedJointHorizonKernel jump hjump)
+      (fun state => (state, horizon))
+      (measurable_id.prodMk measurable_const) =
+        clock.completedHorizonKernel jump hjump horizon := by
+  ext state
+  rw [Kernel.comap_apply,
+    clock.completedJointHorizonKernel_apply hjump state horizon,
+    clock.completedHorizonKernel_apply hjump horizon state]
 
 /-- Composing an input measure with a completed horizon kernel is the
 pushforward of that input paired with one fresh iid hazard stream. -/

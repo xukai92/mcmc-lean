@@ -1,5 +1,16 @@
 # Development log
 
+- Exposed every completed partial-inverse-hazard transition as a kernel
+  jointly measurable in initial state and elapsed time, and proved that each
+  fixed-time section is exactly the existing horizon kernel. The
+  finite-dimensional standard-Gaussian BPS client instantiates this API. It
+  now also has a discrete refresh-augmented skeleton that independently
+  redraws standard Gaussian velocity before exact bounce evolution; Lean
+  proves it Markov and, conditional on the remaining scalar weak-forward
+  uniqueness premise for the bounce semigroup, target invariant. This is the
+  measurable prerequisite for a future Poisson refresh clock, not yet the
+  continuously timed process or an ergodicity result.
+
 - Closed the rejected-length sigma assembly for the practical-slice joint
   law. The variable-dimensional runtime base is now proved equal to the
   countable sum of its embedded finite-dimensional Lebesgue fibers, and the

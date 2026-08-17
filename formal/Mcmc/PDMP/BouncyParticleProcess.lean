@@ -3167,6 +3167,31 @@ noncomputable def standardGaussianBPSHorizonKernel (horizon : NNReal) :
     |>.completedHorizonKernel (standardGaussianBPSJump (ι := ι))
       measurable_standardGaussianBPSJump horizon
 
+/-- The exact Gaussian-BPS transition jointly parameterized by initial state
+and elapsed time.  This is the measurable family consumed by randomized-time
+constructions such as velocity refresh clocks. -/
+noncomputable def standardGaussianBPSJointHorizonKernel :
+    Kernel (BouncyParticleState ι × NNReal) (BouncyParticleState ι) :=
+  (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+    |>.completedJointHorizonKernel (standardGaussianBPSJump (ι := ι))
+      measurable_standardGaussianBPSJump
+
+instance standardGaussianBPSJointHorizonKernel.instIsMarkovKernel :
+    IsMarkovKernel (standardGaussianBPSJointHorizonKernel (ι := ι)) := by
+  unfold standardGaussianBPSJointHorizonKernel
+  infer_instance
+
+/-- A fixed-time section of the joint Gaussian-BPS kernel is the original
+horizon kernel. -/
+theorem comap_standardGaussianBPSJointHorizonKernel (horizon : NNReal) :
+    Kernel.comap (standardGaussianBPSJointHorizonKernel (ι := ι))
+      (fun state => (state, horizon))
+      (measurable_id.prodMk measurable_const) =
+        standardGaussianBPSHorizonKernel (ι := ι) horizon := by
+  unfold standardGaussianBPSJointHorizonKernel
+    standardGaussianBPSHorizonKernel
+  exact PartialInverseHazardClock.comap_completedJointHorizonKernel _ _ _ _
+
 instance standardGaussianBPSHorizonKernel.instIsMarkovKernel
     (horizon : NNReal) :
     IsMarkovKernel (standardGaussianBPSHorizonKernel (ι := ι) horizon) := by
@@ -3448,6 +3473,22 @@ noncomputable def standardGaussianBPSTarget :
 instance standardGaussianBPSTarget.instIsProbabilityMeasure :
     IsProbabilityMeasure (standardGaussianBPSTarget (ι := ι)) := by
   unfold standardGaussianBPSTarget
+  infer_instance
+
+/-- A refresh-augmented skeleton for finite-dimensional standard-Gaussian
+BPS: independently redraw the Gaussian velocity and then evolve the exact
+bounce process for `horizon`.  This is a discrete-time sampler with one
+refresh per step; it is deliberately not presented as a continuously timed
+Poisson refresh process. -/
+noncomputable def standardGaussianBPSRefreshedKernel (horizon : NNReal) :
+    Kernel (BouncyParticleState ι) (BouncyParticleState ι) :=
+  standardGaussianBPSHorizonKernel horizon ∘ₖ
+    bouncyParticleVelocityRefresh standardMomentumMeasure
+
+instance standardGaussianBPSRefreshedKernel.instIsMarkovKernel
+    (horizon : NNReal) :
+    IsMarkovKernel (standardGaussianBPSRefreshedKernel (ι := ι) horizon) := by
+  unfold standardGaussianBPSRefreshedKernel
   infer_instance
 
 /-- A test observable equipped with its coordinatewise position derivative
@@ -4615,6 +4656,24 @@ theorem standardGaussianBPSHorizonKernel_invariant_of_smoothCore
       (standardGaussianBPSTarget (ι := ι)) :=
   standardGaussianBPSHorizonKernel_invariant_of_targetWeakExpectationUniqueness
     scalar core.finiteRegularDetermining horizon
+
+/-- The refresh-augmented Gaussian-BPS skeleton preserves the canonical
+product target as soon as the remaining scalar weak-forward uniqueness
+obligation proves invariance of the bounce semigroup.  The refresh half is
+unconditional and uses the same standard Gaussian law as the target velocity
+fiber. -/
+theorem standardGaussianBPSRefreshedKernel_invariant_of_smoothCore
+    (core : StandardGaussianBPSSmoothCore ι)
+    (scalar :
+      StandardGaussianBPSTargetWeakExpectationUniqueness (ι := ι))
+    (horizon : NNReal) :
+    (standardGaussianBPSRefreshedKernel (ι := ι) horizon).Invariant
+      (standardGaussianBPSTarget (ι := ι)) := by
+  unfold standardGaussianBPSRefreshedKernel standardGaussianBPSTarget
+  exact (standardGaussianBPSHorizonKernel_invariant_of_smoothCore
+    core scalar horizon).comp
+      (bouncyParticleVelocityRefresh_invariant
+        standardMomentumMeasure standardMomentumMeasure)
 
 theorem standardGaussianBPSHorizonKernel_apply_positiveFirstEvent
     (horizon : NNReal) (initial : BouncyParticleState ι)
