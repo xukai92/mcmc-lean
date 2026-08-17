@@ -182,6 +182,208 @@ theorem measurable_alignmentCoordinate : Measurable alignmentCoordinate := by
   exact measurable_subtype_coe.comp
     (AddCircle.measurableEquivIco (1 : ℝ) 0).measurable
 
+/-- Right-closed fundamental-domain coordinate used to expose the exact
+Haar-by-counting tiling of the real line. It differs from
+`alignmentCoordinate` only at the quotient origin. -/
+noncomputable def alignmentCoordinateIoc (offset : Alignment) : ℝ :=
+  (AddCircle.equivIoc (1 : ℝ) 0 offset).1
+
+theorem measurable_alignmentCoordinateIoc :
+    Measurable alignmentCoordinateIoc := by
+  exact measurable_subtype_coe.comp
+    (AddCircle.measurableEquivIoc (1 : ℝ) 0).measurable
+
+/-- The executable left-closed and proof-oriented right-closed fundamental
+coordinates agree away from the single quotient origin. -/
+theorem alignmentCoordinate_eq_alignmentCoordinateIoc_of_ne_zero
+    (offset : Alignment) (hoffset : offset ≠ 0) :
+    alignmentCoordinate offset = alignmentCoordinateIoc offset := by
+  have hico := alignmentCoordinate_mem offset
+  have hcoordinateNe : alignmentCoordinate offset ≠ 0 := by
+    intro heq
+    apply hoffset
+    calc
+      offset = ((alignmentCoordinate offset : ℝ) : Alignment) :=
+        (AddCircle.coe_equivIco
+          (p := (1 : ℝ)) (a := 0) (y := offset)).symm
+      _ = 0 := by rw [heq]; rfl
+  have hioc : alignmentCoordinate offset ∈ Set.Ioc (0 : ℝ) 1 :=
+    ⟨lt_of_le_of_ne hico.1 hcoordinateNe.symm, hico.2.le⟩
+  rw [show offset = ((alignmentCoordinate offset : ℝ) : Alignment) by
+    exact (AddCircle.coe_equivIco
+      (p := (1 : ℝ)) (a := 0) (y := offset)).symm]
+  rw [show alignmentCoordinate
+      ((alignmentCoordinate offset : ℝ) : Alignment) =
+        alignmentCoordinate offset by
+    unfold alignmentCoordinate
+    rw [AddCircle.equivIco_coe_of_mem
+      (by simpa only [zero_add, alignmentCoordinate] using hico)]]
+  unfold alignmentCoordinateIoc
+  rw [AddCircle.equivIoc_coe_of_mem (by simpa using hioc)]
+
+/-- The right-closed circle coordinate has Lebesgue measure restricted to one
+unit fundamental domain. -/
+theorem alignmentCoordinateIoc_measurePreserving :
+    MeasurePreserving alignmentCoordinateIoc
+      (volume : Measure Alignment)
+      ((volume : Measure ℝ).restrict (Set.Ioc 0 1)) := by
+  have h := (measurePreserving_subtype_coe measurableSet_Ioc).comp
+    (AddCircle.measurePreserving_equivIoc (T := (1 : ℝ)) (a := 0))
+  have h' : MeasurePreserving
+      (Subtype.val ∘ (AddCircle.equivIoc (1 : ℝ) 0))
+      (volume : Measure Alignment)
+      ((volume : Measure ℝ).restrict (Set.Ioc 0 1)) := by
+    simpa using h
+  convert h' using 1
+  funext offset
+  rfl
+
+theorem alignmentCoordinate_ae_eq_alignmentCoordinateIoc :
+    alignmentCoordinate =ᵐ[(volume : Measure Alignment)]
+      alignmentCoordinateIoc := by
+  have hpreimage : alignmentCoordinateIoc ⁻¹' ({1} : Set ℝ) =
+      ({0} : Set Alignment) := by
+    have hone : ((1 : ℝ) : Alignment) = 0 := by
+      rw [AddCircle.coe_eq_zero_iff]
+      exact ⟨1, by norm_num⟩
+    ext offset
+    simp only [Set.mem_preimage, Set.mem_singleton_iff]
+    constructor
+    · intro hcoordinate
+      calc
+        offset = ((alignmentCoordinateIoc offset : ℝ) : Alignment) :=
+          (AddCircle.coe_equivIoc
+            (p := (1 : ℝ)) (a := 0) (y := offset)).symm
+        _ = ((1 : ℝ) : Alignment) := congrArg (fun value : ℝ =>
+          (value : Alignment)) hcoordinate
+        _ = 0 := hone
+    · intro hoffset
+      subst offset
+      unfold alignmentCoordinateIoc
+      rw [← hone]
+      rw [AddCircle.equivIoc_coe_of_mem (by constructor <;> norm_num)]
+  have hzero : (volume : Measure Alignment) ({0} : Set Alignment) = 0 := by
+    calc
+      (volume : Measure Alignment) ({0} : Set Alignment) =
+          volume (alignmentCoordinateIoc ⁻¹' ({1} : Set ℝ)) := by rw [hpreimage]
+      _ = Measure.map alignmentCoordinateIoc volume ({1} : Set ℝ) :=
+        (Measure.map_apply alignmentCoordinateIoc_measurePreserving.measurable
+          (measurableSet_singleton (1 : ℝ))).symm
+      _ = ((volume : Measure ℝ).restrict (Set.Ioc 0 1)) {1} := by
+        rw [alignmentCoordinateIoc_measurePreserving.map_eq]
+      _ = 0 := by simp
+  have hne : ∀ᵐ offset ∂(volume : Measure Alignment), offset ≠ 0 := by
+    rw [ae_iff]
+    rw [show {offset : Alignment | ¬offset ≠ 0} = ({0} : Set Alignment) by
+      ext offset
+      simp]
+    exact hzero
+  filter_upwards [hne] with offset hoffset
+  exact alignmentCoordinate_eq_alignmentCoordinateIoc_of_ne_zero offset hoffset
+
+/-- Translate one right-closed unit fundamental domain to its integer tile. -/
+noncomputable def alignmentIocTile (index : ℤ) (offset : Alignment) : ℝ :=
+  alignmentCoordinateIoc offset + (index : ℝ)
+
+theorem alignmentIocTile_measurePreserving (index : ℤ) :
+    MeasurePreserving (alignmentIocTile index)
+      (volume : Measure Alignment)
+      ((volume : Measure ℝ).restrict
+        (Set.Ioc (index : ℝ) ((index : ℝ) + 1))) := by
+  have htranslate :=
+    (measurePreserving_add_right (volume : Measure ℝ)
+      (index : ℝ)).restrict_preimage
+      (s := Set.Ioc (index : ℝ) ((index : ℝ) + 1)) measurableSet_Ioc
+  have hpreimage :
+      (fun value : ℝ => value + (index : ℝ)) ⁻¹'
+          Set.Ioc (index : ℝ) ((index : ℝ) + 1) =
+        Set.Ioc (0 : ℝ) 1 := by
+    ext value
+    simp only [Set.mem_preimage, Set.mem_Ioc]
+    constructor <;> intro h <;> constructor <;> linarith
+  rw [hpreimage] at htranslate
+  exact htranslate.comp alignmentCoordinateIoc_measurePreserving
+
+/-- Integer tiling map from Haar alignment and counting index to the real
+line. -/
+noncomputable def alignmentCountingCoordinateIoc
+    (point : Alignment × ℤ) : ℝ :=
+  alignmentIocTile point.2 point.1
+
+/-- Haar volume on the unit circle times integer counting measure pushes
+exactly to Lebesgue measure under the fundamental-domain tiling map. -/
+theorem alignmentCountingCoordinateIoc_measurePreserving :
+    MeasurePreserving alignmentCountingCoordinateIoc
+      ((volume : Measure Alignment).prod (Measure.count : Measure ℤ))
+      (volume : Measure ℝ) := by
+  have hmeasurable : Measurable alignmentCountingCoordinateIoc := by
+    unfold alignmentCountingCoordinateIoc alignmentIocTile
+    exact (measurable_alignmentCoordinateIoc.comp measurable_fst).add
+      ((measurable_of_countable (fun value : ℤ => (value : ℝ))).comp
+        measurable_snd)
+  refine ⟨hmeasurable, ?_⟩
+  ext event hevent
+  rw [Measure.map_apply hmeasurable hevent,
+    Measure.prod_apply_symm (hmeasurable hevent)]
+  rw [lintegral_count]
+  change (∑' index : ℤ,
+    (volume : Measure Alignment) (alignmentIocTile index ⁻¹' event)) = _
+  have htile : ∀ index : ℤ,
+      (volume : Measure Alignment)
+          (alignmentIocTile index ⁻¹' event) =
+        ((volume : Measure ℝ).restrict
+          (Set.Ioc (index : ℝ) ((index : ℝ) + 1))) event := by
+    intro index
+    rw [← (alignmentIocTile_measurePreserving index).map_eq,
+      Measure.map_apply (alignmentIocTile_measurePreserving index).measurable
+        hevent]
+  rw [show (fun index : ℤ =>
+      (volume : Measure Alignment)
+        (alignmentIocTile index ⁻¹' event)) =
+      (fun index : ℤ => ((volume : Measure ℝ).restrict
+        (Set.Ioc (index : ℝ) ((index : ℝ) + 1))) event) by
+      funext index
+      exact htile index]
+  rw [← Measure.sum_apply _ hevent]
+  rw [← Measure.restrict_iUnion (Set.pairwise_disjoint_Ioc_intCast ℝ)
+    (fun _ => measurableSet_Ioc), iUnion_Ioc_intCast, Measure.restrict_univ]
+
+/-- Executable left-closed version of the tiled real-line coordinate. -/
+noncomputable def alignmentCountingCoordinate
+    (point : Alignment × ℤ) : ℝ :=
+  alignmentCoordinate point.1 + (point.2 : ℝ)
+
+theorem measurable_alignmentCountingCoordinate :
+    Measurable alignmentCountingCoordinate := by
+  unfold alignmentCountingCoordinate
+  exact (measurable_alignmentCoordinate.comp measurable_fst).add
+    ((measurable_of_countable (fun value : ℤ => (value : ℝ))).comp
+      measurable_snd)
+
+theorem alignmentCountingCoordinate_ae_eq_Ioc :
+    alignmentCountingCoordinate =ᵐ[
+      (volume : Measure Alignment).prod (Measure.count : Measure ℤ)]
+      alignmentCountingCoordinateIoc := by
+  apply (Measure.ae_prod_iff_ae_ae
+    (measurableSet_eq_fun measurable_alignmentCountingCoordinate
+      alignmentCountingCoordinateIoc_measurePreserving.measurable)).2
+  filter_upwards [alignmentCoordinate_ae_eq_alignmentCoordinateIoc] with
+      offset hoffset
+  filter_upwards [] with index
+  simp only [alignmentCountingCoordinate, alignmentCountingCoordinateIoc,
+    alignmentIocTile]
+  rw [hoffset]
+
+/-- The exact runtime `[0,1)` alignment/counting coordinate also pushes to
+Lebesgue measure; the endpoint convention changes only a null Haar fiber. -/
+theorem alignmentCountingCoordinate_measurePreserving :
+    MeasurePreserving alignmentCountingCoordinate
+      ((volume : Measure Alignment).prod (Measure.count : Measure ℤ))
+      (volume : Measure ℝ) := by
+  refine ⟨measurable_alignmentCountingCoordinate, ?_⟩
+  rw [Measure.map_congr alignmentCountingCoordinate_ae_eq_Ioc]
+  exact alignmentCountingCoordinateIoc_measurePreserving.map_eq
+
 /-- Random choices consumed before shrinkage. `offset` positions the initial
 width-sized bracket and `leftSteps` allocates the finite expansion budget. -/
 structure BracketTrace where

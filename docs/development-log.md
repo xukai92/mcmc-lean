@@ -4648,3 +4648,22 @@ pointwise stopped-bracket equality into the context-wide identity required by
 the paired restricted-measure proof.  The remaining local step is the explicit
 reassociation/conjugacy of the raw runtime product measure with this anchor
 context and the accepted-point/grid fiber.
+
+## 2026-08-17: Haar/counting real-line tiling
+
+Proved the missing measure identity behind the practical grid chart.  The
+right-closed fundamental coordinate supplied by mathlib maps Haar volume to
+Lebesgue measure on `(0,1]`; translating it by every integer tile and summing
+counting measure gives all of real-line Lebesgue measure exactly.  The proof
+uses the pairwise-disjoint `Ioc` tiling rather than an informal density
+argument.
+
+The executable semantics uses `[0,1)`, so Lean also proves that the two circle
+coordinates agree away from the quotient origin, proves that origin is Haar
+null from the right-closed measure-preserving chart itself, and transports the
+map law across the resulting almost-everywhere equality.  Consequently
+`alignmentCountingCoordinate_measurePreserving` now states the exact required
+law for the actual runtime coordinate
+`alignmentCoordinate offset + allocation`.  The next step is to scale and
+translate this real-line coordinate at a fixed grid anchor, then conjugate the
+signature-controlled accepted-point swap across the paired replay cells.
