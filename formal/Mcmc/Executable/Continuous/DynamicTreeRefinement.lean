@@ -221,6 +221,23 @@ noncomputable def CertifiedLeapfrogPhaseEndpoint.exact
   positionLength := hposition
   momentumLength := hmomentum
 
+/-- Convert a recurrence-certified stored leapfrog trajectory into the common
+phase-array interface consumed by dynamic-tree decision certificates. -/
+noncomputable def CertifiedLeapfrogPhaseTrajectory.ofErrorCertificate
+    {model : LeapfrogErrorModel} {initialPositionError initialMomentumError : ℝ}
+    {steps dimension : ℕ}
+    (certificate : LeapfrogTrajectoryErrorCertificate model
+      initialPositionError initialMomentumError steps)
+    (positionLength : ∀ index,
+      (certificate.endpoint index).computedPosition.length = dimension)
+    (momentumLength : ∀ index,
+      (certificate.endpoint index).computedMomentum.length = dimension) :
+    CertifiedLeapfrogPhaseTrajectory (steps + 1) dimension where
+  endpoint index := {
+    step := certificate.scheduledEndpoint index
+    positionLength := positionLength index
+    momentumLength := momentumLength index }
+
 noncomputable def CertifiedLeapfrogPhaseEndpoint.computedPosition
     {dimension : ℕ} (endpoint : CertifiedLeapfrogPhaseEndpoint dimension) :
     Fin dimension → ℝ :=

@@ -31,6 +31,12 @@ theorem VectorApproximates.at
     Approximates computed[i] ideal[i] error :=
   h.2 i hcomputed hideal
 
+theorem VectorApproximates.mono
+    {computed ideal : List ℝ} {error larger : ℝ}
+    (h : VectorApproximates computed ideal error) (hle : error ≤ larger) :
+    VectorApproximates computed ideal larger :=
+  ⟨h.1, fun i hc hi => (h.2 i hc hi).trans hle⟩
+
 /-- One leapfrog step's abstract rounding contract. It deliberately isolates
 the backend-specific arithmetic and gradient evaluation bounds. -/
 structure LeapfrogStepCertificate where
@@ -51,6 +57,88 @@ structure LeapfrogErrorModel where
   positionGrowth_nonneg : ∀ ep em, 0 ≤ ep → 0 ≤ em → 0 ≤ positionGrowth ep em
   momentumGrowth_nonneg : ∀ ep em, 0 ≤ ep → 0 ≤ em → 0 ≤ momentumGrowth ep em
 
+/-! ### Concrete Euclidean leapfrog error recurrence -/
+
+/-- Nonnegative constants for a componentwise error analysis of one standard
+Euclidean leapfrog step. `gradientError` bounds backend gradient evaluation;
+`kickRounding` applies to each half-kick and `driftRounding` to the drift. -/
+structure EuclideanLeapfrogErrorParameters where
+  stepMagnitude : ℝ
+  gradientLipschitz : ℝ
+  gradientError : ℝ
+  kickRounding : ℝ
+  driftRounding : ℝ
+  stepMagnitude_nonneg : 0 ≤ stepMagnitude
+  gradientLipschitz_nonneg : 0 ≤ gradientLipschitz
+  gradientError_nonneg : 0 ≤ gradientError
+  kickRounding_nonneg : 0 ≤ kickRounding
+  driftRounding_nonneg : 0 ≤ driftRounding
+
+noncomputable def EuclideanLeapfrogErrorParameters.halfKickError
+    (parameters : EuclideanLeapfrogErrorParameters)
+    (positionError momentumError : ℝ) : ℝ :=
+  momentumError + parameters.stepMagnitude / 2 *
+    (parameters.gradientLipschitz * positionError + parameters.gradientError) +
+    parameters.kickRounding
+
+noncomputable def EuclideanLeapfrogErrorParameters.positionGrowth
+    (parameters : EuclideanLeapfrogErrorParameters)
+    (positionError momentumError : ℝ) : ℝ :=
+  positionError + parameters.stepMagnitude *
+    parameters.halfKickError positionError momentumError +
+    parameters.driftRounding
+
+noncomputable def EuclideanLeapfrogErrorParameters.momentumGrowth
+    (parameters : EuclideanLeapfrogErrorParameters)
+    (positionError momentumError : ℝ) : ℝ :=
+  let half := parameters.halfKickError positionError momentumError
+  half + parameters.stepMagnitude / 2 *
+    (parameters.gradientLipschitz *
+      parameters.positionGrowth positionError momentumError +
+      parameters.gradientError) + parameters.kickRounding
+
+/-- Concrete nonnegative recurrence for kick-drift-kick error propagation. -/
+noncomputable def EuclideanLeapfrogErrorParameters.toErrorModel
+    (parameters : EuclideanLeapfrogErrorParameters) : LeapfrogErrorModel where
+  positionGrowth := parameters.positionGrowth
+  momentumGrowth := parameters.momentumGrowth
+  positionGrowth_nonneg := by
+    intro ep em hep hem
+    have hhalfStep : 0 ≤ parameters.stepMagnitude / 2 :=
+      div_nonneg parameters.stepMagnitude_nonneg (by norm_num)
+    have hgradient : 0 ≤ parameters.gradientLipschitz * ep +
+        parameters.gradientError :=
+      add_nonneg (mul_nonneg parameters.gradientLipschitz_nonneg hep)
+        parameters.gradientError_nonneg
+    have hhalf : 0 ≤ parameters.halfKickError ep em := by
+      exact add_nonneg (add_nonneg hem (mul_nonneg hhalfStep hgradient))
+        parameters.kickRounding_nonneg
+    exact add_nonneg
+      (add_nonneg hep (mul_nonneg parameters.stepMagnitude_nonneg hhalf))
+      parameters.driftRounding_nonneg
+  momentumGrowth_nonneg := by
+    intro ep em hep hem
+    have hhalfStep : 0 ≤ parameters.stepMagnitude / 2 :=
+      div_nonneg parameters.stepMagnitude_nonneg (by norm_num)
+    have hgradient : 0 ≤ parameters.gradientLipschitz * ep +
+        parameters.gradientError :=
+      add_nonneg (mul_nonneg parameters.gradientLipschitz_nonneg hep)
+        parameters.gradientError_nonneg
+    have hhalf : 0 ≤ parameters.halfKickError ep em := by
+      exact add_nonneg (add_nonneg hem (mul_nonneg hhalfStep hgradient))
+        parameters.kickRounding_nonneg
+    have hposition : 0 ≤ parameters.positionGrowth ep em :=
+      add_nonneg
+        (add_nonneg hep (mul_nonneg parameters.stepMagnitude_nonneg hhalf))
+        parameters.driftRounding_nonneg
+    have hnextGradient : 0 ≤ parameters.gradientLipschitz *
+        parameters.positionGrowth ep em + parameters.gradientError :=
+      add_nonneg
+        (mul_nonneg parameters.gradientLipschitz_nonneg hposition)
+        parameters.gradientError_nonneg
+    exact add_nonneg (add_nonneg hhalf (mul_nonneg hhalfStep hnextGradient))
+      parameters.kickRounding_nonneg
+
 def iterateLeapfrogError (model : LeapfrogErrorModel) : Nat → ℝ × ℝ → ℝ × ℝ
   | 0, errors => errors
   | steps + 1, errors =>
@@ -67,6 +155,44 @@ theorem iterateLeapfrogError_nonneg (model : LeapfrogErrorModel)
   | succ steps ih =>
       exact ⟨model.positionGrowth_nonneg _ _ ih.1 ih.2,
         model.momentumGrowth_nonneg _ _ ih.1 ih.2⟩
+
+/-- A finite stored trajectory whose endpoint certificates stay below the
+declared recurrence at their step indices. This does not assert a platform
+roundoff model: the inequalities are explicit fields to be discharged by a
+backend proof or checked artifact. -/
+structure LeapfrogTrajectoryErrorCertificate
+    (model : LeapfrogErrorModel) (initialPositionError initialMomentumError : ℝ)
+    (steps : ℕ) where
+  endpoint : Fin (steps + 1) → LeapfrogStepCertificate
+  positionError_le : ∀ index,
+    (endpoint index).positionError ≤
+      (iterateLeapfrogError model index.val
+        (initialPositionError, initialMomentumError)).1
+  momentumError_le : ∀ index,
+    (endpoint index).momentumError ≤
+      (iterateLeapfrogError model index.val
+        (initialPositionError, initialMomentumError)).2
+
+/-- Widen one stored endpoint certificate to the recurrence budget at its
+trajectory index. -/
+noncomputable def LeapfrogTrajectoryErrorCertificate.scheduledEndpoint
+    {model : LeapfrogErrorModel} {initialPositionError initialMomentumError : ℝ}
+    {steps : ℕ}
+    (certificate : LeapfrogTrajectoryErrorCertificate model
+      initialPositionError initialMomentumError steps)
+    (index : Fin (steps + 1)) : LeapfrogStepCertificate where
+  computedPosition := (certificate.endpoint index).computedPosition
+  idealPosition := (certificate.endpoint index).idealPosition
+  computedMomentum := (certificate.endpoint index).computedMomentum
+  idealMomentum := (certificate.endpoint index).idealMomentum
+  positionError := (iterateLeapfrogError model index.val
+    (initialPositionError, initialMomentumError)).1
+  momentumError := (iterateLeapfrogError model index.val
+    (initialPositionError, initialMomentumError)).2
+  position_bound := (certificate.endpoint index).position_bound.mono
+    (certificate.positionError_le index)
+  momentum_bound := (certificate.endpoint index).momentum_bound.mono
+    (certificate.momentumError_le index)
 
 /-- Complete endpoint-HMC numeric certificate after a fixed trajectory. -/
 structure HmcErrorCertificate where

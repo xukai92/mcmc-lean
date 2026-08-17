@@ -4147,3 +4147,18 @@ pairs, then proves those bits equal. This closes the interface adapter; a
 concrete Float64 backend must still provide the per-step error recurrence,
 Hamiltonian evaluation bounds, and final reduction bounds for every generated
 endpoint.
+
+## 2026-08-17: concrete leapfrog error recurrence
+
+Instantiated the previously abstract trajectory error model for standard
+Euclidean kick-drift-kick leapfrog. `EuclideanLeapfrogErrorParameters` records
+nonnegative step magnitude, gradient Lipschitz/evaluation error, and separate
+half-kick and drift rounding budgets. Lean defines the half-step, position,
+and final-momentum recurrence and proves both propagated errors nonnegative.
+`LeapfrogTrajectoryErrorCertificate` requires each stored endpoint bound to
+lie below the corresponding recurrence iterate; `scheduledEndpoint` safely
+widens it to that budget, and the dynamic-tree adapter turns the entire
+schedule into common-dimensional certified phases. Julia evaluates the same
+recurrence in BigFloat and tests nonnegativity, schedule length, and invalid
+parameters. This is a proved composition rule, not evidence that arbitrary
+Float64 gradients or arithmetic satisfy the supplied local constants.

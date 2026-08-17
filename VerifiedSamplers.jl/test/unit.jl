@@ -49,6 +49,21 @@ end
     @test_throws ArgumentError Certificates.certify_bound(0.5, big"0.6", big"0.01")
     @test_throws ArgumentError Certificates.certify_bound(Inf, big"1.0", big"1.0")
 
+    leapfrog_parameters = Certificates.EuclideanLeapfrogErrorParameters(
+        0.1, 1.0, 0.01, 1e-4, 2e-4)
+    leapfrog_schedule = Certificates.leapfrog_error_schedule(
+        leapfrog_parameters, 4)
+    @test length(leapfrog_schedule) == 5
+    @test leapfrog_schedule[1] == (; position=big"0", momentum=big"0")
+    @test all(item.position >= 0 && item.momentum >= 0
+        for item in leapfrog_schedule)
+    @test all(leapfrog_schedule[index].position <=
+        leapfrog_schedule[index + 1].position for index in 1:4)
+    @test_throws ArgumentError Certificates.EuclideanLeapfrogErrorParameters(
+        -0.1, 1.0, 0.01, 1e-4, 2e-4)
+    @test_throws ArgumentError Certificates.leapfrog_error_schedule(
+        leapfrog_parameters, -1)
+
     negative_sign = Certificates.certify_zero_decision(
         -2.0, big"-1.9", big"0.11")
     positive_sign = Certificates.certify_zero_decision(

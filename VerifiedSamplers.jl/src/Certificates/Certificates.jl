@@ -14,6 +14,7 @@ export BoundWitness, DecisionCertificate, certify_bound, certify_decision,
     VectorUTurnTrajectoryCertificate, certify_vector_uturn_trajectory,
     certified_uturn_decisions,
     NUTSCompletedTreeCertificate, certified_nuts_completed_tree,
+    EuclideanLeapfrogErrorParameters, leapfrog_error_schedule,
     CompletedTreeDecisionCertificate,
     NUTSLeafEnergyCertificate, certify_nuts_leaf_energy,
     certified_nuts_leaf_decisions,
@@ -31,6 +32,54 @@ struct BoundWitness
     ideal::BigFloat
     bound::BigFloat
     observed_error::BigFloat
+end
+
+"""Nonnegative constants for the Lean Euclidean leapfrog error recurrence."""
+struct EuclideanLeapfrogErrorParameters
+    step_magnitude::BigFloat
+    gradient_lipschitz::BigFloat
+    gradient_error::BigFloat
+    kick_rounding::BigFloat
+    drift_rounding::BigFloat
+end
+
+function EuclideanLeapfrogErrorParameters(step_magnitude::Real,
+        gradient_lipschitz::Real, gradient_error::Real,
+        kick_rounding::Real, drift_rounding::Real; precision::Integer=256)
+    setprecision(BigFloat, precision) do
+        values = BigFloat[step_magnitude, gradient_lipschitz, gradient_error,
+            kick_rounding, drift_rounding]
+        all(isfinite, values) && all(>=(0), values) || throw(ArgumentError(
+            "leapfrog error parameters must be finite and nonnegative"))
+        EuclideanLeapfrogErrorParameters(values...)
+    end
+end
+
+"""Evaluate the proved kick-drift-kick error recurrence for every endpoint."""
+function leapfrog_error_schedule(parameters::EuclideanLeapfrogErrorParameters,
+        steps::Integer; initial_position_error::Real=0,
+        initial_momentum_error::Real=0)
+    steps >= 0 || throw(ArgumentError("step count must be nonnegative"))
+    ep, em = BigFloat(initial_position_error), BigFloat(initial_momentum_error)
+    ep >= 0 && em >= 0 || throw(ArgumentError(
+        "initial leapfrog errors must be nonnegative"))
+    schedule = Vector{NamedTuple{(:position, :momentum),Tuple{BigFloat,BigFloat}}}(
+        undef, steps + 1)
+    schedule[1] = (; position=ep, momentum=em)
+    half_step = parameters.step_magnitude / 2
+    for index in 1:steps
+        half = em + half_step *
+            (parameters.gradient_lipschitz * ep + parameters.gradient_error) +
+            parameters.kick_rounding
+        next_position = ep + parameters.step_magnitude * half +
+            parameters.drift_rounding
+        next_momentum = half + half_step *
+            (parameters.gradient_lipschitz * next_position +
+                parameters.gradient_error) + parameters.kick_rounding
+        ep, em = next_position, next_momentum
+        schedule[index + 1] = (; position=ep, momentum=em)
+    end
+    schedule
 end
 
 """Bounded sign decision used by a dynamic-tree callback.
