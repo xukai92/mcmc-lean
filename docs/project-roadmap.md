@@ -475,27 +475,23 @@ breadth branches are:
   and almost-sure nonexplosion therefore reuse the checked Zig-Zag path
   construction. The regenerative suspension argument now also proves exact
   target stationarity for both concrete kernels; convergence remains open.
-  In arbitrary finite dimension, the exact Gaussian BPS clock now additionally
-  has a completed measurable finite-horizon executor, nonexplosion, renewal
-  and residual-memorylessness laws, and a countwise terminal-boundary theorem.
-  The iid terminal coordinate is independent of its finite replay prefix and
-  atomless, so exact ringing at the horizon is null on every genuine
-  completion stratum. Horizon extension is now pathwise controlled on each
-  such stratum, and the measurable residual stream carries the unused terminal
-  mark into the second interval with exactly the same inverse wait and bounce.
-  The remaining semigroup task is the stratum-wise product-measure change of
-  variables and countable gluing across the time split. Its input
-  factorization is now exact: finite prefix, terminal mark, and suffix have a
-  three-factor product law; terminal survival plus residual subtraction gives
-  a fresh iid stream in every fixed-prefix fiber; and genuine completion
-  strata are almost surely exactly active-prefix/terminal-survival sets.
-  Those fibers are now integrated over the full active-prefix measure through
-  a reusable survival-weighted joint-kernel theorem. Each original restricted
-  completion stratum is now identified with that integrated kernel, and its
-  actual completed endpoint is proved independent of the fresh residual
-  stream with an explicit survival-weighted endpoint marginal. The countable
-  sum over completion counts remains, followed by target invariance and
-  convergence.
+  In arbitrary finite dimension, the exact Gaussian BPS clock has a completed
+  measurable finite-horizon executor and a pathwise nonexplosion proof. The
+  renewal, residual-memorylessness, boundary-null, fixed-prefix factorization,
+  survival-weighted fiber, and countable-gluing arguments are complete and
+  yield the global bounce-horizon semigroup law. The completed transition is
+  also jointly measurable in initial state and elapsed time. A generic layer
+  now interleaves any such timed Markov family with a refresh kernel at a
+  Poisson count of ordered uniform event times, executes every inter-refresh
+  interval, and fills the residual horizon. It proves Markovness and target
+  invariance from invariance of every timed section and of refreshment. The
+  Gaussian BPS client instantiates this with exact bounce evolution and
+  independent standard-Gaussian velocity refresh. Its target theorem remains
+  conditional on scalar weak-forward uniqueness for the bounce semigroup.
+  The refreshed-family semigroup law and refreshed ergodicity/convergence are
+  the next process-level obligations. Bounce-only arbitrary-state convergence
+  is impossible in general dimension: the formalized angular-momentum
+  observables are preserved by every bounce horizon.
   Separately, the unbounded-rate standard-Gaussian Zig-Zag now has a genuine
   event kernel based on the closed-form inverse integrated hazard. Its unit
   exponential draw is positive almost surely, the inversion equation is
@@ -535,8 +531,9 @@ breadth branches are:
   differentiable test domain. The Gaussian smooth-test domain is instantiated,
   its full product-target generator expectation is zero, and exact horizon
   stationarity follows from weak-forward uniqueness for the stopped path
-  construction. That uniqueness remains open as an optional well-posedness
-  result, not as a stationarity premise.
+  construction. For multidimensional BPS that scalar uniqueness result remains
+  the sole stationarity premise; only the one-dimensional Zig-Zag/BPS client
+  bypasses it through the completed regenerative-suspension proof.
   The normalized Gaussian/equal-velocity target and exact zero-time identity
   are discharged, so the specialized certificate contains only
   differentiability and the zero-derivative forward equation.

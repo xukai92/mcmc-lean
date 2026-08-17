@@ -143,6 +143,7 @@ import Mcmc.PDMP.EventSimulation
 import Mcmc.PDMP.InverseHazard
 import Mcmc.PDMP.PoissonSchedule
 import Mcmc.PDMP.ScheduledExecutionKernel
+import Mcmc.PDMP.SemigroupRefresh
 import Mcmc.PDMP.StationarySuspension
 import Mcmc.PDMP.SemigroupStationarity
 import Mcmc.PDMP.ZigZag

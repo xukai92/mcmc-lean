@@ -2,6 +2,7 @@ import Mcmc.PDMP.BouncyParticle
 import Mcmc.PDMP.EventSimulation
 import Mcmc.PDMP.InverseHazard
 import Mcmc.PDMP.ScheduledExecutionKernel
+import Mcmc.PDMP.SemigroupRefresh
 import Mcmc.PDMP.SemigroupStationarity
 import Mcmc.PDMP.ZigZag
 import Mcmc.Hamiltonian.MomentumRefresh
@@ -3192,6 +3193,33 @@ theorem comap_standardGaussianBPSJointHorizonKernel (horizon : NNReal) :
     standardGaussianBPSHorizonKernel
   exact PartialInverseHazardClock.comap_completedJointHorizonKernel _ _ _ _
 
+/-- Exact Gaussian-BPS evolution equipped with independent Gaussian velocity
+refreshment for use by randomized refresh schedules. -/
+noncomputable def standardGaussianBPSTimedRefreshProcess :
+    TimedRefreshProcess (BouncyParticleState ι) where
+  evolve := standardGaussianBPSJointHorizonKernel
+  refresh := bouncyParticleVelocityRefresh standardMomentumMeasure
+  evolve_markov := by infer_instance
+  refresh_markov := by infer_instance
+
+/-- Finite-horizon standard-Gaussian BPS with a genuine homogeneous Poisson
+velocity-refresh clock. Between refreshes it uses the exact unbounded-rate
+bounce transition; at each refresh it independently redraws Gaussian
+velocity. -/
+noncomputable def standardGaussianBPSPoissonRefreshedHorizonKernel
+    (refreshRate : NNReal) (horizon : PositiveHorizon) :
+    Kernel (BouncyParticleState ι) (BouncyParticleState ι) :=
+  (standardGaussianBPSTimedRefreshProcess (ι := ι)).poissonHorizonKernel
+    refreshRate horizon
+
+instance standardGaussianBPSPoissonRefreshedHorizonKernel.instIsMarkovKernel
+    (refreshRate : NNReal) (horizon : PositiveHorizon) :
+    IsMarkovKernel
+      (standardGaussianBPSPoissonRefreshedHorizonKernel (ι := ι)
+        refreshRate horizon) := by
+  unfold standardGaussianBPSPoissonRefreshedHorizonKernel
+  infer_instance
+
 instance standardGaussianBPSHorizonKernel.instIsMarkovKernel
     (horizon : NNReal) :
     IsMarkovKernel (standardGaussianBPSHorizonKernel (ι := ι) horizon) := by
@@ -4674,6 +4702,30 @@ theorem standardGaussianBPSRefreshedKernel_invariant_of_smoothCore
     core scalar horizon).comp
       (bouncyParticleVelocityRefresh_invariant
         standardMomentumMeasure standardMomentumMeasure)
+
+/-- The continuously Poisson-refreshed Gaussian-BPS horizon kernel preserves
+the canonical product target once the same scalar weak-forward uniqueness
+premise discharges invariance of each exact bounce-only time section. -/
+theorem standardGaussianBPSPoissonRefreshedHorizonKernel_invariant_of_smoothCore
+    (core : StandardGaussianBPSSmoothCore ι)
+    (scalar :
+      StandardGaussianBPSTargetWeakExpectationUniqueness (ι := ι))
+    (refreshRate : NNReal) (horizon : PositiveHorizon) :
+    (standardGaussianBPSPoissonRefreshedHorizonKernel (ι := ι)
+      refreshRate horizon).Invariant (standardGaussianBPSTarget (ι := ι)) := by
+  unfold standardGaussianBPSPoissonRefreshedHorizonKernel
+  apply TimedRefreshProcess.poissonHorizonKernel_invariant
+  · intro time
+    change (Kernel.comap (standardGaussianBPSJointHorizonKernel (ι := ι))
+      (fun state => (state, time))
+      (measurable_id.prodMk measurable_const)).Invariant
+        (standardGaussianBPSTarget (ι := ι))
+    rw [comap_standardGaussianBPSJointHorizonKernel]
+    exact standardGaussianBPSHorizonKernel_invariant_of_smoothCore
+      core scalar time
+  · unfold standardGaussianBPSTimedRefreshProcess standardGaussianBPSTarget
+    exact bouncyParticleVelocityRefresh_invariant
+      standardMomentumMeasure standardMomentumMeasure
 
 theorem standardGaussianBPSHorizonKernel_apply_positiveFirstEvent
     (horizon : NNReal) (initial : BouncyParticleState ι)

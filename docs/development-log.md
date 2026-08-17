@@ -2,14 +2,17 @@
 
 - Exposed every completed partial-inverse-hazard transition as a kernel
   jointly measurable in initial state and elapsed time, and proved that each
-  fixed-time section is exactly the existing horizon kernel. The
-  finite-dimensional standard-Gaussian BPS client instantiates this API. It
-  now also has a discrete refresh-augmented skeleton that independently
-  redraws standard Gaussian velocity before exact bounce evolution; Lean
-  proves it Markov and, conditional on the remaining scalar weak-forward
-  uniqueness premise for the bounce semigroup, target invariant. This is the
-  measurable prerequisite for a future Poisson refresh clock, not yet the
-  continuously timed process or an ergodicity result.
+  fixed-time section is exactly the existing horizon kernel. A generic
+  scheduled-refresh executor retains a padded schedule through successive
+  timed evolutions and refreshes, executes its stored count, and fills the
+  residual horizon. Integrating it against the exact Poisson count/ordered
+  uniform-time law constructs a genuine homogeneous refresh-clock horizon
+  kernel. Lean proves Markovness and common-target invariance schedule by
+  schedule and after integration. The finite-dimensional standard-Gaussian
+  BPS client instantiates this with exact bounce evolution and Gaussian
+  velocity refresh. Its invariance remains conditional only because the
+  bounce-only target stationarity premise is still conditional; the refreshed
+  semigroup law and ergodicity are not yet claimed.
 
 - Closed the rejected-length sigma assembly for the practical-slice joint
   law. The variable-dimensional runtime base is now proved equal to the
