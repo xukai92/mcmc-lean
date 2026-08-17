@@ -3962,3 +3962,17 @@ its completed joins is blocked. The remaining standard-NUTS instantiation is
 to show that the production trajectory builder's actual divergence and vector
 endpoint tests produce these per-root flag trees and the same retained
 endpoint weights.
+
+Connected the stopping interface to concrete finite-dimensional phase data.
+`RecursivePhaseTree` stores the phase point at every completed leaf and
+computes the leftmost/rightmost endpoints returned by recursive `BuildTree`.
+Given an executable leaf slice/divergence predicate, it constructs the exact
+flag tree whose internal checks use the existing Euclidean
+`vectorAdjacentUTurn`. Lean proves that the returned continuation bit is true
+if and only if every leaf predicate and every recursive endpoint test passes.
+Arrays of these concrete phase trees over every possible root and doubling
+depth now instantiate `CompletedTreeStoppingData`, with C.4 admissibility
+equivalent to all of those concrete checks. Remaining production integration
+is to prove that the flat recursive-doubling trajectory implementation builds
+these same balanced phase trees and retained endpoint weights, then assemble
+the already proved rooted-trace certificate.

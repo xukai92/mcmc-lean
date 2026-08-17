@@ -533,6 +533,119 @@ theorem RecursiveBarrierTree.toNUTSBuildFlagTree_continues_eq_true_iff
   rw [tree.toNUTSBuildFlagTree_continues]
   simp
 
+/-! ### Concrete recursive phase-tree flags -/
+
+/-- A completed balanced binary tree retaining its phase point at every leaf.
+This is the proof-level counterpart of the recursive interval traversed by the
+Julia `subtree_turns`/`BuildTree` implementation. -/
+inductive RecursivePhaseTree (Phase : Type*) where
+  | leaf (phase : Phase)
+  | node (left right : RecursivePhaseTree Phase)
+deriving DecidableEq
+
+/-- Leftmost phase point returned by a completed recursive call. -/
+def RecursivePhaseTree.leftmost {Phase : Type*} :
+    RecursivePhaseTree Phase → Phase
+  | .leaf phase => phase
+  | .node left _ => left.leftmost
+
+/-- Rightmost phase point returned by a completed recursive call. -/
+def RecursivePhaseTree.rightmost {Phase : Type*} :
+    RecursivePhaseTree Phase → Phase
+  | .leaf phase => phase
+  | .node _ right => right.rightmost
+
+/-- Compute the exact recursive `BuildTree` Boolean trace. Leaves use the
+supplied slice/divergence check; every internal join uses the supplied endpoint
+U-turn predicate on the complete subtree's outermost phase points. -/
+def RecursivePhaseTree.toBuildFlagTree {Phase : Type*}
+    (leafContinues : Phase → Bool) (endpointTurns : Phase → Phase → Bool) :
+    RecursivePhaseTree Phase → NUTSBuildFlagTree
+  | .leaf phase => .leaf (leafContinues phase)
+  | .node left right =>
+      .node (left.toBuildFlagTree leafContinues endpointTurns)
+        (right.toBuildFlagTree leafContinues endpointTurns)
+        (!(endpointTurns left.leftmost right.rightmost))
+
+/-- Structural proposition saying that every leaf passes its local check and
+every completed recursive subtree passes its endpoint U-turn test. -/
+def RecursivePhaseTree.AllChecksPass {Phase : Type*}
+    (leafContinues : Phase → Bool) (endpointTurns : Phase → Phase → Bool) :
+    RecursivePhaseTree Phase → Prop
+  | .leaf phase => leafContinues phase = true
+  | .node left right =>
+      left.AllChecksPass leafContinues endpointTurns ∧
+        right.AllChecksPass leafContinues endpointTurns ∧
+        endpointTurns left.leftmost right.rightmost = false
+
+/-- The computed recursive continuation bit is exact: it succeeds if and only
+if all concrete leaf and recursive endpoint checks pass. -/
+theorem RecursivePhaseTree.toBuildFlagTree_continues_eq_true_iff
+    {Phase : Type*} (leafContinues : Phase → Bool)
+    (endpointTurns : Phase → Phase → Bool)
+    (tree : RecursivePhaseTree Phase) :
+    (tree.toBuildFlagTree leafContinues endpointTurns).continues = true ↔
+      tree.AllChecksPass leafContinues endpointTurns := by
+  induction tree with
+  | leaf phase => simp [RecursivePhaseTree.toBuildFlagTree,
+      RecursivePhaseTree.AllChecksPass]
+  | node left right ihLeft ihRight =>
+      simp [RecursivePhaseTree.toBuildFlagTree,
+        RecursivePhaseTree.AllChecksPass,
+        ihLeft, ihRight, and_assoc]
+
+/-- Concrete finite-dimensional NUTS flag tree using the already formalized
+Euclidean endpoint U-turn predicate. -/
+noncomputable def RecursivePhaseTree.toVectorNUTSBuildFlagTree
+    {ι : Type*} [Fintype ι]
+    (leafContinues : ((ι → ℝ) × (ι → ℝ)) → Bool)
+    (tree : RecursivePhaseTree ((ι → ℝ) × (ι → ℝ))) :
+    NUTSBuildFlagTree :=
+  tree.toBuildFlagTree leafContinues vectorAdjacentUTurn
+
+/-- The production vector endpoint tests and supplied divergence checks
+compute exactly the structural all-checks predicate. -/
+theorem RecursivePhaseTree.toVectorNUTSBuildFlagTree_continues_eq_true_iff
+    {ι : Type*} [Fintype ι]
+    (leafContinues : ((ι → ℝ) × (ι → ℝ)) → Bool)
+    (tree : RecursivePhaseTree ((ι → ℝ) × (ι → ℝ))) :
+    (tree.toVectorNUTSBuildFlagTree leafContinues).continues = true ↔
+      tree.AllChecksPass leafContinues vectorAdjacentUTurn :=
+  tree.toBuildFlagTree_continues_eq_true_iff leafContinues vectorAdjacentUTurn
+
+/-- Per-root, per-doubling concrete phase trees instantiate the outer stopping
+data consumed by the completed-tree rerooting theorem. -/
+noncomputable def CompletedTreeStoppingData.ofVectorPhaseTrees
+    {ι : Type*} [Fintype ι] {depth : ℕ}
+    (leafContinues : ((ι → ℝ) × (ι → ℝ)) → Bool)
+    (trees : Fin (2 ^ depth) → Fin depth →
+      RecursivePhaseTree ((ι → ℝ) × (ι → ℝ))) :
+    CompletedTreeStoppingData depth :=
+  CompletedTreeStoppingData.ofBuildFlagTrees fun root index =>
+    (trees root index).toVectorNUTSBuildFlagTree leafContinues
+
+/-- A root survives the concrete vector NUTS stopping computation exactly
+when every required recursive phase tree passes all leaf and endpoint tests. -/
+theorem CompletedTreeStoppingData.ofVectorPhaseTrees_admissible_iff
+    {ι : Type*} [Fintype ι] {depth : ℕ}
+    (leafContinues : ((ι → ℝ) × (ι → ℝ)) → Bool)
+    (trees : Fin (2 ^ depth) → Fin depth →
+      RecursivePhaseTree ((ι → ℝ) × (ι → ℝ)))
+    (root : Fin (2 ^ depth)) :
+    (CompletedTreeStoppingData.ofVectorPhaseTrees leafContinues trees).admissible
+        root ↔
+      ∀ index, (trees root index).AllChecksPass leafContinues
+        vectorAdjacentUTurn := by
+  unfold CompletedTreeStoppingData.ofVectorPhaseTrees
+  rw [CompletedTreeStoppingData.ofBuildFlagTrees_admissible_iff]
+  constructor
+  · intro h index
+    exact ((trees root index).toVectorNUTSBuildFlagTree_continues_eq_true_iff
+      leafContinues).mp (h index)
+  · intro h index
+    exact ((trees root index).toVectorNUTSBuildFlagTree_continues_eq_true_iff
+      leafContinues).mpr (h index)
+
 /-- An in-order recursive tree has exactly one fewer joins than leaves. This
 identifies the `Fin` state space of the flattened checker with the completed
 recursive tree's leaves. -/
