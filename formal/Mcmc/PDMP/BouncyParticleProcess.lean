@@ -1006,6 +1006,19 @@ theorem gaussianBPSWaitingTime_le_iff
         state hvelocity hazard hhazard horizon hhorizon
     linarith
 
+/-- Integrated hazard consumed before a finite split. -/
+noncomputable def gaussianBPSConsumedHazard
+    (state : BouncyParticleState ι) (time : NNReal) : NNReal :=
+  Real.toNNReal
+    (∫ elapsed in (0 : ℝ)..(time : ℝ),
+      standardGaussianBouncyParticleBounceData.stateRate
+        (bouncyParticleFlow (Real.toNNReal elapsed) state))
+
+/-- Residual integrated-hazard mark after a finite split. -/
+noncomputable def gaussianBPSResidualHazard
+    (state : BouncyParticleState ι) (hazard time : NNReal) : NNReal :=
+  hazard - gaussianBPSConsumedHazard state time
+
 /-- Exact no-event survival probability over a finite Gaussian-BPS flight. -/
 theorem unitHazardMeasure_gaussianBPSWaitingTime_gt
     (state : BouncyParticleState ι) (hvelocity : state.2 ≠ 0)
@@ -1040,6 +1053,67 @@ theorem unitHazardMeasure_gaussianBPSWaitingTime_gt
     _ = ENNReal.ofReal (Real.exp (-accumulated)) := by
       rw [Real.coe_toNNReal _ haccumulated]
     _ = _ := rfl
+
+/-- Conditional on no event before a split, subtracting the consumed
+integrated hazard leaves a fresh unit-exponential residual mark, in
+unnormalized measure form. -/
+theorem unitHazardMeasure_gaussianBPSResidual_memoryless
+    (state : BouncyParticleState ι) (hvelocity : state.2 ≠ 0)
+    (first : NNReal) :
+    Measure.map (fun hazard => gaussianBPSResidualHazard state hazard first)
+        (unitHazardMeasure.restrict
+          {hazard | first < gaussianBPSWaitingTime state hazard}) =
+      ENNReal.ofReal (Real.exp
+        (-(∫ elapsed in (0 : ℝ)..(first : ℝ),
+          standardGaussianBouncyParticleBounceData.stateRate
+            (bouncyParticleFlow (Real.toNNReal elapsed) state)))) •
+        unitHazardMeasure := by
+  let accumulated := ∫ elapsed in (0 : ℝ)..(first : ℝ),
+    standardGaussianBouncyParticleBounceData.stateRate
+      (bouncyParticleFlow (Real.toNNReal elapsed) state)
+  let consumed := gaussianBPSConsumedHazard state first
+  have haccumulated : 0 ≤ accumulated :=
+    standardGaussianBPS_accumulated_nonneg state hvelocity first
+  have hsets : {hazard | first < gaussianBPSWaitingTime state hazard} =ᵐ[
+      unitHazardMeasure] Set.Ioi consumed := by
+    filter_upwards [unitHazardMeasure_positive_ae] with hazard hhazard
+    apply propext
+    change (first < gaussianBPSWaitingTime state hazard) ↔ consumed < hazard
+    rw [← not_iff_not]
+    simp only [not_lt]
+    rw [gaussianBPSWaitingTime_le_iff state hvelocity hazard hhazard first]
+    change (hazard : ℝ) ≤ accumulated ↔ hazard ≤ consumed
+    rw [← NNReal.coe_le_coe]
+    unfold consumed gaussianBPSConsumedHazard
+    rw [Real.coe_toNNReal _ haccumulated]
+  rw [Measure.restrict_congr_set hsets]
+  change Measure.map (fun hazard : NNReal => hazard - consumed)
+      (unitHazardMeasure.restrict (Set.Ioi consumed)) = _
+  rw [unitHazardMeasure_residual_memoryless]
+  congr 2
+  unfold consumed gaussianBPSConsumedHazard
+  rw [Real.coe_toNNReal _ haccumulated]
+
+/-- Normalized conditional form of the Gaussian-BPS residual-mark law. -/
+theorem unitHazardMeasure_gaussianBPSResidual_conditional
+    (state : BouncyParticleState ι) (hvelocity : state.2 ≠ 0)
+    (first : NNReal) :
+    (ENNReal.ofReal (Real.exp
+      (-(∫ elapsed in (0 : ℝ)..(first : ℝ),
+        standardGaussianBouncyParticleBounceData.stateRate
+          (bouncyParticleFlow (Real.toNNReal elapsed) state)))))⁻¹ •
+      Measure.map (fun hazard => gaussianBPSResidualHazard state hazard first)
+        (unitHazardMeasure.restrict
+          {hazard | first < gaussianBPSWaitingTime state hazard}) =
+      unitHazardMeasure := by
+  rw [unitHazardMeasure_gaussianBPSResidual_memoryless state hvelocity first,
+    smul_smul]
+  have hne : ENNReal.ofReal (Real.exp
+      (-(∫ elapsed in (0 : ℝ)..(first : ℝ),
+        standardGaussianBouncyParticleBounceData.stateRate
+          (bouncyParticleFlow (Real.toNNReal elapsed) state)))) ≠ 0 :=
+    (ENNReal.ofReal_pos.mpr (Real.exp_pos _)).ne'
+  rw [ENNReal.inv_mul_cancel hne ENNReal.ofReal_ne_top, one_smul]
 
 /-- If a finite split occurs before the next event, subtracting the hazard
 accumulated up to the split gives exactly the residual inverse-clock wait from
@@ -1093,6 +1167,53 @@ theorem gaussianBPSWaitingTime_residual
     (bouncyParticleFlow first state) hflowVelocity residual hresidualPos
     (wait - first) hresidualIntegral
   exact hunique.symm
+
+theorem gaussianBPSWaitingTime_residualHazard
+    (state : BouncyParticleState ι) (hvelocity : state.2 ≠ 0)
+    (hazard : NNReal) (hhazard : 0 < hazard) (first : NNReal)
+    (hfirst : first < gaussianBPSWaitingTime state hazard) :
+    gaussianBPSWaitingTime (bouncyParticleFlow first state)
+        (gaussianBPSResidualHazard state hazard first) =
+      gaussianBPSWaitingTime state hazard - first := by
+  exact gaussianBPSWaitingTime_residual state hvelocity hazard hhazard
+    first hfirst
+
+/-- Splitting a pre-event flight and carrying the residual hazard reaches
+exactly the same event location as the unsplit clock. -/
+theorem gaussianBPSEventLocation_residualHazard
+    (state : BouncyParticleState ι) (hvelocity : state.2 ≠ 0)
+    (hazard : NNReal) (hhazard : 0 < hazard) (first : NNReal)
+    (hfirst : first < gaussianBPSWaitingTime state hazard) :
+    bouncyParticleFlow
+        (gaussianBPSWaitingTime (bouncyParticleFlow first state)
+          (gaussianBPSResidualHazard state hazard first))
+        (bouncyParticleFlow first state) =
+      bouncyParticleFlow (gaussianBPSWaitingTime state hazard) state := by
+  rw [gaussianBPSWaitingTime_residualHazard state hvelocity hazard hhazard
+    first hfirst]
+  have hfirstLe : first ≤ gaussianBPSWaitingTime state hazard := hfirst.le
+  apply Prod.ext
+  · funext index
+    simp only [bouncyParticleFlow]
+    rw [NNReal.coe_sub hfirstLe]
+    ring
+  · rfl
+
+/-- The bounce following the residual clock is therefore exactly the same
+bounce as in unsplit execution. -/
+theorem gaussianBPSJump_residualHazard
+    (state : BouncyParticleState ι) (hvelocity : state.2 ≠ 0)
+    (hazard : NNReal) (hhazard : 0 < hazard) (first : NNReal)
+    (hfirst : first < gaussianBPSWaitingTime state hazard) :
+    standardGaussianBPSJump
+        (bouncyParticleFlow
+          (gaussianBPSWaitingTime (bouncyParticleFlow first state)
+            (gaussianBPSResidualHazard state hazard first))
+          (bouncyParticleFlow first state)) =
+      standardGaussianBPSJump
+        (bouncyParticleFlow (gaussianBPSWaitingTime state hazard) state) := by
+  rw [gaussianBPSEventLocation_residualHazard state hvelocity hazard hhazard
+    first hfirst]
 
 /-! ### Exact unbounded-rate inverse clocks -/
 

@@ -4901,3 +4901,12 @@ accumulated clock is monotone and that `waitingTime ≤ horizon` is equivalent t
 horizon is exactly `exp (-A(horizon))`. The first-event renewal API is also
 specialized to this full-measure positive-hazard branch, removing the
 zero-mark and inactive cases from the remaining time-splice calculation.
+
+The pre-event boundary coupling is now checked pointwise and in law. Explicit
+consumed- and residual-hazard definitions identify the residual inverse wait;
+flowing by it reaches exactly the same event location and reflected state as
+the unsplit clock. Restricting the original mark to survival of the split and
+mapping by hazard subtraction yields the unit-exponential law scaled by the
+survival mass, and normalization recovers the unit law exactly. The remaining
+composition proof must lift this coupling through the random completed-prefix
+selector, but no local memorylessness or clock-geometry premise remains.
