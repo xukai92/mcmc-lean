@@ -1613,6 +1613,49 @@ theorem practicalAugmentedReverse_involutive
     exact haccepted]
   rw [hgrid]
 
+/-- Practical log-slice transition assembled from a normalized runtime trace
+density and the exact augmented reversal. The density carries the concrete
+stepping-out/shrinkage probability calculation. -/
+noncomputable def practicalSliceSampler
+    (logDensity : ℝ → ℝ) (hlogDensity : Measurable logDensity)
+    (width : ℝ) (traceBase : Measure PracticalTrace) [SFinite traceBase]
+    (traceDensity : (ℝ × ℝ) → PracticalTrace → ENNReal) :
+    ProbabilityTheory.Kernel ℝ ℝ :=
+  Mcmc.Kernel.logWithinSliceSampler logDensity hlogDensity
+    (Mcmc.Kernel.dependentTraceDrivenHorizontalKernel
+      (Mcmc.Kernel.normalizedTraceKernel traceBase traceDensity)
+      (practicalAugmentedReverse width)
+      (measurable_practicalAugmentedReverse width))
+
+/-- End-to-end exact invariance theorem for the practical runtime carrier.
+The remaining concrete client obligations are precisely measurability,
+normalization, finiteness, and preservation of the displayed joint density. -/
+theorem practicalSliceSampler_invariant
+    (logDensity : ℝ → ℝ) (hlogDensity : Measurable logDensity)
+    [SFinite (Mcmc.Kernel.logSliceUnderGraph
+      (volume : Measure ℝ) logDensity)]
+    (width : ℝ) (traceBase : Measure PracticalTrace) [SFinite traceBase]
+    (traceDensity : (ℝ × ℝ) → PracticalTrace → ENNReal)
+    (htraceDensity : Measurable (Function.uncurry traceDensity))
+    (hfinite : ∀ state trace, traceDensity state trace ≠ ⊤)
+    (hnormalized : ∀ state,
+      ∫⁻ trace, traceDensity state trace ∂traceBase = 1)
+    (hpreserving : MeasurePreserving (practicalAugmentedReverse width)
+      (((((Mcmc.Kernel.logSliceUnderGraph
+        (volume : Measure ℝ) logDensity).map Prod.swap).prod
+        traceBase).withDensity (Function.uncurry traceDensity)))
+      (((((Mcmc.Kernel.logSliceUnderGraph
+        (volume : Measure ℝ) logDensity).map Prod.swap).prod
+        traceBase).withDensity (Function.uncurry traceDensity)))) :
+    (practicalSliceSampler logDensity hlogDensity width traceBase
+      traceDensity).Invariant
+      ((volume : Measure ℝ).withDensity
+        (fun x => ENNReal.ofReal (Real.exp (logDensity x)))) := by
+  exact Mcmc.Kernel.normalizedTraceDrivenLogSliceSampler_invariant_underGraph
+    (volume : Measure ℝ) logDensity hlogDensity traceBase traceDensity
+    htraceDensity hfinite hnormalized (practicalAugmentedReverse width)
+    (measurable_practicalAugmentedReverse width) hpreserving
+
 /-- Successful trace reversal leaves every rejected point and its length
 unchanged; only alignment, allocation, and accepted coordinates are rerooted. -/
 noncomputable def rejectedSequenceTraceReverse

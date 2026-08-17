@@ -4351,3 +4351,20 @@ and is proved involutive. This avoids an invalid duplicated-current encoding,
 which would impose equality on a planar Lebesgue coordinate and hence describe
 a measure-zero event. The next client step is the concrete normalized runtime
 density and the log-height coordinate law used by `run`.
+
+## 2026-08-17: executable log-height auxiliary law
+
+Formalized the exact auxiliary coordinate used by the runtime rather than
+routing it indirectly through a positive raw-height variable. Conditional on
+state `x`, the threshold density is `exp(t - logDensity x)` on
+`t ≤ logDensity x`; Lean proves its Lebesgue integral is one and constructs the
+corresponding Markov kernel. Multiplication by the target density cancels the
+state log density, yielding the joint density `exp t` below the log graph.
+Consequently any horizontal transition preserving the swapped log-under-graph
+law preserves the target with density `exp ∘ logDensity`.
+
+The normalized dependent-trace theorem now has a log-height specialization,
+and `practicalSliceSampler` instantiates it with the non-duplicating runtime
+trace and augmented reversal. Its final exact-invariance theorem exposes only
+the concrete trace-density obligations: measurability, finiteness,
+normalization, and preservation of the complete joint law.

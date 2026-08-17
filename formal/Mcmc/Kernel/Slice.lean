@@ -1,6 +1,7 @@
 import Mcmc.Kernel.AuxiliaryGibbs
 import Mcmc.Kernel.MetropolisHastings
 import Mcmc.Kernel.ParameterMixture
+import Mathlib.Analysis.SpecialFunctions.ImproperIntegrals
 import Mathlib.MeasureTheory.Measure.Lebesgue.Basic
 import Mathlib.Probability.Kernel.CompProdEqIff
 import Mathlib.Probability.Kernel.Disintegration.StandardBorel
@@ -663,6 +664,175 @@ theorem auxiliaryFirstJoint_sliceHeightKernel
       (sliceUnderGraph base weight).map Prod.swap := by
   rw [auxiliaryFirstJoint,
     compProd_sliceHeightKernel_eq_sliceUnderGraph base weight hweight hpositive]
+
+/-! ### Log-height coordinates -/
+
+/-- Conditional density of a log slice height. Given log weight `ℓ(x)`, this
+is the law of `ℓ(x) + log U` for `U` uniform on `(0,1)`. -/
+noncomputable def logSliceHeightDensity
+    (logWeight : State → ℝ) (x : State) (threshold : ℝ) : ENNReal :=
+  if threshold ≤ logWeight x then
+    ENNReal.ofReal (Real.exp (threshold - logWeight x))
+  else 0
+
+theorem measurable_uncurry_logSliceHeightDensity
+    {logWeight : State → ℝ} (hlogWeight : Measurable logWeight) :
+    Measurable (Function.uncurry (logSliceHeightDensity logWeight)) := by
+  unfold logSliceHeightDensity
+  exact Measurable.ite
+    (measurableSet_le measurable_snd (hlogWeight.comp measurable_fst))
+    (ENNReal.measurable_ofReal.comp
+      (Real.measurable_exp.comp
+        (measurable_snd.sub (hlogWeight.comp measurable_fst))))
+    measurable_const
+
+omit [MeasurableSpace State] in
+theorem logSliceHeightDensity_lintegral
+    (logWeight : State → ℝ) (x : State) :
+    ∫⁻ threshold, logSliceHeightDensity logWeight x threshold ∂volume = 1 := by
+  let c := logWeight x
+  have hintegrable : IntegrableOn (fun threshold : ℝ =>
+      Real.exp (threshold - c)) (Iic c) := by
+    have h := (integrableOn_exp_Iic c).const_mul (Real.exp (-c))
+    exact h.congr (Filter.Eventually.of_forall fun threshold => by
+      change Real.exp (-c) * Real.exp threshold =
+        Real.exp (threshold - c)
+      rw [← Real.exp_add]
+      congr 1
+      ring)
+  have hnonneg : 0 ≤ᵐ[volume.restrict (Iic c)]
+      fun threshold : ℝ => Real.exp (threshold - c) :=
+    Filter.Eventually.of_forall fun _ => (Real.exp_pos _).le
+  rw [show logSliceHeightDensity logWeight x =
+      (Iic c).indicator
+        (fun threshold => ENNReal.ofReal (Real.exp (threshold - c))) by
+    funext threshold
+    by_cases hthreshold : threshold ≤ c
+    · rw [Set.indicator_of_mem (show threshold ∈ Iic c from hthreshold)]
+      simp [logSliceHeightDensity, c, hthreshold]
+    · rw [Set.indicator_of_notMem (show threshold ∉ Iic c from hthreshold)]
+      simp [logSliceHeightDensity, c, hthreshold]]
+  rw [lintegral_indicator measurableSet_Iic]
+  rw [← ofReal_integral_eq_lintegral_ofReal hintegrable hnonneg]
+  have hintegral : (∫ threshold : ℝ in Iic c,
+      Real.exp (threshold - c)) = 1 := by
+    calc
+      (∫ threshold : ℝ in Iic c, Real.exp (threshold - c)) =
+          Real.exp (-c) * ∫ threshold : ℝ in Iic c, Real.exp threshold := by
+        rw [← MeasureTheory.integral_const_mul]
+        apply integral_congr_ae
+        filter_upwards [] with threshold
+        rw [← Real.exp_add]
+        congr 1
+        ring
+      _ = 1 := by rw [integral_exp_Iic, ← Real.exp_add]; simp
+  rw [hintegral]
+  simp
+
+/-- Markov kernel implementing the executable log-height draw. -/
+noncomputable def logSliceHeightKernel
+    (logWeight : State → ℝ) (_hlogWeight : Measurable logWeight) :
+    Kernel State ℝ :=
+  (Kernel.const State (volume : Measure ℝ)).withDensity
+    (logSliceHeightDensity logWeight)
+
+instance logSliceHeightKernel.instIsMarkovKernel
+    (logWeight : State → ℝ) (hlogWeight : Measurable logWeight) :
+    IsMarkovKernel (logSliceHeightKernel logWeight hlogWeight) := by
+  constructor
+  intro x
+  constructor
+  rw [logSliceHeightKernel,
+    ProbabilityTheory.Kernel.withDensity_apply' _
+      (measurable_uncurry_logSliceHeightDensity hlogWeight),
+    ProbabilityTheory.Kernel.const_apply, Measure.restrict_univ,
+    logSliceHeightDensity_lintegral]
+
+/-- Joint log-height/state law. Its density is `exp threshold` below the log
+target graph, which is symmetric in the current and proposed slice points. -/
+noncomputable def logSliceUnderGraph
+    (base : Measure State) (logWeight : State → ℝ) : Measure (State × ℝ) :=
+  (base.prod volume).withDensity (fun point =>
+    if point.2 ≤ logWeight point.1 then
+      ENNReal.ofReal (Real.exp point.2)
+    else 0)
+
+/-- Multiplying the target density `exp ℓ(x)` by the conditional log-height
+density cancels `ℓ(x)` and produces the log-under-graph joint law. -/
+theorem compProd_logSliceHeightKernel_eq_logSliceUnderGraph
+    (base : Measure State) [SFinite base]
+    (logWeight : State → ℝ) (hlogWeight : Measurable logWeight) :
+    (base.withDensity (fun x => ENNReal.ofReal (Real.exp (logWeight x)))) ⊗ₘ
+        logSliceHeightKernel logWeight hlogWeight =
+      logSliceUnderGraph base logWeight := by
+  letI : IsMarkovKernel (logSliceHeightKernel logWeight hlogWeight) :=
+    logSliceHeightKernel.instIsMarkovKernel logWeight hlogWeight
+  have htarget : Measurable
+      (fun x : State => ENNReal.ofReal (Real.exp (logWeight x))) :=
+    ENNReal.measurable_ofReal.comp (Real.measurable_exp.comp hlogWeight)
+  letI : IsSFiniteKernel
+      ((Kernel.const State (volume : Measure ℝ)).withDensity
+        (logSliceHeightDensity logWeight)) :=
+    ProbabilityTheory.Kernel.IsSFiniteKernel.withDensity _ fun state threshold => by
+      by_cases hthreshold : threshold ≤ logWeight state <;>
+        simp [logSliceHeightDensity, hthreshold]
+  rw [logSliceHeightKernel, Measure.compProd_withDensity
+    (measurable_uncurry_logSliceHeightDensity hlogWeight),
+    Measure.compProd_const, prod_withDensity_left htarget,
+    ← withDensity_mul]
+  · unfold logSliceUnderGraph
+    congr 1
+    funext point
+    by_cases hpoint : point.2 ≤ logWeight point.1
+    · simp only [Pi.mul_apply, logSliceHeightDensity, hpoint, if_true]
+      rw [← ENNReal.ofReal_mul (Real.exp_pos _).le]
+      congr 1
+      rw [← Real.exp_add]
+      congr 1
+      ring
+    · simp [logSliceHeightDensity, hpoint]
+  · exact htarget.comp measurable_fst
+  · exact measurable_uncurry_logSliceHeightDensity hlogWeight
+
+theorem auxiliaryFirstJoint_logSliceHeightKernel
+    (base : Measure State) [SFinite base]
+    (logWeight : State → ℝ) (hlogWeight : Measurable logWeight) :
+    auxiliaryFirstJoint
+        (base.withDensity (fun x => ENNReal.ofReal (Real.exp (logWeight x))))
+        (logSliceHeightKernel logWeight hlogWeight) =
+      (logSliceUnderGraph base logWeight).map Prod.swap := by
+  rw [auxiliaryFirstJoint,
+    compProd_logSliceHeightKernel_eq_logSliceUnderGraph
+      base logWeight hlogWeight]
+
+/-- Practical slice wrapper in the same log-height coordinates used by the
+executable stepping-out implementation. -/
+noncomputable def logWithinSliceSampler
+    (logWeight : State → ℝ) (hlogWeight : Measurable logWeight)
+    (horizontal : Kernel (ℝ × State) (ℝ × State)) : Kernel State State :=
+  auxiliaryInvariantUpdate (logSliceHeightKernel logWeight hlogWeight) horizontal
+
+instance logWithinSliceSampler.instIsMarkovKernel
+    (logWeight : State → ℝ) (hlogWeight : Measurable logWeight)
+    (horizontal : Kernel (ℝ × State) (ℝ × State)) [IsMarkovKernel horizontal] :
+    IsMarkovKernel (logWithinSliceSampler logWeight hlogWeight horizontal) := by
+  unfold logWithinSliceSampler
+  infer_instance
+
+/-- Any horizontal transition preserving the log-under-graph law yields a
+sampler preserving the target with density `exp logWeight`. -/
+theorem logWithinSliceSampler_invariant_underGraph
+    (base : Measure State) [SFinite base]
+    (logWeight : State → ℝ) (hlogWeight : Measurable logWeight)
+    (horizontal : Kernel (ℝ × State) (ℝ × State)) [IsMarkovKernel horizontal]
+    (hhorizontal : horizontal.Invariant
+      ((logSliceUnderGraph base logWeight).map Prod.swap)) :
+    (logWithinSliceSampler logWeight hlogWeight horizontal).Invariant
+      (base.withDensity
+        (fun x => ENNReal.ofReal (Real.exp (logWeight x)))) := by
+  apply auxiliaryInvariantUpdate_invariant
+  rw [auxiliaryFirstJoint_logSliceHeightKernel base logWeight hlogWeight]
+  exact hhorizontal
 
 /-- For interval superlevel sets, the vertical slice-height marginal is the
 explicit width-weighted height measure. -/
@@ -1391,6 +1561,41 @@ theorem normalizedTraceDrivenWithinSliceSampler_invariant_underGraph
       (normalizedTraceKernel traceBase density) transform htransform
   rw [compProd_normalizedTraceKernel _ traceBase density hdensity hfinite]
   exact hpreserving
+
+/-- Log-height counterpart of the normalized dependent-trace theorem. This is
+the direct interface for an executable trace whose threshold is
+`logWeight current + log U`. -/
+theorem normalizedTraceDrivenLogSliceSampler_invariant_underGraph
+    {Trace : Type*} [MeasurableSpace Trace]
+    (base : Measure State) [SFinite base]
+    (logWeight : State → ℝ) (hlogWeight : Measurable logWeight)
+    [SFinite (logSliceUnderGraph base logWeight)]
+    (traceBase : Measure Trace) [SFinite traceBase]
+    (density : (ℝ × State) → Trace → ENNReal)
+    (hdensity : Measurable (Function.uncurry density))
+    (hfinite : ∀ state trace, density state trace ≠ ∞)
+    (hnormalized : ∀ state, ∫⁻ trace, density state trace ∂traceBase = 1)
+    (transform : ((ℝ × State) × Trace) → ((ℝ × State) × Trace))
+    (htransform : Measurable transform)
+    (hpreserving : MeasurePreserving transform
+      (((((logSliceUnderGraph base logWeight).map Prod.swap).prod
+        traceBase).withDensity (Function.uncurry density)))
+      (((((logSliceUnderGraph base logWeight).map Prod.swap).prod
+        traceBase).withDensity (Function.uncurry density)))) :
+    (logWithinSliceSampler logWeight hlogWeight
+      (dependentTraceDrivenHorizontalKernel
+        (normalizedTraceKernel traceBase density) transform htransform)).Invariant
+      (base.withDensity
+        (fun x => ENNReal.ofReal (Real.exp (logWeight x)))) := by
+  letI : IsMarkovKernel (normalizedTraceKernel traceBase density) :=
+    normalizedTraceKernel_isMarkovKernel traceBase density hdensity hnormalized
+  apply logWithinSliceSampler_invariant_underGraph
+    base logWeight hlogWeight
+  exact dependentTraceDrivenHorizontalKernel_invariant
+    ((logSliceUnderGraph base logWeight).map Prod.swap)
+    (normalizedTraceKernel traceBase density) transform htransform (by
+      rw [compProd_normalizedTraceKernel _ traceBase density hdensity hfinite]
+      exact hpreserving)
 
 /-- Guarded end-to-end variant for state-dependent practical traces. The
 non-success branch is the identity, while the reversal only needs to preserve
