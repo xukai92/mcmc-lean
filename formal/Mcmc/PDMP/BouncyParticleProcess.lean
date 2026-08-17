@@ -516,6 +516,41 @@ noncomputable def standardGaussianBPSJump
     (state : BouncyParticleState ι) : BouncyParticleState ι :=
   (state.1, bouncyReflection state.1 state.2)
 
+/-- Antisymmetric position–velocity angular-momentum coordinate. In more than
+one dimension these conserved coordinates obstruct ergodicity of bounce-only
+Gaussian BPS without refreshments. -/
+def bouncyAngularMomentum (state : BouncyParticleState ι) (i j : ι) : ℝ :=
+  state.1 i * state.2 j - state.1 j * state.2 i
+
+omit [Fintype ι] in
+/-- Linear BPS flight preserves every antisymmetric angular-momentum
+coordinate. -/
+@[simp] theorem bouncyAngularMomentum_flow
+    (state : BouncyParticleState ι) (time : NNReal) (i j : ι) :
+    bouncyAngularMomentum (bouncyParticleFlow time state) i j =
+      bouncyAngularMomentum state i j := by
+  unfold bouncyAngularMomentum bouncyParticleFlow
+  ring
+
+/-- Reflection in the current position normal preserves every antisymmetric
+angular-momentum coordinate. -/
+@[simp] theorem bouncyAngularMomentum_standardGaussianBPSJump
+    (state : BouncyParticleState ι) (i j : ι) :
+    bouncyAngularMomentum (standardGaussianBPSJump state) i j =
+      bouncyAngularMomentum state i j := by
+  unfold bouncyAngularMomentum standardGaussianBPSJump bouncyReflection
+  simp only [Pi.sub_apply, Pi.smul_apply, smul_eq_mul]
+  ring
+
+/-- One flow-then-bounce event preserves angular momentum. -/
+@[simp] theorem bouncyAngularMomentum_jump_flow
+    (state : BouncyParticleState ι) (time : NNReal) (i j : ι) :
+    bouncyAngularMomentum
+        (standardGaussianBPSJump (bouncyParticleFlow time state)) i j =
+      bouncyAngularMomentum state i j := by
+  rw [bouncyAngularMomentum_standardGaussianBPSJump,
+    bouncyAngularMomentum_flow]
+
 theorem measurable_standardGaussianBPSJump :
     Measurable (standardGaussianBPSJump :
       BouncyParticleState ι → BouncyParticleState ι) := by
@@ -1480,6 +1515,38 @@ theorem standardGaussianBPS_clock_accumulated_add
         (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock.accumulated
           (bouncyParticleFlow first state) second := by
   exact standardGaussianBPS_accumulated_add state first second
+
+/-- Every capped inverse-clock step preserves angular momentum, in either its
+event or residual-flow branch. -/
+theorem standardGaussianBPS_cappedStep_angularMomentum
+    (remainingState : NNReal × BouncyParticleState ι) (hazard : NNReal)
+    (i j : ι) :
+    bouncyAngularMomentum
+      (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+        |>.cappedStepUpdate (standardGaussianBPSJump (ι := ι))
+          (remainingState, hazard)).2) i j =
+      bouncyAngularMomentum remainingState.2 i j := by
+  unfold PartialInverseHazardClock.cappedStepUpdate
+  dsimp only [Prod.fst, Prod.snd]
+  split_ifs
+  · exact bouncyAngularMomentum_jump_flow _ _ _ _
+  · exact bouncyAngularMomentum_flow _ _ _ _
+
+/-- Every finite hazard replay prefix preserves angular momentum. -/
+theorem standardGaussianBPS_replayPrefix_angularMomentum
+    (count : ℕ)
+    (input : (NNReal × BouncyParticleState ι) × (ℕ → NNReal))
+    (i j : ι) :
+    bouncyAngularMomentum
+      (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+        |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count input).2)
+      i j = bouncyAngularMomentum input.1.2 i j := by
+  induction count with
+  | zero => rfl
+  | succ count ih =>
+      simp only [PartialInverseHazardClock.replayPrefix]
+      rw [standardGaussianBPS_cappedStep_angularMomentum]
+      exact ih
 
 /-- Every capped Gaussian-BPS step preserves nonzero velocity, whether it
 takes an event branch or finishes by residual flow. -/
@@ -3078,6 +3145,19 @@ theorem standardGaussianBPS_completedReplayEndpoint_add_law
           unitHazardSequenceMeasure) := by rw [hendpoint]
     _ = _ := rfl
 
+/-- The totalized completed endpoint preserves angular momentum for every
+hazard stream, including the fallback branch. -/
+theorem standardGaussianBPS_completedReplayEndpoint_angularMomentum
+    (horizon : NNReal) (initial : BouncyParticleState ι)
+    (hazards : ℕ → NNReal) (i j : ι) :
+    bouncyAngularMomentum
+      ((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+        |>.completedReplayEndpoint (standardGaussianBPSJump (ι := ι))
+          ((horizon, initial), hazards)) i j =
+      bouncyAngularMomentum initial i j := by
+  unfold PartialInverseHazardClock.completedReplayEndpoint
+  exact standardGaussianBPS_replayPrefix_angularMomentum _ _ i j
+
 /-- Exact totalized finite-horizon kernel for finite-dimensional
 standard-Gaussian BPS. The nonexplosion theorem above proves that the
 totalization fallback is unused almost surely. -/
@@ -3092,6 +3172,44 @@ instance standardGaussianBPSHorizonKernel.instIsMarkovKernel
     IsMarkovKernel (standardGaussianBPSHorizonKernel (ι := ι) horizon) := by
   unfold standardGaussianBPSHorizonKernel
   infer_instance
+
+/-- Every finite-horizon transition remains on the initial angular-momentum
+level set with probability one. This is the formal obstruction to claiming
+ergodicity of the multidimensional bounce-only process. -/
+theorem standardGaussianBPSHorizonKernel_angularMomentum_level
+    (horizon : NNReal) (initial : BouncyParticleState ι) (i j : ι) :
+    standardGaussianBPSHorizonKernel (ι := ι) horizon initial
+      {state | bouncyAngularMomentum state i j =
+        bouncyAngularMomentum initial i j} = 1 := by
+  let endpoint := fun hazards =>
+    (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+      |>.completedReplayEndpoint (standardGaussianBPSJump (ι := ι))
+        ((horizon, initial), hazards)
+  have hendpoint : Measurable endpoint :=
+    ((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+      |>.measurable_completedReplayEndpoint
+        measurable_standardGaussianBPSJump).comp
+      ((measurable_const.prodMk measurable_const).prodMk measurable_id)
+  have hset : MeasurableSet
+      {state : BouncyParticleState ι |
+        bouncyAngularMomentum state i j =
+          bouncyAngularMomentum initial i j} := by
+    exact (measurableSet_singleton
+      (bouncyAngularMomentum initial i j)).preimage (by
+        unfold bouncyAngularMomentum
+        fun_prop)
+  unfold standardGaussianBPSHorizonKernel
+  rw [(standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+    |>.completedHorizonKernel_apply measurable_standardGaussianBPSJump]
+  rw [Measure.map_apply hendpoint hset]
+  have hpreimage : endpoint ⁻¹' {state : BouncyParticleState ι |
+      bouncyAngularMomentum state i j =
+        bouncyAngularMomentum initial i j} = Set.univ := by
+    apply Set.eq_univ_of_forall
+    intro hazards
+    exact standardGaussianBPS_completedReplayEndpoint_angularMomentum
+      horizon initial hazards i j
+  rw [hpreimage, measure_univ]
 
 @[simp] theorem standardGaussianBPSHorizonKernel_zero :
     standardGaussianBPSHorizonKernel (ι := ι) 0 = Kernel.id := by

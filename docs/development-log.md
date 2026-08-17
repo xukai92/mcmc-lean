@@ -5117,3 +5117,16 @@ observable now receives a complete
 finite-regular determining core. The only remaining premise of the current
 stationarity route is target-started scalar weak-expectation uniqueness; it is
 not implied merely by generator cancellation.
+
+The convergence boundary for multidimensional Gaussian BPS is now
+machine-checked rather than only cautioned in prose. Lean defines the
+antisymmetric angular-momentum coordinates `qᵢvⱼ-qⱼvᵢ` and proves that linear
+flight and reflection in the current position normal both preserve them.
+This invariant is lifted through capped inverse-clock steps, arbitrary finite
+hazard replays, the totalized completed endpoint, and finally the exact
+finite-horizon transition kernel: its row assigns mass one to the initial
+angular-momentum level set. Consequently the present bounce-only process must
+not receive an arbitrary-start ergodicity claim in multiple dimensions.
+Future convergence work needs a continuous-time refresh mechanism or an
+explicit invariant-component formulation; this obstruction does not negate
+the still-open full-target stationarity theorem.

@@ -267,7 +267,15 @@ endpoint, its fallback is proved null, and the resulting finite-horizon
 transition is a Markov kernel. Its exact semigroup law is also proved. The
 compact `C¹` generator tests form a checked finite-regular determining core;
 target-started scalar weak-forward uniqueness, target stationarity, and
-convergence remain open in general dimension.
+convergence remain open in general dimension. Moreover, convergence from
+arbitrary states is false for the bounce-only process in general: Lean proves
+that every flight, bounce, finite replay prefix, completed endpoint, and
+finite-horizon kernel preserves each antisymmetric coordinate
+`qᵢvⱼ-qⱼvᵢ`, with the corresponding level set receiving transition
+probability one. Any multidimensional ergodicity milestone must therefore add
+an explicit velocity-refresh clock (or restrict its claim to invariant
+components); stationarity of the Gaussian mixture remains meaningful without
+refreshment.
 
 In one dimension at unit speed,
 Lean now proves that Gaussian BPS reflection, rate, and flow coincide with the
