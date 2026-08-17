@@ -3976,3 +3976,17 @@ equivalent to all of those concrete checks. Remaining production integration
 is to prove that the flat recursive-doubling trajectory implementation builds
 these same balanced phase trees and retained endpoint weights, then assemble
 the already proved rooted-trace certificate.
+
+Added the flat production trajectory bridge. A `Fin (2^d)` phase array now
+unfolds by explicit left/right half indexing into the canonical balanced
+`RecursivePhaseTree`; Lean proves the recursion equations and exact `2^d`
+leaf count. Per-root arrays of the flat power-of-two segments used at each
+outer doubling depth directly instantiate the concrete vector stopping data,
+so admissibility is stated without a caller-supplied tree conversion. Slice
+eligibility is kept distinct from divergence continuation: each flat endpoint
+has an exact zero/one eligible weight, their sum is the returned count, root
+retention proves that count positive, and Lean constructs the normalized
+retained-endpoint distribution. The remaining NUTS assembly obligation is to
+prove the production streaming representative draws refine this normalized
+flat law across the outer doubling updates and then discharge the complete
+trace endpoint-flow identity.

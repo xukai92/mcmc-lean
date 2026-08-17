@@ -555,6 +555,59 @@ def RecursivePhaseTree.rightmost {Phase : Type*} :
   | .leaf phase => phase
   | .node _ right => right.rightmost
 
+/-- Number of phase leaves in a completed recursive tree. -/
+def RecursivePhaseTree.leafCount {Phase : Type*} :
+    RecursivePhaseTree Phase → ℕ
+  | .leaf _ => 1
+  | .node left right => left.leafCount + right.leafCount
+
+/-- Left half of a flat length-`2^(depth+1)` trajectory. -/
+def balancedPhaseLeftHalf {Phase : Type*} {depth : ℕ}
+    (phases : Fin (2 ^ (depth + 1)) → Phase) : Fin (2 ^ depth) → Phase :=
+  fun index => phases ⟨index.val, by
+    rw [pow_succ]
+    have hpos : 0 < 2 ^ depth := pow_pos (by norm_num) _
+    omega⟩
+
+/-- Right half of a flat length-`2^(depth+1)` trajectory. -/
+def balancedPhaseRightHalf {Phase : Type*} {depth : ℕ}
+    (phases : Fin (2 ^ (depth + 1)) → Phase) : Fin (2 ^ depth) → Phase :=
+  fun index => phases ⟨2 ^ depth + index.val, by
+    rw [pow_succ]
+    omega⟩
+
+/-- Canonical balanced recursive tree obtained by repeatedly splitting a flat
+power-of-two trajectory into its left and right halves. This mirrors the
+index recursion in the production `subtree_turns` implementation. -/
+def balancedPhaseTree {Phase : Type*} :
+    (depth : ℕ) → (Fin (2 ^ depth) → Phase) → RecursivePhaseTree Phase
+  | 0, phases => .leaf (phases ⟨0, by simp⟩)
+  | depth + 1, phases =>
+      .node (balancedPhaseTree depth (balancedPhaseLeftHalf phases))
+        (balancedPhaseTree depth (balancedPhaseRightHalf phases))
+
+@[simp] theorem balancedPhaseTree_zero {Phase : Type*}
+    (phases : Fin (2 ^ 0) → Phase) :
+    balancedPhaseTree 0 phases = .leaf (phases ⟨0, by simp⟩) := rfl
+
+@[simp] theorem balancedPhaseTree_succ {Phase : Type*} (depth : ℕ)
+    (phases : Fin (2 ^ (depth + 1)) → Phase) :
+    balancedPhaseTree (depth + 1) phases =
+      .node (balancedPhaseTree depth (balancedPhaseLeftHalf phases))
+        (balancedPhaseTree depth (balancedPhaseRightHalf phases)) := rfl
+
+/-- A flat length-`2^depth` trajectory produces exactly `2^depth` completed
+recursive leaves. -/
+@[simp] theorem balancedPhaseTree_leafCount {Phase : Type*} (depth : ℕ)
+    (phases : Fin (2 ^ depth) → Phase) :
+    (balancedPhaseTree depth phases).leafCount = 2 ^ depth := by
+  induction depth with
+  | zero => rfl
+  | succ depth ih =>
+      simp only [balancedPhaseTree_succ, RecursivePhaseTree.leafCount,
+        ih, pow_succ]
+      omega
+
 /-- Compute the exact recursive `BuildTree` Boolean trace. Leaves use the
 supplied slice/divergence check; every internal join uses the supplied endpoint
 U-turn predicate on the complete subtree's outermost phase points. -/
@@ -645,6 +698,100 @@ theorem CompletedTreeStoppingData.ofVectorPhaseTrees_admissible_iff
   · intro h index
     exact ((trees root index).toVectorNUTSBuildFlagTree_continues_eq_true_iff
       leafContinues).mpr (h index)
+
+/-- Concrete stopping data directly from the flat power-of-two trajectory
+segments used at each outer doubling depth and each possible root. -/
+noncomputable def CompletedTreeStoppingData.ofFlatVectorTrajectories
+    {ι : Type*} [Fintype ι] {depth : ℕ}
+    (leafContinues : ((ι → ℝ) × (ι → ℝ)) → Bool)
+    (trajectories : (root : Fin (2 ^ depth)) → (index : Fin depth) →
+      Fin (2 ^ index.val) → ((ι → ℝ) × (ι → ℝ))) :
+    CompletedTreeStoppingData depth :=
+  CompletedTreeStoppingData.ofVectorPhaseTrees leafContinues fun root index =>
+    balancedPhaseTree index.val (trajectories root index)
+
+/-- Flat production-style trajectory segments survive C.4 rerooting exactly
+when every balanced segment passes all leaf divergence/slice checks and all
+recursive vector endpoint U-turn checks. -/
+theorem CompletedTreeStoppingData.ofFlatVectorTrajectories_admissible_iff
+    {ι : Type*} [Fintype ι] {depth : ℕ}
+    (leafContinues : ((ι → ℝ) × (ι → ℝ)) → Bool)
+    (trajectories : (root : Fin (2 ^ depth)) → (index : Fin depth) →
+      Fin (2 ^ index.val) → ((ι → ℝ) × (ι → ℝ)))
+    (root : Fin (2 ^ depth)) :
+    (CompletedTreeStoppingData.ofFlatVectorTrajectories leafContinues
+      trajectories).admissible root ↔
+      ∀ index, (balancedPhaseTree index.val
+        (trajectories root index)).AllChecksPass leafContinues
+          vectorAdjacentUTurn := by
+  unfold CompletedTreeStoppingData.ofFlatVectorTrajectories
+  exact CompletedTreeStoppingData.ofVectorPhaseTrees_admissible_iff
+    leafContinues
+    (fun root index => balancedPhaseTree index.val (trajectories root index))
+    root
+
+/-! ### Retained endpoint weights on flat trajectory segments -/
+
+/-- Indicator weight of a flat phase point passing the slice-eligibility
+predicate. This is deliberately separate from the divergence continuation
+predicate: Algorithm 3 permits a nondivergent leaf with eligible count zero. -/
+noncomputable def flatEligibleEndpointWeight
+    {Phase : Type*} {count : ℕ} (eligible : Phase → Bool)
+    (phases : Fin count → Phase) (index : Fin count) : ℝ :=
+  if eligible (phases index) then 1 else 0
+
+/-- Total eligible count returned by a flat completed subtree. -/
+noncomputable def flatEligibleCount
+    {Phase : Type*} {count : ℕ} (eligible : Phase → Bool)
+    (phases : Fin count → Phase) : ℝ :=
+  ∑ index, flatEligibleEndpointWeight eligible phases index
+
+theorem flatEligibleEndpointWeight_nonneg
+    {Phase : Type*} {count : ℕ} (eligible : Phase → Bool)
+    (phases : Fin count → Phase) (index : Fin count) :
+    0 ≤ flatEligibleEndpointWeight eligible phases index := by
+  unfold flatEligibleEndpointWeight
+  split <;> norm_num
+
+/-- Retaining one known eligible point (in particular the current root)
+makes the completed endpoint normalizer strictly positive. -/
+theorem flatEligibleCount_pos_of_eligible
+    {Phase : Type*} {count : ℕ} (eligible : Phase → Bool)
+    (phases : Fin count → Phase) (current : Fin count)
+    (hcurrent : eligible (phases current) = true) :
+    0 < flatEligibleCount eligible phases := by
+  have hsingle : (1 : ℝ) ≤ flatEligibleCount eligible phases := by
+    unfold flatEligibleCount
+    have hnonneg : ∀ index ∈ (Finset.univ : Finset (Fin count)),
+        0 ≤ flatEligibleEndpointWeight eligible phases index := by
+      intro index _
+      exact flatEligibleEndpointWeight_nonneg eligible phases index
+    have hle := Finset.single_le_sum hnonneg (Finset.mem_univ current)
+    simpa [flatEligibleEndpointWeight, hcurrent] using hle
+  linarith
+
+/-- Exact normalized endpoint law on the retained flat trajectory. -/
+noncomputable def flatEligibleDistribution
+    {Phase : Type*} {count : ℕ} (eligible : Phase → Bool)
+    (phases : Fin count → Phase)
+    (hpositive : 0 < flatEligibleCount eligible phases) :
+    Distribution (Fin count) where
+  mass index := flatEligibleEndpointWeight eligible phases index /
+    flatEligibleCount eligible phases
+  nonneg index := div_nonneg
+    (flatEligibleEndpointWeight_nonneg eligible phases index) hpositive.le
+  sum_mass := by
+    rw [← Finset.sum_div]
+    exact div_self hpositive.ne'
+
+@[simp] theorem flatEligibleDistribution_mass
+    {Phase : Type*} {count : ℕ} (eligible : Phase → Bool)
+    (phases : Fin count → Phase)
+    (hpositive : 0 < flatEligibleCount eligible phases)
+    (index : Fin count) :
+    (flatEligibleDistribution eligible phases hpositive).mass index =
+      flatEligibleEndpointWeight eligible phases index /
+        flatEligibleCount eligible phases := rfl
 
 /-- An in-order recursive tree has exactly one fewer joins than leaves. This
 identifies the `Fin` state space of the flattened checker with the completed
