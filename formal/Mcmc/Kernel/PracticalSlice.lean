@@ -1707,6 +1707,112 @@ theorem acceptedProposalReverse_measurePreserving
   constructor
   all_goals ring
 
+/-- Simultaneously swap old/accepted coordinates in a fixed bracket and
+reroot the Haar-aligned integer grid using those two endpoints. -/
+noncomputable def acceptedGridReverse (width left right : ℝ)
+    (point : (ℝ × ℝ) × (Alignment × ℤ)) :
+    (ℝ × ℝ) × (Alignment × ℤ) :=
+  let accepted := acceptedProposalReverse left right point.1
+  (accepted,
+    alignmentAllocationReverse width point.1.1 accepted.1 point.2)
+
+/-- The parameterized composition of planar accepted-point reversal and grid
+rerooting preserves Lebesgue² × Haar × counting measure. This is a genuine
+skew-product theorem: the grid translation may depend on both exchanged
+endpoints. -/
+theorem acceptedGridReverse_measurePreserving
+    (width : ℝ) {left right : ℝ} (hbracket : right - left ≠ 0) :
+    MeasurePreserving (acceptedGridReverse width left right)
+      (((volume : Measure ℝ).prod volume).prod
+        ((volume : Measure Alignment).prod (Measure.count : Measure ℤ)))
+      (((volume : Measure ℝ).prod volume).prod
+        ((volume : Measure Alignment).prod (Measure.count : Measure ℤ))) := by
+  have haccepted := acceptedProposalReverse_measurePreserving hbracket
+  let gridMap : (ℝ × ℝ) → (Alignment × ℤ) → (Alignment × ℤ) :=
+    fun pair grid => alignmentAllocationReverse width pair.1
+      (acceptedProposalReverse left right pair).1 grid
+  have hgridMeasurable : Measurable (Function.uncurry gridMap) := by
+    have hacceptedMeasurable := haccepted.measurable
+    exact (measurable_alignmentAllocationReverse_parameterized width).comp
+      (((measurable_fst.comp measurable_fst).prodMk
+        (measurable_fst.comp (hacceptedMeasurable.comp measurable_fst))).prodMk
+          measurable_snd)
+  have hgridPreserving : ∀ pair : ℝ × ℝ,
+      Measure.map (gridMap pair)
+          ((volume : Measure Alignment).prod (Measure.count : Measure ℤ)) =
+        (volume : Measure Alignment).prod (Measure.count : Measure ℤ) := by
+    intro pair
+    exact (alignmentAllocationReverse_measurePreserving width pair.1
+      (acceptedProposalReverse left right pair).1).map_eq
+  have hall := haccepted.skew_product hgridMeasurable
+    (Filter.Eventually.of_forall hgridPreserving)
+  convert hall using 1
+  funext point
+  rfl
+
+/-- Accepted/grid reversal with a bracket supplied by an outer context that
+is retained by the transformation. -/
+noncomputable def contextualAcceptedGridReverse
+    {Context : Type*} (width : ℝ) (bracket : Context → ℝ × ℝ)
+    (point : Context × ((ℝ × ℝ) × (Alignment × ℤ))) :
+    Context × ((ℝ × ℝ) × (Alignment × ℤ)) :=
+  (point.1, acceptedGridReverse width (bracket point.1).1
+    (bracket point.1).2 point.2)
+
+/-- Any measurable family of nondegenerate fixed brackets gives a
+measure-preserving contextual accepted/grid reversal. -/
+theorem contextualAcceptedGridReverse_measurePreserving
+    {Context : Type*} [MeasurableSpace Context]
+    (contextMeasure : Measure Context) [SFinite contextMeasure]
+    (width : ℝ) (bracket : Context → ℝ × ℝ)
+    (hbracket : Measurable bracket)
+    (hnondegenerate : ∀ context, (bracket context).2 - (bracket context).1 ≠ 0) :
+    MeasurePreserving (contextualAcceptedGridReverse width bracket)
+      (contextMeasure.prod
+        (((volume : Measure ℝ).prod volume).prod
+          ((volume : Measure Alignment).prod (Measure.count : Measure ℤ))))
+      (contextMeasure.prod
+        (((volume : Measure ℝ).prod volume).prod
+          ((volume : Measure Alignment).prod (Measure.count : Measure ℤ)))) := by
+  let fiberMap : Context → ((ℝ × ℝ) × (Alignment × ℤ)) →
+      ((ℝ × ℝ) × (Alignment × ℤ)) := fun context point =>
+    acceptedGridReverse width (bracket context).1 (bracket context).2 point
+  have hfiberMeasurable : Measurable (Function.uncurry fiberMap) := by
+    have hleft : Measurable (fun point :
+        Context × ((ℝ × ℝ) × (Alignment × ℤ)) => (bracket point.1).1) :=
+      measurable_fst.comp (hbracket.comp measurable_fst)
+    have hright : Measurable (fun point :
+        Context × ((ℝ × ℝ) × (Alignment × ℤ)) => (bracket point.1).2) :=
+      measurable_snd.comp (hbracket.comp measurable_fst)
+    have hpair : Measurable (fun point :
+        Context × ((ℝ × ℝ) × (Alignment × ℤ)) => point.2.1) := by fun_prop
+    have haccepted : Measurable (fun point :
+        Context × ((ℝ × ℝ) × (Alignment × ℤ)) =>
+        acceptedProposalReverse (bracket point.1).1 (bracket point.1).2
+          point.2.1) := by
+      unfold acceptedProposalReverse
+      exact (hleft.add ((hright.sub hleft).mul (measurable_snd.comp hpair))).prodMk
+        ((measurable_fst.comp hpair).sub hleft |>.div (hright.sub hleft))
+    exact haccepted.prodMk
+      ((measurable_alignmentAllocationReverse_parameterized width).comp
+        ((((measurable_fst.comp hpair).prodMk
+          (measurable_fst.comp haccepted)).prodMk
+            (measurable_snd.comp measurable_snd))))
+  have hfiberPreserving : ∀ context,
+      Measure.map (fiberMap context)
+          (((volume : Measure ℝ).prod volume).prod
+            ((volume : Measure Alignment).prod (Measure.count : Measure ℤ))) =
+        ((volume : Measure ℝ).prod volume).prod
+          ((volume : Measure Alignment).prod (Measure.count : Measure ℤ)) := by
+    intro context
+    exact (acceptedGridReverse_measurePreserving width
+      (hnondegenerate context)).map_eq
+  have hall := (MeasurePreserving.id contextMeasure).skew_product
+    hfiberMeasurable (Filter.Eventually.of_forall hfiberPreserving)
+  convert hall using 1
+  funext point
+  rfl
+
 theorem acceptedProposalReverse_involutive
     {left right : ℝ} (hwidth : right - left ≠ 0) :
     Function.Involutive (acceptedProposalReverse left right) := by

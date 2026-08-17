@@ -4591,3 +4591,22 @@ packaged as a measurable equivalence between the paired subtype carriers.
 The remaining local obligation is equality of the restricted raw product
 measures under this measurable equivalence; countable gluing and density
 lifting are already available once that affine measure calculation is proved.
+
+## 2026-08-17: accepted-point/grid skew-product volume law
+
+Factored the local affine measure calculation into its two canonical pieces.
+For a fixed nondegenerate bracket, `acceptedGridReverse` first applies the
+unit-Jacobian old-point/fraction exchange and then reroots the Haar alignment
+and integer allocation using the exchanged endpoints. Lean proves the
+combined map preserves `Lebesgue² × Haar × count` by a parameterized
+skew-product theorem—not by assuming independence of the state-dependent grid
+translation. `contextualAcceptedGridReverse_measurePreserving` further lifts
+this result through any measurable retained outer context supplying a
+nondegenerate bracket.
+
+The remaining replay-piece bridge is now geometric: introduce the invariant
+maximal-left grid anchor, identify the original old/alignment/allocation chart
+with the appropriate anchored cell restriction, and express the final bracket
+as a function of the retained anchor, rejected vector, and replay signature.
+The contextual skew-product law can then be restricted to the paired source
+and reverse cells and glued over signatures.
