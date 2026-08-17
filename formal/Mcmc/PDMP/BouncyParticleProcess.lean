@@ -417,6 +417,23 @@ theorem standardGaussianBPS_stateRate_flow
   change max 0 (euclideanInner state.2 (bouncyParticleFlow time state).1) = _
   rw [euclideanInner_velocity_gaussianFlow]
 
+/-- The affine Gaussian clock coefficients update exactly under linear
+flight. -/
+theorem gaussianBPSLinearCoefficient_flow
+    (state : BouncyParticleState ι) (time : NNReal) :
+    gaussianBPSLinearCoefficient (bouncyParticleFlow time state) =
+      gaussianBPSLinearCoefficient state +
+        (time : ℝ) * gaussianBPSQuadraticCoefficient state := by
+  unfold gaussianBPSLinearCoefficient gaussianBPSQuadraticCoefficient
+  exact euclideanInner_velocity_gaussianFlow state time
+
+@[simp] theorem gaussianBPSQuadraticCoefficient_flow
+    (state : BouncyParticleState ι) (time : NNReal) :
+    gaussianBPSQuadraticCoefficient (bouncyParticleFlow time state) =
+      gaussianBPSQuadraticCoefficient state := by
+  unfold gaussianBPSQuadraticCoefficient
+  rfl
+
 /-- Bouncy reflection preserves speed even at a zero normal, where the map is
 the identity. -/
 theorem squaredEuclideanNorm_bouncyReflection_total
@@ -738,6 +755,54 @@ theorem standardGaussianBPS_accumulated
         (gaussianBPSQuadraticCoefficient state) (time : ℝ)
         (gaussianBPSQuadraticCoefficient_pos state hvelocity) (by positivity)
 
+/-- Integrated Gaussian-BPS hazard is an additive cocycle over linear flight. -/
+theorem standardGaussianBPS_accumulated_add
+    (state : BouncyParticleState ι) (first second : NNReal) :
+    (∫ elapsed in (0 : ℝ)..((first + second : NNReal) : ℝ),
+      standardGaussianBouncyParticleBounceData.stateRate
+        (bouncyParticleFlow (Real.toNNReal elapsed) state)) =
+      (∫ elapsed in (0 : ℝ)..(first : ℝ),
+        standardGaussianBouncyParticleBounceData.stateRate
+          (bouncyParticleFlow (Real.toNNReal elapsed) state)) +
+      ∫ elapsed in (0 : ℝ)..(second : ℝ),
+        standardGaussianBouncyParticleBounceData.stateRate
+          (bouncyParticleFlow (Real.toNNReal elapsed)
+            (bouncyParticleFlow first state)) := by
+  by_cases hvelocity : state.2 = 0
+  · have hrate : ∀ (base : BouncyParticleState ι) (hbase : base.2 = 0)
+        (elapsed : ℝ),
+        standardGaussianBouncyParticleBounceData.stateRate
+          (bouncyParticleFlow (Real.toNNReal elapsed) base) = 0 := by
+      intro base hbase elapsed
+      unfold BouncyParticleBounceData.stateRate
+        standardGaussianBouncyParticleBounceData bouncyRate
+      simp [bouncyParticleFlow, hbase, euclideanInner]
+    rw [intervalIntegral.integral_congr
+        (fun elapsed _ => hrate state hvelocity elapsed),
+      intervalIntegral.integral_congr
+        (fun elapsed _ => hrate state hvelocity elapsed),
+      intervalIntegral.integral_congr (fun elapsed _ =>
+        hrate (bouncyParticleFlow first state) (by simp [hvelocity]) elapsed)]
+    simp
+  · have hflowVelocity : (bouncyParticleFlow first state).2 ≠ 0 := by
+      simpa using hvelocity
+    rw [standardGaussianBPS_accumulated state (first + second) hvelocity,
+      standardGaussianBPS_accumulated state first hvelocity,
+      standardGaussianBPS_accumulated (bouncyParticleFlow first state)
+        second hflowVelocity,
+      gaussianBPSLinearCoefficient_flow,
+      gaussianBPSQuadraticCoefficient_flow]
+    have haffine : gaussianBPSLinearCoefficient state +
+        ((first + second : NNReal) : ℝ) *
+          gaussianBPSQuadraticCoefficient state =
+      gaussianBPSLinearCoefficient state +
+          (first : ℝ) * gaussianBPSQuadraticCoefficient state +
+        (second : ℝ) * gaussianBPSQuadraticCoefficient state := by
+      push_cast
+      ring
+    rw [haffine]
+    ring
+
 /-- The closed-form nonzero-velocity wait exactly inverts the integrated
 canonical Gaussian BPS rate. -/
 theorem standardGaussianBPS_waitingTime_inverse
@@ -948,6 +1013,16 @@ noncomputable def BouncyParticlePartialInverseHazardData.clock
   waitingTime_pos := data.waitingTime_pos
   inverse := data.inverse
   inactive := data.inactive
+
+theorem standardGaussianBPS_clock_accumulated_add
+    (state : BouncyParticleState ι) (first second : NNReal) :
+    (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock.accumulated
+        state (first + second) =
+      (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock.accumulated
+          state first +
+        (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock.accumulated
+          (bouncyParticleFlow first state) second := by
+  exact standardGaussianBPS_accumulated_add state first second
 
 /-- The Gaussian replay potential satisfies the accepted-step payment
 inequality required by the generic inverse-clock nonexplosion theorem. -/

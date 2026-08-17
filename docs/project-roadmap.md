@@ -680,8 +680,12 @@ by paper date:
    every completing tail and the law-level/kernel-level first-step renewal
    equation. The generic unit-hazard law now also has both unnormalized and
    normalized residual exponential-memorylessness theorems. Combining renewal
-   and memorylessness into the arbitrary positive-time composition law,
-   target stationarity, and ergodicity remains.
+   and memorylessness requires a target clock cocycle: finite-dimensional
+   Gaussian BPS now proves exactly that accumulated hazard over `t + u` is the
+   first interval plus accumulation from the state flowed by `t`, including
+   the inactive zero-velocity case. Uniqueness of the positive inverse-clock
+   solution and the resulting arbitrary positive-time composition law, target
+   stationarity, and ergodicity remain.
 
    The nonlinear reversible-jump branch is complete at the exact theorem and
    executable-client levels; only the shared Float64 primitive boundary

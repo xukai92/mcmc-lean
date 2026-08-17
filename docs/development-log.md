@@ -4878,3 +4878,10 @@ Together with almost-sure tail completion, these results yield generic
 law-level and kernel-level first-step renewal equations, instantiated by the
 finite-dimensional Gaussian BPS kernel. The remaining semigroup step is the
 residual-clock memorylessness calculation across an arbitrary time split.
+
+The deterministic half of that split is now explicit: the affine Gaussian-BPS
+clock coefficients have exact flow-update laws, and Lean proves the integrated
+hazard cocycle `A(x,t+u) = A(x,t) + A(flow t x,u)` in both nonzero- and
+zero-velocity cases. The remaining local lemma is uniqueness of the positive
+closed-form inverse, needed to identify the residual real-time wait after
+subtracting the first interval's accumulated hazard.
