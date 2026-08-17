@@ -126,6 +126,23 @@ theorem unitHazardMeasure_conditional_residual (elapsed : NNReal) :
     (ENNReal.ofReal_pos.mpr (Real.exp_pos _)).ne'
   rw [ENNReal.inv_mul_cancel hne ENNReal.ofReal_ne_top, one_smul]
 
+theorem unitHazardMeasure_singleton_zero :
+    unitHazardMeasure {0} = 0 := by
+  have hset : ({0} : Set NNReal) = Set.Iic 0 := by
+    ext hazard
+    simp
+  rw [hset, unitHazardMeasure_Iic]
+  norm_num
+
+theorem unitHazardMeasure_positive_ae :
+    ∀ᵐ hazard ∂unitHazardMeasure, 0 < hazard := by
+  rw [ae_iff]
+  have hset : {hazard : NNReal | ¬0 < hazard} = {0} := by
+    ext hazard
+    simp [pos_iff_ne_zero]
+  rw [hset]
+  exact unitHazardMeasure_singleton_zero
+
 /-- Proof-bearing inverse clock for a possibly unbounded state-dependent
 intensity along a deterministic flow. -/
 structure InverseHazardClock (State : Type*) [MeasurableSpace State] where

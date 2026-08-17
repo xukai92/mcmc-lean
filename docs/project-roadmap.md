@@ -689,9 +689,12 @@ by paper date:
    state. The Gaussian client now exposes its kernel renewal equation in
    explicit event/no-event form: either flow for the whole horizon, or flow to
    the exact inverse-clock time, reflect, and complete the residual horizon on
-   a fresh iid tail. Lifting the split identity through this endpoint law to
-   obtain the arbitrary positive-time composition law, target stationarity,
-   and ergodicity remains.
+   a fresh iid tail. Unit hazards are positive almost surely, the inverse wait
+   is within the horizon exactly when its mark is below accumulated hazard,
+   and the no-event branch now has the exact survival mass `exp (-A(t))`.
+   Lifting these split identities through the endpoint law to obtain the
+   arbitrary positive-time composition law, target stationarity, and
+   ergodicity remains.
 
    The nonlinear reversible-jump branch is complete at the exact theorem and
    executable-client levels; only the shared Float64 primitive boundary

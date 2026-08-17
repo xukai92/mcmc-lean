@@ -909,6 +909,37 @@ theorem standardGaussianBPS_accumulated_nonneg
         (time : ℝ) * gaussianBPSQuadraticCoefficient state)]
   positivity
 
+theorem standardGaussianBPS_accumulated_mono
+    (state : BouncyParticleState ι) (hvelocity : state.2 ≠ 0)
+    {first second : NNReal} (htime : first ≤ second) :
+    (∫ elapsed in (0 : ℝ)..(first : ℝ),
+      standardGaussianBouncyParticleBounceData.stateRate
+        (bouncyParticleFlow (Real.toNNReal elapsed) state)) ≤
+    ∫ elapsed in (0 : ℝ)..(second : ℝ),
+      standardGaussianBouncyParticleBounceData.stateRate
+        (bouncyParticleFlow (Real.toNNReal elapsed) state) := by
+  rw [standardGaussianBPS_accumulated state first hvelocity,
+    standardGaussianBPS_accumulated state second hvelocity]
+  have hb : 0 < gaussianBPSQuadraticCoefficient state :=
+    gaussianBPSQuadraticCoefficient_pos state hvelocity
+  have htimeReal : (first : ℝ) ≤ (second : ℝ) := by exact_mod_cast htime
+  have haffine : gaussianBPSLinearCoefficient state +
+      (first : ℝ) * gaussianBPSQuadraticCoefficient state ≤
+    gaussianBPSLinearCoefficient state +
+      (second : ℝ) * gaussianBPSQuadraticCoefficient state := by
+    nlinarith
+  have hmax := max_le_max_left 0 haffine
+  have hsquare :
+      (max 0 (gaussianBPSLinearCoefficient state +
+        (first : ℝ) * gaussianBPSQuadraticCoefficient state)) ^ 2 ≤
+      (max 0 (gaussianBPSLinearCoefficient state +
+        (second : ℝ) * gaussianBPSQuadraticCoefficient state)) ^ 2 := by
+    nlinarith [le_max_left 0 (gaussianBPSLinearCoefficient state +
+      (first : ℝ) * gaussianBPSQuadraticCoefficient state),
+      le_max_left 0 (gaussianBPSLinearCoefficient state +
+        (second : ℝ) * gaussianBPSQuadraticCoefficient state)]
+  exact (div_le_div_iff_of_pos_right (by positivity)).2 (by linarith)
+
 /-- Before the unique positive inverse-clock time, accumulated hazard is
 strictly below the requested mark. -/
 theorem standardGaussianBPS_accumulated_lt_hazard_of_lt_waitingTime
@@ -950,6 +981,65 @@ theorem standardGaussianBPS_accumulated_lt_hazard_of_lt_waitingTime
   exact lt_of_le_of_ne hle fun heq =>
     htime.ne (gaussianBPSWaitingTime_unique state hvelocity hazard hhazard time
       heq)
+
+/-- The inverse wait lies within a horizon exactly when the requested mark is
+at most the hazard accumulated over that horizon. -/
+theorem gaussianBPSWaitingTime_le_iff
+    (state : BouncyParticleState ι) (hvelocity : state.2 ≠ 0)
+    (hazard : NNReal) (hhazard : 0 < hazard) (horizon : NNReal) :
+    gaussianBPSWaitingTime state hazard ≤ horizon ↔
+      (hazard : ℝ) ≤
+        ∫ elapsed in (0 : ℝ)..(horizon : ℝ),
+          standardGaussianBouncyParticleBounceData.stateRate
+            (bouncyParticleFlow (Real.toNNReal elapsed) state) := by
+  constructor
+  · intro hwait
+    rw [← standardGaussianBPS_waitingTime_inverse
+      state hvelocity hhazard]
+    exact standardGaussianBPS_accumulated_mono state hvelocity hwait
+  · intro haccumulated
+    by_contra hwait
+    have hhorizon : horizon < gaussianBPSWaitingTime state hazard :=
+      lt_of_not_ge hwait
+    have hstrict :=
+      standardGaussianBPS_accumulated_lt_hazard_of_lt_waitingTime
+        state hvelocity hazard hhazard horizon hhorizon
+    linarith
+
+/-- Exact no-event survival probability over a finite Gaussian-BPS flight. -/
+theorem unitHazardMeasure_gaussianBPSWaitingTime_gt
+    (state : BouncyParticleState ι) (hvelocity : state.2 ≠ 0)
+    (horizon : NNReal) :
+    unitHazardMeasure
+        {hazard | horizon < gaussianBPSWaitingTime state hazard} =
+      ENNReal.ofReal (Real.exp
+        (-(∫ elapsed in (0 : ℝ)..(horizon : ℝ),
+          standardGaussianBouncyParticleBounceData.stateRate
+            (bouncyParticleFlow (Real.toNNReal elapsed) state)))) := by
+  let accumulated := ∫ elapsed in (0 : ℝ)..(horizon : ℝ),
+    standardGaussianBouncyParticleBounceData.stateRate
+      (bouncyParticleFlow (Real.toNNReal elapsed) state)
+  let consumed := Real.toNNReal accumulated
+  have haccumulated : 0 ≤ accumulated :=
+    standardGaussianBPS_accumulated_nonneg state hvelocity horizon
+  calc
+    unitHazardMeasure
+        {hazard | horizon < gaussianBPSWaitingTime state hazard} =
+      unitHazardMeasure (Set.Ioi consumed) := by
+        apply measure_congr
+        filter_upwards [unitHazardMeasure_positive_ae] with hazard hhazard
+        apply propext
+        change (horizon < gaussianBPSWaitingTime state hazard) ↔
+          consumed < hazard
+        rw [← not_iff_not]
+        simp only [not_lt]
+        rw [gaussianBPSWaitingTime_le_iff state hvelocity hazard hhazard horizon]
+        rw [← NNReal.coe_le_coe, Real.coe_toNNReal _ haccumulated]
+    _ = ENNReal.ofReal (Real.exp (-(consumed : ℝ))) :=
+      unitHazardMeasure_Ioi consumed
+    _ = ENNReal.ofReal (Real.exp (-accumulated)) := by
+      rw [Real.coe_toNNReal _ haccumulated]
+    _ = _ := rfl
 
 /-- If a finite split occurs before the next event, subtracting the hazard
 accumulated up to the split gives exactly the residual inverse-clock wait from
@@ -1377,6 +1467,46 @@ theorem standardGaussianBPSFirstEventEndpoint_eq_firstStep
         (standardGaussianBPSJump (ι := ι))
         (bouncyParticleFlow horizon initial) headTail.2
 
+/-- Simplified first-event branch on the full-measure positive-hazard set for
+a nonzero-velocity state. -/
+noncomputable def standardGaussianBPSPositiveFirstEventEndpoint
+    (horizon : NNReal) (initial : BouncyParticleState ι)
+    (headTail : NNReal × (ℕ → NNReal)) : BouncyParticleState ι :=
+  let wait := gaussianBPSWaitingTime initial headTail.1
+  if wait ≤ horizon then
+    (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+      |>.completedReplayEndpoint (standardGaussianBPSJump (ι := ι))
+        ((horizon - wait,
+          standardGaussianBPSJump (bouncyParticleFlow wait initial)),
+          headTail.2)
+  else
+    bouncyParticleFlow horizon initial
+
+theorem standardGaussianBPSFirstEventEndpoint_eq_positive
+    (horizon : NNReal) (initial : BouncyParticleState ι)
+    (hvelocity : initial.2 ≠ 0)
+    (headTail : NNReal × (ℕ → NNReal)) (hhazard : 0 < headTail.1) :
+    standardGaussianBPSFirstEventEndpoint horizon initial headTail =
+      standardGaussianBPSPositiveFirstEventEndpoint horizon initial headTail := by
+  unfold standardGaussianBPSFirstEventEndpoint
+    standardGaussianBPSPositiveFirstEventEndpoint
+  have hactive :
+      (standardGaussianBPSPartialInverseHazardData (ι := ι)).active
+        initial headTail.1 = true := by
+    simp [standardGaussianBPSPartialInverseHazardData,
+      ne_of_gt hhazard, hvelocity]
+  by_cases hwait : gaussianBPSWaitingTime initial headTail.1 ≤ horizon
+  · have hwaitPos := gaussianBPSWaitingTime_pos initial hvelocity hhazard
+    have hhorizon : 0 < horizon := hwaitPos.trans_le hwait
+    rw [if_pos ⟨hhorizon, hactive, hwait⟩, if_pos hwait]
+  · rw [if_neg hwait]
+    have hcondition : ¬(0 < horizon ∧
+        (standardGaussianBPSPartialInverseHazardData (ι := ι)).active
+          initial headTail.1 = true ∧
+        gaussianBPSWaitingTime initial headTail.1 ≤ horizon) := by
+      aesop
+    rw [if_neg hcondition]
+
 /-- Kernel-level Gaussian-BPS renewal equation in explicit event/no-event
 form. -/
 theorem standardGaussianBPSHorizonKernel_apply_firstEvent
@@ -1390,6 +1520,26 @@ theorem standardGaussianBPSHorizonKernel_apply_firstEvent
   filter_upwards [] with headTail
   exact (standardGaussianBPSFirstEventEndpoint_eq_firstStep
     horizon initial headTail).symm
+
+theorem standardGaussianBPSHorizonKernel_apply_positiveFirstEvent
+    (horizon : NNReal) (initial : BouncyParticleState ι)
+    (hvelocity : initial.2 ≠ 0) :
+    standardGaussianBPSHorizonKernel (ι := ι) horizon initial =
+      Measure.map
+        (standardGaussianBPSPositiveFirstEventEndpoint
+          (ι := ι) horizon initial)
+        (unitHazardMeasure.prod unitHazardSequenceMeasure) := by
+  rw [standardGaussianBPSHorizonKernel_apply_firstEvent]
+  apply Measure.map_congr
+  have hpositive : ∀ᵐ headTail ∂
+      unitHazardMeasure.prod unitHazardSequenceMeasure,
+      0 < headTail.1 :=
+    (Measure.quasiMeasurePreserving_fst
+      (μ := unitHazardMeasure) (ν := unitHazardSequenceMeasure)).ae
+        unitHazardMeasure_positive_ae
+  filter_upwards [hpositive] with headTail hhazard
+  exact standardGaussianBPSFirstEventEndpoint_eq_positive
+    horizon initial hvelocity headTail hhazard
 
 /-- First-event-or-residual-flow BPS kernel on a finite horizon. This kernel
 handles a certified inactive state without imposing a fictitious event. It is

@@ -4893,3 +4893,11 @@ and the residual mark obtained by subtracting the first interval's accumulated
 hazard has inverse wait exactly `originalWait - split` from the flowed state.
 The remaining semigroup work is therefore a law-level endpoint decomposition,
 not an unproved property of the Gaussian clock.
+
+The boundary survival law is now explicit too. The canonical unit-hazard law
+is positive almost surely. For nonzero Gaussian-BPS velocity, Lean proves the
+accumulated clock is monotone and that `waitingTime ≤ horizon` is equivalent to
+`hazard ≤ A(horizon)`. Consequently the probability of no event before the
+horizon is exactly `exp (-A(horizon))`. The first-event renewal API is also
+specialized to this full-measure positive-hazard branch, removing the
+zero-mark and inactive cases from the remaining time-splice calculation.
