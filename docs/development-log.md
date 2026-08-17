@@ -4664,6 +4664,9 @@ null from the right-closed measure-preserving chart itself, and transports the
 map law across the resulting almost-everywhere equality.  Consequently
 `alignmentCountingCoordinate_measurePreserving` now states the exact required
 law for the actual runtime coordinate
-`alignmentCoordinate offset + allocation`.  The next step is to scale and
-translate this real-line coordinate at a fixed grid anchor, then conjugate the
+`alignmentCoordinate offset + allocation`.  This tiling is also packaged as a
+measurable equivalence whose inverse takes fractional part and floor.  Scaling
+and translating it at a fixed grid anchor is proved to yield
+`ofReal |width⁻¹| • Lebesgue`, and substituting the actual maximal-left anchor
+recovers the current state exactly.  The next step is to conjugate the
 signature-controlled accepted-point swap across the paired replay cells.

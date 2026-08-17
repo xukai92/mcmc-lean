@@ -384,6 +384,79 @@ theorem alignmentCountingCoordinate_measurePreserving :
   rw [Measure.map_congr alignmentCountingCoordinate_ae_eq_Ioc]
   exact alignmentCountingCoordinateIoc_measurePreserving.map_eq
 
+/-- Inverse of the executable alignment/counting tiling: fractional part is
+the circle alignment and floor is the integer tile. -/
+noncomputable def alignmentCountingCoordinateInverse
+    (value : ℝ) : Alignment × ℤ :=
+  (((Int.fract value : ℝ) : Alignment), ⌊value⌋)
+
+theorem measurable_alignmentCountingCoordinateInverse :
+    Measurable alignmentCountingCoordinateInverse := by
+  unfold alignmentCountingCoordinateInverse
+  exact (AddCircle.measurable_mk'.comp measurable_fract).prodMk
+    Int.measurable_floor
+
+/-- Haar alignment paired with its integer tile is measurably equivalent to
+the real line. -/
+noncomputable def alignmentCountingMeasurableEquiv :
+    (Alignment × ℤ) ≃ᵐ ℝ where
+  toFun := alignmentCountingCoordinate
+  invFun := alignmentCountingCoordinateInverse
+  left_inv grid := by
+    apply Prod.ext
+    · change (((Int.fract
+          (alignmentCoordinate grid.1 + (grid.2 : ℝ)) : ℝ) : Alignment)) =
+        grid.1
+      rw [Int.fract_add_intCast]
+      rw [Int.fract_eq_self.2 (alignmentCoordinate_mem grid.1)]
+      exact AddCircle.coe_equivIco
+        (p := (1 : ℝ)) (a := 0) (y := grid.1)
+    · change ⌊alignmentCoordinate grid.1 + (grid.2 : ℝ)⌋ = grid.2
+      rw [Int.floor_add_intCast]
+      rw [Int.floor_eq_zero_iff.mpr (alignmentCoordinate_mem grid.1)]
+      simp
+  right_inv value := by
+    unfold alignmentCountingCoordinate alignmentCountingCoordinateInverse
+    rw [show alignmentCoordinate ((Int.fract value : ℝ) : Alignment) =
+        Int.fract value by
+      unfold alignmentCoordinate
+      rw [AddCircle.equivIco_coe_of_mem
+        (by simpa using
+          (show Int.fract value ∈ Set.Ico (0 : ℝ) 1 from
+            ⟨Int.fract_nonneg value, Int.fract_lt_one value⟩))]]
+    exact Int.fract_add_floor value
+  measurable_toFun := measurable_alignmentCountingCoordinate
+  measurable_invFun := measurable_alignmentCountingCoordinateInverse
+
+/-- State coordinate represented by a fixed maximal-left anchor and the
+aligned integer grid. -/
+noncomputable def anchoredGridState
+    (width anchor : ℝ) (grid : Alignment × ℤ) : ℝ :=
+  anchor + width * alignmentCountingCoordinate grid
+
+/-- At nonzero width, the anchored grid state has the expected constant
+multiple of Lebesgue measure. -/
+theorem anchoredGridState_measurePreserving
+    {width : ℝ} (hwidth : width ≠ 0) (anchor : ℝ) :
+    MeasurePreserving (anchoredGridState width anchor)
+      ((volume : Measure Alignment).prod (Measure.count : Measure ℤ))
+      (ENNReal.ofReal |width⁻¹| • (volume : Measure ℝ)) := by
+  have hscale : MeasurePreserving (fun value : ℝ => width * value)
+      (volume : Measure ℝ)
+      (ENNReal.ofReal |width⁻¹| • (volume : Measure ℝ)) := by
+    exact ⟨measurable_const_mul width, Real.map_volume_mul_left hwidth⟩
+  have htranslate : MeasurePreserving (fun value : ℝ => anchor + value)
+      (ENNReal.ofReal |width⁻¹| • (volume : Measure ℝ))
+      (ENNReal.ofReal |width⁻¹| • (volume : Measure ℝ)) := by
+    refine ⟨measurable_const_add anchor, ?_⟩
+    rw [Measure.map_smul,
+      (measurePreserving_add_left (volume : Measure ℝ) anchor).map_eq]
+  have hall := htranslate.comp
+    (hscale.comp alignmentCountingCoordinate_measurePreserving)
+  convert hall using 1
+  funext grid
+  rfl
+
 /-- Random choices consumed before shrinkage. `offset` positions the initial
 width-sized bracket and `leftSteps` allocates the finite expansion budget. -/
 structure BracketTrace where
@@ -613,6 +686,13 @@ and is therefore invariant when the practical trace is rerooted. -/
 noncomputable def maximalLeftGridAnchor
     (width current : ℝ) (grid : Alignment × ℤ) : ℝ :=
   current - width * alignmentCoordinate grid.1 - width * (grid.2 : ℝ)
+
+theorem anchoredGridState_maximalLeftGridAnchor
+    (width current : ℝ) (grid : Alignment × ℤ) :
+    anchoredGridState width
+        (maximalLeftGridAnchor width current grid) grid = current := by
+  unfold anchoredGridState alignmentCountingCoordinate maximalLeftGridAnchor
+  ring
 
 theorem measurable_maximalLeftGridAnchor (width : ℝ) :
     Measurable (fun point : ℝ × (Alignment × ℤ) =>
