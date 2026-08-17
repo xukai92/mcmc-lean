@@ -4036,3 +4036,18 @@ the marginal state kernel. Remaining algorithm-specific work is to embed each
 tree's varying C.4-admissible root subtype into a common phase-state kernel
 with the prescribed fallback and verify the production tree law and runtime
 draw against that certificate.
+
+Closed the varying-fiber/common-state embedding theorem.
+`liftAdmissibleSubtypeKernel` promotes a kernel on one auxiliary's admissible
+root subtype to the shared phase state: admitted roots use the subtype kernel
+and cannot leave its fiber, while inadmissible roots use an explicit identity
+fallback. Lean proves row normalization. `AdmissibleSubtypeFiber` relates the
+normalized subtype target to an unnormalized full-state auxiliary-slice
+weight; subtype detailed balance then transfers to exact full-state slice
+flow, including cross-boundary and outside-fiber zero cases.
+`AuxiliarySubtypeFiberCertificate` packages a different admitted predicate and
+conditional kernel for every completed-tree/slice auxiliary and now assembles
+them into one common-state reversible and stationary sampler through the
+outer augmentation theorem. The remaining production-specific NUTS work is
+to instantiate these fiber records from the concrete completed-tree data and
+target/slice weights and to prove executable representative-draw refinement.

@@ -18,6 +18,134 @@ namespace Mcmc.Finite.MarkovKernel
 
 variable {State Aux : Type*} [Fintype State] [Fintype Aux]
 
+/-! ### Lifting an auxiliary-specific admissible subtype -/
+
+/-- Total full-state kernel induced by a kernel on an admissible subtype.
+Admitted states use the subtype transition and cannot move outside it;
+inadmissible states use an explicit identity fallback. -/
+noncomputable def liftAdmissibleSubtypeKernel
+    [DecidableEq State] (admitted : State → Prop) [DecidablePred admitted]
+    (kernel : MarkovKernel {state // admitted state}) : MarkovKernel State where
+  prob current next :=
+    if hcurrent : admitted current then
+      if hnext : admitted next then
+        kernel.prob ⟨current, hcurrent⟩ ⟨next, hnext⟩
+      else 0
+    else if next = current then 1 else 0
+  nonneg current next := by
+    split
+    · split
+      · exact kernel.nonneg _ _
+      · exact le_rfl
+    · split <;> norm_num
+  sum_prob current := by
+    classical
+    by_cases hcurrent : admitted current
+    · simp only [hcurrent, dif_pos]
+      calc
+        ∑ next, (if hnext : admitted next then
+            kernel.prob ⟨current, hcurrent⟩ ⟨next, hnext⟩ else 0) =
+          ∑ next : {state // admitted state},
+            kernel.prob ⟨current, hcurrent⟩ next := by
+              have hpartition := Fintype.sum_subtype_add_sum_subtype admitted
+                (fun next => if hnext : admitted next then
+                  kernel.prob ⟨current, hcurrent⟩ ⟨next, hnext⟩ else 0)
+              have hfirst :
+                  (∑ next : {state // admitted state},
+                    if hnext : admitted next.val then
+                      kernel.prob ⟨current, hcurrent⟩ ⟨next.val, hnext⟩
+                    else 0) =
+                    ∑ next : {state // admitted state},
+                      kernel.prob ⟨current, hcurrent⟩ next := by
+                apply Finset.sum_congr rfl
+                intro next _
+                simp [next.property]
+              have hsecond :
+                  (∑ next : {state // ¬ admitted state},
+                    if hnext : admitted next.val then
+                      kernel.prob ⟨current, hcurrent⟩ ⟨next.val, hnext⟩
+                    else 0) = 0 := by
+                apply Finset.sum_eq_zero
+                intro next _
+                simp [next.property]
+              calc
+                _ = _ + _ := hpartition.symm
+                _ = _ + 0 := by rw [hfirst, hsecond]
+                _ = _ := add_zero _
+        _ = 1 := kernel.sum_prob ⟨current, hcurrent⟩
+    · simp [hcurrent]
+
+@[simp] theorem liftAdmissibleSubtypeKernel_prob_of_admitted
+    [DecidableEq State] (admitted : State → Prop) [DecidablePred admitted]
+    (kernel : MarkovKernel {state // admitted state})
+    (current next : State) (hcurrent : admitted current)
+    (hnext : admitted next) :
+    (liftAdmissibleSubtypeKernel admitted kernel).prob current next =
+      kernel.prob ⟨current, hcurrent⟩ ⟨next, hnext⟩ := by
+  simp [liftAdmissibleSubtypeKernel, hcurrent, hnext]
+
+/-- Certificate relating an auxiliary fiber's full-state unnormalized weight
+to a reversible normalized target on its admitted subtype. -/
+structure AdmissibleSubtypeFiber
+    (weight : State → ℝ) (admitted : State → Prop)
+    [DecidablePred admitted] where
+  normalizer : ℝ
+  normalizer_pos : 0 < normalizer
+  target : Distribution {state // admitted state}
+  kernel : MarkovKernel {state // admitted state}
+  target_mass : ∀ state,
+    target.mass state = weight state.val / normalizer
+  outside_zero : ∀ state, ¬ admitted state → weight state = 0
+  reversible : kernel.Reversible target
+
+/-- Normalized subtype reversibility transfers to the unnormalized full-state
+fiber after the total lift, including all cross-boundary zero cases. -/
+theorem AdmissibleSubtypeFiber.lift_balance
+    (weight : State → ℝ) (admitted : State → Prop)
+    [DecidableEq State] [DecidablePred admitted]
+    (fiber : AdmissibleSubtypeFiber weight admitted)
+    (current next : State) :
+    weight current *
+        (liftAdmissibleSubtypeKernel admitted fiber.kernel).prob current next =
+      weight next *
+        (liftAdmissibleSubtypeKernel admitted fiber.kernel).prob next current := by
+  by_cases hcurrent : admitted current
+  · by_cases hnext : admitted next
+    · simp only [liftAdmissibleSubtypeKernel_prob_of_admitted admitted
+          fiber.kernel current next hcurrent hnext,
+        liftAdmissibleSubtypeKernel_prob_of_admitted admitted fiber.kernel next
+          current hnext hcurrent]
+      have hreverse := fiber.reversible ⟨current, hcurrent⟩ ⟨next, hnext⟩
+      rw [fiber.target_mass, fiber.target_mass] at hreverse
+      field_simp [fiber.normalizer_pos.ne'] at hreverse
+      exact hreverse
+    · have hnextZero := fiber.outside_zero next hnext
+      simp [liftAdmissibleSubtypeKernel, hcurrent, hnext, hnextZero]
+  · have hcurrentZero := fiber.outside_zero current hcurrent
+    by_cases hnext : admitted next
+    · simp [liftAdmissibleSubtypeKernel, hcurrent, hnext, hcurrentZero]
+    · have hnextZero := fiber.outside_zero next hnext
+      simp [liftAdmissibleSubtypeKernel, hcurrent, hnext, hcurrentZero,
+        hnextZero]
+
+/-- Unnormalized joint target weight of one state/auxiliary pair. -/
+noncomputable def auxiliaryJointWeight
+    (target : Distribution State) (auxiliaryLaw : State → Distribution Aux)
+    (auxiliary : Aux) (state : State) : ℝ :=
+  target.mass state * (auxiliaryLaw state).mass auxiliary
+
+/-- Family of auxiliary-specific admissible-subtype certificates on one common
+full state space. This is the interface needed when each completed NUTS tree
+retains a different C.4 root subtype. -/
+structure AuxiliarySubtypeFiberCertificate
+    (target : Distribution State) (auxiliaryLaw : State → Distribution Aux)
+    (admitted : Aux → State → Prop)
+    [∀ auxiliary, DecidablePred (admitted auxiliary)] where
+  fiber : ∀ auxiliary,
+    AdmissibleSubtypeFiber
+      (auxiliaryJointWeight target auxiliaryLaw auxiliary)
+      (admitted auxiliary)
+
 /-- Collapsed state transition obtained by drawing an auxiliary conditionally
 on the current state and applying its indexed conditional transition. -/
 noncomputable def auxiliaryCollapsedKernel
@@ -228,6 +356,50 @@ theorem CertifiedAuxiliarySampler.stationary
     (sampler : CertifiedAuxiliarySampler target Aux) :
     sampler.kernel.Stationary target :=
   sampler.reversible.stationary
+
+/-- Lift every varying admissible-root fiber to the common phase state and
+assemble the state-dependent auxiliary sampler. -/
+noncomputable def AuxiliarySubtypeFiberCertificate.toCertifiedSampler
+    [DecidableEq State]
+    (target : Distribution State) (auxiliaryLaw : State → Distribution Aux)
+    (admitted : Aux → State → Prop)
+    [∀ auxiliary, DecidablePred (admitted auxiliary)]
+    (certificate : AuxiliarySubtypeFiberCertificate target auxiliaryLaw
+      admitted) : CertifiedAuxiliarySampler target Aux where
+  auxiliaryLaw := auxiliaryLaw
+  conditional auxiliary :=
+    liftAdmissibleSubtypeKernel (admitted auxiliary)
+      (certificate.fiber auxiliary).kernel
+  reverse_slices := by
+    intro auxiliary current next
+    exact (certificate.fiber auxiliary).lift_balance
+      (auxiliaryJointWeight target auxiliaryLaw auxiliary)
+      (admitted auxiliary) current next
+
+/-- The common-state sampler assembled from varying C.4-admissible fibers is
+reversible. -/
+theorem AuxiliarySubtypeFiberCertificate.toCertifiedSampler_reversible
+    [DecidableEq State]
+    (target : Distribution State) (auxiliaryLaw : State → Distribution Aux)
+    (admitted : Aux → State → Prop)
+    [∀ auxiliary, DecidablePred (admitted auxiliary)]
+    (certificate : AuxiliarySubtypeFiberCertificate target auxiliaryLaw
+      admitted) :
+    (certificate.toCertifiedSampler target auxiliaryLaw admitted).kernel.Reversible
+      target :=
+  (certificate.toCertifiedSampler target auxiliaryLaw admitted).reversible
+
+/-- Consequently the common-state sampler preserves the marginal target. -/
+theorem AuxiliarySubtypeFiberCertificate.toCertifiedSampler_stationary
+    [DecidableEq State]
+    (target : Distribution State) (auxiliaryLaw : State → Distribution Aux)
+    (admitted : Aux → State → Prop)
+    [∀ auxiliary, DecidablePred (admitted auxiliary)]
+    (certificate : AuxiliarySubtypeFiberCertificate target auxiliaryLaw
+      admitted) :
+    (certificate.toCertifiedSampler target auxiliaryLaw admitted).kernel.Stationary
+      target :=
+  (certificate.toCertifiedSampler target auxiliaryLaw admitted).stationary
 
 /-! ### Exact conditional-refresh instantiation -/
 
