@@ -4579,3 +4579,15 @@ calculation is the translated expansion-count formula and affine
 product-volume preservation on each source/target replay pair; the countable
 gluing theorem can then assemble the raw base law required by the prior
 weighted lift.
+
+The translated expansion-count formula is now closed. Rather than assuming
+the signed counts are nonnegative, Lean extracts the natural-number counts
+actually consumed by the reverse execution and uses stopped-bracket equality
+plus nonzero width to identify them with `leftConsumed + shift` and
+`rightConsumed - shift`. Thus rerooting maps every source replay piece into
+its complete reversed signature, including both endpoint formulas. On every
+inhabited piece signature reversal is involutive, and the runtime rerooting is
+packaged as a measurable equivalence between the paired subtype carriers.
+The remaining local obligation is equality of the restricted raw product
+measures under this measurable equivalence; countable gluing and density
+lifting are already available once that affine measure calculation is proved.

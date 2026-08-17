@@ -4967,6 +4967,137 @@ theorem fixedRuntimeReverse_rejectedSides
   rw [← hsame]
   exact hpoint.2.2.2.2.2 index
 
+/-- The stopped-bracket equality forces the reverse expansion counts to be
+the translated forward counts. In particular the integer expressions used by
+`reverseFixedRuntimeReplaySignature` are automatically nonnegative on every
+successful source piece. -/
+theorem fixedRuntimeReverse_expansionEndpoints
+    (logDensity : ℝ → ℝ) {width : ℝ} (hwidth : 0 < width)
+    (intervals maxShrink length : ℕ)
+    (signature : FixedRuntimeReplaySignature length)
+    (point : (ℝ × ℝ) × FixedRuntimeTrace length)
+    (hpoint : point ∈ fixedRuntimeReplayPiece logDensity width intervals
+      maxShrink length signature) :
+    let reversed := fixedPrimitiveRuntimeAugmentedReverse logDensity width
+      intervals length point
+    let reverseSignature := reverseFixedRuntimeReplaySignature signature
+    (runtimeSteppedBracket logDensity reversed.1.1 width reversed.1.2 intervals
+      reversed.2.2.1.2 reversed.2.2.1.1).1 =
+        initialLeft width reversed.1.2
+          (alignmentCoordinate reversed.2.2.1.1) -
+          (reverseSignature.leftConsumed : ℝ) * width ∧
+    (runtimeSteppedBracket logDensity reversed.1.1 width reversed.1.2 intervals
+      reversed.2.2.1.2 reversed.2.2.1.1).2 =
+        initialRight width reversed.1.2
+          (alignmentCoordinate reversed.2.2.1.1) +
+          (reverseSignature.rightConsumed : ℝ) * width := by
+  let embedded : (ℝ × ℝ) × RuntimeRandomTrace :=
+    (point.1, (Sigma.mk length point.2.1, point.2.2))
+  let primitive := primitiveRuntimeAugmentedReverse logDensity width intervals
+    embedded
+  let new := runtimeAcceptedPoint logDensity point.1.1 width point.1.2 intervals
+    embedded.2
+  let forwardBracket := runtimeSteppedBracket logDensity point.1.1 width
+    point.1.2 intervals point.2.2.1.2 point.2.2.1.1
+  let reverseBracket := runtimeSteppedBracket logDensity point.1.1 width new
+    intervals primitive.2.2.1.2 primitive.2.2.1.1
+  have hsuccess := primitiveRuntimeSuccess_of_density_ne_zero logDensity hwidth
+    intervals maxShrink embedded hpoint.1.1 hpoint.1.2
+  have hbrackets : forwardBracket = reverseBracket := hsuccess.stepped_reverse
+  obtain ⟨reverseLeft, _hleftBudget, hreverseLeft⟩ :=
+    exists_expandLeft_eq_sub_nat_mul logDensity point.1.1 width
+      (initialLeft width new (alignmentCoordinate primitive.2.2.1.1))
+      primitive.2.2.1.2.toNat
+  obtain ⟨reverseRight, _hrightBudget, hreverseRight⟩ :=
+    exists_expandRight_eq_add_nat_mul logDensity point.1.1 width
+      (initialRight width new (alignmentCoordinate primitive.2.2.1.1))
+      (intervals - 1 - primitive.2.2.1.2.toNat)
+  have hreverseLeftEndpoint : reverseBracket.1 =
+      initialLeft width new (alignmentCoordinate primitive.2.2.1.1) -
+        (reverseLeft : ℝ) * width := hreverseLeft
+  have hreverseRightEndpoint : reverseBracket.2 =
+      initialRight width new (alignmentCoordinate primitive.2.2.1.1) +
+        (reverseRight : ℝ) * width := hreverseRight
+  have hinitialLeft :
+      initialLeft width new (alignmentCoordinate primitive.2.2.1.1) =
+        initialLeft width point.1.2 (alignmentCoordinate point.2.2.1.1) +
+          width * (signature.shift : ℝ) := by
+    change initialLeft width new
+        (alignmentCoordinate (reverseAlignment width point.1.2 new
+          point.2.2.1.1)) = _
+    rw [alignmentCoordinate_reverseAlignment]
+    rw [initialLeft_reverseOffset hwidth.ne']
+    rw [← cast_integerAlignmentShift hwidth.ne', hpoint.2.2.1]
+  have hinitialRight :
+      initialRight width new (alignmentCoordinate primitive.2.2.1.1) =
+        initialRight width point.1.2 (alignmentCoordinate point.2.2.1.1) +
+          width * (signature.shift : ℝ) := by
+    change initialRight width new
+        (alignmentCoordinate (reverseAlignment width point.1.2 new
+          point.2.2.1.1)) = _
+    rw [alignmentCoordinate_reverseAlignment]
+    rw [initialRight_reverseOffset hwidth.ne']
+    rw [← cast_integerAlignmentShift hwidth.ne', hpoint.2.2.1]
+  have hleftReal : (reverseLeft : ℝ) =
+      (signature.leftConsumed : ℝ) + (signature.shift : ℝ) := by
+    have hforward := hpoint.2.2.2.1
+    change forwardBracket.1 = _ at hforward
+    nlinarith [congrArg Prod.fst hbrackets]
+  have hrightReal : (reverseRight : ℝ) =
+      (signature.rightConsumed : ℝ) - (signature.shift : ℝ) := by
+    have hforward := hpoint.2.2.2.2.1
+    change forwardBracket.2 = _ at hforward
+    nlinarith [congrArg Prod.snd hbrackets]
+  have hleftInt : (reverseLeft : ℤ) =
+      (signature.leftConsumed : ℤ) + signature.shift := by
+    exact_mod_cast hleftReal
+  have hrightInt : (reverseRight : ℤ) =
+      (signature.rightConsumed : ℤ) - signature.shift := by
+    exact_mod_cast hrightReal
+  have hleftToNat :
+      ((signature.leftConsumed : ℤ) + signature.shift).toNat = reverseLeft := by
+    rw [← hleftInt]
+    simp
+  have hrightToNat :
+      ((signature.rightConsumed : ℤ) - signature.shift).toNat = reverseRight := by
+    rw [← hrightInt]
+    simp
+  change reverseBracket.1 =
+        initialLeft width new (alignmentCoordinate primitive.2.2.1.1) -
+          (((signature.leftConsumed : ℤ) + signature.shift).toNat : ℝ) * width ∧
+    reverseBracket.2 =
+        initialRight width new (alignmentCoordinate primitive.2.2.1.1) +
+          (((signature.rightConsumed : ℤ) - signature.shift).toNat : ℝ) * width
+  constructor
+  · rw [hreverseLeftEndpoint, hleftToNat]
+  · rw [hreverseRightEndpoint, hrightToNat]
+
+/-- The complete combinatorial replay signature transforms exactly as
+`reverseFixedRuntimeReplaySignature`. -/
+theorem fixedRuntimeReverse_mem_replayPiece
+    (logDensity : ℝ → ℝ) {width : ℝ} (hwidth : 0 < width)
+    (intervals maxShrink length : ℕ)
+    (signature : FixedRuntimeReplaySignature length)
+    (point : (ℝ × ℝ) × FixedRuntimeTrace length)
+    (hpoint : point ∈ fixedRuntimeReplayPiece logDensity width intervals
+      maxShrink length signature) :
+    fixedPrimitiveRuntimeAugmentedReverse logDensity width intervals length
+        point ∈
+      fixedRuntimeReplayPiece logDensity width intervals maxShrink length
+        (reverseFixedRuntimeReplaySignature signature) := by
+  let reversed := fixedPrimitiveRuntimeAugmentedReverse logDensity width
+    intervals length point
+  have hsupport := fixedRuntimeSuccessSet_reverse_mem logDensity hwidth intervals
+    maxShrink length point hpoint.1
+  have hallocationShift := fixedRuntimeReverse_allocation_shift logDensity
+    hwidth intervals maxShrink length signature point hpoint
+  have hendpoints := fixedRuntimeReverse_expansionEndpoints logDensity hwidth
+    intervals maxShrink length signature point hpoint
+  have hsides := fixedRuntimeReverse_rejectedSides logDensity hwidth intervals
+    maxShrink length signature point hpoint
+  exact ⟨hsupport, hallocationShift.1, hallocationShift.2,
+    hendpoints.1, hendpoints.2, hsides⟩
+
 /-- The fixed-dimensional successful rerooting is an involution. -/
 theorem fixedPrimitiveRuntimeAugmentedReverse_involutive
     (logDensity : ℝ → ℝ) {width : ℝ} (hwidth : 0 < width)
@@ -5003,6 +5134,69 @@ theorem fixedPrimitiveRuntimeAugmentedReverse_involutive
     · have hsigma := congrArg (fun value => value.2.1) hembed
       exact eq_of_heq (Sigma.mk.inj_iff.mp hsigma |>.2)
     · exact congrArg (fun value => value.2.2) hembed
+
+/-- On every inhabited successful replay piece, signature reversal is itself
+an involution. This is derived from point rerooting plus disjointness, avoiding
+standalone arithmetic side conditions on arbitrary malformed signatures. -/
+theorem reverseFixedRuntimeReplaySignature_reverse_of_mem
+    (logDensity : ℝ → ℝ) {width : ℝ} (hwidth : 0 < width)
+    (intervals maxShrink length : ℕ)
+    (signature : FixedRuntimeReplaySignature length)
+    (point : (ℝ × ℝ) × FixedRuntimeTrace length)
+    (hpoint : point ∈ fixedRuntimeReplayPiece logDensity width intervals
+      maxShrink length signature) :
+    reverseFixedRuntimeReplaySignature
+        (reverseFixedRuntimeReplaySignature signature) = signature := by
+  let reversed := fixedPrimitiveRuntimeAugmentedReverse logDensity width
+    intervals length point
+  have hreversePiece := fixedRuntimeReverse_mem_replayPiece logDensity hwidth
+    intervals maxShrink length signature point hpoint
+  have htwicePiece := fixedRuntimeReverse_mem_replayPiece logDensity hwidth
+    intervals maxShrink length (reverseFixedRuntimeReplaySignature signature)
+    reversed hreversePiece
+  have hinvolution := fixedPrimitiveRuntimeAugmentedReverse_involutive
+    logDensity hwidth intervals maxShrink length point hpoint.1
+  rw [hinvolution] at htwicePiece
+  by_contra hne
+  have hdisjoint := pairwise_disjoint_fixedRuntimeReplayPiece logDensity
+    hwidth.ne' intervals maxShrink length hne
+  exact Set.disjoint_left.mp hdisjoint htwicePiece hpoint
+
+/-- Each inhabited replay piece is measurably equivalent to its reversed
+piece, with the same runtime rerooting serving as both directions. -/
+noncomputable def fixedRuntimeReplayPieceEquiv
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    {width : ℝ} (hwidth : 0 < width)
+    (intervals maxShrink length : ℕ)
+    (signature : FixedRuntimeReplaySignature length)
+    (witness : (ℝ × ℝ) × FixedRuntimeTrace length)
+    (hwitness : witness ∈ fixedRuntimeReplayPiece logDensity width intervals
+      maxShrink length signature) :
+    fixedRuntimeReplayPiece logDensity width intervals maxShrink length signature ≃ᵐ
+      fixedRuntimeReplayPiece logDensity width intervals maxShrink length
+        (reverseFixedRuntimeReplaySignature signature) where
+  toFun point := ⟨fixedPrimitiveRuntimeAugmentedReverse logDensity width intervals
+    length point.1, fixedRuntimeReverse_mem_replayPiece logDensity hwidth intervals
+      maxShrink length signature point.1 point.2⟩
+  invFun point := ⟨fixedPrimitiveRuntimeAugmentedReverse logDensity width intervals
+    length point.1, by
+      have hmem := fixedRuntimeReverse_mem_replayPiece logDensity hwidth intervals
+        maxShrink length (reverseFixedRuntimeReplaySignature signature)
+        point.1 point.2
+      rwa [reverseFixedRuntimeReplaySignature_reverse_of_mem logDensity hwidth
+        intervals maxShrink length signature witness hwitness] at hmem⟩
+  left_inv point := Subtype.ext <|
+    fixedPrimitiveRuntimeAugmentedReverse_involutive logDensity hwidth intervals
+      maxShrink length point.1 point.2.1
+  right_inv point := Subtype.ext <|
+    fixedPrimitiveRuntimeAugmentedReverse_involutive logDensity hwidth intervals
+      maxShrink length point.1 point.2.1
+  measurable_toFun :=
+    ((measurable_fixedPrimitiveRuntimeAugmentedReverse hlogDensity width intervals
+      length).comp measurable_subtype_coe).subtype_mk
+  measurable_invFun :=
+    ((measurable_fixedPrimitiveRuntimeAugmentedReverse hlogDensity width intervals
+      length).comp measurable_subtype_coe).subtype_mk
 
 /-- On each finite rejected-length stratum, the already-proved likelihood
 symmetry lifts any raw restricted-base preservation theorem to preservation of
