@@ -4344,6 +4344,18 @@ proof retains both multinomial resampling and the identity mutation branch.
 Particle-count-uniform particle-Gibbs mixing is still a separate kernel-level
 obligation.
 
+## 2026-08-17: particle-count-uniform particle-Gibbs mixing
+
+Closed that kernel-level obligation at every fixed Feynman--Kac horizon.
+`particleGibbsScheduleCoefficient_mono` proves that a fixed nonnegative
+penalty schedule's refresh coefficient improves with the number of ordinary
+particles. Consequently the backward-potential full-support certificate at
+the smallest supported count supplies one geometric total-variation bound
+simultaneously for every `N ≥ 2`; Lean also proves this common rate tends to
+zero with the PG iteration count. This is uniformity in particle count for a
+fixed model and horizon. The penalty list grows with the Feynman--Kac horizon,
+so no horizon-uniform mixing rate or joint horizon/count asymptotic is claimed.
+
 ## 2026-08-17: practical-slice stratum measure preservation
 
 Upgraded allocation rerooting from a finite-sum identity to preservation of

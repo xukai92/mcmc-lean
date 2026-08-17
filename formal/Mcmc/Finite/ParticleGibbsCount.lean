@@ -1099,6 +1099,42 @@ theorem particleGibbsCountCoefficient_mono
       nlinarith
   exact pow_le_pow_left₀ (by positivity) hbase _
 
+/-- Every nonnegative schedule has a nonnegative refresh coefficient. -/
+theorem particleGibbsScheduleCoefficient_nonneg
+    (extra : ℕ) {penalties : List ℝ}
+    (hpenalties : ∀ penalty ∈ penalties, 0 ≤ penalty) :
+    0 ≤ particleGibbsScheduleCoefficient extra penalties := by
+  unfold particleGibbsScheduleCoefficient
+  apply List.prod_nonneg
+  intro value hvalue
+  obtain ⟨penalty, hpenalty, rfl⟩ := List.mem_map.mp hvalue
+  exact div_nonneg (by positivity) (add_nonneg (by positivity)
+    (hpenalties penalty hpenalty))
+
+/-- A fixed nonnegative penalty schedule has a refresh coefficient monotone
+in the number of non-retained particles. -/
+theorem particleGibbsScheduleCoefficient_mono
+    {extra more : ℕ} {penalties : List ℝ} (hcount : extra ≤ more)
+    (hpenalties : ∀ penalty ∈ penalties, 0 ≤ penalty) :
+    particleGibbsScheduleCoefficient extra penalties ≤
+      particleGibbsScheduleCoefficient more penalties := by
+  induction penalties with
+  | nil => simp [particleGibbsScheduleCoefficient]
+  | cons penalty penalties ih =>
+      have hpenalty : 0 ≤ penalty := hpenalties penalty (by simp)
+      have htail : ∀ value ∈ penalties, 0 ≤ value := by
+        intro value hvalue
+        exact hpenalties value (by simp [hvalue])
+      have hhead := particleGibbsCountCoefficient_mono
+        (horizon := 1) hcount hpenalty
+      have htailMono := ih htail
+      simp only [particleGibbsCountCoefficient, pow_one] at hhead
+      simp only [particleGibbsScheduleCoefficient, List.map_cons,
+        List.prod_cons] at htailMono ⊢
+      exact mul_le_mul hhead htailMono
+        (particleGibbsScheduleCoefficient_nonneg extra htail)
+        (div_nonneg (by positivity) (add_nonneg (by positivity) hpenalty))
+
 /-- At fixed horizon and fixed finite potential penalty, the certified
 positive-horizon refresh coefficient tends to one as the number of
 non-retained particles tends to infinity. -/
@@ -2316,6 +2352,68 @@ theorem scheduledPotentialParticleGibbs_totalVariation_tendsto_zero_count
     scheduledPotentialParticleGibbs_totalVariation_le
       (certificates extra) initialLaw iterations
 
+/-- A common positive penalty schedule gives one geometric mixing bound valid
+simultaneously for every particle count `N = extra + 2`. The worst certified
+coefficient occurs at the smallest count; increasing the number of ordinary
+particles can only improve it. -/
+theorem scheduledPotentialParticleGibbs_totalVariation_le_uniform_count
+    {initial : Distribution Sample} {steps : List (FeynmanKacStep Sample)}
+    {hnormalizer : 0 < normalizingConstant initial steps}
+    {penalties : List ℝ}
+    (certificates : ∀ extra : ℕ,
+      ScheduledPotentialParticleGibbsMinorization
+        initial steps hnormalizer (extra + 1))
+    (hpenalties : ∀ extra, (certificates extra).penalties = penalties)
+    (initialLaw : Distribution (Trajectory steps))
+    (extra iterations : ℕ) :
+    Nonhomogeneous.distributionTotalVariation
+      (Nonhomogeneous.iterateLaw initialLaw
+        (countedTrajectoryParticleGibbsKernel initial steps hnormalizer
+          (extra + 1)) iterations)
+      (countedTrajectoryTarget initial steps hnormalizer (extra + 1)) ≤
+      (1 - particleGibbsScheduleCoefficient 1 penalties) ^ iterations := by
+  have hpenaltiesPos : ∀ penalty ∈ penalties, 0 < penalty := by
+    intro penalty hpenalty
+    apply (certificates 0).penalties_pos penalty
+    simpa only [hpenalties 0] using hpenalty
+  have hnonempty : penalties ≠ [] := by
+    intro hempty
+    have hlength := (certificates 0).penalties_length
+    rw [hpenalties 0, hempty] at hlength
+    simp at hlength
+  have hmono : particleGibbsScheduleCoefficient 1 penalties ≤
+      particleGibbsScheduleCoefficient (extra + 1) penalties := by
+    apply particleGibbsScheduleCoefficient_mono (by omega)
+    intro penalty hpenalty
+    exact (hpenaltiesPos penalty hpenalty).le
+  have hcurrentLt :
+      particleGibbsScheduleCoefficient (extra + 1) penalties < 1 := by
+    apply particleGibbsScheduleCoefficient_lt_one (by omega) hnonempty
+    exact hpenaltiesPos
+  have hbound := scheduledPotentialParticleGibbs_totalVariation_le
+    (certificates extra) initialLaw iterations
+  rw [hpenalties extra] at hbound
+  exact hbound.trans (pow_le_pow_left₀ (sub_nonneg.mpr hcurrentLt.le)
+    (by linarith) iterations)
+
+/-- The preceding count-uniform rate tends to zero with the number of PG
+iterations. Thus fixed-horizon scheduled particle Gibbs is geometrically
+ergodic uniformly over every certified particle count at least two. -/
+theorem scheduledPotentialParticleGibbs_uniform_count_rate_tendsto_zero
+    {penalties : List ℝ} (hnonempty : penalties ≠ [])
+    (hpenalties : ∀ penalty ∈ penalties, 0 < penalty) :
+    Filter.Tendsto
+      (fun iterations =>
+        (1 - particleGibbsScheduleCoefficient 1 penalties) ^ iterations)
+      Filter.atTop (nhds 0) := by
+  have hcoefficientPos : 0 < particleGibbsScheduleCoefficient 1 penalties :=
+    particleGibbsScheduleCoefficient_pos (by omega) hpenalties
+  have hcoefficientLt : particleGibbsScheduleCoefficient 1 penalties < 1 :=
+    particleGibbsScheduleCoefficient_lt_one (by omega) hnonempty hpenalties
+  apply tendsto_pow_atTop_nhds_zero_of_lt_one
+  · linarith
+  · linarith
+
 /-- For every fixed positive iteration count, the actual PG output law under
 primitive full-support assumptions approaches its exact trajectory target as
 the particle count tends to infinity. -/
@@ -2342,6 +2440,51 @@ theorem backwardPotentialParticleGibbs_totalVariation_tendsto_zero_count
   exact scheduledPotentialParticleGibbs_totalVariation_tendsto_zero_count
     certificates (penalties := feynmanKacBackwardOscillationPenalties steps)
     (fun _ => rfl) initialLaw iterations hiterations
+
+/-- Primitive finite full support supplies a single positive-horizon
+geometric-TV bound valid for every particle count `N = extra + 2`. This is
+particle-count-uniform mixing at each fixed Feynman--Kac horizon; no claim is
+made that the rate is uniform as the horizon itself grows. -/
+theorem backwardPotentialParticleGibbs_totalVariation_le_uniform_count
+    [Nonempty Sample]
+    (initial : Distribution Sample) (hinitial : ∀ x, 0 < initial.mass x)
+    (steps : List (FeynmanKacStep Sample))
+    (hsupport : FeynmanKacFullSupport steps)
+    (hnormalizer : 0 < normalizingConstant initial steps)
+    (initialLaw : Distribution (Trajectory steps))
+    (extra iterations : ℕ) :
+    Nonhomogeneous.distributionTotalVariation
+      (Nonhomogeneous.iterateLaw initialLaw
+        (countedTrajectoryParticleGibbsKernel initial steps hnormalizer
+          (extra + 1)) iterations)
+      (countedTrajectoryTarget initial steps hnormalizer (extra + 1)) ≤
+      (1 - particleGibbsScheduleCoefficient 1
+        (feynmanKacBackwardOscillationPenalties steps)) ^ iterations := by
+  let certificates : ∀ count : ℕ,
+      ScheduledPotentialParticleGibbsMinorization
+        initial steps hnormalizer (count + 1) := fun count =>
+    backwardPotentialScheduledParticleGibbsMinorization
+      initial hinitial steps hsupport hnormalizer (count + 1) (by omega)
+  exact scheduledPotentialParticleGibbs_totalVariation_le_uniform_count
+    certificates (penalties := feynmanKacBackwardOscillationPenalties steps)
+    (fun _ => rfl) initialLaw extra iterations
+
+omit [DecidableEq Sample] in
+/-- The common full-support particle-count-uniform bound vanishes
+geometrically with the PG iteration count. -/
+theorem backwardPotentialParticleGibbs_uniform_count_rate_tendsto_zero
+    [Nonempty Sample] (steps : List (FeynmanKacStep Sample)) :
+    Filter.Tendsto
+      (fun iterations =>
+        (1 - particleGibbsScheduleCoefficient 1
+          (feynmanKacBackwardOscillationPenalties steps)) ^ iterations)
+      Filter.atTop (nhds 0) := by
+  apply scheduledPotentialParticleGibbs_uniform_count_rate_tendsto_zero
+  · intro hempty
+    have hlength := length_feynmanKacBackwardOscillationPenalties steps
+    rw [hempty] at hlength
+    simp at hlength
+  · exact feynmanKacBackwardOscillationPenalties_pos steps
 
 /-- Full-support model ingredients construct a conservative positive refresh
 certificate directly at the `extra + 1` particle interface. This certificate
