@@ -4368,3 +4368,22 @@ and `practicalSliceSampler` instantiates it with the non-duplicating runtime
 trace and augmented reversal. Its final exact-invariance theorem exposes only
 the concrete trace-density obligations: measurability, finiteness,
 normalization, and preservation of the complete joint law.
+
+## 2026-08-17: primitive practical trace density
+
+Constructed the honest base measure for variable-length rejected sequences as
+a countable sum of finite-dimensional Lebesgue fibers. Lean proves it is
+s-finite and that nonnegative integration decomposes into the expected sum of
+`Fin n → ℝ` integrals. The primitive runtime trace base adds Haar alignment,
+integer counting measure, and the final real proposal coordinate.
+
+Corrected the runtime factorization before claiming normalization: the stopped
+bracket is a deterministic function of height, current state, alignment,
+allocation, and target evaluations, so an independent Lebesgue bracket density
+would be mathematically wrong. The new primitive carrier omits that bracket;
+`runtimeSteppedBracket`, `runtimeFinalBracket`, and `runtimeAcceptedPoint`
+derive it. `runtimeTraceDensity` now states the actual finite-allocation and
+success guards and multiplies the successive rejected-point conditional
+densities. It is proved everywhere finite and zero on invalid allocations.
+Joint measurability, normalization, and the derived-bracket augmented reversal
+remain the next proof obligations.

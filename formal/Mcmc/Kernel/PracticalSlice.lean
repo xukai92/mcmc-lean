@@ -1382,6 +1382,161 @@ noncomputable def successfulTraceStratumReverse
 part of the trace instead of padding to an artificial global budget. -/
 abbrev RejectedSequence := Σ length : ℕ, Fin length → ℝ
 
+/-- Lebesgue measure on one fixed rejected-sequence dimension, embedded into
+the variable-dimensional sigma type. -/
+noncomputable def rejectedSequenceFiberMeasure (length : ℕ) :
+    Measure RejectedSequence :=
+  (Measure.pi fun _ : Fin length => (volume : Measure ℝ)).map
+    (fun values => Sigma.mk length values)
+
+theorem measurable_rejectedSequenceMk (length : ℕ) :
+    Measurable (fun values : Fin length → ℝ =>
+      (Sigma.mk length values : RejectedSequence)) := by
+  apply Measurable.of_le_map
+  exact iInf_le _ length
+
+/-- Honest base measure for variable-length rejected traces: counting over
+the length and finite-dimensional Lebesgue measure within each fiber. -/
+noncomputable def rejectedSequenceLebesgue : Measure RejectedSequence :=
+  Measure.sum rejectedSequenceFiberMeasure
+
+instance rejectedSequenceLebesgue.instSFinite :
+    SFinite rejectedSequenceLebesgue := by
+  unfold rejectedSequenceLebesgue rejectedSequenceFiberMeasure
+  infer_instance
+
+/-- Primitive random coordinates actually consumed by a successful practical
+slice execution. The stopped bracket is absent because it is deterministically
+derived from height, current state, alignment, allocation, and the target. -/
+abbrev RuntimeRandomTrace :=
+  RejectedSequence × ((Alignment × ℤ) × ℝ)
+
+/-- Common s-finite base for primitive runtime traces: variable-dimensional
+Lebesgue measure, Haar grid alignment, integer counting measure, and one final
+real proposal coordinate. Valid ranges and conditional widths are supplied by
+the concrete trace density. -/
+noncomputable def runtimeRandomTraceBase : Measure RuntimeRandomTrace :=
+  rejectedSequenceLebesgue.prod
+    (((volume : Measure Alignment).prod (Measure.count : Measure ℤ)).prod
+      (volume : Measure ℝ))
+
+instance runtimeRandomTraceBase.instSFinite :
+    SFinite runtimeRandomTraceBase := by
+  unfold runtimeRandomTraceBase
+  infer_instance
+
+/-- Stopped stepping-out bracket computed directly from the runtime integer
+allocation. Invalid allocations are still assigned deterministic semantics;
+the trace density gives them zero mass. -/
+noncomputable def runtimeSteppedBracket
+    (logDensity : ℝ → ℝ) (threshold width current : ℝ)
+    (intervals : ℕ) (allocation : ℤ) (offset : Alignment) : ℝ × ℝ :=
+  let leftSteps := allocation.toNat
+  (expandLeft logDensity threshold width leftSteps
+      (initialLeft width current (alignmentCoordinate offset)),
+    expandRight logDensity threshold width (intervals - 1 - leftSteps)
+      (initialRight width current (alignmentCoordinate offset)))
+
+/-- After replaying the actual rejected points, this is the bracket from which
+the final proposal coordinate is interpreted. -/
+noncomputable def runtimeFinalBracket
+    (logDensity : ℝ → ℝ) (threshold width current : ℝ)
+    (intervals : ℕ) (trace : RuntimeRandomTrace) : ℝ × ℝ :=
+  shrinkRejectedPoints current (List.ofFn trace.1.2)
+    (runtimeSteppedBracket logDensity threshold width current intervals
+      trace.2.1.2 trace.2.1.1)
+
+/-- Proposed state encoded by the final primitive real coordinate after all
+recorded shrink rejections. -/
+noncomputable def runtimeAcceptedPoint
+    (logDensity : ℝ → ℝ) (threshold width current : ℝ)
+    (intervals : ℕ) (trace : RuntimeRandomTrace) : ℝ :=
+  let bracket := runtimeFinalBracket logDensity threshold width current intervals trace
+  bracket.1 + (bracket.2 - bracket.1) * trace.2.2
+
+/-- On a valid dependent allocation stratum, the raw runtime bracket agrees
+definitionally with the proof-oriented `steppedBracket`. -/
+theorem runtimeSteppedBracket_eq_steppedBracket
+    (logDensity : ℝ → ℝ) (threshold width current : ℝ)
+    {intervals : ℕ} {shift : ℤ}
+    (allocation : ValidAllocation intervals shift) (offset : Alignment) :
+    runtimeSteppedBracket logDensity threshold width current intervals
+        allocation.1 offset =
+      steppedBracket logDensity threshold width current
+        (alignmentCoordinate offset) allocation := by
+  unfold runtimeSteppedBracket steppedBracket allocationRightSteps
+    allocationSteps
+  rfl
+
+/-- Concrete density of the primitive stepping-out/shrinkage trace. The grid
+allocation is uniform on its configured finite range; rejected points carry
+their successive reciprocal-bracket-width densities; and the final primitive
+coordinate is uniform on `[0,1)`. -/
+noncomputable def runtimeTraceDensity
+    (logDensity : ℝ → ℝ) (width : ℝ) (intervals : ℕ)
+    (state : ℝ × ℝ) (trace : RuntimeRandomTrace) : ENNReal :=
+  let threshold := state.1
+  let current := state.2
+  let allocation := trace.2.1.2
+  let rejected := List.ofFn trace.1.2
+  let stepped := runtimeSteppedBracket logDensity threshold width current
+    intervals allocation trace.2.1.1
+  let finalBracket := shrinkRejectedPoints current rejected stepped
+  let accepted := finalBracket.1 +
+    (finalBracket.2 - finalBracket.1) * trace.2.2
+  if 0 ≤ allocation ∧ allocation < intervals ∧
+      trace.2.2 ∈ Set.Ico (0 : ℝ) 1 ∧
+      threshold ≤ logDensity accepted then
+    ENNReal.ofReal ((intervals : ℝ)⁻¹) *
+      rejectedTraceWeight logDensity threshold current rejected stepped
+  else 0
+
+theorem rejectedTraceWeight_ne_top
+    (logDensity : ℝ → ℝ) (threshold current : ℝ)
+    (rejected : List ℝ) (bracket : ℝ × ℝ) :
+    rejectedTraceWeight logDensity threshold current rejected bracket ≠ ⊤ := by
+  induction rejected generalizing bracket with
+  | nil => simp [rejectedTraceWeight]
+  | cons point remaining ih =>
+      simp only [rejectedTraceWeight]
+      split
+      · exact ENNReal.mul_ne_top ENNReal.ofReal_ne_top (ih _)
+      · simp
+
+theorem runtimeTraceDensity_ne_top
+    (logDensity : ℝ → ℝ) (width : ℝ) (intervals : ℕ)
+    (state : ℝ × ℝ) (trace : RuntimeRandomTrace) :
+    runtimeTraceDensity logDensity width intervals state trace ≠ ⊤ := by
+  simp only [runtimeTraceDensity]
+  split
+  · exact ENNReal.mul_ne_top ENNReal.ofReal_ne_top
+      (rejectedTraceWeight_ne_top logDensity state.1 state.2 _ _)
+  · simp
+
+theorem runtimeTraceDensity_zero_of_allocation_invalid
+    (logDensity : ℝ → ℝ) (width : ℝ) (intervals : ℕ)
+    (state : ℝ × ℝ) (trace : RuntimeRandomTrace)
+    (hinvalid : ¬(0 ≤ trace.2.1.2 ∧ trace.2.1.2 < intervals)) :
+    runtimeTraceDensity logDensity width intervals state trace = 0 := by
+  unfold runtimeTraceDensity
+  simp only
+  split
+  · next h => exact False.elim (hinvalid ⟨h.1, h.2.1⟩)
+  · rfl
+
+/-- Integration against the variable-length base decomposes into the sum of
+finite-dimensional Lebesgue integrals. -/
+theorem lintegral_rejectedSequenceLebesgue
+    (weight : RejectedSequence → ENNReal) (hweight : Measurable weight) :
+    ∫⁻ rejected, weight rejected ∂rejectedSequenceLebesgue =
+      ∑' length : ℕ, ∫⁻ values : Fin length → ℝ,
+        weight (Sigma.mk length values)
+          ∂(Measure.pi fun _ : Fin length => (volume : Measure ℝ)) := by
+  rw [rejectedSequenceLebesgue, lintegral_sum_measure]
+  congr with length
+  rw [rejectedSequenceFiberMeasure, MeasureTheory.lintegral_map hweight
+    (measurable_rejectedSequenceMk length)]
+
 abbrev RejectedTraceStratum (intervals : ℕ) (shift : ℤ) :=
   RejectedSequence ×
     ((Alignment × ValidAllocation intervals shift) × (ℝ × ℝ))
