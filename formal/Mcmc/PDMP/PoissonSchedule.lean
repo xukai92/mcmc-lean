@@ -216,6 +216,79 @@ theorem measurable_orderedTimestampsToWaits (n : ℕ) :
   · simp only [orderedTimestampsToWaits, dif_neg hzero]
     fun_prop
 
+/-- Inter-candidate waits telescope back to the last absolute timestamp for a
+nonnegative monotone timestamp vector. -/
+theorem sum_orderedTimestampsToWaits
+    (times : Fin (n + 1) → ℝ) (hmono : Monotone times)
+    (hzero : 0 ≤ times 0) :
+    ((∑ i, orderedTimestampsToWaits times i : NNReal) : ℝ) =
+      times (Fin.last n) := by
+  let f : ℕ → ℝ := fun k => times ⟨min k n,
+    lt_of_le_of_lt (Nat.min_le_right k n) (Nat.lt_succ_self n)⟩
+  let g : ℕ → ℝ := fun k =>
+    if hk : k < n + 1 then
+      (orderedTimestampsToWaits times ⟨k, hk⟩ : ℝ)
+    else 0
+  rw [NNReal.coe_sum]
+  calc
+    ∑ i, (orderedTimestampsToWaits times i : ℝ) = ∑ i : Fin (n + 1), g i := by
+      apply Finset.sum_congr rfl
+      intro i _
+      dsimp [g]
+      split_ifs with h
+      · rfl
+      · exact (h i.isLt).elim
+    _ = ∑ k ∈ Finset.range (n + 1), g k :=
+      Fin.sum_univ_eq_sum_range g (n + 1)
+    _ =
+        ∑ k ∈ Finset.range (n + 1),
+          if k = 0 then f 0 else f k - f (k - 1) := by
+      apply Finset.sum_congr rfl
+      intro k hk
+      have hklt : k < n + 1 := Finset.mem_range.mp hk
+      have hkle : k ≤ n := Nat.lt_succ_iff.mp hklt
+      have hg : g k =
+          (orderedTimestampsToWaits times ⟨k, hklt⟩ : ℝ) := by
+        dsimp [g]
+        split_ifs
+        rfl
+      have hf : f k = times ⟨k, hklt⟩ := by
+        simp [f, Nat.min_eq_left hkle]
+      by_cases hk0 : k = 0
+      · subst k
+        simp [hg, orderedTimestampsToWaits, f, hzero]
+      · have hkpos : 0 < k := Nat.pos_of_ne_zero hk0
+        have hprevlt : k - 1 < n + 1 :=
+          lt_of_le_of_lt (Nat.sub_le k 1) hklt
+        have hprevle : k - 1 ≤ n := Nat.lt_succ_iff.mp hprevlt
+        have hfprev : f (k - 1) = times ⟨k - 1, hprevlt⟩ := by
+          simp [f, Nat.min_eq_left hprevle]
+        have hle : times ⟨k - 1, hprevlt⟩ ≤ times ⟨k, hklt⟩ := by
+          apply hmono
+          exact Fin.mk_le_mk.mpr (Nat.sub_le k 1)
+        rw [hg]
+        simp [orderedTimestampsToWaits, hk0, hf, hfprev,
+          Real.toNNReal_of_nonneg (sub_nonneg.mpr hle)]
+    _ = f n := (Finset.eq_sum_range_sub' f n).symm
+    _ = times (Fin.last n) := by
+      apply congrArg times
+      apply Fin.ext
+      simp
+
+/-- Ordered timestamps contained in a horizon produce waits whose total does
+not exceed that horizon. -/
+theorem sum_orderedTimestampsToWaits_le
+    (times : Fin n → ℝ) (hmono : Monotone times) (horizon : NNReal)
+    (hinside : ∀ i, times i ∈ Set.Ioc 0 (horizon : ℝ)) :
+    (∑ i, orderedTimestampsToWaits times i) ≤ horizon := by
+  cases n with
+  | zero => simp
+  | succ n =>
+      rw [← NNReal.coe_le_coe]
+      rw [sum_orderedTimestampsToWaits times hmono
+        (le_of_lt (hinside 0).1)]
+      exact (hinside (Fin.last n)).2
+
 /-- Conditional law of inter-candidate waits induced by a certified timestamp
 ordering. -/
 noncomputable def PositiveHorizon.candidateWaitsMeasure
@@ -239,6 +312,26 @@ abbrev CandidateScheduleSample := ℕ × (ℕ → NNReal)
 def padCandidateWaits (n : ℕ) (waits : Fin n → NNReal) :
     CandidateScheduleSample :=
   (n, fun k => if h : k < n then waits ⟨k, h⟩ else 0)
+
+/-- Padding does not change the elapsed time represented by the active wait
+coordinates. -/
+theorem scheduleElapsed_padCandidateWaits (n : ℕ) (waits : Fin n → NNReal) :
+    (∑ index ∈ Finset.range n, (padCandidateWaits n waits).2 index) =
+      ∑ index, waits index := by
+  let g : ℕ → NNReal := fun index =>
+    if h : index < n then waits ⟨index, h⟩ else 0
+  calc
+    (∑ index ∈ Finset.range n, (padCandidateWaits n waits).2 index) =
+        ∑ index ∈ Finset.range n, g index := by rfl
+    _ = ∑ index : Fin n, g index :=
+      (Fin.sum_univ_eq_sum_range g n).symm
+    _ = ∑ index, waits index := by
+      apply Finset.sum_congr rfl
+      intro index _
+      dsimp [g]
+      split_ifs with h
+      · rfl
+      · exact (h index.isLt).elim
 
 theorem measurable_padCandidateWaits (n : ℕ) :
     Measurable (padCandidateWaits n) := by

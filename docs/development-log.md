@@ -28,6 +28,12 @@
   refreshed semigroup proof has been narrowed to bridging the residual wait
   across the split and proving the corresponding concatenation law for two
   independent ordered Poisson schedules.
+  The ordered-timestamp conversion now has its missing deterministic
+  foundation: for every nonnegative monotone nonempty timestamp vector, Lean
+  proves that the inter-event waits telescope exactly to the final timestamp;
+  timestamps inside a positive horizon therefore have total wait at most the
+  horizon. Padding is also proved not to change the active wait sum. Lifting
+  this bound through the ordered-uniform schedule measure is the next step.
 
 - Closed the rejected-length sigma assembly for the practical-slice joint
   law. The variable-dimensional runtime base is now proved equal to the
