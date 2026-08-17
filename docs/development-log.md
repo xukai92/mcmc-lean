@@ -4670,3 +4670,26 @@ and translating it at a fixed grid anchor is proved to yield
 `ofReal |width⁻¹| • Lebesgue`, and substituting the actual maximal-left anchor
 recovers the current state exactly.  The next step is to conjugate the
 signature-controlled accepted-point swap across the paired replay cells.
+
+## 2026-08-17: anchored accepted-grid conjugacy
+
+Completed the algebraic conjugacy underlying each practical replay cell.
+Lean proves that alignment/allocation rerooting translates the tiled real
+coordinate by exactly `(new-old)/width`.  The fixed-anchor grid coordinate is
+packaged as a measurable equivalence to the real current state, and conjugating
+the actual grid reroot/reverse-fraction transform through that equivalence is
+exactly the already proved planar accepted-proposal reversal.  Hence the
+actual fixed-anchor transform preserves `Haar × count × Lebesgue`, including
+the width-dependent Lebesgue scaling factor rather than silently treating it
+as one.
+
+This preservation theorem is lifted through an arbitrary measurable s-finite
+outer context with a measurable nondegenerate bracket family.  A separate
+measurable runtime chart now reorganizes
+`(threshold,current,rejected,grid,fraction)` as
+`(threshold,rejected,anchor; grid,fraction)`.  On every successful replay
+signature, Lean proves pointwise that charting the concrete primitive runtime
+reversal equals the contextual anchored transform using the
+signature-controlled final bracket.  The remaining local obligation is only
+the exact product-measure reassociation law for this runtime chart, followed by
+restriction and countable gluing.

@@ -434,6 +434,47 @@ noncomputable def anchoredGridState
     (width anchor : ℝ) (grid : Alignment × ℤ) : ℝ :=
   anchor + width * alignmentCountingCoordinate grid
 
+/-- Recover grid coordinates from an anchored real state. -/
+noncomputable def anchoredGridStateInverse
+    (width anchor value : ℝ) : Alignment × ℤ :=
+  alignmentCountingCoordinateInverse ((value - anchor) / width)
+
+theorem measurable_anchoredGridStateInverse (width anchor : ℝ) :
+    Measurable (anchoredGridStateInverse width anchor) := by
+  unfold anchoredGridStateInverse
+  exact measurable_alignmentCountingCoordinateInverse.comp
+    ((measurable_id.sub measurable_const).div measurable_const)
+
+/-- At nonzero width, fixed-anchor grid coordinates are measurably equivalent
+to the current real state. -/
+noncomputable def anchoredGridStateMeasurableEquiv
+    (width anchor : ℝ) (hwidth : width ≠ 0) :
+    (Alignment × ℤ) ≃ᵐ ℝ where
+  toFun := anchoredGridState width anchor
+  invFun := anchoredGridStateInverse width anchor
+  left_inv grid := by
+    unfold anchoredGridStateInverse anchoredGridState
+    rw [show (anchor + width * alignmentCountingCoordinate grid - anchor) /
+        width = alignmentCountingCoordinate grid by
+      field_simp
+      ring]
+    exact alignmentCountingMeasurableEquiv.left_inv grid
+  right_inv value := by
+    unfold anchoredGridStateInverse anchoredGridState
+    have hrecover := alignmentCountingMeasurableEquiv.right_inv
+      ((value - anchor) / width)
+    change alignmentCountingCoordinate
+        (alignmentCountingCoordinateInverse ((value - anchor) / width)) =
+      (value - anchor) / width at hrecover
+    rw [hrecover]
+    field_simp
+    ring
+  measurable_toFun := by
+    unfold anchoredGridState
+    exact measurable_const.add
+      (measurable_const.mul measurable_alignmentCountingCoordinate)
+  measurable_invFun := measurable_anchoredGridStateInverse width anchor
+
 /-- At nonzero width, the anchored grid state has the expected constant
 multiple of Lebesgue measure. -/
 theorem anchoredGridState_measurePreserving
@@ -680,6 +721,42 @@ noncomputable def alignmentAllocationReverse
   (reverseAlignment width old new point.1,
     point.2 + integerAlignmentShift width old new point.1)
 
+/-- Grid rerooting is ordinary real translation in the tiled
+alignment/counting coordinate. -/
+theorem alignmentCountingCoordinate_alignmentAllocationReverse
+    (width old new : ℝ) (grid : Alignment × ℤ) :
+    alignmentCountingCoordinate
+        (alignmentAllocationReverse width old new grid) =
+      alignmentCountingCoordinate grid + (new - old) / width := by
+  unfold alignmentCountingCoordinate alignmentAllocationReverse
+    integerAlignmentShift
+  rw [alignmentCoordinate_reverseAlignment]
+  unfold reverseOffset
+  push_cast
+  have hdecompose := Int.fract_add_floor
+    (alignmentCoordinate grid.1 + (new - old) / width)
+  linarith
+
+theorem anchoredGridState_alignmentAllocationReverse
+    {width : ℝ} (hwidth : width ≠ 0) (anchor old new : ℝ)
+    (grid : Alignment × ℤ) :
+    anchoredGridState width anchor
+        (alignmentAllocationReverse width old new grid) =
+      anchoredGridState width anchor grid + (new - old) := by
+  unfold anchoredGridState
+  rw [alignmentCountingCoordinate_alignmentAllocationReverse]
+  field_simp
+  ring
+
+theorem anchoredGridState_alignmentAllocationReverse_eq_new
+    {width : ℝ} (hwidth : width ≠ 0) (anchor old new : ℝ)
+    (grid : Alignment × ℤ)
+    (hold : anchoredGridState width anchor grid = old) :
+    anchoredGridState width anchor
+        (alignmentAllocationReverse width old new grid) = new := by
+  rw [anchoredGridState_alignmentAllocationReverse hwidth, hold]
+  ring
+
 /-- Canonical maximal-left endpoint of the infinite aligned grid.  Unlike the
 initial bracket endpoint, this coordinate also absorbs the integer allocation
 and is therefore invariant when the practical trace is rerooted. -/
@@ -691,6 +768,13 @@ theorem anchoredGridState_maximalLeftGridAnchor
     (width current : ℝ) (grid : Alignment × ℤ) :
     anchoredGridState width
         (maximalLeftGridAnchor width current grid) grid = current := by
+  unfold anchoredGridState alignmentCountingCoordinate maximalLeftGridAnchor
+  ring
+
+theorem maximalLeftGridAnchor_anchoredGridState
+    (width anchor : ℝ) (grid : Alignment × ℤ) :
+    maximalLeftGridAnchor width (anchoredGridState width anchor grid) grid =
+      anchor := by
   unfold anchoredGridState alignmentCountingCoordinate maximalLeftGridAnchor
   ring
 
@@ -2232,6 +2316,141 @@ theorem acceptedProposalReverse_measurePreserving
   constructor
   all_goals ring
 
+/-- Accepted-proposal reversal expressed directly in fixed-anchor grid
+coordinates. -/
+noncomputable def anchoredAcceptedGridReverse
+    (width anchor left right : ℝ)
+    (point : (Alignment × ℤ) × ℝ) : (Alignment × ℤ) × ℝ :=
+  let old := anchoredGridState width anchor point.1
+  let reversed := acceptedProposalReverse left right (old, point.2)
+  (alignmentAllocationReverse width old reversed.1 point.1, reversed.2)
+
+/-- The fixed-anchor grid representation conjugates practical rerooting to the
+ordinary planar accepted-proposal reversal. -/
+theorem anchoredAcceptedGridReverse_measurePreserving
+    {width : ℝ} (hwidth : width ≠ 0) (anchor : ℝ)
+    {left right : ℝ} (hbracket : right - left ≠ 0) :
+    MeasurePreserving (anchoredAcceptedGridReverse width anchor left right)
+      (((volume : Measure Alignment).prod (Measure.count : Measure ℤ)).prod
+        (volume : Measure ℝ))
+      (((volume : Measure Alignment).prod (Measure.count : Measure ℤ)).prod
+        (volume : Measure ℝ)) := by
+  let gridEquiv := anchoredGridStateMeasurableEquiv width anchor hwidth
+  let proposalEquiv := MeasurableEquiv.prodCongr gridEquiv
+    (MeasurableEquiv.refl ℝ)
+  let scale : ENNReal := ENNReal.ofReal |width⁻¹|
+  have hproposal : MeasurePreserving proposalEquiv
+      (((volume : Measure Alignment).prod (Measure.count : Measure ℤ)).prod
+        (volume : Measure ℝ))
+      ((scale • (volume : Measure ℝ)).prod (volume : Measure ℝ)) := by
+    exact (anchoredGridState_measurePreserving hwidth anchor).prod
+      (MeasurePreserving.id (volume : Measure ℝ))
+  have hacceptedBase := acceptedProposalReverse_measurePreserving hbracket
+  have haccepted : MeasurePreserving (acceptedProposalReverse left right)
+      ((scale • (volume : Measure ℝ)).prod (volume : Measure ℝ))
+      ((scale • (volume : Measure ℝ)).prod (volume : Measure ℝ)) := by
+    refine ⟨hacceptedBase.measurable, ?_⟩
+    rw [Measure.prod_smul_left, Measure.map_smul, hacceptedBase.map_eq,
+      ← Measure.prod_smul_left]
+  have hproposalInverse := hproposal.symm proposalEquiv
+  have hall := hproposalInverse.comp (haccepted.comp hproposal)
+  convert hall using 1
+  funext point
+  apply Prod.ext
+  · apply gridEquiv.injective
+    change anchoredGridState width anchor
+        (alignmentAllocationReverse width
+          (anchoredGridState width anchor point.1)
+          (acceptedProposalReverse left right
+            (anchoredGridState width anchor point.1, point.2)).1 point.1) = _
+    rw [anchoredGridState_alignmentAllocationReverse_eq_new hwidth anchor
+      (anchoredGridState width anchor point.1)
+      (acceptedProposalReverse left right
+        (anchoredGridState width anchor point.1, point.2)).1 point.1 rfl]
+    change (acceptedProposalReverse left right
+        (anchoredGridState width anchor point.1, point.2)).1 =
+      gridEquiv (gridEquiv.symm
+        (acceptedProposalReverse left right
+          (anchoredGridState width anchor point.1, point.2)).1)
+    exact (gridEquiv.apply_symm_apply _).symm
+  · rfl
+
+/-- Retain an outer replay context while applying fixed-anchor practical
+accepted/grid reversal in its fiber. -/
+noncomputable def contextualAnchoredAcceptedGridReverse
+    {Context : Type*} (width : ℝ) (anchor : Context → ℝ)
+    (bracket : Context → ℝ × ℝ)
+    (point : Context × ((Alignment × ℤ) × ℝ)) :
+    Context × ((Alignment × ℤ) × ℝ) :=
+  (point.1, anchoredAcceptedGridReverse width (anchor point.1)
+    (bracket point.1).1 (bracket point.1).2 point.2)
+
+/-- A measurable nondegenerate bracket family gives a measure-preserving
+contextual anchored replay transform. -/
+theorem contextualAnchoredAcceptedGridReverse_measurePreserving
+    {Context : Type*} [MeasurableSpace Context]
+    (contextMeasure : Measure Context) [SFinite contextMeasure]
+    {width : ℝ} (hwidth : width ≠ 0)
+    (anchor : Context → ℝ) (hanchor : Measurable anchor)
+    (bracket : Context → ℝ × ℝ) (hbracket : Measurable bracket)
+    (hnondegenerate : ∀ context,
+      (bracket context).2 - (bracket context).1 ≠ 0) :
+    MeasurePreserving
+      (contextualAnchoredAcceptedGridReverse width anchor bracket)
+      (contextMeasure.prod
+        (((volume : Measure Alignment).prod (Measure.count : Measure ℤ)).prod
+          (volume : Measure ℝ)))
+      (contextMeasure.prod
+        (((volume : Measure Alignment).prod (Measure.count : Measure ℤ)).prod
+          (volume : Measure ℝ))) := by
+  let fiberMap : Context → ((Alignment × ℤ) × ℝ) →
+      ((Alignment × ℤ) × ℝ) := fun context point =>
+    anchoredAcceptedGridReverse width (anchor context)
+      (bracket context).1 (bracket context).2 point
+  have hfiberMeasurable : Measurable (Function.uncurry fiberMap) := by
+    unfold fiberMap anchoredAcceptedGridReverse anchoredGridState
+      alignmentCountingCoordinate acceptedProposalReverse
+    have hgrid : Measurable (fun point : Context × ((Alignment × ℤ) × ℝ) =>
+        point.2.1) := measurable_fst.comp measurable_snd
+    have hold : Measurable (fun point : Context × ((Alignment × ℤ) × ℝ) =>
+        anchor point.1 + width *
+          (alignmentCoordinate point.2.1.1 + (point.2.1.2 : ℝ))) := by
+      exact (hanchor.comp measurable_fst).add (measurable_const.mul
+        (((measurable_alignmentCoordinate.comp
+          (measurable_fst.comp hgrid)).add
+          ((measurable_of_countable (fun value : ℤ => (value : ℝ))).comp
+            (measurable_snd.comp hgrid)))))
+    have hleft : Measurable
+        (fun point : Context × ((Alignment × ℤ) × ℝ) =>
+          (bracket point.1).1) :=
+      measurable_fst.comp (hbracket.comp measurable_fst)
+    have hright : Measurable
+        (fun point : Context × ((Alignment × ℤ) × ℝ) =>
+          (bracket point.1).2) :=
+      measurable_snd.comp (hbracket.comp measurable_fst)
+    have hfraction : Measurable
+        (fun point : Context × ((Alignment × ℤ) × ℝ) => point.2.2) :=
+      measurable_snd.comp measurable_snd
+    have hnew := hleft.add ((hright.sub hleft).mul hfraction)
+    have hreversedGrid :=
+      (measurable_alignmentAllocationReverse_parameterized width).comp
+        ((hold.prodMk hnew).prodMk hgrid)
+    exact hreversedGrid.prodMk ((hold.sub hleft).div (hright.sub hleft))
+  have hfiberPreserving : ∀ context,
+      Measure.map (fiberMap context)
+          (((volume : Measure Alignment).prod (Measure.count : Measure ℤ)).prod
+            (volume : Measure ℝ)) =
+        ((volume : Measure Alignment).prod (Measure.count : Measure ℤ)).prod
+          (volume : Measure ℝ) := by
+    intro context
+    exact (anchoredAcceptedGridReverse_measurePreserving hwidth
+      (anchor context) (hnondegenerate context)).map_eq
+  have hall := (MeasurePreserving.id contextMeasure).skew_product
+    hfiberMeasurable (Filter.Eventually.of_forall hfiberPreserving)
+  convert hall using 1
+  funext point
+  rfl
+
 /-- Simultaneously swap old/accepted coordinates in a fixed bracket and
 reroot the Haar-aligned integer grid using those two endpoints. -/
 noncomputable def acceptedGridReverse (width left right : ℝ)
@@ -3497,6 +3716,84 @@ theorem measurable_runtimeTraceDensity_fixedFiber
 /-- Primitive trace carrier at one fixed rejected length. -/
 abbrev FixedRuntimeTrace (length : ℕ) :=
   (Fin length → ℝ) × ((Alignment × ℤ) × ℝ)
+
+/-- Retained replay context after replacing the current state by the invariant
+grid anchor. -/
+abbrev FixedRuntimeAnchorContext (length : ℕ) :=
+  (ℝ × (Fin length → ℝ)) × ℝ
+
+/-- Fixed-length runtime carrier in anchor/context coordinates. -/
+abbrev FixedRuntimeAnchorSpace (length : ℕ) :=
+  FixedRuntimeAnchorContext length × ((Alignment × ℤ) × ℝ)
+
+/-- Reassociate a fixed runtime point and replace its current coordinate by
+the invariant maximal-left anchor. -/
+noncomputable def fixedRuntimeAnchorChart (width : ℝ) {length : ℕ}
+    (point : (ℝ × ℝ) × FixedRuntimeTrace length) :
+    FixedRuntimeAnchorSpace length :=
+  (((point.1.1, point.2.1),
+      maximalLeftGridAnchor width point.1.2 point.2.2.1),
+    (point.2.2.1, point.2.2.2))
+
+noncomputable def fixedRuntimeAnchorChartInverse (width : ℝ) {length : ℕ}
+    (point : FixedRuntimeAnchorSpace length) :
+    (ℝ × ℝ) × FixedRuntimeTrace length :=
+  ((point.1.1.1, anchoredGridState width point.1.2 point.2.1),
+    (point.1.1.2, (point.2.1, point.2.2)))
+
+theorem measurable_fixedRuntimeAnchorChart (width : ℝ) {length : ℕ} :
+    Measurable (fixedRuntimeAnchorChart width (length := length)) := by
+  unfold fixedRuntimeAnchorChart
+  have hcurrentGrid : Measurable
+      (fun point : (ℝ × ℝ) × FixedRuntimeTrace length =>
+        (point.1.2, point.2.2.1)) := by fun_prop
+  exact (((by fun_prop : Measurable (fun point :
+      (ℝ × ℝ) × FixedRuntimeTrace length => (point.1.1, point.2.1))).prodMk
+        ((measurable_maximalLeftGridAnchor width).comp hcurrentGrid)).prodMk
+          (by fun_prop))
+
+theorem measurable_fixedRuntimeAnchorChartInverse (width : ℝ) {length : ℕ} :
+    Measurable (fixedRuntimeAnchorChartInverse width (length := length)) := by
+  unfold fixedRuntimeAnchorChartInverse
+  have hgrid : Measurable
+      (fun point : FixedRuntimeAnchorSpace length => point.2.1) := by fun_prop
+  have hstate : Measurable
+      (fun point : FixedRuntimeAnchorSpace length =>
+        anchoredGridState width point.1.2 point.2.1) := by
+    unfold anchoredGridState alignmentCountingCoordinate
+    exact (by fun_prop : Measurable
+      (fun point : FixedRuntimeAnchorSpace length => point.1.2)).add
+      (measurable_const.mul
+        (((measurable_alignmentCoordinate.comp
+          (measurable_fst.comp hgrid)).add
+          ((measurable_of_countable (fun value : ℤ => (value : ℝ))).comp
+            (measurable_snd.comp hgrid)))))
+  exact ((by fun_prop : Measurable
+    (fun point : FixedRuntimeAnchorSpace length => point.1.1.1)).prodMk
+      hstate).prodMk (by fun_prop)
+
+/-- The raw runtime carrier and its anchor/context presentation are measurably
+equivalent. -/
+noncomputable def fixedRuntimeAnchorMeasurableEquiv (width : ℝ) (length : ℕ) :
+    ((ℝ × ℝ) × FixedRuntimeTrace length) ≃ᵐ
+      FixedRuntimeAnchorSpace length where
+  toFun := fixedRuntimeAnchorChart width
+  invFun := fixedRuntimeAnchorChartInverse width
+  left_inv point := by
+    apply Prod.ext
+    · apply Prod.ext
+      · rfl
+      · exact anchoredGridState_maximalLeftGridAnchor width point.1.2
+          point.2.2.1
+    · rfl
+  right_inv point := by
+    apply Prod.ext
+    · apply Prod.ext
+      · rfl
+      · exact maximalLeftGridAnchor_anchoredGridState width point.1.2 point.2.1
+    · rfl
+  measurable_toFun := measurable_fixedRuntimeAnchorChart width
+  measurable_invFun := measurable_fixedRuntimeAnchorChartInverse width
 
 /-- After using the discrete measurable structure on integers, the density is
 jointly measurable in state and all trace coordinates at a fixed length. -/
@@ -5932,6 +6229,71 @@ theorem fixedRuntimeReplayFinalBracket_reverse_of_mem
   rw [fixedRuntimeReplaySteppedBracket_reverse_of_mem logDensity hwidth
     intervals maxShrink length signature witness hwitness anchor]
   rfl
+
+/-- On one replay piece, the actual primitive runtime reversal is exactly the
+contextual fixed-anchor transform after applying the runtime anchor chart. -/
+theorem fixedRuntimeAnchorChart_reverse_eq_contextual
+    (logDensity : ℝ → ℝ) {width : ℝ} (hwidth : 0 < width)
+    (intervals maxShrink length : ℕ)
+    (signature : FixedRuntimeReplaySignature length)
+    (point : (ℝ × ℝ) × FixedRuntimeTrace length)
+    (hpoint : point ∈ fixedRuntimeReplayPiece logDensity width intervals
+      maxShrink length signature) :
+    fixedRuntimeAnchorChart width
+        (fixedPrimitiveRuntimeAugmentedReverse logDensity width intervals length
+          point) =
+      contextualAnchoredAcceptedGridReverse width
+        (fun context : FixedRuntimeAnchorContext length => context.2)
+        (fun context => fixedRuntimeReplayFinalBracket width context.2
+          context.1.2 signature)
+        (fixedRuntimeAnchorChart width point) := by
+  let reversed := fixedPrimitiveRuntimeAugmentedReverse logDensity width
+    intervals length point
+  have hanchor :=
+    fixedPrimitiveRuntimeAugmentedReverse_maximalLeftGridAnchor logDensity
+      hwidth.ne' intervals length point
+  change maximalLeftGridAnchor width reversed.1.2 reversed.2.2.1 =
+    maximalLeftGridAnchor width point.1.2 point.2.2.1 at hanchor
+  have hfinal := runtimeFinalBracket_eq_fixedRuntimeReplayFinalBracket
+    logDensity width intervals maxShrink length signature point hpoint
+  have hold := anchoredGridState_maximalLeftGridAnchor width point.1.2
+    point.2.2.1
+  apply Prod.ext
+  · apply Prod.ext
+    · apply Prod.ext <;> rfl
+    · exact hanchor
+  · apply Prod.ext
+    · change reversed.2.2.1 = alignmentAllocationReverse width
+        (anchoredGridState width
+          (maximalLeftGridAnchor width point.1.2 point.2.2.1) point.2.2.1)
+        (acceptedProposalReverse
+          (fixedRuntimeReplayFinalBracket width
+            (maximalLeftGridAnchor width point.1.2 point.2.2.1)
+            point.2.1 signature).1
+          (fixedRuntimeReplayFinalBracket width
+            (maximalLeftGridAnchor width point.1.2 point.2.2.1)
+            point.2.1 signature).2
+          (anchoredGridState width
+            (maximalLeftGridAnchor width point.1.2 point.2.2.1)
+            point.2.2.1, point.2.2.2)).1 point.2.2.1
+      rw [hold]
+      rw [← hfinal]
+      rfl
+    · change reversed.2.2.2 =
+        (anchoredGridState width
+            (maximalLeftGridAnchor width point.1.2 point.2.2.1) point.2.2.1 -
+          (fixedRuntimeReplayFinalBracket width
+            (maximalLeftGridAnchor width point.1.2 point.2.2.1)
+            point.2.1 signature).1) /
+        ((fixedRuntimeReplayFinalBracket width
+            (maximalLeftGridAnchor width point.1.2 point.2.2.1)
+            point.2.1 signature).2 -
+          (fixedRuntimeReplayFinalBracket width
+            (maximalLeftGridAnchor width point.1.2 point.2.2.1)
+            point.2.1 signature).1)
+      rw [hold]
+      rw [← hfinal]
+      rfl
 
 /-- The fixed-dimensional successful rerooting is an involution. -/
 theorem fixedPrimitiveRuntimeAugmentedReverse_involutive
