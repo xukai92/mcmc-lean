@@ -28,40 +28,103 @@ instance unitHazardMeasure.instIsProbabilityMeasure :
   unfold unitHazardMeasure
   infer_instance
 
+/-- Distribution function of the canonical unit-exponential hazard law. -/
+theorem unitHazardMeasure_Iic (elapsed : NNReal) :
+    unitHazardMeasure (Set.Iic elapsed) =
+      ENNReal.ofReal (1 - Real.exp (-(elapsed : ℝ))) := by
+  unfold unitHazardMeasure HomogeneousClock.waitMeasure
+  change (Measure.map Real.toNNReal (expMeasure (1 : ℝ)))
+    (Set.Iic elapsed) = _
+  rw [Measure.map_apply measurable_real_toNNReal measurableSet_Iic]
+  have hpre : Real.toNNReal ⁻¹' (Set.Iic elapsed : Set NNReal) =
+      Set.Iic (elapsed : ℝ) := by
+    ext value
+    simp only [Set.mem_preimage, Set.mem_Iic,
+      Real.toNNReal_le_iff_le_coe]
+  rw [hpre]
+  letI : IsProbabilityMeasure (expMeasure (1 : ℝ)) :=
+    isProbabilityMeasure_expMeasure zero_lt_one
+  have hcdf := cdf_expMeasure_eq (r := (1 : ℝ)) zero_lt_one (elapsed : ℝ)
+  rw [cdf_eq_real] at hcdf
+  simp only [NNReal.coe_nonneg, if_pos, one_mul] at hcdf
+  apply (ENNReal.toReal_eq_toReal_iff'
+    (measure_ne_top _ _) ENNReal.ofReal_ne_top).mp
+  rw [ENNReal.toReal_ofReal]
+  · exact hcdf
+  · exact sub_nonneg.mpr (Real.exp_le_one_iff.mpr
+      (neg_nonpos.mpr elapsed.coe_nonneg))
+
 /-- Survival function of the canonical unit-exponential hazard law. -/
 theorem unitHazardMeasure_Ioi (elapsed : NNReal) :
     unitHazardMeasure (Set.Ioi elapsed) =
       ENNReal.ofReal (Real.exp (-(elapsed : ℝ))) := by
-  have hic : unitHazardMeasure (Set.Iic elapsed) =
-      ENNReal.ofReal (1 - Real.exp (-(elapsed : ℝ))) := by
-    unfold unitHazardMeasure HomogeneousClock.waitMeasure
-    change (Measure.map Real.toNNReal (expMeasure (1 : ℝ)))
-      (Set.Iic elapsed) = _
-    rw [Measure.map_apply measurable_real_toNNReal measurableSet_Iic]
-    have hpre : Real.toNNReal ⁻¹' (Set.Iic elapsed : Set NNReal) =
-        Set.Iic (elapsed : ℝ) := by
-      ext value
-      simp only [Set.mem_preimage, Set.mem_Iic,
-        Real.toNNReal_le_iff_le_coe]
-    rw [hpre]
-    letI : IsProbabilityMeasure (expMeasure (1 : ℝ)) :=
-      isProbabilityMeasure_expMeasure zero_lt_one
-    have hcdf := cdf_expMeasure_eq (r := (1 : ℝ)) zero_lt_one (elapsed : ℝ)
-    rw [cdf_eq_real] at hcdf
-    simp only [NNReal.coe_nonneg, if_pos, one_mul] at hcdf
-    apply (ENNReal.toReal_eq_toReal_iff'
-      (measure_ne_top _ _) ENNReal.ofReal_ne_top).mp
-    rw [ENNReal.toReal_ofReal]
-    · exact hcdf
-    · exact sub_nonneg.mpr (Real.exp_le_one_iff.mpr
-        (neg_nonpos.mpr elapsed.coe_nonneg))
   rw [← Set.compl_Iic,
-    measure_compl measurableSet_Iic (measure_ne_top _ _), measure_univ, hic]
+    measure_compl measurableSet_Iic (measure_ne_top _ _), measure_univ,
+    unitHazardMeasure_Iic]
   rw [← ENNReal.ofReal_one, ← ENNReal.ofReal_sub _
     (sub_nonneg.mpr (Real.exp_le_one_iff.mpr
       (neg_nonpos.mpr elapsed.coe_nonneg)))]
   congr 1
   ring
+
+/-- Unnormalized memorylessness: condition by restriction to marks larger than
+`elapsed`, subtract `elapsed`, and recover the original unit-hazard law scaled
+by the survival probability. -/
+theorem unitHazardMeasure_residual_memoryless (elapsed : NNReal) :
+    Measure.map (fun hazard : NNReal => hazard - elapsed)
+        (unitHazardMeasure.restrict (Set.Ioi elapsed)) =
+      ENNReal.ofReal (Real.exp (-(elapsed : ℝ))) •
+        unitHazardMeasure := by
+  apply Measure.ext_of_Iic
+  intro residual
+  rw [Measure.map_apply (by fun_prop) measurableSet_Iic,
+    Measure.restrict_apply (measurableSet_Iic.preimage (by fun_prop))]
+  have hpre :
+      (fun hazard : NNReal => hazard - elapsed) ⁻¹' Set.Iic residual ∩
+          Set.Ioi elapsed =
+        Set.Ioc elapsed (elapsed + residual) := by
+    ext hazard
+    simp only [Set.mem_inter_iff, Set.mem_preimage, Set.mem_Iic, Set.mem_Ioi,
+      Set.mem_Ioc]
+    rw [tsub_le_iff_right]
+    simp [add_comm, and_comm]
+  rw [hpre]
+  have hsubset : Set.Iic elapsed ⊆ Set.Iic (elapsed + residual) :=
+    Set.Iic_subset_Iic.mpr (le_add_right le_rfl)
+  rw [show Set.Ioc elapsed (elapsed + residual) =
+      Set.Iic (elapsed + residual) \ Set.Iic elapsed by
+    ext hazard
+    simp]
+  rw [measure_sdiff hsubset nullMeasurableSet_Iic (measure_ne_top _ _),
+    unitHazardMeasure_Iic, unitHazardMeasure_Iic]
+  rw [Measure.smul_apply]
+  simp only [smul_eq_mul]
+  rw [unitHazardMeasure_Iic]
+  have hexp :
+      Real.exp (-((elapsed + residual : NNReal) : ℝ)) =
+        Real.exp (-(elapsed : ℝ)) * Real.exp (-(residual : ℝ)) := by
+    push_cast
+    rw [neg_add_rev, Real.exp_add]
+    ac_rfl
+  have hnonneg : 0 ≤ 1 - Real.exp (-(elapsed : ℝ)) :=
+    sub_nonneg.mpr (Real.exp_le_one_iff.mpr
+      (neg_nonpos.mpr elapsed.coe_nonneg))
+  rw [← ENNReal.ofReal_sub _ hnonneg, ← ENNReal.ofReal_mul
+    (Real.exp_nonneg (-(elapsed : ℝ)))]
+  congr 1
+  rw [hexp]
+  ring
+
+/-- Normalized conditional form of unit-exponential memorylessness. -/
+theorem unitHazardMeasure_conditional_residual (elapsed : NNReal) :
+    (ENNReal.ofReal (Real.exp (-(elapsed : ℝ))))⁻¹ •
+        Measure.map (fun hazard : NNReal => hazard - elapsed)
+          (unitHazardMeasure.restrict (Set.Ioi elapsed)) =
+      unitHazardMeasure := by
+  rw [unitHazardMeasure_residual_memoryless, smul_smul]
+  have hne : ENNReal.ofReal (Real.exp (-(elapsed : ℝ))) ≠ 0 :=
+    (ENNReal.ofReal_pos.mpr (Real.exp_pos _)).ne'
+  rw [ENNReal.inv_mul_cancel hne ENNReal.ofReal_ne_top, one_smul]
 
 /-- Proof-bearing inverse clock for a possibly unbounded state-dependent
 intensity along a deterministic flow. -/

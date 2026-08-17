@@ -678,8 +678,10 @@ by paper date:
    product law, with cons reconstructing the original stream law. The
    completed endpoint now satisfies the corresponding pathwise recursion on
    every completing tail and the law-level/kernel-level first-step renewal
-   equation. Residual exponential memorylessness and the resulting
-   positive-time composition law, target stationarity, and ergodicity remain.
+   equation. The generic unit-hazard law now also has both unnormalized and
+   normalized residual exponential-memorylessness theorems. Combining renewal
+   and memorylessness into the arbitrary positive-time composition law,
+   target stationarity, and ergodicity remains.
 
    The nonlinear reversible-jump branch is complete at the exact theorem and
    executable-client levels; only the shared Float64 primitive boundary
