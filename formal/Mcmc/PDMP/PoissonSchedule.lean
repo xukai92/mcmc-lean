@@ -41,6 +41,15 @@ instance PositiveHorizon.uniformTimeMeasure.instIsProbabilityMeasure
     (ne_of_gt (ENNReal.ofReal_pos.2 (by exact_mod_cast horizon.positive)))
     ENNReal.ofReal_ne_top
 
+/-- A draw from the continuous horizon law lies in `(0, horizon]` almost
+surely. -/
+theorem PositiveHorizon.ae_uniformTimeMeasure_mem
+    (horizon : PositiveHorizon) :
+    ∀ᵐ time ∂horizon.uniformTimeMeasure,
+      time ∈ Set.Ioc 0 (horizon.duration : ℝ) := by
+  unfold PositiveHorizon.uniformTimeMeasure
+  exact Measure.ae_smul_measure (ae_restrict_mem measurableSet_Ioc) _
+
 /-- The same uniform timestamp law represented directly in nonnegative time. -/
 noncomputable def PositiveHorizon.uniformNNRealTimeMeasure
     (horizon : PositiveHorizon) : Measure NNReal :=
@@ -64,6 +73,18 @@ instance PositiveHorizon.candidateTimesMeasure.instIsProbabilityMeasure
     IsProbabilityMeasure (horizon.candidateTimesMeasure candidateCount) := by
   unfold PositiveHorizon.candidateTimesMeasure
   infer_instance
+
+/-- Every coordinate of an iid candidate-time tuple lies in the horizon
+almost surely. -/
+theorem PositiveHorizon.ae_candidateTimesMeasure_mem
+    (horizon : PositiveHorizon) (candidateCount : ℕ) :
+    ∀ᵐ times ∂horizon.candidateTimesMeasure candidateCount,
+      ∀ i, times i ∈ Set.Ioc 0 (horizon.duration : ℝ) := by
+  unfold PositiveHorizon.candidateTimesMeasure
+  rw [Filter.eventually_all]
+  intro i
+  exact Measure.tendsto_eval_ae_ae.eventually
+    horizon.ae_uniformTimeMeasure_mem
 
 /-- A certified measurable ordering of a fixed-size timestamp vector. The
 permutation field ensures no candidate is added or lost. -/
@@ -304,6 +325,31 @@ instance PositiveHorizon.candidateWaitsMeasure.instIsProbabilityMeasure
   exact Measure.isProbabilityMeasure_map
     (measurable_orderedTimestampsToWaits n).aemeasurable
 
+/-- Under every certified ordering, the conditional wait vector has total
+elapsed time at most the horizon almost surely. -/
+theorem PositiveHorizon.ae_candidateWaitsMeasure_sum_le
+    (horizon : PositiveHorizon) (ordering : TimestampOrdering n) :
+    ∀ᵐ waits ∂horizon.candidateWaitsMeasure ordering,
+      (∑ i, waits i) ≤ horizon.duration := by
+  have hsum : Measurable (fun waits : Fin n → NNReal => ∑ i, waits i) := by
+    fun_prop
+  have hsumOrdered : Measurable (fun times : Fin n → ℝ =>
+      ∑ i, orderedTimestampsToWaits times i) :=
+    hsum.comp (measurable_orderedTimestampsToWaits n)
+  unfold PositiveHorizon.candidateWaitsMeasure
+    PositiveHorizon.orderedCandidateTimesMeasure
+  rw [ae_map_iff (measurable_orderedTimestampsToWaits n).aemeasurable
+    (measurableSet_le hsum measurable_const)]
+  rw [ae_map_iff ordering.measurable_order.aemeasurable
+    (measurableSet_le hsumOrdered measurable_const)]
+  filter_upwards [horizon.ae_candidateTimesMeasure_mem n] with times htimes
+  apply sum_orderedTimestampsToWaits_le
+  · exact ordering.monotone_order times
+  · intro i
+    obtain ⟨permutation, hpermutation⟩ := ordering.permutes times
+    rw [hpermutation]
+    exact htimes (permutation i)
+
 /-- Common measurable carrier for schedules of every finite size. Coordinates
 past `candidateCount` are padding and carry no semantic events. -/
 abbrev CandidateScheduleSample := ℕ × (ℕ → NNReal)
@@ -359,6 +405,31 @@ instance PositiveHorizon.fixedScheduleMeasure.instIsProbabilityMeasure
   unfold PositiveHorizon.fixedScheduleMeasure
   exact Measure.isProbabilityMeasure_map
     (measurable_padCandidateWaits n).aemeasurable
+
+/-- A padded fixed-count schedule remains within its horizon almost surely. -/
+theorem PositiveHorizon.ae_fixedScheduleMeasure_elapsed_le
+    (horizon : PositiveHorizon) (ordering : TimestampOrdering n) :
+    ∀ᵐ schedule ∂horizon.fixedScheduleMeasure ordering,
+      (∑ index ∈ Finset.range n, schedule.2 index) ≤ horizon.duration := by
+  have helapsed : Measurable (fun schedule : CandidateScheduleSample =>
+      ∑ index ∈ Finset.range n, schedule.2 index) := by
+    fun_prop
+  unfold PositiveHorizon.fixedScheduleMeasure
+  rw [ae_map_iff (measurable_padCandidateWaits n).aemeasurable
+    (measurableSet_le helapsed measurable_const)]
+  filter_upwards [horizon.ae_candidateWaitsMeasure_sum_le ordering] with waits hwaits
+  rw [scheduleElapsed_padCandidateWaits]
+  exact hwaits
+
+/-- The padded schedule law records its fixed candidate count exactly. -/
+theorem PositiveHorizon.ae_fixedScheduleMeasure_fst
+    (horizon : PositiveHorizon) (ordering : TimestampOrdering n) :
+    ∀ᵐ schedule ∂horizon.fixedScheduleMeasure ordering,
+      schedule.1 = n := by
+  unfold PositiveHorizon.fixedScheduleMeasure
+  rw [ae_map_iff (measurable_padCandidateWaits n).aemeasurable
+    (measurableSet_eq_fun (measurable_fst) measurable_const)]
+  exact Filter.Eventually.of_forall fun _ => rfl
 
 /-- The singleton masses of a Poisson law sum to one. -/
 theorem tsum_poisson_singletons (intensity : NNReal) :
@@ -446,6 +517,23 @@ instance poissonCandidateSchedule.instIsProbabilityMeasure
     IsProbabilityMeasure (poissonCandidateSchedule intensity horizon) := by
   unfold poissonCandidateSchedule
   infer_instance
+
+/-- The unconditional padded Poisson schedule stays within its horizon almost
+surely, with the random stored count selecting the active prefix. -/
+theorem ae_poissonCandidateSchedule_elapsed_le
+    (intensity : NNReal) (horizon : PositiveHorizon) :
+    ∀ᵐ schedule ∂poissonCandidateSchedule intensity horizon,
+      (∑ index ∈ Finset.range schedule.1, schedule.2 index) ≤
+        horizon.duration := by
+  unfold poissonCandidateSchedule poissonCandidateScheduleMeasure
+  rw [Measure.ae_sum_iff]
+  intro count
+  apply Measure.ae_smul_measure
+  filter_upwards [horizon.ae_fixedScheduleMeasure_fst
+      (timestampOrdering count),
+    horizon.ae_fixedScheduleMeasure_elapsed_le
+      (timestampOrdering count)] with schedule hcount helapsed
+  simpa only [hcount] using helapsed
 
 /-- The concrete unconditional schedule retains the exact Poisson count
 marginal. -/

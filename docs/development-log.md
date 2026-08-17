@@ -33,7 +33,13 @@
   proves that the inter-event waits telescope exactly to the final timestamp;
   timestamps inside a positive horizon therefore have total wait at most the
   horizon. Padding is also proved not to change the active wait sum. Lifting
-  this bound through the ordered-uniform schedule measure is the next step.
+  this bound through the ordered-uniform schedule measure is now complete:
+  uniform timestamps lie in the horizon almost surely, every iid coordinate
+  does too, sorting preserves membership, converted waits remain within the
+  horizon, and both fixed-count padded schedules and the unconditional
+  Poisson-count mixture satisfy the corresponding elapsed-time bound. Thus
+  residual subtraction is genuine subtraction almost surely under the actual
+  schedule law, rather than merely a totalized truncation.
 
 - Closed the rejected-length sigma assembly for the practical-slice joint
   law. The variable-dimensional runtime base is now proved equal to the

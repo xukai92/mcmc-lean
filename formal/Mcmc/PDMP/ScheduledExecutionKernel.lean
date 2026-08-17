@@ -403,6 +403,24 @@ theorem measurable_scheduleElapsed (count : ℕ) :
   unfold scheduleElapsed
   fun_prop
 
+/-- The elapsed-time field of a conditional fixed-count Poisson schedule does
+not exceed its horizon almost surely. -/
+theorem PositiveHorizon.ae_fixedScheduleMeasure_scheduleElapsed_le
+    (horizon : PositiveHorizon) (ordering : TimestampOrdering n) :
+    ∀ᵐ schedule ∂horizon.fixedScheduleMeasure ordering,
+      scheduleElapsed n schedule ≤ horizon.duration := by
+  simpa only [scheduleElapsed] using
+    horizon.ae_fixedScheduleMeasure_elapsed_le ordering
+
+/-- The elapsed time selected by the random stored Poisson count is within the
+horizon almost surely. -/
+theorem ae_poissonCandidateSchedule_scheduleElapsed_le
+    (intensity : NNReal) (horizon : PositiveHorizon) :
+    ∀ᵐ schedule ∂poissonCandidateSchedule intensity horizon,
+      scheduleElapsed schedule.1 schedule ≤ horizon.duration := by
+  simpa only [scheduleElapsed] using
+    ae_poissonCandidateSchedule_elapsed_le intensity horizon
+
 /-- After all scheduled candidates, flow through the residual horizon. -/
 noncomputable def ThinnedFlowSimulator.flowScheduledResidual
     (simulator : ThinnedFlowSimulator State) (horizon : NNReal)
