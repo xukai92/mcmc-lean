@@ -1329,6 +1329,68 @@ theorem standardGaussianBPSHorizonKernel_apply_firstStep
       measurable_standardGaussianBPSJump
       (standardGaussianBPS_completesFiniteHorizons (ι := ι)) horizon initial
 
+/-- Explicit first-event renewal branch for the completed Gaussian-BPS
+horizon process. -/
+noncomputable def standardGaussianBPSFirstEventEndpoint
+    (horizon : NNReal) (initial : BouncyParticleState ι)
+    (headTail : NNReal × (ℕ → NNReal)) : BouncyParticleState ι :=
+  let wait := gaussianBPSWaitingTime initial headTail.1
+  if 0 < horizon ∧
+      (standardGaussianBPSPartialInverseHazardData (ι := ι)).active
+        initial headTail.1 = true ∧ wait ≤ horizon then
+    (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+      |>.completedReplayEndpoint (standardGaussianBPSJump (ι := ι))
+        ((horizon - wait,
+          standardGaussianBPSJump (bouncyParticleFlow wait initial)),
+          headTail.2)
+  else
+    bouncyParticleFlow horizon initial
+
+theorem standardGaussianBPSFirstEventEndpoint_eq_firstStep
+    (horizon : NNReal) (initial : BouncyParticleState ι)
+    (headTail : NNReal × (ℕ → NNReal)) :
+    standardGaussianBPSFirstEventEndpoint horizon initial headTail =
+      PartialInverseHazardClock.completedReplayEndpoint
+        (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+        (standardGaussianBPSJump (ι := ι))
+        (PartialInverseHazardClock.cappedStepUpdate
+          (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+          (standardGaussianBPSJump (ι := ι))
+          ((horizon, initial), headTail.1), headTail.2) := by
+  unfold standardGaussianBPSFirstEventEndpoint
+  by_cases hcondition : 0 < horizon ∧
+      (standardGaussianBPSPartialInverseHazardData (ι := ι)).active
+        initial headTail.1 = true ∧
+      gaussianBPSWaitingTime initial headTail.1 ≤ horizon
+  · rw [if_pos hcondition]
+    rw [(standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+      |>.cappedStepUpdate_of_event (standardGaussianBPSJump (ι := ι))
+        hcondition.1 hcondition.2.1 hcondition.2.2]
+    rfl
+  · rw [if_neg hcondition]
+    rw [(standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+      |>.cappedStepUpdate_of_no_event (standardGaussianBPSJump (ι := ι))
+        hcondition]
+    symm
+    exact (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+      |>.completedReplayEndpoint_zero
+        (standardGaussianBPSJump (ι := ι))
+        (bouncyParticleFlow horizon initial) headTail.2
+
+/-- Kernel-level Gaussian-BPS renewal equation in explicit event/no-event
+form. -/
+theorem standardGaussianBPSHorizonKernel_apply_firstEvent
+    (horizon : NNReal) (initial : BouncyParticleState ι) :
+    standardGaussianBPSHorizonKernel (ι := ι) horizon initial =
+      Measure.map
+        (standardGaussianBPSFirstEventEndpoint (ι := ι) horizon initial)
+        (unitHazardMeasure.prod unitHazardSequenceMeasure) := by
+  rw [standardGaussianBPSHorizonKernel_apply_firstStep]
+  apply Measure.map_congr
+  filter_upwards [] with headTail
+  exact (standardGaussianBPSFirstEventEndpoint_eq_firstStep
+    horizon initial headTail).symm
+
 /-- First-event-or-residual-flow BPS kernel on a finite horizon. This kernel
 handles a certified inactive state without imposing a fictitious event. It is
 the one-event recursion component, not yet the complete repeatedly restarted

@@ -686,9 +686,12 @@ by paper date:
    the inactive zero-velocity case. The positive inverse-clock solution is now
    proved unique; before it rings accumulation is strictly below the mark, and
    subtracting consumed hazard gives exactly the residual wait from the flowed
-   state. Lifting this split identity through the endpoint law to obtain the
-   arbitrary positive-time composition law, target stationarity, and
-   ergodicity remains.
+   state. The Gaussian client now exposes its kernel renewal equation in
+   explicit event/no-event form: either flow for the whole horizon, or flow to
+   the exact inverse-clock time, reflect, and complete the residual horizon on
+   a fresh iid tail. Lifting the split identity through this endpoint law to
+   obtain the arbitrary positive-time composition law, target stationarity,
+   and ergodicity remains.
 
    The nonlinear reversible-jump branch is complete at the exact theorem and
    executable-client levels; only the shared Float64 primitive boundary
