@@ -1525,6 +1525,76 @@ noncomputable def shrinkRejectedVector (current : ℝ) :
       shrinkRejectedVector current length (fun index => rejected index.succ)
         (shrinkBracket current (rejected 0) bracket)
 
+/-- Bracket update with the rejected side supplied explicitly rather than
+recomputed from a current state. -/
+noncomputable def shrinkBracketBySide (rejected : ℝ) (rejectedLeft : Bool)
+    (bracket : ℝ × ℝ) : ℝ × ℝ :=
+  if rejectedLeft then (rejected, bracket.2) else (bracket.1, rejected)
+
+/-- Replay a finite rejected vector using an explicit side decision for each
+coordinate. -/
+noncomputable def shrinkRejectedVectorBySides :
+    (length : ℕ) → (Fin length → ℝ) → (Fin length → Bool) →
+      (ℝ × ℝ) → (ℝ × ℝ)
+  | 0, _, _, bracket => bracket
+  | length + 1, rejected, rejectedLeft, bracket =>
+      shrinkRejectedVectorBySides length
+        (fun index => rejected index.succ)
+        (fun index => rejectedLeft index.succ)
+        (shrinkBracketBySide (rejected 0) (rejectedLeft 0) bracket)
+
+theorem shrinkBracket_eq_shrinkBracketBySide
+    (current rejected : ℝ) (rejectedLeft : Bool) (bracket : ℝ × ℝ)
+    (hside : (rejected < current) = rejectedLeft) :
+    shrinkBracket current rejected bracket =
+      shrinkBracketBySide rejected rejectedLeft bracket := by
+  cases rejectedLeft <;>
+    simp_all [shrinkBracket, shrinkBracketBySide]
+
+/-- Supplying the actual comparison result at every coordinate gives exactly
+the ordinary current-dependent shrink replay. -/
+theorem shrinkRejectedVector_eq_shrinkRejectedVectorBySides
+    (current : ℝ) (length : ℕ) (rejected : Fin length → ℝ)
+    (rejectedLeft : Fin length → Bool) (bracket : ℝ × ℝ)
+    (hside : ∀ index, (rejected index < current) = rejectedLeft index) :
+    shrinkRejectedVector current length rejected bracket =
+      shrinkRejectedVectorBySides length rejected rejectedLeft bracket := by
+  induction length generalizing bracket with
+  | zero => rfl
+  | succ length ih =>
+      simp only [shrinkRejectedVector, shrinkRejectedVectorBySides]
+      rw [shrinkBracket_eq_shrinkBracketBySide current (rejected 0)
+        (rejectedLeft 0) bracket (hside 0)]
+      apply ih
+      intro index
+      exact hside index.succ
+
+/-- With side decisions fixed, rejected-vector replay is jointly measurable in
+the rejected coordinates and starting bracket. -/
+theorem measurable_shrinkRejectedVectorBySides
+    (length : ℕ) (rejectedLeft : Fin length → Bool) :
+    Measurable (fun point : (Fin length → ℝ) × (ℝ × ℝ) =>
+      shrinkRejectedVectorBySides length point.1 rejectedLeft point.2) := by
+  induction length with
+  | zero => exact measurable_snd
+  | succ length ih =>
+      have hrejected : Measurable
+          (fun point : (Fin (length + 1) → ℝ) × (ℝ × ℝ) => point.1) :=
+        measurable_fst
+      have htail : Measurable
+          (fun point : (Fin (length + 1) → ℝ) × (ℝ × ℝ) =>
+            fun index : Fin length => point.1 index.succ) :=
+        measurable_pi_lambda _ fun index =>
+          (measurable_pi_apply index.succ).comp hrejected
+      have hupdated : Measurable
+          (fun point : (Fin (length + 1) → ℝ) × (ℝ × ℝ) =>
+            shrinkBracketBySide (point.1 0) (rejectedLeft 0) point.2) := by
+        cases rejectedLeft 0 <;>
+          simp [shrinkBracketBySide] <;> fun_prop
+      simp only [shrinkRejectedVectorBySides]
+      exact (ih (fun index => rejectedLeft index.succ)).comp
+        (htail.prodMk hupdated)
+
 theorem shrinkRejectedVector_eq_shrinkRejectedPoints
     (current : ℝ) (length : ℕ) (rejected : Fin length → ℝ)
     (bracket : ℝ × ℝ) :
@@ -4940,6 +5010,26 @@ noncomputable def fixedRuntimeReplaySteppedBracket {length : ℕ}
     anchor + width *
       ((signature.allocation : ℝ) + 1 + signature.rightConsumed))
 
+/-- Final shrink bracket expressed entirely through retained rejected values,
+the invariant grid anchor, and the replay signature. -/
+noncomputable def fixedRuntimeReplayFinalBracket {length : ℕ}
+    (width anchor : ℝ) (rejected : Fin length → ℝ)
+    (signature : FixedRuntimeReplaySignature length) : ℝ × ℝ :=
+  shrinkRejectedVectorBySides length rejected signature.rejectedLeft
+    (fixedRuntimeReplaySteppedBracket width anchor signature)
+
+theorem measurable_fixedRuntimeReplayFinalBracket {length : ℕ}
+    (width : ℝ) (signature : FixedRuntimeReplaySignature length) :
+    Measurable (fun point : ℝ × (Fin length → ℝ) =>
+      fixedRuntimeReplayFinalBracket width point.1 point.2 signature) := by
+  have hstepped : Measurable (fun anchor : ℝ =>
+      fixedRuntimeReplaySteppedBracket width anchor signature) := by
+    unfold fixedRuntimeReplaySteppedBracket
+    fun_prop
+  exact (measurable_shrinkRejectedVectorBySides length
+      signature.rejectedLeft).comp
+    (measurable_snd.prodMk (hstepped.comp measurable_fst))
+
 instance (length : ℕ) : Countable (FixedRuntimeReplaySignature length) := by
   let encode : FixedRuntimeReplaySignature length →
       ℤ × ℤ × ℕ × ℕ × (Fin length → Bool) := fun signature =>
@@ -5010,6 +5100,55 @@ theorem runtimeSteppedBracket_eq_fixedRuntimeReplaySteppedBracket
     rw [hpoint.2.1]
     norm_num
     ring
+
+/-- On a replay piece, the runtime final bracket is a function of the retained
+rejected vector, invariant anchor, and discrete signature; the old state no
+longer occurs in that expression. -/
+theorem runtimeFinalBracket_eq_fixedRuntimeReplayFinalBracket
+    (logDensity : ℝ → ℝ) (width : ℝ) (intervals maxShrink length : ℕ)
+    (signature : FixedRuntimeReplaySignature length)
+    (point : (ℝ × ℝ) × FixedRuntimeTrace length)
+    (hpoint : point ∈ fixedRuntimeReplayPiece logDensity width intervals
+      maxShrink length signature) :
+    runtimeFinalBracket logDensity point.1.1 width point.1.2 intervals
+        (Sigma.mk length point.2.1, point.2.2) =
+      fixedRuntimeReplayFinalBracket width
+        (maximalLeftGridAnchor width point.1.2 point.2.2.1)
+        point.2.1 signature := by
+  rw [runtimeFinalBracket, ← shrinkRejectedVector_eq_shrinkRejectedPoints]
+  rw [runtimeSteppedBracket_eq_fixedRuntimeReplaySteppedBracket logDensity width
+    intervals maxShrink length signature point hpoint]
+  exact shrinkRejectedVector_eq_shrinkRejectedVectorBySides point.1.2 length
+    point.2.1 signature.rejectedLeft
+    (fixedRuntimeReplaySteppedBracket width
+      (maximalLeftGridAnchor width point.1.2 point.2.2.1) signature)
+    hpoint.2.2.2.2.2
+
+theorem fixedRuntimeReplayFinalBracket_lt_of_mem
+    (logDensity : ℝ → ℝ) {width : ℝ} (hwidth : 0 < width)
+    (intervals maxShrink length : ℕ)
+    (signature : FixedRuntimeReplaySignature length)
+    (point : (ℝ × ℝ) × FixedRuntimeTrace length)
+    (hpoint : point ∈ fixedRuntimeReplayPiece logDensity width intervals
+      maxShrink length signature) :
+    (fixedRuntimeReplayFinalBracket width
+      (maximalLeftGridAnchor width point.1.2 point.2.2.1)
+      point.2.1 signature).1 <
+    (fixedRuntimeReplayFinalBracket width
+      (maximalLeftGridAnchor width point.1.2 point.2.2.1)
+      point.2.1 signature).2 := by
+  let embedded : (ℝ × ℝ) × RuntimeRandomTrace :=
+    (point.1, (Sigma.mk length point.2.1, point.2.2))
+  have hsuccess := primitiveRuntimeSuccess_of_density_ne_zero logDensity hwidth
+    intervals maxShrink embedded hpoint.1.1 hpoint.1.2
+  have hfinal :
+      (runtimeFinalBracket logDensity point.1.1 width point.1.2 intervals
+        embedded.2).1 <
+      (runtimeFinalBracket logDensity point.1.1 width point.1.2 intervals
+        embedded.2).2 :=
+    lt_of_le_of_lt hsuccess.old_mem.1 hsuccess.old_mem.2
+  rwa [runtimeFinalBracket_eq_fixedRuntimeReplayFinalBracket logDensity width
+    intervals maxShrink length signature point hpoint] at hfinal
 
 theorem measurableSet_fixedRuntimeReplayPiece
     {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
@@ -5431,6 +5570,86 @@ theorem fixedRuntimeReverse_mem_replayPiece
     maxShrink length signature point hpoint
   exact ⟨hsupport, hallocationShift.1, hallocationShift.2,
     hendpoints.1, hendpoints.2, hsides⟩
+
+/-- Any inhabited replay signature and its reverse encode the same affine
+stopped bracket, not only at the witnessing anchor but at every anchor. -/
+theorem fixedRuntimeReplaySteppedBracket_reverse_of_mem
+    (logDensity : ℝ → ℝ) {width : ℝ} (hwidth : 0 < width)
+    (intervals maxShrink length : ℕ)
+    (signature : FixedRuntimeReplaySignature length)
+    (witness : (ℝ × ℝ) × FixedRuntimeTrace length)
+    (hwitness : witness ∈ fixedRuntimeReplayPiece logDensity width intervals
+      maxShrink length signature)
+    (anchor : ℝ) :
+    fixedRuntimeReplaySteppedBracket width anchor
+        (reverseFixedRuntimeReplaySignature signature) =
+      fixedRuntimeReplaySteppedBracket width anchor signature := by
+  let reversed := fixedPrimitiveRuntimeAugmentedReverse logDensity width
+    intervals length witness
+  have hreversePiece := fixedRuntimeReverse_mem_replayPiece logDensity hwidth
+    intervals maxShrink length signature witness hwitness
+  have hforward := runtimeSteppedBracket_eq_fixedRuntimeReplaySteppedBracket
+    logDensity width intervals maxShrink length signature witness hwitness
+  have hreverse := runtimeSteppedBracket_eq_fixedRuntimeReplaySteppedBracket
+    logDensity width intervals maxShrink length
+    (reverseFixedRuntimeReplaySignature signature) reversed hreversePiece
+  let embedded : (ℝ × ℝ) × RuntimeRandomTrace :=
+    (witness.1, (Sigma.mk length witness.2.1, witness.2.2))
+  have hsuccess := primitiveRuntimeSuccess_of_density_ne_zero logDensity hwidth
+    intervals maxShrink embedded hwitness.1.1 hwitness.1.2
+  have hsameAlgorithm :
+      runtimeSteppedBracket logDensity witness.1.1 width witness.1.2 intervals
+          witness.2.2.1.2 witness.2.2.1.1 =
+        runtimeSteppedBracket logDensity reversed.1.1 width reversed.1.2 intervals
+          reversed.2.2.1.2 reversed.2.2.1.1 := by
+    exact hsuccess.stepped_reverse
+  have hanchor :=
+    fixedPrimitiveRuntimeAugmentedReverse_maximalLeftGridAnchor logDensity
+      hwidth.ne' intervals length witness
+  change maximalLeftGridAnchor width reversed.1.2 reversed.2.2.1 =
+    maximalLeftGridAnchor width witness.1.2 witness.2.2.1 at hanchor
+  have hbase :
+      fixedRuntimeReplaySteppedBracket width
+          (maximalLeftGridAnchor width witness.1.2 witness.2.2.1)
+          (reverseFixedRuntimeReplaySignature signature) =
+        fixedRuntimeReplaySteppedBracket width
+          (maximalLeftGridAnchor width witness.1.2 witness.2.2.1) signature := by
+    calc
+      _ = fixedRuntimeReplaySteppedBracket width
+          (maximalLeftGridAnchor width reversed.1.2 reversed.2.2.1)
+          (reverseFixedRuntimeReplaySignature signature) := by rw [hanchor]
+      _ = runtimeSteppedBracket logDensity reversed.1.1 width reversed.1.2
+          intervals reversed.2.2.1.2 reversed.2.2.1.1 := hreverse.symm
+      _ = runtimeSteppedBracket logDensity witness.1.1 width witness.1.2
+          intervals witness.2.2.1.2 witness.2.2.1.1 := hsameAlgorithm.symm
+      _ = _ := hforward
+  apply Prod.ext
+  · have hcoordinate := congrArg Prod.fst hbase
+    unfold fixedRuntimeReplaySteppedBracket at hcoordinate ⊢
+    dsimp only
+    linarith
+  · have hcoordinate := congrArg Prod.snd hbase
+    unfold fixedRuntimeReplaySteppedBracket at hcoordinate ⊢
+    dsimp only
+    linarith
+
+/-- Consequently paired replay signatures determine the same final bracket
+for every retained rejected vector. -/
+theorem fixedRuntimeReplayFinalBracket_reverse_of_mem
+    (logDensity : ℝ → ℝ) {width : ℝ} (hwidth : 0 < width)
+    (intervals maxShrink length : ℕ)
+    (signature : FixedRuntimeReplaySignature length)
+    (witness : (ℝ × ℝ) × FixedRuntimeTrace length)
+    (hwitness : witness ∈ fixedRuntimeReplayPiece logDensity width intervals
+      maxShrink length signature)
+    (anchor : ℝ) (rejected : Fin length → ℝ) :
+    fixedRuntimeReplayFinalBracket width anchor rejected
+        (reverseFixedRuntimeReplaySignature signature) =
+      fixedRuntimeReplayFinalBracket width anchor rejected signature := by
+  unfold fixedRuntimeReplayFinalBracket
+  rw [fixedRuntimeReplaySteppedBracket_reverse_of_mem logDensity hwidth
+    intervals maxShrink length signature witness hwitness anchor]
+  rfl
 
 /-- The fixed-dimensional successful rerooting is an involution. -/
 theorem fixedPrimitiveRuntimeAugmentedReverse_involutive

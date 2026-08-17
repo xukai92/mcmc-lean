@@ -4630,3 +4630,21 @@ through an arbitrary retained s-finite replay context.  What remains in the
 local practical-slice argument is to identify each replay-piece restriction in
 that contextual chart and conjugate the accepted/grid skew-product theorem
 across the paired restrictions.
+
+## 2026-08-17: signature-controlled practical shrink geometry
+
+Separated shrink replay from the current-state comparison by introducing an
+explicit Boolean side vector.  Lean proves that supplying the actual side of
+every rejected point reproduces the original shrink recursion exactly, and
+that the side-controlled recursion is measurable.  Therefore, on a fixed
+replay signature, both the stopped bracket and final bracket are measurable
+functions solely of the invariant grid anchor and retained rejected vector;
+the old state and final fraction no longer enter the bracket family.
+
+For every inhabited replay signature, its translated reverse signature now
+defines exactly the same affine stopped bracket for every anchor, and hence the
+same final bracket for every rejected vector.  This upgrades the prior
+pointwise stopped-bracket equality into the context-wide identity required by
+the paired restricted-measure proof.  The remaining local step is the explicit
+reassociation/conjugacy of the raw runtime product measure with this anchor
+context and the accepted-point/grid fiber.
