@@ -4316,6 +4316,19 @@ supplies invariant-target and minorization proofs. This is a concrete
 continuous history-dependent warmup result; it does not discharge the stronger
 never-freezing continuous adaptation milestone.
 
+## 2026-08-17: partially mixing Feynman--Kac contraction
+
+Added the first nondegenerate partial-refresh client alongside the existing
+complete-refresh SMC model. Its mutation kernel refreshes from a fixed finite
+law with probability `p` and otherwise retains the current state. Lean proves
+stationarity, the exact one-step normalized Feynman--Kac update, and the exact
+pointwise error identity with contraction factor `1 - p`; iteration gives the
+closed form `(1 - p)^t` at every horizon. This supplies an actual strict model
+contraction rather than assuming one abstractly. The corresponding bootstrap
+population still contains multinomial-resampling and retained-ancestry
+dependence, so deriving its affine MSE recursion and particle-count-uniform PG
+mixing remains open.
+
 ## 2026-08-17: practical-slice stratum measure preservation
 
 Upgraded allocation rerooting from a finite-sum identity to preservation of

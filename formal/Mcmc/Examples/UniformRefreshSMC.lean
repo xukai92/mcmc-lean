@@ -160,4 +160,131 @@ theorem bootstrapPopulation_replicate_refresh_mse
   simpa using (iidPopulation_target_mse_eq_variance_div_count
     (Particle := Fin (extra + 1)) law score)
 
+/-! ### A genuinely partial-refresh Feynman--Kac model -/
+
+/-- With probability `refreshProbability`, draw from `law`; otherwise retain
+the current state. Unlike `refreshKernel`, this transition preserves ancestry
+information whenever the identity branch is selected. -/
+def partialRefreshKernel (refreshProbability : ℝ)
+    (hprob0 : 0 ≤ refreshProbability) (hprob1 : refreshProbability ≤ 1)
+    (law : Distribution Sample) : MarkovKernel Sample :=
+  mixture refreshProbability hprob0 hprob1 (refreshKernel law) identity
+
+omit [Nonempty Particle] in
+@[simp] theorem partialRefreshKernel_prob
+    (refreshProbability : ℝ)
+    (hprob0 : 0 ≤ refreshProbability) (hprob1 : refreshProbability ≤ 1)
+    (law : Distribution Sample) (current next : Sample) :
+    (partialRefreshKernel refreshProbability hprob0 hprob1 law).prob current next =
+      refreshProbability * law.mass next +
+        (1 - refreshProbability) * (if current = next then 1 else 0) := rfl
+
+omit [Nonempty Particle] in
+theorem partialRefreshKernel_stationary
+    (refreshProbability : ℝ)
+    (hprob0 : 0 ≤ refreshProbability) (hprob1 : refreshProbability ≤ 1)
+    (law : Distribution Sample) :
+    (partialRefreshKernel refreshProbability hprob0 hprob1 law).Stationary law :=
+  mixture_stationary refreshProbability hprob0 hprob1
+    (refreshKernel law) identity law (by
+      intro next
+      change (∑ x, law.mass x * law.mass next) = law.mass next
+      rw [← Finset.sum_mul, law.sum_mass, one_mul]) (identity_stationary law)
+
+omit [Nonempty Particle] in
+/-- Exact one-step contraction of every point mass toward the refresh law. -/
+theorem evolve_partialRefreshKernel_mass
+    (refreshProbability : ℝ)
+    (hprob0 : 0 ≤ refreshProbability) (hprob1 : refreshProbability ≤ 1)
+    (current law : Distribution Sample) (next : Sample) :
+    (current.evolve
+      (partialRefreshKernel refreshProbability hprob0 hprob1 law)).mass next =
+      refreshProbability * law.mass next +
+        (1 - refreshProbability) * current.mass next := by
+  rw [Distribution.evolve_mass]
+  simp_rw [partialRefreshKernel_prob, mul_add, Finset.sum_add_distrib]
+  rw [show (∑ x, current.mass x * (refreshProbability * law.mass next)) =
+      refreshProbability * law.mass next by
+    rw [← Finset.sum_mul, current.sum_mass, one_mul]]
+  rw [show (∑ x, current.mass x *
+      ((1 - refreshProbability) * if x = next then 1 else 0)) =
+      (1 - refreshProbability) * current.mass next by
+    rw [show (∑ x, current.mass x *
+        ((1 - refreshProbability) * if x = next then 1 else 0)) =
+        (1 - refreshProbability) *
+          ∑ x, current.mass x * (if x = next then 1 else 0) by
+      rw [Finset.mul_sum]
+      apply Finset.sum_congr rfl
+      intro x _
+      ring]
+    simp]
+
+/-- Constant potential isolates mutation, producing a nondegenerate
+Feynman--Kac step whose normalized target contracts but does not refresh in one
+step unless the refresh probability is one. -/
+def partialRefreshStep (refreshProbability : ℝ)
+    (hprob0 : 0 ≤ refreshProbability) (hprob1 : refreshProbability ≤ 1)
+    (law : Distribution Sample) : FeynmanKacStep Sample where
+  potential := fun _ => 1
+  potential_pos := fun _ => by norm_num
+  transition := partialRefreshKernel refreshProbability hprob0 hprob1 law
+
+omit [Nonempty Particle] in
+theorem bootstrapTargetUpdate_partialRefreshStep_mass
+    (refreshProbability : ℝ)
+    (hprob0 : 0 ≤ refreshProbability) (hprob1 : refreshProbability ≤ 1)
+    (current law : Distribution Sample) (next : Sample) :
+    (bootstrapTargetUpdate current
+      (partialRefreshStep refreshProbability hprob0 hprob1 law)).mass next =
+      refreshProbability * law.mass next +
+        (1 - refreshProbability) * current.mass next := by
+  have hone : finiteExpectation current (fun _ => 1) = 1 := by
+    unfold finiteExpectation
+    simpa using current.sum_mass
+  have hreweight : potentialReweight current (fun _ => 1)
+      (fun _ => by norm_num) = current := by
+    apply Distribution.ext
+    funext state
+    simp [potentialReweight, hone]
+  unfold bootstrapTargetUpdate partialRefreshStep
+  rw [hreweight]
+  exact evolve_partialRefreshKernel_mass refreshProbability hprob0 hprob1
+    current law next
+
+omit [Nonempty Particle] in
+/-- The normalized Feynman--Kac error contracts by exactly the retained-mass
+factor. This is the model-level strict contraction needed before deriving
+uniform particle bounds for the partially mixing bootstrap population. -/
+theorem bootstrapTargetUpdate_partialRefreshStep_error
+    (refreshProbability : ℝ)
+    (hprob0 : 0 ≤ refreshProbability) (hprob1 : refreshProbability ≤ 1)
+    (current law : Distribution Sample) (next : Sample) :
+    (bootstrapTargetUpdate current
+      (partialRefreshStep refreshProbability hprob0 hprob1 law)).mass next -
+        law.mass next =
+      (1 - refreshProbability) * (current.mass next - law.mass next) := by
+  rw [bootstrapTargetUpdate_partialRefreshStep_mass]
+  ring
+
+omit [Nonempty Particle] in
+/-- Across an arbitrary horizon, the normalized target error is exactly the
+retained-mass factor raised to the number of partial-refresh stages. -/
+theorem bootstrapTargetLawFrom_replicate_partialRefresh_error
+    (refreshProbability : ℝ)
+    (hprob0 : 0 ≤ refreshProbability) (hprob1 : refreshProbability ≤ 1)
+    (initial law : Distribution Sample) (time : ℕ) (next : Sample) :
+    (bootstrapTargetLawFrom initial
+      (List.replicate time
+        (partialRefreshStep refreshProbability hprob0 hprob1 law))).mass next -
+        law.mass next =
+      (1 - refreshProbability) ^ time *
+        (initial.mass next - law.mass next) := by
+  induction time generalizing initial with
+  | zero => simp [bootstrapTargetLawFrom]
+  | succ time ih =>
+      rw [List.replicate_succ, bootstrapTargetLawFrom, ih]
+      rw [bootstrapTargetUpdate_partialRefreshStep_error]
+      rw [pow_succ]
+      ring
+
 end Mcmc.Examples.UniformRefreshSMC
