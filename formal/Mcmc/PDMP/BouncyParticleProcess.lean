@@ -1704,6 +1704,210 @@ theorem standardGaussianBPS_terminal_noEvent_ae
   · exact hnoevent
   · exact (hboundary hequal).elim
 
+/-- Consequently, on every positive completion stratum the selected endpoint
+is almost surely the deterministic residual flow from the preterminal replay
+state. -/
+theorem standardGaussianBPS_completedEndpoint_eq_flow_on_stratum_ae
+    (horizon : NNReal) (initial : BouncyParticleState ι)
+    (hvelocity : initial.2 ≠ 0) (count : ℕ) :
+    ∀ᵐ hazards ∂unitHazardSequenceMeasure,
+      hazards ∈
+          ((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+            |>.genuineCompletionStratum (standardGaussianBPSJump (ι := ι))
+              horizon initial (count + 1)) →
+        ((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+            |>.completedReplayEndpoint (standardGaussianBPSJump (ι := ι))
+              ((horizon, initial), hazards)) =
+          bouncyParticleFlow
+            (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+              |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+                ((horizon, initial), hazards)).1)
+            (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+              |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+                ((horizon, initial), hazards)).2) := by
+  filter_upwards [standardGaussianBPS_terminal_noEvent_ae
+      (ι := ι) horizon initial hvelocity count] with hazards hnoevent
+  intro hmem
+  exact (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+    |>.completedReplayEndpoint_eq_flow_on_succ_stratum
+      (standardGaussianBPSJump (ι := ι)) horizon initial count hmem
+        (hnoevent hmem)
+
+/-- Hazard stream used to restart Gaussian BPS after splitting inside the
+terminal no-event flight of a completion stratum.  Its head is the residual
+of the unspent terminal mark and its tail is the untouched original suffix. -/
+noncomputable def standardGaussianBPSSplitResidualStream
+    (horizon : NNReal) (initial : BouncyParticleState ι) (count : ℕ)
+    (hazards : ℕ → NNReal) : ℕ → NNReal
+  | 0 =>
+      let before :=
+        (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+          |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+            ((horizon, initial), hazards)
+      gaussianBPSResidualHazard before.2 (hazards count) before.1
+  | index + 1 => hazards (count + index + 1)
+
+set_option maxHeartbeats 800000 in
+theorem measurable_standardGaussianBPSSplitResidualStream
+    (horizon : NNReal) (initial : BouncyParticleState ι) (count : ℕ) :
+    Measurable
+      (standardGaussianBPSSplitResidualStream (ι := ι) horizon initial count) := by
+  apply measurable_pi_lambda
+  intro index
+  cases index with
+  | zero =>
+      unfold standardGaussianBPSSplitResidualStream gaussianBPSResidualHazard
+      let before : (ℕ → NNReal) → NNReal × BouncyParticleState ι :=
+        fun hazards =>
+          (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+            |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+              ((horizon, initial), hazards)
+      have hbefore : Measurable before :=
+        ((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+          |>.measurable_replayPrefix measurable_standardGaussianBPSJump count)
+          |>.comp ((measurable_const.prodMk measurable_const).prodMk
+            measurable_id)
+      exact (measurable_pi_apply count).sub
+        (measurable_gaussianBPSConsumedHazard.comp
+          (hbefore.snd.prodMk hbefore.fst))
+  | succ index =>
+      unfold standardGaussianBPSSplitResidualStream
+      exact measurable_pi_apply (count + index + 1)
+
+/-- On a genuine no-event terminal branch, the residual stream's head clock
+is exactly the unused portion of the original terminal clock. -/
+theorem standardGaussianBPSSplitResidualStream_waitingTime
+    (horizon : NNReal) (initial : BouncyParticleState ι)
+    (hvelocity : initial.2 ≠ 0) (count : ℕ) (hazards : ℕ → NNReal)
+    (hmem : hazards ∈
+      ((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+        |>.genuineCompletionStratum (standardGaussianBPSJump (ι := ι))
+          horizon initial (count + 1)))
+    (hpositive : 0 < hazards count)
+    (hnoevent : ¬(0 <
+          (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+            |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+              ((horizon, initial), hazards)).1) ∧
+        (standardGaussianBPSPartialInverseHazardData (ι := ι)).active
+            (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+              |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+                ((horizon, initial), hazards)).2)
+            (hazards count) = true ∧
+        gaussianBPSWaitingTime
+            (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+              |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+                ((horizon, initial), hazards)).2)
+            (hazards count) ≤
+          (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+            |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+              ((horizon, initial), hazards)).1))) :
+    let before :=
+      (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+        |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+          ((horizon, initial), hazards)
+    gaussianBPSWaitingTime (bouncyParticleFlow before.1 before.2)
+        (standardGaussianBPSSplitResidualStream (ι := ι)
+          horizon initial count hazards 0) =
+      gaussianBPSWaitingTime before.2 (hazards count) - before.1 := by
+  dsimp only
+  let before :=
+    (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+      |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+        ((horizon, initial), hazards)
+  have hremainingNe : before.1 ≠ 0 :=
+    (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+      |>.replayPrefix_fst_ne_zero_on_succ_stratum
+        (standardGaussianBPSJump (ι := ι)) horizon initial count hmem
+  have hremaining : 0 < before.1 := (pos_iff_ne_zero).2 hremainingNe
+  have hbeforeVelocity : before.2.2 ≠ 0 :=
+    standardGaussianBPS_replayPrefix_velocity_ne_zero count
+      ((horizon, initial), hazards) hvelocity
+  have hactive :
+      (standardGaussianBPSPartialInverseHazardData (ι := ι)).active
+        before.2 (hazards count) = true := by
+    simp [standardGaussianBPSPartialInverseHazardData,
+      hpositive.ne', hbeforeVelocity]
+  have hstrict : before.1 < gaussianBPSWaitingTime before.2
+      (hazards count) := by
+    have hnle : ¬gaussianBPSWaitingTime before.2 (hazards count) ≤ before.1 :=
+      fun hle => hnoevent ⟨hremaining, hactive, hle⟩
+    exact lt_of_not_ge hnle
+  change gaussianBPSWaitingTime (bouncyParticleFlow before.1 before.2)
+      (gaussianBPSResidualHazard before.2 (hazards count) before.1) = _
+  exact gaussianBPSWaitingTime_residualHazard before.2 hbeforeVelocity
+    (hazards count) hpositive before.1 hstrict
+
+/-- The event and reflection reached from the residual stream are likewise
+identical to those reached by the original unsplit terminal mark. -/
+theorem standardGaussianBPSSplitResidualStream_jump
+    (horizon : NNReal) (initial : BouncyParticleState ι)
+    (hvelocity : initial.2 ≠ 0) (count : ℕ) (hazards : ℕ → NNReal)
+    (hmem : hazards ∈
+      ((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+        |>.genuineCompletionStratum (standardGaussianBPSJump (ι := ι))
+          horizon initial (count + 1)))
+    (hpositive : 0 < hazards count)
+    (hnoevent : ¬(0 <
+          (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+            |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+              ((horizon, initial), hazards)).1) ∧
+        (standardGaussianBPSPartialInverseHazardData (ι := ι)).active
+            (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+              |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+                ((horizon, initial), hazards)).2)
+            (hazards count) = true ∧
+        gaussianBPSWaitingTime
+            (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+              |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+                ((horizon, initial), hazards)).2)
+            (hazards count) ≤
+          (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+            |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+              ((horizon, initial), hazards)).1))) :
+    let before :=
+      (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+        |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+          ((horizon, initial), hazards)
+    standardGaussianBPSJump
+        (bouncyParticleFlow
+          (gaussianBPSWaitingTime (bouncyParticleFlow before.1 before.2)
+            (standardGaussianBPSSplitResidualStream (ι := ι)
+              horizon initial count hazards 0))
+          (bouncyParticleFlow before.1 before.2)) =
+      standardGaussianBPSJump
+        (bouncyParticleFlow
+          (gaussianBPSWaitingTime before.2 (hazards count)) before.2) := by
+  dsimp only
+  let before :=
+    (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+      |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+        ((horizon, initial), hazards)
+  have hremainingNe : before.1 ≠ 0 :=
+    (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+      |>.replayPrefix_fst_ne_zero_on_succ_stratum
+        (standardGaussianBPSJump (ι := ι)) horizon initial count hmem
+  have hremaining : 0 < before.1 := (pos_iff_ne_zero).2 hremainingNe
+  have hbeforeVelocity : before.2.2 ≠ 0 :=
+    standardGaussianBPS_replayPrefix_velocity_ne_zero count
+      ((horizon, initial), hazards) hvelocity
+  have hactive :
+      (standardGaussianBPSPartialInverseHazardData (ι := ι)).active
+        before.2 (hazards count) = true := by
+    simp [standardGaussianBPSPartialInverseHazardData,
+      hpositive.ne', hbeforeVelocity]
+  have hstrict : before.1 < gaussianBPSWaitingTime before.2
+      (hazards count) := by
+    have hnle : ¬gaussianBPSWaitingTime before.2 (hazards count) ≤ before.1 :=
+      fun hle => hnoevent ⟨hremaining, hactive, hle⟩
+    exact lt_of_not_ge hnle
+  change standardGaussianBPSJump
+      (bouncyParticleFlow
+        (gaussianBPSWaitingTime (bouncyParticleFlow before.1 before.2)
+          (gaussianBPSResidualHazard before.2 (hazards count) before.1))
+        (bouncyParticleFlow before.1 before.2)) = _
+  exact gaussianBPSJump_residualHazard before.2 hbeforeVelocity
+    (hazards count) hpositive before.1 hstrict
+
 /-- The Gaussian replay potential satisfies the accepted-step payment
 inequality required by the generic inverse-clock nonexplosion theorem. -/
 theorem standardGaussianBPSReplayPotential_step

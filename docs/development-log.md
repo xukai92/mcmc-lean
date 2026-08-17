@@ -4939,3 +4939,16 @@ therefore proves that, on every genuine positive completion stratum, the
 terminal candidate takes the no-event branch almost surely. The countwise
 boundary-null obstruction to the time-split/semigroup gluing argument is thus
 closed; constructing that gluing is the next step.
+
+The deterministic input to that gluing is now complete. For any partial
+inverse clock, Lean proves that enlarging the available horizon preserves every
+event in a finite prefix that remained active under the shorter horizon: only
+the residual-time coordinate increases, while the physical state and accepted
+event sequence are unchanged. This specializes directly on every positive
+Gaussian-BPS completion stratum. The shorter-horizon endpoint is almost surely
+the terminal residual flow, and a measurable split-residual hazard stream is
+now defined with the unspent terminal mark as its head and the untouched iid
+suffix thereafter. Its head inverse wait and reflected event state are proved
+pointwise identical to the unsplit terminal clock. What remains for the
+semigroup law is the measure-level triangular change of variables on each
+stratum and countable gluing over completion counts.

@@ -466,6 +466,72 @@ theorem PartialInverseHazardClock.event_condition_of_execute_cons_fst_ne_zero
   rw [clock.cappedStepUpdate_of_no_event jump hcondition] at hstep
   exact hstep rfl
 
+/-- Extending the available horizon by `extra` shifts only the remaining-time
+coordinate of every finite replay prefix that was still active under the
+shorter horizon.  Its physical state and accepted event sequence are
+unchanged. -/
+theorem PartialInverseHazardClock.executeHazards_add_remaining_of_fst_ne_zero
+    (clock : PartialInverseHazardClock State) (jump : State → State)
+    (hazards : List NNReal) (remaining extra : NNReal) (state : State)
+    (hactive : (clock.executeHazards jump hazards (remaining, state)).1 ≠ 0) :
+    clock.executeHazards jump hazards (remaining + extra, state) =
+      (clock.executeHazards jump hazards (remaining, state)).map
+        (fun residual => residual + extra) id := by
+  induction hazards generalizing remaining state with
+  | nil => rfl
+  | cons hazard hazards ih =>
+      have hcondition :=
+        clock.event_condition_of_execute_cons_fst_ne_zero jump hazard hazards
+          (remaining, state) hactive
+      dsimp only [Prod.fst, Prod.snd] at hcondition
+      let next := clock.cappedStepUpdate jump ((remaining, state), hazard)
+      have hnext : next =
+          (remaining - clock.waitingTime state hazard,
+            jump (clock.semiflow.flow
+              (clock.waitingTime state hazard) state)) :=
+        clock.cappedStepUpdate_of_event jump hcondition.1 hcondition.2.1
+          hcondition.2.2
+      have hlargeCondition :
+          0 < remaining + extra ∧ clock.active state hazard = true ∧
+            clock.waitingTime state hazard ≤ remaining + extra :=
+        ⟨lt_of_lt_of_le hcondition.1 (le_add_right le_rfl),
+          hcondition.2.1,
+          hcondition.2.2.trans (le_add_right le_rfl)⟩
+      have hlargeStep := clock.cappedStepUpdate_of_event jump
+        hlargeCondition.1 hlargeCondition.2.1 hlargeCondition.2.2
+      have hsub : (remaining + extra - clock.waitingTime state hazard) =
+          (remaining - clock.waitingTime state hazard) + extra := by
+        calc
+          remaining + extra - clock.waitingTime state hazard =
+              extra + remaining - clock.waitingTime state hazard := by
+                rw [add_comm remaining extra]
+          _ = extra + (remaining - clock.waitingTime state hazard) :=
+            add_tsub_assoc_of_le hcondition.2.2 extra
+          _ = (remaining - clock.waitingTime state hazard) + extra := by
+            rw [add_comm]
+      rw [PartialInverseHazardClock.executeHazards,
+        PartialInverseHazardClock.executeHazards]
+      rw [hlargeStep, hsub]
+      have hnextActive :
+          (clock.executeHazards jump hazards next).1 ≠ 0 := by
+        change (clock.executeHazards jump hazards
+          (clock.cappedStepUpdate jump ((remaining, state), hazard))).1 ≠ 0
+        change (clock.executeHazards jump hazards
+          (clock.cappedStepUpdate jump ((remaining, state), hazard))).1 ≠ 0
+          at hactive
+        exact hactive
+      have hnextActive' :
+          (clock.executeHazards jump hazards
+            (remaining - clock.waitingTime state hazard,
+              jump (clock.semiflow.flow
+                (clock.waitingTime state hazard) state))).1 ≠ 0 := by
+        rw [← hnext]
+        exact hnextActive
+      have hinduction := ih (remaining - clock.waitingTime state hazard)
+        (jump (clock.semiflow.flow (clock.waitingTime state hazard) state))
+        hnextActive'
+      simpa [next, hnext] using hinduction
+
 /-- Infinite iid unit-exponential hazard stream for repeated inverse-clock
 restart. -/
 noncomputable def unitHazardSequenceMeasure : Measure (ℕ → NNReal) :=
@@ -919,6 +985,24 @@ theorem PartialInverseHazardClock.replayPrefix_eq_executeHazards
       simp only [PartialInverseHazardClock.replayPrefix, ih,
         PartialInverseHazardClock.executeHazards]
 
+/-- Infinite-stream replay inherits the finite-list horizon-extension law. -/
+theorem PartialInverseHazardClock.replayPrefix_add_horizon_of_fst_ne_zero
+    (clock : PartialInverseHazardClock State) (jump : State → State)
+    (count : ℕ) (horizon extra : NNReal) (initial : State)
+    (hazards : ℕ → NNReal)
+    (hactive : (clock.replayPrefix jump count
+      ((horizon, initial), hazards)).1 ≠ 0) :
+    clock.replayPrefix jump count ((horizon + extra, initial), hazards) =
+      (clock.replayPrefix jump count
+        ((horizon, initial), hazards)).map
+          (fun residual => residual + extra) id := by
+  rw [clock.replayPrefix_eq_executeHazards,
+    clock.replayPrefix_eq_executeHazards]
+  have hactive' := hactive
+  rw [clock.replayPrefix_eq_executeHazards] at hactive'
+  exact clock.executeHazards_add_remaining_of_fst_ne_zero jump
+    (hazardPrefix count hazards) horizon extra initial hactive'
+
 /-- Once a replay prefix has finished, every longer prefix is exactly the same
 remaining-time state. -/
 theorem PartialInverseHazardClock.replayPrefix_stable_of_finished
@@ -1252,6 +1336,25 @@ theorem PartialInverseHazardClock.replayPrefix_fst_ne_zero_on_succ_stratum
   rw [hmem.1] at hle
   omega
 
+/-- On a positive completion stratum, adding a later horizon leaves every
+preterminal event and state unchanged and adds that horizon to the remaining
+time before the terminal candidate. -/
+theorem PartialInverseHazardClock.replayPrefix_add_horizon_on_succ_stratum
+    (clock : PartialInverseHazardClock State) (jump : State → State)
+    (horizon extra : NNReal) (initial : State) (count : ℕ)
+    {hazards : ℕ → NNReal}
+    (hmem : hazards ∈
+      clock.genuineCompletionStratum jump horizon initial (count + 1)) :
+    clock.replayPrefix jump count
+        ((horizon + extra, initial), hazards) =
+      (clock.replayPrefix jump count
+        ((horizon, initial), hazards)).map
+          (fun residual => residual + extra) id := by
+  exact clock.replayPrefix_add_horizon_of_fst_ne_zero jump count horizon extra
+    initial hazards
+      (clock.replayPrefix_fst_ne_zero_on_succ_stratum jump horizon initial
+        count hmem)
+
 /-- The candidate at the end of a `(count+1)` stratum sets remaining time to
 zero. -/
 theorem PartialInverseHazardClock.cappedStep_fst_eq_zero_on_succ_stratum
@@ -1362,6 +1465,40 @@ theorem PartialInverseHazardClock.completedReplayEndpoint_eq_on_stratum
     clock.completedReplayEndpoint jump ((horizon, initial), hazards) =
       (clock.replayPrefix jump count ((horizon, initial), hazards)).2 :=
   clock.completedReplayEndpoint_eq_replayPrefix jump _ count hmem.2
+
+/-- If the terminal candidate on a positive completion stratum is a no-event
+candidate, the selected endpoint is exactly the residual deterministic flow
+from the preceding replay state. -/
+theorem PartialInverseHazardClock.completedReplayEndpoint_eq_flow_on_succ_stratum
+    (clock : PartialInverseHazardClock State) (jump : State → State)
+    (horizon : NNReal) (initial : State) (count : ℕ)
+    {hazards : ℕ → NNReal}
+    (hmem : hazards ∈
+      clock.genuineCompletionStratum jump horizon initial (count + 1))
+    (hnoevent : ¬(0 < (clock.replayPrefix jump count
+            ((horizon, initial), hazards)).1 ∧
+        clock.active
+            (clock.replayPrefix jump count
+              ((horizon, initial), hazards)).2
+            (hazards count) = true ∧
+        clock.waitingTime
+            (clock.replayPrefix jump count
+              ((horizon, initial), hazards)).2
+            (hazards count) ≤
+          (clock.replayPrefix jump count
+            ((horizon, initial), hazards)).1)) :
+    clock.completedReplayEndpoint jump ((horizon, initial), hazards) =
+      clock.semiflow.flow
+        (clock.replayPrefix jump count
+          ((horizon, initial), hazards)).1
+        (clock.replayPrefix jump count
+          ((horizon, initial), hazards)).2 := by
+  rw [clock.completedReplayEndpoint_eq_on_stratum jump horizon initial
+    (count + 1) hmem]
+  change (clock.cappedStepUpdate jump
+    (clock.replayPrefix jump count ((horizon, initial), hazards),
+      hazards count)).2 = _
+  rw [clock.cappedStepUpdate_of_no_event jump hnoevent]
 
 /-- Pointwise head/tail recursion on every tail stream that completes: direct
 execution on `cons(head, tail)` has the same endpoint as execution from the

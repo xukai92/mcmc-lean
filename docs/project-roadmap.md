@@ -480,9 +480,12 @@ breadth branches are:
   and residual-memorylessness laws, and a countwise terminal-boundary theorem.
   The iid terminal coordinate is independent of its finite replay prefix and
   atomless, so exact ringing at the horizon is null on every genuine
-  completion stratum. The remaining semigroup task is countable gluing of
-  these strata across a time split, followed by target invariance and
-  convergence.
+  completion stratum. Horizon extension is now pathwise controlled on each
+  such stratum, and the measurable residual stream carries the unused terminal
+  mark into the second interval with exactly the same inverse wait and bounce.
+  The remaining semigroup task is the stratum-wise product-measure change of
+  variables and countable gluing across the time split, followed by target
+  invariance and convergence.
   Separately, the unbounded-rate standard-Gaussian Zig-Zag now has a genuine
   event kernel based on the closed-form inverse integrated hazard. Its unit
   exponential draw is positive almost surely, the inversion equation is
