@@ -251,7 +251,14 @@ also constructs the exact positive-horizon Poisson/ordered-time thinning
 kernel and the practical refresh-then-bounce composition. The latter preserves
 a product target conditional on the still-explicit bounce-horizon spatial-flux
 proof. These are not yet unbounded-rate BPS stationarity, nonexplosion, or
-convergence theorems in general dimension. In one dimension at unit speed,
+convergence theorems in general dimension. For finite-dimensional
+standard-Gaussian BPS, Lean additionally has the exact affine integrated
+hazard and its closed-form partial inverse clock. Bounces are proved to
+preserve speed, and linear flight plus Cauchy--Schwarz gives an explicit
+finite-flight rate envelope. Turning that envelope and the iid exponential
+marks into pathwise finite-horizon nonexplosion remains open.
+
+In one dimension at unit speed,
 Lean now proves that Gaussian BPS reflection, rate, and flow coincide with the
 Gaussian Zig-Zag representation. Consequently the exact unbounded-rate
 horizon kernel and almost-sure nonexplosion theorem transfer to this concrete

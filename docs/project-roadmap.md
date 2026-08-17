@@ -657,7 +657,13 @@ by paper date:
    construction of the unbounded-rate process,
    weak-forward uniqueness, and ergodicity remain.
    The standard-Gaussian specialization of the product generator theorem now
-   discharges reflection invariance internally.
+   discharges reflection invariance internally. Its exact inverse-clock client
+   now also proves that every bounce preserves speed, linear flight grows the
+   position norm by at most elapsed time times speed, and the Gaussian bounce
+   rate is bounded by position norm times speed. These deterministic bounds
+   are the pathwise envelope needed for the remaining finite-horizon
+   nonexplosion proof; they do not by themselves construct the completed
+   horizon kernel.
 
    The nonlinear reversible-jump branch is complete at the exact theorem and
    executable-client levels; only the shared Float64 primitive boundary

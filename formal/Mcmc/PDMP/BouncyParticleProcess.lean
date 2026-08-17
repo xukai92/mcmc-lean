@@ -417,6 +417,72 @@ theorem standardGaussianBPS_stateRate_flow
   change max 0 (euclideanInner state.2 (bouncyParticleFlow time state).1) = _
   rw [euclideanInner_velocity_gaussianFlow]
 
+/-- Bouncy reflection preserves speed even at a zero normal, where the map is
+the identity. -/
+theorem squaredEuclideanNorm_bouncyReflection_total
+    (normal velocity : Position ι) :
+    squaredEuclideanNorm (bouncyReflection normal velocity) =
+      squaredEuclideanNorm velocity := by
+  by_cases hnormal : normal = 0
+  · subst normal
+    simp
+  · exact squaredEuclideanNorm_bouncyReflection normal velocity hnormal
+
+/-- Every standard-Gaussian bounce preserves the squared velocity norm. -/
+theorem standardGaussianBPS_bounce_speed
+    (state : BouncyParticleState ι) :
+    squaredEuclideanNorm
+        (bouncyReflection state.1 state.2) =
+      squaredEuclideanNorm state.2 :=
+  squaredEuclideanNorm_bouncyReflection_total state.1 state.2
+
+omit [Fintype ι] in
+/-- Linear flight keeps velocity fixed. -/
+@[simp] theorem bouncyParticleFlow_velocity
+    (time : NNReal) (state : BouncyParticleState ι) :
+    (bouncyParticleFlow time state).2 = state.2 := rfl
+
+/-- Position norm grows by at most elapsed time times the fixed speed during
+one linear flight. -/
+theorem bouncyParticleFlow_position_norm_le
+    (time : NNReal) (state : BouncyParticleState ι) :
+    euclideanNorm (bouncyParticleFlow time state).1 ≤
+      euclideanNorm state.1 + (time : ℝ) * euclideanNorm state.2 := by
+  unfold bouncyParticleFlow
+  calc
+    euclideanNorm (state.1 + (time : ℝ) • state.2) ≤
+        euclideanNorm state.1 + euclideanNorm ((time : ℝ) • state.2) :=
+      euclideanNorm_add_le _ _
+    _ = _ := by rw [euclideanNorm_smul, abs_of_nonneg (by positivity)]
+
+/-- The standard-Gaussian BPS rate is bounded by position norm times speed. -/
+theorem standardGaussianBPS_stateRate_le_norm_mul_norm
+    (state : BouncyParticleState ι) :
+    standardGaussianBouncyParticleBounceData.stateRate state ≤
+      euclideanNorm state.2 * euclideanNorm state.1 := by
+  unfold BouncyParticleBounceData.stateRate
+    standardGaussianBouncyParticleBounceData bouncyRate
+  have habs := abs_euclideanInner_le_norm_mul_norm state.2 state.1
+  exact (max_le (abs_nonneg _) (le_abs_self _)).trans habs
+
+/-- Combining the preceding estimates gives a deterministic rate envelope
+over one flight from a fixed state. -/
+theorem standardGaussianBPS_stateRate_flow_le
+    (state : BouncyParticleState ι) (time : NNReal) :
+    standardGaussianBouncyParticleBounceData.stateRate
+        (bouncyParticleFlow time state) ≤
+      euclideanNorm state.2 *
+        (euclideanNorm state.1 + (time : ℝ) * euclideanNorm state.2) := by
+  calc
+    _ ≤ euclideanNorm (bouncyParticleFlow time state).2 *
+        euclideanNorm (bouncyParticleFlow time state).1 :=
+      standardGaussianBPS_stateRate_le_norm_mul_norm _
+    _ ≤ _ := by
+      rw [bouncyParticleFlow_velocity]
+      exact mul_le_mul_of_nonneg_left
+        (bouncyParticleFlow_position_norm_le time state)
+        (euclideanNorm_nonneg state.2)
+
 /-- Real-valued closed-form candidate solving the Gaussian integrated-hazard
 equation when velocity is nonzero. The outer `toNNReal` used by the clock is
 introduced separately after positivity is established. -/
