@@ -428,6 +428,14 @@ theorem squaredEuclideanNorm_bouncyReflection_total
     simp
   · exact squaredEuclideanNorm_bouncyReflection normal velocity hnormal
 
+/-- Bouncy reflection preserves the Euclidean speed. -/
+theorem euclideanNorm_bouncyReflection_total
+    (normal velocity : Position ι) :
+    euclideanNorm (bouncyReflection normal velocity) =
+      euclideanNorm velocity := by
+  unfold euclideanNorm
+  rw [squaredEuclideanNorm_bouncyReflection_total]
+
 /-- Every standard-Gaussian bounce preserves the squared velocity norm. -/
 theorem standardGaussianBPS_bounce_speed
     (state : BouncyParticleState ι) :
@@ -482,6 +490,120 @@ theorem standardGaussianBPS_stateRate_flow_le
       exact mul_le_mul_of_nonneg_left
         (bouncyParticleFlow_position_norm_le time state)
         (euclideanNorm_nonneg state.2)
+
+/-- Deterministic Gaussian-BPS jump map used by repeated inverse-clock
+execution. -/
+noncomputable def standardGaussianBPSJump
+    (state : BouncyParticleState ι) : BouncyParticleState ι :=
+  (state.1, bouncyReflection state.1 state.2)
+
+/-- Uniform rate envelope over all flight time still available from a capped
+state. -/
+noncomputable def standardGaussianBPSRateEnvelope
+    (remainingState : NNReal × BouncyParticleState ι) : NNReal :=
+  Real.toNNReal
+    (euclideanNorm remainingState.2.2 *
+      (euclideanNorm remainingState.2.1 +
+        (remainingState.1 : ℝ) * euclideanNorm remainingState.2.2))
+
+theorem standardGaussianBPSRateEnvelope_coe
+    (remainingState : NNReal × BouncyParticleState ι) :
+    (standardGaussianBPSRateEnvelope remainingState : ℝ) =
+      euclideanNorm remainingState.2.2 *
+        (euclideanNorm remainingState.2.1 +
+          (remainingState.1 : ℝ) * euclideanNorm remainingState.2.2) := by
+  rw [standardGaussianBPSRateEnvelope, Real.coe_toNNReal]
+  exact mul_nonneg (euclideanNorm_nonneg _)
+    (add_nonneg (euclideanNorm_nonneg _)
+      (mul_nonneg remainingState.1.coe_nonneg (euclideanNorm_nonneg _)))
+
+/-- After an accepted flight and bounce, the rate envelope for the residual
+horizon cannot increase. -/
+theorem standardGaussianBPSRateEnvelope_after_event_le
+    (remaining : NNReal) (state : BouncyParticleState ι) (wait : NNReal)
+    (hwait : wait ≤ remaining) :
+    standardGaussianBPSRateEnvelope
+        (remaining - wait,
+          standardGaussianBPSJump (bouncyParticleFlow wait state)) ≤
+      standardGaussianBPSRateEnvelope (remaining, state) := by
+  rw [← NNReal.coe_le_coe, standardGaussianBPSRateEnvelope_coe,
+    standardGaussianBPSRateEnvelope_coe]
+  have hspeed : euclideanNorm
+      (standardGaussianBPSJump (bouncyParticleFlow wait state)).2 =
+      euclideanNorm state.2 := by
+    unfold standardGaussianBPSJump
+    rw [euclideanNorm_bouncyReflection_total,
+      bouncyParticleFlow_velocity]
+  have hposition : euclideanNorm
+      (standardGaussianBPSJump (bouncyParticleFlow wait state)).1 ≤
+      euclideanNorm state.1 + (wait : ℝ) * euclideanNorm state.2 := by
+    exact bouncyParticleFlow_position_norm_le wait state
+  rw [hspeed, NNReal.coe_sub hwait]
+  apply mul_le_mul_of_nonneg_left _ (euclideanNorm_nonneg state.2)
+  calc
+    euclideanNorm
+          (standardGaussianBPSJump (bouncyParticleFlow wait state)).1 +
+        ((remaining : ℝ) - (wait : ℝ)) * euclideanNorm state.2 ≤
+      euclideanNorm state.1 + (wait : ℝ) * euclideanNorm state.2 +
+        ((remaining : ℝ) - (wait : ℝ)) * euclideanNorm state.2 := by
+          gcongr
+    _ = euclideanNorm state.1 +
+        (remaining : ℝ) * euclideanNorm state.2 := by ring
+
+/-- Integrated Gaussian-BPS rate over any available subflight is bounded by
+elapsed time times the envelope of the original capped state. -/
+theorem standardGaussianBPS_accumulated_le_wait_mul_envelope
+    (remaining : NNReal) (state : BouncyParticleState ι) (wait : NNReal)
+    (hwait : wait ≤ remaining) :
+    (∫ elapsed in (0 : ℝ)..(wait : ℝ),
+      standardGaussianBouncyParticleBounceData.stateRate
+        (bouncyParticleFlow (Real.toNNReal elapsed) state)) ≤
+      (wait : ℝ) *
+        (standardGaussianBPSRateEnvelope (remaining, state) : ℝ) := by
+  let rate : ℝ → ℝ := fun elapsed =>
+    standardGaussianBouncyParticleBounceData.stateRate
+      (bouncyParticleFlow (Real.toNNReal elapsed) state)
+  have hpoint : ∀ elapsed ∈ Set.uIoc (0 : ℝ) (wait : ℝ),
+      ‖rate elapsed‖ ≤
+        (standardGaussianBPSRateEnvelope (remaining, state) : ℝ) := by
+    intro elapsed helapsed
+    rw [Set.uIoc_of_le (by positivity)] at helapsed
+    have helapsed0 : 0 ≤ elapsed := helapsed.1.le
+    have helapsedWait : Real.toNNReal elapsed ≤ wait := by
+      rw [← NNReal.coe_le_coe, Real.coe_toNNReal _ helapsed0]
+      exact helapsed.2
+    have helapsedRemaining : Real.toNNReal elapsed ≤ remaining :=
+      helapsedWait.trans hwait
+    have hrate := standardGaussianBPS_stateRate_flow_le state
+      (Real.toNNReal elapsed)
+    have hnonneg : 0 ≤ rate elapsed := by
+      unfold rate BouncyParticleBounceData.stateRate bouncyRate
+      positivity
+    rw [Real.norm_eq_abs, abs_of_nonneg hnonneg]
+    calc
+      rate elapsed ≤ euclideanNorm state.2 *
+          (euclideanNorm state.1 +
+            (Real.toNNReal elapsed : ℝ) * euclideanNorm state.2) := hrate
+      _ ≤ euclideanNorm state.2 *
+          (euclideanNorm state.1 +
+            (remaining : ℝ) * euclideanNorm state.2) := by
+        apply mul_le_mul_of_nonneg_left _ (euclideanNorm_nonneg _)
+        simpa [add_comm] using add_le_add_left
+          (mul_le_mul_of_nonneg_right (by exact_mod_cast helapsedRemaining)
+            (euclideanNorm_nonneg state.2)) (euclideanNorm state.1)
+      _ = (standardGaussianBPSRateEnvelope (remaining, state) : ℝ) := by
+        rw [standardGaussianBPSRateEnvelope_coe]
+  calc
+    (∫ elapsed in (0 : ℝ)..(wait : ℝ), rate elapsed) ≤
+        ‖∫ elapsed in (0 : ℝ)..(wait : ℝ), rate elapsed‖ :=
+      le_trans (le_abs_self _) (by rw [Real.norm_eq_abs])
+    _ ≤ (standardGaussianBPSRateEnvelope (remaining, state) : ℝ) *
+        |(wait : ℝ) - 0| :=
+      intervalIntegral.norm_integral_le_of_norm_le_const hpoint
+    _ = (wait : ℝ) *
+        (standardGaussianBPSRateEnvelope (remaining, state) : ℝ) := by
+      rw [sub_zero, abs_of_nonneg wait.coe_nonneg]
+      ring
 
 /-- Real-valued closed-form candidate solving the Gaussian integrated-hazard
 equation when velocity is nonzero. The outer `toNNReal` used by the clock is
@@ -774,6 +896,35 @@ noncomputable def standardGaussianBPSPartialInverseHazardData :
       intervalIntegral.integral_zero]
     exact_mod_cast (pos_iff_ne_zero.mpr hhazard)
 
+/-- Every accepted inverse-clock mark is paid for by elapsed time times the
+finite-horizon Gaussian rate envelope. The zero mark is included explicitly,
+although it is a null event under the exponential law. -/
+theorem standardGaussianBPS_hazard_le_wait_mul_envelope
+    (remaining : NNReal) (state : BouncyParticleState ι) (hazard : NNReal)
+    (hactive : standardGaussianBPSPartialInverseHazardData.active
+      state hazard = true)
+    (hwait : standardGaussianBPSPartialInverseHazardData.waitingTime
+      state hazard ≤ remaining) :
+    hazard ≤
+      standardGaussianBPSPartialInverseHazardData.waitingTime state hazard *
+        standardGaussianBPSRateEnvelope (remaining, state) := by
+  by_cases hhazard : hazard = 0
+  · subst hazard
+    exact bot_le
+  · have hhazardPos : 0 < hazard := pos_iff_ne_zero.mpr hhazard
+    rw [← NNReal.coe_le_coe]
+    rw [← standardGaussianBPSPartialInverseHazardData.inverse state
+      hhazardPos hactive]
+    exact standardGaussianBPS_accumulated_le_wait_mul_envelope remaining state
+      (standardGaussianBPSPartialInverseHazardData.waitingTime state hazard)
+      hwait
+
+/-- Remaining time multiplied by its current rate envelope is a finite
+potential that pays for every accepted Gaussian-BPS hazard mark. -/
+noncomputable def standardGaussianBPSReplayPotential
+    (remainingState : NNReal × BouncyParticleState ι) : NNReal :=
+  remainingState.1 * standardGaussianBPSRateEnvelope remainingState
+
 noncomputable def BouncyParticlePartialInverseHazardData.clock
     (data : BouncyParticlePartialInverseHazardData ι) :
     PartialInverseHazardClock (BouncyParticleState ι) where
@@ -789,6 +940,79 @@ noncomputable def BouncyParticlePartialInverseHazardData.clock
   waitingTime_pos := data.waitingTime_pos
   inverse := data.inverse
   inactive := data.inactive
+
+/-- The Gaussian replay potential satisfies the accepted-step payment
+inequality required by the generic inverse-clock nonexplosion theorem. -/
+theorem standardGaussianBPSReplayPotential_step
+    (remainingState : NNReal × BouncyParticleState ι) (hazard : NNReal)
+    (hcondition :
+      0 < remainingState.1 ∧
+        standardGaussianBPSPartialInverseHazardData.clock.active
+            remainingState.2 hazard = true ∧
+        standardGaussianBPSPartialInverseHazardData.clock.waitingTime
+            remainingState.2 hazard ≤ remainingState.1) :
+    hazard + standardGaussianBPSReplayPotential
+        (standardGaussianBPSPartialInverseHazardData.clock.cappedStepUpdate
+          standardGaussianBPSJump (remainingState, hazard)) ≤
+      standardGaussianBPSReplayPotential remainingState := by
+  rcases hcondition with ⟨hremaining, hactive, hwait⟩
+  have hupdate :=
+    standardGaussianBPSPartialInverseHazardData.clock.cappedStepUpdate_of_event
+      standardGaussianBPSJump hremaining hactive hwait
+  rw [hupdate]
+  let wait := standardGaussianBPSPartialInverseHazardData.waitingTime
+    remainingState.2 hazard
+  change wait ≤ remainingState.1 at hwait
+  have hhazard : hazard ≤ wait *
+      standardGaussianBPSRateEnvelope remainingState := by
+    apply standardGaussianBPS_hazard_le_wait_mul_envelope
+    · exact hactive
+    · exact hwait
+  have henvelope : standardGaussianBPSRateEnvelope
+      (remainingState.1 - wait,
+        standardGaussianBPSJump
+          (bouncyParticleFlow wait remainingState.2)) ≤
+      standardGaussianBPSRateEnvelope remainingState :=
+    standardGaussianBPSRateEnvelope_after_event_le
+      remainingState.1 remainingState.2 wait hwait
+  unfold standardGaussianBPSReplayPotential
+  dsimp only [Prod.fst, Prod.snd]
+  calc
+    hazard + (remainingState.1 - wait) *
+        standardGaussianBPSRateEnvelope
+          (remainingState.1 - wait,
+            standardGaussianBPSJump
+              (bouncyParticleFlow wait remainingState.2)) ≤
+      wait * standardGaussianBPSRateEnvelope remainingState +
+        (remainingState.1 - wait) *
+          standardGaussianBPSRateEnvelope remainingState := by
+            exact add_le_add hhazard
+              (mul_le_mul_of_nonneg_left henvelope bot_le)
+    _ = remainingState.1 *
+        standardGaussianBPSRateEnvelope remainingState := by
+      rw [← add_mul, add_comm, tsub_add_cancel_of_le hwait]
+
+/-- Every still-active finite Gaussian-BPS replay prefix has bounded total
+integrated hazard. -/
+theorem standardGaussianBPS_hasBoundedActivePrefixHazard :
+    (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+      |>.HasBoundedActivePrefixHazard (standardGaussianBPSJump (ι := ι)) :=
+  (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+    |>.hasBoundedActivePrefixHazard_of_potential
+      (standardGaussianBPSJump (ι := ι))
+      (standardGaussianBPSReplayPotential (ι := ι))
+        (standardGaussianBPSReplayPotential_step (ι := ι))
+
+/-- Exact finite-dimensional standard-Gaussian BPS replay is nonexplosive:
+at every finite horizon and from every initial state, almost every iid
+unit-exponential hazard stream completes after a finite prefix. -/
+theorem standardGaussianBPS_completesFiniteHorizons :
+    (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+      |>.CompletesFiniteHorizons (standardGaussianBPSJump (ι := ι)) :=
+  (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+    |>.completesFiniteHorizons_of_boundedActivePrefixHazard
+      (standardGaussianBPSJump (ι := ι))
+        (standardGaussianBPS_hasBoundedActivePrefixHazard (ι := ι))
 
 /-- First-event-or-residual-flow BPS kernel on a finite horizon. This kernel
 handles a certified inactive state without imposing a fictitious event. It is

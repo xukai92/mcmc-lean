@@ -256,7 +256,11 @@ standard-Gaussian BPS, Lean additionally has the exact affine integrated
 hazard and its closed-form partial inverse clock. Bounces are proved to
 preserve speed, and linear flight plus Cauchy--Schwarz gives an explicit
 finite-flight rate envelope. Turning that envelope and the iid exponential
-marks into pathwise finite-horizon nonexplosion remains open.
+marks into pathwise finite-horizon nonexplosion is now complete: Lean uses the
+finite potential “remaining time × current envelope” to pay every accepted
+hazard, while iid exponential prefix sums exceed every finite bound almost
+surely. Construction of the measurable completed horizon endpoint/kernel,
+and then stationarity and convergence, remain open in general dimension.
 
 In one dimension at unit speed,
 Lean now proves that Gaussian BPS reflection, rate, and flow coincide with the

@@ -4847,3 +4847,19 @@ The remaining practical measure assembly is now only the sigma-type sum over
 rejected-vector lengths and identification with the already-defined
 variable-length successful/completed runtime kernels; the within-length
 affine and signature obligations are closed.
+
+## 2026-08-17: finite-dimensional Gaussian BPS nonexplosion
+
+Instantiated the exact partial inverse-integrated-hazard clock for the
+finite-dimensional standard-Gaussian Bouncy Particle Sampler with a complete
+finite-horizon nonexplosion proof. Lean proves reflection preserves speed,
+linear flight controls position growth, and the rate is bounded by an explicit
+finite-horizon envelope. The generic inverse-clock layer now proves iid
+unit-exponential hazard prefix sums exceed every finite bound almost surely.
+
+For deterministic replay, the potential “remaining time × current rate
+envelope” pays every accepted hazard mark and cannot increase after a flight
+and bounce. Consequently every finite horizon completes after a finite hazard
+prefix almost surely. This proves `CompletesFiniteHorizons`; construction and
+measurability of the totalized completed endpoint/kernel, its semigroup and
+stationarity laws, and multidimensional ergodicity remain separate milestones.

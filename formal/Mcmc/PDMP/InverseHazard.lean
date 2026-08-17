@@ -315,6 +315,41 @@ theorem PartialInverseHazardClock.executeHazards_stable_of_zero
   rw [clock.executeHazards_append, hfinished,
     clock.executeHazards_zero]
 
+/-- If replaying a nonempty prefix is still active at the end, its first
+candidate must also have left positive remaining time. -/
+theorem PartialInverseHazardClock.cappedStep_fst_ne_zero_of_execute_cons
+    (clock : PartialInverseHazardClock State) (jump : State → State)
+    (hazard : NNReal) (hazards : List NNReal)
+    (remainingState : NNReal × State)
+    (hactive : (clock.executeHazards jump (hazard :: hazards)
+      remainingState).1 ≠ 0) :
+    (clock.cappedStepUpdate jump (remainingState, hazard)).1 ≠ 0 := by
+  intro hzero
+  have hstep : clock.cappedStepUpdate jump (remainingState, hazard) =
+      (0, (clock.cappedStepUpdate jump (remainingState, hazard)).2) :=
+    Prod.ext hzero rfl
+  change (clock.executeHazards jump hazards
+    (clock.cappedStepUpdate jump (remainingState, hazard))).1 ≠ 0 at hactive
+  rw [hstep, clock.executeHazards_zero] at hactive
+  exact hactive rfl
+
+/-- Consequently every candidate preceding a still-active replay endpoint
+satisfied the exact-event branch condition. -/
+theorem PartialInverseHazardClock.event_condition_of_execute_cons_fst_ne_zero
+    (clock : PartialInverseHazardClock State) (jump : State → State)
+    (hazard : NNReal) (hazards : List NNReal)
+    (remainingState : NNReal × State)
+    (hactive : (clock.executeHazards jump (hazard :: hazards)
+      remainingState).1 ≠ 0) :
+    0 < remainingState.1 ∧
+      clock.active remainingState.2 hazard = true ∧
+      clock.waitingTime remainingState.2 hazard ≤ remainingState.1 := by
+  have hstep := clock.cappedStep_fst_ne_zero_of_execute_cons jump hazard
+    hazards remainingState hactive
+  by_contra hcondition
+  rw [clock.cappedStepUpdate_of_no_event jump hcondition] at hstep
+  exact hstep rfl
+
 /-- Infinite iid unit-exponential hazard stream for repeated inverse-clock
 restart. -/
 noncomputable def unitHazardSequenceMeasure : Measure (ℕ → NNReal) :=
@@ -445,6 +480,100 @@ def PartialInverseHazardClock.CompletesFiniteHorizons
       ∃ count terminal,
         clock.executeHazards jump (hazardPrefix count hazards)
           (horizon, initial) = (0, terminal)
+
+/-- Deterministic bounded-hazard criterion for finite-horizon completion.
+For each horizon and initial state, every finite prefix that has not yet
+finished must have consumed at most one common finite amount of integrated
+hazard. -/
+def PartialInverseHazardClock.HasBoundedActivePrefixHazard
+    (clock : PartialInverseHazardClock State) (jump : State → State) : Prop :=
+  ∀ (horizon : NNReal) (initial : State), ∃ bound : NNReal,
+    ∀ (hazards : ℕ → NNReal) (count : ℕ),
+      (clock.executeHazards jump (hazardPrefix count hazards)
+          (horizon, initial)).1 ≠ 0 →
+        (∑ index ∈ Finset.range count,
+          (hazards index : ENNReal)) ≤ (bound : ENNReal)
+
+/-- A deterministic bound on every still-active prefix, combined with the
+almost-sure divergence of iid unit-exponential marks, proves exact
+finite-horizon completion. -/
+theorem PartialInverseHazardClock.completesFiniteHorizons_of_boundedActivePrefixHazard
+    (clock : PartialInverseHazardClock State) (jump : State → State)
+    (hbounded : clock.HasBoundedActivePrefixHazard jump) :
+    clock.CompletesFiniteHorizons jump := by
+  intro horizon initial
+  obtain ⟨bound, hbound⟩ := hbounded horizon initial
+  filter_upwards [unitHazard_prefix_sum_unbounded_ae] with hazards hunbounded
+  obtain ⟨count, hcount⟩ := hunbounded bound
+  let result := clock.executeHazards jump (hazardPrefix count hazards)
+    (horizon, initial)
+  have hfinished : result.1 = 0 := by
+    by_contra hne
+    exact (not_lt_of_ge (hbound hazards count hne)) hcount
+  exact ⟨count, result.2, Prod.ext hfinished rfl⟩
+
+/-- A one-step potential that pays for every accepted hazard bounds the sum of
+all marks in any replay prefix that remains active. -/
+theorem PartialInverseHazardClock.executeHazards_sum_le_potential
+    (clock : PartialInverseHazardClock State) (jump : State → State)
+    (potential : NNReal × State → NNReal)
+    (hstep : ∀ (remainingState : NNReal × State) (hazard : NNReal),
+      0 < remainingState.1 ∧
+          clock.active remainingState.2 hazard = true ∧
+          clock.waitingTime remainingState.2 hazard ≤ remainingState.1 →
+        hazard + potential (clock.cappedStepUpdate jump
+          (remainingState, hazard)) ≤ potential remainingState)
+    (hazards : List NNReal) (remainingState : NNReal × State)
+    (hactive : (clock.executeHazards jump hazards remainingState).1 ≠ 0) :
+    hazards.sum + potential (clock.executeHazards jump hazards remainingState) ≤
+      potential remainingState := by
+  induction hazards generalizing remainingState with
+  | nil => simp [PartialInverseHazardClock.executeHazards]
+  | cons hazard hazards ih =>
+      let next := clock.cappedStepUpdate jump (remainingState, hazard)
+      have hcondition := clock.event_condition_of_execute_cons_fst_ne_zero
+        jump hazard hazards remainingState hactive
+      have htail : (clock.executeHazards jump hazards next).1 ≠ 0 := by
+        exact hactive
+      have htailBound := ih next htail
+      simp only [List.sum_cons, PartialInverseHazardClock.executeHazards]
+      calc
+        hazard + hazards.sum + potential
+            (clock.executeHazards jump hazards
+              (clock.cappedStepUpdate jump (remainingState, hazard))) =
+            hazard + (hazards.sum + potential
+              (clock.executeHazards jump hazards next)) := by
+                simp [next, add_assoc]
+        _ ≤
+            hazard + potential next := by gcongr
+        _ ≤ potential remainingState := hstep remainingState hazard hcondition
+
+/-- A finite NNReal potential satisfying the accepted-step payment inequality
+discharges the generic bounded-active-prefix criterion. -/
+theorem PartialInverseHazardClock.hasBoundedActivePrefixHazard_of_potential
+    (clock : PartialInverseHazardClock State) (jump : State → State)
+    (potential : NNReal × State → NNReal)
+    (hstep : ∀ (remainingState : NNReal × State) (hazard : NNReal),
+      0 < remainingState.1 ∧
+          clock.active remainingState.2 hazard = true ∧
+          clock.waitingTime remainingState.2 hazard ≤ remainingState.1 →
+        hazard + potential (clock.cappedStepUpdate jump
+          (remainingState, hazard)) ≤ potential remainingState) :
+    clock.HasBoundedActivePrefixHazard jump := by
+  intro horizon initial
+  refine ⟨potential (horizon, initial), ?_⟩
+  intro hazards count hactive
+  have hlist := clock.executeHazards_sum_le_potential jump potential hstep
+    (hazardPrefix count hazards) (horizon, initial) hactive
+  have hsum : (hazardPrefix count hazards).sum ≤
+      potential (horizon, initial) :=
+    (le_add_right le_rfl).trans hlist
+  have hprefix : (hazardPrefix count hazards).sum =
+      ∑ index ∈ Finset.range count, hazards index := by
+    simpa [hazardPrefix, List.sum_ofFn] using
+      (Fin.sum_univ_eq_sum_range hazards count)
+  rw [hprefix] at hsum
+  exact_mod_cast hsum
 
 /-- One restart candidate with a fresh unit-exponential hazard mark. -/
 noncomputable def PartialInverseHazardClock.cappedStepKernel

@@ -665,8 +665,11 @@ by paper date:
    nonexplosion proof. The generic inverse-clock layer now supplies its
    probabilistic counterpart: iid unit-exponential hazards have infinite sum
    almost surely, equivalently some finite prefix exceeds every finite bound.
-   Lifting the deterministic envelope through repeated capped execution is
-   still required before constructing the completed horizon kernel.
+   The capped replay now carries a finite potential equal to remaining time
+   times the current envelope; every accepted mark is paid by its decrease.
+   This proves almost-sure finite-horizon completion for finite-dimensional
+   standard-Gaussian BPS. Constructing the measurable completed endpoint and
+   horizon kernel, followed by stationarity and ergodicity, remains.
 
    The nonlinear reversible-jump branch is complete at the exact theorem and
    executable-client levels; only the shared Float64 primitive boundary
