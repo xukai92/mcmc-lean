@@ -1266,6 +1266,84 @@ theorem acceptedProposalReverse_restrict_measurePreserving
     (measurableSet_acceptedProposalSuccess hlogDensity threshold left right)
   exact acceptedProposalSuccess_preimage logDensity threshold hwidth
 
+/-- Measurable carrier of nondegenerate stopped brackets. Keeping the order
+proof in the carrier makes every fiber accepted-proposal reversal
+measure-preserving without an additional exceptional branch. -/
+abbrev StoppedBracket := {bracket : ℝ × ℝ // bracket.1 < bracket.2}
+
+/-- Leave a stopped bracket unchanged and reverse the accepted old/proposal
+coordinates in its fiber. -/
+noncomputable def stoppedBracketAcceptedReverse
+    (point : StoppedBracket × (ℝ × ℝ)) : StoppedBracket × (ℝ × ℝ) :=
+  (point.1,
+    acceptedProposalReverse point.1.1.1 point.1.1.2 point.2)
+
+theorem measurable_stoppedBracketAcceptedReverse :
+    Measurable stoppedBracketAcceptedReverse := by
+  unfold stoppedBracketAcceptedReverse acceptedProposalReverse
+  fun_prop
+
+/-- For any s-finite law of stopped brackets, the bracket-dependent affine
+accepted-proposal reversal preserves that law times planar volume. No
+independence or explicit bracket density is required. -/
+theorem stoppedBracketAcceptedReverse_measurePreserving
+    (bracketLaw : Measure StoppedBracket) [SFinite bracketLaw] :
+    MeasurePreserving stoppedBracketAcceptedReverse
+      (bracketLaw.prod ((volume : Measure ℝ).prod volume))
+      (bracketLaw.prod ((volume : Measure ℝ).prod volume)) := by
+  refine (MeasurePreserving.id bracketLaw).skew_product
+    (g := fun bracket point =>
+      acceptedProposalReverse bracket.1.1 bracket.1.2 point)
+    (by
+      unfold acceptedProposalReverse
+      fun_prop) ?_
+  filter_upwards [] with bracket
+  exact (acceptedProposalReverse_measurePreserving
+    (sub_ne_zero.mpr bracket.2.ne')).map_eq
+
+/-- Successful accepted coordinates in a varying stopped bracket. -/
+def stoppedBracketAcceptedSuccess
+    (logDensity : ℝ → ℝ) (threshold : ℝ) :
+    Set (StoppedBracket × (ℝ × ℝ)) :=
+  {point | point.2 ∈ acceptedProposalSuccess logDensity threshold
+    point.1.1.1 point.1.1.2}
+
+theorem measurableSet_stoppedBracketAcceptedSuccess
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (threshold : ℝ) :
+    MeasurableSet (stoppedBracketAcceptedSuccess logDensity threshold) := by
+  unfold stoppedBracketAcceptedSuccess acceptedProposalSuccess
+  measurability
+
+theorem stoppedBracketAcceptedReverse_preimage_success
+    (logDensity : ℝ → ℝ) (threshold : ℝ) :
+    stoppedBracketAcceptedReverse ⁻¹'
+        stoppedBracketAcceptedSuccess logDensity threshold =
+      stoppedBracketAcceptedSuccess logDensity threshold := by
+  ext point
+  change acceptedProposalReverse point.1.1.1 point.1.1.2 point.2 ∈
+      acceptedProposalSuccess logDensity threshold point.1.1.1 point.1.1.2 ↔
+    point.2 ∈
+      acceptedProposalSuccess logDensity threshold point.1.1.1 point.1.1.2
+  exact Set.ext_iff.mp
+    (acceptedProposalSuccess_preimage logDensity threshold point.1.2) point.2
+
+/-- The varying-bracket accepted-proposal law remains measure preserving after
+restriction to successful slice coordinates. -/
+theorem stoppedBracketAcceptedReverse_restrict_measurePreserving
+    {bracketLaw : Measure StoppedBracket} [SFinite bracketLaw]
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (threshold : ℝ) :
+    MeasurePreserving stoppedBracketAcceptedReverse
+      ((bracketLaw.prod ((volume : Measure ℝ).prod volume)).restrict
+        (stoppedBracketAcceptedSuccess logDensity threshold))
+      ((bracketLaw.prod ((volume : Measure ℝ).prod volume)).restrict
+        (stoppedBracketAcceptedSuccess logDensity threshold)) := by
+  apply measurePreserving_restrict_of_preimage_eq
+    (stoppedBracketAcceptedReverse_measurePreserving bracketLaw)
+    (measurableSet_stoppedBracketAcceptedSuccess hlogDensity threshold)
+  exact stoppedBracketAcceptedReverse_preimage_success logDensity threshold
+
 /-- Reversal on one successful trace stratum: translate the Haar alignment,
 reroot the finite expansion allocation, and swap old/accepted proposal
 coordinates inside their common stopped bracket. -/
@@ -1363,6 +1441,81 @@ theorem globalRejectedTraceReverse_withDensity_measurePreserving
   measurePreserving_withDensity_of_map_invariant
     (globalRejectedTraceReverse_measurePreserving hlogDensity threshold intervals
       hgridWidth hbracketWidth)
+    htargetDensity hinvariant
+
+/-- Complete non-dependent trace carrier with a varying stopped bracket. -/
+abbrev GlobalStoppedTrace :=
+  RejectedSequence ×
+    ((Alignment × ℤ) × (StoppedBracket × (ℝ × ℝ)))
+
+/-- Global reversal across rejected-sequence lengths, integer alignment
+shifts, finite valid allocations, and arbitrary nondegenerate stopped
+brackets. -/
+noncomputable def globalStoppedTraceReverse
+    (width old new : ℝ) (trace : GlobalStoppedTrace) : GlobalStoppedTrace :=
+  (trace.1,
+    (alignmentAllocationReverse width old new trace.2.1,
+      stoppedBracketAcceptedReverse trace.2.2))
+
+/-- The complete practical-slice trace reversal preserves the successful
+product law while simultaneously summing all shift/allocation strata and
+integrating against any s-finite stopped-bracket law. -/
+theorem globalStoppedTraceReverse_measurePreserving
+    {rejectedLaw : Measure RejectedSequence} [SFinite rejectedLaw]
+    {bracketLaw : Measure StoppedBracket} [SFinite bracketLaw]
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (threshold : ℝ) (intervals : ℕ)
+    {width old new : ℝ} (hgridWidth : width ≠ 0) :
+    MeasurePreserving (globalStoppedTraceReverse width old new)
+      (rejectedLaw.prod
+        ((((volume : Measure Alignment).prod (Measure.count : Measure ℤ)).restrict
+            (globalValidAllocation intervals width old new)).prod
+          ((bracketLaw.prod ((volume : Measure ℝ).prod volume)).restrict
+            (stoppedBracketAcceptedSuccess logDensity threshold))))
+      (rejectedLaw.prod
+        ((((volume : Measure Alignment).prod (Measure.count : Measure ℤ)).restrict
+            (globalValidAllocation intervals width new old)).prod
+          ((bracketLaw.prod ((volume : Measure ℝ).prod volume)).restrict
+            (stoppedBracketAcceptedSuccess logDensity threshold)))) := by
+  have hinner :=
+    (alignmentAllocationReverse_restrict_measurePreserving
+      (intervals := intervals) (old := old) (new := new) hgridWidth).prod
+      (stoppedBracketAcceptedReverse_restrict_measurePreserving
+        (bracketLaw := bracketLaw) hlogDensity threshold)
+  have hall := (MeasurePreserving.id rejectedLaw).prod hinner
+  convert hall using 1
+  funext trace
+  rfl
+
+/-- Attach the stopped-bracket and shrink-trace likelihood after every
+discrete and continuous trace stratum has been combined. -/
+theorem globalStoppedTraceReverse_withDensity_measurePreserving
+    {rejectedLaw : Measure RejectedSequence} [SFinite rejectedLaw]
+    {bracketLaw : Measure StoppedBracket} [SFinite bracketLaw]
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (threshold : ℝ) (intervals : ℕ)
+    {width old new : ℝ} (hgridWidth : width ≠ 0)
+    (sourceDensity targetDensity : GlobalStoppedTrace → ENNReal)
+    (htargetDensity : Measurable targetDensity)
+    (hinvariant : ∀ trace,
+      targetDensity (globalStoppedTraceReverse width old new trace) =
+        sourceDensity trace) :
+    MeasurePreserving (globalStoppedTraceReverse width old new)
+      ((rejectedLaw.prod
+        ((((volume : Measure Alignment).prod (Measure.count : Measure ℤ)).restrict
+            (globalValidAllocation intervals width old new)).prod
+          ((bracketLaw.prod ((volume : Measure ℝ).prod volume)).restrict
+            (stoppedBracketAcceptedSuccess logDensity threshold)))).withDensity
+        sourceDensity)
+      ((rejectedLaw.prod
+        ((((volume : Measure Alignment).prod (Measure.count : Measure ℤ)).restrict
+            (globalValidAllocation intervals width new old)).prod
+          ((bracketLaw.prod ((volume : Measure ℝ).prod volume)).restrict
+            (stoppedBracketAcceptedSuccess logDensity threshold)))).withDensity
+        targetDensity) :=
+  measurePreserving_withDensity_of_map_invariant
+    (globalStoppedTraceReverse_measurePreserving hlogDensity threshold intervals
+      hgridWidth)
     htargetDensity hinvariant
 
 /-- Successful trace reversal leaves every rejected point and its length

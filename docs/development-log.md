@@ -4312,3 +4312,23 @@ and reverse likelihoods from their pointwise reversal equality. This theorem
 has genuinely combined every integer shift and allocation stratum; varying the
 stopped bracket and connecting the resulting trace law to the auxiliary slice
 kernel remain separate obligations.
+
+## 2026-08-17: varying stopped brackets and dependent traces
+
+Added the measurable carrier of nondegenerate stopped brackets and proved that
+the bracket-dependent accepted old/proposal affine reversal preserves any
+s-finite bracket law times planar Lebesgue measure. Its successful-slice event
+is measurable and invariant under reversal, so the restricted law is also
+preserved. Composing this fiber theorem with the global alignment/allocation
+law and the variable-length rejected sequence yields one trace theorem across
+all discrete shifts, allocations, rejected lengths, and varying brackets, plus
+the corresponding forward/reverse density transport.
+
+The slice-kernel infrastructure now supports a trace *kernel* depending on
+height and current state, rather than only an independent constant trace law.
+Preservation of the resulting dependent joint law implies horizontal
+invariance and then weighted-target slice invariance; a guarded theorem gives
+the checked identity fallback from preservation on the successful restriction.
+This is the correct auxiliary-kernel bridge for practical stepping out. The
+remaining client obligation is construction of the measurable runtime trace
+kernel and equality of its joint law with the global trace density above.

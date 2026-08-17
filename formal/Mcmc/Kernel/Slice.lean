@@ -1223,6 +1223,47 @@ theorem traceDrivenHorizontalKernel_invariant
   exact deterministic_invariant_of_measurePreserving
     (joint ⊗ₘ Kernel.const (ℝ × State) traceLaw) htransform hpreserving
 
+/-- Horizontal update driven by a state-dependent execution-trace kernel.
+This is the correct interface when stepping out computes a stopped bracket
+from the current state and slice height rather than sampling an independent
+bracket law. -/
+noncomputable def dependentTraceDrivenHorizontalKernel
+    {Trace : Type*} [MeasurableSpace Trace]
+    (traceKernel : Kernel (ℝ × State) Trace)
+    (transform : ((ℝ × State) × Trace) → ((ℝ × State) × Trace))
+    (htransform : Measurable transform) : Kernel (ℝ × State) (ℝ × State) :=
+  liftEvolveProject
+    (Kernel.id ×ₖ traceKernel)
+    (Kernel.deterministic transform htransform)
+    Prod.fst measurable_fst
+
+instance dependentTraceDrivenHorizontalKernel.instIsMarkovKernel
+    {Trace : Type*} [MeasurableSpace Trace]
+    (traceKernel : Kernel (ℝ × State) Trace) [IsMarkovKernel traceKernel]
+    (transform : ((ℝ × State) × Trace) → ((ℝ × State) × Trace))
+    (htransform : Measurable transform) :
+    IsMarkovKernel
+      (dependentTraceDrivenHorizontalKernel traceKernel transform htransform) := by
+  unfold dependentTraceDrivenHorizontalKernel
+  infer_instance
+
+/-- Preservation of the state-dependent joint trace law is exactly the
+obligation needed for invariance of the projected horizontal update. -/
+theorem dependentTraceDrivenHorizontalKernel_invariant
+    {Trace : Type*} [MeasurableSpace Trace]
+    (joint : Measure (ℝ × State)) [SFinite joint]
+    (traceKernel : Kernel (ℝ × State) Trace) [IsMarkovKernel traceKernel]
+    (transform : ((ℝ × State) × Trace) → ((ℝ × State) × Trace))
+    (htransform : Measurable transform)
+    (hpreserving : MeasurePreserving transform
+      (joint ⊗ₘ traceKernel) (joint ⊗ₘ traceKernel)) :
+    (dependentTraceDrivenHorizontalKernel traceKernel transform htransform).Invariant
+      joint := by
+  unfold dependentTraceDrivenHorizontalKernel
+  apply compProdEvolveFst_invariant joint traceKernel
+  exact deterministic_invariant_of_measurePreserving
+    (joint ⊗ₘ traceKernel) htransform hpreserving
+
 /-- End-to-end trace-reversal theorem for practical slice sampling. A
 measure-preserving map on under-graph-state--trace space induces an exact
 weighted-target invariant sampler after trace sampling and projection. -/
@@ -1248,6 +1289,61 @@ theorem traceDrivenWithinSliceSampler_invariant_underGraph
   exact traceDrivenHorizontalKernel_invariant
     ((sliceUnderGraph base weight).map Prod.swap)
     traceLaw transform htransform hpreserving
+
+/-- End-to-end slice invariance for a trace kernel that may depend on the
+sampled height and current state. This specializes the auxiliary-invariant
+slice wrapper to practical stepping-out/shrinkage traces. -/
+theorem dependentTraceDrivenWithinSliceSampler_invariant_underGraph
+    {Trace : Type*} [MeasurableSpace Trace]
+    (base : Measure State) [SFinite base]
+    (weight : State → ℝ) (hweight : Measurable weight)
+    [SFinite (sliceUnderGraph base weight)]
+    (hpositive : ∀ x, 0 < weight x)
+    (traceKernel : Kernel (ℝ × State) Trace) [IsMarkovKernel traceKernel]
+    (transform : ((ℝ × State) × Trace) → ((ℝ × State) × Trace))
+    (htransform : Measurable transform)
+    (hpreserving : MeasurePreserving transform
+      (((sliceUnderGraph base weight).map Prod.swap) ⊗ₘ traceKernel)
+      (((sliceUnderGraph base weight).map Prod.swap) ⊗ₘ traceKernel)) :
+    (withinSliceSampler weight hweight hpositive
+      (dependentTraceDrivenHorizontalKernel traceKernel transform htransform)).Invariant
+        (base.withDensity (fun x ↦ ENNReal.ofReal (weight x))) := by
+  apply withinSliceSampler_invariant_underGraph
+    base weight hweight hpositive
+  exact dependentTraceDrivenHorizontalKernel_invariant
+    ((sliceUnderGraph base weight).map Prod.swap)
+    traceKernel transform htransform hpreserving
+
+/-- Guarded end-to-end variant for state-dependent practical traces. The
+non-success branch is the identity, while the reversal only needs to preserve
+the dependent joint law restricted to the measurable success event. -/
+theorem guardedDependentTraceDrivenWithinSliceSampler_invariant_underGraph
+    {Trace : Type*} [MeasurableSpace Trace]
+    (base : Measure State) [SFinite base]
+    (weight : State → ℝ) (hweight : Measurable weight)
+    [SFinite (sliceUnderGraph base weight)]
+    (hpositive : ∀ x, 0 < weight x)
+    (traceKernel : Kernel (ℝ × State) Trace) [IsMarkovKernel traceKernel]
+    (success : Set ((ℝ × State) × Trace)) (hsuccess : MeasurableSet success)
+    (transform : ((ℝ × State) × Trace) → ((ℝ × State) × Trace))
+    (htransform : Measurable transform)
+    (hpreserving : MeasurePreserving transform
+      ((((sliceUnderGraph base weight).map Prod.swap) ⊗ₘ traceKernel).restrict
+        success)
+      ((((sliceUnderGraph base weight).map Prod.swap) ⊗ₘ traceKernel).restrict
+        success)) :
+    (withinSliceSampler weight hweight hpositive
+      (dependentTraceDrivenHorizontalKernel traceKernel
+        (guardedTraceTransform success transform)
+        (measurable_guardedTraceTransform hsuccess htransform))).Invariant
+        (base.withDensity (fun x ↦ ENNReal.ofReal (weight x))) := by
+  apply dependentTraceDrivenWithinSliceSampler_invariant_underGraph
+    base weight hweight hpositive traceKernel
+      (guardedTraceTransform success transform)
+      (measurable_guardedTraceTransform hsuccess htransform)
+  exact guardedTraceTransform_measurePreserving
+    (((sliceUnderGraph base weight).map Prod.swap) ⊗ₘ traceKernel)
+    success hsuccess transform htransform hpreserving
 
 /-- End-to-end guarded trace theorem. Successful stepping-out/shrinkage traces
 may use a nontrivial reversal, while exhausted or rejected traces take the
