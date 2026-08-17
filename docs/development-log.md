@@ -13,6 +13,10 @@
   velocity refresh. Its invariance remains conditional only because the
   bounce-only target stationarity premise is still conditional; the refreshed
   semigroup law and ergodicity are not yet claimed.
+  As a first anti-confinement fact, the standard Gaussian momentum law is now
+  proved atomless in every positive finite dimension, and a BPS velocity
+  refresh is proved to return the exact old velocity with probability zero.
+  This does not by itself constitute irreducibility or a minorization.
 
 - Closed the rejected-length sigma assembly for the practical-slice joint
   law. The variable-dimensional runtime base is now proved equal to the

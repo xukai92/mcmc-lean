@@ -93,6 +93,16 @@ instance standardMomentumMeasure_isProbabilityMeasure :
     (Mcmc.Kernel.isotropicGaussianPDF (ι := ι) 1)
     (Mcmc.Kernel.lintegral_isotropicGaussianPDF_eq_one 1 (by norm_num))
 
+/-- In every positive finite dimension the standard Gaussian momentum law
+has no point masses. -/
+instance standardMomentumMeasure.instNullSingletonClass [Nonempty ι] :
+    NullSingletonClass (standardMomentumMeasure (ι := ι)) where
+  measure_singleton momentum := by
+    unfold standardMomentumMeasure Mcmc.Kernel.densityTarget
+    rw [withDensity_apply_eq_zero
+      (Mcmc.Kernel.measurable_isotropicGaussianPDF 1)]
+    exact measure_mono_null Set.inter_subset_right (measure_singleton momentum)
+
 /-- The standard finite-dimensional Gaussian momentum law has a finite first
 ambient-norm moment. -/
 theorem lintegral_norm_standardMomentumMeasure_ne_top :

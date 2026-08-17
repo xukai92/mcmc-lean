@@ -142,6 +142,19 @@ theorem bouncyParticleVelocityRefresh_position_event
   simp only [Kernel.const_apply, measure_univ, mul_one]
   rw [Kernel.id_apply, Measure.dirac_apply' _ hs]
 
+/-- In positive dimension, a full standard-Gaussian velocity refresh returns
+the exact previous velocity with probability zero. Thus refreshment destroys
+the pointwise velocity fibers retained by deterministic flight and reflection. -/
+theorem bouncyParticleVelocityRefresh_oldVelocity_zero [Nonempty ι]
+    (state : BouncyParticleState ι) :
+    bouncyParticleVelocityRefresh standardMomentumMeasure state
+      (Set.univ ×ˢ {state.2}) = 0 := by
+  unfold bouncyParticleVelocityRefresh
+    Mcmc.Hamiltonian.momentumRefreshWith
+    Mcmc.Hamiltonian.momentumTransition
+  rw [Kernel.parallelComp_apply_prod]
+  simp
+
 /-- Canonical position-dependent bounce intensity. -/
 noncomputable def BouncyParticleBounceData.stateRate
     (data : BouncyParticleBounceData ι) (state : BouncyParticleState ι) : ℝ :=
