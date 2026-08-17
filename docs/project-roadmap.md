@@ -700,9 +700,12 @@ by paper date:
    the selected finite completion count; these strata cover almost every
    stream and expose the active preterminal state. The terminal candidate is
    proved to be either a genuine no-event overshoot or an exact boundary ring,
-   isolating the remaining null-equality calculation. Countwise residual-law
-   transport and gluing are still needed for the arbitrary positive-time
-   composition law, target stationarity, and ergodicity.
+   isolating the remaining null-equality calculation. The unit-hazard law is
+   now proved atomless at every mark, and an independent head almost surely
+   avoids any measurable tail-determined threshold. Reindexing this fact to
+   each stratum's terminal coordinate, countwise residual-law transport, and
+   gluing are still needed for the arbitrary positive-time composition law,
+   target stationarity, and ergodicity.
 
    The nonlinear reversible-jump branch is complete at the exact theorem and
    executable-client levels; only the shared Float64 primitive boundary

@@ -134,6 +134,42 @@ theorem unitHazardMeasure_singleton_zero :
   rw [hset, unitHazardMeasure_Iic]
   norm_num
 
+theorem unitHazardMeasure_singleton (hazard : NNReal) :
+    unitHazardMeasure {hazard} = 0 := by
+  by_cases hhazard : hazard = 0
+  · subst hazard
+    exact unitHazardMeasure_singleton_zero
+  · unfold unitHazardMeasure HomogeneousClock.waitMeasure
+    change (Measure.map Real.toNNReal (expMeasure (1 : ℝ))) {hazard} = 0
+    rw [Measure.map_apply measurable_real_toNNReal
+      (measurableSet_singleton hazard)]
+    have hpre : Real.toNNReal ⁻¹' ({hazard} : Set NNReal) =
+        {((hazard : NNReal) : ℝ)} := by
+      ext value
+      simp only [Set.mem_preimage, Set.mem_singleton_iff]
+      constructor
+      · intro hvalue
+        have hpositive : 0 < value := by
+          by_contra hnonpos
+          have : Real.toNNReal value = 0 := Real.toNNReal_of_nonpos
+            (le_of_not_gt hnonpos)
+          rw [hvalue] at this
+          exact hhazard this
+        have hcoe := congrArg (fun x : NNReal => (x : ℝ)) hvalue
+        rw [Real.coe_toNNReal value hpositive.le] at hcoe
+        exact hcoe
+      · intro hvalue
+        subst value
+        simp
+    rw [hpre]
+    unfold expMeasure gammaMeasure
+    rw [withDensity_apply _ (measurableSet_singleton _)]
+    simp
+
+instance unitHazardMeasure.instNullSingletonClass :
+    NullSingletonClass unitHazardMeasure :=
+  ⟨unitHazardMeasure_singleton⟩
+
 theorem unitHazardMeasure_positive_ae :
     ∀ᵐ hazard ∂unitHazardMeasure, 0 < hazard := by
   rw [ae_iff]
@@ -439,6 +475,33 @@ instance unitHazardSequenceMeasure.instIsProbabilityMeasure :
     IsProbabilityMeasure unitHazardSequenceMeasure := by
   unfold unitHazardSequenceMeasure
   infer_instance
+
+/-- An independent unit-exponential head almost surely avoids every measurable
+threshold determined by the iid tail. -/
+theorem unitHazard_head_ne_measurable_tail_ae
+    (threshold : (ℕ → NNReal) → NNReal) (hthreshold : Measurable threshold) :
+    ∀ᵐ headTail ∂unitHazardMeasure.prod unitHazardSequenceMeasure,
+      headTail.1 ≠ threshold headTail.2 := by
+  have hmeasurable : MeasurableSet
+      {headTail : NNReal × (ℕ → NNReal) |
+        headTail.1 ≠ threshold headTail.2} := by
+    change MeasurableSet
+      ({headTail : NNReal × (ℕ → NNReal) |
+        headTail.1 = threshold headTail.2}ᶜ)
+    exact (measurableSet_eq_fun measurable_fst
+      (hthreshold.comp measurable_snd)).compl
+  have htailHead : ∀ᵐ tail ∂unitHazardSequenceMeasure,
+      ∀ᵐ head ∂unitHazardMeasure, head ≠ threshold tail := by
+    filter_upwards [] with tail
+    rw [ae_iff]
+    have hset : {head : NNReal | ¬head ≠ threshold tail} =
+        {threshold tail} := by
+      ext head
+      simp
+    rw [hset]
+    exact unitHazardMeasure_singleton _
+  apply (Measure.ae_prod_iff_ae_ae hmeasurable).2
+  exact (Measure.ae_ae_comm hmeasurable).mpr htailHead
 
 /-- Removing the first coordinate from an iid unit-hazard stream leaves the
 same infinite-product law. -/

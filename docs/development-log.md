@@ -4919,3 +4919,11 @@ horizons cannot occupy count zero; on stratum `n+1`, prefix `n` is still active
 and its next capped step finishes. That terminal candidate is either the
 no-event branch or has wait exactly equal to remaining time, isolating the
 continuous-law boundary-null event needed before countwise gluing.
+
+The base atomlessness input for that null event is now formalized. Every
+singleton has zero mass under the canonical unit-exponential hazard law, which
+is registered through mathlib's `NullSingletonClass`. Fubini then proves that
+an independent head mark almost surely differs from any measurable threshold
+computed from the iid tail. The next stratum step is to reindex an arbitrary
+terminal coordinate as that independent head while retaining the finite
+prefix context that determines its threshold.
