@@ -513,6 +513,135 @@ theorem CompletedTreeStoppingData.admissible_reconstruction_mass_eq
         (directionTraceForRoot depth right) :=
   directionTraceForRoot_mass_eq depth left right
 
+/-! ### Concrete recursive continuation flags -/
+
+/-- Boolean control-flow trace of one completed `BuildTree` call. A leaf
+records the divergence/slice continuation check. An internal node records the
+two recursive calls and the endpoint U-turn check at their join. -/
+inductive NUTSBuildFlagTree where
+  | leaf (continues : Bool)
+  | node (left right : NUTSBuildFlagTree) (joinContinues : Bool)
+deriving DecidableEq
+
+/-- Exact continuation result returned by a completed recursive `BuildTree`:
+both children and the new join must remain valid. -/
+def NUTSBuildFlagTree.continues : NUTSBuildFlagTree → Bool
+  | .leaf continues => continues
+  | .node left right joinContinues =>
+      left.continues && right.continues && joinContinues
+
+@[simp] theorem NUTSBuildFlagTree.continues_leaf (flag : Bool) :
+    (NUTSBuildFlagTree.leaf flag).continues = flag := rfl
+
+@[simp] theorem NUTSBuildFlagTree.continues_node
+    (left right : NUTSBuildFlagTree) (joinContinues : Bool) :
+    (NUTSBuildFlagTree.node left right joinContinues).continues =
+      (left.continues && right.continues && joinContinues) := rfl
+
+/-- Recursive continuation succeeds exactly when both subtrees and their
+endpoint join succeed. -/
+theorem NUTSBuildFlagTree.continues_node_eq_true_iff
+    (left right : NUTSBuildFlagTree) (joinContinues : Bool) :
+    (NUTSBuildFlagTree.node left right joinContinues).continues = true ↔
+      left.continues = true ∧ right.continues = true ∧
+        joinContinues = true := by
+  simp [NUTSBuildFlagTree.continues, and_assoc]
+
+/-- Number of consecutive successful outer doublings before the first failed
+`BuildTree` or full-tree U-turn flag. -/
+def truePrefixLength : List Bool → ℕ
+  | [] => 0
+  | true :: flags => truePrefixLength flags + 1
+  | false :: _ => 0
+
+@[simp] theorem truePrefixLength_nil : truePrefixLength [] = 0 := rfl
+@[simp] theorem truePrefixLength_true_cons (flags : List Bool) :
+    truePrefixLength (true :: flags) = truePrefixLength flags + 1 := rfl
+@[simp] theorem truePrefixLength_false_cons (flags : List Bool) :
+    truePrefixLength (false :: flags) = 0 := rfl
+
+theorem truePrefixLength_le_length (flags : List Bool) :
+    truePrefixLength flags ≤ flags.length := by
+  induction flags with
+  | nil => simp
+  | cons flag flags ih =>
+      cases flag <;> simp [truePrefixLength, ih]
+
+/-- The outer loop reaches its maximum depth exactly when every continuation
+flag is true. -/
+theorem truePrefixLength_eq_length_iff (flags : List Bool) :
+    truePrefixLength flags = flags.length ↔
+      ∀ flag ∈ flags, flag = true := by
+  induction flags with
+  | nil => simp
+  | cons flag flags ih =>
+      cases flag <;> simp [truePrefixLength, ih]
+
+theorem truePrefixLength_ofFn_eq_iff
+    {depth : ℕ} (flags : Fin depth → Bool) :
+    truePrefixLength (List.ofFn flags) = depth ↔
+      ∀ index, flags index = true := by
+  calc
+    truePrefixLength (List.ofFn flags) = depth ↔
+        truePrefixLength (List.ofFn flags) = (List.ofFn flags).length := by simp
+    _ ↔ ∀ flag ∈ List.ofFn flags, flag = true :=
+      truePrefixLength_eq_length_iff (List.ofFn flags)
+    _ ↔ ∀ index, flags index = true := by simp
+
+/-- Concrete stopping data obtained by rerunning the recursive flag checks at
+every possible root of a completed tree. -/
+def CompletedTreeStoppingData.ofContinuationFlags
+    {depth : ℕ}
+    (flags : Fin (2 ^ depth) → Fin depth → Bool) :
+    CompletedTreeStoppingData depth where
+  continuationDepth root := truePrefixLength (List.ofFn (flags root))
+  continuationDepth_le root := by
+    simpa using truePrefixLength_le_length (List.ofFn (flags root))
+
+/-- C.4 retains exactly the roots whose concrete divergence/U-turn checks
+succeed at every doubling needed to reconstruct the completed tree. -/
+theorem CompletedTreeStoppingData.ofContinuationFlags_admissible_iff
+    {depth : ℕ}
+    (flags : Fin (2 ^ depth) → Fin depth → Bool)
+    (root : Fin (2 ^ depth)) :
+    (CompletedTreeStoppingData.ofContinuationFlags flags).admissible root ↔
+      ∀ index, flags root index = true := by
+  rw [CompletedTreeStoppingData.admissible_iff_eq_depth]
+  exact truePrefixLength_ofFn_eq_iff (flags root)
+
+/-- Specialization where every outer flag is computed by a recursive
+`BuildTree` flag tree. -/
+def CompletedTreeStoppingData.ofBuildFlagTrees
+    {depth : ℕ}
+    (trees : Fin (2 ^ depth) → Fin depth → NUTSBuildFlagTree) :
+    CompletedTreeStoppingData depth :=
+  CompletedTreeStoppingData.ofContinuationFlags fun root index =>
+    (trees root index).continues
+
+theorem CompletedTreeStoppingData.ofBuildFlagTrees_admissible_iff
+    {depth : ℕ}
+    (trees : Fin (2 ^ depth) → Fin depth → NUTSBuildFlagTree)
+    (root : Fin (2 ^ depth)) :
+    (CompletedTreeStoppingData.ofBuildFlagTrees trees).admissible root ↔
+      ∀ index, (trees root index).continues = true :=
+  CompletedTreeStoppingData.ofContinuationFlags_admissible_iff
+    (fun root index => (trees root index).continues) root
+
+/-- The candidates contributed by a failed final doubling are excluded, as in
+Algorithms 2 and 3. -/
+def includeFinalDoublingCandidates (finalTree : NUTSBuildFlagTree) : Bool :=
+  finalTree.continues
+
+@[simp] theorem exclude_failed_final_doubling
+    (finalTree : NUTSBuildFlagTree) (hfailed : finalTree.continues = false) :
+    includeFinalDoublingCandidates finalTree = false := by
+  simpa [includeFinalDoublingCandidates] using hfailed
+
+@[simp] theorem include_successful_final_doubling
+    (finalTree : NUTSBuildFlagTree) (hsuccess : finalTree.continues = true) :
+    includeFinalDoublingCandidates finalTree = true := by
+  simpa [includeFinalDoublingCandidates] using hsuccess
+
 /-- A bounded doubling sampler with fair direction coins is certified once
 conditional endpoint selection satisfies the target-weighted reroot identity.
 Thus the direction-coin part of standard NUTS is discharged here; subtree

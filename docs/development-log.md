@@ -3947,3 +3947,18 @@ completed depth, and all admitted rerootings retain the common construction
 mass. The remaining algorithm-specific step is to prove that the concrete
 recursive divergence/U-turn flags compute this stopping data and that the
 accepted final-doubling subset matches its admissible roots.
+
+Added the exact Boolean control flow of the recursive stopping computation.
+`NUTSBuildFlagTree` records leaf divergence/slice continuation, both recursive
+children, and each join U-turn check; its returned continuation flag is their
+conjunction. `truePrefixLength` models the outer loop's first failure and is
+proved bounded by the maximum depth, reaching full depth exactly when every
+outer flag succeeds. Per-root arrays of these recursive trees now construct
+`CompletedTreeStoppingData`, with admissibility equivalent to success of every
+required call. A failed final call is explicitly excluded, while a successful
+one is included. The existing `RecursiveBarrierTree` is connected to this
+control flow, and Lean proves its recursive call succeeds exactly when none of
+its completed joins is blocked. The remaining standard-NUTS instantiation is
+to show that the production trajectory builder's actual divergence and vector
+endpoint tests produce these per-root flag trees and the same retained
+endpoint weights.

@@ -1,6 +1,7 @@
 import Mcmc.Finite.DynamicCandidate
 import Mcmc.Finite.Combinators
 import Mcmc.Finite.CandidateMixture
+import Mcmc.Finite.RootedTrace
 
 /-!
 # Certified finite dynamic trees
@@ -501,6 +502,36 @@ def RecursiveBarrierTree.barriers : RecursiveBarrierTree → List Bool
   | .leaf => []
   | .node left blocked right =>
       left.barriers ++ blocked :: right.barriers
+
+/-- Interpret a completed recursive barrier tree as the Boolean control flow
+of `BuildTree`. Leaves pass the local continuation check in this structural
+model; a blocked join is exactly a failed endpoint U-turn check. -/
+def RecursiveBarrierTree.toNUTSBuildFlagTree :
+    RecursiveBarrierTree → NUTSBuildFlagTree
+  | .leaf => .leaf true
+  | .node left blocked right =>
+      .node left.toNUTSBuildFlagTree right.toNUTSBuildFlagTree (!blocked)
+
+/-- Recursive `BuildTree` continuation succeeds exactly when the completed
+barrier tree contains no blocked join. -/
+theorem RecursiveBarrierTree.toNUTSBuildFlagTree_continues
+    (tree : RecursiveBarrierTree) :
+    tree.toNUTSBuildFlagTree.continues = !tree.barriers.any id := by
+  induction tree with
+  | leaf => rfl
+  | node left blocked right ihLeft ihRight =>
+      simp [RecursiveBarrierTree.toNUTSBuildFlagTree,
+        RecursiveBarrierTree.barriers, ihLeft, ihRight,
+        Bool.and_left_comm, Bool.and_comm]
+
+/-- Equivalent proposition-level form: every recursive U-turn join must be
+unblocked for the completed call to return `s = 1`. -/
+theorem RecursiveBarrierTree.toNUTSBuildFlagTree_continues_eq_true_iff
+    (tree : RecursiveBarrierTree) :
+    tree.toNUTSBuildFlagTree.continues = true ↔
+      ∀ blocked ∈ tree.barriers, blocked = false := by
+  rw [tree.toNUTSBuildFlagTree_continues]
+  simp
 
 /-- An in-order recursive tree has exactly one fewer joins than leaves. This
 identifies the `Fin` state space of the flattened checker with the completed
