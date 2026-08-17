@@ -7359,6 +7359,208 @@ theorem measurable_uncurry_runtimeTraceDensity
   exact measurable_uncurry_runtimeTraceDensity_fixedLength hlogDensity width
     intervals maxShrink length
 
+/-- At each augmented state, the common variable-dimensional density measure
+is exactly the finite successful kernel assembled from fixed rejected lengths.
+The countable base contributes no mass above the configured shrink budget. -/
+theorem runtimeTraceMeasure_eq_successfulRuntimeTraceKernel
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (width : ℝ) (intervals maxShrink : ℕ) (state : ℝ × ℝ) :
+    runtimeRandomTraceBase.withDensity
+        (runtimeTraceDensity logDensity width intervals maxShrink state) =
+      successfulRuntimeTraceKernel logDensity width intervals maxShrink state := by
+  rw [runtimeRandomTraceBase_eq_sum_fixed, withDensity_sum]
+  have hdensity : Measurable
+      (runtimeTraceDensity logDensity width intervals maxShrink state) :=
+    (measurable_uncurry_runtimeTraceDensity hlogDensity width intervals
+      maxShrink).of_uncurry_left
+  have hfiber (length : ℕ) :
+      (Measure.map (runtimeTraceOfFixed length)
+        (fixedRuntimeTraceBase length)).withDensity
+          (runtimeTraceDensity logDensity width intervals maxShrink state) =
+        Measure.map (runtimeTraceOfFixed length)
+          ((fixedRuntimeTraceBase length).withDensity
+            (fun trace => runtimeTraceDensity logDensity width intervals maxShrink
+              state (Sigma.mk length trace.1, trace.2))) := by
+    rw [← map_withDensity_comp_runtime
+      (runtimeTraceOfFixed length) (fixedRuntimeTraceBase length)
+      (runtimeTraceDensity logDensity width intervals maxShrink state)
+      (measurableEmbedding_runtimeTraceOfFixed length)]
+    · rfl
+    · exact (measurable_uncurry_runtimeTraceDensity_fixedLength hlogDensity
+        width intervals maxShrink length).of_uncurry_left
+  simp_rw [hfiber]
+  ext event hevent
+  rw [Measure.sum_apply _ hevent]
+  rw [successfulRuntimeTraceKernel,
+    ProbabilityTheory.Kernel.finsetSum_apply' Finset.univ]
+  simp_rw [ProbabilityTheory.Kernel.map_apply'
+    (fixedSuccessfulRuntimeTraceKernel logDensity width intervals maxShrink _)
+    (measurable_runtimeTraceOfFixed _) state hevent]
+  have hzero : ∀ length : ℕ, maxShrink ≤ length →
+      Measure.map (runtimeTraceOfFixed length)
+          ((fixedRuntimeTraceBase length).withDensity
+            (fun trace => runtimeTraceDensity logDensity width intervals maxShrink
+              state (Sigma.mk length trace.1, trace.2))) event = 0 := by
+    intro length hlength
+    have hdensityZero : (fun trace : FixedRuntimeTrace length =>
+        runtimeTraceDensity logDensity width intervals maxShrink state
+          (Sigma.mk length trace.1, trace.2)) = 0 := by
+      funext trace
+      exact runtimeTraceDensity_zero_of_length_ge logDensity width intervals
+        maxShrink state _ hlength
+    rw [hdensityZero, withDensity_zero, Measure.map_zero]
+    rfl
+  rw [tsum_eq_sum (s := Finset.range maxShrink) (fun length hlength =>
+    hzero length (Nat.le_of_not_gt (by simpa using hlength)))]
+  rw [← Fin.sum_univ_eq_sum_range]
+  apply Finset.sum_congr rfl
+  intro length _
+  rw [fixedSuccessfulRuntimeTraceKernel,
+    ProbabilityTheory.Kernel.withDensity_apply'
+      (ProbabilityTheory.Kernel.const (ℝ × ℝ) (fixedRuntimeTraceBase length))
+      (measurable_uncurry_runtimeTraceDensity_fixedLength hlogDensity width
+        intervals maxShrink length),
+    ProbabilityTheory.Kernel.const_apply]
+  rw [Measure.map_apply (measurable_runtimeTraceOfFixed length) hevent]
+  rw [withDensity_apply _
+    (hevent.preimage (measurable_runtimeTraceOfFixed length))]
+
+/-- Globally measurable successful density, set to zero off the valid
+log-slice state domain. -/
+noncomputable def guardedRuntimeTraceDensity
+    (logDensity : ℝ → ℝ) (width : ℝ) (intervals maxShrink : ℕ)
+    (state : ℝ × ℝ) (trace : RuntimeRandomTrace) : ENNReal :=
+  by
+    classical
+    exact if state ∈ runtimeSliceDomain logDensity then
+      runtimeTraceDensity logDensity width intervals maxShrink state trace
+    else 0
+
+theorem measurable_uncurry_guardedRuntimeTraceDensity
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (width : ℝ) (intervals maxShrink : ℕ) :
+    Measurable (Function.uncurry
+      (guardedRuntimeTraceDensity logDensity width intervals maxShrink)) := by
+  classical
+  have h : Measurable (fun point : (ℝ × ℝ) × RuntimeRandomTrace =>
+      if point.1 ∈ runtimeSliceDomain logDensity then
+        runtimeTraceDensity logDensity width intervals maxShrink point.1 point.2
+      else 0) :=
+    Measurable.ite
+      ((measurableSet_runtimeSliceDomain hlogDensity).preimage measurable_fst)
+      (measurable_uncurry_runtimeTraceDensity hlogDensity width intervals maxShrink)
+      measurable_const
+  convert h using 1
+  funext point
+  rfl
+
+/-- The guarded common-base density kernel is definitionally the same
+successful subkernel as the finite-fiber construction. -/
+theorem guardedRuntimeTraceMeasure_eq_guardedSuccessfulKernel
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (width : ℝ) (intervals maxShrink : ℕ) (state : ℝ × ℝ) :
+    runtimeRandomTraceBase.withDensity
+        (guardedRuntimeTraceDensity logDensity width intervals maxShrink state) =
+      guardedSuccessfulRuntimeTraceKernel logDensity hlogDensity width intervals
+        maxShrink state := by
+  classical
+  by_cases hstate : state ∈ runtimeSliceDomain logDensity
+  · have hdensity : guardedRuntimeTraceDensity logDensity width intervals
+        maxShrink state =
+        runtimeTraceDensity logDensity width intervals maxShrink state := by
+      funext trace
+      simp [guardedRuntimeTraceDensity, hstate]
+    rw [hdensity,
+      runtimeTraceMeasure_eq_successfulRuntimeTraceKernel hlogDensity]
+    rw [guardedSuccessfulRuntimeTraceKernel,
+      ProbabilityTheory.Kernel.piecewise_apply, if_pos hstate]
+  · have hdensity : guardedRuntimeTraceDensity logDensity width intervals
+        maxShrink state = 0 := by
+      funext trace
+      simp [guardedRuntimeTraceDensity, hstate]
+    rw [hdensity, withDensity_zero]
+    rw [guardedSuccessfulRuntimeTraceKernel,
+      ProbabilityTheory.Kernel.piecewise_apply, if_neg hstate]
+    rfl
+
+/-- Common-base presentation of the completed finite-budget runtime kernel. -/
+noncomputable def completedRuntimeTraceKernelGuarded
+    (logDensity : ℝ → ℝ) (width : ℝ) (intervals maxShrink : ℕ) :
+    ProbabilityTheory.Kernel (ℝ × ℝ)
+      (Mcmc.Kernel.CompletedTrace RuntimeRandomTrace) :=
+  Mcmc.Kernel.completedTraceKernel runtimeRandomTraceBase
+    (guardedRuntimeTraceDensity logDensity width intervals maxShrink)
+
+/-- The explicit fixed-fiber completion and the common-base completed density
+kernel are the same kernel, not merely equal in total mass. -/
+theorem completedRuntimeTraceKernelFromFibers_eq_guarded
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (width : ℝ) (intervals maxShrink : ℕ) :
+    completedRuntimeTraceKernelFromFibers logDensity hlogDensity width intervals
+        maxShrink =
+      completedRuntimeTraceKernelGuarded logDensity width intervals maxShrink := by
+  classical
+  ext state event hevent
+  let successful := guardedSuccessfulRuntimeTraceKernel logDensity hlogDensity
+    width intervals maxShrink
+  have hsuccessful : runtimeRandomTraceBase.withDensity
+      (guardedRuntimeTraceDensity logDensity width intervals maxShrink state) =
+      successful state :=
+    guardedRuntimeTraceMeasure_eq_guardedSuccessfulKernel hlogDensity width
+      intervals maxShrink state
+  have hdensity := measurable_uncurry_guardedRuntimeTraceDensity hlogDensity width
+    intervals maxShrink
+  have hcompletedDensity :=
+    Mcmc.Kernel.measurable_uncurry_completedTraceDensity runtimeRandomTraceBase
+      hdensity
+  rw [completedRuntimeTraceKernelFromFibers,
+    ProbabilityTheory.Kernel.add_apply, Measure.add_apply,
+    completedRuntimeTraceKernelGuarded, Mcmc.Kernel.completedTraceKernel,
+    Mcmc.Kernel.normalizedTraceKernel,
+    ProbabilityTheory.Kernel.withDensity_apply' _ hcompletedDensity,
+    ProbabilityTheory.Kernel.const_apply,
+    Mcmc.Kernel.completedTraceBase]
+  rw [ProbabilityTheory.Kernel.map_apply' successful measurable_inl state hevent]
+  rw [← hsuccessful,
+    withDensity_apply _ (hevent.preimage measurable_inl)]
+  rw [Measure.restrict_add, MeasureTheory.lintegral_add_measure]
+  congr 1
+  · rw [Measure.restrict_map measurable_inl hevent,
+      MeasureTheory.lintegral_map
+        hcompletedDensity.of_uncurry_left measurable_inl]
+    rfl
+  · rw [ProbabilityTheory.Kernel.withDensity_apply' _
+      (measurable_const.sub
+        ((ProbabilityTheory.Kernel.measurable_coe successful
+          MeasurableSet.univ).comp measurable_fst)),
+      ProbabilityTheory.Kernel.const_apply]
+    rw [MeasureTheory.setLIntegral_dirac' (a := Sum.inr ())
+        measurable_const hevent,
+      MeasureTheory.setLIntegral_dirac' (a := Sum.inr ())
+        hcompletedDensity.of_uncurry_left hevent]
+    simp only [Mcmc.Kernel.completedTraceDensity]
+    congr 1
+    rw [← hsuccessful, withDensity_apply _ MeasurableSet.univ,
+      Measure.restrict_univ]
+    rfl
+
+theorem guardedSuccessfulRuntimeTraceKernel_eq_commonBase
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (width : ℝ) (intervals maxShrink : ℕ) :
+    guardedSuccessfulRuntimeTraceKernel logDensity hlogDensity width intervals
+        maxShrink =
+      Mcmc.Kernel.normalizedTraceKernel runtimeRandomTraceBase
+        (guardedRuntimeTraceDensity logDensity width intervals maxShrink) := by
+  ext state event hevent
+  rw [Mcmc.Kernel.normalizedTraceKernel,
+    ProbabilityTheory.Kernel.withDensity_apply' _
+      (measurable_uncurry_guardedRuntimeTraceDensity hlogDensity width intervals
+        maxShrink),
+    ProbabilityTheory.Kernel.const_apply]
+  rw [← guardedRuntimeTraceMeasure_eq_guardedSuccessfulKernel hlogDensity width
+    intervals maxShrink state]
+  rw [withDensity_apply _ hevent]
+
 theorem measurableSet_runtimeSuccessSet
     {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
     (width : ℝ) (intervals maxShrink : ℕ) :
@@ -7470,6 +7672,74 @@ theorem measurable_guardedRuntimeAugmentedReverse
     (measurableSet_runtimeSuccessSet hlogDensity width intervals maxShrink)
     (measurable_primitiveRuntimeAugmentedReverse hlogDensity width intervals)
 
+theorem guardedRuntimeAugmentedReverse_stateDomain_iff
+    (logDensity : ℝ → ℝ) {width : ℝ} (hwidth : 0 < width)
+    (intervals maxShrink : ℕ)
+    (point : (ℝ × ℝ) × RuntimeRandomTrace) :
+    (guardedRuntimeAugmentedReverse logDensity width intervals maxShrink
+        point).1 ∈ runtimeSliceDomain logDensity ↔
+      point.1 ∈ runtimeSliceDomain logDensity := by
+  classical
+  by_cases hsuccess : point ∈
+      runtimeSuccessSet logDensity width intervals maxShrink
+  · have hcertificate := primitiveRuntimeSuccess_of_density_ne_zero logDensity
+      hwidth intervals maxShrink point hsuccess.1 hsuccess.2
+    constructor
+    · intro _
+      exact hsuccess.1
+    · intro _
+      rw [guardedRuntimeAugmentedReverse,
+        Mcmc.Kernel.guardedTraceTransform]
+      simp only [Set.piecewise, hsuccess, if_true,
+        primitiveRuntimeAugmentedReverse_newState, runtimeSliceDomain,
+        Set.mem_setOf_eq]
+      exact hcertificate.new_in_slice
+  · rw [guardedRuntimeAugmentedReverse,
+      Mcmc.Kernel.guardedTraceTransform]
+    simp only [Set.piecewise, hsuccess, if_false, id_eq]
+
+theorem guardedRuntimeAugmentedReverse_preimage_stateDomain
+    (logDensity : ℝ → ℝ) {width : ℝ} (hwidth : 0 < width)
+    (intervals maxShrink : ℕ) :
+    guardedRuntimeAugmentedReverse logDensity width intervals maxShrink ⁻¹'
+        (Prod.fst ⁻¹' runtimeSliceDomain logDensity) =
+      Prod.fst ⁻¹' runtimeSliceDomain logDensity := by
+  ext point
+  exact guardedRuntimeAugmentedReverse_stateDomain_iff logDensity hwidth
+    intervals maxShrink point
+
+theorem guardedRuntimeJointLaw_eq_restrict
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (width : ℝ) (intervals maxShrink : ℕ) :
+    ((((volume : Measure ℝ).prod volume).prod runtimeRandomTraceBase).withDensity
+      (fun point => guardedRuntimeTraceDensity logDensity width intervals
+        maxShrink point.1 point.2)) =
+    (((((volume : Measure ℝ).prod volume).prod runtimeRandomTraceBase).withDensity
+      (fun point => runtimeTraceDensity logDensity width intervals maxShrink
+        point.1 point.2)).restrict
+      (Prod.fst ⁻¹' runtimeSliceDomain logDensity)) := by
+  let base : Measure ((ℝ × ℝ) × RuntimeRandomTrace) :=
+    ((volume : Measure ℝ).prod volume).prod runtimeRandomTraceBase
+  let domain : Set ((ℝ × ℝ) × RuntimeRandomTrace) :=
+    Prod.fst ⁻¹' runtimeSliceDomain logDensity
+  let density := fun point : (ℝ × ℝ) × RuntimeRandomTrace =>
+    runtimeTraceDensity logDensity width intervals maxShrink point.1 point.2
+  have hdomain : MeasurableSet domain :=
+    (measurableSet_runtimeSliceDomain hlogDensity).preimage measurable_fst
+  have hdensity : (fun point : (ℝ × ℝ) × RuntimeRandomTrace =>
+      guardedRuntimeTraceDensity logDensity width intervals maxShrink
+        point.1 point.2) = domain.indicator density := by
+    funext point
+    classical
+    by_cases hpoint : point ∈ domain
+    · have hstate : point.1 ∈ runtimeSliceDomain logDensity := hpoint
+      simp [guardedRuntimeTraceDensity, density, hpoint, hstate]
+    · have hstate : point.1 ∉ runtimeSliceDomain logDensity := fun hold =>
+        hpoint hold
+      simp [guardedRuntimeTraceDensity, density, hpoint, hstate]
+  rw [hdensity, withDensity_indicator hdomain,
+    ← restrict_withDensity hdomain]
+
 /-- Although the dependent sigma carrier need not expose a convenient global
 measurability theorem, the assembled replay is a.e.-measurable for its exact
 joint law because it is measurable on every fixed-length summand. -/
@@ -7574,6 +7844,28 @@ theorem guardedRuntimeAugmentedReverse_jointLaw_measurePreserving
   ⟨measurable_guardedRuntimeAugmentedReverse hlogDensity width intervals maxShrink,
     guardedRuntimeAugmentedReverse_map_jointLaw hlogDensity hwidth intervals
       maxShrink⟩
+
+/-- The exact successful joint law of the guarded runtime kernel is preserved
+on the full ambient state space. -/
+theorem guardedRuntimeAugmentedReverse_guardedJoint_measurePreserving
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    {width : ℝ} (hwidth : 0 < width) (intervals maxShrink : ℕ) :
+    MeasurePreserving
+      (guardedRuntimeAugmentedReverse logDensity width intervals maxShrink)
+      ((((volume : Measure ℝ).prod volume).prod runtimeRandomTraceBase).withDensity
+        (fun point => guardedRuntimeTraceDensity logDensity width intervals
+          maxShrink point.1 point.2))
+      ((((volume : Measure ℝ).prod volume).prod runtimeRandomTraceBase).withDensity
+        (fun point => guardedRuntimeTraceDensity logDensity width intervals
+          maxShrink point.1 point.2)) := by
+  have hrestricted :=
+    (guardedRuntimeAugmentedReverse_jointLaw_measurePreserving hlogDensity hwidth
+      intervals maxShrink).restrict_preimage
+      ((measurableSet_runtimeSliceDomain hlogDensity).preimage measurable_fst)
+  rw [guardedRuntimeAugmentedReverse_preimage_stateDomain logDensity hwidth
+    intervals maxShrink] at hrestricted
+  rw [guardedRuntimeJointLaw_eq_restrict hlogDensity width intervals maxShrink]
+  exact hrestricted
 
 /-- Lift successful variable-length replay to the completed trace carrier;
 the exhaustion outcome is an explicit identity branch. -/

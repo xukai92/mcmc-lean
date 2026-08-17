@@ -14,9 +14,15 @@
   Successful replay has also been lifted to `Trace ⊕ Unit`: the exhaustion
   outcome is a globally measurable literal identity branch, and the sum of
   the embedded successful law with any exhaustion-state law is proved measure
-  preserving. The remaining end-to-end step is the kernel-algebra identity
-  equating those two explicit summands with
-  `completedRuntimeTraceKernelFromFibers` before projection to the sampler.
+  preserving. The common variable-dimensional density measure is now proved
+  pointwise equal to the finite sum of successful fixed-fiber kernels; every
+  length beyond the shrink budget contributes exactly zero. Its domain-guarded
+  version equals `guardedSuccessfulRuntimeTraceKernel`, and
+  `completedRuntimeTraceKernelFromFibers` is proved equal to the corresponding
+  common-base `completedTraceKernel`. The guarded successful joint law is also
+  measure preserving. The remaining end-to-end step is to attach the
+  log-under-graph state weight, decompose the completed joint kernel, and
+  project the certified horizontal update to target invariance.
 
 - Built the repeated finite-horizon executor above the partial inverse clock.
   One capped step carries remaining time in the state, draws a fresh unit
