@@ -3376,6 +3376,50 @@ theorem integral_generator_eq_zero (test : StandardGaussianBPSGeneratorTest ι) 
 
 end StandardGaussianBPSGeneratorTest
 
+/-- Unit phase direction that varies position coordinate `i` and leaves
+velocity fixed. -/
+noncomputable def standardGaussianBPSPositionDirection (i : ι) :
+    BouncyParticleState ι := by
+  classical
+  exact (Pi.single i 1, 0)
+
+/-- Coordinate position derivative extracted from the Fréchet derivative of
+a phase observable. -/
+noncomputable def standardGaussianBPSCoordinatePartial
+    (function : BouncyParticleState ι → ℝ)
+    (position : Position ι) (i : ι) (velocity : Position ι) : ℝ :=
+  fderiv ℝ function (position, velocity)
+    (standardGaussianBPSPositionDirection i)
+
+/-- The coordinatewise directional derivative assembled from these partials
+is exactly the Fréchet derivative in the physical streaming direction
+`(velocity, 0)`. -/
+theorem coordinateDirectionalDerivative_standardGaussianBPSCoordinatePartial
+    (function : BouncyParticleState ι → ℝ)
+    (position velocity : Position ι) :
+    coordinateDirectionalDerivative
+        (standardGaussianBPSCoordinatePartial function) position velocity =
+      fderiv ℝ function (position, velocity) (velocity, 0) := by
+  classical
+  have hdecomp : (velocity, (0 : Position ι)) =
+      ∑ i, velocity i • standardGaussianBPSPositionDirection i := by
+    apply Prod.ext
+    · funext coordinate
+      simp only [Prod.fst_sum, standardGaussianBPSPositionDirection,
+        Prod.smul_mk, Finset.sum_apply, Pi.smul_apply,
+        smul_eq_mul]
+      rw [Finset.sum_eq_single coordinate]
+      · simp
+      · intro other _ hne
+        simp [hne]
+      · simp
+    · simp [Prod.snd_sum, standardGaussianBPSPositionDirection,
+        Prod.smul_mk]
+  unfold coordinateDirectionalDerivative
+    standardGaussianBPSCoordinatePartial
+  rw [hdecomp, map_sum]
+  simp [smul_eq_mul]
+
 /-- Concrete analytic certificate for one smooth phase observable. Its fields
 are exactly the coordinatewise Gaussian-Stein and integrability premises of
 `integral_standardGaussian_bouncyPhaseGenerator_of_coordinatewise_eq_zero`. -/

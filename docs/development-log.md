@@ -5061,3 +5061,11 @@ its `toGeneratorTest` theorem invokes the existing multidimensional generator
 balance result, and certificates for every compact `C¹` observable assemble
 the full core. Discharging those fields uniformly from compact smoothness, and
 then the scalar backward/resolvent uniqueness theorem, remain open.
+
+The canonical coordinate derivative used by that construction is now fixed:
+`standardGaussianBPSCoordinatePartial` evaluates the Fréchet derivative in a
+unit position-coordinate direction. Lean proves that summing these partials
+against velocity is exactly the Fréchet derivative in the physical streaming
+direction `(velocity, 0)`. Thus the smooth-core transport term is tied to the
+actual derivative of the supplied phase observable rather than an unrelated
+coordinate oracle.
