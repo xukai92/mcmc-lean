@@ -3922,3 +3922,14 @@ paper's incremental-uniform-selection argument for positive completed
 subtrees. The full standard-NUTS trace still has to encode and reverse skipped
 zero-eligible subtrees, U-turn continuation flags, and the outer doubling
 stopping decisions.
+
+Extended the streaming merge to all nonnegative eligible counts. A zero-count
+subtree may carry an arbitrary dummy representative law, but Lean proves it is
+ignored whenever its sibling has positive count; two zero-count subtrees keep
+only a semantically dead dummy. The total merge is associative across every
+zero/positive combination. Its mass theorem permits zero-count endpoint
+weights and proves that any positive combined subtree still has exactly the
+normalized union law. Thus zero-eligible/skipped `BuildTree` branches are no
+longer an open candidate-selection issue. The remaining standard-NUTS work is
+the complete trace reversal for continuation/U-turn flags and the outer
+state-dependent stopping sequence.

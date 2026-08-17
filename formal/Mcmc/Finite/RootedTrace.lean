@@ -517,4 +517,130 @@ theorem weightedMergeDistribution_assoc
   field_simp [hab.ne', hbc.ne', habc.ne']
   ring
 
+/-- Total streaming merge used when a recursive subtree contains no eligible
+leaf. If the combined count is zero the representative is semantically dead,
+so the left dummy law is retained; every later positive-count merge gives it
+zero probability. -/
+noncomputable def totalWeightedMergeDistribution
+    (left right : Distribution State) (leftWeight rightWeight : ℝ)
+    (hleft : 0 ≤ leftWeight) (hright : 0 ≤ rightWeight) :
+    Distribution State :=
+  if htotal : 0 < leftWeight + rightWeight then
+    weightedMergeDistribution left right leftWeight rightWeight hleft hright
+      htotal
+  else
+    left
+
+/-- A zero-count left subtree is ignored when the right subtree is nonempty. -/
+@[simp] theorem totalWeightedMergeDistribution_zero_left
+    (left right : Distribution State) (rightWeight : ℝ)
+    (hright : 0 < rightWeight) :
+    totalWeightedMergeDistribution left right 0 rightWeight (by norm_num)
+      hright.le = right := by
+  rw [totalWeightedMergeDistribution, dif_pos (by simpa using hright)]
+  apply Distribution.ext
+  funext state
+  simp [weightedMergeDistribution, hright.ne']
+
+/-- A zero-count right subtree is ignored when the left subtree is nonempty. -/
+@[simp] theorem totalWeightedMergeDistribution_zero_right
+    (left right : Distribution State) (leftWeight : ℝ)
+    (hleft : 0 < leftWeight) :
+    totalWeightedMergeDistribution left right leftWeight 0 hleft.le
+      (by norm_num) = left := by
+  rw [totalWeightedMergeDistribution, dif_pos (by simpa using hleft)]
+  apply Distribution.ext
+  funext state
+  simp [weightedMergeDistribution, hleft.ne']
+
+/-- With two empty subtrees the total merge retains its declared dummy law. -/
+@[simp] theorem totalWeightedMergeDistribution_zero_zero
+    (left right : Distribution State) :
+    totalWeightedMergeDistribution left right 0 0 (by norm_num) (by norm_num) =
+      left := by
+  simp [totalWeightedMergeDistribution]
+
+/-- When the combined count is positive, the total operation is exactly the
+paper's count-proportional representative merge. -/
+theorem totalWeightedMergeDistribution_of_total_pos
+    (left right : Distribution State) (leftWeight rightWeight : ℝ)
+    (hleft : 0 ≤ leftWeight) (hright : 0 ≤ rightWeight)
+    (htotal : 0 < leftWeight + rightWeight) :
+    totalWeightedMergeDistribution left right leftWeight rightWeight hleft
+      hright =
+      weightedMergeDistribution left right leftWeight rightWeight hleft hright
+        htotal := by
+  simp [totalWeightedMergeDistribution, htotal]
+
+/-- The normalized-union law remains valid with zero-count subtrees. Their
+endpoint-weight function must be identically zero, but their dummy
+representative distribution is otherwise irrelevant. -/
+theorem totalWeightedMergeDistribution_mass_of_normalized_weights
+    (left right : Distribution State) (leftWeight rightWeight : ℝ)
+    (hleft : 0 ≤ leftWeight) (hright : 0 ≤ rightWeight)
+    (htotal : 0 < leftWeight + rightWeight)
+    (leftEndpointWeight rightEndpointWeight : State → ℝ)
+    (hleftZero : leftWeight = 0 → ∀ state, leftEndpointWeight state = 0)
+    (hrightZero : rightWeight = 0 → ∀ state, rightEndpointWeight state = 0)
+    (hleftMass : 0 < leftWeight → ∀ state,
+      left.mass state = leftEndpointWeight state / leftWeight)
+    (hrightMass : 0 < rightWeight → ∀ state,
+      right.mass state = rightEndpointWeight state / rightWeight)
+    (state : State) :
+    (totalWeightedMergeDistribution left right leftWeight rightWeight hleft
+      hright).mass state =
+      (leftEndpointWeight state + rightEndpointWeight state) /
+        (leftWeight + rightWeight) := by
+  rcases hleft.eq_or_lt with rfl | hleftpos
+  · have hrightpos : 0 < rightWeight := by simpa using htotal
+    simp [hrightpos, hleftZero rfl state, hrightMass hrightpos state]
+  · rcases hright.eq_or_lt with rfl | hrightpos
+    · simp [hleftpos, hrightZero rfl state, hleftMass hleftpos state]
+    · rw [totalWeightedMergeDistribution_of_total_pos _ _ _ _ hleft hright
+        htotal]
+      exact weightedMergeDistribution_mass_of_normalized_weights left right
+        leftWeight rightWeight hleftpos hrightpos leftEndpointWeight
+        rightEndpointWeight (hleftMass hleftpos) (hrightMass hrightpos) state
+
+/-- Total recursive selection is associative even when any completed subtree
+has zero eligible leaves. Thus skipped subtrees cannot change the final
+representative law. -/
+theorem totalWeightedMergeDistribution_assoc
+    (first second third : Distribution State)
+    (a b c : ℝ) (ha : 0 ≤ a) (hb : 0 ≤ b) (hc : 0 ≤ c) :
+    totalWeightedMergeDistribution
+        (totalWeightedMergeDistribution first second a b ha hb) third
+        (a + b) c (add_nonneg ha hb) hc =
+      totalWeightedMergeDistribution first
+        (totalWeightedMergeDistribution second third b c hb hc)
+        a (b + c) ha (add_nonneg hb hc) := by
+  rcases ha.eq_or_lt with rfl | hapos
+  · rcases hb.eq_or_lt with rfl | hbpos
+    · rcases hc.eq_or_lt with rfl | hcpos
+      ·
+        simp
+      · simp [hcpos]
+    · have hbcpos : 0 < b + c := lt_of_lt_of_le hbpos (le_add_of_nonneg_right hc)
+      simp [hbpos, hbcpos]
+  · rcases hb.eq_or_lt with rfl | hbpos
+    · rcases hc.eq_or_lt with rfl | hcpos
+      ·
+        simp [hapos]
+      · simp [hapos, hcpos]
+    · rcases hc.eq_or_lt with rfl | hcpos
+      ·
+        simp [hbpos, add_pos hapos hbpos]
+      · rw [totalWeightedMergeDistribution_of_total_pos _ _ _ _ ha hb
+          (add_pos hapos hbpos)]
+        rw [totalWeightedMergeDistribution_of_total_pos _ _ _ _
+          (add_nonneg ha hb) hc (add_pos (add_pos hapos hbpos) hcpos)]
+        rw [totalWeightedMergeDistribution_of_total_pos _ _ _ _ hb hc
+          (add_pos hbpos hcpos)]
+        rw [totalWeightedMergeDistribution_of_total_pos _ _ _ _ ha
+          (add_nonneg hb hc) (by simpa [add_assoc] using
+            (add_pos (add_pos hapos hbpos) hcpos))]
+        exact weightedMergeDistribution_assoc first second third a b c ha hb hc
+          (add_pos hapos hbpos) (add_pos hbpos hcpos)
+          (add_pos (add_pos hapos hbpos) hcpos)
+
 end Mcmc.Finite.MarkovKernel
