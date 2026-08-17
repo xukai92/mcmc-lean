@@ -4111,6 +4111,110 @@ theorem measurableEmbedding_runtimeJointOfFixed (length : ℕ) :
   funext point
   rfl
 
+/-- Coproduct presentation of the augmented variable-length runtime carrier. -/
+abbrev RuntimeJointSigma :=
+  Σ length : ℕ, (ℝ × ℝ) × FixedRuntimeTrace length
+
+def runtimeJointSigmaPack (point : RuntimeJointSigma) :
+    (ℝ × ℝ) × RuntimeRandomTrace :=
+  runtimeJointOfFixed point.1 point.2
+
+def runtimeJointSigmaUnpack
+    (point : (ℝ × ℝ) × RuntimeRandomTrace) : RuntimeJointSigma :=
+  ⟨point.2.1.1, (point.1, (point.2.1.2, point.2.2))⟩
+
+@[simp] theorem runtimeJointSigmaUnpack_pack (point : RuntimeJointSigma) :
+    runtimeJointSigmaUnpack (runtimeJointSigmaPack point) = point := by
+  cases point
+  rfl
+
+@[simp] theorem runtimeJointSigmaPack_unpack
+    (point : (ℝ × ℝ) × RuntimeRandomTrace) :
+    runtimeJointSigmaPack (runtimeJointSigmaUnpack point) = point := by
+  rcases point with ⟨state, ⟨⟨length, values⟩, grid⟩⟩
+  rfl
+
+theorem measurable_runtimeJointSigmaMk (length : ℕ) :
+    Measurable (fun point : (ℝ × ℝ) × FixedRuntimeTrace length =>
+      (Sigma.mk length point : RuntimeJointSigma)) := by
+  apply Measurable.of_le_map
+  exact iInf_le _ length
+
+theorem measurable_runtimeJointSigmaPack :
+    Measurable runtimeJointSigmaPack := by
+  apply measurable_sigma_of_measurable_mk
+  intro length
+  exact measurable_runtimeJointOfFixed length
+
+theorem measurableEmbedding_runtimeJointSigmaPack :
+    MeasurableEmbedding runtimeJointSigmaPack where
+  injective := Function.LeftInverse.injective runtimeJointSigmaUnpack_pack
+  measurable := measurable_runtimeJointSigmaPack
+  measurableSet_image' := by
+    intro set hset
+    have hsection : ∀ length : ℕ,
+        MeasurableSet ((fun point : (ℝ × ℝ) × FixedRuntimeTrace length =>
+          (Sigma.mk length point : RuntimeJointSigma)) ⁻¹' set) := fun length =>
+      hset.preimage (measurable_runtimeJointSigmaMk length)
+    have himage : runtimeJointSigmaPack '' set =
+        ⋃ length : ℕ,
+          runtimeJointOfFixed length ''
+            ((fun point : (ℝ × ℝ) × FixedRuntimeTrace length =>
+              (Sigma.mk length point : RuntimeJointSigma)) ⁻¹' set) := by
+      ext point
+      constructor
+      · rintro ⟨source, hsource, rfl⟩
+        exact Set.mem_iUnion.mpr ⟨source.1,
+          ⟨source.2, hsource, rfl⟩⟩
+      · rintro hpoint
+        rcases Set.mem_iUnion.mp hpoint with ⟨length, source, hsource, rfl⟩
+        exact ⟨Sigma.mk length source, hsource, rfl⟩
+    rw [himage]
+    exact MeasurableSet.iUnion fun length =>
+      (measurableEmbedding_runtimeJointOfFixed length).measurableSet_image.mpr
+        (hsection length)
+
+/-- The runtime carrier is measurably equivalent to the honest coproduct of
+all of its fixed-dimensional augmented trace fibers. -/
+noncomputable def runtimeJointSigmaEquiv :
+    RuntimeJointSigma ≃ᵐ ((ℝ × ℝ) × RuntimeRandomTrace) where
+  toEquiv :=
+    { toFun := runtimeJointSigmaPack
+      invFun := runtimeJointSigmaUnpack
+      left_inv := fun point => runtimeJointSigmaUnpack_pack point
+      right_inv := fun point => runtimeJointSigmaPack_unpack point }
+  measurable_toFun := measurable_runtimeJointSigmaPack
+  measurable_invFun := by
+    intro set hset
+    change MeasurableSet (runtimeJointSigmaUnpack ⁻¹' set)
+    have himage : runtimeJointSigmaUnpack ⁻¹' set =
+        runtimeJointSigmaPack '' set := by
+      ext point
+      constructor
+      · intro hpoint
+        exact ⟨runtimeJointSigmaUnpack point, hpoint,
+          runtimeJointSigmaPack_unpack point⟩
+      · rintro ⟨source, hsource, rfl⟩
+        simpa using hsource
+    rw [himage]
+    exact measurableEmbedding_runtimeJointSigmaPack.measurableSet_image.mpr hset
+
+/-- A function on variable-length augmented traces is measurable whenever its
+restriction to every fixed rejected-length fiber is measurable. -/
+theorem measurable_of_measurable_runtimeJointOfFixed
+    {Target : Type*} [MeasurableSpace Target]
+    (f : ((ℝ × ℝ) × RuntimeRandomTrace) → Target)
+    (hf : ∀ length, Measurable (f ∘ runtimeJointOfFixed length)) :
+    Measurable f := by
+  have hcoproduct : Measurable (f ∘ runtimeJointSigmaPack) := by
+    apply measurable_sigma_of_measurable_mk
+    intro length
+    exact hf length
+  have h := hcoproduct.comp runtimeJointSigmaEquiv.symm.measurable
+  convert h using 1
+  funext point
+  exact congrArg f (runtimeJointSigmaEquiv.apply_symm_apply point).symm
+
 private theorem map_withDensity_comp_runtime
     {α β : Type*} [MeasurableSpace α] [MeasurableSpace β]
     (f : α → β) (μ : Measure α) (density : β → ENNReal)
@@ -7245,6 +7349,26 @@ def runtimeSuccessSet
   {point | point.1.1 ≤ logDensity point.1.2 ∧
     runtimeTraceDensity logDensity width intervals maxShrink point.1 point.2 ≠ 0}
 
+theorem measurable_uncurry_runtimeTraceDensity
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (width : ℝ) (intervals maxShrink : ℕ) :
+    Measurable (Function.uncurry
+      (runtimeTraceDensity logDensity width intervals maxShrink)) := by
+  apply measurable_of_measurable_runtimeJointOfFixed
+  intro length
+  exact measurable_uncurry_runtimeTraceDensity_fixedLength hlogDensity width
+    intervals maxShrink length
+
+theorem measurableSet_runtimeSuccessSet
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (width : ℝ) (intervals maxShrink : ℕ) :
+    MeasurableSet (runtimeSuccessSet logDensity width intervals maxShrink) := by
+  exact (measurableSet_le (measurable_fst.comp measurable_fst)
+      (hlogDensity.comp (measurable_snd.comp measurable_fst))).inter
+    ((measurableSet_singleton (0 : ENNReal)).preimage
+      (measurable_uncurry_runtimeTraceDensity hlogDensity width intervals
+        maxShrink)).compl
+
 /-- Total variable-length replay: reverse successful traces and retain every
 other augmented state and trace literally. -/
 noncomputable def guardedRuntimeAugmentedReverse
@@ -7263,6 +7387,26 @@ theorem primitiveRuntimeAugmentedReverse_runtimeJointOfFixed
         (fixedPrimitiveRuntimeAugmentedReverse logDensity width intervals
           length point) := by
   rfl
+
+theorem measurable_primitiveRuntimeAugmentedReverse
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (width : ℝ) (intervals : ℕ) :
+    Measurable (primitiveRuntimeAugmentedReverse logDensity width intervals) := by
+  apply measurable_of_measurable_runtimeJointOfFixed
+  intro length
+  have hcomp :
+      primitiveRuntimeAugmentedReverse logDensity width intervals ∘
+          runtimeJointOfFixed length =
+        runtimeJointOfFixed length ∘
+          fixedPrimitiveRuntimeAugmentedReverse logDensity width intervals
+            length := by
+    funext point
+    exact primitiveRuntimeAugmentedReverse_runtimeJointOfFixed logDensity width
+      intervals length point
+  rw [hcomp]
+  exact (measurable_runtimeJointOfFixed length).comp
+    (measurable_fixedPrimitiveRuntimeAugmentedReverse hlogDensity width intervals
+      length)
 
 theorem runtimeJointOfFixed_mem_runtimeSuccessSet
     (logDensity : ℝ → ℝ) (width : ℝ) (intervals maxShrink length : ℕ)
@@ -7316,6 +7460,15 @@ private theorem measurable_fixedGuardedRuntimeReverse
       length)
     (measurable_fixedPrimitiveRuntimeAugmentedReverse hlogDensity width intervals
       length)
+
+theorem measurable_guardedRuntimeAugmentedReverse
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (width : ℝ) (intervals maxShrink : ℕ) :
+    Measurable
+      (guardedRuntimeAugmentedReverse logDensity width intervals maxShrink) :=
+  Mcmc.Kernel.measurable_guardedTraceTransform
+    (measurableSet_runtimeSuccessSet hlogDensity width intervals maxShrink)
+    (measurable_primitiveRuntimeAugmentedReverse hlogDensity width intervals)
 
 /-- Although the dependent sigma carrier need not expose a convenient global
 measurability theorem, the assembled replay is a.e.-measurable for its exact
@@ -7403,6 +7556,24 @@ theorem guardedRuntimeAugmentedReverse_map_jointLaw
           (fixedPrimitiveRuntimeAugmentedReverse logDensity width intervals
             length)) (fixedLaw length)) = _
   rw [hpreserving.map_eq]
+
+/-- Measure-preserving formulation of the variable-length practical replay.
+Unlike the intermediate a.e. statement, this is directly consumable by the
+deterministic-kernel invariance interfaces. -/
+theorem guardedRuntimeAugmentedReverse_jointLaw_measurePreserving
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    {width : ℝ} (hwidth : 0 < width) (intervals maxShrink : ℕ) :
+    MeasurePreserving
+      (guardedRuntimeAugmentedReverse logDensity width intervals maxShrink)
+      ((((volume : Measure ℝ).prod volume).prod runtimeRandomTraceBase).withDensity
+        (fun point => runtimeTraceDensity logDensity width intervals maxShrink
+          point.1 point.2))
+      ((((volume : Measure ℝ).prod volume).prod runtimeRandomTraceBase).withDensity
+        (fun point => runtimeTraceDensity logDensity width intervals maxShrink
+          point.1 point.2)) :=
+  ⟨measurable_guardedRuntimeAugmentedReverse hlogDensity width intervals maxShrink,
+    guardedRuntimeAugmentedReverse_map_jointLaw hlogDensity hwidth intervals
+      maxShrink⟩
 
 /-- Integration against the variable-length base decomposes into the sum of
 finite-dimensional Lebesgue integrals. -/

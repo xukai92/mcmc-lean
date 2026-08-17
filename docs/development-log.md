@@ -7,6 +7,10 @@
   Fixed-length guarded rerooting commutes with every fiber embedding; summing
   the already-certified fixed laws proves that the genuine variable-length
   guarded replay preserves the complete likelihood-weighted augmented law.
+  An explicit measurable equivalence between the runtime carrier and the
+  coproduct of fixed-dimensional augmented carriers upgrades fiberwise
+  measurability to global measurability, so the result is exposed as an
+  ordinary `MeasurePreserving` theorem usable by deterministic kernels.
   The remaining end-to-end step is to adjoin the explicit exhaustion outcome
   and identify the resulting preserved law with
   `completedRuntimeTraceKernelFromFibers` before projection to the sampler.
