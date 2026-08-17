@@ -827,6 +827,183 @@ theorem standardGaussianBPS_waitingTime_inverse
   apply (div_eq_iff (mul_ne_zero (by norm_num) hb)).2
   ring
 
+/-- The closed-form positive Gaussian-BPS inverse clock is the unique
+nonnegative time accumulating a prescribed positive hazard. -/
+theorem gaussianBPSWaitingTime_unique
+    (state : BouncyParticleState ι) (hvelocity : state.2 ≠ 0)
+    (hazard : NNReal) (hhazard : 0 < hazard) (time : NNReal)
+    (htime : (∫ elapsed in (0 : ℝ)..(time : ℝ),
+      standardGaussianBouncyParticleBounceData.stateRate
+        (bouncyParticleFlow (Real.toNNReal elapsed) state)) =
+          (hazard : ℝ)) :
+    time = gaussianBPSWaitingTime state hazard := by
+  let a := gaussianBPSLinearCoefficient state
+  let b := gaussianBPSQuadraticCoefficient state
+  let wait := gaussianBPSWaitingTime state hazard
+  have hb : 0 < b := gaussianBPSQuadraticCoefficient_pos state hvelocity
+  have hbne : 2 * b ≠ 0 := mul_ne_zero (by norm_num) hb.ne'
+  have htimeFormula := standardGaussianBPS_accumulated state time hvelocity
+  rw [htimeFormula] at htime
+  have htimeSquare :
+      (max 0 (a + (time : ℝ) * b)) ^ 2 - (max 0 a) ^ 2 =
+        2 * b * (hazard : ℝ) := by
+    dsimp [a, b] at htime ⊢
+    apply (div_eq_iff hbne).mp at htime
+    nlinarith
+  have hwaitSquare :
+      (max 0 (a + (wait : ℝ) * b)) ^ 2 - (max 0 a) ^ 2 =
+        2 * b * (hazard : ℝ) := by
+    have hcoerce := gaussianBPSWaitingTime_coe state hvelocity hhazard
+    have hsquare := gaussianBPS_positivePartSquare_waitingTimeReal
+      (hazard := hazard) state hvelocity
+    dsimp [a, b, wait]
+    rw [hcoerce]
+    simpa [mul_comm] using hsquare
+  have hsquares :
+      (max 0 (a + (time : ℝ) * b)) ^ 2 =
+        (max 0 (a + (wait : ℝ) * b)) ^ 2 := by
+    linarith
+  have hmax : max 0 (a + (time : ℝ) * b) =
+      max 0 (a + (wait : ℝ) * b) := by
+    nlinarith [le_max_left 0 (a + (time : ℝ) * b),
+      le_max_left 0 (a + (wait : ℝ) * b)]
+  have hwaitMaxPos : 0 < max 0 (a + (wait : ℝ) * b) := by
+    have hhazardReal : 0 < (hazard : ℝ) := by exact_mod_cast hhazard
+    have hproduct : 0 < 2 * b * (hazard : ℝ) := by positivity
+    have hnonneg : 0 ≤ max 0 (a + (wait : ℝ) * b) :=
+      le_max_left _ _
+    nlinarith [sq_nonneg (max 0 a), hwaitSquare]
+  have htimeAffinePos : 0 < a + (time : ℝ) * b := by
+    have : 0 < max 0 (a + (time : ℝ) * b) := hmax ▸ hwaitMaxPos
+    rw [lt_max_iff] at this
+    exact this.resolve_left (lt_irrefl 0)
+  have hwaitAffinePos : 0 < a + (wait : ℝ) * b := by
+    rw [lt_max_iff] at hwaitMaxPos
+    exact hwaitMaxPos.resolve_left (lt_irrefl 0)
+  rw [max_eq_right htimeAffinePos.le,
+    max_eq_right hwaitAffinePos.le] at hmax
+  have hcoe : (time : ℝ) = (wait : ℝ) := by
+    nlinarith
+  exact_mod_cast hcoe
+
+theorem standardGaussianBPS_accumulated_nonneg
+    (state : BouncyParticleState ι) (hvelocity : state.2 ≠ 0)
+    (time : NNReal) :
+    0 ≤ (∫ elapsed in (0 : ℝ)..(time : ℝ),
+      standardGaussianBouncyParticleBounceData.stateRate
+        (bouncyParticleFlow (Real.toNNReal elapsed) state)) := by
+  rw [standardGaussianBPS_accumulated state time hvelocity]
+  have hb : 0 < gaussianBPSQuadraticCoefficient state :=
+    gaussianBPSQuadraticCoefficient_pos state hvelocity
+  have haffine : gaussianBPSLinearCoefficient state ≤
+      gaussianBPSLinearCoefficient state +
+        (time : ℝ) * gaussianBPSQuadraticCoefficient state := by
+    nlinarith [mul_nonneg time.coe_nonneg hb.le]
+  have hmax := max_le_max_left 0 haffine
+  have hsquare :
+      (max 0 (gaussianBPSLinearCoefficient state)) ^ 2 ≤
+        (max 0 (gaussianBPSLinearCoefficient state +
+          (time : ℝ) * gaussianBPSQuadraticCoefficient state)) ^ 2 := by
+    nlinarith [le_max_left 0 (gaussianBPSLinearCoefficient state),
+      le_max_left 0 (gaussianBPSLinearCoefficient state +
+        (time : ℝ) * gaussianBPSQuadraticCoefficient state)]
+  positivity
+
+/-- Before the unique positive inverse-clock time, accumulated hazard is
+strictly below the requested mark. -/
+theorem standardGaussianBPS_accumulated_lt_hazard_of_lt_waitingTime
+    (state : BouncyParticleState ι) (hvelocity : state.2 ≠ 0)
+    (hazard : NNReal) (hhazard : 0 < hazard) (time : NNReal)
+    (htime : time < gaussianBPSWaitingTime state hazard) :
+    (∫ elapsed in (0 : ℝ)..(time : ℝ),
+      standardGaussianBouncyParticleBounceData.stateRate
+        (bouncyParticleFlow (Real.toNNReal elapsed) state)) <
+      (hazard : ℝ) := by
+  let wait := gaussianBPSWaitingTime state hazard
+  let a := gaussianBPSLinearCoefficient state
+  let b := gaussianBPSQuadraticCoefficient state
+  have hb : 0 < b := gaussianBPSQuadraticCoefficient_pos state hvelocity
+  have htimeReal : (time : ℝ) < (wait : ℝ) := by exact_mod_cast htime
+  have haffine : a + (time : ℝ) * b ≤ a + (wait : ℝ) * b := by
+    nlinarith
+  have hmax : max 0 (a + (time : ℝ) * b) ≤
+      max 0 (a + (wait : ℝ) * b) :=
+    max_le_max_left 0 haffine
+  have hsquare : (max 0 (a + (time : ℝ) * b)) ^ 2 ≤
+      (max 0 (a + (wait : ℝ) * b)) ^ 2 := by
+    nlinarith [le_max_left 0 (a + (time : ℝ) * b),
+      le_max_left 0 (a + (wait : ℝ) * b)]
+  have hformula := standardGaussianBPS_accumulated state time hvelocity
+  have hinverse := standardGaussianBPS_waitingTime_inverse
+    state hvelocity hhazard
+  have hwaitFormula := standardGaussianBPS_accumulated state wait hvelocity
+  rw [hwaitFormula] at hinverse
+  have hle :
+      (∫ elapsed in (0 : ℝ)..(time : ℝ),
+        standardGaussianBouncyParticleBounceData.stateRate
+          (bouncyParticleFlow (Real.toNNReal elapsed) state)) ≤
+        (hazard : ℝ) := by
+    rw [hformula]
+    dsimp [a, b, wait] at hsquare ⊢
+    rw [← hinverse]
+    exact (div_le_div_iff_of_pos_right (by positivity)).2 (by linarith)
+  exact lt_of_le_of_ne hle fun heq =>
+    htime.ne (gaussianBPSWaitingTime_unique state hvelocity hazard hhazard time
+      heq)
+
+/-- If a finite split occurs before the next event, subtracting the hazard
+accumulated up to the split gives exactly the residual inverse-clock wait from
+the flowed state. -/
+theorem gaussianBPSWaitingTime_residual
+    (state : BouncyParticleState ι) (hvelocity : state.2 ≠ 0)
+    (hazard : NNReal) (hhazard : 0 < hazard) (first : NNReal)
+    (hfirst : first < gaussianBPSWaitingTime state hazard) :
+    gaussianBPSWaitingTime (bouncyParticleFlow first state)
+        (hazard - Real.toNNReal
+          (∫ elapsed in (0 : ℝ)..(first : ℝ),
+            standardGaussianBouncyParticleBounceData.stateRate
+              (bouncyParticleFlow (Real.toNNReal elapsed) state))) =
+      gaussianBPSWaitingTime state hazard - first := by
+  let wait := gaussianBPSWaitingTime state hazard
+  let accumulated := ∫ elapsed in (0 : ℝ)..(first : ℝ),
+    standardGaussianBouncyParticleBounceData.stateRate
+      (bouncyParticleFlow (Real.toNNReal elapsed) state)
+  let consumed := Real.toNNReal accumulated
+  let residual := hazard - consumed
+  have haccumulatedNonneg : 0 ≤ accumulated :=
+    standardGaussianBPS_accumulated_nonneg state hvelocity first
+  have haccumulatedLt : accumulated < (hazard : ℝ) :=
+    standardGaussianBPS_accumulated_lt_hazard_of_lt_waitingTime
+      state hvelocity hazard hhazard first hfirst
+  have hconsumedLt : consumed < hazard := by
+    rw [← NNReal.coe_lt_coe, Real.coe_toNNReal _ haccumulatedNonneg]
+    exact haccumulatedLt
+  have hresidualPos : 0 < residual := tsub_pos_iff_lt.mpr hconsumedLt
+  have hflowVelocity : (bouncyParticleFlow first state).2 ≠ 0 := by
+    simpa using hvelocity
+  have hcocycle := standardGaussianBPS_accumulated_add state first
+    (wait - first)
+  have hfirstLe : first ≤ wait := hfirst.le
+  rw [add_tsub_cancel_of_le hfirstLe] at hcocycle
+  have hinverse := standardGaussianBPS_waitingTime_inverse
+    state hvelocity hhazard
+  have hresidualIntegral :
+      (∫ elapsed in (0 : ℝ)..((wait - first : NNReal) : ℝ),
+        standardGaussianBouncyParticleBounceData.stateRate
+          (bouncyParticleFlow (Real.toNNReal elapsed)
+            (bouncyParticleFlow first state))) = (residual : ℝ) := by
+    have hconsumedCoe : (consumed : ℝ) = accumulated := by
+      exact Real.coe_toNNReal accumulated haccumulatedNonneg
+    have hresidualCoe : (residual : ℝ) = (hazard : ℝ) - accumulated := by
+      rw [show residual = hazard - consumed from rfl,
+        NNReal.coe_sub hconsumedLt.le, hconsumedCoe]
+    rw [hresidualCoe]
+    linarith
+  have hunique := gaussianBPSWaitingTime_unique
+    (bouncyParticleFlow first state) hflowVelocity residual hresidualPos
+    (wait - first) hresidualIntegral
+  exact hunique.symm
+
 /-! ### Exact unbounded-rate inverse clocks -/
 
 /-- Target-specific exact inverse of the integrated BPS rate. This is the

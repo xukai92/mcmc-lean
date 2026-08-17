@@ -683,9 +683,12 @@ by paper date:
    and memorylessness requires a target clock cocycle: finite-dimensional
    Gaussian BPS now proves exactly that accumulated hazard over `t + u` is the
    first interval plus accumulation from the state flowed by `t`, including
-   the inactive zero-velocity case. Uniqueness of the positive inverse-clock
-   solution and the resulting arbitrary positive-time composition law, target
-   stationarity, and ergodicity remain.
+   the inactive zero-velocity case. The positive inverse-clock solution is now
+   proved unique; before it rings accumulation is strictly below the mark, and
+   subtracting consumed hazard gives exactly the residual wait from the flowed
+   state. Lifting this split identity through the endpoint law to obtain the
+   arbitrary positive-time composition law, target stationarity, and
+   ergodicity remains.
 
    The nonlinear reversible-jump branch is complete at the exact theorem and
    executable-client levels; only the shared Float64 primitive boundary

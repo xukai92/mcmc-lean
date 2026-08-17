@@ -4885,3 +4885,11 @@ hazard cocycle `A(x,t+u) = A(x,t) + A(flow t x,u)` in both nonzero- and
 zero-velocity cases. The remaining local lemma is uniqueness of the positive
 closed-form inverse, needed to identify the residual real-time wait after
 subtracting the first interval's accumulated hazard.
+
+That local clock obligation is now closed. Lean proves the closed-form
+positive inverse is the unique nonnegative time attaining a positive hazard,
+accumulation is nonnegative and strictly below the mark at every earlier time,
+and the residual mark obtained by subtracting the first interval's accumulated
+hazard has inverse wait exactly `originalWait - split` from the flowed state.
+The remaining semigroup work is therefore a law-level endpoint decomposition,
+not an unproved property of the Gaussian clock.
