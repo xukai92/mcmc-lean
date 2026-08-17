@@ -5019,3 +5019,17 @@ law. At kernel level,
 zero time and proves that the inactive zero-velocity fiber is an exact Dirac
 kernel. Multidimensional target stationarity and ergodicity remain separate
 analytic milestones.
+
+The multidimensional stationarity boundary is now represented directly in
+Lean rather than only in prose. `standardGaussianBPSTarget` is the canonical
+product of the standard Gaussian position and velocity laws.
+`StandardGaussianBPSGeneratorTest` couples an observable to its coordinatewise
+position derivative and stores the already-supported integrability and
+Gaussian generator-cancellation facts. The target-started weak-forward
+uniqueness obligation for the constructed semigroup is named
+`StandardGaussianBPSTargetWeakForwardUniqueness`; once supplied,
+`standardGaussianBPSHorizonKernel_invariant_of_targetWeakForwardUniqueness`
+proves exact invariance at every horizon through the generic forward-equation
+bridge. This is deliberately a conditional theorem: target-started
+weak-forward uniqueness itself remains to be proved and is not inferred from
+the generator identity or semigroup law alone.

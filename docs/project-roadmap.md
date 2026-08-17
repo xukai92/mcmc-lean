@@ -731,7 +731,10 @@ by paper date:
    with direct summed-horizon execution is also complete. It yields an exact
    strong-Markov split law and a global horizon-kernel semigroup theorem,
    including zero time and zero velocity. Target stationarity and ergodicity
-   remain separate subsequent milestones.
+   remain separate subsequent milestones. The stationarity interface is now
+   instantiated at the exact product-Gaussian target and checked generator
+   domain: target-started weak-forward uniqueness is the single explicit
+   process-level premise consumed by the conditional invariance theorem.
 
    The nonlinear reversible-jump branch is complete at the exact theorem and
    executable-client levels; only the shared Float64 primitive boundary

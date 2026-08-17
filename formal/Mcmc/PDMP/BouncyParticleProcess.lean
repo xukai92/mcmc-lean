@@ -2,6 +2,7 @@ import Mcmc.PDMP.BouncyParticle
 import Mcmc.PDMP.EventSimulation
 import Mcmc.PDMP.InverseHazard
 import Mcmc.PDMP.ScheduledExecutionKernel
+import Mcmc.PDMP.SemigroupStationarity
 import Mcmc.Hamiltonian.MomentumRefresh
 import Mathlib.MeasureTheory.Integral.IntervalIntegral.Basic
 import Mathlib.Tactic
@@ -3316,6 +3317,91 @@ theorem standardGaussianBPSHorizonKernel_semigroup
         (horizon + extra) initial hvelocity]
   · rw [standardGaussianBPSHorizonKernel_comp_apply_of_pos_of_velocity_ne_zero
       (ι := ι) hhorizonPos extra initial hvelocity]
+
+/-! ### Multidimensional Gaussian-BPS stationarity boundary -/
+
+/-- Canonical standard-Gaussian position/velocity target for the
+finite-dimensional BPS semigroup. -/
+noncomputable def standardGaussianBPSTarget :
+    Measure (BouncyParticleState ι) :=
+  standardMomentumMeasure.prod standardMomentumMeasure
+
+instance standardGaussianBPSTarget.instIsProbabilityMeasure :
+    IsProbabilityMeasure (standardGaussianBPSTarget (ι := ι)) := by
+  unfold standardGaussianBPSTarget
+  infer_instance
+
+/-- A test observable equipped with its coordinatewise position derivative
+and the two exact analytic facts consumed by the weak-forward stationarity
+bridge. The Gaussian integration-by-parts theorem constructs the
+`generator_mean_zero` field from coordinatewise hypotheses. -/
+structure StandardGaussianBPSGeneratorTest (ι : Type*) [Fintype ι] where
+  observable : BouncyParticleState ι → ℝ
+  coordinatePartial : Position ι → ι → Position ι → ℝ
+  generator_integrable : Integrable
+    (bouncyPhaseGenerator id
+      (coordinateDirectionalDerivative coordinatePartial)
+      (fun position velocity => observable (position, velocity)))
+    (standardGaussianBPSTarget (ι := ι))
+  generator_mean_zero :
+    (∫ state,
+      bouncyPhaseGenerator id
+        (coordinateDirectionalDerivative coordinatePartial)
+        (fun position velocity => observable (position, velocity)) state
+      ∂standardGaussianBPSTarget (ι := ι)) = 0
+
+namespace StandardGaussianBPSGeneratorTest
+
+/-- Observable component of the Gaussian-BPS generator test domain. -/
+def observe (test : StandardGaussianBPSGeneratorTest ι) :
+    BouncyParticleState ι → ℝ :=
+  test.observable
+
+/-- Exact BPS generator on the checked coordinatewise derivative supplied by
+the test. -/
+noncomputable def generator (test : StandardGaussianBPSGeneratorTest ι) :
+    BouncyParticleState ι → ℝ :=
+  bouncyPhaseGenerator id
+    (coordinateDirectionalDerivative test.coordinatePartial)
+    (fun position velocity => test.observable (position, velocity))
+
+theorem integrable_generator (test : StandardGaussianBPSGeneratorTest ι) :
+    Integrable test.generator (standardGaussianBPSTarget (ι := ι)) :=
+  test.generator_integrable
+
+theorem integral_generator_eq_zero (test : StandardGaussianBPSGeneratorTest ι) :
+    (∫ state, test.generator state
+      ∂standardGaussianBPSTarget (ι := ι)) = 0 :=
+  test.generator_mean_zero
+
+end StandardGaussianBPSGeneratorTest
+
+/-- Target-started weak-forward uniqueness for the constructed exact
+Gaussian-BPS semigroup on its checked generator test domain. This is the
+remaining process-level analytic obligation between generator cancellation
+and target stationarity. -/
+abbrev StandardGaussianBPSTargetWeakForwardUniqueness :=
+  CompactTestTargetWeakForwardUniqueness
+    (standardGaussianBPSHorizonKernel (ι := ι))
+    StandardGaussianBPSGeneratorTest.observe
+    StandardGaussianBPSGeneratorTest.generator
+    (standardGaussianBPSTarget (ι := ι))
+
+/-- Once target-started weak-forward uniqueness is established, the exact
+generator balance stored by every test proves target invariance of the
+constructed horizon kernel at every time. -/
+theorem standardGaussianBPSHorizonKernel_invariant_of_targetWeakForwardUniqueness
+    (uniqueness : StandardGaussianBPSTargetWeakForwardUniqueness (ι := ι))
+    (horizon : NNReal) :
+    (standardGaussianBPSHorizonKernel (ι := ι) horizon).Invariant
+      (standardGaussianBPSTarget (ι := ι)) := by
+  apply invariant_of_compactTest_generatorBalance_and_targetWeakUniqueness
+    (standardGaussianBPSHorizonKernel (ι := ι))
+    StandardGaussianBPSGeneratorTest.observe
+    StandardGaussianBPSGeneratorTest.generator
+    (standardGaussianBPSTarget (ι := ι)) uniqueness
+  · exact StandardGaussianBPSGeneratorTest.integrable_generator
+  · exact StandardGaussianBPSGeneratorTest.integral_generator_eq_zero
 
 theorem standardGaussianBPSHorizonKernel_apply_positiveFirstEvent
     (horizon : NNReal) (initial : BouncyParticleState ι)
