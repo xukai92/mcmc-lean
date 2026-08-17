@@ -694,4 +694,104 @@ theorem RecursivePhaseTree.continues_eq_of_decisions_eq
     (Mcmc.Executable.Continuous.RecursivePhaseTree.toBuildFlagTree_eq_of_decisions_eq
       computedLeaf idealLeaf computedTurns idealTurns hleaf hturns tree)
 
+/-- End-to-end numerical refinement for one recursive NUTS flag tree built
+from a common certified phase trajectory. Leaf-energy certificates discharge
+the divergence decisions, while endpoint separation discharges every U-turn
+decision actually queried by the tree. -/
+theorem CertifiedLeapfrogPhaseTrajectory.certifiedBuildFlagTree_eq_ideal
+    {count dimension : ℕ}
+    (trajectory : CertifiedLeapfrogPhaseTrajectory count dimension)
+    (leafCertificate : Fin count → NUTSLeafEnergyCertificate)
+    (leftSeparated : ∀ left right,
+      let leftEndpoint := trajectory.endpoint left
+      let rightEndpoint := trajectory.endpoint right
+      let computed := endpointDot leftEndpoint.computedPosition
+        rightEndpoint.computedPosition leftEndpoint.computedMomentum
+      let error := endpointDotError leftEndpoint.idealPosition
+        rightEndpoint.idealPosition leftEndpoint.computedMomentum
+        (fun _ => leftEndpoint.step.positionError)
+        (fun _ => rightEndpoint.step.positionError)
+        (fun _ => leftEndpoint.step.momentumError)
+      computed < -error ∨ error < computed)
+    (rightSeparated : ∀ left right,
+      let leftEndpoint := trajectory.endpoint left
+      let rightEndpoint := trajectory.endpoint right
+      let computed := endpointDot leftEndpoint.computedPosition
+        rightEndpoint.computedPosition rightEndpoint.computedMomentum
+      let error := endpointDotError leftEndpoint.idealPosition
+        rightEndpoint.idealPosition rightEndpoint.computedMomentum
+        (fun _ => leftEndpoint.step.positionError)
+        (fun _ => rightEndpoint.step.positionError)
+        (fun _ => rightEndpoint.step.momentumError)
+      computed < -error ∨ error < computed)
+    (tree : RecursivePhaseTree (Fin count)) :
+    tree.toBuildFlagTree
+        (fun phase => (leafCertificate phase).computedContinues)
+        (fun left right => vectorAdjacentUTurn
+          (trajectory.computedPhase left) (trajectory.computedPhase right)) =
+      tree.toBuildFlagTree
+        (fun phase => (leafCertificate phase).idealContinues)
+        (fun left right => vectorAdjacentUTurn
+          (trajectory.idealPhase left) (trajectory.idealPhase right)) := by
+  apply Mcmc.Executable.Continuous.RecursivePhaseTree.toBuildFlagTree_eq_of_decisions_eq
+  · exact fun phase =>
+      (leafCertificate phase).computedContinues_eq_idealContinues
+  · intro left right
+    exact ((trajectory.endpoint left).vectorUTurnCertificate
+      (trajectory.endpoint right) (leftSeparated left right)
+      (rightSeparated left right)).vectorAdjacentUTurn_eq
+
+/-- Primitive recurrence witnesses, exact successive-state linkage, and
+strict comparison margins compose directly into the recursive NUTS decision
+refinement theorem. -/
+theorem LinkedEuclideanLeapfrogVectorTrajectoryCertificate.certifiedBuildFlagTree_eq_ideal
+    {parameters : EuclideanLeapfrogErrorParameters} {dimension steps : ℕ}
+    {initialPositionError initialMomentumError : ℝ}
+    (certificate : LinkedEuclideanLeapfrogVectorTrajectoryCertificate parameters
+      dimension steps initialPositionError initialMomentumError)
+    (initialPositionLength :
+      certificate.errorCertificate.initial.computedPosition.length = dimension)
+    (initialMomentumLength :
+      certificate.errorCertificate.initial.computedMomentum.length = dimension)
+    (leafCertificate : Fin (steps + 1) → NUTSLeafEnergyCertificate)
+    (leftSeparated : ∀ left right,
+      let trajectory := CertifiedLeapfrogPhaseTrajectory.ofLinkedPrimitiveCertificate
+        certificate initialPositionLength initialMomentumLength
+      let leftEndpoint := trajectory.endpoint left
+      let rightEndpoint := trajectory.endpoint right
+      let computed := endpointDot leftEndpoint.computedPosition
+        rightEndpoint.computedPosition leftEndpoint.computedMomentum
+      let error := endpointDotError leftEndpoint.idealPosition
+        rightEndpoint.idealPosition leftEndpoint.computedMomentum
+        (fun _ => leftEndpoint.step.positionError)
+        (fun _ => rightEndpoint.step.positionError)
+        (fun _ => leftEndpoint.step.momentumError)
+      computed < -error ∨ error < computed)
+    (rightSeparated : ∀ left right,
+      let trajectory := CertifiedLeapfrogPhaseTrajectory.ofLinkedPrimitiveCertificate
+        certificate initialPositionLength initialMomentumLength
+      let leftEndpoint := trajectory.endpoint left
+      let rightEndpoint := trajectory.endpoint right
+      let computed := endpointDot leftEndpoint.computedPosition
+        rightEndpoint.computedPosition rightEndpoint.computedMomentum
+      let error := endpointDotError leftEndpoint.idealPosition
+        rightEndpoint.idealPosition rightEndpoint.computedMomentum
+        (fun _ => leftEndpoint.step.positionError)
+        (fun _ => rightEndpoint.step.positionError)
+        (fun _ => rightEndpoint.step.momentumError)
+      computed < -error ∨ error < computed)
+    (tree : RecursivePhaseTree (Fin (steps + 1))) :
+    let trajectory := CertifiedLeapfrogPhaseTrajectory.ofLinkedPrimitiveCertificate
+      certificate initialPositionLength initialMomentumLength
+    tree.toBuildFlagTree
+        (fun phase => (leafCertificate phase).computedContinues)
+        (fun left right => vectorAdjacentUTurn
+          (trajectory.computedPhase left) (trajectory.computedPhase right)) =
+      tree.toBuildFlagTree
+        (fun phase => (leafCertificate phase).idealContinues)
+        (fun left right => vectorAdjacentUTurn
+          (trajectory.idealPhase left) (trajectory.idealPhase right)) := by
+  exact CertifiedLeapfrogPhaseTrajectory.certifiedBuildFlagTree_eq_ideal
+    _ leafCertificate leftSeparated rightSeparated tree
+
 end Mcmc.Executable.Continuous

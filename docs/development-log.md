@@ -4202,3 +4202,16 @@ is rejected if its initial state or any successive computed/ideal state does
 not connect. Positive, wrong-initial-state, and broken-successor tests cover
 the boundary. Concrete gradient callback, arithmetic-reduction, libm, and
 platform-specific budgets remain explicit backend obligations.
+
+## 2026-08-17: linked trajectory to recursive NUTS trace
+
+Closed the theorem-level composition between bounded integration and recursive
+stopping. Given one common certified phase trajectory, bounded leaf-energy
+witnesses, and strict U-turn margins, Lean now proves equality of the complete
+computed and ideal `NUTSBuildFlagTree`, not only its individual callback bits.
+A direct wrapper starts from the primitive recurrence certificate with exact
+successive-state linkage. This also clarifies the remaining boundary: finite
+state-dependent auxiliary-slice reversibility and marginal stationarity are
+already proved in `NUTSAugmentation`; what is still absent is a refinement
+theorem identifying a production recursion's generated auxiliary distribution
+with that finite completed-tree law, plus concrete callback/platform budgets.
