@@ -838,4 +838,49 @@ theorem CertifiedLeapfrogPhaseTrajectory.recursiveDoublingCandidateRow_eq_ideal
     (trajectory.endpoint right) (leftSeparated left right)
     (rightSeparated left right)).vectorAdjacentUTurn_eq
 
+/-- The same strict endpoint margins identify the full computed randomized
+checked recursion with its ideal-real kernel. This includes fair direction
+traces, recursive early stopping, the global reroot check, endpoint selection,
+and the identity fallback on a failed check. -/
+theorem CertifiedLeapfrogPhaseTrajectory.recursiveDoublingKernel_eq_ideal
+    {count dimension depth : ℕ}
+    (trajectory : CertifiedLeapfrogPhaseTrajectory count dimension)
+    (leftSeparated : ∀ left right,
+      let leftEndpoint := trajectory.endpoint left
+      let rightEndpoint := trajectory.endpoint right
+      let computed := endpointDot leftEndpoint.computedPosition
+        rightEndpoint.computedPosition leftEndpoint.computedMomentum
+      let error := endpointDotError leftEndpoint.idealPosition
+        rightEndpoint.idealPosition leftEndpoint.computedMomentum
+        (fun _ => leftEndpoint.step.positionError)
+        (fun _ => rightEndpoint.step.positionError)
+        (fun _ => leftEndpoint.step.momentumError)
+      computed < -error ∨ error < computed)
+    (rightSeparated : ∀ left right,
+      let leftEndpoint := trajectory.endpoint left
+      let rightEndpoint := trajectory.endpoint right
+      let computed := endpointDot leftEndpoint.computedPosition
+        rightEndpoint.computedPosition rightEndpoint.computedMomentum
+      let error := endpointDotError leftEndpoint.idealPosition
+        rightEndpoint.idealPosition rightEndpoint.computedMomentum
+        (fun _ => leftEndpoint.step.positionError)
+        (fun _ => rightEndpoint.step.positionError)
+        (fun _ => rightEndpoint.step.momentumError)
+      computed < -error ∨ error < computed)
+    (target : Distribution (Fin count))
+    (htarget : ∀ state, 0 < target.mass state) :
+    (Mcmc.Executable.DynamicTreeIR.recursiveDoublingProgram count depth
+      (fun left right => vectorAdjacentUTurn
+        (trajectory.computedPhase left) (trajectory.computedPhase right))).interpret
+        target htarget =
+      (Mcmc.Executable.DynamicTreeIR.recursiveDoublingProgram count depth
+        (fun left right => vectorAdjacentUTurn
+          (trajectory.idealPhase left) (trajectory.idealPhase right))).interpret
+        target htarget := by
+  apply Mcmc.Executable.DynamicTreeIR.recursiveDoublingProgram_interpret_eq
+  intro left right
+  exact ((trajectory.endpoint left).vectorUTurnCertificate
+    (trajectory.endpoint right) (leftSeparated left right)
+    (rightSeparated left right)).vectorAdjacentUTurn_eq
+
 end Mcmc.Executable.Continuous

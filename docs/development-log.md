@@ -4284,6 +4284,19 @@ candidate rows—not only their flag trees—are now machine-checked equal at th
 declared numerical boundary. Concrete backend budgets and machine-checked
 Julia extraction remain separate obligations.
 
+## 2026-08-17: end-to-end recursive-kernel refinement
+
+Lifted candidate-row agreement through the complete generated dynamic-tree
+semantics. `CheckedRecursiveDoublingProgram.interpret_congr` transports exact
+row-family equality through the fair direction-bit mixture, global reroot
+check, checked endpoint selection, and identity fallback.
+`CertifiedLeapfrogPhaseTrajectory.recursiveDoublingKernel_eq_ideal` then uses
+the existing componentwise leapfrog bounds and strict endpoint margins to
+identify the computed recursive kernel with its ideal-real counterpart. The
+remaining production boundary is concrete backend budgets and a
+machine-checked refinement/extraction argument for the Julia interpreter, not
+an unproved gap between certified callback bits and the full Lean kernel.
+
 ## 2026-08-17: practical-slice stratum measure preservation
 
 Upgraded allocation rerooting from a finite-sum identity to preservation of

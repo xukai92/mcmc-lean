@@ -134,6 +134,18 @@ theorem CheckedRecursiveDoublingProgram.stationary
   CertifiedDynamicTree.randomizedCheckedOrIdentityKernel_stationary
     (uniformDirectionTraceLaw depth) target program.candidates htarget
 
+/-- Candidate-row equality lifts through the entire generated semantics:
+the fair direction-trace mixture, global reroot check, checked selection, and
+identity fallback are all shared. -/
+theorem CheckedRecursiveDoublingProgram.interpret_congr
+    {State : Type*} [Fintype State] [DecidableEq State] {depth : ℕ}
+    (computed ideal : CheckedRecursiveDoublingProgram State depth)
+    (hcandidates : computed.candidates = ideal.candidates)
+    (target : Distribution State) (htarget : ∀ state, 0 < target.mass state) :
+    computed.interpret target htarget = ideal.interpret target htarget := by
+  unfold CheckedRecursiveDoublingProgram.interpret
+  rw [hcandidates]
+
 /-! ### Deterministic recursive candidate-row builder -/
 
 /-- Zero-based closed interval retained by one rooted recursive-doubling run. -/
@@ -240,6 +252,19 @@ theorem recursiveDoublingProgram_candidates_eq
   funext trace root
   exact recursiveDoublingCandidateRow_congr count depth computedTurns idealTurns
     hagrees trace root
+
+/-- Pointwise agreement of the numerical and ideal U-turn callbacks refines
+the complete randomized checked recursion, not only each deterministic row. -/
+theorem recursiveDoublingProgram_interpret_eq
+    (count depth : ℕ) (computedTurns idealTurns : Fin count → Fin count → Bool)
+    (hagrees : ∀ left right, computedTurns left right = idealTurns left right)
+    (target : Distribution (Fin count))
+    (htarget : ∀ state, 0 < target.mass state) :
+    (recursiveDoublingProgram count depth computedTurns).interpret target htarget =
+      (recursiveDoublingProgram count depth idealTurns).interpret target htarget := by
+  apply CheckedRecursiveDoublingProgram.interpret_congr
+  exact recursiveDoublingProgram_candidates_eq count depth computedTurns idealTurns
+    hagrees
 
 @[simp] theorem recursiveDoublingCandidateRow_zero_depth
     (count : ℕ) (turns : Fin count → Fin count → Bool) (root : Fin count) :
