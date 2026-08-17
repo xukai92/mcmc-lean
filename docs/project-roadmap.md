@@ -676,8 +676,10 @@ by paper date:
    proved measure preserving. Reindexing and currying the infinite product now
    proves that the head and tail have exactly the unit-hazard × iid-tail
    product law, with cons reconstructing the original stream law. The
-   resulting positive-time endpoint renewal/composition law, target
-   stationarity, and ergodicity remain.
+   completed endpoint now satisfies the corresponding pathwise recursion on
+   every completing tail and the law-level/kernel-level first-step renewal
+   equation. Residual exponential memorylessness and the resulting
+   positive-time composition law, target stationarity, and ergodicity remain.
 
    The nonlinear reversible-jump branch is complete at the exact theorem and
    executable-client levels; only the shared Float64 primitive boundary

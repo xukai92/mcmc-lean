@@ -1058,6 +1058,25 @@ theorem standardGaussianBPS_completionCount_finished_ae
       (standardGaussianBPSJump (ι := ι))
         (standardGaussianBPS_completesFiniteHorizons (ι := ι)) horizon initial
 
+/-- Exact first-step renewal equation for the completed finite-dimensional
+Gaussian-BPS horizon kernel. -/
+theorem standardGaussianBPSHorizonKernel_apply_firstStep
+    (horizon : NNReal) (initial : BouncyParticleState ι) :
+    standardGaussianBPSHorizonKernel (ι := ι) horizon initial =
+      Measure.map
+        (fun headTail =>
+          (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+            |>.completedReplayEndpoint (standardGaussianBPSJump (ι := ι))
+              ((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+                |>.cappedStepUpdate (standardGaussianBPSJump (ι := ι))
+                  ((horizon, initial), headTail.1), headTail.2))
+        (unitHazardMeasure.prod unitHazardSequenceMeasure) := by
+  unfold standardGaussianBPSHorizonKernel
+  exact (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+    |>.completedHorizonKernel_apply_firstStep
+      measurable_standardGaussianBPSJump
+      (standardGaussianBPS_completesFiniteHorizons (ι := ι)) horizon initial
+
 /-- First-event-or-residual-flow BPS kernel on a finite horizon. This kernel
 handles a certified inactive state without imposing a fictitious event. It is
 the one-event recursion component, not yet the complete repeatedly restarted

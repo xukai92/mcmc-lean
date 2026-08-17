@@ -4868,3 +4868,13 @@ as a Markov kernel. Its semigroup and stationarity laws and multidimensional
 ergodicity remain separate milestones. The first semigroup boundary law is
 closed separately: totalized execution at zero remaining time is pointwise the
 initial state, hence the completed zero-horizon kernel is exactly `Kernel.id`.
+
+The positive-time renewal foundation is now checked as well. Finite replay is
+stable after its first completed prefix, the selected totalized endpoint
+agrees with every completed prefix, and consing a head mark onto a tail is
+exactly one capped step followed by tail replay. Reindexing the iid infinite
+product proves the first mark and tail have the unit-exponential × iid law.
+Together with almost-sure tail completion, these results yield generic
+law-level and kernel-level first-step renewal equations, instantiated by the
+finite-dimensional Gaussian BPS kernel. The remaining semigroup step is the
+residual-clock memorylessness calculation across an arbitrary time split.
