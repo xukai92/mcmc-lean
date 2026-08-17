@@ -11,11 +11,11 @@ export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_ou
     relativistic_multinomial_hmc_step!,
     fixed_point_generalized_leapfrog,
     certified_relativistic_multinomial_hmc_step!,
-    dynamic_select_float!,
+    dynamic_select_float!, streaming_eligible_select!,
     coupled_multinomial_hmc_step!, coupled_gaussian_rwmh_step!, xu21_coupled_step!,
     IR_FORMAT_VERSION
 
-const IR_FORMAT_VERSION = 16
+const IR_FORMAT_VERSION = 17
 
 """Stable target-weighted selection from a supplied candidate index set.
 
@@ -39,6 +39,33 @@ function dynamic_select_float!(source::AbstractRandomSource,
         target < cumulative && return Int(candidates[index])
     end
     Int(last(candidates))
+end
+
+"""Interpret the generated eligible-count streaming selection policy.
+
+Each segment is an already filtered completed subtree. A local uniform
+representative is drawn and then merged with the accumulated representative
+in proportion to the two eligible counts. Empty segments consume no draws.
+The result is `nothing` exactly when every segment is empty.
+"""
+function streaming_eligible_select!(source::AbstractRandomSource,
+        segments::AbstractVector{<:AbstractVector{<:Integer}})
+    representative = nothing
+    total = 0
+    for segment in segments
+        count = length(segment)
+        count == 0 && continue
+        local_index = Int(draw_below!(source, count)) + 1
+        local_representative = Int(segment[local_index])
+        if total == 0
+            representative = local_representative
+        else
+            ticket = Int(draw_below!(source, total + count))
+            ticket >= total && (representative = local_representative)
+        end
+        total += count
+    end
+    representative
 end
 
 """Reference coordinate-wise DHMC update for a categorical law on a cycle.
@@ -355,12 +382,13 @@ struct DynamicTreeDescriptor
     builder::String
     stop_rule::String
     subtree_policy::String
+    selection_policy::String
     failure_policy::String
 end
 
 function decode_dynamic_tree(node::SList)
     values = items(node)
-    length(values) == 6 && atom(values[1]) == "dynamic-tree" ||
+    length(values) == 7 && atom(values[1]) == "dynamic-tree" ||
         error("invalid dynamic-tree descriptor")
     descriptor = DynamicTreeDescriptor((atom(value) for value in values[2:end])...)
     descriptor.builder == "recursive-doubling" ||
@@ -369,6 +397,8 @@ function decode_dynamic_tree(node::SList)
         error("unsupported dynamic-tree stop rule: $(descriptor.stop_rule)")
     descriptor.subtree_policy == "recursive-exclusion" ||
         error("unsupported dynamic-tree subtree policy: $(descriptor.subtree_policy)")
+    descriptor.selection_policy == "eligible-count-streaming" ||
+        error("unsupported dynamic-tree selection policy: $(descriptor.selection_policy)")
     descriptor.failure_policy == "checked-or-identity" ||
         error("unsupported dynamic-tree failure policy: $(descriptor.failure_policy)")
     descriptor

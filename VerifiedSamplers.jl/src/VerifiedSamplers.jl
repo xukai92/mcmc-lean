@@ -13,6 +13,7 @@ export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, Bounded
     WarmupGaussianRWMH, GaussianRWMHWarmupResult, IndefiniteAdaptiveBool, warmup,
     ScalarHMC, VectorHMC, MultinomialHMC, CertifiedDynamicHMC,
     CheckedFirstStopDynamicHMC, CheckedRecursiveDynamicHMC,
+    streaming_eligible_select,
     MetricMultinomialHMC,
     CategoricalDHMC,
     DiagonalMetric, DenseMetric, MetricHMC, RelativisticMultinomialHMC,
@@ -1891,11 +1892,21 @@ function generated_dynamic_tree(name::AbstractString, positions, momenta,
         throw(ArgumentError("unknown generated dynamic tree: $name"))
     descriptor.builder == "recursive-doubling" &&
         descriptor.stop_rule == "endpoint-uturn" &&
-        descriptor.subtree_policy == "recursive-exclusion" &&
+    descriptor.subtree_policy == "recursive-exclusion" &&
+        descriptor.selection_policy == "eligible-count-streaming" &&
         descriptor.failure_policy == "checked-or-identity" ||
         error("unsupported generated dynamic-tree descriptor")
     recursive_doubling_uturn_candidates(positions, momenta, directions)
 end
+
+"""Draw from completed eligible subtrees using the Lean-generated policy."""
+streaming_eligible_select(rng::AbstractRNG,
+        segments::AbstractVector{<:AbstractVector{<:Integer}}) =
+    Reference.streaming_eligible_select!(Runtime.RNGSource(rng), segments)
+
+streaming_eligible_select(
+        segments::AbstractVector{<:AbstractVector{<:Integer}}) =
+    streaming_eligible_select(Random.default_rng(), segments)
 
 """Certified conservative dynamic-trajectory HMC.
 

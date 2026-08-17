@@ -20,7 +20,7 @@ namespace Mcmc.Executable.IRFormat
 
 open Finite.CompilerIR
 
-def version : Nat := 16
+def version : Nat := 17
 
 private def quote (value : String) : String :=
   let escapedBackslash := value.replace "\\" "\\\\"
@@ -237,12 +237,17 @@ private def dynamicTreeFailurePolicyRender :
     DynamicTreeIR.FailurePolicy → String
   | .checkedOrIdentity => "checked-or-identity"
 
+private def dynamicTreeSelectionPolicyRender :
+    DynamicTreeIR.SelectionPolicy → String
+  | .eligibleCountStreaming => "eligible-count-streaming"
+
 private def dynamicTreeDescriptorRender
     (descriptor : DynamicTreeIR.Descriptor) : String :=
   list ["dynamic-tree", quote descriptor.name,
     dynamicTreeBuilderRender descriptor.builder,
     dynamicTreeStopRuleRender descriptor.stopRule,
     dynamicTreeSubtreePolicyRender descriptor.subtreePolicy,
+    dynamicTreeSelectionPolicyRender descriptor.selectionPolicy,
     dynamicTreeFailurePolicyRender descriptor.failurePolicy]
 
 /-- Serialize all reference entry programs with a format version. -/

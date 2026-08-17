@@ -158,7 +158,11 @@ assembles a complete state-dependent completed-tree sampler: it normalizes the
 joint target/tree weight on each C.4-admissible root subtype, runs the proved
 rooted transition, lifts it to the common phase state, and proves the collapsed
 kernel reversible and stationary. Its explicit support hypotheses still have
-to be connected to the Julia tree/slice generator and representative draws.
+to be connected to the Julia tree/slice generator. The discrete representative
+step is now generated as IR policy `eligible-count-streaming`: Lean proves its
+normalized retained-endpoint law, while Julia Reference and Optimized exercise
+independent recursive and flattened implementations. Floating-point phase,
+slice, and U-turn callback refinement remains explicit.
 For example:
 
 ```julia

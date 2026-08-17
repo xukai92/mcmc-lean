@@ -13,7 +13,7 @@ export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_ou
     relativistic_multinomial_hmc_step!,
     fixed_point_generalized_leapfrog,
     certified_relativistic_multinomial_hmc_step!,
-    dynamic_select_float!,
+    dynamic_select_float!, streaming_eligible_select!,
     categorical_dhmc_step!, leapfrog, vector_leapfrog
 
 """Low-allocation counterpart of reference dynamic target-weighted selection."""
@@ -41,6 +41,27 @@ function dynamic_select_float!(source::AbstractRandomSource,
         target < cumulative && return Int(candidates[index])
     end
     Int(last(candidates))
+end
+
+"""Single-pass counterpart of eligible-count streaming selection.
+
+Flattening is avoided: one ticket is drawn from the total eligible count and
+located by a linear scan. This is distributionally equivalent to Reference's
+recursive local-representative merges but intentionally follows a different
+implementation path.
+"""
+function streaming_eligible_select!(source::AbstractRandomSource,
+        segments::AbstractVector{<:AbstractVector{<:Integer}})
+    total = sum(length, segments; init=0)
+    total == 0 && return nothing
+    ticket = Int(draw_below!(source, total))
+    for segment in segments
+        if ticket < length(segment)
+            return Int(segment[ticket + 1])
+        end
+        ticket -= length(segment)
+    end
+    error("internal eligible-count selection failure")
 end
 
 """Allocation-free categorical DHMC update, independent of the reference path."""

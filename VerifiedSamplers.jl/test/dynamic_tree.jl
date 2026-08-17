@@ -143,6 +143,47 @@
         [0.0, Inf], [1.0, 1.0], Bool[true])
 end
 
+@testset "generated eligible-count streaming selection" begin
+    segments = [[10, 20], Int[], [30, 40, 50]]
+
+    # Reference follows the recursive local-representative/merge policy.
+    reference_source = Runtime.FloatTraceSource(Runtime.FloatTraceEvent[
+        Runtime.IndexEvent(1), Runtime.IndexEvent(2), Runtime.IndexEvent(4)])
+    @test Reference.streaming_eligible_select!(reference_source, segments) == 50
+    @test Runtime.remaining(reference_source) == 0
+
+    # Optimized samples the proved-equivalent flattened eligible law directly.
+    optimized_source = Runtime.FloatTraceSource(
+        Runtime.FloatTraceEvent[Runtime.IndexEvent(4)])
+    @test Optimized.streaming_eligible_select!(optimized_source, segments) == 50
+    @test Runtime.remaining(optimized_source) == 0
+
+    empty_segments = [Int[], Int[]]
+    empty_source = Runtime.FloatTraceSource(Runtime.FloatTraceEvent[])
+    @test Reference.streaming_eligible_select!(empty_source, empty_segments) === nothing
+    @test Optimized.streaming_eligible_select!(empty_source, empty_segments) === nothing
+
+    # Both independent implementations recover the exact uniform law on the
+    # five eligible occurrences. This remains an empirical implementation test;
+    # the corresponding distribution identity is proved in Lean.
+    trials = 50_000
+    for implementation in (Reference.streaming_eligible_select!,
+            Optimized.streaming_eligible_select!)
+        source = Runtime.RNGSource(MersenneTwister(0xc4))
+        counts = Dict(value => 0 for value in (10, 20, 30, 40, 50))
+        for _ in 1:trials
+            selected = implementation(source, segments)
+            counts[selected] += 1
+        end
+        @test all(abs(count / trials - 0.2) < 0.012 for count in values(counts))
+    end
+
+    first_rng, second_rng = MersenneTwister(17), MersenneTwister(17)
+    first = [streaming_eligible_select(first_rng, segments) for _ in 1:100]
+    second = [streaming_eligible_select(second_rng, segments) for _ in 1:100]
+    @test first == second
+end
+
 @testset "certified conservative dynamic HMC" begin
     candidates = [1, 3, 4]
     logweights = log.([1.0, 3.0, 2.0])

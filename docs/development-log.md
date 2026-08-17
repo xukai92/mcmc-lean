@@ -4068,3 +4068,18 @@ positive admitted normalizer, and is zero outside C.4. It does not yet prove
 that the Julia recursive builder's tree/slice distribution and streaming
 representative draw satisfy those conditions; that executable refinement is
 the remaining production-NUTS boundary.
+
+## 2026-08-17: generated NUTS eligible-count selection
+
+Made the exact discrete representative rule part of generated IR version 17.
+`SelectionPolicy.eligibleCountStreaming` has Lean semantics given by recursive
+`WeightedRepresentative.mergeAll`, and its refinement theorem states that the
+resulting law is exactly the normalized sum of retained endpoint weights,
+including empty intermediate subtrees. The generated dynamic-tree descriptor
+now requires this policy. Julia Reference interprets it via local uniform
+subtree representatives and count-proportional merges; Optimized independently
+draws one ticket from the flattened eligible occurrences. Deterministic trace
+tests cover both execution shapes, and empirical/reproducibility tests cover
+their common law. This discharges the executable discrete selection rule, not
+the floating-point claim that production phase, slice, divergence, and U-turn
+callbacks produce the Lean-declared tree auxiliary and eligibility data.
