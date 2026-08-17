@@ -5004,3 +5004,18 @@ is the final pathwise identification between restarting from the completed
 endpoint with the residual stream and direct execution at the summed horizon;
 all measure-level countable gluing needed around that identification is now
 proved.
+
+The final pathwise identification and semigroup milestone are now complete.
+Lean proves that extending the terminal no-event flight and applying its
+original mark produces exactly the same capped candidate as restarting from
+the short-horizon endpoint with the residual mark, in both the later-event and
+continued-no-event branches. Generic prefix/suffix completion lemmas lift that
+candidate equality through every completing untouched suffix. Countwise
+almost-sure identification, the product-law gluing above, and a reusable
+measure/kernel composition lemma then give the exact strong-Markov time-split
+law. At kernel level,
+`standardGaussianBPSHorizonKernel_semigroup` proves composition at `t` and
+`u` equals the kernel at `t+u` for every state. The proof separately closes
+zero time and proves that the inactive zero-velocity fiber is an exact Dirac
+kernel. Multidimensional target stationarity and ergodicity remain separate
+analytic milestones.

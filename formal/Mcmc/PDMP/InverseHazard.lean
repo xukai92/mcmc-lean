@@ -2190,6 +2190,47 @@ theorem PartialInverseHazardClock.completedReplayEndpoint_eq_tail
           (unitHazardPrefixTail count input.2).2) :=
       (clock.completedReplayEndpoint_eq_replayPrefix jump _ _ hextra).symm
 
+/-- Completion of a direct stream implies completion after discarding any
+fixed prefix and restarting from its replay state. -/
+theorem PartialInverseHazardClock.exists_replayFinished_tail_of_exists
+    (clock : PartialInverseHazardClock State) (jump : State → State)
+    (count : ℕ) (input : (NNReal × State) × (ℕ → NNReal))
+    (hcomplete : ∃ direct, clock.replayFinished jump input direct) :
+    ∃ extra, clock.replayFinished jump
+      (clock.replayPrefix jump count input,
+        (unitHazardPrefixTail count input.2).2) extra := by
+  obtain ⟨direct, hdirect⟩ := hcomplete
+  let common := max count direct
+  have hcommon : clock.replayFinished jump input common :=
+    (congrArg Prod.fst <| clock.replayPrefix_stable_of_finished jump input
+      hdirect (le_max_right count direct)).trans hdirect
+  obtain ⟨extra, hcommonEq⟩ := Nat.exists_eq_add_of_le
+    (le_max_left count direct)
+  refine ⟨extra, ?_⟩
+  unfold PartialInverseHazardClock.replayFinished at hcommon ⊢
+  rw [← clock.replayPrefix_add_eq_replayPrefix_tail, ← hcommonEq]
+  exact hcommon
+
+/-- If a cons-driven replay completes from a state with positive remaining
+time, then the suffix completes after the head candidate update. -/
+theorem PartialInverseHazardClock.exists_replayFinished_after_head
+    (clock : PartialInverseHazardClock State) (jump : State → State)
+    (remainingState : NNReal × State)
+    (headTail : NNReal × (ℕ → NNReal)) (hremaining : remainingState.1 ≠ 0)
+    (hcomplete : ∃ count, clock.replayFinished jump
+      (remainingState, unitHazardCons headTail) count) :
+    ∃ count, clock.replayFinished jump
+      (clock.cappedStepUpdate jump (remainingState, headTail.1), headTail.2)
+      count := by
+  obtain ⟨count, hcount⟩ := hcomplete
+  cases count with
+  | zero => exact (hremaining hcount).elim
+  | succ count =>
+      refine ⟨count, ?_⟩
+      unfold PartialInverseHazardClock.replayFinished at hcount ⊢
+      rw [← clock.replayPrefix_succ_cons jump count remainingState headTail]
+      simpa [Nat.succ_eq_add_one] using hcount
+
 /-- Under finite-horizon completion, the head/tail endpoint recursion holds
 almost surely under an independent unit-exponential head and iid tail. -/
 theorem PartialInverseHazardClock.completedReplayEndpoint_cons_ae
@@ -2295,6 +2336,54 @@ instance PartialInverseHazardClock.completedHorizonKernel.instIsMarkovKernel
   apply Kernel.IsMarkovKernel.map
   exact clock.measurable_completedReplayEndpoint hjump |>.comp
     ((measurable_const.prodMk measurable_fst).prodMk measurable_snd)
+
+/-- Pointwise law of the completed horizon kernel as the pushforward of its
+iid hazard-stream input. -/
+theorem PartialInverseHazardClock.completedHorizonKernel_apply
+    (clock : PartialInverseHazardClock State) {jump : State → State}
+    (hjump : Measurable jump) (horizon : NNReal) (initial : State) :
+    clock.completedHorizonKernel jump hjump horizon initial =
+      Measure.map
+        (fun hazards => clock.completedReplayEndpoint jump
+          ((horizon, initial), hazards)) unitHazardSequenceMeasure := by
+  unfold PartialInverseHazardClock.completedHorizonKernel
+  have hendpoint : Measurable (fun input : State × (ℕ → NNReal) =>
+      clock.completedReplayEndpoint jump ((horizon, input.1), input.2)) :=
+    clock.measurable_completedReplayEndpoint hjump |>.comp
+      ((measurable_const.prodMk measurable_fst).prodMk measurable_snd)
+  rw [Kernel.map_apply _ hendpoint, Kernel.prod_apply, Kernel.id_apply,
+    Kernel.const_apply, Measure.dirac_prod,
+    Measure.map_map hendpoint (by fun_prop)]
+  rfl
+
+/-- Composing an input measure with a completed horizon kernel is the
+pushforward of that input paired with one fresh iid hazard stream. -/
+theorem PartialInverseHazardClock.completedHorizonKernel_comp_measure
+    (clock : PartialInverseHazardClock State) {jump : State → State}
+    (hjump : Measurable jump) (horizon : NNReal) (measure : Measure State) :
+    clock.completedHorizonKernel jump hjump horizon ∘ₘ measure =
+      Measure.map
+        (fun pair : State × (ℕ → NNReal) =>
+          clock.completedReplayEndpoint jump
+            ((horizon, pair.1), pair.2))
+        (measure.prod unitHazardSequenceMeasure) := by
+  let endpoint := fun pair : State × (ℕ → NNReal) =>
+    clock.completedReplayEndpoint jump ((horizon, pair.1), pair.2)
+  have hendpoint : Measurable endpoint :=
+    clock.measurable_completedReplayEndpoint hjump |>.comp
+      ((measurable_const.prodMk measurable_fst).prodMk measurable_snd)
+  ext event hevent
+  rw [Measure.bind_apply hevent (Kernel.aemeasurable _),
+    Measure.map_apply hendpoint hevent,
+    Measure.prod_apply (hendpoint hevent)]
+  congr with state
+  rw [clock.completedHorizonKernel_apply hjump horizon state]
+  have hsection : Measurable (fun hazards =>
+      clock.completedReplayEndpoint jump ((horizon, state), hazards)) :=
+    clock.measurable_completedReplayEndpoint hjump |>.comp
+      ((measurable_const.prodMk measurable_const).prodMk measurable_id)
+  rw [Measure.map_apply hsection hevent]
+  rfl
 
 /-- Kernel-level first-step renewal equation. -/
 theorem PartialInverseHazardClock.completedHorizonKernel_apply_firstStep

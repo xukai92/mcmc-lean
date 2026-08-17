@@ -2547,6 +2547,278 @@ theorem standardGaussianBPSSplitResidualStream_jump
   exact gaussianBPSJump_residualHazard before.2 hbeforeVelocity
     (hazards count) hpositive before.1 hstrict
 
+/-- Extending the original terminal flight by `extra` and applying its
+terminal mark is exactly the same capped candidate as restarting after the
+short horizon with the residual mark. -/
+theorem standardGaussianBPSSplitResidualStream_cappedStepUpdate
+    (horizon extra : NNReal) (initial : BouncyParticleState ι)
+    (hvelocity : initial.2 ≠ 0) (count : ℕ) (hazards : ℕ → NNReal)
+    (hmem : hazards ∈
+      ((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+        |>.genuineCompletionStratum (standardGaussianBPSJump (ι := ι))
+          horizon initial (count + 1)))
+    (hpositive : 0 < hazards count)
+    (hnoevent : ¬(0 <
+          (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+            |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+              ((horizon, initial), hazards)).1) ∧
+        (standardGaussianBPSPartialInverseHazardData (ι := ι)).active
+            (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+              |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+                ((horizon, initial), hazards)).2)
+            (hazards count) = true ∧
+        gaussianBPSWaitingTime
+            (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+              |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+                ((horizon, initial), hazards)).2)
+            (hazards count) ≤
+          (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+            |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+              ((horizon, initial), hazards)).1))) :
+    let before :=
+      (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+        |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+          ((horizon, initial), hazards)
+    PartialInverseHazardClock.cappedStepUpdate
+        (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+        (standardGaussianBPSJump (ι := ι))
+        ((extra, bouncyParticleFlow before.1 before.2),
+          standardGaussianBPSSplitResidualStream (ι := ι)
+            horizon initial count hazards 0) =
+      PartialInverseHazardClock.cappedStepUpdate
+        (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+        (standardGaussianBPSJump (ι := ι))
+        ((before.1 + extra, before.2), hazards count) := by
+  dsimp only
+  let clock :=
+    (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+  let jump := standardGaussianBPSJump (ι := ι)
+  let before := clock.replayPrefix jump count ((horizon, initial), hazards)
+  let residual := standardGaussianBPSSplitResidualStream (ι := ι)
+    horizon initial count hazards 0
+  let wait := gaussianBPSWaitingTime before.2 (hazards count)
+  let residualWait := gaussianBPSWaitingTime
+    (bouncyParticleFlow before.1 before.2) residual
+  have hremaining : 0 < before.1 := (pos_iff_ne_zero).2 <|
+    clock.replayPrefix_fst_ne_zero_on_succ_stratum jump
+      horizon initial count hmem
+  have hbeforeVelocity : before.2.2 ≠ 0 :=
+    standardGaussianBPS_replayPrefix_velocity_ne_zero count
+      ((horizon, initial), hazards) hvelocity
+  have hactive : clock.active before.2 (hazards count) = true := by
+    change (standardGaussianBPSPartialInverseHazardData (ι := ι)).active
+      before.2 (hazards count) = true
+    simp [standardGaussianBPSPartialInverseHazardData,
+      hpositive.ne', hbeforeVelocity]
+  have hstrict : before.1 < wait := by
+    have hnle : ¬wait ≤ before.1 :=
+      fun hle => hnoevent ⟨hremaining, hactive, hle⟩
+    exact lt_of_not_ge hnle
+  have hresidualPos : 0 < residual := by
+    let accumulated := ∫ elapsed in (0 : ℝ)..(before.1 : ℝ),
+      standardGaussianBouncyParticleBounceData.stateRate
+        (bouncyParticleFlow (Real.toNNReal elapsed) before.2)
+    have haccumulatedNonneg : 0 ≤ accumulated :=
+      standardGaussianBPS_accumulated_nonneg before.2 hbeforeVelocity before.1
+    have haccumulatedLt : accumulated < (hazards count : ℝ) :=
+      standardGaussianBPS_accumulated_lt_hazard_of_lt_waitingTime
+        before.2 hbeforeVelocity (hazards count) hpositive before.1 hstrict
+    have hconsumedLt : Real.toNNReal accumulated < hazards count := by
+      rw [← NNReal.coe_lt_coe, Real.coe_toNNReal _ haccumulatedNonneg]
+      exact haccumulatedLt
+    change 0 < hazards count - Real.toNNReal accumulated
+    exact tsub_pos_iff_lt.mpr hconsumedLt
+  have hactiveResidual :
+      clock.active (bouncyParticleFlow before.1 before.2) residual = true := by
+    change (standardGaussianBPSPartialInverseHazardData (ι := ι)).active
+      (bouncyParticleFlow before.1 before.2) residual = true
+    simp [standardGaussianBPSPartialInverseHazardData,
+      hresidualPos.ne', hbeforeVelocity]
+  have hwait : residualWait = wait - before.1 := by
+    exact standardGaussianBPSSplitResidualStream_waitingTime
+      horizon initial hvelocity count hazards hmem hpositive hnoevent
+  have hjump : jump
+      (bouncyParticleFlow residualWait
+        (bouncyParticleFlow before.1 before.2)) =
+      jump (bouncyParticleFlow wait before.2) := by
+    exact standardGaussianBPSSplitResidualStream_jump
+      horizon initial hvelocity count hazards hmem hpositive hnoevent
+  by_cases hevent : residualWait ≤ extra
+  · have hextra : 0 < extra := lt_of_lt_of_le
+      (by rw [hwait]; exact tsub_pos_iff_lt.mpr hstrict) hevent
+    have horiginalEvent : wait ≤ before.1 + extra := by
+      rw [← tsub_le_iff_left, ← hwait]
+      exact hevent
+    rw [clock.cappedStepUpdate_of_event jump hextra hactiveResidual hevent,
+      clock.cappedStepUpdate_of_event jump
+        (lt_of_lt_of_le hremaining (self_le_add_right before.1 extra))
+        hactive horiginalEvent]
+    apply Prod.ext
+    · change extra - residualWait = before.1 + extra - wait
+      apply NNReal.eq
+      rw [NNReal.coe_sub hevent, NNReal.coe_sub horiginalEvent, hwait,
+        NNReal.coe_sub hstrict.le]
+      push_cast
+      ring
+    · exact hjump
+  · have horiginalNoEvent : ¬wait ≤ before.1 + extra := by
+      intro horiginalEvent
+      apply hevent
+      rw [hwait, tsub_le_iff_left]
+      exact horiginalEvent
+    rw [clock.cappedStepUpdate_of_no_event jump
+        (fun h => hevent h.2.2),
+      clock.cappedStepUpdate_of_no_event jump
+        (fun h => horiginalNoEvent h.2.2)]
+    apply Prod.ext
+    · rfl
+    · exact (congrFun ((bouncyParticleSemiflow (ι := ι)).flow_add
+        before.1 extra) before.2).symm
+
+/-- On a genuine short-horizon completion stratum, direct execution for the
+summed horizon agrees pathwise with restart from the short-horizon endpoint
+using the residual terminal mark and untouched suffix, whenever the direct
+summed-horizon stream completes. -/
+theorem standardGaussianBPS_completedReplayEndpoint_add_on_stratum
+    (horizon extra : NNReal) (initial : BouncyParticleState ι)
+    (hvelocity : initial.2 ≠ 0) (count : ℕ) (hazards : ℕ → NNReal)
+    (hmem : hazards ∈
+      ((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+        |>.genuineCompletionStratum (standardGaussianBPSJump (ι := ι))
+          horizon initial (count + 1)))
+    (hpositive : 0 < hazards count)
+    (hnoevent : ¬(0 <
+          (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+            |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+              ((horizon, initial), hazards)).1) ∧
+        (standardGaussianBPSPartialInverseHazardData (ι := ι)).active
+            (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+              |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+                ((horizon, initial), hazards)).2)
+            (hazards count) = true ∧
+        gaussianBPSWaitingTime
+            (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+              |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+                ((horizon, initial), hazards)).2)
+            (hazards count) ≤
+          (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+            |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+              ((horizon, initial), hazards)).1)))
+    (hcomplete : ∃ direct,
+      (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+        |>.replayFinished (standardGaussianBPSJump (ι := ι))
+          ((horizon + extra, initial), hazards) direct) :
+    PartialInverseHazardClock.completedReplayEndpoint
+        (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+        (standardGaussianBPSJump (ι := ι))
+        ((horizon + extra, initial), hazards) =
+      PartialInverseHazardClock.completedReplayEndpoint
+        (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+        (standardGaussianBPSJump (ι := ι))
+        ((extra,
+          PartialInverseHazardClock.completedReplayEndpoint
+            (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+            (standardGaussianBPSJump (ι := ι))
+            ((horizon, initial), hazards)),
+          standardGaussianBPSSplitResidualStream (ι := ι)
+            horizon initial count hazards) := by
+  let clock :=
+    (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+  let jump := standardGaussianBPSJump (ι := ι)
+  let before := clock.replayPrefix jump count ((horizon, initial), hazards)
+  let residualStream := standardGaussianBPSSplitResidualStream (ι := ι)
+    horizon initial count hazards
+  let suffix : ℕ → NNReal := fun index => hazards (count + index + 1)
+  let originalHeadTail : NNReal × (ℕ → NNReal) := (hazards count, suffix)
+  let residualHeadTail : NNReal × (ℕ → NNReal) :=
+    (residualStream 0, suffix)
+  have horiginalTail : (unitHazardPrefixTail count hazards).2 =
+      unitHazardCons originalHeadTail := by
+    funext index
+    cases index with
+    | zero => rfl
+    | succ index => rfl
+  have hresidualCons : residualStream = unitHazardCons residualHeadTail := by
+    funext index
+    cases index with
+    | zero => rfl
+    | succ index => rfl
+  have hprefixAdd : clock.replayPrefix jump count
+      ((horizon + extra, initial), hazards) =
+        (before.1 + extra, before.2) := by
+    simpa [before, Prod.map, Function.id_def] using
+      clock.replayPrefix_add_horizon_on_succ_stratum
+      jump horizon extra initial count hmem
+  have hshortEndpoint : clock.completedReplayEndpoint jump
+      ((horizon, initial), hazards) =
+        bouncyParticleFlow before.1 before.2 :=
+    clock.completedReplayEndpoint_eq_flow_on_succ_stratum
+      jump horizon initial count hmem hnoevent
+  have htailOriginal := clock.exists_replayFinished_tail_of_exists
+    jump count ((horizon + extra, initial), hazards) hcomplete
+  have htailOriginal' : ∃ tailCount, clock.replayFinished jump
+      ((before.1 + extra, before.2),
+        unitHazardCons originalHeadTail) tailCount := by
+    simpa [hprefixAdd, horiginalTail] using htailOriginal
+  have hremainingAdd : (before.1 + extra) ≠ 0 := by
+    exact (lt_of_lt_of_le
+      ((pos_iff_ne_zero).2 <| clock.replayPrefix_fst_ne_zero_on_succ_stratum
+        jump horizon initial count hmem)
+      (self_le_add_right before.1 extra)).ne'
+  have hafterOriginal := clock.exists_replayFinished_after_head
+    jump (before.1 + extra, before.2) originalHeadTail
+      hremainingAdd htailOriginal'
+  have hcapped : clock.cappedStepUpdate jump
+      ((extra, bouncyParticleFlow before.1 before.2), residualStream 0) =
+    clock.cappedStepUpdate jump
+      ((before.1 + extra, before.2), hazards count) := by
+    exact standardGaussianBPSSplitResidualStream_cappedStepUpdate
+      horizon extra initial hvelocity count hazards hmem hpositive hnoevent
+  have hafterResidual : ∃ tailCount, clock.replayFinished jump
+      (clock.cappedStepUpdate jump
+        ((extra, bouncyParticleFlow before.1 before.2), residualStream 0),
+          suffix) tailCount := by
+    simpa [originalHeadTail, residualHeadTail, hcapped] using hafterOriginal
+  calc
+    clock.completedReplayEndpoint jump
+        ((horizon + extra, initial), hazards) =
+      clock.completedReplayEndpoint jump
+        (clock.replayPrefix jump count
+          ((horizon + extra, initial), hazards),
+          (unitHazardPrefixTail count hazards).2) :=
+      clock.completedReplayEndpoint_eq_tail jump count _ htailOriginal
+    _ = clock.completedReplayEndpoint jump
+        ((before.1 + extra, before.2),
+          unitHazardCons originalHeadTail) := by rw [hprefixAdd, horiginalTail]
+    _ = clock.completedReplayEndpoint jump
+        (clock.cappedStepUpdate jump
+          ((before.1 + extra, before.2), originalHeadTail.1),
+          originalHeadTail.2) :=
+      clock.completedReplayEndpoint_cons jump
+        (before.1 + extra, before.2) originalHeadTail hafterOriginal
+    _ = clock.completedReplayEndpoint jump
+        (clock.cappedStepUpdate jump
+          ((extra, bouncyParticleFlow before.1 before.2), residualHeadTail.1),
+          residualHeadTail.2) := by
+      change clock.completedReplayEndpoint jump
+          (clock.cappedStepUpdate jump
+            ((before.1 + extra, before.2), hazards count), suffix) =
+        clock.completedReplayEndpoint jump
+          (clock.cappedStepUpdate jump
+            ((extra, bouncyParticleFlow before.1 before.2), residualStream 0),
+              suffix)
+      rw [hcapped]
+    _ = clock.completedReplayEndpoint jump
+        ((extra, bouncyParticleFlow before.1 before.2),
+          unitHazardCons residualHeadTail) :=
+      (clock.completedReplayEndpoint_cons jump
+        (extra, bouncyParticleFlow before.1 before.2)
+          residualHeadTail hafterResidual).symm
+    _ = clock.completedReplayEndpoint jump
+        ((extra, clock.completedReplayEndpoint jump
+          ((horizon, initial), hazards)), residualStream) := by
+      rw [hshortEndpoint, hresidualCons]
+
 /-- The Gaussian replay potential satisfies the accepted-step payment
 inequality required by the generic inverse-clock nonexplosion theorem. -/
 theorem standardGaussianBPSReplayPotential_step
@@ -2687,6 +2959,123 @@ theorem standardGaussianBPSCompletionEndpointStratumMeasure_sum_eq
     _ = Measure.map endpoint unitHazardSequenceMeasure := by rw [hpartition]
     _ = _ := rfl
 
+/-- Positive-time Gaussian-BPS execution has the exact strong-Markov split
+law: the endpoint at `horizon + extra` is obtained by drawing the endpoint at
+`horizon`, then running for `extra` with a fresh iid hazard stream. -/
+theorem standardGaussianBPS_completedReplayEndpoint_add_law
+    {horizon : NNReal} (hhorizon : 0 < horizon) (extra : NNReal)
+    (initial : BouncyParticleState ι) (hvelocity : initial.2 ≠ 0) :
+    Measure.map
+        (fun hazards =>
+          (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+            |>.completedReplayEndpoint (standardGaussianBPSJump (ι := ι))
+              ((horizon + extra, initial), hazards))
+        unitHazardSequenceMeasure =
+      Measure.map
+        (fun pair : BouncyParticleState ι × (ℕ → NNReal) =>
+          (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+            |>.completedReplayEndpoint (standardGaussianBPSJump (ι := ι))
+              ((extra, pair.1), pair.2))
+        ((Measure.map
+          (fun hazards =>
+            (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+              |>.completedReplayEndpoint (standardGaussianBPSJump (ι := ι))
+                ((horizon, initial), hazards))
+          unitHazardSequenceMeasure).prod unitHazardSequenceMeasure) := by
+  let clock :=
+    (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+  let jump := standardGaussianBPSJump (ι := ι)
+  let direct := fun hazards => clock.completedReplayEndpoint jump
+    ((horizon + extra, initial), hazards)
+  let short := fun hazards => clock.completedReplayEndpoint jump
+    ((horizon, initial), hazards)
+  let restart := fun pair : BouncyParticleState ι × (ℕ → NNReal) =>
+    clock.completedReplayEndpoint jump ((extra, pair.1), pair.2)
+  let stratum := fun count =>
+    clock.genuineCompletionStratum jump horizon initial (count + 1)
+  have hdirect : Measurable direct :=
+    (clock.measurable_completedReplayEndpoint
+      measurable_standardGaussianBPSJump).comp
+        ((measurable_const.prodMk measurable_const).prodMk measurable_id)
+  have hrestart : Measurable restart :=
+    (clock.measurable_completedReplayEndpoint
+      measurable_standardGaussianBPSJump).comp
+        ((measurable_const.prodMk measurable_fst).prodMk measurable_snd)
+  have hpartition : Measure.sum (fun count =>
+      unitHazardSequenceMeasure.restrict (stratum count)) =
+        unitHazardSequenceMeasure :=
+    clock.sum_restrict_genuineCompletionStratum_succ_eq
+      measurable_standardGaussianBPSJump
+      (standardGaussianBPS_completesFiniteHorizons (ι := ι))
+      hhorizon initial
+  have hcount (count : ℕ) :
+      Measure.map direct
+          (unitHazardSequenceMeasure.restrict (stratum count)) =
+        Measure.map restart
+          (Measure.map
+            (standardGaussianBPSCompletedSplitPair (ι := ι)
+              horizon initial count)
+            (unitHazardSequenceMeasure.restrict (stratum count))) := by
+    rw [Measure.map_map hrestart
+      (measurable_standardGaussianBPSCompletedSplitPair
+        horizon initial count)]
+    apply Measure.map_congr
+    have hstratum : MeasurableSet (stratum count) :=
+      clock.measurableSet_genuineCompletionStratum
+        measurable_standardGaussianBPSJump horizon initial (count + 1)
+    change ∀ᵐ hazards ∂unitHazardSequenceMeasure.restrict (stratum count),
+      direct hazards =
+        (restart ∘ standardGaussianBPSCompletedSplitPair
+          (ι := ι) horizon initial count) hazards
+    rw [ae_restrict_iff' hstratum]
+    filter_upwards [unitHazardSequence_coordinate_pos_ae count,
+      standardGaussianBPS_terminal_noEvent_ae
+        (ι := ι) horizon initial hvelocity count,
+      standardGaussianBPS_completesFiniteHorizons (ι := ι)
+        (horizon + extra) initial] with hazards hpositive hnoevent hcomplete
+    intro hmem
+    apply standardGaussianBPS_completedReplayEndpoint_add_on_stratum
+      horizon extra initial hvelocity count hazards hmem hpositive
+        (hnoevent hmem)
+    obtain ⟨directCount, terminal, hdirectCount⟩ := hcomplete
+    refine ⟨directCount, ?_⟩
+    unfold PartialInverseHazardClock.replayFinished
+    rw [clock.replayPrefix_eq_executeHazards, hdirectCount]
+  have hpair := standardGaussianBPSCompletedSplitPair_sum_stratumLaw_eq_prod
+    (ι := ι) horizon initial hvelocity
+  have hendpoint :=
+    standardGaussianBPSCompletionEndpointStratumMeasure_sum_eq
+      (ι := ι) hhorizon initial hvelocity
+  calc
+    Measure.map direct unitHazardSequenceMeasure =
+      Measure.map direct (Measure.sum (fun count =>
+        unitHazardSequenceMeasure.restrict (stratum count))) := by rw [hpartition]
+    _ = Measure.sum (fun count => Measure.map direct
+        (unitHazardSequenceMeasure.restrict (stratum count))) := by
+          rw [Measure.map_sum hdirect.aemeasurable]
+    _ = Measure.sum (fun count => Measure.map restart
+        (Measure.map
+          (standardGaussianBPSCompletedSplitPair (ι := ι)
+            horizon initial count)
+          (unitHazardSequenceMeasure.restrict (stratum count)))) := by
+            congr 1
+            funext count
+            exact hcount count
+    _ = Measure.map restart (Measure.sum (fun count => Measure.map
+        (standardGaussianBPSCompletedSplitPair (ι := ι)
+          horizon initial count)
+        (unitHazardSequenceMeasure.restrict (stratum count)))) := by
+          rw [Measure.map_sum hrestart.aemeasurable]
+    _ = Measure.map restart
+        ((Measure.sum (fun count =>
+          standardGaussianBPSCompletionEndpointStratumMeasure
+            (ι := ι) horizon initial count)).prod
+          unitHazardSequenceMeasure) := by rw [hpair]
+    _ = Measure.map restart
+        ((Measure.map short unitHazardSequenceMeasure).prod
+          unitHazardSequenceMeasure) := by rw [hendpoint]
+    _ = _ := rfl
+
 /-- Exact totalized finite-horizon kernel for finite-dimensional
 standard-Gaussian BPS. The nonexplosion theorem above proves that the
 totalization fallback is unused almost surely. -/
@@ -2706,6 +3095,27 @@ instance standardGaussianBPSHorizonKernel.instIsMarkovKernel
     standardGaussianBPSHorizonKernel (ι := ι) 0 = Kernel.id := by
   unfold standardGaussianBPSHorizonKernel
   exact PartialInverseHazardClock.completedHorizonKernel_zero _ _ _
+
+/-- Pointwise positive-time semigroup law away from the inactive zero-velocity
+fiber. The latter fiber is handled separately when promoting this result to a
+global kernel identity. -/
+theorem standardGaussianBPSHorizonKernel_comp_apply_of_pos_of_velocity_ne_zero
+    {horizon : NNReal} (hhorizon : 0 < horizon) (extra : NNReal)
+    (initial : BouncyParticleState ι) (hvelocity : initial.2 ≠ 0) :
+    (standardGaussianBPSHorizonKernel (ι := ι) extra ∘ₖ
+      standardGaussianBPSHorizonKernel (ι := ι) horizon) initial =
+        standardGaussianBPSHorizonKernel (ι := ι) (horizon + extra) initial := by
+  rw [Kernel.comp_apply]
+  unfold standardGaussianBPSHorizonKernel
+  rw [(standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+      |>.completedHorizonKernel_comp_measure
+        measurable_standardGaussianBPSJump,
+    (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+      |>.completedHorizonKernel_apply measurable_standardGaussianBPSJump,
+    (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+      |>.completedHorizonKernel_apply measurable_standardGaussianBPSJump]
+  exact (standardGaussianBPS_completedReplayEndpoint_add_law
+    (ι := ι) hhorizon extra initial hvelocity).symm
 
 /-- The completion count used by the exact Gaussian-BPS horizon kernel is a
 genuine finished prefix almost surely. -/
@@ -2843,6 +3253,69 @@ theorem standardGaussianBPSHorizonKernel_apply_firstEvent
   filter_upwards [] with headTail
   exact (standardGaussianBPSFirstEventEndpoint_eq_firstStep
     horizon initial headTail).symm
+
+/-- A zero-velocity Gaussian-BPS state is inactive and therefore remains
+fixed for every finite horizon. -/
+theorem standardGaussianBPSHorizonKernel_apply_of_velocity_eq_zero
+    (horizon : NNReal) (initial : BouncyParticleState ι)
+    (hvelocity : initial.2 = 0) :
+    standardGaussianBPSHorizonKernel (ι := ι) horizon initial =
+      Measure.dirac initial := by
+  rw [standardGaussianBPSHorizonKernel_apply_firstEvent]
+  calc
+    Measure.map
+        (standardGaussianBPSFirstEventEndpoint (ι := ι) horizon initial)
+        (unitHazardMeasure.prod unitHazardSequenceMeasure) =
+      Measure.map (fun _ : NNReal × (ℕ → NNReal) => initial)
+        (unitHazardMeasure.prod unitHazardSequenceMeasure) := by
+      apply Measure.map_congr
+      have hpositive : ∀ᵐ headTail ∂
+          unitHazardMeasure.prod unitHazardSequenceMeasure,
+          0 < headTail.1 :=
+        (Measure.quasiMeasurePreserving_fst
+          (μ := unitHazardMeasure) (ν := unitHazardSequenceMeasure)).ae
+            unitHazardMeasure_positive_ae
+      filter_upwards [hpositive] with headTail hhazard
+      unfold standardGaussianBPSFirstEventEndpoint
+      have hactive :
+          (standardGaussianBPSPartialInverseHazardData (ι := ι)).active
+            initial headTail.1 = false := by
+        simp [standardGaussianBPSPartialInverseHazardData,
+          hhazard.ne', hvelocity]
+      rw [if_neg (fun hcondition => by
+        rw [hactive] at hcondition
+        exact Bool.false_ne_true hcondition.2.1)]
+      apply Prod.ext
+      · funext index
+        simp [bouncyParticleFlow, hvelocity]
+      · rfl
+    _ = Measure.dirac initial := by
+      rw [MeasureTheory.Measure.map_const, measure_univ, one_smul]
+
+/-- Exact semigroup law for the finite-dimensional standard-Gaussian BPS
+horizon kernels, including zero time and the inactive zero-velocity fiber. -/
+theorem standardGaussianBPSHorizonKernel_semigroup
+    (horizon extra : NNReal) :
+    standardGaussianBPSHorizonKernel (ι := ι) extra ∘ₖ
+      standardGaussianBPSHorizonKernel (ι := ι) horizon =
+        standardGaussianBPSHorizonKernel (ι := ι) (horizon + extra) := by
+  ext initial event hevent
+  by_cases hhorizon : horizon = 0
+  · subst horizon
+    simp
+  have hhorizonPos : 0 < horizon := pos_iff_ne_zero.mpr hhorizon
+  by_cases hvelocity : initial.2 = 0
+  · rw [Kernel.comp_apply,
+      standardGaussianBPSHorizonKernel_apply_of_velocity_eq_zero
+        horizon initial hvelocity,
+      Measure.dirac_bind
+        (standardGaussianBPSHorizonKernel (ι := ι) extra).measurable,
+      standardGaussianBPSHorizonKernel_apply_of_velocity_eq_zero
+        extra initial hvelocity,
+      standardGaussianBPSHorizonKernel_apply_of_velocity_eq_zero
+        (horizon + extra) initial hvelocity]
+  · rw [standardGaussianBPSHorizonKernel_comp_apply_of_pos_of_velocity_ne_zero
+      (ι := ι) hhorizonPos extra initial hvelocity]
 
 theorem standardGaussianBPSHorizonKernel_apply_positiveFirstEvent
     (horizon : NNReal) (initial : BouncyParticleState ι)
