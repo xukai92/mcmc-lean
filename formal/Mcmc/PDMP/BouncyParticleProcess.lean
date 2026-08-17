@@ -3420,6 +3420,95 @@ theorem coordinateDirectionalDerivative_standardGaussianBPSCoordinatePartial
   rw [hdecomp, map_sum]
   simp [smul_eq_mul]
 
+/-- Each Fréchet-derived coordinate partial is continuous on phase space for
+a `C¹` observable. -/
+theorem continuous_standardGaussianBPSCoordinatePartial
+    {function : BouncyParticleState ι → ℝ}
+    (hsmooth : ContDiff ℝ 1 function) (i : ι) :
+    Continuous (fun state : BouncyParticleState ι =>
+      standardGaussianBPSCoordinatePartial function state.1 i state.2) := by
+  unfold standardGaussianBPSCoordinatePartial
+  exact (hsmooth.continuous_fderiv_apply one_ne_zero).comp
+    (continuous_id.prodMk continuous_const)
+
+omit [Fintype ι] in
+/-- Compact support of a phase observable is inherited by each fixed
+coordinate partial. -/
+theorem hasCompactSupport_standardGaussianBPSCoordinatePartial
+    {function : BouncyParticleState ι → ℝ}
+    (hcompact : HasCompactSupport function) (i : ι) :
+    HasCompactSupport (fun state : BouncyParticleState ι =>
+      standardGaussianBPSCoordinatePartial function state.1 i state.2) := by
+  unfold standardGaussianBPSCoordinatePartial
+  exact hcompact.fderiv_apply ℝ (standardGaussianBPSPositionDirection i)
+
+/-- Consequently every coordinate partial is integrable under the canonical
+Gaussian phase target. -/
+theorem integrable_standardGaussianBPSCoordinatePartial
+    {function : BouncyParticleState ι → ℝ}
+    (hsmooth : ContDiff ℝ 1 function)
+    (hcompact : HasCompactSupport function) (i : ι) :
+    Integrable (fun state : BouncyParticleState ι =>
+      standardGaussianBPSCoordinatePartial function state.1 i state.2)
+      (standardGaussianBPSTarget (ι := ι)) :=
+  (continuous_standardGaussianBPSCoordinatePartial hsmooth i)
+    |>.integrable_of_hasCompactSupport
+      (hasCompactSupport_standardGaussianBPSCoordinatePartial hcompact i)
+
+/-- Fréchet derivative of a phase observable in the BPS streaming direction. -/
+noncomputable def standardGaussianBPSStreamingDerivative
+    (function : BouncyParticleState ι → ℝ)
+    (state : BouncyParticleState ι) : ℝ :=
+  fderiv ℝ function state (state.2, 0)
+
+/-- The physical streaming derivative varies continuously for a `C¹`
+observable. -/
+theorem continuous_standardGaussianBPSStreamingDerivative
+    {function : BouncyParticleState ι → ℝ}
+    (hsmooth : ContDiff ℝ 1 function) :
+    Continuous (standardGaussianBPSStreamingDerivative function) := by
+  unfold standardGaussianBPSStreamingDerivative
+  exact (hsmooth.continuous_fderiv_apply one_ne_zero).comp
+    (continuous_id.prodMk (continuous_snd.prodMk continuous_const))
+
+omit [Fintype ι] in
+/-- The streaming derivative vanishes off the compact support of the original
+observable. -/
+theorem hasCompactSupport_standardGaussianBPSStreamingDerivative
+    {function : BouncyParticleState ι → ℝ}
+    (hcompact : HasCompactSupport function) :
+    HasCompactSupport (standardGaussianBPSStreamingDerivative function) := by
+  apply hcompact.mono'
+  intro state hstate
+  by_contra houtside
+  apply hstate
+  unfold standardGaussianBPSStreamingDerivative
+  rw [fderiv_of_notMem_tsupport ℝ houtside]
+  rfl
+
+/-- A compactly supported `C¹` observable has an integrable physical streaming
+derivative under the Gaussian phase target. -/
+theorem integrable_standardGaussianBPSStreamingDerivative
+    {function : BouncyParticleState ι → ℝ}
+    (hsmooth : ContDiff ℝ 1 function)
+    (hcompact : HasCompactSupport function) :
+    Integrable (standardGaussianBPSStreamingDerivative function)
+      (standardGaussianBPSTarget (ι := ι)) :=
+  (continuous_standardGaussianBPSStreamingDerivative hsmooth)
+    |>.integrable_of_hasCompactSupport
+      (hasCompactSupport_standardGaussianBPSStreamingDerivative hcompact)
+
+/-- The canonical coordinate reconstruction and the physical streaming
+derivative agree pointwise. -/
+theorem coordinateDirectionalDerivative_eq_streamingDerivative
+    (function : BouncyParticleState ι → ℝ)
+    (state : BouncyParticleState ι) :
+    coordinateDirectionalDerivative
+        (standardGaussianBPSCoordinatePartial function) state.1 state.2 =
+      standardGaussianBPSStreamingDerivative function state :=
+  coordinateDirectionalDerivative_standardGaussianBPSCoordinatePartial
+    function state.1 state.2
+
 /-- Concrete analytic certificate for one smooth phase observable. Its fields
 are exactly the coordinatewise Gaussian-Stein and integrability premises of
 `integral_standardGaussian_bouncyPhaseGenerator_of_coordinatewise_eq_zero`. -/

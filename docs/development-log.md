@@ -5069,3 +5069,13 @@ against velocity is exactly the Fréchet derivative in the physical streaming
 direction `(velocity, 0)`. Thus the smooth-core transport term is tied to the
 actual derivative of the supplied phase observable rather than an unrelated
 coordinate oracle.
+
+Compact-support regularity for that transport term is now discharged as
+well. Each canonical coordinate partial is proved continuous and compactly
+supported, hence integrable under the Gaussian phase target. The assembled
+physical streaming derivative is likewise continuous, compactly supported,
+and integrable, and its pointwise equality with the coordinate reconstruction
+is exposed as a reusable theorem. The remaining smooth-certificate fields are
+the fiberwise Gaussian moment bounds, reflected bounce-term integrability, and
+the coordinate Gaussian integration-by-parts identity; none is inferred from
+the new transport lemmas alone.
