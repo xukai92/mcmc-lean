@@ -3876,3 +3876,16 @@ proves the same theorem for the production physical Zig-Zag kernel, and the
 proved one-dimensional BPS identification transfers it to exact unit-speed
 Gaussian BPS. These are stationarity theorems, not semigroup, ergodicity, or
 convergence theorems; those remain separate milestones.
+
+## 2026-08-17: factorized rooted-trace reversal
+
+Refined the correctness boundary for ordinary root-dependent randomized NUTS.
+The new `FactorizedRootedTraceSampler` separates the probability of building
+a complete random trace from the probability of selecting an endpoint from
+that trace.  A nonnegative bridge factor records how the construction law
+changes under endpoint rerooting; one local construction identity and one
+target-weighted selection identity are now sufficient for Lean to derive the
+existing complete trace-reversal certificate, detailed balance, and
+stationarity.  This is a proved compositional reduction, not yet a proof of
+standard NUTS: the remaining obligation is to define the exact recursive
+direction/subtree/candidate trace and discharge these two identities.

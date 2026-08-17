@@ -112,4 +112,89 @@ theorem CertifiedRootedTraceSampler.stationary
     sampler.kernel.Stationary target :=
   sampler.reversible.stationary
 
+/-! ### Factorized reversal certificates
+
+Recursive trajectory builders usually compute their trace probability as a
+product of local random choices, and then select an endpoint with a separate
+conditional probability.  The following interface splits the reversal
+obligation along exactly that implementation boundary.  This avoids hiding
+the construction probability inside a single opaque balance hypothesis.
+-/
+
+/-- A factorized rooted-trace certificate separates reversal of the trace
+construction law from reversal of the conditional endpoint selection.  The
+`constructionRatio` is an arbitrary nonnegative bridge factor: in a NUTS
+instantiation it records the product of reversed direction, subtree, and
+multinomial-choice probabilities. -/
+structure FactorizedRootedTraceSampler (target : Distribution State)
+    (Trace : Type*) [Fintype Trace] where
+  traceLaw : State → Distribution Trace
+  selection : State → Trace → Distribution State
+  reverseTrace : State → State → Trace ≃ Trace
+  constructionRatio : State → State → Trace → ℝ
+  constructionRatio_nonneg : ∀ current next trace,
+    0 ≤ constructionRatio current next trace
+  construction_reverse : ∀ current next trace,
+    (traceLaw current).mass trace =
+      constructionRatio current next trace *
+        (traceLaw next).mass (reverseTrace current next trace)
+  selection_reverse : ∀ current next trace,
+    target.mass current *
+        (constructionRatio current next trace *
+          (selection current trace).mass next) =
+      target.mass next *
+        (selection next (reverseTrace current next trace)).mass current
+
+/-- Combining the two local reversal identities gives the complete
+target-weighted trace reversal required by `CertifiedRootedTraceSampler`. -/
+noncomputable def FactorizedRootedTraceSampler.toCertified
+    {target : Distribution State}
+    (sampler : FactorizedRootedTraceSampler target Trace) :
+    CertifiedRootedTraceSampler target Trace where
+  traceLaw := sampler.traceLaw
+  selection := sampler.selection
+  reverseTrace := sampler.reverseTrace
+  reverse_weight := by
+    intro current next trace
+    rw [sampler.construction_reverse]
+    calc
+      target.mass current *
+          ((sampler.constructionRatio current next trace *
+              (sampler.traceLaw next).mass
+                (sampler.reverseTrace current next trace)) *
+            (sampler.selection current trace).mass next) =
+        (sampler.traceLaw next).mass
+            (sampler.reverseTrace current next trace) *
+          (target.mass current *
+            (sampler.constructionRatio current next trace *
+              (sampler.selection current trace).mass next)) := by
+          ac_rfl
+      _ = (sampler.traceLaw next).mass
+            (sampler.reverseTrace current next trace) *
+          (target.mass next *
+            (sampler.selection next
+              (sampler.reverseTrace current next trace)).mass current) := by
+          rw [sampler.selection_reverse]
+      _ = target.mass next *
+          ((sampler.traceLaw next).mass
+              (sampler.reverseTrace current next trace) *
+            (sampler.selection next
+              (sampler.reverseTrace current next trace)).mass current) := by
+          ac_rfl
+
+/-- The kernel implemented from a factorized trace certificate is reversible. -/
+theorem FactorizedRootedTraceSampler.reversible
+    {target : Distribution State}
+    (sampler : FactorizedRootedTraceSampler target Trace) :
+    (sampler.toCertified.kernel).Reversible target :=
+  sampler.toCertified.reversible
+
+/-- The kernel implemented from a factorized trace certificate preserves the
+target distribution. -/
+theorem FactorizedRootedTraceSampler.stationary
+    {target : Distribution State}
+    (sampler : FactorizedRootedTraceSampler target Trace) :
+    (sampler.toCertified.kernel).Stationary target :=
+  sampler.toCertified.stationary
+
 end Mcmc.Finite.MarkovKernel
