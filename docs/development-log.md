@@ -4004,3 +4004,18 @@ law whose influence is proved zero. The remaining standard-NUTS proof is the
 final complete-trace endpoint-flow identity tying rerooted retained weights to
 the slice-augmented phase target, plus executable correspondence for the
 runtime representative draw.
+
+Closed the complete-tree conditional endpoint-flow theorem. A new
+`RerootedTraceCandidateSet` records retained membership on a particular full
+trace, membership symmetry under its endpoint-dependent reverse trace, and
+equality of the target-mass normalizer. Target-weighted retained endpoints
+then satisfy the pointwise flow equation algebraically, and Lean constructs
+the normalized `ReversibleTraceSelection` and full factorized rooted sampler.
+For any concrete `CompletedTreeStoppingData`, the C.4-admissible root subtype
+now instantiates this construction with the exact fair direction law and
+completed-tree reroot permutation. The resulting conditional transition has
+machine-checked detailed balance and stationarity for every strictly positive
+target on those roots. This closes selection conditional on a completed
+`B,C`; full original NUTS still requires composing the state-dependent law of
+completed trees and slice augmentation (or proving the production multinomial
+variant refines this conditional decomposition), plus runtime draw refinement.

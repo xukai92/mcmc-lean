@@ -306,6 +306,111 @@ noncomputable def FactorizedRootedTraceSampler.withTraceSelection
   construction_reverse := construction_reverse
   selection_reverse := selection.distribution_reverse
 
+/-! ### Target-weighted retained endpoints -/
+
+/-- Trace-specific retained candidates with the exact reroot conditions needed
+for target-weighted endpoint selection. These conditions compare a particular
+complete trace with its reverse; they do not require equality of raw candidate
+rows across unrelated traces. -/
+structure RerootedTraceCandidateSet (target : Distribution State)
+    (Trace : Type*) [Fintype Trace]
+    (reverseTrace : State → State → Trace ≃ Trace) where
+  retained : State → Trace → State → Bool
+  root_retained : ∀ current trace, retained current trace current = true
+  reverse_retained : ∀ current next trace,
+    retained current trace next =
+      retained next (reverseTrace current next trace) current
+  normalizer_reverse : ∀ current next trace,
+    (∑ state, if retained current trace state then target.mass state else 0) =
+      ∑ state, if retained next (reverseTrace current next trace) state then
+        target.mass state else 0
+
+/-- Target mass restricted to the retained endpoints of one complete trace. -/
+noncomputable def RerootedTraceCandidateSet.endpointWeight
+    {target : Distribution State}
+    {reverseTrace : State → State → Trace ≃ Trace}
+    (candidates : RerootedTraceCandidateSet target Trace reverseTrace)
+    (current : State) (trace : Trace) (next : State) : ℝ :=
+  if candidates.retained current trace next then target.mass next else 0
+
+theorem RerootedTraceCandidateSet.normalizer_pos
+    {target : Distribution State}
+    {reverseTrace : State → State → Trace ≃ Trace}
+    (candidates : RerootedTraceCandidateSet target Trace reverseTrace)
+    (htarget : ∀ state, 0 < target.mass state)
+    (current : State) (trace : Trace) :
+    0 < traceSelectionNormalizer candidates.endpointWeight current trace := by
+  have hsingle : target.mass current ≤
+      traceSelectionNormalizer candidates.endpointWeight current trace := by
+    unfold traceSelectionNormalizer
+    have hnonneg : ∀ state ∈ (Finset.univ : Finset State),
+        0 ≤ candidates.endpointWeight current trace state := by
+      intro state _
+      unfold RerootedTraceCandidateSet.endpointWeight
+      split
+      · exact target.nonneg state
+      · exact le_rfl
+    have hle := Finset.single_le_sum hnonneg (Finset.mem_univ current)
+    simpa [RerootedTraceCandidateSet.endpointWeight,
+      candidates.root_retained] using hle
+  exact (htarget current).trans_le hsingle
+
+/-- Reroot-symmetric target-weighted retained endpoints satisfy the complete
+trace endpoint-flow identity with construction ratio one. -/
+noncomputable def RerootedTraceCandidateSet.toTraceSelection
+    {target : Distribution State}
+    {reverseTrace : State → State → Trace ≃ Trace}
+    (candidates : RerootedTraceCandidateSet target Trace reverseTrace)
+    (htarget : ∀ state, 0 < target.mass state) :
+    ReversibleTraceSelection target Trace reverseTrace (fun _ _ _ => 1) where
+  weight := candidates.endpointWeight
+  weight_nonneg current trace next := by
+    unfold RerootedTraceCandidateSet.endpointWeight
+    split
+    · exact target.nonneg next
+    · exact le_rfl
+  normalizer_pos := candidates.normalizer_pos htarget
+  normalizer_reverse := by
+    intro current next trace
+    simpa [traceSelectionNormalizer,
+      RerootedTraceCandidateSet.endpointWeight] using
+      candidates.normalizer_reverse current next trace
+  endpoint_flow_reverse := by
+    intro current next trace
+    have hretained := candidates.reverse_retained current next trace
+    by_cases hforward : candidates.retained current trace next = true
+    · have hreverse : candidates.retained next
+          (reverseTrace current next trace) current = true := by
+        rw [← hretained]
+        exact hforward
+      simp [RerootedTraceCandidateSet.endpointWeight, hforward, hreverse]
+      ring
+    · have hforwardFalse : candidates.retained current trace next = false :=
+        Bool.eq_false_of_not_eq_true hforward
+      have hreverseFalse : candidates.retained next
+          (reverseTrace current next trace) current = false := by
+        rw [← hretained]
+        exact hforwardFalse
+      simp [RerootedTraceCandidateSet.endpointWeight, hforwardFalse,
+        hreverseFalse]
+
+/-- Assemble fair complete-trace construction with target-weighted retained
+endpoint selection into a stationary rooted sampler. -/
+noncomputable def targetWeightedRootedTraceSampler
+    (target : Distribution State) (traceLaw : State → Distribution Trace)
+    (reverseTrace : State → State → Trace ≃ Trace)
+    (construction_reverse : ∀ current next trace,
+      (traceLaw current).mass trace =
+        (traceLaw next).mass (reverseTrace current next trace))
+    (candidates : RerootedTraceCandidateSet target Trace reverseTrace)
+    (htarget : ∀ state, 0 < target.mass state) :
+    FactorizedRootedTraceSampler target Trace :=
+  FactorizedRootedTraceSampler.withTraceSelection target traceLaw reverseTrace
+    (fun _ _ _ => 1) (by intros; norm_num) (by
+      intro current next trace
+      simpa using construction_reverse current next trace)
+    (candidates.toTraceSelection htarget)
+
 /-! ### Recursive products of local random choices -/
 
 /-- A construction law assembled from finitely many local random choices.
@@ -513,6 +618,64 @@ theorem CompletedTreeStoppingData.admissible_reconstruction_mass_eq
       (uniformDirectionTraceLaw depth).mass
         (directionTraceForRoot depth right) :=
   directionTraceForRoot_mass_eq depth left right
+
+/-- State space of roots retained by condition C.4 for one completed stopped
+tree. -/
+abbrev CompletedTreeStoppingData.AdmissibleRoot
+    {depth : ℕ} (stopping : CompletedTreeStoppingData depth) :=
+  { root : Fin (2 ^ depth) // stopping.admissible root }
+
+noncomputable instance CompletedTreeStoppingData.admissibleRootFintype
+    {depth : ℕ} (stopping : CompletedTreeStoppingData depth) :
+    Fintype stopping.AdmissibleRoot :=
+  Fintype.ofFinite stopping.AdmissibleRoot
+
+/-- On the C.4-admissible root subtype every retained endpoint is available
+under the compatible completed-tree trace. -/
+noncomputable def CompletedTreeStoppingData.admissibleTraceCandidates
+    {depth : ℕ} (stopping : CompletedTreeStoppingData depth)
+    (target : Distribution stopping.AdmissibleRoot) :
+    RerootedTraceCandidateSet target (Fin depth → Bool)
+      (fun current next => completedTreeRerootEquiv depth current.val next.val) where
+  retained _ _ _ := true
+  root_retained _ _ := rfl
+  reverse_retained _ _ _ := rfl
+  normalizer_reverse := by
+    intro current next trace
+    simp [target.sum_mass]
+
+/-- Fully assembled finite completed-tree NUTS sampler on the roots that pass
+the concrete C.4 stopping filter. It uses the exact fair direction-trace law
+and target-weighted retained-endpoint selection. -/
+noncomputable def CompletedTreeStoppingData.rootedSampler
+    {depth : ℕ} (stopping : CompletedTreeStoppingData depth)
+    (target : Distribution stopping.AdmissibleRoot)
+    (htarget : ∀ state, 0 < target.mass state) :
+    FactorizedRootedTraceSampler target (Fin depth → Bool) :=
+  targetWeightedRootedTraceSampler target
+    (fun _ => uniformDirectionTraceLaw depth)
+    (fun current next => completedTreeRerootEquiv depth current.val next.val)
+    (by intros; rfl) (stopping.admissibleTraceCandidates target) htarget
+
+/-- The assembled stopped completed-tree transition satisfies detailed
+balance with respect to its declared target. -/
+theorem CompletedTreeStoppingData.rootedSampler_reversible
+    {depth : ℕ} (stopping : CompletedTreeStoppingData depth)
+    (target : Distribution stopping.AdmissibleRoot)
+    (htarget : ∀ state, 0 < target.mass state) :
+    ((stopping.rootedSampler target htarget).toCertified.kernel).Reversible
+      target :=
+  (stopping.rootedSampler target htarget).reversible
+
+/-- Consequently the assembled stopped completed-tree transition preserves
+the target distribution. -/
+theorem CompletedTreeStoppingData.rootedSampler_stationary
+    {depth : ℕ} (stopping : CompletedTreeStoppingData depth)
+    (target : Distribution stopping.AdmissibleRoot)
+    (htarget : ∀ state, 0 < target.mass state) :
+    ((stopping.rootedSampler target htarget).toCertified.kernel).Stationary
+      target :=
+  (stopping.rootedSampler target htarget).stationary
 
 /-! ### Concrete recursive continuation flags -/
 
