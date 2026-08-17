@@ -3990,3 +3990,17 @@ retained-endpoint distribution. The remaining NUTS assembly obligation is to
 prove the production streaming representative draws refine this normalized
 flat law across the outer doubling updates and then discharge the complete
 trace endpoint-flow identity.
+
+Closed the mathematical outer streaming-draw refinement. A
+`WeightedRepresentative` packages a partial tree's endpoint-weight function,
+nonnegative total eligible count, representative distribution, zero-count
+behavior, and normalized-mass theorem. The total count-proportional merge is
+proved to preserve this invariant even when either or both subtrees are empty;
+folding it over all outer doublings therefore returns exactly the normalized
+sum of all retained endpoint weights and is reassociation invariant. Flat
+power-of-two eligibility segments instantiate the package: positive segments
+use `flatEligibleDistribution`, while empty segments carry an explicit dummy
+law whose influence is proved zero. The remaining standard-NUTS proof is the
+final complete-trace endpoint-flow identity tying rerooted retained weights to
+the slice-augmented phase target, plus executable correspondence for the
+runtime representative draw.

@@ -2,6 +2,7 @@ import Mcmc.Finite.MarkovKernel
 import Mathlib.Algebra.BigOperators.Field
 import Mathlib.Logic.Equiv.Fin.Basic
 import Mathlib.Tactic.FieldSimp
+import Mathlib.Tactic.Linarith
 import Mathlib.Tactic.Ring
 
 /-!
@@ -879,5 +880,100 @@ theorem totalWeightedMergeDistribution_assoc
         exact weightedMergeDistribution_assoc first second third a b c ha hb hc
           (add_pos hapos hbpos) (add_pos hbpos hcpos)
           (add_pos (add_pos hapos hbpos) hcpos)
+
+/-! ### Outer streaming representative refinement -/
+
+/-- Refinement invariant carried by a partial NUTS tree: `endpointWeight`
+describes its retained candidates, `totalWeight` is their total count, and
+`representativeLaw` is normalized by that count whenever it is positive. A
+zero-count tree may carry any dummy law, but its endpoint weights must vanish. -/
+structure WeightedRepresentative (State : Type*) [Fintype State] where
+  endpointWeight : State → ℝ
+  totalWeight : ℝ
+  representativeLaw : Distribution State
+  totalWeight_nonneg : 0 ≤ totalWeight
+  endpointWeight_nonneg : ∀ state, 0 ≤ endpointWeight state
+  zero_endpointWeight : totalWeight = 0 → ∀ state, endpointWeight state = 0
+  mass_eq_normalized : 0 < totalWeight → ∀ state,
+    representativeLaw.mass state = endpointWeight state / totalWeight
+
+/-- Count-proportional streaming merge of two partial-tree refinement
+records. -/
+noncomputable def WeightedRepresentative.merge
+    (left right : WeightedRepresentative State) :
+    WeightedRepresentative State where
+  endpointWeight state := left.endpointWeight state + right.endpointWeight state
+  totalWeight := left.totalWeight + right.totalWeight
+  representativeLaw := totalWeightedMergeDistribution
+    left.representativeLaw right.representativeLaw left.totalWeight
+      right.totalWeight left.totalWeight_nonneg right.totalWeight_nonneg
+  totalWeight_nonneg := add_nonneg left.totalWeight_nonneg
+    right.totalWeight_nonneg
+  endpointWeight_nonneg state := add_nonneg
+    (left.endpointWeight_nonneg state) (right.endpointWeight_nonneg state)
+  zero_endpointWeight := by
+    intro htotal state
+    have hleft : left.totalWeight = 0 := by
+      linarith [left.totalWeight_nonneg, right.totalWeight_nonneg]
+    have hright : right.totalWeight = 0 := by
+      linarith [left.totalWeight_nonneg, right.totalWeight_nonneg]
+    rw [left.zero_endpointWeight hleft state,
+      right.zero_endpointWeight hright state, zero_add]
+  mass_eq_normalized := by
+    intro htotal state
+    exact totalWeightedMergeDistribution_mass_of_normalized_weights
+      left.representativeLaw right.representativeLaw left.totalWeight
+      right.totalWeight left.totalWeight_nonneg right.totalWeight_nonneg htotal
+      left.endpointWeight right.endpointWeight left.zero_endpointWeight
+      right.zero_endpointWeight left.mass_eq_normalized right.mass_eq_normalized
+      state
+
+@[simp] theorem WeightedRepresentative.merge_totalWeight
+    (left right : WeightedRepresentative State) :
+    (left.merge right).totalWeight = left.totalWeight + right.totalWeight := rfl
+
+@[simp] theorem WeightedRepresentative.merge_endpointWeight
+    (left right : WeightedRepresentative State) (state : State) :
+    (left.merge right).endpointWeight state =
+      left.endpointWeight state + right.endpointWeight state := rfl
+
+@[simp] theorem WeightedRepresentative.merge_representativeLaw
+    (left right : WeightedRepresentative State) :
+    (left.merge right).representativeLaw =
+      totalWeightedMergeDistribution left.representativeLaw
+        right.representativeLaw left.totalWeight right.totalWeight
+        left.totalWeight_nonneg right.totalWeight_nonneg := rfl
+
+/-- Stream representatives across the outer doubling calls in their execution
+order. -/
+noncomputable def WeightedRepresentative.mergeAll
+    (initial : WeightedRepresentative State) :
+    List (WeightedRepresentative State) → WeightedRepresentative State
+  | [] => initial
+  | next :: rest => (initial.merge next).mergeAll rest
+
+/-- The final outer streaming representative has exactly the normalized sum
+of all retained endpoint weights whenever its combined count is positive. -/
+theorem WeightedRepresentative.mergeAll_mass_eq_normalized
+    (initial : WeightedRepresentative State)
+    (rest : List (WeightedRepresentative State))
+    (hpositive : 0 < (initial.mergeAll rest).totalWeight) (state : State) :
+    (initial.mergeAll rest).representativeLaw.mass state =
+      (initial.mergeAll rest).endpointWeight state /
+        (initial.mergeAll rest).totalWeight :=
+  (initial.mergeAll rest).mass_eq_normalized hpositive state
+
+/-- Streaming merge is independent of reassociation of three successive
+partial trees, including all zero-count cases. -/
+theorem WeightedRepresentative.merge_representativeLaw_assoc
+    (first second third : WeightedRepresentative State) :
+    ((first.merge second).merge third).representativeLaw =
+      (first.merge (second.merge third)).representativeLaw := by
+  simp only [WeightedRepresentative.merge_representativeLaw,
+    WeightedRepresentative.merge_totalWeight]
+  exact totalWeightedMergeDistribution_assoc first.representativeLaw
+    second.representativeLaw third.representativeLaw first.totalWeight
+    second.totalWeight third.totalWeight first.totalWeight_nonneg
+    second.totalWeight_nonneg third.totalWeight_nonneg
 
 end Mcmc.Finite.MarkovKernel

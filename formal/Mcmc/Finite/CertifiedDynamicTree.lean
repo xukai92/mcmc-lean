@@ -793,6 +793,65 @@ noncomputable def flatEligibleDistribution
       flatEligibleEndpointWeight eligible phases index /
         flatEligibleCount eligible phases := rfl
 
+/-- Dummy representative used only when a power-of-two segment has no
+eligible endpoint. Its value is observationally irrelevant to every later
+count-proportional merge. -/
+noncomputable def flatDummyDistribution (depth : ℕ) :
+    Distribution (Fin (2 ^ depth)) where
+  mass index := if index = ⟨0, by positivity⟩ then 1 else 0
+  nonneg index := by split <;> norm_num
+  sum_mass := by
+    classical
+    rw [Finset.sum_eq_single (0 : Fin (2 ^ depth))]
+    · simp
+    · intro index _ hne
+      simp [hne]
+    · simp
+
+/-- A flat power-of-two segment packaged with the streaming representative
+refinement invariant. Positive segments use the exact normalized eligibility
+law; empty segments carry the explicit dummy law. -/
+noncomputable def flatEligibleRepresentative
+    {Phase : Type*} {depth : ℕ} (eligible : Phase → Bool)
+    (phases : Fin (2 ^ depth) → Phase) :
+    WeightedRepresentative (Fin (2 ^ depth)) where
+  endpointWeight := flatEligibleEndpointWeight eligible phases
+  totalWeight := flatEligibleCount eligible phases
+  representativeLaw := if hpositive : 0 < flatEligibleCount eligible phases then
+    flatEligibleDistribution eligible phases hpositive
+  else
+    flatDummyDistribution depth
+  totalWeight_nonneg := Finset.sum_nonneg fun index _ =>
+    flatEligibleEndpointWeight_nonneg eligible phases index
+  endpointWeight_nonneg := flatEligibleEndpointWeight_nonneg eligible phases
+  zero_endpointWeight := by
+    intro hzero state
+    have hnonneg : ∀ index ∈ (Finset.univ : Finset (Fin (2 ^ depth))),
+        0 ≤ flatEligibleEndpointWeight eligible phases index := by
+      intro index _
+      exact flatEligibleEndpointWeight_nonneg eligible phases index
+    exact (Finset.sum_eq_zero_iff_of_nonneg hnonneg).mp hzero state
+      (Finset.mem_univ state)
+  mass_eq_normalized := by
+    intro hpositive state
+    simp [hpositive, flatEligibleDistribution_mass]
+
+/-- Consequently, folding the paper's count-proportional representative
+update over flat segment records returns the normalized union endpoint law. -/
+theorem flatEligibleRepresentative_mergeAll_mass_eq_normalized
+    {Phase : Type*} {depth : ℕ} (eligible : Phase → Bool)
+    (initial : Fin (2 ^ depth) → Phase)
+    (rest : List (WeightedRepresentative (Fin (2 ^ depth))))
+    (hpositive : 0 <
+      ((flatEligibleRepresentative eligible initial).mergeAll rest).totalWeight)
+    (state : Fin (2 ^ depth)) :
+    ((flatEligibleRepresentative eligible initial).mergeAll rest).representativeLaw.mass
+        state =
+      ((flatEligibleRepresentative eligible initial).mergeAll rest).endpointWeight
+          state /
+        ((flatEligibleRepresentative eligible initial).mergeAll rest).totalWeight :=
+  WeightedRepresentative.mergeAll_mass_eq_normalized _ _ hpositive state
+
 /-- An in-order recursive tree has exactly one fewer joins than leaves. This
 identifies the `Fin` state space of the flattened checker with the completed
 recursive tree's leaves. -/
