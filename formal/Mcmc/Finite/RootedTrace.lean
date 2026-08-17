@@ -1,5 +1,6 @@
 import Mcmc.Finite.MarkovKernel
 import Mathlib.Algebra.BigOperators.Field
+import Mathlib.Logic.Equiv.Fin.Basic
 import Mathlib.Tactic.FieldSimp
 import Mathlib.Tactic.Ring
 
@@ -404,6 +405,113 @@ reversal, including the endpoint-dependent reversal required by NUTS. -/
     (uniformDirectionTraceLaw depth).mass (reverse trace) =
       (uniformDirectionTraceLaw depth).mass trace := by
   rfl
+
+/-! ### Completed doubling trees and outer stopping -/
+
+/-- A height-`depth` sequence of left/right doubling choices is in bijection
+with the `2^depth` possible locations of the initial leaf in the completed
+tree. This is the finite combinatorial statement behind condition C.4 in the
+NUTS derivation. -/
+noncomputable def doublingRootEquiv : (depth : ℕ) →
+    (Fin depth → Bool) ≃ Fin (2 ^ depth)
+  | 0 => Fintype.equivFinOfCardEq (by simp)
+  | depth + 1 =>
+      (Fin.succFunEquiv Bool depth).trans
+        ((doublingRootEquiv depth).prodCongr finTwoEquiv.symm) |>.trans
+          finProdFinEquiv |>.trans (finCongr (by simp [pow_succ]))
+
+/-- The unique direction sequence that reconstructs a fixed completed
+height-`depth` tree when started from the specified leaf. -/
+noncomputable def directionTraceForRoot (depth : ℕ)
+    (root : Fin (2 ^ depth)) : Fin depth → Bool :=
+  (doublingRootEquiv depth).symm root
+
+@[simp] theorem doublingRootEquiv_directionTraceForRoot
+    (depth : ℕ) (root : Fin (2 ^ depth)) :
+    doublingRootEquiv depth (directionTraceForRoot depth root) = root :=
+  (doublingRootEquiv depth).apply_symm_apply root
+
+/-- No second direction sequence reconstructs the same completed tree from a
+fixed root leaf. -/
+theorem directionTraceForRoot_unique
+    (depth : ℕ) (root : Fin (2 ^ depth)) (trace : Fin depth → Bool)
+    (hroot : doublingRootEquiv depth trace = root) :
+    trace = directionTraceForRoot depth root := by
+  apply (doublingRootEquiv depth).injective
+  rw [hroot, doublingRootEquiv_directionTraceForRoot]
+
+/-- Every root leaf reconstructs the completed height-`depth` tree with the
+same probability `2⁻ᵈᵉᵖᵗʰ`, as asserted in the paper's condition-C.4
+argument. -/
+theorem directionTraceForRoot_mass_eq
+    (depth : ℕ) (left right : Fin (2 ^ depth)) :
+    (uniformDirectionTraceLaw depth).mass
+        (directionTraceForRoot depth left) =
+      (uniformDirectionTraceLaw depth).mass
+        (directionTraceForRoot depth right) := by
+  rfl
+
+/-- Endpoint-dependent reversal on the complete finite direction-trace space.
+It exchanges the unique traces that reconstruct the same completed tree from
+the two endpoint leaves and leaves every unrelated trace unchanged. -/
+noncomputable def completedTreeRerootEquiv (depth : ℕ)
+    (current next : Fin (2 ^ depth)) :
+    (Fin depth → Bool) ≃ (Fin depth → Bool) := by
+  classical
+  exact Equiv.swap (directionTraceForRoot depth current)
+    (directionTraceForRoot depth next)
+
+@[simp] theorem completedTreeRerootEquiv_current
+    (depth : ℕ) (current next : Fin (2 ^ depth)) :
+    completedTreeRerootEquiv depth current next
+        (directionTraceForRoot depth current) =
+      directionTraceForRoot depth next := by
+  classical
+  exact Equiv.swap_apply_left _ _
+
+/-- The explicit completed-tree rerooting bijection preserves the fair
+direction-trace construction law. -/
+theorem completedTreeRerootEquiv_mass
+    (depth : ℕ) (current next : Fin (2 ^ depth))
+    (trace : Fin depth → Bool) :
+    (uniformDirectionTraceLaw depth).mass trace =
+      (uniformDirectionTraceLaw depth).mass
+        (completedTreeRerootEquiv depth current next trace) := by
+  rfl
+
+/-- Deterministic outer stopping data for one completed doubling tree.
+`continuationDepth root` is the number of doublings that would complete before
+a divergence or U-turn flag fires when rerooted at `root`. -/
+structure CompletedTreeStoppingData (depth : ℕ) where
+  continuationDepth : Fin (2 ^ depth) → ℕ
+  continuationDepth_le : ∀ root, continuationDepth root ≤ depth
+
+/-- Roots retained by NUTS condition C.4 are precisely those capable of
+reconstructing the entire completed tree before their stopping flag fires. -/
+def CompletedTreeStoppingData.admissible
+    {depth : ℕ} (stopping : CompletedTreeStoppingData depth)
+    (root : Fin (2 ^ depth)) : Prop :=
+  depth ≤ stopping.continuationDepth root
+
+theorem CompletedTreeStoppingData.admissible_iff_eq_depth
+    {depth : ℕ} (stopping : CompletedTreeStoppingData depth)
+    (root : Fin (2 ^ depth)) :
+    stopping.admissible root ↔ stopping.continuationDepth root = depth := by
+  exact ⟨fun h => Nat.le_antisymm (stopping.continuationDepth_le root) h,
+    fun h => h.ge⟩
+
+/-- All C.4-admissible rerootings have identical construction probability.
+The stopping rule changes membership in `C`, but not the probability of the
+unique direction trace for any retained root. -/
+theorem CompletedTreeStoppingData.admissible_reconstruction_mass_eq
+    {depth : ℕ} (stopping : CompletedTreeStoppingData depth)
+    {left right : Fin (2 ^ depth)} (_hleft : stopping.admissible left)
+    (_hright : stopping.admissible right) :
+    (uniformDirectionTraceLaw depth).mass
+        (directionTraceForRoot depth left) =
+      (uniformDirectionTraceLaw depth).mass
+        (directionTraceForRoot depth right) :=
+  directionTraceForRoot_mass_eq depth left right
 
 /-- A bounded doubling sampler with fair direction coins is certified once
 conditional endpoint selection satisfies the target-weighted reroot identity.

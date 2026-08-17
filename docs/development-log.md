@@ -3933,3 +3933,17 @@ normalized union law. Thus zero-eligible/skipped `BuildTree` branches are no
 longer an open candidate-selection issue. The remaining standard-NUTS work is
 the complete trace reversal for continuation/U-turn flags and the outer
 state-dependent stopping sequence.
+
+Formalized the completed-tree combinatorics used by the paper's condition C.4
+argument. The actual recursive binary encoding gives an equivalence between
+height-`d` Boolean direction traces and the `2^d` possible initial-leaf
+locations. Therefore every leaf has a unique trace reconstructing the same
+completed tree and every such trace has probability `2^-d`. Lean constructs
+an endpoint-dependent permutation exchanging the two compatible rerooted
+traces and proves exact construction-mass preservation. Deterministic
+`CompletedTreeStoppingData` records the first continuation depth at every
+root; its admissible roots are exactly those that survive through the full
+completed depth, and all admitted rerootings retain the common construction
+mass. The remaining algorithm-specific step is to prove that the concrete
+recursive divergence/U-turn flags compute this stopping data and that the
+accepted final-doubling subset matches its admissible roots.
