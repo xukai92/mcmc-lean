@@ -4329,6 +4329,21 @@ population still contains multinomial-resampling and retained-ancestry
 dependence, so deriving its affine MSE recursion and particle-count-uniform PG
 mixing remains open.
 
+## 2026-08-17: uniform particle bounds under partial refresh
+
+Closed the population-level step left open above. For constant potential and
+partial-refresh mutation, Lean derives the conditional observable mean, the
+exact affine normalized-target expectation, and a conditional particle-average
+MSE inequality. The inherited squared error contracts by `(1-p)^2`; fresh
+multinomial-ancestry and propagation noise contributes at most
+`8 ‖f‖∞²/N`. Integrating over the actual preceding bootstrap population gives
+the required affine recurrence. For every positive `p`, the generic strict
+contraction theorem now yields one explicit `C/N` bound simultaneously for
+all time horizons and all particle counts. This population is not iid: the
+proof retains both multinomial resampling and the identity mutation branch.
+Particle-count-uniform particle-Gibbs mixing is still a separate kernel-level
+obligation.
+
 ## 2026-08-17: practical-slice stratum measure preservation
 
 Upgraded allocation rerooting from a finite-sum identity to preservation of
