@@ -4624,8 +4624,9 @@ right expansion counts.
 The coordinate map replacing the current state by this anchor is itself proved
 measure preserving for `Lebesgue × Haar × count`.  The proof is a measurable
 triangular translation, conjugated by product swaps, so it does not require an
-unavailable special theorem for the `[0,1)` coordinate chart.  What remains in
-the local practical-slice argument is to extend this chart through the retained
-threshold/rejected-vector coordinates, identify each replay-piece restriction
-in the chart, and conjugate the accepted/grid skew-product theorem across the
-paired restrictions.
+unavailable special theorem for the `[0,1)` coordinate chart.  It is packaged
+as a measurable equivalence with a measure-preserving inverse and lifted
+through an arbitrary retained s-finite replay context.  What remains in the
+local practical-slice argument is to identify each replay-piece restriction in
+that contextual chart and conjugate the accepted/grid skew-product theorem
+across the paired restrictions.

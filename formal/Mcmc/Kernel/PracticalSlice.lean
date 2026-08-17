@@ -485,6 +485,80 @@ theorem gridAnchorCoordinates_measurePreserving (width : ℝ) :
   congr 1
   ring
 
+/-- Recover the current state from an invariant anchor and the retained grid
+coordinates. -/
+noncomputable def gridAnchorCoordinatesInverse
+    (width : ℝ) (point : ℝ × (Alignment × ℤ)) :
+    ℝ × (Alignment × ℤ) :=
+  (point.1 + width * alignmentCoordinate point.2.1 +
+      width * (point.2.2 : ℝ), point.2)
+
+theorem measurable_gridAnchorCoordinatesInverse (width : ℝ) :
+    Measurable (gridAnchorCoordinatesInverse width) := by
+  unfold gridAnchorCoordinatesInverse
+  exact ((measurable_fst.add (measurable_const.mul
+      (measurable_alignmentCoordinate.comp
+        (measurable_fst.comp measurable_snd)))).add
+      (measurable_const.mul
+        ((measurable_of_countable (fun value : ℤ => (value : ℝ))).comp
+          (measurable_snd.comp measurable_snd)))).prodMk measurable_snd
+
+/-- The grid-anchor chart is a measurable equivalence, so restrictions may be
+transported in either direction without losing the exact replay carrier. -/
+noncomputable def gridAnchorCoordinatesEquiv (width : ℝ) :
+    (ℝ × (Alignment × ℤ)) ≃ᵐ (ℝ × (Alignment × ℤ)) where
+  toFun := gridAnchorCoordinates width
+  invFun := gridAnchorCoordinatesInverse width
+  left_inv point := by
+    rcases point with ⟨current, offset, allocation⟩
+    simp only [gridAnchorCoordinates, gridAnchorCoordinatesInverse,
+      maximalLeftGridAnchor]
+    congr 1
+    ring
+  right_inv point := by
+    rcases point with ⟨anchor, offset, allocation⟩
+    simp only [gridAnchorCoordinates, gridAnchorCoordinatesInverse,
+      maximalLeftGridAnchor]
+    congr 1
+    ring
+  measurable_toFun :=
+    (measurable_maximalLeftGridAnchor width).prodMk measurable_snd
+  measurable_invFun := measurable_gridAnchorCoordinatesInverse width
+
+/-- The inverse anchor chart preserves the same product law. -/
+theorem gridAnchorCoordinatesInverse_measurePreserving (width : ℝ) :
+    MeasurePreserving (gridAnchorCoordinatesInverse width)
+      ((volume : Measure ℝ).prod
+        ((volume : Measure Alignment).prod (Measure.count : Measure ℤ)))
+  ((volume : Measure ℝ).prod
+        ((volume : Measure Alignment).prod (Measure.count : Measure ℤ))) :=
+  (gridAnchorCoordinates_measurePreserving width).symm
+    (gridAnchorCoordinatesEquiv width)
+
+/-- Retain any measurable replay context while changing the current/grid
+fiber to invariant anchor coordinates. -/
+noncomputable def contextualGridAnchorCoordinates {Context : Type*}
+    (width : ℝ) (point : Context × (ℝ × (Alignment × ℤ))) :
+    Context × (ℝ × (Alignment × ℤ)) :=
+  (point.1, gridAnchorCoordinates width point.2)
+
+theorem contextualGridAnchorCoordinates_measurePreserving
+    {Context : Type*} [MeasurableSpace Context]
+    (contextMeasure : Measure Context) [SFinite contextMeasure]
+    (width : ℝ) :
+    MeasurePreserving (contextualGridAnchorCoordinates (Context := Context) width)
+      (contextMeasure.prod
+        ((volume : Measure ℝ).prod
+          ((volume : Measure Alignment).prod (Measure.count : Measure ℤ))))
+      (contextMeasure.prod
+        ((volume : Measure ℝ).prod
+          ((volume : Measure Alignment).prod (Measure.count : Measure ℤ)))) := by
+  have hall := (MeasurePreserving.id contextMeasure).prod
+    (gridAnchorCoordinates_measurePreserving width)
+  convert hall using 1
+  funext point
+  rfl
+
 /-- Haar alignment volume times integer counting measure is invariant under
 the state-dependent grid rerooting. This global theorem packages the
 countable shift-stratum sum as a single skew-product statement. -/
