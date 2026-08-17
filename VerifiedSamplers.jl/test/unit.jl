@@ -72,6 +72,38 @@ end
         -2.0, big"-1.9", big"0.11", 0.125, big"0.125", big"0.125")
     @test Certificates.is_stable(uturn)
     @test !Certificates.is_stable(ambiguous_uturn)
+    vector_uturn = Certificates.certify_vector_uturn_decision(
+        [0.0, 0.0], BigFloat[0, 0], [0.0, 0.0],
+        [1.0, 1.0], BigFloat[1, 1], [0.0, 0.0],
+        [-1.0, -1.0], BigFloat[-1, -1], [0.0, 0.0],
+        [1.0, 1.0], BigFloat[1, 1], [0.0, 0.0])
+    vector_boundary = Certificates.certify_vector_uturn_decision(
+        [0.0, 0.0], BigFloat[0, 0], [0.0, 0.0],
+        [1.0, 0.0], BigFloat[1, 0], [0.0, 0.0],
+        [0.0, 1.0], BigFloat[0, 1], [0.0, 0.0],
+        [1.0, 0.0], BigFloat[1, 0], [0.0, 0.0])
+    @test Certificates.is_stable(vector_uturn)
+    @test !Certificates.is_stable(vector_boundary)
+    @test Certificates.certified_uturn_decision(vector_uturn) === true
+    @test Certificates.certified_uturn_decision(vector_boundary) === nothing
+    trajectory = Certificates.certify_vector_uturn_trajectory(
+        [[0.0, 0.0], [1.0, 1.0], [2.0, 2.0]],
+        [BigFloat[0, 0], BigFloat[1, 1], BigFloat[2, 2]],
+        [zeros(2), zeros(2), zeros(2)],
+        [[1.0, 1.0], [1.0, 1.0], [1.0, 1.0]],
+        [BigFloat[1, 1], BigFloat[1, 1], BigFloat[1, 1]],
+        [zeros(2), zeros(2), zeros(2)])
+    @test Certificates.is_stable(trajectory)
+    @test Certificates.certified_uturn_decisions(trajectory) == [false, false]
+    @test_throws ArgumentError Certificates.certify_vector_uturn_trajectory(
+        Vector{Vector{Float64}}(), Vector{Vector{BigFloat}}(),
+        Vector{Vector{Float64}}(), Vector{Vector{Float64}}(),
+        Vector{Vector{BigFloat}}(), Vector{Vector{Float64}}())
+    @test_throws DimensionMismatch Certificates.certify_vector_uturn_decision(
+        [0.0], BigFloat[0, 0], [0.0],
+        [1.0], BigFloat[1], [0.0],
+        [-1.0], BigFloat[-1], [0.0],
+        [1.0], BigFloat[1], [0.0])
     completed_tree = Certificates.CompletedTreeDecisionCertificate(
         [separated_comparison], [uturn])
     ambiguous_tree = Certificates.CompletedTreeDecisionCertificate(

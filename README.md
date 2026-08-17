@@ -166,8 +166,12 @@ slice, and U-turn callback refinement remains explicit. A bounded refinement
 layer now certifies slice/divergence comparisons and both endpoint U-turn dot
 products whenever their computed values strictly clear supplied absolute-error
 bands; Lean proves these local decisions reproduce the complete ideal recursive
-flag trace. Supplying trustworthy trajectory-wide ideal witnesses and error
-bounds remains the backend obligation.
+flag trace. Vector U-turn bounds are derived coordinatewise through endpoint
+subtraction, multiplication, and summation, with the backend separately
+bounding the final floating-point reduction. Julia exposes the same composed
+certificate and returns `nothing` for an ambiguous decision. Supplying
+trustworthy trajectory-generation and slice-energy bounds remains the backend
+obligation.
 For example:
 
 ```julia

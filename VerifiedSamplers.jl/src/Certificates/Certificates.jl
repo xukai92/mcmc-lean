@@ -9,6 +9,10 @@ export BoundWitness, DecisionCertificate, certify_bound, certify_decision,
     SeparatedZeroDecisionCertificate, certify_zero_decision,
     SeparatedComparisonCertificate, certify_comparison,
     UTurnDecisionCertificate, certify_uturn_decision,
+    VectorUTurnDecisionCertificate, certify_vector_uturn_decision,
+    certified_uturn_decision,
+    VectorUTurnTrajectoryCertificate, certify_vector_uturn_trajectory,
+    certified_uturn_decisions,
     CompletedTreeDecisionCertificate,
     is_stable, uncertainty_band
 
@@ -90,6 +94,13 @@ uncertainty_band(certificate::UTurnDecisionCertificate) = max(
     uncertainty_band(certificate.left_momentum),
     uncertainty_band(certificate.right_momentum))
 
+"""Return the certified computed U-turn bit, or `nothing` when ambiguous."""
+function certified_uturn_decision(certificate::UTurnDecisionCertificate)
+    is_stable(certificate) || return nothing
+    certificate.left_momentum.witness.computed < 0 ||
+        certificate.right_momentum.witness.computed < 0
+end
+
 function certify_uturn_decision(computed_left::Real, ideal_left::Real,
         left_bound::Real, computed_right::Real, ideal_right::Real,
         right_bound::Real; precision::Integer=256)
@@ -98,6 +109,141 @@ function certify_uturn_decision(computed_left::Real, ideal_left::Real,
             precision=precision),
         certify_zero_decision(computed_right, ideal_right, right_bound;
             precision=precision))
+end
+
+"""Componentwise endpoint witnesses and their composed U-turn decision."""
+struct VectorUTurnDecisionCertificate
+    left_positions::Vector{BoundWitness}
+    right_positions::Vector{BoundWitness}
+    left_momenta::Vector{BoundWitness}
+    right_momenta::Vector{BoundWitness}
+    decision::UTurnDecisionCertificate
+end
+
+is_stable(certificate::VectorUTurnDecisionCertificate) =
+    is_stable(certificate.decision)
+uncertainty_band(certificate::VectorUTurnDecisionCertificate) =
+    uncertainty_band(certificate.decision)
+certified_uturn_decision(certificate::VectorUTurnDecisionCertificate) =
+    certified_uturn_decision(certificate.decision)
+
+"""Compose componentwise phase bounds into both endpoint-dot certificates.
+
+`*_rounding_bound` covers the final Float64 subtraction, multiplication, and
+reduction relative to exact real arithmetic on the stored Float64 components.
+The componentwise bounds and supplied ideal vectors remain proof inputs.
+"""
+function certify_vector_uturn_decision(
+        computed_left_position::AbstractVector{<:Real},
+        ideal_left_position::AbstractVector{<:Real},
+        left_position_bound::AbstractVector{<:Real},
+        computed_right_position::AbstractVector{<:Real},
+        ideal_right_position::AbstractVector{<:Real},
+        right_position_bound::AbstractVector{<:Real},
+        computed_left_momentum::AbstractVector{<:Real},
+        ideal_left_momentum::AbstractVector{<:Real},
+        left_momentum_bound::AbstractVector{<:Real},
+        computed_right_momentum::AbstractVector{<:Real},
+        ideal_right_momentum::AbstractVector{<:Real},
+        right_momentum_bound::AbstractVector{<:Real};
+        left_rounding_bound::Real=0,
+        right_rounding_bound::Real=0,
+        precision::Integer=256)
+    dimension = length(computed_left_position)
+    all(length(values) == dimension for values in (
+        ideal_left_position, left_position_bound,
+        computed_right_position, ideal_right_position, right_position_bound,
+        computed_left_momentum, ideal_left_momentum, left_momentum_bound,
+        computed_right_momentum, ideal_right_momentum, right_momentum_bound)) ||
+        throw(DimensionMismatch("phase endpoint vectors and bounds must match"))
+    dimension > 0 || throw(ArgumentError("phase endpoint dimension must be positive"))
+
+    left_positions = [certify_bound(computed_left_position[i],
+        ideal_left_position[i], left_position_bound[i]; precision=precision)
+        for i in 1:dimension]
+    right_positions = [certify_bound(computed_right_position[i],
+        ideal_right_position[i], right_position_bound[i]; precision=precision)
+        for i in 1:dimension]
+    left_momenta = [certify_bound(computed_left_momentum[i],
+        ideal_left_momentum[i], left_momentum_bound[i]; precision=precision)
+        for i in 1:dimension]
+    right_momenta = [certify_bound(computed_right_momentum[i],
+        ideal_right_momentum[i], right_momentum_bound[i]; precision=precision)
+        for i in 1:dimension]
+
+    decision = setprecision(BigFloat, precision) do
+        ideal_displacement = BigFloat.(ideal_right_position) .-
+            BigFloat.(ideal_left_position)
+        ideal_left_dot = sum(ideal_displacement .* BigFloat.(ideal_left_momentum))
+        ideal_right_dot = sum(ideal_displacement .* BigFloat.(ideal_right_momentum))
+        computed_displacement = Float64.(computed_right_position) .-
+            Float64.(computed_left_position)
+        computed_left = sum(computed_displacement .* Float64.(computed_left_momentum))
+        computed_right = sum(computed_displacement .* Float64.(computed_right_momentum))
+        position_error = BigFloat.(right_position_bound) .+
+            BigFloat.(left_position_bound)
+        left_error = BigFloat(left_rounding_bound) + sum(
+            position_error .* abs.(BigFloat.(computed_left_momentum)) .+
+            abs.(ideal_displacement) .* BigFloat.(left_momentum_bound))
+        right_error = BigFloat(right_rounding_bound) + sum(
+            position_error .* abs.(BigFloat.(computed_right_momentum)) .+
+            abs.(ideal_displacement) .* BigFloat.(right_momentum_bound))
+        certify_uturn_decision(computed_left, ideal_left_dot, left_error,
+            computed_right, ideal_right_dot, right_error; precision=precision)
+    end
+    VectorUTurnDecisionCertificate(left_positions, right_positions,
+        left_momenta, right_momenta, decision)
+end
+
+"""Certificates for every adjacent endpoint test on one phase trajectory."""
+struct VectorUTurnTrajectoryCertificate
+    edges::Vector{VectorUTurnDecisionCertificate}
+end
+
+is_stable(certificate::VectorUTurnTrajectoryCertificate) =
+    all(is_stable, certificate.edges)
+uncertainty_band(certificate::VectorUTurnTrajectoryCertificate) =
+    maximum(uncertainty_band, certificate.edges; init=big"0")
+
+function certified_uturn_decisions(certificate::VectorUTurnTrajectoryCertificate)
+    is_stable(certificate) || return nothing
+    Bool[certified_uturn_decision(edge)::Bool for edge in certificate.edges]
+end
+
+function certify_vector_uturn_trajectory(
+        computed_positions::AbstractVector{<:AbstractVector{<:Real}},
+        ideal_positions::AbstractVector{<:AbstractVector{<:Real}},
+        position_bounds::AbstractVector{<:AbstractVector{<:Real}},
+        computed_momenta::AbstractVector{<:AbstractVector{<:Real}},
+        ideal_momenta::AbstractVector{<:AbstractVector{<:Real}},
+        momentum_bounds::AbstractVector{<:AbstractVector{<:Real}};
+        left_rounding_bounds::AbstractVector{<:Real}=
+            zeros(max(length(computed_positions) - 1, 0)),
+        right_rounding_bounds::AbstractVector{<:Real}=
+            zeros(max(length(computed_positions) - 1, 0)),
+        precision::Integer=256)
+    count = length(computed_positions)
+    count > 0 || throw(ArgumentError("phase trajectory cannot be empty"))
+    all(length(values) == count for values in (ideal_positions,
+        position_bounds, computed_momenta, ideal_momenta, momentum_bounds)) ||
+        throw(DimensionMismatch("phase trajectories and bound arrays must match"))
+    length(left_rounding_bounds) == count - 1 &&
+        length(right_rounding_bounds) == count - 1 ||
+        throw(DimensionMismatch("one pair of rounding bounds is required per edge"))
+    edges = Vector{VectorUTurnDecisionCertificate}(undef, count - 1)
+    for edge in eachindex(edges)
+        edges[edge] = certify_vector_uturn_decision(
+            computed_positions[edge], ideal_positions[edge], position_bounds[edge],
+            computed_positions[edge + 1], ideal_positions[edge + 1],
+            position_bounds[edge + 1],
+            computed_momenta[edge], ideal_momenta[edge], momentum_bounds[edge],
+            computed_momenta[edge + 1], ideal_momenta[edge + 1],
+            momentum_bounds[edge + 1];
+            left_rounding_bound=left_rounding_bounds[edge],
+            right_rounding_bound=right_rounding_bounds[edge],
+            precision=precision)
+    end
+    VectorUTurnTrajectoryCertificate(edges)
 end
 
 """All primitive comparison certificates visited by one completed tree.

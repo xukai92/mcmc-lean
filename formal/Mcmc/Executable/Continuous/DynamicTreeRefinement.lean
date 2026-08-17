@@ -97,6 +97,117 @@ theorem SeparatedComparisonCertificate.computedLess_eq_idealLess
     decide (certificate.idealLeft - certificate.idealRight < 0) at h
   simpa only [sub_lt_zero] using h
 
+/-! ### Compositional vector endpoint bounds -/
+
+/-- Endpoint dot product used by the Euclidean vector U-turn test. -/
+noncomputable def endpointDot {ι : Type*} [Fintype ι]
+    (leftPosition rightPosition momentum : ι → ℝ) : ℝ :=
+  ∑ i, (rightPosition i - leftPosition i) * momentum i
+
+/-- Error budget obtained by composing coordinatewise position and momentum
+bounds through subtraction, multiplication, and finite summation. -/
+noncomputable def endpointDotError {ι : Type*} [Fintype ι]
+    (idealLeftPosition idealRightPosition computedMomentum : ι → ℝ)
+    (leftPositionError rightPositionError momentumError : ι → ℝ) : ℝ :=
+  ∑ i, ((rightPositionError i + leftPositionError i) *
+      |computedMomentum i| +
+    |idealRightPosition i - idealLeftPosition i| * momentumError i)
+
+/-- Componentwise phase-point bounds imply the declared endpoint dot-product
+bound. No opaque scalar error premise is needed. -/
+theorem endpointDot_approximates
+    {ι : Type*} [Fintype ι]
+    (computedLeftPosition idealLeftPosition
+      computedRightPosition idealRightPosition
+      computedMomentum idealMomentum : ι → ℝ)
+    (leftPositionError rightPositionError momentumError : ι → ℝ)
+    (hleftPosition : ∀ i, Approximates (computedLeftPosition i)
+      (idealLeftPosition i) (leftPositionError i))
+    (hrightPosition : ∀ i, Approximates (computedRightPosition i)
+      (idealRightPosition i) (rightPositionError i))
+    (hmomentum : ∀ i, Approximates (computedMomentum i)
+      (idealMomentum i) (momentumError i)) :
+    Approximates
+      (endpointDot computedLeftPosition computedRightPosition computedMomentum)
+      (endpointDot idealLeftPosition idealRightPosition idealMomentum)
+      (endpointDotError idealLeftPosition idealRightPosition computedMomentum
+        leftPositionError rightPositionError momentumError) := by
+  classical
+  simpa [endpointDot, endpointDotError] using
+    (Approximates.sum Finset.univ
+      (fun i => (computedRightPosition i - computedLeftPosition i) *
+        computedMomentum i)
+      (fun i => (idealRightPosition i - idealLeftPosition i) * idealMomentum i)
+      (fun i => (rightPositionError i + leftPositionError i) *
+          |computedMomentum i| +
+        |idealRightPosition i - idealLeftPosition i| * momentumError i)
+      (fun i _ =>
+        (hrightPosition i).sub (hleftPosition i) |>.mul (hmomentum i)))
+
+/-- An explicitly bounded final floating-point reduction may be composed with
+the componentwise endpoint bound. -/
+theorem roundedEndpointDot_approximates
+    {ι : Type*} [Fintype ι]
+    (roundedComputed : ℝ)
+    (computedLeftPosition idealLeftPosition
+      computedRightPosition idealRightPosition
+      computedMomentum idealMomentum : ι → ℝ)
+    (leftPositionError rightPositionError momentumError : ι → ℝ)
+    (roundingError : ℝ)
+    (hrounding : Approximates roundedComputed
+      (endpointDot computedLeftPosition computedRightPosition computedMomentum)
+      roundingError)
+    (hleftPosition : ∀ i, Approximates (computedLeftPosition i)
+      (idealLeftPosition i) (leftPositionError i))
+    (hrightPosition : ∀ i, Approximates (computedRightPosition i)
+      (idealRightPosition i) (rightPositionError i))
+    (hmomentum : ∀ i, Approximates (computedMomentum i)
+      (idealMomentum i) (momentumError i)) :
+    Approximates roundedComputed
+      (endpointDot idealLeftPosition idealRightPosition idealMomentum)
+      (roundingError + endpointDotError idealLeftPosition idealRightPosition
+        computedMomentum leftPositionError rightPositionError momentumError) :=
+  hrounding.compose (endpointDot_approximates computedLeftPosition
+    idealLeftPosition computedRightPosition idealRightPosition computedMomentum
+    idealMomentum leftPositionError rightPositionError momentumError
+    hleftPosition hrightPosition hmomentum)
+
+/-- Complete phase-endpoint evidence for the two dot products in a vector
+U-turn decision. The separation fields are the only discontinuous premises. -/
+structure VectorUTurnDecisionCertificate (ι : Type*) [Fintype ι] where
+  computedLeftPosition : ι → ℝ
+  idealLeftPosition : ι → ℝ
+  computedRightPosition : ι → ℝ
+  idealRightPosition : ι → ℝ
+  computedLeftMomentum : ι → ℝ
+  idealLeftMomentum : ι → ℝ
+  computedRightMomentum : ι → ℝ
+  idealRightMomentum : ι → ℝ
+  leftPositionError : ι → ℝ
+  rightPositionError : ι → ℝ
+  leftMomentumError : ι → ℝ
+  rightMomentumError : ι → ℝ
+  leftPositionBound : ∀ i, Approximates (computedLeftPosition i)
+    (idealLeftPosition i) (leftPositionError i)
+  rightPositionBound : ∀ i, Approximates (computedRightPosition i)
+    (idealRightPosition i) (rightPositionError i)
+  leftMomentumBound : ∀ i, Approximates (computedLeftMomentum i)
+    (idealLeftMomentum i) (leftMomentumError i)
+  rightMomentumBound : ∀ i, Approximates (computedRightMomentum i)
+    (idealRightMomentum i) (rightMomentumError i)
+  leftSeparated :
+    let computed := endpointDot computedLeftPosition computedRightPosition
+      computedLeftMomentum
+    let error := endpointDotError idealLeftPosition idealRightPosition
+      computedLeftMomentum leftPositionError rightPositionError leftMomentumError
+    computed < -error ∨ error < computed
+  rightSeparated :
+    let computed := endpointDot computedLeftPosition computedRightPosition
+      computedRightMomentum
+    let error := endpointDotError idealLeftPosition idealRightPosition
+      computedRightMomentum leftPositionError rightPositionError rightMomentumError
+    computed < -error ∨ error < computed
+
 /-- Pair of certified endpoint dot products used by the vector U-turn rule. -/
 structure UTurnDecisionCertificate where
   leftMomentum : SeparatedZeroCertificate
@@ -120,6 +231,47 @@ theorem UTurnDecisionCertificate.computedTurns_eq_idealTurns
     UTurnDecisionCertificate.idealTurns,
     certificate.leftMomentum.computedNegative_eq_idealNegative,
     certificate.rightMomentum.computedNegative_eq_idealNegative]
+
+/-- Derive the scalar U-turn certificate from componentwise endpoint bounds,
+making its exact Boolean agreement theorem available automatically. -/
+noncomputable def VectorUTurnDecisionCertificate.toUTurnDecisionCertificate
+    {ι : Type*} [Fintype ι]
+    (certificate : VectorUTurnDecisionCertificate ι) :
+    UTurnDecisionCertificate where
+  leftMomentum := {
+    computed := endpointDot certificate.computedLeftPosition
+      certificate.computedRightPosition certificate.computedLeftMomentum
+    ideal := endpointDot certificate.idealLeftPosition
+      certificate.idealRightPosition certificate.idealLeftMomentum
+    error := endpointDotError certificate.idealLeftPosition
+      certificate.idealRightPosition certificate.computedLeftMomentum
+      certificate.leftPositionError certificate.rightPositionError
+      certificate.leftMomentumError
+    bound := endpointDot_approximates certificate.computedLeftPosition
+      certificate.idealLeftPosition certificate.computedRightPosition
+      certificate.idealRightPosition certificate.computedLeftMomentum
+      certificate.idealLeftMomentum certificate.leftPositionError
+      certificate.rightPositionError certificate.leftMomentumError
+      certificate.leftPositionBound certificate.rightPositionBound
+      certificate.leftMomentumBound
+    separated := certificate.leftSeparated }
+  rightMomentum := {
+    computed := endpointDot certificate.computedLeftPosition
+      certificate.computedRightPosition certificate.computedRightMomentum
+    ideal := endpointDot certificate.idealLeftPosition
+      certificate.idealRightPosition certificate.idealRightMomentum
+    error := endpointDotError certificate.idealLeftPosition
+      certificate.idealRightPosition certificate.computedRightMomentum
+      certificate.leftPositionError certificate.rightPositionError
+      certificate.rightMomentumError
+    bound := endpointDot_approximates certificate.computedLeftPosition
+      certificate.idealLeftPosition certificate.computedRightPosition
+      certificate.idealRightPosition certificate.computedRightMomentum
+      certificate.idealRightMomentum certificate.leftPositionError
+      certificate.rightPositionError certificate.rightMomentumError
+      certificate.leftPositionBound certificate.rightPositionBound
+      certificate.rightMomentumBound
+    separated := certificate.rightSeparated }
 
 /-- Tree-local certificate proposition: only decisions actually visited by
 this completed recursive tree need witnesses. -/

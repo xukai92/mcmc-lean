@@ -4099,3 +4099,21 @@ two-sided comparison, U-turn, and exact-boundary rejection cases. As elsewhere
 in the numerical layer, supplied ideal values and analytic bounds remain proof
 inputs; these records do not establish arbitrary callback or platform error
 bounds by observation alone.
+
+## 2026-08-17: compositional vector U-turn bounds
+
+Removed the need for an opaque endpoint-dot error premise.
+`endpointDot_approximates` derives the error of each Euclidean U-turn dot
+product from componentwise left/right position and momentum bounds, following
+the exact subtraction, multiplication, and finite-sum expression.
+`roundedEndpointDot_approximates` then composes an explicit bound for the
+backend's final floating-point arithmetic/reduction. A
+`VectorUTurnDecisionCertificate` packages both endpoint momenta and derives
+the scalar sign certificates used by the recursive-tree theorem. Julia mirrors
+the formula, checks every component against its supplied BigFloat ideal,
+requires a separate reduction-rounding budget, and exposes a fail-closed
+decision returning `nothing` at ambiguous margins. The trajectory wrapper
+constructs this evidence for every adjacent endpoint pair and returns the full
+Boolean barrier vector only when every edge is stable. This advances numerical
+composition but still treats ideal phase endpoints and their analytic error
+bounds as external witnesses.
