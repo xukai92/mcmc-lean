@@ -658,6 +658,40 @@ noncomputable def expandRight (logDensity : ℝ → ℝ) (threshold width : ℝ)
       if logDensity right ≤ threshold then right
       else expandRight logDensity threshold width steps (right + width)
 
+/-- Fixed-budget left expansion is jointly measurable in threshold and its
+current endpoint. -/
+theorem measurable_expandLeft
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (width : ℝ) (steps : ℕ) :
+    Measurable (fun point : ℝ × ℝ =>
+      expandLeft logDensity point.1 width steps point.2) := by
+  induction steps with
+  | zero => exact measurable_snd
+  | succ steps ih =>
+      simp only [expandLeft]
+      exact Measurable.ite
+        (measurableSet_le (hlogDensity.comp measurable_snd) measurable_fst)
+        measurable_snd
+        (ih.comp (measurable_fst.prodMk
+          (measurable_snd.sub measurable_const)))
+
+/-- Fixed-budget right expansion is jointly measurable in threshold and its
+current endpoint. -/
+theorem measurable_expandRight
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (width : ℝ) (steps : ℕ) :
+    Measurable (fun point : ℝ × ℝ =>
+      expandRight logDensity point.1 width steps point.2) := by
+  induction steps with
+  | zero => exact measurable_snd
+  | succ steps ih =>
+      simp only [expandRight]
+      exact Measurable.ite
+        (measurableSet_le (hlogDensity.comp measurable_snd) measurable_fst)
+        measurable_snd
+        (ih.comp (measurable_fst.prodMk
+          (measurable_snd.add measurable_const)))
+
 /-- A prefix of grid points known to lie strictly inside the slice can be
 discarded from a leftward stepping-out scan. This is the recursion lemma used
 when rerooting an aligned bracket at another accepted slice point. -/
@@ -1436,6 +1470,34 @@ noncomputable def runtimeSteppedBracket
       (initialLeft width current (alignmentCoordinate offset)),
     expandRight logDensity threshold width (intervals - 1 - leftSteps)
       (initialRight width current (alignmentCoordinate offset)))
+
+theorem measurable_runtimeSteppedBracket_fixedAllocation
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (width : ℝ) (intervals : ℕ) (allocation : ℤ) :
+    Measurable (fun point : (ℝ × ℝ) × Alignment =>
+      runtimeSteppedBracket logDensity point.1.1 width point.1.2
+        intervals allocation point.2) := by
+  have hthreshold : Measurable (fun point : (ℝ × ℝ) × Alignment => point.1.1) :=
+    measurable_fst.comp measurable_fst
+  have hcurrent : Measurable (fun point : (ℝ × ℝ) × Alignment => point.1.2) :=
+    measurable_snd.comp measurable_fst
+  have hoffset : Measurable (fun point : (ℝ × ℝ) × Alignment =>
+      alignmentCoordinate point.2) :=
+    measurable_alignmentCoordinate.comp measurable_snd
+  have hinitialLeft : Measurable (fun point : (ℝ × ℝ) × Alignment =>
+      initialLeft width point.1.2 (alignmentCoordinate point.2)) := by
+    unfold initialLeft
+    exact hcurrent.sub (measurable_const.mul hoffset)
+  have hinitialRight : Measurable (fun point : (ℝ × ℝ) × Alignment =>
+      initialRight width point.1.2 (alignmentCoordinate point.2)) := by
+    unfold initialRight
+    exact hinitialLeft.add measurable_const
+  unfold runtimeSteppedBracket
+  exact ((measurable_expandLeft hlogDensity width allocation.toNat).comp
+      (hthreshold.prodMk hinitialLeft)).prodMk
+    ((measurable_expandRight hlogDensity width
+      (intervals - 1 - allocation.toNat)).comp
+        (hthreshold.prodMk hinitialRight))
 
 /-- After replaying the actual rejected points, this is the bracket from which
 the final proposal coordinate is interpreted. -/

@@ -4403,3 +4403,14 @@ the resulting Markov trace kernel.
 primitive practical trace base and density. Its remaining client hypotheses
 are now accurately stated as joint measurability and success mass at most one;
 normalization is no longer incorrectly demanded of the success branch alone.
+
+## 2026-08-17: practical-trace measurability foundations
+
+Started the concrete measurability proof at the recursive algorithm boundary.
+For every fixed expansion budget, both left and right stepping-out scans are
+proved jointly measurable in the log threshold and current endpoint under a
+measurable log density. These lemmas compose with the measurable circle
+coordinate to prove the derived stopped bracket measurable for every fixed
+integer allocation. The remaining assembly uses the discrete allocation
+partition and the finite-dimensional rejected-point recursion before lifting
+through the variable-length sigma measure.
