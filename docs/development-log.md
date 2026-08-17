@@ -1,5 +1,16 @@
 # Development log
 
+- Closed the rejected-length sigma assembly for the practical-slice joint
+  law. The variable-dimensional runtime base is now proved equal to the
+  countable sum of its embedded finite-dimensional Lebesgue fibers, and the
+  same identity is proved after attaching the exact runtime likelihood.
+  Fixed-length guarded rerooting commutes with every fiber embedding; summing
+  the already-certified fixed laws proves that the genuine variable-length
+  guarded replay preserves the complete likelihood-weighted augmented law.
+  The remaining end-to-end step is to adjoin the explicit exhaustion outcome
+  and identify the resulting preserved law with
+  `completedRuntimeTraceKernelFromFibers` before projection to the sampler.
+
 - Built the repeated finite-horizon executor above the partial inverse clock.
   One capped step carries remaining time in the state, draws a fresh unit
   exponential mark, restarts after a reachable exact event, or completes the
