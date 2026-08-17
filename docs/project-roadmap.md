@@ -696,8 +696,13 @@ by paper date:
    identical future event location and bounce. Conditional on survival, that
    residual mark is exactly unit exponential again, in both normalized and
    unnormalized measure forms. Lifting this boundary coupling through all
-   completed prefixes to obtain the arbitrary positive-time composition law,
-   target stationarity, and ergodicity remains.
+   completed prefixes now uses measurable, pairwise-disjoint strata indexed by
+   the selected finite completion count; these strata cover almost every
+   stream and expose the active preterminal state. The terminal candidate is
+   proved to be either a genuine no-event overshoot or an exact boundary ring,
+   isolating the remaining null-equality calculation. Countwise residual-law
+   transport and gluing are still needed for the arbitrary positive-time
+   composition law, target stationarity, and ergodicity.
 
    The nonlinear reversible-jump branch is complete at the exact theorem and
    executable-client levels; only the shared Float64 primitive boundary

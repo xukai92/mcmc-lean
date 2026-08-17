@@ -4910,3 +4910,12 @@ mapping by hazard subtraction yields the unit-exponential law scaled by the
 survival mass, and normalization recovers the unit law exactly. The remaining
 composition proof must lift this coupling through the random completed-prefix
 selector, but no local memorylessness or clock-geometry premise remains.
+
+The random selector is now reduced to countable finite-prefix pieces. Generic
+inverse-clock code defines measurable genuine-completion strata, proves them
+pairwise disjoint and almost-surely exhaustive, and identifies the totalized
+endpoint with the corresponding finite replay on each piece. Positive
+horizons cannot occupy count zero; on stratum `n+1`, prefix `n` is still active
+and its next capped step finishes. That terminal candidate is either the
+no-event branch or has wait exactly equal to remaining time, isolating the
+continuous-law boundary-null event needed before countwise gluing.

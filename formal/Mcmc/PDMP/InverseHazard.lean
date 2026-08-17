@@ -1034,6 +1034,135 @@ theorem PartialInverseHazardClock.replayFinished_completionCount_ae
   rw [clock.replayPrefix_eq_executeHazards]
   rw [hcount]
 
+/-- Measurable stratum on which the selected completion count is a specified
+finite index and is a genuine completed prefix rather than the total fallback. -/
+def PartialInverseHazardClock.genuineCompletionStratum
+    (clock : PartialInverseHazardClock State) (jump : State → State)
+    (horizon : NNReal) (initial : State) (count : ℕ) : Set (ℕ → NNReal) :=
+  {hazards | clock.completionCount jump ((horizon, initial), hazards) = count ∧
+    clock.replayFinished jump ((horizon, initial), hazards) count}
+
+theorem PartialInverseHazardClock.measurableSet_genuineCompletionStratum
+    (clock : PartialInverseHazardClock State) {jump : State → State}
+    (hjump : Measurable jump) (horizon : NNReal) (initial : State)
+    (count : ℕ) :
+    MeasurableSet (clock.genuineCompletionStratum jump horizon initial count) := by
+  apply MeasurableSet.inter
+  · exact (measurableSet_singleton count).preimage
+      (clock.measurable_completionCount hjump |>.comp
+        ((measurable_const.prodMk measurable_const).prodMk measurable_id))
+  · exact (clock.measurableSet_replayFinished hjump count).preimage
+      ((measurable_const.prodMk measurable_const).prodMk measurable_id)
+
+theorem PartialInverseHazardClock.genuineCompletionStratum_pairwiseDisjoint
+    (clock : PartialInverseHazardClock State) (jump : State → State)
+    (horizon : NNReal) (initial : State) :
+    Pairwise fun left right => Disjoint
+      (clock.genuineCompletionStratum jump horizon initial left)
+      (clock.genuineCompletionStratum jump horizon initial right) := by
+  intro left right hne
+  rw [Set.disjoint_left]
+  intro hazards hleft hright
+  exact hne (hleft.1.symm.trans hright.1)
+
+/-- Under finite-horizon completion, the genuine count strata cover almost
+every hazard stream. -/
+theorem PartialInverseHazardClock.ae_mem_iUnion_genuineCompletionStratum
+    (clock : PartialInverseHazardClock State) (jump : State → State)
+    (hcomplete : clock.CompletesFiniteHorizons jump)
+    (horizon : NNReal) (initial : State) :
+    ∀ᵐ hazards ∂unitHazardSequenceMeasure,
+      hazards ∈ ⋃ count,
+        clock.genuineCompletionStratum jump horizon initial count := by
+  filter_upwards [clock.replayFinished_completionCount_ae jump hcomplete
+    horizon initial] with hazards hfinished
+  apply Set.mem_iUnion.mpr
+  refine ⟨clock.completionCount jump ((horizon, initial), hazards), ?_⟩
+  exact ⟨rfl, hfinished⟩
+
+/-- A positive horizon cannot genuinely complete at the zero prefix. -/
+theorem PartialInverseHazardClock.genuineCompletionStratum_zero_eq_empty
+    (clock : PartialInverseHazardClock State) (jump : State → State)
+    {horizon : NNReal} (hhorizon : 0 < horizon) (initial : State) :
+    clock.genuineCompletionStratum jump horizon initial 0 = ∅ := by
+  ext hazards
+  simp only [Set.mem_empty_iff_false, iff_false]
+  intro hmem
+  exact hhorizon.ne' hmem.2
+
+/-- On the `(count+1)` stratum, the prefix before the terminal candidate is
+still active. -/
+theorem PartialInverseHazardClock.replayPrefix_fst_ne_zero_on_succ_stratum
+    (clock : PartialInverseHazardClock State) (jump : State → State)
+    (horizon : NNReal) (initial : State) (count : ℕ)
+    {hazards : ℕ → NNReal}
+    (hmem : hazards ∈
+      clock.genuineCompletionStratum jump horizon initial (count + 1)) :
+    (clock.replayPrefix jump count ((horizon, initial), hazards)).1 ≠ 0 := by
+  classical
+  intro hzero
+  have hp : clock.completionSearch jump ((horizon, initial), hazards) count :=
+    Or.inl hzero
+  have hle := Nat.find_min'
+    (clock.completionSearch_exists jump ((horizon, initial), hazards)) hp
+  change clock.completionCount jump ((horizon, initial), hazards) ≤ count at hle
+  rw [hmem.1] at hle
+  omega
+
+/-- The candidate at the end of a `(count+1)` stratum sets remaining time to
+zero. -/
+theorem PartialInverseHazardClock.cappedStep_fst_eq_zero_on_succ_stratum
+    (clock : PartialInverseHazardClock State) (jump : State → State)
+    (horizon : NNReal) (initial : State) (count : ℕ)
+    {hazards : ℕ → NNReal}
+    (hmem : hazards ∈
+      clock.genuineCompletionStratum jump horizon initial (count + 1)) :
+    (clock.cappedStepUpdate jump
+      (clock.replayPrefix jump count ((horizon, initial), hazards),
+        hazards count)).1 = 0 := by
+  exact hmem.2
+
+/-- A terminal candidate either takes the no-event branch or rings exactly at
+the remaining-horizon boundary. The latter equality is a null case for a
+continuous hazard law and is isolated for the stratum-wise splice proof. -/
+theorem PartialInverseHazardClock.terminal_noEvent_or_wait_eq_remaining
+    (clock : PartialInverseHazardClock State) (jump : State → State)
+    (horizon : NNReal) (initial : State) (count : ℕ)
+    {hazards : ℕ → NNReal}
+    (hmem : hazards ∈
+      clock.genuineCompletionStratum jump horizon initial (count + 1)) :
+    (¬(0 < (clock.replayPrefix jump count
+            ((horizon, initial), hazards)).1 ∧
+        clock.active
+            (clock.replayPrefix jump count
+              ((horizon, initial), hazards)).2
+            (hazards count) = true ∧
+        clock.waitingTime
+            (clock.replayPrefix jump count
+              ((horizon, initial), hazards)).2
+            (hazards count) ≤
+          (clock.replayPrefix jump count
+            ((horizon, initial), hazards)).1)) ∨
+      clock.waitingTime
+          (clock.replayPrefix jump count
+            ((horizon, initial), hazards)).2
+          (hazards count) =
+        (clock.replayPrefix jump count
+          ((horizon, initial), hazards)).1 := by
+  let before := clock.replayPrefix jump count ((horizon, initial), hazards)
+  let hazard := hazards count
+  by_cases hcondition : 0 < before.1 ∧
+      clock.active before.2 hazard = true ∧
+      clock.waitingTime before.2 hazard ≤ before.1
+  · right
+    have hzero := clock.cappedStep_fst_eq_zero_on_succ_stratum jump
+      horizon initial count hmem
+    rw [clock.cappedStepUpdate_of_event jump hcondition.1
+      hcondition.2.1 hcondition.2.2] at hzero
+    change before.1 - clock.waitingTime before.2 hazard = 0 at hzero
+    exact le_antisymm hcondition.2.2 (tsub_eq_zero_iff_le.mp hzero)
+  · exact Or.inl hcondition
+
 /-- Totalized endpoint selected at the first completed prefix. On the null
 explosive set it returns the zero-prefix state. -/
 noncomputable def PartialInverseHazardClock.completedReplayEndpoint
@@ -1078,6 +1207,18 @@ theorem PartialInverseHazardClock.completedReplayEndpoint_eq_replayPrefix
     hfinished (le_max_right selected count)
   unfold PartialInverseHazardClock.completedReplayEndpoint
   exact congrArg Prod.snd (hselectedStable.symm.trans hcountStable)
+
+/-- On a genuine stratum, the totalized endpoint is exactly the corresponding
+finite replay prefix. -/
+theorem PartialInverseHazardClock.completedReplayEndpoint_eq_on_stratum
+    (clock : PartialInverseHazardClock State) (jump : State → State)
+    (horizon : NNReal) (initial : State) (count : ℕ)
+    {hazards : ℕ → NNReal}
+    (hmem : hazards ∈
+      clock.genuineCompletionStratum jump horizon initial count) :
+    clock.completedReplayEndpoint jump ((horizon, initial), hazards) =
+      (clock.replayPrefix jump count ((horizon, initial), hazards)).2 :=
+  clock.completedReplayEndpoint_eq_replayPrefix jump _ count hmem.2
 
 /-- Pointwise head/tail recursion on every tail stream that completes: direct
 execution on `cons(head, tail)` has the same endpoint as execution from the
