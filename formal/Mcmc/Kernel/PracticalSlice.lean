@@ -19,6 +19,7 @@ does not by itself assert stationarity.
 namespace Mcmc.Kernel.PracticalSlice
 
 open MeasureTheory
+open Function
 
 /-- A measure-preserving map also preserves a measurable reweighting whenever
 the density is pointwise invariant. This packages the likelihood-factor step
@@ -75,6 +76,10 @@ theorem alignmentCoordinate_mem (offset : Alignment) :
     alignmentCoordinate offset ∈ Set.Ico (0 : ℝ) 1 := by
   simpa [alignmentCoordinate] using
     (AddCircle.equivIco (1 : ℝ) 0 offset).2
+
+theorem measurable_alignmentCoordinate : Measurable alignmentCoordinate := by
+  exact measurable_subtype_coe.comp
+    (AddCircle.measurableEquivIco (1 : ℝ) 0).measurable
 
 /-- Random choices consumed before shrinkage. `offset` positions the initial
 width-sized bracket and `leftSteps` allocates the finite expansion budget. -/
@@ -182,6 +187,81 @@ theorem alignmentShift_reverse
   rw [reverseOffset_reverseOffset hwidth hoffset]
   field_simp
   ring
+
+/-- Haar offsets whose rerooting displacement is one fixed integer. These
+sets are the genuine dependent indices for the finite allocation types. -/
+def alignmentShiftStratum (width old new : ℝ) (shift : ℤ) : Set Alignment :=
+  {offset | alignmentShift width old new (alignmentCoordinate offset) = shift}
+
+theorem measurable_alignmentShift (width old new : ℝ) :
+    Measurable (alignmentShift width old new) := by
+  unfold alignmentShift
+  exact (measurable_const.div measurable_const |>.sub
+      (measurable_reverseOffset width old new)).sub
+    ((measurable_const.div measurable_const).sub measurable_id)
+
+theorem measurableSet_alignmentShiftStratum
+    (width old new : ℝ) (shift : ℤ) :
+    MeasurableSet (alignmentShiftStratum width old new shift) := by
+  exact measurableSet_eq_fun
+    ((measurable_alignmentShift width old new).comp measurable_alignmentCoordinate)
+    measurable_const
+
+/-- Alignment reversal exchanges the shift stratum with its negation. -/
+theorem reverseAlignment_preimage_alignmentShiftStratum
+    {width old new : ℝ} (hwidth : width ≠ 0) (shift : ℤ) :
+    reverseAlignment width old new ⁻¹'
+        alignmentShiftStratum width new old (-shift) =
+      alignmentShiftStratum width old new shift := by
+  ext offset
+  simp only [Set.mem_preimage, alignmentShiftStratum, Set.mem_setOf_eq,
+    alignmentCoordinate_reverseAlignment]
+  rw [alignmentShift_reverse hwidth (alignmentCoordinate_mem offset)]
+  push_cast
+  constructor <;> intro h
+  · linarith
+  · linarith
+
+/-- Haar translation preserves the restricted alignment law while changing
+the dependent allocation index from `shift` to `-shift`. -/
+theorem reverseAlignment_restrict_stratum_measurePreserving
+    {width old new : ℝ} (hwidth : width ≠ 0) (shift : ℤ) :
+    MeasurePreserving (reverseAlignment width old new)
+      ((volume : Measure Alignment).restrict
+        (alignmentShiftStratum width old new shift))
+      ((volume : Measure Alignment).restrict
+        (alignmentShiftStratum width new old (-shift))) := by
+  have h := (reverseAlignment_measurePreserving width old new).restrict_preimage
+    (measurableSet_alignmentShiftStratum width new old (-shift))
+  simpa [reverseAlignment_preimage_alignmentShiftStratum hwidth shift] using h
+
+/-- The integer alignment-shift strata are a measurable partition of Haar
+alignment space. Hence summing their restricted laws recovers the original
+uniform alignment law exactly. -/
+theorem sum_restrict_alignmentShiftStratum
+    {width old new : ℝ} (hwidth : width ≠ 0) :
+    Measure.sum (fun shift : ℤ =>
+      (volume : Measure Alignment).restrict
+        (alignmentShiftStratum width old new shift)) = volume := by
+  have hdisjoint : Pairwise (Disjoint on
+      fun shift : ℤ => alignmentShiftStratum width old new shift) := by
+    intro first second hne
+    change Disjoint (alignmentShiftStratum width old new first)
+      (alignmentShiftStratum width old new second)
+    rw [Set.disjoint_left]
+    intro offset hfirst hsecond
+    have heq : (first : ℝ) = (second : ℝ) := by
+      exact hfirst.symm.trans hsecond
+    exact hne (Int.cast_injective heq)
+  have hcover : (⋃ shift : ℤ,
+      alignmentShiftStratum width old new shift) = Set.univ := by
+    ext offset
+    simp only [Set.mem_iUnion, Set.mem_univ, iff_true]
+    refine ⟨⌊alignmentCoordinate offset + (new - old) / width⌋, ?_⟩
+    exact alignmentShift_eq_floor hwidth
+  rw [← Measure.restrict_iUnion hdisjoint
+    (measurableSet_alignmentShiftStratum width old new), hcover,
+    Measure.restrict_univ]
 
 /-- Expansion allocations for which Neal's integer displacement stays inside
 the finite uniform allocation range. This is exactly the allocation component
@@ -1062,6 +1142,37 @@ theorem successfulTraceStratumReverse_measurePreserving
   funext trace
   rfl
 
+/-- The genuinely dependent shift stratum: the alignment is restricted to
+exactly those offsets whose grid displacement indexes the accompanying valid
+allocation type. Reversal maps this law to the `-shift` stratum. -/
+theorem dependentSuccessfulTraceStratumReverse_measurePreserving
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (threshold : ℝ) (intervals : ℕ) (shift : ℤ)
+    {width old new : ℝ} (hgridWidth : width ≠ 0)
+    {left right : ℝ} (hbracketWidth : left < right) :
+    MeasurePreserving
+      (successfulTraceStratumReverse intervals shift width old new left right)
+      ((((volume : Measure Alignment).restrict
+          (alignmentShiftStratum width old new shift)).prod
+          (Measure.count : Measure (ValidAllocation intervals shift))).prod
+        (((volume : Measure ℝ).prod volume).restrict
+          (acceptedProposalSuccess logDensity threshold left right)))
+      ((((volume : Measure Alignment).restrict
+          (alignmentShiftStratum width new old (-shift))).prod
+          (Measure.count : Measure (ValidAllocation intervals (-shift)))).prod
+        (((volume : Measure ℝ).prod volume).restrict
+          (acceptedProposalSuccess logDensity threshold left right))) := by
+  have hfirst :=
+    (reverseAlignment_restrict_stratum_measurePreserving
+      (old := old) (new := new) hgridWidth shift).prod
+      (reverseAllocation_measurePreserving intervals shift)
+  have hall := hfirst.prod
+    (acceptedProposalReverse_restrict_measurePreserving hlogDensity threshold
+      hbracketWidth)
+  convert hall using 1
+  funext trace
+  rfl
+
 /-- Lift any density on the old/proposed pair to current-point/uniform-fraction
 coordinates in a fixed bracket. -/
 noncomputable def acceptedProposalPairDensity (left right : ℝ)
@@ -1134,6 +1245,35 @@ theorem successfulTraceStratumReverse_withDensity_measurePreserving
   have hall := hfirst.prod
     (acceptedProposalReverse_withDensity_measurePreserving hwidth hpairDensity
       hsymmetric)
+  convert hall using 1
+  funext trace
+  rfl
+
+/-- Weighted version on the true offset-dependent allocation stratum. -/
+theorem dependentSuccessfulTraceStratumReverse_withDensity_measurePreserving
+    (intervals : ℕ) (shift : ℤ) {width old new : ℝ}
+    (hgridWidth : width ≠ 0) {left right : ℝ} (hbracketWidth : left < right)
+    {pairDensity : ℝ × ℝ → ENNReal} (hpairDensity : Measurable pairDensity)
+    (hsymmetric : ∀ old new, pairDensity (old, new) = pairDensity (new, old)) :
+    MeasurePreserving
+      (successfulTraceStratumReverse intervals shift width old new left right)
+      ((((volume : Measure Alignment).restrict
+          (alignmentShiftStratum width old new shift)).prod
+          (Measure.count : Measure (ValidAllocation intervals shift))).prod
+        (((volume : Measure ℝ).prod volume).withDensity
+          (acceptedProposalPairDensity left right pairDensity)))
+      ((((volume : Measure Alignment).restrict
+          (alignmentShiftStratum width new old (-shift))).prod
+          (Measure.count : Measure (ValidAllocation intervals (-shift)))).prod
+        (((volume : Measure ℝ).prod volume).withDensity
+          (acceptedProposalPairDensity left right pairDensity))) := by
+  have hfirst :=
+    (reverseAlignment_restrict_stratum_measurePreserving
+      (old := old) (new := new) hgridWidth shift).prod
+      (reverseAllocation_measurePreserving intervals shift)
+  have hall := hfirst.prod
+    (acceptedProposalReverse_withDensity_measurePreserving hbracketWidth
+      hpairDensity hsymmetric)
   convert hall using 1
   funext trace
   rfl

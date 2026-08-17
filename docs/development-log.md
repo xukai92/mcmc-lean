@@ -4267,3 +4267,16 @@ likelihood, including the shape established by the shrink-trace symmetry
 theorems. The remaining global step is a dependent sum over offset-derived
 integer shifts, stopped brackets, and rejected-trace lengths; this commit does
 not collapse those varying types into a fictitious ordinary product.
+
+## 2026-08-17: offset-dependent practical-slice strata
+
+Formalized the missing dependence between the continuous alignment and finite
+allocation type. `alignmentShiftStratum` is the measurable set of Haar offsets
+with one integer grid displacement. Lean proves these strata are disjoint,
+cover the alignment circle, and their restricted measures sum to Haar volume.
+Alignment reversal maps the `shift` stratum exactly onto `-shift`; composing
+that restricted map with allocation rerooting and accepted-point reversal
+gives both restricted-volume and symmetric-density preservation on the true
+dependent stratum. The unresolved gluing is now confined to the sigma-type of
+varying rejected-point sequence dimensions and stopped brackets, rather than
+the offset/allocation dependence.
