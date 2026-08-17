@@ -2015,6 +2015,365 @@ theorem standardGaussianBPSActivePrefixResidualJointMeasure_eq_fresh
     (standardGaussianBPSTerminalThreshold (ι := ι) horizon initial count)
     (measurable_standardGaussianBPSTerminalThreshold horizon initial count)
 
+/-- Exact block-coordinate stratum law: restrict the factorized iid input to
+an active prefix and a surviving terminal mark, transform to prefix plus
+residual stream, and obtain the survival-weighted prefix with a fresh iid
+stream. -/
+theorem standardGaussianBPSActivePrefixResidualBlockLaw
+    (horizon : NNReal) (initial : BouncyParticleState ι) (count : ℕ) :
+    Measure.map
+        (fun blocks : (Fin count → NNReal) ×
+            (NNReal × (ℕ → NNReal)) =>
+          (blocks.1,
+            standardGaussianBPSSplitResidualFromBlocks (ι := ι)
+              horizon initial count blocks))
+        ((((unitHazardPrefixMeasure count).restrict
+            (standardGaussianBPSActivePrefixSet (ι := ι)
+              horizon initial count)).prod
+            (unitHazardMeasure.prod unitHazardSequenceMeasure)).restrict
+          {blocks |
+            standardGaussianBPSTerminalThreshold (ι := ι)
+              horizon initial count blocks.1 < blocks.2.1}) =
+      unitHazardPrefixFreshJointKernel
+          (standardGaussianBPSTerminalThreshold (ι := ι)
+            horizon initial count) ∘ₘ
+        ((unitHazardPrefixMeasure count).restrict
+          (standardGaussianBPSActivePrefixSet (ι := ι)
+            horizon initial count)) := by
+  let threshold := standardGaussianBPSTerminalThreshold (ι := ι)
+    horizon initial count
+  let active := standardGaussianBPSActivePrefixSet (ι := ι)
+    horizon initial count
+  have hsource := unitHazardPrefixResidualJointKernel_comp_eq_map_restrict
+    (unitHazardPrefixMeasure count) active threshold
+      (measurable_standardGaussianBPSTerminalThreshold horizon initial count)
+  have hfresh := unitHazardPrefixResidualJointComp_eq_fresh
+    (unitHazardPrefixMeasure count) active threshold
+      (measurable_standardGaussianBPSTerminalThreshold horizon initial count)
+  calc
+    _ = unitHazardPrefixResidualJointKernel threshold ∘ₘ
+        ((unitHazardPrefixMeasure count).restrict active) := by
+      simpa [threshold, active,
+        standardGaussianBPSSplitResidualFromBlocks] using hsource
+    _ = _ := hfresh
+
+/-- Prefix together with the residual stream produced by splitting on a fixed
+completion stratum. -/
+noncomputable def standardGaussianBPSSplitPrefixStream
+    (horizon : NNReal) (initial : BouncyParticleState ι) (count : ℕ)
+    (hazards : ℕ → NNReal) : (Fin count → NNReal) × (ℕ → NNReal) :=
+  (fun index => hazards index,
+    standardGaussianBPSSplitResidualStream (ι := ι)
+      horizon initial count hazards)
+
+theorem measurable_standardGaussianBPSSplitPrefixStream
+    (horizon : NNReal) (initial : BouncyParticleState ι) (count : ℕ) :
+    Measurable (standardGaussianBPSSplitPrefixStream
+      (ι := ι) horizon initial count) := by
+  unfold standardGaussianBPSSplitPrefixStream
+  apply Measurable.prodMk
+  · exact measurable_pi_lambda _ fun index =>
+      (show Measurable (fun hazards : ℕ → NNReal => hazards index) from
+        measurable_pi_apply (index : ℕ))
+  · exact measurable_standardGaussianBPSSplitResidualStream
+      horizon initial count
+
+/-- The original iid stream restricted to one genuine completion stratum,
+mapped to finite prefix plus residual stream, has exactly the integrated fresh
+block law. -/
+theorem standardGaussianBPSSplitPrefixStream_stratumLaw
+    (horizon : NNReal) (initial : BouncyParticleState ι)
+    (hvelocity : initial.2 ≠ 0) (count : ℕ) :
+    Measure.map
+        (standardGaussianBPSSplitPrefixStream (ι := ι)
+          horizon initial count)
+        (unitHazardSequenceMeasure.restrict
+          ((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+            |>.genuineCompletionStratum (standardGaussianBPSJump (ι := ι))
+              horizon initial (count + 1))) =
+      unitHazardPrefixFreshJointKernel
+          (standardGaussianBPSTerminalThreshold (ι := ι)
+            horizon initial count) ∘ₘ
+        ((unitHazardPrefixMeasure count).restrict
+          (standardGaussianBPSActivePrefixSet (ι := ι)
+            horizon initial count)) := by
+  let factor := unitHazardPrefixHeadTail count
+  let active := standardGaussianBPSActivePrefixSet (ι := ι)
+    horizon initial count
+  let threshold := standardGaussianBPSTerminalThreshold (ι := ι)
+    horizon initial count
+  let blockEvent : Set ((Fin count → NNReal) ×
+      (NNReal × (ℕ → NNReal))) :=
+    {blocks | blocks.1 ∈ active ∧ threshold blocks.1 < blocks.2.1}
+  let transform : ((Fin count → NNReal) ×
+      (NNReal × (ℕ → NNReal))) →
+      ((Fin count → NNReal) × (ℕ → NNReal)) := fun blocks =>
+    (blocks.1, standardGaussianBPSSplitResidualFromBlocks (ι := ι)
+      horizon initial count blocks)
+  have hfactor : Measurable factor := measurable_unitHazardPrefixHeadTail count
+  have htransform : Measurable transform := by
+    unfold transform
+    exact measurable_fst.prodMk
+      (measurable_standardGaussianBPSSplitResidualFromBlocks
+        horizon initial count)
+  have hblockEvent : MeasurableSet blockEvent := by
+    unfold blockEvent
+    exact (measurableSet_standardGaussianBPSActivePrefixSet
+      horizon initial count).preimage measurable_fst |>.inter
+        (measurableSet_lt
+          (measurable_standardGaussianBPSTerminalThreshold
+            horizon initial count |>.comp measurable_fst |>.coe_nnreal_real)
+          ((measurable_fst.comp measurable_snd).coe_nnreal_real))
+  have hsets :
+      ((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+        |>.genuineCompletionStratum (standardGaussianBPSJump (ι := ι))
+          horizon initial (count + 1)) =ᵐ[unitHazardSequenceMeasure]
+        factor ⁻¹' blockEvent := by
+    filter_upwards [standardGaussianBPS_mem_stratum_iff_prefix_survival_ae
+      (ι := ι) horizon initial hvelocity count] with hazards hhazards
+    apply propext
+    change (hazards ∈
+      ((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+        |>.genuineCompletionStratum (standardGaussianBPSJump (ι := ι))
+          horizon initial (count + 1)) ↔
+      (fun index : Fin count => hazards index) ∈ active ∧
+        threshold (fun index : Fin count => hazards index) < hazards count)
+    exact hhazards
+  rw [Measure.restrict_congr_set hsets]
+  have hcomposition :
+      standardGaussianBPSSplitPrefixStream (ι := ι)
+          horizon initial count = transform ∘ factor := by
+    funext hazards
+    apply Prod.ext
+    · rfl
+    · exact standardGaussianBPSSplitResidualStream_eq_fromBlocks
+        horizon initial count hazards
+  rw [hcomposition, ← Measure.map_map htransform hfactor]
+  rw [map_restrict_preimage_eq_restrict_map
+    unitHazardSequenceMeasure factor hfactor blockEvent hblockEvent]
+  rw [unitHazardSequenceMeasure_map_prefixHeadTail]
+  have hactive : MeasurableSet active :=
+    measurableSet_standardGaussianBPSActivePrefixSet horizon initial count
+  let survival : Set ((Fin count → NNReal) ×
+      (NNReal × (ℕ → NNReal))) :=
+    {blocks | threshold blocks.1 < blocks.2.1}
+  have hsurvival : MeasurableSet survival :=
+    measurableSet_lt
+      (measurable_standardGaussianBPSTerminalThreshold horizon initial count
+        |>.comp measurable_fst)
+      (measurable_fst.comp measurable_snd)
+  have hmeasure :
+      ((unitHazardPrefixMeasure count).prod
+          (unitHazardMeasure.prod unitHazardSequenceMeasure)).restrict
+          blockEvent =
+        (((unitHazardPrefixMeasure count).restrict active).prod
+          (unitHazardMeasure.prod unitHazardSequenceMeasure)).restrict
+            survival := by
+    rw [Measure.restrict_prod_eq_prod_univ,
+      Measure.restrict_restrict hsurvival]
+    congr 2
+    ext blocks
+    simp [blockEvent, survival, and_comm]
+  rw [hmeasure]
+  exact standardGaussianBPSActivePrefixResidualBlockLaw
+    horizon initial count
+
+/-- Product form of the stratum law: its survival-weighted finite-prefix
+measure is independent of a fresh iid residual stream. -/
+theorem standardGaussianBPSSplitPrefixStream_stratumLaw_eq_prod
+    (horizon : NNReal) (initial : BouncyParticleState ι)
+    (hvelocity : initial.2 ≠ 0) (count : ℕ) :
+    Measure.map
+        (standardGaussianBPSSplitPrefixStream (ι := ι)
+          horizon initial count)
+        (unitHazardSequenceMeasure.restrict
+          ((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+            |>.genuineCompletionStratum (standardGaussianBPSJump (ι := ι))
+              horizon initial (count + 1))) =
+      (((unitHazardPrefixMeasure count).restrict
+          (standardGaussianBPSActivePrefixSet (ι := ι)
+            horizon initial count)).withDensity
+        (fun marks =>
+          (Real.toNNReal (Real.exp
+            (-(standardGaussianBPSTerminalThreshold (ι := ι)
+              horizon initial count marks : ℝ))) : ENNReal))).prod
+        unitHazardSequenceMeasure := by
+  rw [standardGaussianBPSSplitPrefixStream_stratumLaw
+    horizon initial hvelocity count]
+  exact unitHazardPrefixFreshJointKernel_comp_eq_prod
+    ((unitHazardPrefixMeasure count).restrict
+      (standardGaussianBPSActivePrefixSet (ι := ι)
+        horizon initial count))
+    (standardGaussianBPSTerminalThreshold (ι := ι)
+      horizon initial count)
+    (measurable_standardGaussianBPSTerminalThreshold horizon initial count)
+
+/-- Endpoint determined solely by an active finite prefix: flow through the
+remaining part of its terminal no-event flight. -/
+noncomputable def standardGaussianBPSPrefixEndpoint
+    (horizon : NNReal) (initial : BouncyParticleState ι) (count : ℕ)
+    (marks : Fin count → NNReal) : BouncyParticleState ι :=
+  let before :=
+    (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+      |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+        ((horizon, initial), finiteHazardPrefixExtension count marks)
+  bouncyParticleFlow before.1 before.2
+
+set_option maxHeartbeats 800000 in
+theorem measurable_standardGaussianBPSPrefixEndpoint
+    (horizon : NNReal) (initial : BouncyParticleState ι) (count : ℕ) :
+    Measurable (standardGaussianBPSPrefixEndpoint
+      (ι := ι) horizon initial count) := by
+  unfold standardGaussianBPSPrefixEndpoint
+  let before : (Fin count → NNReal) → NNReal × BouncyParticleState ι :=
+    fun marks =>
+      (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+        |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+          ((horizon, initial), finiteHazardPrefixExtension count marks)
+  have hbefore : Measurable before :=
+    ((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+      |>.measurable_replayPrefix measurable_standardGaussianBPSJump count).comp
+        ((measurable_const.prodMk measurable_const).prodMk
+          (measurable_finiteHazardPrefixExtension count))
+  exact bouncyParticleJointlyMeasurableSemiflow.jointly_measurable_flow.comp
+    (hbefore.fst.prodMk hbefore.snd)
+
+theorem standardGaussianBPSPrefixEndpoint_apply
+    (horizon : NNReal) (initial : BouncyParticleState ι) (count : ℕ)
+    (hazards : ℕ → NNReal) :
+    standardGaussianBPSPrefixEndpoint (ι := ι) horizon initial count
+        (fun index : Fin count => hazards index) =
+      bouncyParticleFlow
+        (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+          |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+            ((horizon, initial), hazards)).1)
+        (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+          |>.replayPrefix (standardGaussianBPSJump (ι := ι)) count
+            ((horizon, initial), hazards)).2) := by
+  unfold standardGaussianBPSPrefixEndpoint
+  rw [(standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+    |>.replayPrefix_eq_executeHazards]
+  rw [(standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+    |>.replayPrefix_eq_executeHazards]
+  simp [hazardPrefix, finiteHazardPrefixExtension]
+
+/-- Completed first-interval endpoint paired with the stratum-specific
+residual hazard stream. -/
+noncomputable def standardGaussianBPSCompletedSplitPair
+    (horizon : NNReal) (initial : BouncyParticleState ι) (count : ℕ)
+    (hazards : ℕ → NNReal) : BouncyParticleState ι × (ℕ → NNReal) :=
+  ((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+      |>.completedReplayEndpoint (standardGaussianBPSJump (ι := ι))
+        ((horizon, initial), hazards),
+    standardGaussianBPSSplitResidualStream (ι := ι)
+      horizon initial count hazards)
+
+theorem measurable_standardGaussianBPSCompletedSplitPair
+    (horizon : NNReal) (initial : BouncyParticleState ι) (count : ℕ) :
+    Measurable (standardGaussianBPSCompletedSplitPair
+      (ι := ι) horizon initial count) := by
+  unfold standardGaussianBPSCompletedSplitPair
+  exact (((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+    |>.measurable_completedReplayEndpoint measurable_standardGaussianBPSJump)
+      |>.comp ((measurable_const.prodMk measurable_const).prodMk
+        measurable_id)).prodMk
+    (measurable_standardGaussianBPSSplitResidualStream horizon initial count)
+
+/-- On each completion stratum, the completed endpoint is independent of the
+fresh residual iid stream.  Its first marginal is the survival-weighted prefix
+law pushed through the deterministic prefix endpoint. -/
+theorem standardGaussianBPSCompletedSplitPair_stratumLaw_eq_prod
+    (horizon : NNReal) (initial : BouncyParticleState ι)
+    (hvelocity : initial.2 ≠ 0) (count : ℕ) :
+    Measure.map
+        (standardGaussianBPSCompletedSplitPair (ι := ι)
+          horizon initial count)
+        (unitHazardSequenceMeasure.restrict
+          ((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+            |>.genuineCompletionStratum (standardGaussianBPSJump (ι := ι))
+              horizon initial (count + 1))) =
+      (Measure.map
+        (standardGaussianBPSPrefixEndpoint (ι := ι)
+          horizon initial count)
+        (((unitHazardPrefixMeasure count).restrict
+          (standardGaussianBPSActivePrefixSet (ι := ι)
+            horizon initial count)).withDensity
+        (fun marks =>
+          (Real.toNNReal (Real.exp
+            (-(standardGaussianBPSTerminalThreshold (ι := ι)
+              horizon initial count marks : ℝ))) : ENNReal)))).prod
+        unitHazardSequenceMeasure := by
+  let stratum :=
+    (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+      |>.genuineCompletionStratum (standardGaussianBPSJump (ι := ι))
+        horizon initial (count + 1)
+  let prefixLaw :=
+    ((unitHazardPrefixMeasure count).restrict
+      (standardGaussianBPSActivePrefixSet (ι := ι)
+        horizon initial count)).withDensity
+      (fun marks =>
+        (Real.toNNReal (Real.exp
+          (-(standardGaussianBPSTerminalThreshold (ι := ι)
+            horizon initial count marks : ℝ))) : ENNReal))
+  let mapPair := Prod.map
+    (standardGaussianBPSPrefixEndpoint (ι := ι) horizon initial count)
+    (id : (ℕ → NNReal) → ℕ → NNReal)
+  have hmapPair : Measurable mapPair :=
+    (measurable_standardGaussianBPSPrefixEndpoint horizon initial count).prodMap
+      measurable_id
+  have hstratum : MeasurableSet stratum :=
+    (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+      |>.measurableSet_genuineCompletionStratum
+        measurable_standardGaussianBPSJump horizon initial (count + 1)
+  have heq :
+      mapPair ∘ standardGaussianBPSSplitPrefixStream (ι := ι)
+          horizon initial count =ᵐ[unitHazardSequenceMeasure.restrict stratum]
+        standardGaussianBPSCompletedSplitPair (ι := ι)
+          horizon initial count := by
+    change ∀ᵐ hazards ∂unitHazardSequenceMeasure.restrict stratum,
+      (mapPair ∘ standardGaussianBPSSplitPrefixStream (ι := ι)
+        horizon initial count) hazards =
+        standardGaussianBPSCompletedSplitPair (ι := ι)
+          horizon initial count hazards
+    rw [ae_restrict_iff' hstratum]
+    filter_upwards [standardGaussianBPS_completedEndpoint_eq_flow_on_stratum_ae
+      (ι := ι) horizon initial hvelocity count] with hazards hendpoint hmem
+    apply Prod.ext
+    · exact (standardGaussianBPSPrefixEndpoint_apply
+        horizon initial count hazards).trans (hendpoint hmem).symm
+    · rfl
+  calc
+    Measure.map
+        (standardGaussianBPSCompletedSplitPair (ι := ι)
+          horizon initial count)
+        (unitHazardSequenceMeasure.restrict stratum) =
+      Measure.map
+        (mapPair ∘ standardGaussianBPSSplitPrefixStream (ι := ι)
+          horizon initial count)
+        (unitHazardSequenceMeasure.restrict stratum) :=
+      (Measure.map_congr heq).symm
+    _ = Measure.map mapPair
+        (Measure.map
+          (standardGaussianBPSSplitPrefixStream (ι := ι)
+            horizon initial count)
+          (unitHazardSequenceMeasure.restrict stratum)) := by
+      rw [Measure.map_map hmapPair
+        (measurable_standardGaussianBPSSplitPrefixStream
+          horizon initial count)]
+    _ = Measure.map mapPair
+        (prefixLaw.prod unitHazardSequenceMeasure) := by
+      rw [standardGaussianBPSSplitPrefixStream_stratumLaw_eq_prod
+        horizon initial hvelocity count]
+    _ = (Measure.map
+          (standardGaussianBPSPrefixEndpoint (ι := ι)
+            horizon initial count) prefixLaw).prod
+          unitHazardSequenceMeasure := by
+      rw [← Measure.map_prod_map prefixLaw unitHazardSequenceMeasure
+        (measurable_standardGaussianBPSPrefixEndpoint horizon initial count)
+        (measurable_id : Measurable (id : (ℕ → NNReal) → ℕ → NNReal)),
+        Measure.map_id]
+    _ = _ := rfl
+
 /-- On a genuine no-event terminal branch, the residual stream's head clock
 is exactly the unused portion of the original terminal clock. -/
 theorem standardGaussianBPSSplitResidualStream_waitingTime

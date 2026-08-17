@@ -490,9 +490,12 @@ breadth branches are:
   a fresh iid stream in every fixed-prefix fiber; and genuine completion
   strata are almost surely exactly active-prefix/terminal-survival sets.
   Those fibers are now integrated over the full active-prefix measure through
-  a reusable survival-weighted joint-kernel theorem. Identifying each original
-  restricted stratum with that integrated kernel and summing over counts
-  remain, followed by target invariance and convergence.
+  a reusable survival-weighted joint-kernel theorem. Each original restricted
+  completion stratum is now identified with that integrated kernel, and its
+  actual completed endpoint is proved independent of the fresh residual
+  stream with an explicit survival-weighted endpoint marginal. The countable
+  sum over completion counts remains, followed by target invariance and
+  convergence.
   Separately, the unbounded-rate standard-Gaussian Zig-Zag now has a genuine
   event kernel based on the closed-form inverse integrated hazard. Its unit
   exponential draw is positive almost surely, the inversion equation is

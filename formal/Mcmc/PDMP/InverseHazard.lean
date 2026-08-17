@@ -21,6 +21,21 @@ namespace Mcmc.PDMP
 
 variable {State : Type*} [MeasurableSpace State]
 
+/-- Mapping a measure restricted to the preimage of a measurable set is the
+restriction of the mapped measure. -/
+theorem map_restrict_preimage_eq_restrict_map
+    {α β : Type*} [MeasurableSpace α] [MeasurableSpace β]
+    (measure : Measure α) (f : α → β) (hf : Measurable f)
+    (set : Set β) (hset : MeasurableSet set) :
+    Measure.map f (measure.restrict (f ⁻¹' set)) =
+      (Measure.map f measure).restrict set := by
+  ext event hevent
+  rw [Measure.map_apply hf hevent,
+    Measure.restrict_apply (hevent.preimage hf),
+    Measure.restrict_apply hevent,
+    Measure.map_apply hf (hevent.inter hset)]
+  rfl
+
 /-- Canonical unit-exponential law for integrated hazard marks. -/
 noncomputable def unitHazardMeasure : Measure NNReal :=
   (HomogeneousClock.mk 1 zero_lt_one).waitMeasure
@@ -1034,6 +1049,118 @@ theorem unitHazardPrefixResidualJointMeasure_eq_fresh
       (prefixMeasure.restrict active) ⊗ₘ
         unitHazardPrefixFreshJointKernel threshold := by
   rw [unitHazardPrefixResidualJointKernel_eq_fresh threshold hthreshold]
+
+/-- Ordinary kernel--measure composition integrates the prefix without
+retaining a duplicate outer copy, yielding the `prefix × fresh stream` law
+used by completion-stratum gluing. -/
+theorem unitHazardPrefixResidualJointComp_eq_fresh
+    {Prefix : Type*} [MeasurableSpace Prefix]
+    (prefixMeasure : Measure Prefix)
+    (active : Set Prefix)
+    (threshold : Prefix → NNReal) (hthreshold : Measurable threshold) :
+    unitHazardPrefixResidualJointKernel threshold ∘ₘ
+        (prefixMeasure.restrict active) =
+      unitHazardPrefixFreshJointKernel threshold ∘ₘ
+        (prefixMeasure.restrict active) := by
+  rw [unitHazardPrefixResidualJointKernel_eq_fresh threshold hthreshold]
+
+/-- The residual joint kernel is exactly the pushforward of the
+active-prefix product law restricted to terminal survival. -/
+theorem unitHazardPrefixResidualJointKernel_comp_eq_map_restrict
+    {Prefix : Type*} [MeasurableSpace Prefix]
+    (prefixMeasure : Measure Prefix) [SFinite prefixMeasure]
+    (active : Set Prefix)
+    (threshold : Prefix → NNReal) (hthreshold : Measurable threshold) :
+    Measure.map
+        (fun blocks : Prefix × (NNReal × (ℕ → NNReal)) =>
+          (blocks.1,
+            unitHazardCons
+              (blocks.2.1 - threshold blocks.1, blocks.2.2)))
+        (((prefixMeasure.restrict active).prod
+          (unitHazardMeasure.prod unitHazardSequenceMeasure)).restrict
+            {blocks | threshold blocks.1 < blocks.2.1}) =
+      unitHazardPrefixResidualJointKernel threshold ∘ₘ
+        (prefixMeasure.restrict active) := by
+  let survival : Set (Prefix × (NNReal × (ℕ → NNReal))) :=
+    {blocks | threshold blocks.1 < blocks.2.1}
+  let density : Prefix → (NNReal × (ℕ → NNReal)) → NNReal :=
+    fun prefixValue headTail =>
+      if threshold prefixValue < headTail.1 then 1 else 0
+  let residualMap : Prefix × (NNReal × (ℕ → NNReal)) →
+      Prefix × (ℕ → NNReal) := fun blocks =>
+    (blocks.1,
+      unitHazardCons (blocks.2.1 - threshold blocks.1, blocks.2.2))
+  have hsurvival : MeasurableSet survival :=
+    measurableSet_lt (hthreshold.comp measurable_fst)
+      (measurable_fst.comp measurable_snd)
+  have hdensityNN : Measurable (Function.uncurry density) := by
+    unfold density Function.uncurry
+    apply Measurable.ite
+    · exact measurableSet_lt
+        (hthreshold.comp measurable_fst)
+        (measurable_fst.comp measurable_snd)
+    · exact measurable_const
+    · exact measurable_const
+  have hdensity : Measurable (Function.uncurry
+      (fun prefixValue headTail => (density prefixValue headTail : ENNReal))) :=
+    hdensityNN.coe_nnreal_ennreal
+  have hresidualMap : Measurable residualMap := by
+    unfold residualMap
+    exact measurable_fst.prodMk <| measurable_unitHazardCons.comp <|
+      ((measurable_fst.comp measurable_snd).sub
+        (hthreshold.comp measurable_fst)).prodMk
+          (measurable_snd.comp measurable_snd)
+  have hdensityIndicator : (fun blocks : Prefix × (NNReal × (ℕ → NNReal)) =>
+      (density blocks.1 blocks.2 : ENNReal)) = survival.indicator 1 := by
+    funext blocks
+    by_cases hmem : blocks ∈ survival
+    · have hlt : threshold blocks.1 < blocks.2.1 := hmem
+      simp [density, survival, hmem, hlt]
+    · have hnlt : ¬threshold blocks.1 < blocks.2.1 := hmem
+      simp [density, survival, hmem, hnlt]
+  change Measure.map residualMap
+      (((prefixMeasure.restrict active).prod
+        (unitHazardMeasure.prod unitHazardSequenceMeasure)).restrict
+          survival) = _
+  unfold unitHazardPrefixResidualJointKernel
+  dsimp only
+  rw [← Measure.map_comp (prefixMeasure.restrict active)
+      (Kernel.prod Kernel.id
+        (Kernel.withDensity
+          (Kernel.const Prefix
+            (unitHazardMeasure.prod unitHazardSequenceMeasure))
+          (fun prefixValue headTail =>
+            ↑(if threshold prefixValue < headTail.1 then
+              (1 : NNReal) else 0)))) hresidualMap]
+  rw [← Measure.compProd_eq_comp_prod,
+    Measure.compProd_withDensity hdensity,
+    Measure.compProd_const]
+  rw [hdensityIndicator, withDensity_indicator_one hsurvival]
+
+/-- Integrating the explicit fresh joint kernel gives the survival-weighted
+prefix measure times an independent iid stream. -/
+theorem unitHazardPrefixFreshJointKernel_comp_eq_prod
+    {Prefix : Type*} [MeasurableSpace Prefix]
+    (prefixMeasure : Measure Prefix) [SFinite prefixMeasure]
+    (threshold : Prefix → NNReal) (hthreshold : Measurable threshold) :
+    unitHazardPrefixFreshJointKernel threshold ∘ₘ prefixMeasure =
+      (prefixMeasure.withDensity (fun prefixValue =>
+        (Real.toNNReal
+          (Real.exp (-(threshold prefixValue : ℝ))) : ENNReal))).prod
+        unitHazardSequenceMeasure := by
+  let weight : Prefix → NNReal := fun prefixValue =>
+    Real.toNNReal (Real.exp (-(threshold prefixValue : ℝ)))
+  have hweight : Measurable weight :=
+    (Real.measurable_exp.comp
+      hthreshold.coe_nnreal_real.neg).real_toNNReal
+  have hweightJoint : Measurable (Function.uncurry
+      (fun prefixValue (_ : ℕ → NNReal) => (weight prefixValue : ENNReal))) :=
+    hweight.coe_nnreal_ennreal.comp measurable_fst
+  unfold unitHazardPrefixFreshJointKernel
+  rw [← Measure.compProd_eq_comp_prod,
+    Measure.compProd_withDensity hweightJoint,
+    Measure.compProd_const,
+    ← prod_withDensity_left hweight.coe_nnreal_ennreal]
 
 /-! ### Deterministic finite-prefix factorization -/
 

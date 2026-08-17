@@ -4979,3 +4979,14 @@ measurable prefix restriction preserves that equality. The Gaussian-BPS
 active-prefix law instantiates it directly. Remaining is to identify the
 restriction of the original iid stream to each genuine completion stratum
 with this integrated active-prefix kernel, then sum over completion counts.
+
+The stratum identification is now closed. Mapping the original iid stream
+restricted to a genuine `(n+1)` completion stratum into finite prefix and
+residual stream is proved equal to the integrated fresh-stream kernel. The
+fresh kernel is further evaluated explicitly: composition with a prefix law
+is its survival-weighted prefix measure times the iid stream measure. Finally,
+the finite prefix is pushed through the measurable deterministic terminal-flow
+endpoint, and Lean proves that on each stratum the actual completed BPS
+endpoint is independent of the fresh residual stream. Remaining is the
+countable sum over pairwise-disjoint, almost-surely exhaustive completion
+strata; this will yield the global strong-Markov/time-split law.
