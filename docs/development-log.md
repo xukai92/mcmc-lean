@@ -4526,3 +4526,20 @@ from it Lean derives reverse-fraction validity, involutivity of the primitive
 rerooting, and exact forward/reverse equality of `runtimeTraceDensity`.
 Remaining is lifting this pointwise certificate through the completed
 successful/exhaustion joint law.
+
+## 2026-08-17: primitive runtime success support
+
+Closed the support side of the bracket-free reversal. Nonzero runtime trace
+density now exposes the complete semantic rejected-point trace, while a
+valid rejected trace preserves the old state in every shrinking bracket and
+forces every rejected point to remain on the same side of the accepted state.
+Finite stepping-out bounds prove that membership of the accepted state in the
+stopped bracket yields a valid reverse integer allocation. New crossed-grid
+lemmas show that every intervening grid endpoint passed the strict superlevel
+test; this discharges all four signed interior hypotheses of stopped-bracket
+rerooting. Consequently, for positive width and a valid current slice state,
+nonzero density automatically constructs `PrimitiveRuntimeSuccess`—including
+derived-bracket reversal, reverse-fraction validity, involution, and exact
+forward/reverse density equality. The remaining obligation is measure-level
+preservation of the successful joint law and its completion by the explicit
+exhaustion atom.

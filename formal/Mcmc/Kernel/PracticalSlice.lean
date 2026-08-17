@@ -684,6 +684,213 @@ theorem le_expandRight (logDensity : ℝ → ℝ) (threshold : ℝ)
       · exact le_rfl
       · exact (le_add_of_nonneg_right hwidth).trans (ih (right + width))
 
+/-- Left stepping-out moves by at most its configured number of widths. -/
+theorem sub_steps_mul_width_le_expandLeft
+    (logDensity : ℝ → ℝ) (threshold : ℝ)
+    {width : ℝ} (hwidth : 0 ≤ width) (steps : ℕ) (left : ℝ) :
+    left - (steps : ℝ) * width ≤
+      expandLeft logDensity threshold width steps left := by
+  induction steps generalizing left with
+  | zero =>
+      simp [expandLeft]
+  | succ steps ih =>
+      simp only [expandLeft]
+      split
+      · push_cast
+        nlinarith
+      · convert ih (left - width) using 1
+        push_cast
+        ring
+
+/-- Right stepping-out moves by at most its configured number of widths. -/
+theorem expandRight_le_add_steps_mul_width
+    (logDensity : ℝ → ℝ) (threshold : ℝ)
+    {width : ℝ} (hwidth : 0 ≤ width) (steps : ℕ) (right : ℝ) :
+    expandRight logDensity threshold width steps right ≤
+      right + (steps : ℝ) * width := by
+  induction steps generalizing right with
+  | zero =>
+      simp [expandRight]
+  | succ steps ih =>
+      simp only [expandRight]
+      split
+      · push_cast
+        nlinarith
+      · convert ih (right + width) using 1
+        push_cast
+        ring
+
+/-- Reaching at least `consumed` grid cells to the left certifies that every
+endpoint crossed on the way was in the strict superlevel set. -/
+theorem expandLeft_crossed_inside
+    (logDensity : ℝ → ℝ) (threshold : ℝ)
+    {width : ℝ} (hwidth : 0 < width) {steps consumed : ℕ} (left : ℝ)
+    (hconsumed : consumed ≤ steps)
+    (hreached : expandLeft logDensity threshold width steps left ≤
+      left - (consumed : ℝ) * width) :
+    ∀ index < consumed,
+      threshold < logDensity (left - (index : ℝ) * width) := by
+  induction consumed generalizing steps left with
+  | zero => simp
+  | succ consumed ih =>
+      cases steps with
+      | zero =>
+          omega
+      | succ steps =>
+          simp only [expandLeft] at hreached
+          by_cases hstop : logDensity left ≤ threshold
+          · rw [if_pos hstop] at hreached
+            have : (0 : ℝ) < (consumed + 1) * width := by positivity
+            push_cast at hreached
+            nlinarith
+          · rw [if_neg hstop] at hreached
+            have htail : expandLeft logDensity threshold width
+                steps (left - width) ≤
+                (left - width) - (consumed : ℝ) * width := by
+              push_cast at hreached ⊢
+              nlinarith
+            intro index hindex
+            cases index with
+            | zero => simpa using lt_of_not_ge hstop
+            | succ index =>
+                have hi := ih (steps := steps) (left := left - width)
+                  (by omega) htail index (by omega)
+                convert hi using 1
+                push_cast
+                ring_nf
+
+/-- Rightward counterpart of `expandLeft_crossed_inside`. -/
+theorem expandRight_crossed_inside
+    (logDensity : ℝ → ℝ) (threshold : ℝ)
+    {width : ℝ} (hwidth : 0 < width) {steps consumed : ℕ} (right : ℝ)
+    (hconsumed : consumed ≤ steps)
+    (hreached : right + (consumed : ℝ) * width ≤
+      expandRight logDensity threshold width steps right) :
+    ∀ index < consumed,
+      threshold < logDensity (right + (index : ℝ) * width) := by
+  induction consumed generalizing steps right with
+  | zero => simp
+  | succ consumed ih =>
+      cases steps with
+      | zero =>
+          omega
+      | succ steps =>
+          simp only [expandRight] at hreached
+          by_cases hstop : logDensity right ≤ threshold
+          · rw [if_pos hstop] at hreached
+            have : (0 : ℝ) < (consumed + 1) * width := by positivity
+            push_cast at hreached
+            nlinarith
+          · rw [if_neg hstop] at hreached
+            have htail : (right + width) + (consumed : ℝ) * width ≤
+                expandRight logDensity threshold width
+                  steps (right + width) := by
+              push_cast at hreached ⊢
+              nlinarith
+            intro index hindex
+            cases index with
+            | zero => simpa using lt_of_not_ge hstop
+            | succ index =>
+                have hi := ih (steps := steps) (right := right + width)
+                  (by omega) htail index (by omega)
+                convert hi using 1
+                push_cast
+                ring_nf
+
+/-- If a point lies strictly beyond the stopped left endpoint and at least
+`consumed + 1` checked grid points to the left of the start, all those grid
+points passed the superlevel test. -/
+theorem expandLeft_crossed_inside_of_lt
+    (logDensity : ℝ → ℝ) (threshold : ℝ)
+    {width : ℝ} (hwidth : 0 < width) {steps consumed : ℕ} (left target : ℝ)
+    (hsteps : consumed + 1 ≤ steps)
+    (hreached : expandLeft logDensity threshold width steps left < target)
+    (htarget : target ≤ left - (consumed : ℝ) * width) :
+    ∀ index < consumed + 1,
+      threshold < logDensity (left - (index : ℝ) * width) := by
+  induction consumed generalizing steps left with
+  | zero =>
+      cases steps with
+      | zero => omega
+      | succ steps =>
+          simp only [expandLeft] at hreached
+          by_cases hstop : logDensity left ≤ threshold
+          · rw [if_pos hstop] at hreached
+            nlinarith
+          · intro index hindex
+            have hindexZero : index = 0 := by omega
+            subst index
+            simpa using lt_of_not_ge hstop
+  | succ consumed ih =>
+      cases steps with
+      | zero => omega
+      | succ steps =>
+          simp only [expandLeft] at hreached
+          by_cases hstop : logDensity left ≤ threshold
+          · rw [if_pos hstop] at hreached
+            nlinarith
+          · rw [if_neg hstop] at hreached
+            have htailTarget : target ≤
+                (left - width) - (consumed : ℝ) * width := by
+              push_cast at htarget ⊢
+              nlinarith
+            have htail := ih (steps := steps) (left := left - width)
+              (by omega) hreached htailTarget
+            intro index hindex
+            cases index with
+            | zero => simpa using lt_of_not_ge hstop
+            | succ index =>
+                have hi := htail index (by omega)
+                convert hi using 1
+                push_cast
+                ring_nf
+
+/-- Rightward counterpart of `expandLeft_crossed_inside_of_lt`. -/
+theorem expandRight_crossed_inside_of_lt
+    (logDensity : ℝ → ℝ) (threshold : ℝ)
+    {width : ℝ} (hwidth : 0 < width) {steps consumed : ℕ} (right target : ℝ)
+    (hsteps : consumed + 1 ≤ steps)
+    (htarget : right + (consumed : ℝ) * width ≤ target)
+    (hreached : target < expandRight logDensity threshold width steps right) :
+    ∀ index < consumed + 1,
+      threshold < logDensity (right + (index : ℝ) * width) := by
+  induction consumed generalizing steps right with
+  | zero =>
+      cases steps with
+      | zero => omega
+      | succ steps =>
+          simp only [expandRight] at hreached
+          by_cases hstop : logDensity right ≤ threshold
+          · rw [if_pos hstop] at hreached
+            nlinarith
+          · intro index hindex
+            have hindexZero : index = 0 := by omega
+            subst index
+            simpa using lt_of_not_ge hstop
+  | succ consumed ih =>
+      cases steps with
+      | zero => omega
+      | succ steps =>
+          simp only [expandRight] at hreached
+          by_cases hstop : logDensity right ≤ threshold
+          · rw [if_pos hstop] at hreached
+            nlinarith
+          · rw [if_neg hstop] at hreached
+            have htailTarget :
+                (right + width) + (consumed : ℝ) * width ≤ target := by
+              push_cast at htarget ⊢
+              nlinarith
+            have htail := ih (steps := steps) (right := right + width)
+              (by omega) htailTarget hreached
+            intro index hindex
+            cases index with
+            | zero => simpa using lt_of_not_ge hstop
+            | succ index =>
+                have hi := htail index (by omega)
+                convert hi using 1
+                push_cast
+                ring_nf
+
 /-- Fixed-budget left expansion is jointly measurable in threshold and its
 current endpoint. -/
 theorem measurable_expandLeft
@@ -3656,6 +3863,466 @@ theorem PrimitiveRuntimeSuccess.density_invariant
     hsuccess.stepped_reverse hsuccess.rejected_same_side
     (lt_of_le_of_lt hsuccess.old_mem.1 hsuccess.old_mem.2)
     hsuccess.finalBracket_reverse
+
+/-! ### Successful-density support -/
+
+/-- Recursive semantic validity of a rejected-point trace: each point lies in
+the then-current bracket, is strictly below the sampled height, and the tail
+is valid in the shrunken bracket. -/
+def ValidRejectedTrace (logDensity : ℝ → ℝ) (threshold current : ℝ) :
+    List ℝ → (ℝ × ℝ) → Prop
+  | [], _ => True
+  | rejected :: remaining, bracket =>
+      rejected ∈ Set.Ico bracket.1 bracket.2 ∧
+        logDensity rejected < threshold ∧
+        ValidRejectedTrace logDensity threshold current remaining
+          (shrinkBracket current rejected bracket)
+
+/-- Nonzero rejected-trace likelihood exposes every recursive rejection
+condition used by the operational shrinker. -/
+theorem validRejectedTrace_of_rejectedTraceWeight_ne_zero
+    (logDensity : ℝ → ℝ) (threshold current : ℝ)
+    (rejected : List ℝ) (bracket : ℝ × ℝ)
+    (hnonzero : rejectedTraceWeight logDensity threshold current rejected bracket ≠ 0) :
+    ValidRejectedTrace logDensity threshold current rejected bracket := by
+  induction rejected generalizing bracket with
+  | nil => trivial
+  | cons point remaining ih =>
+      simp only [rejectedTraceWeight] at hnonzero
+      by_cases hpoint : point ∈ Set.Ico bracket.1 bracket.2 ∧
+          logDensity point < threshold
+      · rw [if_pos hpoint] at hnonzero
+        have htail : rejectedTraceWeight logDensity threshold current remaining
+            (shrinkBracket current point bracket) ≠ 0 := by
+          exact right_ne_zero_of_mul hnonzero
+        exact ⟨hpoint.1, hpoint.2, ih _ htail⟩
+      · rw [if_neg hpoint] at hnonzero
+        exact False.elim (hnonzero rfl)
+
+/-- A point surviving all later shrink updates also lay in the bracket before
+the first update. -/
+theorem ValidRejectedTrace.final_mem_initial
+    {logDensity : ℝ → ℝ} {threshold current candidate : ℝ}
+    {rejected : List ℝ} {bracket : ℝ × ℝ}
+    (hvalid : ValidRejectedTrace logDensity threshold current rejected bracket)
+    (hfinal : candidate ∈ Set.Ico
+      (shrinkRejectedPoints current rejected bracket).1
+      (shrinkRejectedPoints current rejected bracket).2) :
+    candidate ∈ Set.Ico bracket.1 bracket.2 := by
+  induction rejected generalizing bracket with
+  | nil => exact hfinal
+  | cons point remaining ih =>
+      rcases hvalid with ⟨hpoint, _hbelow, htail⟩
+      have hupdated : candidate ∈ Set.Ico
+          (shrinkBracket current point bracket).1
+          (shrinkBracket current point bracket).2 :=
+        ih htail hfinal
+      unfold shrinkBracket at hupdated
+      by_cases hside : point < current
+      · rw [if_pos hside] at hupdated
+        exact ⟨hpoint.1.trans hupdated.1, hupdated.2⟩
+      · rw [if_neg hside] at hupdated
+        exact ⟨hupdated.1, hupdated.2.trans_le hpoint.2.le⟩
+
+/-- A semantically valid rejected trace preserves the current-state bracket
+invariant through every recursive update. -/
+theorem ValidRejectedTrace.validShrinkBracket_final
+    {logDensity : ℝ → ℝ} {threshold current : ℝ}
+    {rejected : List ℝ} {bracket : ℝ × ℝ}
+    (hvalid : ValidRejectedTrace logDensity threshold current rejected bracket)
+    (hbracket : ValidShrinkBracket logDensity threshold current bracket) :
+    ValidShrinkBracket logDensity threshold current
+      (shrinkRejectedPoints current rejected bracket) := by
+  induction rejected generalizing bracket with
+  | nil => exact hbracket
+  | cons point remaining ih =>
+      rcases hvalid with ⟨hpoint, hbelow, htail⟩
+      have hupdated : ValidShrinkBracket logDensity threshold current
+          (shrinkBracket current point bracket) := by
+        unfold shrinkBracket
+        by_cases hside : point < current
+        · rw [if_pos hside]
+          exact ⟨hside.le, hbracket.2.1, hbracket.2.2⟩
+        · rw [if_neg hside]
+          have hne : point ≠ current := by
+            intro heq
+            subst point
+            exact (not_lt_of_ge hbracket.2.2) hbelow
+          exact ⟨hbracket.1, lt_of_le_of_ne (not_lt.mp hside) hne.symm,
+            hbracket.2.2⟩
+      exact ih htail hupdated
+
+/-- Affine interpretation of a unit fraction lies in every positive
+half-open bracket. -/
+theorem bracketAffine_mem_Ico
+    {left right fraction : ℝ} (hbracket : left < right)
+    (hfraction : fraction ∈ Set.Ico (0 : ℝ) 1) :
+    left + (right - left) * fraction ∈ Set.Ico left right := by
+  have hwidth : 0 < right - left := sub_pos.mpr hbracket
+  constructor
+  · nlinarith [mul_nonneg hwidth.le hfraction.1]
+  · have hremaining : 0 < (right - left) * (1 - fraction) :=
+      mul_pos hwidth (sub_pos.mpr hfraction.2)
+    nlinarith
+
+/-- Every condition encoded by the primitive successful density can be
+recovered from a proof that the density is nonzero. -/
+theorem runtimeTraceDensity_support
+    (logDensity : ℝ → ℝ) (width : ℝ) (intervals maxShrink : ℕ)
+    (state : ℝ × ℝ) (trace : RuntimeRandomTrace)
+    (hnonzero : runtimeTraceDensity logDensity width intervals maxShrink
+      state trace ≠ 0) :
+    trace.1.1 < maxShrink ∧
+      0 ≤ trace.2.1.2 ∧ trace.2.1.2 < intervals ∧
+      trace.2.2 ∈ Set.Ico (0 : ℝ) 1 ∧
+      state.1 ≤ logDensity
+        (runtimeAcceptedPoint logDensity state.1 width state.2 intervals trace) ∧
+      ValidRejectedTrace logDensity state.1 state.2 (List.ofFn trace.1.2)
+        (runtimeSteppedBracket logDensity state.1 width state.2 intervals
+          trace.2.1.2 trace.2.1.1) := by
+  simp only [runtimeTraceDensity] at hnonzero
+  split at hnonzero
+  · next hcondition =>
+      have hweight : rejectedTraceWeight logDensity state.1 state.2
+          (List.ofFn trace.1.2)
+          (runtimeSteppedBracket logDensity state.1 width state.2 intervals
+            trace.2.1.2 trace.2.1.1) ≠ 0 :=
+        right_ne_zero_of_mul hnonzero
+      exact ⟨hcondition.1, hcondition.2.1, hcondition.2.2.1,
+        hcondition.2.2.2.1, hcondition.2.2.2.2,
+        validRejectedTrace_of_rejectedTraceWeight_ne_zero logDensity state.1
+          state.2 _ _ hweight⟩
+  · simp at hnonzero
+
+/-- Any point lying in the actually stepped-out bracket induces a reverse
+integer allocation that remains within the configured finite range. -/
+theorem globalValidAllocation_of_mem_runtimeSteppedBracket
+    (logDensity : ℝ → ℝ) (threshold : ℝ)
+    {width : ℝ} (hwidth : 0 < width) (intervals : ℕ)
+    (old new : ℝ) (grid : Alignment × ℤ)
+    (hallocation : 0 ≤ grid.2 ∧ grid.2 < intervals)
+    (hnew : new ∈ Set.Ico
+      (runtimeSteppedBracket logDensity threshold width old intervals
+        grid.2 grid.1).1
+      (runtimeSteppedBracket logDensity threshold width old intervals
+        grid.2 grid.1).2) :
+    grid ∈ globalValidAllocation intervals width old new := by
+  let leftSteps := grid.2.toNat
+  let rightSteps := intervals - 1 - leftSteps
+  have hleftCast : (leftSteps : ℤ) = grid.2 :=
+    Int.toNat_of_nonneg hallocation.1
+  have hleftNat : leftSteps < intervals := by omega
+  have hpartition : rightSteps + 1 + leftSteps = intervals := by
+    omega
+  have hleftBound :
+      initialLeft width old (alignmentCoordinate grid.1) -
+          (leftSteps : ℝ) * width ≤ new := by
+    exact (sub_steps_mul_width_le_expandLeft logDensity threshold hwidth.le
+      leftSteps (initialLeft width old (alignmentCoordinate grid.1))).trans
+        hnew.1
+  have hrightBound : new <
+      initialRight width old (alignmentCoordinate grid.1) +
+        (rightSteps : ℝ) * width := by
+    exact hnew.2.trans_le
+      (expandRight_le_add_steps_mul_width logDensity threshold hwidth.le
+        rightSteps (initialRight width old (alignmentCoordinate grid.1)))
+  let coordinate := alignmentCoordinate grid.1 + (new - old) / width
+  have hcoordinateLower : (-(grid.2 : ℝ)) ≤ coordinate := by
+    unfold coordinate
+    have hdivLower :
+        (-(grid.2 : ℝ)) - alignmentCoordinate grid.1 ≤ (new - old) / width := by
+      rw [le_div_iff₀ hwidth]
+      unfold initialLeft at hleftBound
+      have hleftReal : (leftSteps : ℝ) = (grid.2 : ℝ) := by
+        exact_mod_cast hleftCast
+      rw [hleftReal] at hleftBound
+      nlinarith
+    linarith
+  have hcoordinateUpper : coordinate < (intervals : ℝ) - grid.2 := by
+    unfold coordinate
+    have hdivUpper : (new - old) / width <
+        (intervals : ℝ) - grid.2 - alignmentCoordinate grid.1 := by
+      rw [div_lt_iff₀ hwidth]
+      unfold initialRight initialLeft at hrightBound
+      have hpartitionReal : (rightSteps : ℝ) + 1 + (leftSteps : ℝ) =
+          intervals := by exact_mod_cast hpartition
+      have hleftReal : (leftSteps : ℝ) = (grid.2 : ℝ) := by
+        exact_mod_cast hleftCast
+      nlinarith
+    linarith
+  have hshiftLower : -grid.2 ≤ integerAlignmentShift width old new grid.1 := by
+    unfold integerAlignmentShift
+    exact (Int.le_floor).2 (by exact_mod_cast hcoordinateLower)
+  have hshiftUpper : integerAlignmentShift width old new grid.1 <
+      (intervals : ℤ) - grid.2 := by
+    unfold integerAlignmentShift
+    exact (Int.floor_lt).2 (by exact_mod_cast hcoordinateUpper)
+  exact ⟨hallocation.1, hallocation.2,
+    by omega, by omega⟩
+
+/-- Membership of the proposed endpoint in the stopped bracket supplies the
+interior-grid hypotheses required by allocation rerooting.  The proof uses
+the floor cell containing `new`: for a positive displacement the right
+expansion crossed every intervening grid point, while for a negative
+displacement the left expansion did so. -/
+theorem runtimeSteppedBracket_reverse_of_mem
+    (logDensity : ℝ → ℝ) (threshold : ℝ) (intervals : ℕ)
+    {width old new : ℝ} (hwidth : 0 < width) (grid : Alignment × ℤ)
+    (hgrid : grid ∈ globalValidAllocation intervals width old new)
+    (hnew : new ∈ Set.Ico
+      (runtimeSteppedBracket logDensity threshold width old intervals
+        grid.2 grid.1).1
+      (runtimeSteppedBracket logDensity threshold width old intervals
+        grid.2 grid.1).2) :
+    runtimeSteppedBracket logDensity threshold width old intervals grid.2 grid.1 =
+      runtimeSteppedBracket logDensity threshold width new intervals
+        (alignmentAllocationReverse width old new grid).2
+        (alignmentAllocationReverse width old new grid).1 := by
+  let offset := alignmentCoordinate grid.1
+  let shift := integerAlignmentShift width old new grid.1
+  have hshift : shift = ⌊offset + (new - old) / width⌋ := rfl
+  have hshiftLower : (shift : ℝ) ≤ offset + (new - old) / width := by
+    rw [hshift]
+    exact_mod_cast Int.floor_le (offset + (new - old) / width)
+  have hshiftUpper : offset + (new - old) / width < (shift : ℝ) + 1 := by
+    rw [hshift]
+    exact_mod_cast Int.lt_floor_add_one (offset + (new - old) / width)
+  have hquotient : (new - old) / width * width = new - old := by
+    exact div_mul_cancel₀ (new - old) hwidth.ne'
+  have hnewExpanded :
+      expandLeft logDensity threshold width grid.2.toNat
+          (initialLeft width old offset) ≤ new ∧
+        new < expandRight logDensity threshold width
+          (intervals - 1 - grid.2.toNat) (initialRight width old offset) := by
+    simpa [runtimeSteppedBracket, offset] using hnew
+  apply runtimeSteppedBracket_reverse logDensity threshold intervals hwidth.ne'
+    grid hgrid
+  · intro hnonneg index hindex
+    have hshiftCast : (shift.toNat : ℝ) = (shift : ℝ) := by
+      exact_mod_cast Int.toNat_of_nonneg hnonneg
+    have hbudget : shift.toNat ≤ intervals - 1 - grid.2.toNat := by
+      simp only [globalValidAllocation, Set.mem_setOf_eq] at hgrid
+      omega
+    have hpositive : 0 < shift.toNat := Nat.pos_of_ne_zero (by
+      intro hz
+      omega)
+    let reflected := shift.toNat - 1 - index
+    have hreflected : reflected < shift.toNat := by
+      dsimp [reflected]
+      omega
+    have htarget : initialRight width old offset +
+          ((shift.toNat - 1 : ℕ) : ℝ) * width ≤ new := by
+      unfold initialRight initialLeft
+      have hpred : shift.toNat - 1 + 1 = shift.toNat := by omega
+      have hpredCast : ((shift.toNat - 1 : ℕ) : ℝ) + 1 = shift.toNat := by
+        exact_mod_cast hpred
+      rw [← hshiftCast] at hshiftLower
+      have hscaled := mul_le_mul_of_nonneg_right hshiftLower hwidth.le
+      nlinarith
+    have hcrossed := expandRight_crossed_inside_of_lt logDensity threshold
+      hwidth (steps := intervals - 1 - grid.2.toNat)
+      (consumed := shift.toNat - 1) (initialRight width old offset)
+      (initialRight width old offset +
+        ((shift.toNat - 1 : ℕ) : ℝ) * width)
+      (by omega) le_rfl (htarget.trans_lt hnewExpanded.2)
+    have hinterior := hcrossed reflected (by omega)
+    rw [initialLeft_reverseOffset hwidth.ne']
+    rw [alignmentShift_eq_floor hwidth.ne', ← hshift, ← hshiftCast]
+    dsimp [reflected] at hinterior
+    have harg :
+        initialLeft width old (alignmentCoordinate grid.1) +
+            width * (shift.toNat : ℝ) - (index : ℝ) * width =
+          initialRight width old offset + (reflected : ℝ) * width := by
+      unfold initialRight
+      dsimp [offset]
+      have hnat : reflected + index + 1 = shift.toNat := by
+        dsimp [reflected]
+        omega
+      have hcast : (reflected : ℝ) + index + 1 = shift.toNat := by
+        exact_mod_cast hnat
+      nlinarith
+    rw [harg]
+    exact hinterior
+  · intro hnonpos index hindex
+    have hnegNonneg : 0 ≤ -shift := neg_nonneg.mpr hnonpos
+    have hnegCast : ((-shift).toNat : ℝ) = -(shift : ℝ) := by
+      exact_mod_cast Int.toNat_of_nonneg hnegNonneg
+    have hbudget : (-shift).toNat ≤ grid.2.toNat := by
+      simp only [globalValidAllocation, Set.mem_setOf_eq] at hgrid
+      omega
+    have hpositive : 0 < (-shift).toNat := Nat.pos_of_ne_zero (by
+      intro hz
+      omega)
+    have htarget : new < initialLeft width old offset -
+          (((-shift).toNat - 1 : ℕ) : ℝ) * width := by
+      unfold initialLeft
+      have hpred : (-shift).toNat - 1 + 1 = (-shift).toNat := by omega
+      have hpredCast : (((-shift).toNat - 1 : ℕ) : ℝ) + 1 =
+          (-shift).toNat := by exact_mod_cast hpred
+      have hshiftCastNeg : (shift : ℝ) = -((-shift).toNat : ℝ) := by
+        linarith [hnegCast]
+      rw [hshiftCastNeg] at hshiftUpper
+      have hscaled := mul_lt_mul_of_pos_right hshiftUpper hwidth
+      nlinarith
+    exact expandLeft_crossed_inside_of_lt logDensity threshold hwidth
+      (steps := grid.2.toNat) (consumed := (-shift).toNat - 1)
+      (initialLeft width old offset)
+      (initialLeft width old offset -
+        (((-shift).toNat - 1 : ℕ) : ℝ) * width)
+      (by omega) (hnewExpanded.1.trans_lt htarget) le_rfl index (by omega)
+  · intro hnonneg index hindex
+    have hshiftCast : (shift.toNat : ℝ) = (shift : ℝ) := by
+      exact_mod_cast Int.toNat_of_nonneg hnonneg
+    have hbudget : shift.toNat ≤ intervals - 1 - grid.2.toNat := by
+      simp only [globalValidAllocation, Set.mem_setOf_eq] at hgrid
+      omega
+    have hpositive : 0 < shift.toNat := Nat.pos_of_ne_zero (by
+      intro hz
+      omega)
+    have htarget : initialRight width old offset +
+          ((shift.toNat - 1 : ℕ) : ℝ) * width ≤ new := by
+      unfold initialRight initialLeft
+      have hpred : shift.toNat - 1 + 1 = shift.toNat := by omega
+      have hpredCast : ((shift.toNat - 1 : ℕ) : ℝ) + 1 = shift.toNat := by
+        exact_mod_cast hpred
+      rw [← hshiftCast] at hshiftLower
+      have hscaled := mul_le_mul_of_nonneg_right hshiftLower hwidth.le
+      nlinarith
+    exact expandRight_crossed_inside_of_lt logDensity threshold hwidth
+      (steps := intervals - 1 - grid.2.toNat)
+      (consumed := shift.toNat - 1) (initialRight width old offset)
+      (initialRight width old offset +
+        ((shift.toNat - 1 : ℕ) : ℝ) * width)
+      (by omega) le_rfl (htarget.trans_lt hnewExpanded.2) index (by omega)
+  · intro hnonpos index hindex
+    have hnegNonneg : 0 ≤ -shift := neg_nonneg.mpr hnonpos
+    have hnegCast : ((-shift).toNat : ℝ) = -(shift : ℝ) := by
+      exact_mod_cast Int.toNat_of_nonneg hnegNonneg
+    have hbudget : (-shift).toNat ≤ grid.2.toNat := by
+      simp only [globalValidAllocation, Set.mem_setOf_eq] at hgrid
+      omega
+    have hpositive : 0 < (-shift).toNat := Nat.pos_of_ne_zero (by
+      intro hz
+      omega)
+    let reflected := (-shift).toNat - 1 - index
+    have hreflected : reflected < (-shift).toNat := by
+      dsimp [reflected]
+      omega
+    have htarget : new < initialLeft width old offset -
+          (((-shift).toNat - 1 : ℕ) : ℝ) * width := by
+      unfold initialLeft
+      have hpred : (-shift).toNat - 1 + 1 = (-shift).toNat := by omega
+      have hpredCast : (((-shift).toNat - 1 : ℕ) : ℝ) + 1 =
+          (-shift).toNat := by exact_mod_cast hpred
+      have hshiftCastNeg : (shift : ℝ) = -((-shift).toNat : ℝ) := by
+        linarith [hnegCast]
+      rw [hshiftCastNeg] at hshiftUpper
+      have hscaled := mul_lt_mul_of_pos_right hshiftUpper hwidth
+      nlinarith
+    have hcrossed := expandLeft_crossed_inside_of_lt logDensity threshold hwidth
+      (steps := grid.2.toNat) (consumed := (-shift).toNat - 1)
+      (initialLeft width old offset)
+      (initialLeft width old offset -
+        (((-shift).toNat - 1 : ℕ) : ℝ) * width)
+      (by omega) (hnewExpanded.1.trans_lt htarget) le_rfl
+    have hinterior := hcrossed reflected (by omega)
+    rw [initialRight_reverseOffset hwidth.ne']
+    rw [alignmentShift_eq_floor hwidth.ne', ← hshift]
+    dsimp [reflected] at hinterior
+    have harg :
+        initialRight width old (alignmentCoordinate grid.1) +
+            width * (shift : ℝ) + (index : ℝ) * width =
+          initialLeft width old offset - (reflected : ℝ) * width := by
+      unfold initialRight
+      dsimp [offset]
+      have hnat : reflected + index + 1 = (-shift).toNat := by
+        dsimp [reflected]
+        omega
+      have hcast : (reflected : ℝ) + index + 1 = (-shift).toNat := by
+        exact_mod_cast hnat
+      nlinarith
+    rw [harg]
+    exact hinterior
+
+/-- If the eventual accepted point survives a valid rejected trace and lies
+above the sampled height, no rejected point can separate it from the old
+accepted state. -/
+theorem ValidRejectedTrace.sameSide_of_final_mem
+    {logDensity : ℝ → ℝ} {threshold old new : ℝ}
+    {rejected : List ℝ} {bracket : ℝ × ℝ}
+    (hvalid : ValidRejectedTrace logDensity threshold old rejected bracket)
+    (hnewSlice : threshold ≤ logDensity new)
+    (hnewFinal : new ∈ Set.Ico
+      (shrinkRejectedPoints old rejected bracket).1
+      (shrinkRejectedPoints old rejected bracket).2) :
+    ∀ point ∈ rejected, (point < old) = (point < new) := by
+  induction rejected generalizing bracket with
+  | nil => simp
+  | cons point remaining ih =>
+      rcases hvalid with ⟨hpoint, hbelow, htail⟩
+      have hnewUpdated : new ∈ Set.Ico
+          (shrinkBracket old point bracket).1
+          (shrinkBracket old point bracket).2 :=
+        htail.final_mem_initial hnewFinal
+      have hhead : (point < old) = (point < new) := by
+        unfold shrinkBracket at hnewUpdated
+        by_cases hside : point < old
+        · rw [if_pos hside] at hnewUpdated
+          have hnew : point < new := lt_of_le_of_ne hnewUpdated.1 (by
+            intro heq
+            subst new
+            exact (not_lt_of_ge hnewSlice) hbelow)
+          simp [hside, hnew]
+        · rw [if_neg hside] at hnewUpdated
+          have hnew : ¬ point < new := not_lt_of_ge hnewUpdated.2.le
+          simp [hside, hnew]
+      intro candidate hcandidate
+      simp only [List.mem_cons] at hcandidate
+      rcases hcandidate with rfl | hremaining
+      · exact hhead
+      · exact ih htail hnewFinal candidate hremaining
+
+/-- Every field of the primitive success certificate follows automatically
+from nonzero successful density and validity of the current slice state. -/
+theorem primitiveRuntimeSuccess_of_density_ne_zero
+    (logDensity : ℝ → ℝ) {width : ℝ} (hwidth : 0 < width)
+    (intervals maxShrink : ℕ) (point : (ℝ × ℝ) × RuntimeRandomTrace)
+    (hold : point.1.1 ≤ logDensity point.1.2)
+    (hnonzero : runtimeTraceDensity logDensity width intervals maxShrink
+      point.1 point.2 ≠ 0) :
+    PrimitiveRuntimeSuccess logDensity width intervals maxShrink point := by
+  rcases runtimeTraceDensity_support logDensity width intervals maxShrink
+      point.1 point.2 hnonzero with
+    ⟨hlength, hallocationNonneg, hallocationLt, hfraction, hnewSlice, htrace⟩
+  let stepped := runtimeSteppedBracket logDensity point.1.1 width point.1.2
+    intervals point.2.2.1.2 point.2.2.1.1
+  let final := shrinkRejectedPoints point.1.2 (List.ofFn point.2.1.2) stepped
+  let new := runtimeAcceptedPoint logDensity point.1.1 width point.1.2 intervals
+    point.2
+  have hsteppedValid : ValidShrinkBracket logDensity point.1.1 point.1.2
+      stepped := by
+    exact validShrinkBracket_runtimeSteppedBracket logDensity point.1.1
+      point.1.2 hwidth intervals point.2.2.1.2 point.2.2.1.1 hold
+  have hfinalValid : ValidShrinkBracket logDensity point.1.1 point.1.2 final :=
+    htrace.validShrinkBracket_final hsteppedValid
+  have hfinalLt : final.1 < final.2 := hfinalValid.lt
+  have hnewFinal : new ∈ Set.Ico final.1 final.2 := by
+    apply bracketAffine_mem_Ico hfinalLt hfraction
+  have hnewStepped : new ∈ Set.Ico stepped.1 stepped.2 :=
+    htrace.final_mem_initial hnewFinal
+  have hgrid : point.2.2.1 ∈ globalValidAllocation intervals width point.1.2
+      new := by
+    exact globalValidAllocation_of_mem_runtimeSteppedBracket logDensity
+      point.1.1 hwidth intervals point.1.2 new point.2.2.1
+      ⟨hallocationNonneg, hallocationLt⟩ hnewStepped
+  have hstepped := runtimeSteppedBracket_reverse_of_mem logDensity point.1.1
+    intervals hwidth point.2.2.1 hgrid hnewStepped
+  refine ⟨hlength, ?_, hfraction, ?_, hold, hnewSlice, hstepped, ?_⟩
+  · simpa [new] using hgrid
+  · simpa [runtimeFinalBracket, stepped, final] using
+      (show point.1.2 ∈ Set.Ico final.1 final.2 from
+        ⟨hfinalValid.1, hfinalValid.2.1⟩)
+  · simpa [new] using htrace.sameSide_of_final_mem hnewSlice hnewFinal
 
 /-- Integration against the variable-length base decomposes into the sum of
 finite-dimensional Lebesgue integrals. -/
