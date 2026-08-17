@@ -5091,3 +5091,14 @@ also jointly integrable on phase space. A new certificate constructor fills
 the four transport fields automatically from compact `C¹` regularity. The
 remaining core obligations are joint incoming/full-generator integrability
 and the coordinate Gaussian integration-by-parts identity.
+
+Joint bounce and generator integrability are now closed. The state-dependent
+phase reflection `(q,v) ↦ (q,R_q v)` is proved measurable and exactly
+measure-preserving for the Gaussian product target by a skew-product argument
+over positionwise reflection invariance. This transports the jointly
+integrable reflected-rate term to the incoming term. Combining incoming and
+outgoing bounce terms with the compactly supported streaming derivative proves
+integrability of the complete phase generator. Consequently
+`standardGaussianBPSSmoothObservableCertificate_of_coordinateStein` leaves
+only the coordinate Gaussian integration-by-parts identity as input; all
+integrability fields are constructed in Lean.

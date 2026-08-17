@@ -3704,6 +3704,111 @@ theorem integrable_standardGaussianBPS_phaseReflected
   · exact continuous_reflectedBouncyRate.mul hsmooth.continuous
   · exact HasCompactSupport.mul_left hcompact
 
+/-- Reflect velocity in the current Gaussian-BPS position normal while
+leaving position unchanged. -/
+noncomputable def standardGaussianBPSPhaseReflection
+    (state : BouncyParticleState ι) : BouncyParticleState ι :=
+  (state.1, bouncyReflection state.1 state.2)
+
+/-- The state-dependent phase reflection is measurable, including at the
+zero-position fiber. -/
+theorem measurable_standardGaussianBPSPhaseReflection :
+    Measurable (standardGaussianBPSPhaseReflection (ι := ι)) := by
+  unfold standardGaussianBPSPhaseReflection bouncyReflection
+    squaredEuclideanNorm euclideanInner
+  fun_prop
+
+/-- State-dependent velocity reflection preserves the canonical Gaussian
+position–velocity product target. -/
+theorem standardGaussianBPSPhaseReflection_measurePreserving :
+    MeasurePreserving (standardGaussianBPSPhaseReflection (ι := ι))
+      (standardMomentumMeasure.prod standardMomentumMeasure)
+      (standardMomentumMeasure.prod standardMomentumMeasure) := by
+  have h := (MeasurePreserving.id
+      (standardMomentumMeasure : Measure (Position ι))).skew_product
+    (μc := (standardMomentumMeasure : Measure (Position ι)))
+    (μd := (standardMomentumMeasure : Measure (Position ι)))
+    (g := fun position velocity => bouncyReflection position velocity)
+    (by
+      change Measurable (fun state : BouncyParticleState ι =>
+        bouncyReflection state.1 state.2)
+      exact measurable_snd.comp
+        (measurable_standardGaussianBPSPhaseReflection (ι := ι)))
+    (Filter.Eventually.of_forall fun position => by
+      by_cases hposition : position = 0
+      · subst position
+        rw [show bouncyReflection (0 : Position ι) = id by
+          funext velocity
+          simp]
+        exact Measure.map_id
+      · exact (bouncyReflection_standardMomentumMeasure_measurePreserving
+          position hposition).map_eq)
+  change MeasurePreserving
+    (fun state : BouncyParticleState ι =>
+      (state.1, bouncyReflection state.1 state.2)) _ _ at h
+  exact h
+
+/-- The incoming bounce term is jointly integrable under the Gaussian phase
+target. -/
+theorem integrable_standardGaussianBPS_phaseIncoming
+    {function : BouncyParticleState ι → ℝ}
+    (hsmooth : ContDiff ℝ 1 function)
+    (hcompact : HasCompactSupport function) :
+    Integrable (fun state : BouncyParticleState ι =>
+      bouncyRate state.1 state.2 *
+        function (state.1, bouncyReflection state.1 state.2))
+      (standardMomentumMeasure.prod standardMomentumMeasure) := by
+  let reflectedTerm := fun state : BouncyParticleState ι =>
+    bouncyRate state.1 (bouncyReflection state.1 state.2) * function state
+  have hcomp := standardGaussianBPSPhaseReflection_measurePreserving
+    (ι := ι) |>.integrable_comp_of_integrable
+      (integrable_standardGaussianBPS_phaseReflected hsmooth hcompact)
+  change Integrable _ _
+  convert hcomp using 1
+  funext state
+  change bouncyRate state.1 state.2 *
+      function (state.1, bouncyReflection state.1 state.2) =
+    reflectedTerm (standardGaussianBPSPhaseReflection state)
+  by_cases hposition : state.1 = 0
+  · simp [hposition, reflectedTerm, standardGaussianBPSPhaseReflection]
+  · simp [reflectedTerm, standardGaussianBPSPhaseReflection,
+      bouncyReflection_involutive state.1 state.2 hposition]
+
+/-- The complete Gaussian-BPS generator of a compact `C¹` observable is
+integrable under the canonical phase target. -/
+theorem integrable_standardGaussianBPS_phaseGenerator
+    {function : BouncyParticleState ι → ℝ}
+    (hsmooth : ContDiff ℝ 1 function)
+    (hcompact : HasCompactSupport function) :
+    Integrable
+      (bouncyPhaseGenerator id
+        (coordinateDirectionalDerivative
+          (standardGaussianBPSCoordinatePartial function))
+        (fun position velocity => function (position, velocity)))
+      (standardMomentumMeasure.prod standardMomentumMeasure) := by
+  have hbounce :=
+    (integrable_standardGaussianBPS_phaseIncoming hsmooth hcompact).sub
+      (integrable_standardGaussianBPS_phaseOutgoing hsmooth hcompact)
+  have hstream : Integrable (standardGaussianBPSStreamingDerivative function)
+      (standardMomentumMeasure.prod standardMomentumMeasure) := by
+    simpa [standardGaussianBPSTarget] using
+      (integrable_standardGaussianBPSStreamingDerivative hsmooth hcompact)
+  have hall := hstream.add hbounce
+  apply hall.congr
+  filter_upwards [] with state
+  unfold bouncyPhaseGenerator bouncyGenerator
+  simp only [Pi.add_apply, Pi.sub_apply, id_eq]
+  rw [coordinateDirectionalDerivative_eq_streamingDerivative]
+  change standardGaussianBPSStreamingDerivative function state +
+      (bouncyRate state.1 state.2 *
+          function (state.1, bouncyReflection state.1 state.2) -
+        bouncyRate state.1 state.2 * function state) =
+    standardGaussianBPSStreamingDerivative function state +
+      bouncyRate state.1 state.2 *
+        (function (state.1, bouncyReflection state.1 state.2) -
+          function state)
+  ring
+
 /-- Gaussian reflection invariance transports reflected-rate integrability to
 the incoming bounce term. -/
 theorem integrable_standardGaussianBPS_incoming
@@ -3818,6 +3923,30 @@ noncomputable def standardGaussianBPSSmoothObservableCertificate_of_bounce
   reflected := reflected
   phase := phase
   coordinate_stein := coordinate_stein
+
+/-- For a compactly supported `C¹` phase observable, the coordinate Gaussian
+integration-by-parts identity is the only remaining field needed to build the
+complete smooth Gaussian-BPS generator certificate. -/
+noncomputable def standardGaussianBPSSmoothObservableCertificate_of_coordinateStein
+    {function : BouncyParticleState ι → ℝ}
+    (hsmooth : ContDiff ℝ 1 function)
+    (hcompact : HasCompactSupport function)
+    (coordinate_stein : ∀ i,
+      (∫ position, ∫ velocity,
+        velocity i * standardGaussianBPSCoordinatePartial
+          function position i velocity
+          ∂standardMomentumMeasure ∂standardMomentumMeasure) =
+        ∫ position, ∫ velocity,
+          velocity i * position i * function (position, velocity)
+            ∂standardMomentumMeasure ∂standardMomentumMeasure) :
+    StandardGaussianBPSSmoothObservableCertificate (ι := ι) function :=
+  standardGaussianBPSSmoothObservableCertificate_of_bounce
+    hsmooth hcompact
+    (integrable_standardGaussianBPS_incoming hsmooth hcompact)
+    (integrable_standardGaussianBPS_outgoing hsmooth hcompact)
+    (integrable_standardGaussianBPS_reflected hsmooth hcompact)
+    (integrable_standardGaussianBPS_phaseGenerator hsmooth hcompact)
+    coordinate_stein
 
 /-- Package one fully discharged smooth-observable certificate as an element
 of the generator test domain. -/
