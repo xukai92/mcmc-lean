@@ -4990,3 +4990,17 @@ endpoint, and Lean proves that on each stratum the actual completed BPS
 endpoint is independent of the fresh residual stream. Remaining is the
 countable sum over pairwise-disjoint, almost-surely exhaustive completion
 strata; this will yield the global strong-Markov/time-split law.
+
+The countable measure assembly is now closed as well. A reusable theorem
+identifies any almost-sure measurable disjoint partition with the sum of its
+restricted measures; at positive horizons, the genuine Gaussian-BPS
+completion strata are reindexed by their necessarily positive completion
+counts and instantiate that theorem. Summing the countwise endpoint/residual
+laws preserves the fresh iid residual factor, and projecting the result proves
+that the mixture of the explicit survival-weighted endpoint strata is exactly
+the law of the totalized completed-horizon endpoint. Finite-prefix replay now
+also has a generic drop-prefix/restart identity. The remaining semigroup step
+is the final pathwise identification between restarting from the completed
+endpoint with the residual stream and direct execution at the summed horizon;
+all measure-level countable gluing needed around that identification is now
+proved.

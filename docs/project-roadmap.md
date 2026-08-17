@@ -723,10 +723,14 @@ by paper date:
    proved to be either a genuine no-event overshoot or an exact boundary ring,
    isolating the remaining null-equality calculation. The unit-hazard law is
    now proved atomless at every mark, and an independent head almost surely
-   avoids any measurable tail-determined threshold. Reindexing this fact to
-   each stratum's terminal coordinate, countwise residual-law transport, and
-   gluing are still needed for the arbitrary positive-time composition law,
-   target stationarity, and ergodicity.
+   avoids any measurable tail-determined threshold. Reindexing to each
+   terminal coordinate, countwise residual-law transport, and countable
+   product-law gluing are now complete, including identification of the summed
+   first marginal with the completed-horizon endpoint law. The remaining
+   arbitrary positive-time composition step is the final pathwise splice
+   equating restart from that endpoint and its fresh residual stream with
+   direct summed-horizon execution; target stationarity and ergodicity remain
+   separate subsequent milestones.
 
    The nonlinear reversible-jump branch is complete at the exact theorem and
    executable-client levels; only the shared Float64 primitive boundary

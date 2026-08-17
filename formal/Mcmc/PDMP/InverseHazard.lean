@@ -36,6 +36,24 @@ theorem map_restrict_preimage_eq_restrict_map
     Measure.map_apply hf (hevent.inter hset)]
   rfl
 
+/-- A pairwise-disjoint measurable countable partition that covers almost
+surely decomposes the ambient measure into the sum of its restrictions. -/
+theorem sum_restrict_eq_of_ae_mem_iUnion
+    {α : Type*} [MeasurableSpace α] (measure : Measure α)
+    (sets : ℕ → Set α) (hmeasurable : ∀ count, MeasurableSet (sets count))
+    (hdisjoint : ∀ ⦃left right : ℕ⦄, left ≠ right →
+      Disjoint (sets left) (sets right))
+    (hcover : ∀ᵐ value ∂measure, value ∈ ⋃ count, sets count) :
+    Measure.sum (fun count => measure.restrict (sets count)) = measure := by
+  have hunion : (⋃ count, sets count) =ᵐ[measure] Set.univ := by
+    filter_upwards [hcover] with value hvalue
+    exact propext ⟨fun _ => Set.mem_univ value, fun _ => hvalue⟩
+  have hrestrict : measure.restrict (⋃ count, sets count) = measure := by
+    rw [Measure.restrict_congr_set hunion, Measure.restrict_univ]
+  ext event hevent
+  rw [Measure.sum_apply _ hevent, ← Measure.restrict_iUnion_apply
+    hdisjoint hmeasurable hevent, hrestrict]
+
 /-- Canonical unit-exponential law for integrated hazard marks. -/
 noncomputable def unitHazardMeasure : Measure NNReal :=
   (HomogeneousClock.mk 1 zero_lt_one).waitMeasure
@@ -1579,6 +1597,24 @@ theorem PartialInverseHazardClock.replayPrefix_succ_cons
       rw [ih]
       rfl
 
+/-- Dropping a finite prefix of an infinite hazard stream and restarting from
+the corresponding replay state gives exactly the remaining finite replay. -/
+theorem PartialInverseHazardClock.replayPrefix_add_eq_replayPrefix_tail
+    (clock : PartialInverseHazardClock State) (jump : State → State)
+    (count extra : ℕ)
+    (input : (NNReal × State) × (ℕ → NNReal)) :
+    clock.replayPrefix jump (count + extra) input =
+      clock.replayPrefix jump extra
+        (clock.replayPrefix jump count input,
+          (unitHazardPrefixTail count input.2).2) := by
+  induction extra with
+  | zero => rfl
+  | succ extra ih =>
+      rw [Nat.add_succ]
+      unfold PartialInverseHazardClock.replayPrefix
+      rw [ih]
+      congr 2
+
 /-- Exact nonexplosion/completion obligation for a partial inverse clock: at
 every finite horizon and initial state, almost every iid hazard stream has a
 finite prefix after which no time remains. Stability then makes every longer
@@ -1875,6 +1911,33 @@ theorem PartialInverseHazardClock.genuineCompletionStratum_zero_eq_empty
   intro hmem
   exact hhorizon.ne' hmem.2
 
+/-- At a positive horizon, the successor-indexed genuine completion strata
+form an almost-sure measurable partition of the iid hazard-stream law. -/
+theorem PartialInverseHazardClock.sum_restrict_genuineCompletionStratum_succ_eq
+    (clock : PartialInverseHazardClock State) {jump : State → State}
+    (hjump : Measurable jump) (hcomplete : clock.CompletesFiniteHorizons jump)
+    {horizon : NNReal} (hhorizon : 0 < horizon) (initial : State) :
+    Measure.sum (fun count => unitHazardSequenceMeasure.restrict
+      (clock.genuineCompletionStratum jump horizon initial (count + 1))) =
+        unitHazardSequenceMeasure := by
+  apply sum_restrict_eq_of_ae_mem_iUnion
+  · intro count
+    exact clock.measurableSet_genuineCompletionStratum hjump horizon initial _
+  · intro left right hne
+    exact clock.genuineCompletionStratum_pairwiseDisjoint jump horizon initial
+      (fun heq => hne (Nat.add_right_cancel heq))
+  · filter_upwards [clock.ae_mem_iUnion_genuineCompletionStratum jump hcomplete
+      horizon initial] with hazards hmem
+    rcases Set.mem_iUnion.mp hmem with ⟨count, hcount⟩
+    cases count with
+    | zero =>
+        rw [clock.genuineCompletionStratum_zero_eq_empty
+          (jump := jump) hhorizon initial]
+          at hcount
+        exact hcount.elim
+    | succ count =>
+        exact Set.mem_iUnion.mpr ⟨count, by simpa [Nat.succ_eq_add_one] using hcount⟩
+
 /-- On the `(count+1)` stratum, the prefix before the terminal candidate is
 still active. -/
 theorem PartialInverseHazardClock.replayPrefix_fst_ne_zero_on_succ_stratum
@@ -2094,6 +2157,38 @@ theorem PartialInverseHazardClock.completedReplayEndpoint_cons
         (clock.cappedStepUpdate jump (remainingState, headTail.1),
           headTail.2) :=
       (clock.completedReplayEndpoint_eq_replayPrefix jump _ _ hcount).symm
+
+/-- If the replay driven by the suffix completes, discarding any fixed
+prefix and restarting from its replay state leaves the totalized endpoint
+unchanged. -/
+theorem PartialInverseHazardClock.completedReplayEndpoint_eq_tail
+    (clock : PartialInverseHazardClock State) (jump : State → State)
+    (count : ℕ) (input : (NNReal × State) × (ℕ → NNReal))
+    (htail : ∃ extra, clock.replayFinished jump
+      (clock.replayPrefix jump count input,
+        (unitHazardPrefixTail count input.2).2) extra) :
+    clock.completedReplayEndpoint jump input =
+      clock.completedReplayEndpoint jump
+        (clock.replayPrefix jump count input,
+          (unitHazardPrefixTail count input.2).2) := by
+  obtain ⟨extra, hextra⟩ := htail
+  have hdirect : clock.replayFinished jump input (count + extra) := by
+    unfold PartialInverseHazardClock.replayFinished at hextra ⊢
+    rw [clock.replayPrefix_add_eq_replayPrefix_tail]
+    exact hextra
+  calc
+    clock.completedReplayEndpoint jump input =
+        (clock.replayPrefix jump (count + extra) input).2 :=
+      clock.completedReplayEndpoint_eq_replayPrefix jump _ _ hdirect
+    _ = (clock.replayPrefix jump extra
+        (clock.replayPrefix jump count input,
+          (unitHazardPrefixTail count input.2).2)).2 :=
+      congrArg Prod.snd
+        (clock.replayPrefix_add_eq_replayPrefix_tail jump count extra input)
+    _ = clock.completedReplayEndpoint jump
+        (clock.replayPrefix jump count input,
+          (unitHazardPrefixTail count input.2).2) :=
+      (clock.completedReplayEndpoint_eq_replayPrefix jump _ _ hextra).symm
 
 /-- Under finite-horizon completion, the head/tail endpoint recursion holds
 almost surely under an independent unit-exponential head and iid tail. -/

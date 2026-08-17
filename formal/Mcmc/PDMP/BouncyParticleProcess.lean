@@ -2374,6 +2374,45 @@ theorem standardGaussianBPSCompletedSplitPair_stratumLaw_eq_prod
         Measure.map_id]
     _ = _ := rfl
 
+/-- First marginal appearing in the completed-endpoint/fresh-residual product
+law on the genuine `(count+1)` completion stratum. -/
+noncomputable def standardGaussianBPSCompletionEndpointStratumMeasure
+    (horizon : NNReal) (initial : BouncyParticleState ι) (count : ℕ) :
+    Measure (BouncyParticleState ι) :=
+  Measure.map
+    (standardGaussianBPSPrefixEndpoint (ι := ι) horizon initial count)
+    (((unitHazardPrefixMeasure count).restrict
+      (standardGaussianBPSActivePrefixSet (ι := ι)
+        horizon initial count)).withDensity
+      (fun marks =>
+        (Real.toNNReal (Real.exp
+          (-(standardGaussianBPSTerminalThreshold (ι := ι)
+            horizon initial count marks : ℝ))) : ENNReal)))
+
+/-- Summing the countwise completion laws preserves the fresh iid residual
+factor: the completed endpoint mixture is globally independent of that fresh
+stream at the level of the successor-stratum decomposition. -/
+theorem standardGaussianBPSCompletedSplitPair_sum_stratumLaw_eq_prod
+    (horizon : NNReal) (initial : BouncyParticleState ι)
+    (hvelocity : initial.2 ≠ 0) :
+    Measure.sum (fun count => Measure.map
+      (standardGaussianBPSCompletedSplitPair (ι := ι)
+        horizon initial count)
+      (unitHazardSequenceMeasure.restrict
+        ((standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+          |>.genuineCompletionStratum (standardGaussianBPSJump (ι := ι))
+            horizon initial (count + 1)))) =
+      (Measure.sum (fun count =>
+        standardGaussianBPSCompletionEndpointStratumMeasure
+          (ι := ι) horizon initial count)).prod
+        unitHazardSequenceMeasure := by
+  rw [Measure.prod_sum_left]
+  congr 1
+  funext count
+  simpa [standardGaussianBPSCompletionEndpointStratumMeasure] using
+    standardGaussianBPSCompletedSplitPair_stratumLaw_eq_prod
+      (ι := ι) horizon initial hvelocity count
+
 /-- On a genuine no-event terminal branch, the residual stream's head clock
 is exactly the unused portion of the original terminal clock. -/
 theorem standardGaussianBPSSplitResidualStream_waitingTime
@@ -2580,6 +2619,73 @@ theorem standardGaussianBPS_completesFiniteHorizons :
     |>.completesFiniteHorizons_of_boundedActivePrefixHazard
       (standardGaussianBPSJump (ι := ι))
         (standardGaussianBPS_hasBoundedActivePrefixHazard (ι := ι))
+
+/-- The mixture of the successor-stratum endpoint marginals is exactly the
+law of the totalized completed endpoint.  This is the countable-gluing step
+that turns the countwise product laws into a global first marginal. -/
+theorem standardGaussianBPSCompletionEndpointStratumMeasure_sum_eq
+    {horizon : NNReal} (hhorizon : 0 < horizon)
+    (initial : BouncyParticleState ι) (hvelocity : initial.2 ≠ 0) :
+    Measure.sum (fun count =>
+      standardGaussianBPSCompletionEndpointStratumMeasure
+        (ι := ι) horizon initial count) =
+      Measure.map
+        (fun hazards =>
+          (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+            |>.completedReplayEndpoint (standardGaussianBPSJump (ι := ι))
+              ((horizon, initial), hazards))
+        unitHazardSequenceMeasure := by
+  let clock :=
+    (standardGaussianBPSPartialInverseHazardData (ι := ι)).clock
+  let endpoint := fun hazards => clock.completedReplayEndpoint
+    (standardGaussianBPSJump (ι := ι)) ((horizon, initial), hazards)
+  let stratum := fun count => clock.genuineCompletionStratum
+    (standardGaussianBPSJump (ι := ι)) horizon initial (count + 1)
+  have hendpoint : Measurable endpoint :=
+    (clock.measurable_completedReplayEndpoint
+      measurable_standardGaussianBPSJump).comp
+        ((measurable_const.prodMk measurable_const).prodMk measurable_id)
+  have hpartition :
+      Measure.sum (fun count =>
+        unitHazardSequenceMeasure.restrict (stratum count)) =
+          unitHazardSequenceMeasure := by
+    exact clock.sum_restrict_genuineCompletionStratum_succ_eq
+      measurable_standardGaussianBPSJump
+      (standardGaussianBPS_completesFiniteHorizons (ι := ι))
+      hhorizon initial
+  have hpair := standardGaussianBPSCompletedSplitPair_sum_stratumLaw_eq_prod
+    (ι := ι) horizon initial hvelocity
+  calc
+    Measure.sum (fun count =>
+        standardGaussianBPSCompletionEndpointStratumMeasure
+          (ι := ι) horizon initial count) =
+      Measure.map Prod.fst
+        ((Measure.sum (fun count =>
+          standardGaussianBPSCompletionEndpointStratumMeasure
+            (ι := ι) horizon initial count)).prod
+          unitHazardSequenceMeasure) := by
+            rw [Measure.map_fst_prod, measure_univ, one_smul]
+    _ = Measure.map Prod.fst
+        (Measure.sum (fun count => Measure.map
+          (standardGaussianBPSCompletedSplitPair (ι := ι)
+            horizon initial count)
+          (unitHazardSequenceMeasure.restrict (stratum count)))) := by
+            rw [hpair]
+    _ = Measure.sum (fun count => Measure.map endpoint
+        (unitHazardSequenceMeasure.restrict (stratum count))) := by
+          rw [Measure.map_sum measurable_fst.aemeasurable]
+          congr 1
+          funext count
+          rw [Measure.map_map measurable_fst
+            (measurable_standardGaussianBPSCompletedSplitPair
+              horizon initial count)]
+          rfl
+    _ = Measure.map endpoint
+        (Measure.sum (fun count =>
+          unitHazardSequenceMeasure.restrict (stratum count))) := by
+            rw [Measure.map_sum hendpoint.aemeasurable]
+    _ = Measure.map endpoint unitHazardSequenceMeasure := by rw [hpartition]
+    _ = _ := rfl
 
 /-- Exact totalized finite-horizon kernel for finite-dimensional
 standard-Gaussian BPS. The nonexplosion theorem above proves that the
