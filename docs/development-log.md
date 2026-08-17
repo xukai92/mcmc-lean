@@ -5102,3 +5102,18 @@ integrability of the complete phase generator. Consequently
 `standardGaussianBPSSmoothObservableCertificate_of_coordinateStein` leaves
 only the coordinate Gaussian integration-by-parts identity as input; all
 integrability fields are constructed in Lean.
+
+The coordinate identity and smooth core are now complete. Lean constructs a
+measurable equivalence splitting any selected coordinate from a finite
+standard-Gaussian product and proves it measure-preserving. Every resulting
+scalar phase slice remains compactly supported and `C¹`; its ordinary
+derivative is identified with the canonical Fréchet coordinate partial. The
+reusable scalar Gaussian Stein theorem then proves integration by parts on
+each slice, and two Fubini swaps lift it through the remaining position and
+velocity coordinates. Therefore every compactly supported `C¹` phase
+observable now receives a complete
+`StandardGaussianBPSSmoothObservableCertificate`, and
+`standardGaussianBPSSmoothCore_contDiffCompactSupport` supplies the actual
+finite-regular determining core. The only remaining premise of the current
+stationarity route is target-started scalar weak-expectation uniqueness; it is
+not implied merely by generator cancellation.

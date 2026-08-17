@@ -3,6 +3,7 @@ import Mcmc.PDMP.EventSimulation
 import Mcmc.PDMP.InverseHazard
 import Mcmc.PDMP.ScheduledExecutionKernel
 import Mcmc.PDMP.SemigroupStationarity
+import Mcmc.PDMP.ZigZag
 import Mcmc.Hamiltonian.MomentumRefresh
 import Mathlib.MeasureTheory.Integral.IntervalIntegral.Basic
 import Mathlib.Tactic
@@ -3809,6 +3810,406 @@ theorem integrable_standardGaussianBPS_phaseGenerator
           function state)
   ring
 
+/-- Split a finite position vector into all coordinates except `i` and the
+selected scalar coordinate. -/
+noncomputable def standardGaussianBPSSplitCoordinate (i : ι) :
+    Position ι → ({j : ι // j ≠ i} → ℝ) × ℝ :=
+  fun position => (fun j => position j, position i)
+
+/-- Reinsert one selected scalar coordinate into a vector of all remaining
+coordinates. -/
+noncomputable def standardGaussianBPSJoinCoordinate [DecidableEq ι] (i : ι)
+    (split : ({j : ι // j ≠ i} → ℝ) × ℝ) : Position ι :=
+  fun j => if h : j = i then split.2 else split.1 ⟨j, h⟩
+
+/-- Measurable equivalence between a finite position vector and its selected
+coordinate split. -/
+noncomputable def standardGaussianBPSSplitCoordinateEquiv
+    [DecidableEq ι] (i : ι) :
+    Position ι ≃ᵐ ({j : ι // j ≠ i} → ℝ) × ℝ where
+  toEquiv :=
+    { toFun := standardGaussianBPSSplitCoordinate i
+      invFun := standardGaussianBPSJoinCoordinate i
+      left_inv := fun position => by
+        funext j
+        by_cases hji : j = i
+        · simp [standardGaussianBPSSplitCoordinate,
+            standardGaussianBPSJoinCoordinate, hji]
+        · simp [standardGaussianBPSSplitCoordinate,
+            standardGaussianBPSJoinCoordinate, hji]
+      right_inv := fun split => by
+        apply Prod.ext
+        · funext j
+          simp [standardGaussianBPSSplitCoordinate,
+            standardGaussianBPSJoinCoordinate, j.2]
+        · simp [standardGaussianBPSSplitCoordinate,
+            standardGaussianBPSJoinCoordinate] }
+  measurable_toFun := by
+    change Measurable (standardGaussianBPSSplitCoordinate i)
+    unfold standardGaussianBPSSplitCoordinate
+    fun_prop
+  measurable_invFun := by
+    change Measurable (standardGaussianBPSJoinCoordinate i)
+    unfold standardGaussianBPSJoinCoordinate
+    apply measurable_pi_lambda
+    intro j
+    by_cases hji : j = i
+    · simp [hji]
+      exact measurable_snd
+    · simp [hji]
+      let restIndex : {k : ι // k ≠ i} := ⟨j, hji⟩
+      exact (measurable_pi_apply restIndex).comp measurable_fst
+
+omit [Fintype ι] in
+@[simp] theorem standardGaussianBPSSplitCoordinateEquiv_apply
+    [DecidableEq ι] (i : ι) (position : Position ι) :
+    standardGaussianBPSSplitCoordinateEquiv i position =
+      standardGaussianBPSSplitCoordinate i position := rfl
+
+omit [Fintype ι] in
+@[simp] theorem standardGaussianBPSSplitCoordinate_snd
+    (i : ι) (position : Position ι) :
+    (standardGaussianBPSSplitCoordinate i position).2 = position i := rfl
+
+omit [Fintype ι] in
+@[simp] theorem standardGaussianBPSJoinCoordinate_splitCoordinate
+    [DecidableEq ι] (i : ι) (position : Position ι) :
+    standardGaussianBPSJoinCoordinate i
+      (standardGaussianBPSSplitCoordinate i position) = position := by
+  funext j
+  by_cases hji : j = i
+  · subst j
+    simp [standardGaussianBPSJoinCoordinate,
+      standardGaussianBPSSplitCoordinate]
+  · simp [standardGaussianBPSJoinCoordinate,
+      standardGaussianBPSSplitCoordinate, hji]
+
+/-- The coordinate split transports the finite product standard Gaussian to
+the product of the remaining-coordinate Gaussian and one scalar Gaussian. -/
+theorem standardGaussianBPSSplitCoordinate_measurePreserving
+    [DecidableEq ι] (i : ι) :
+    MeasurePreserving (standardGaussianBPSSplitCoordinate i)
+      (Measure.pi fun _ : ι => ProbabilityTheory.gaussianReal 0 1)
+      ((Measure.pi fun _ : {j : ι // j ≠ i} =>
+          ProbabilityTheory.gaussianReal 0 1).prod
+        (ProbabilityTheory.gaussianReal 0 1)) := by
+  classical
+  let complement := {j : ι // ¬j ≠ i}
+  letI : Unique complement := {
+    default := ⟨i, by simp⟩
+    uniq value := by
+      apply Subtype.ext
+      simpa using not_ne_iff.mp value.2 }
+  let splitSubtypes := MeasurableEquiv.piEquivPiSubtypeProd
+    (fun _ : ι => ℝ) (fun j => j ≠ i)
+  have hsplit := measurePreserving_piEquivPiSubtypeProd
+    (fun _ : ι => ProbabilityTheory.gaussianReal 0 1)
+    (fun j => j ≠ i)
+  have hselected := measurePreserving_piUnique
+    (fun _ : complement => ProbabilityTheory.gaussianReal 0 1)
+  have hproduct :=
+    (MeasurePreserving.id
+      (Measure.pi fun _ : {j : ι // j ≠ i} =>
+        ProbabilityTheory.gaussianReal 0 1)).prod hselected
+  have hall := hproduct.comp hsplit
+  have hdefault : (default : complement).1 = i :=
+    not_ne_iff.mp (default : complement).2
+  change MeasurePreserving
+    (fun position : Position ι =>
+      ((fun j : {j : ι // j ≠ i} => position j), position i)) _ _
+  simpa [splitSubtypes, complement, Function.comp_def, hdefault] using hall
+
+/-- Equivalence form of the Gaussian coordinate-splitting change of
+variables. -/
+theorem standardGaussianBPSSplitCoordinateEquiv_measurePreserving
+    [DecidableEq ι] (i : ι) :
+    MeasurePreserving (standardGaussianBPSSplitCoordinateEquiv i)
+      (Measure.pi fun _ : ι => ProbabilityTheory.gaussianReal 0 1)
+      ((Measure.pi fun _ : {j : ι // j ≠ i} =>
+          ProbabilityTheory.gaussianReal 0 1).prod
+        (ProbabilityTheory.gaussianReal 0 1)) := by
+  simpa [standardGaussianBPSSplitCoordinateEquiv] using
+    standardGaussianBPSSplitCoordinate_measurePreserving i
+
+/-- Scalar position-coordinate slice of a phase observable, holding all
+other position coordinates and velocity fixed. -/
+noncomputable def standardGaussianBPSCoordinateSlice [DecidableEq ι]
+    (function : BouncyParticleState ι → ℝ) (i : ι)
+    (rest : {j : ι // j ≠ i} → ℝ) (velocity : Position ι) (x : ℝ) : ℝ :=
+  function (standardGaussianBPSJoinCoordinate i (rest, x), velocity)
+
+omit [Fintype ι] in
+/-- A compactly supported phase observable has compact support on every
+scalar coordinate slice. -/
+theorem hasCompactSupport_standardGaussianBPSCoordinateSlice
+    [DecidableEq ι] {function : BouncyParticleState ι → ℝ}
+    (hcompact : HasCompactSupport function) (i : ι)
+    (rest : {j : ι // j ≠ i} → ℝ) (velocity : Position ι) :
+    HasCompactSupport
+      (standardGaussianBPSCoordinateSlice function i rest velocity) := by
+  apply HasCompactSupport.intro
+    (hcompact.image ((continuous_apply i).comp continuous_fst))
+  intro x houtside
+  by_contra hne
+  apply houtside
+  refine ⟨(standardGaussianBPSJoinCoordinate i (rest, x), velocity),
+    subset_tsupport _ hne, ?_⟩
+  simp [standardGaussianBPSJoinCoordinate]
+
+/-- Every scalar coordinate slice of a `C¹` phase observable remains `C¹`. -/
+theorem contDiff_standardGaussianBPSCoordinateSlice
+    [DecidableEq ι] {function : BouncyParticleState ι → ℝ}
+    (hsmooth : ContDiff ℝ 1 function) (i : ι)
+    (rest : {j : ι // j ≠ i} → ℝ) (velocity : Position ι) :
+    ContDiff ℝ 1
+      (standardGaussianBPSCoordinateSlice function i rest velocity) := by
+  have hjoin : ContDiff ℝ 1
+      (fun x : ℝ => standardGaussianBPSJoinCoordinate i (rest, x)) := by
+    rw [contDiff_pi]
+    intro j
+    by_cases hji : j = i
+    · subst j
+      simp [standardGaussianBPSJoinCoordinate]
+      exact contDiff_id
+    · simp [standardGaussianBPSJoinCoordinate, hji]
+      exact contDiff_const
+  exact hsmooth.comp (hjoin.prodMk contDiff_const)
+
+/-- The ordinary derivative of a scalar coordinate slice is the canonical
+Fréchet-derived position partial. -/
+theorem deriv_standardGaussianBPSCoordinateSlice
+    [DecidableEq ι] {function : BouncyParticleState ι → ℝ}
+    (hsmooth : ContDiff ℝ 1 function) (i : ι)
+    (rest : {j : ι // j ≠ i} → ℝ) (velocity : Position ι) (x : ℝ) :
+    deriv (standardGaussianBPSCoordinateSlice function i rest velocity) x =
+      standardGaussianBPSCoordinatePartial function
+        (standardGaussianBPSJoinCoordinate i (rest, x)) i velocity := by
+  have hposition : HasDerivAt
+      (fun y : ℝ => standardGaussianBPSJoinCoordinate i (rest, y))
+      (Pi.single i 1) x := by
+    apply hasDerivAt_pi.mpr
+    intro j
+    by_cases hji : j = i
+    · subst j
+      simpa only [standardGaussianBPSJoinCoordinate, dif_pos,
+        Pi.single_eq_same] using hasDerivAt_id' x
+    · simpa [standardGaussianBPSJoinCoordinate, hji] using
+        hasDerivAt_const (x := x) (rest ⟨j, hji⟩)
+  have hphase : HasDerivAt
+      (fun y : ℝ =>
+        (standardGaussianBPSJoinCoordinate i (rest, y), velocity))
+      (standardGaussianBPSPositionDirection i) x := by
+    have hdirection : standardGaussianBPSPositionDirection i =
+        ((Pi.single i 1), (0 : Position ι)) := by
+      apply Prod.ext
+      · funext j
+        classical
+        by_cases hji : j = i
+        · subst j
+          simp [standardGaussianBPSPositionDirection]
+        · simp [standardGaussianBPSPositionDirection, hji]
+      · simp [standardGaussianBPSPositionDirection]
+    rw [hdirection]
+    exact hposition.prodMk (hasDerivAt_const (x := x) velocity)
+  have houter := (hsmooth.differentiable one_ne_zero
+    (standardGaussianBPSJoinCoordinate i (rest, x), velocity)).hasFDerivAt
+  have hcomp := houter.comp_hasDerivAt x hphase
+  change deriv (fun y => function
+      (standardGaussianBPSJoinCoordinate i (rest, y), velocity)) x = _
+  unfold standardGaussianBPSCoordinatePartial
+  exact hcomp.deriv
+
+/-- One-dimensional Gaussian integration by parts on every fixed
+remaining-coordinate and velocity slice. -/
+theorem standardGaussianBPSCoordinateSlice_stein
+    [DecidableEq ι] {function : BouncyParticleState ι → ℝ}
+    (hsmooth : ContDiff ℝ 1 function)
+    (hcompact : HasCompactSupport function) (i : ι)
+    (rest : {j : ι // j ≠ i} → ℝ) (velocity : Position ι) :
+    (∫ x, standardGaussianBPSCoordinatePartial function
+        (standardGaussianBPSJoinCoordinate i (rest, x)) i velocity
+        ∂ProbabilityTheory.gaussianReal 0 1) =
+      ∫ x, x * function
+        (standardGaussianBPSJoinCoordinate i (rest, x), velocity)
+        ∂ProbabilityTheory.gaussianReal 0 1 := by
+  let slice := standardGaussianBPSCoordinateSlice function i rest velocity
+  have hstein :=
+    standardGaussian_integral_deriv_eq_integral_mul_of_contDiff_compactSupport
+      slice
+      (contDiff_standardGaussianBPSCoordinateSlice hsmooth i rest velocity)
+      (hasCompactSupport_standardGaussianBPSCoordinateSlice
+        hcompact i rest velocity)
+  calc
+    (∫ x, standardGaussianBPSCoordinatePartial function
+        (standardGaussianBPSJoinCoordinate i (rest, x)) i velocity
+        ∂ProbabilityTheory.gaussianReal 0 1) =
+        ∫ x, deriv slice x ∂ProbabilityTheory.gaussianReal 0 1 := by
+      apply integral_congr_ae
+      filter_upwards [] with x
+      exact (deriv_standardGaussianBPSCoordinateSlice
+        hsmooth i rest velocity x).symm
+    _ = ∫ x, x * slice x ∂ProbabilityTheory.gaussianReal 0 1 := hstein
+    _ = ∫ x, x * function
+        (standardGaussianBPSJoinCoordinate i (rest, x), velocity)
+        ∂ProbabilityTheory.gaussianReal 0 1 := rfl
+
+omit [Fintype ι] in
+/-- Restricting a compactly supported phase observable to any fixed-velocity
+position fiber preserves compact support. -/
+theorem hasCompactSupport_fixedVelocitySlice
+    {function : BouncyParticleState ι → ℝ}
+    (hcompact : HasCompactSupport function) (velocity : Position ι) :
+    HasCompactSupport (fun position => function (position, velocity)) := by
+  apply HasCompactSupport.intro (hcompact.image continuous_fst)
+  intro position houtside
+  by_contra hne
+  apply houtside
+  exact ⟨(position, velocity), subset_tsupport _ hne, rfl⟩
+
+/-- At fixed velocity, each canonical position partial is integrable under the
+finite product standard Gaussian. -/
+theorem integrable_position_standardGaussianBPSCoordinatePartial
+    {function : BouncyParticleState ι → ℝ}
+    (hsmooth : ContDiff ℝ 1 function)
+    (hcompact : HasCompactSupport function)
+    (i : ι) (velocity : Position ι) :
+    Integrable (fun position =>
+      standardGaussianBPSCoordinatePartial function position i velocity)
+      standardMomentumMeasure := by
+  apply Continuous.integrable_of_hasCompactSupport
+  · exact (continuous_standardGaussianBPSCoordinatePartial hsmooth i).comp
+      (continuous_id.prodMk continuous_const)
+  · exact hasCompactSupport_fixedVelocitySlice
+      (hasCompactSupport_standardGaussianBPSCoordinatePartial hcompact i)
+      velocity
+
+/-- At fixed velocity, the canonical coordinate partial satisfies
+multivariate standard-Gaussian integration by parts in position. -/
+theorem standardGaussianBPSCoordinatePartial_stein_fixedVelocity
+    {function : BouncyParticleState ι → ℝ}
+    (hsmooth : ContDiff ℝ 1 function)
+    (hcompact : HasCompactSupport function) (i : ι)
+    (velocity : Position ι) :
+    (∫ position, standardGaussianBPSCoordinatePartial
+        function position i velocity ∂standardMomentumMeasure) =
+      ∫ position, position i * function (position, velocity)
+        ∂standardMomentumMeasure := by
+  classical
+  let restLaw := Measure.pi fun _ : {j : ι // j ≠ i} =>
+    ProbabilityTheory.gaussianReal 0 1
+  let scalarLaw := ProbabilityTheory.gaussianReal 0 1
+  let split := standardGaussianBPSSplitCoordinateEquiv i
+  let left : ({j : ι // j ≠ i} → ℝ) × ℝ → ℝ := fun pair =>
+    standardGaussianBPSCoordinatePartial function
+      (standardGaussianBPSJoinCoordinate i pair) i velocity
+  let right : ({j : ι // j ≠ i} → ℝ) × ℝ → ℝ := fun pair =>
+    pair.2 * function (standardGaussianBPSJoinCoordinate i pair, velocity)
+  have hmomentum : (standardMomentumMeasure : Measure (Position ι)) =
+      Measure.pi fun _ : ι => ProbabilityTheory.gaussianReal 0 1 := by
+    rw [← l2StandardGaussianPosition_eq_standardMomentumMeasure,
+      l2StandardGaussianPosition_eq_pi]
+  have hpreserve := standardGaussianBPSSplitCoordinateEquiv_measurePreserving i
+  have hleftOriginal :=
+    integrable_position_standardGaussianBPSCoordinatePartial
+      hsmooth hcompact i velocity
+  have hleft : Integrable left (restLaw.prod scalarLaw) := by
+    apply (hpreserve.integrable_comp_emb split.measurableEmbedding).mp
+    simpa [left, split, Function.comp_def] using
+      (hmomentum ▸ hleftOriginal)
+  have hrightOriginal : Integrable
+      (fun position : Position ι => position i * function (position, velocity))
+      standardMomentumMeasure := by
+    apply Continuous.integrable_of_hasCompactSupport
+    · exact (continuous_apply i).mul
+        (hsmooth.continuous.comp (continuous_id.prodMk continuous_const))
+    · exact HasCompactSupport.mul_left
+        (hasCompactSupport_fixedVelocitySlice hcompact velocity)
+  have hright : Integrable right (restLaw.prod scalarLaw) := by
+    apply (hpreserve.integrable_comp_emb split.measurableEmbedding).mp
+    simpa [right, split, Function.comp_def] using
+      (hmomentum ▸ hrightOriginal)
+  rw [hmomentum]
+  calc
+    (∫ position, standardGaussianBPSCoordinatePartial
+        function position i velocity
+        ∂Measure.pi fun _ : ι => ProbabilityTheory.gaussianReal 0 1) =
+        ∫ pair, left pair ∂restLaw.prod scalarLaw := by
+      simpa [left, split, Function.comp_def] using
+        hpreserve.integral_comp' left
+    _ = ∫ rest, ∫ x, left (rest, x) ∂scalarLaw ∂restLaw :=
+      integral_prod left hleft
+    _ = ∫ rest, ∫ x, right (rest, x) ∂scalarLaw ∂restLaw := by
+      apply integral_congr_ae
+      filter_upwards [] with rest
+      exact standardGaussianBPSCoordinateSlice_stein
+        hsmooth hcompact i rest velocity
+    _ = ∫ pair, right pair ∂restLaw.prod scalarLaw :=
+      (integral_prod right hright).symm
+    _ = ∫ position, position i * function (position, velocity)
+        ∂Measure.pi fun _ : ι => ProbabilityTheory.gaussianReal 0 1 := by
+      simpa [right, split, Function.comp_def] using
+        (hpreserve.integral_comp' right).symm
+
+/-- Full coordinatewise Gaussian integration by parts for a compactly
+supported `C¹` phase observable. -/
+theorem standardGaussianBPSCoordinate_stein
+    {function : BouncyParticleState ι → ℝ}
+    (hsmooth : ContDiff ℝ 1 function)
+    (hcompact : HasCompactSupport function) (i : ι) :
+    (∫ position, ∫ velocity,
+      velocity i * standardGaussianBPSCoordinatePartial
+        function position i velocity
+        ∂standardMomentumMeasure ∂standardMomentumMeasure) =
+      ∫ position, ∫ velocity,
+        velocity i * position i * function (position, velocity)
+        ∂standardMomentumMeasure ∂standardMomentumMeasure := by
+  let left := fun state : BouncyParticleState ι => state.2 i *
+    standardGaussianBPSCoordinatePartial function state.1 i state.2
+  let right := fun state : BouncyParticleState ι =>
+    state.2 i * state.1 i * function state
+  have hleft := integrable_phase_velocity_mul_standardGaussianBPSCoordinatePartial
+    hsmooth hcompact i
+  have hright := integrable_phase_velocity_mul_position_mul_observable
+    hsmooth hcompact i
+  calc
+    (∫ position, ∫ velocity,
+      velocity i * standardGaussianBPSCoordinatePartial
+        function position i velocity
+        ∂standardMomentumMeasure ∂standardMomentumMeasure) =
+        ∫ state, left state
+          ∂(standardMomentumMeasure.prod standardMomentumMeasure) := by
+      exact (integral_prod left hleft).symm
+    _ = ∫ pair : Position ι × Position ι, left pair.swap
+          ∂(standardMomentumMeasure.prod standardMomentumMeasure) := by
+      exact (integral_prod_swap left).symm
+    _ = ∫ velocity, ∫ position, left (position, velocity)
+          ∂standardMomentumMeasure ∂standardMomentumMeasure := by
+      exact integral_prod (fun pair : Position ι × Position ι =>
+        left pair.swap) hleft.swap
+    _ = ∫ velocity, ∫ position, right (position, velocity)
+          ∂standardMomentumMeasure ∂standardMomentumMeasure := by
+      apply integral_congr_ae
+      filter_upwards [] with velocity
+      simp only [left, right]
+      rw [integral_const_mul,
+        standardGaussianBPSCoordinatePartial_stein_fixedVelocity
+          hsmooth hcompact i velocity,
+        ← integral_const_mul]
+      apply integral_congr_ae
+      filter_upwards [] with position
+      ring
+    _ = ∫ pair : Position ι × Position ι, right pair.swap
+          ∂(standardMomentumMeasure.prod standardMomentumMeasure) := by
+      exact (integral_prod (fun pair : Position ι × Position ι =>
+        right pair.swap) hright.swap).symm
+    _ = ∫ state, right state
+          ∂(standardMomentumMeasure.prod standardMomentumMeasure) := by
+      exact integral_prod_swap right
+    _ = ∫ position, ∫ velocity,
+        velocity i * position i * function (position, velocity)
+        ∂standardMomentumMeasure ∂standardMomentumMeasure := by
+      exact integral_prod right hright
+
 /-- Gaussian reflection invariance transports reflected-rate integrability to
 the incoming bounce term. -/
 theorem integrable_standardGaussianBPS_incoming
@@ -3948,6 +4349,16 @@ noncomputable def standardGaussianBPSSmoothObservableCertificate_of_coordinateSt
     (integrable_standardGaussianBPS_phaseGenerator hsmooth hcompact)
     coordinate_stein
 
+/-- Compactly supported `C¹` phase observables carry a fully automatic smooth
+Gaussian-BPS generator certificate. -/
+noncomputable def standardGaussianBPSSmoothObservableCertificate_of_contDiff_compactSupport
+    {function : BouncyParticleState ι → ℝ}
+    (hsmooth : ContDiff ℝ 1 function)
+    (hcompact : HasCompactSupport function) :
+    StandardGaussianBPSSmoothObservableCertificate (ι := ι) function :=
+  standardGaussianBPSSmoothObservableCertificate_of_coordinateStein
+    hsmooth hcompact (standardGaussianBPSCoordinate_stein hsmooth hcompact)
+
 /-- Package one fully discharged smooth-observable certificate as an element
 of the generator test domain. -/
 noncomputable def StandardGaussianBPSSmoothObservableCertificate.toGeneratorTest
@@ -4014,6 +4425,15 @@ theorem standardGaussianBPSSmoothCore_of_observableCertificates
     StandardGaussianBPSSmoothCore ι where
   represent function hsmooth hcompact :=
     ⟨(certify function hsmooth hcompact).toGeneratorTest, rfl⟩
+
+/-- The compactly supported `C¹` phase observables form a complete checked
+Gaussian-BPS smooth generator core. -/
+theorem standardGaussianBPSSmoothCore_contDiffCompactSupport :
+    StandardGaussianBPSSmoothCore ι :=
+  standardGaussianBPSSmoothCore_of_observableCertificates
+    (fun _ hsmooth hcompact =>
+      standardGaussianBPSSmoothObservableCertificate_of_contDiff_compactSupport
+        hsmooth hcompact)
 
 /-- A complete smooth Gaussian-BPS core is automatically measure determining
 for all finite regular phase-space measures. -/

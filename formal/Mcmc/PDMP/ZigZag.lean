@@ -312,6 +312,26 @@ theorem gaussianSteinTest_of_contDiff_compactSupport
   · exact hbot
   · exact htop
 
+/-- Every compactly supported `C¹` scalar function satisfies the standard
+Gaussian integration-by-parts identity. This is the reusable scalar form of
+the certified Zig-Zag Stein core. -/
+theorem standardGaussian_integral_deriv_eq_integral_mul_of_contDiff_compactSupport
+    (g : ℝ → ℝ) (hsmooth : ContDiff ℝ 1 g)
+    (hcompact : HasCompactSupport g) :
+    (∫ q, deriv g q ∂ProbabilityTheory.gaussianReal 0 1) =
+      ∫ q, q * g q ∂ProbabilityTheory.gaussianReal 0 1 := by
+  let derivative : ℝ → Bool → ℝ := fun q velocity =>
+    if velocity then deriv g q else 0
+  let observable : ℝ → Bool → ℝ := fun q velocity =>
+    if velocity then g q else 0
+  have htest := gaussianSteinTest_of_contDiff_compactSupport
+    derivative observable g (by
+      funext q
+      simp [observable]) hsmooth hcompact (by
+      intro q
+      simp [derivative])
+  simpa [derivative, observable] using htest.stein
+
 /-- Every Gaussian Stein test has mean-zero standard-Gaussian Zig-Zag
 generator.  Unlike the earlier generic weighted theorem, this statement is
 directly phrased over the actual Gaussian target and an arbitrary observable

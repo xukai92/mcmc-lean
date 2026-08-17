@@ -244,8 +244,11 @@ clients no longer need to rewrite through the transported Gaussian law. A
 second specialization reconstructs directional derivatives from coordinate
 partials and proves that the spatial premise follows from one scalar
 integration-by-parts identity per coordinate, with all finite-sum integrability
-conditions checked explicitly. Deriving those scalar identities from concrete
-regularity and boundary-decay assumptions is still analytic input. This is
+conditions checked explicitly. For compactly supported `C¹` phase observables,
+Lean now derives those scalar identities automatically: a measure-preserving
+coordinate split reduces the finite Gaussian product to a scalar Gaussian
+slice, the one-dimensional Stein theorem applies, and Fubini reconstructs the
+phase identity. This is
 infinitesimal balance, not process stationarity or convergence. For globally bounded bounce intensities, Lean now
 also constructs the exact positive-horizon Poisson/ordered-time thinning
 kernel and the practical refresh-then-bounce composition. The latter preserves
@@ -261,7 +264,9 @@ finite potential “remaining time × current envelope” to pay every accepted
 hazard, while iid exponential prefix sums exceed every finite bound almost
 surely. A measurable first-completed-prefix selector now totalizes the exact
 endpoint, its fallback is proved null, and the resulting finite-horizon
-transition is a Markov kernel. Its semigroup law, target stationarity, and
+transition is a Markov kernel. Its exact semigroup law is also proved. The
+compact `C¹` generator tests form a checked finite-regular determining core;
+target-started scalar weak-forward uniqueness, target stationarity, and
 convergence remain open in general dimension.
 
 In one dimension at unit speed,
