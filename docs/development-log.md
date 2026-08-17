@@ -4494,3 +4494,19 @@ fiber `n < maxShrink` equals `boundedShrinkSuccessMass` exactly and is at most
 one from every valid stepped-out bracket. Remaining for the concrete runtime
 kernel is lifting this bound through the normalized integer allocation and
 Haar alignment factors.
+
+## 2026-08-17: completed practical runtime trace probability kernel
+
+Lifted the finite shrink bound through every remaining runtime coordinate.
+Lean integrates the final fraction, the rejected vector, the finite length
+sum, integer allocation, and Haar alignment in their actual product measures;
+Tonelli rearrangements are proved explicitly. The total mass of
+`successfulRuntimeTraceKernel` is thereby at most one whenever the augmented
+slice state is valid, `width > 0`, and `intervals > 0`. A measurable piecewise
+guard makes success mass zero outside the valid height/state domain without
+changing any trace emitted after the certified log-height draw.
+`completedRuntimeTraceKernelFromFibers` then maps successful traces into the
+left branch and assigns the exact missing mass to one right-branch exhaustion
+atom. Lean proves this completed kernel is a Markov kernel on the full ambient
+state space. Remaining practical-slice work is the primitive derived-bracket
+reversal and completed joint-law preservation.

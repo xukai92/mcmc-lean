@@ -2652,6 +2652,449 @@ theorem runtimeTraceDensity_zero_of_length_ge
   · next h => omega
   · rfl
 
+/-- Integrating the primitive final fraction leaves the allocation weight
+times the fixed rejected-vector success integrand. -/
+theorem lintegral_runtimeTraceDensity_fraction
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (width : ℝ) (intervals maxShrink length : ℕ)
+    (state : ℝ × ℝ) (rejected : Fin length → ℝ)
+    (offset : Alignment) (allocation : ℤ) :
+    (∫⁻ fraction : ℝ,
+      runtimeTraceDensity logDensity width intervals maxShrink state
+        (Sigma.mk length rejected, ((offset, allocation), fraction)) ∂volume) =
+      if length < maxShrink then
+        allocationWeight intervals allocation *
+          rejectedTraceVectorWeight logDensity state.1 state.2 length rejected
+            (runtimeSteppedBracket logDensity state.1 width state.2 intervals
+              allocation offset) *
+          finalFractionAcceptMass logDensity state.1
+            (shrinkRejectedVector state.2 length rejected
+              (runtimeSteppedBracket logDensity state.1 width state.2 intervals
+                allocation offset))
+      else 0 := by
+  by_cases hlength : length < maxShrink
+  · rw [if_pos hlength]
+    by_cases hallocation : 0 ≤ allocation ∧ allocation < intervals
+    · have hdensity : (fun fraction : ℝ =>
+          runtimeTraceDensity logDensity width intervals maxShrink state
+            (Sigma.mk length rejected, ((offset, allocation), fraction))) =
+          fun fraction =>
+            ENNReal.ofReal ((intervals : ℝ)⁻¹) *
+              rejectedTraceVectorWeight logDensity state.1 state.2 length rejected
+                (runtimeSteppedBracket logDensity state.1 width state.2 intervals
+                  allocation offset) *
+              finalFractionAcceptWeight logDensity state.1
+                (shrinkRejectedVector state.2 length rejected
+                  (runtimeSteppedBracket logDensity state.1 width state.2 intervals
+                    allocation offset)) fraction := by
+        funext fraction
+        simp only [runtimeTraceDensity,
+          shrinkRejectedVector_eq_shrinkRejectedPoints,
+          rejectedTraceVectorWeight_eq_rejectedTraceWeight,
+          finalFractionAcceptWeight]
+        by_cases haccept : fraction ∈ Set.Ico (0 : ℝ) 1 ∧
+            state.1 ≤ logDensity
+              ((shrinkRejectedVector state.2 length rejected
+                (runtimeSteppedBracket logDensity state.1 width state.2 intervals
+                  allocation offset)).1 +
+               ((shrinkRejectedVector state.2 length rejected
+                (runtimeSteppedBracket logDensity state.1 width state.2 intervals
+                  allocation offset)).2 -
+                (shrinkRejectedVector state.2 length rejected
+                (runtimeSteppedBracket logDensity state.1 width state.2 intervals
+                  allocation offset)).1) * fraction)
+        · simp [hlength, hallocation, haccept]
+        · simp [hlength, hallocation]
+      rw [hdensity, allocationWeight, if_pos hallocation,
+        finalFractionAcceptMass, MeasureTheory.lintegral_const_mul]
+      exact (measurable_finalFractionAcceptWeight hlogDensity state.1).of_uncurry_left
+    · rw [allocationWeight, if_neg hallocation]
+      have hzero : (fun fraction : ℝ =>
+          runtimeTraceDensity logDensity width intervals maxShrink state
+            (Sigma.mk length rejected, ((offset, allocation), fraction))) = 0 := by
+        funext fraction
+        exact runtimeTraceDensity_zero_of_allocation_invalid logDensity width
+          intervals maxShrink state _ hallocation
+      rw [hzero, lintegral_zero_fun]
+      simp
+  · rw [if_neg hlength]
+    have hge : maxShrink ≤ length := Nat.le_of_not_gt hlength
+    have hzero : (fun fraction : ℝ =>
+        runtimeTraceDensity logDensity width intervals maxShrink state
+          (Sigma.mk length rejected, ((offset, allocation), fraction))) = 0 := by
+      funext fraction
+      exact runtimeTraceDensity_zero_of_length_ge logDensity width intervals
+        maxShrink state _ hge
+    rw [hzero, lintegral_zero_fun]
+
+/-- Integrating a fixed rejected vector and its final fraction yields the
+allocation weight times `fixedShrinkSuccessMass` in the derived stepped-out
+bracket. -/
+theorem lintegral_runtimeTraceDensity_rejected_fraction
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (width : ℝ) (intervals maxShrink length : ℕ)
+    (state : ℝ × ℝ) (offset : Alignment) (allocation : ℤ) :
+    (∫⁻ rejected : Fin length → ℝ, ∫⁻ fraction : ℝ,
+      runtimeTraceDensity logDensity width intervals maxShrink state
+        (Sigma.mk length rejected, ((offset, allocation), fraction))
+        ∂volume
+      ∂(Measure.pi fun _ : Fin length => (volume : Measure ℝ))) =
+      if length < maxShrink then
+        allocationWeight intervals allocation *
+          fixedShrinkSuccessMass logDensity state.1 state.2 length
+            (runtimeSteppedBracket logDensity state.1 width state.2 intervals
+              allocation offset)
+      else 0 := by
+  simp_rw [lintegral_runtimeTraceDensity_fraction hlogDensity]
+  by_cases hlength : length < maxShrink
+  · simp only [hlength, if_true, fixedShrinkSuccessMass]
+    simp_rw [mul_assoc]
+    rw [MeasureTheory.lintegral_const_mul]
+    exact measurable_fixedShrinkSuccessWeight hlogDensity state.1 state.2 length
+      (runtimeSteppedBracket logDensity state.1 width state.2 intervals
+        allocation offset)
+  · simp only [hlength, if_false, lintegral_zero]
+
+/-- For fixed alignment and allocation, summing all successful rejected
+lengths costs at most the allocation's own probability weight. -/
+theorem sum_lintegral_runtimeTraceDensity_rejected_fraction_le
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    {width : ℝ} (hwidth : 0 < width) (intervals maxShrink : ℕ)
+    (state : ℝ × ℝ) (hcurrent : state.1 ≤ logDensity state.2)
+    (offset : Alignment) (allocation : ℤ) :
+    (∑ length : Fin maxShrink,
+      ∫⁻ rejected : Fin length → ℝ, ∫⁻ fraction : ℝ,
+        runtimeTraceDensity logDensity width intervals maxShrink state
+          (Sigma.mk length rejected, ((offset, allocation), fraction))
+          ∂volume
+        ∂(Measure.pi fun _ : Fin length => (volume : Measure ℝ))) ≤
+      allocationWeight intervals allocation := by
+  simp_rw [lintegral_runtimeTraceDensity_rejected_fraction hlogDensity,
+    Fin.isLt, if_true]
+  rw [← Finset.mul_sum]
+  apply mul_le_of_le_one_right (by simp)
+  exact sum_fixedShrinkSuccessMass_le_one hlogDensity state.1 state.2 maxShrink
+    (runtimeSteppedBracket logDensity state.1 width state.2 intervals allocation offset)
+    (validShrinkBracket_runtimeSteppedBracket logDensity state.1 state.2
+      hwidth intervals allocation offset hcurrent)
+
+/-- After integrating the normalized allocation and Haar alignment, the sum
+of all successful fixed-length trace fibers remains a subprobability. -/
+theorem lintegral_alignment_allocation_sum_runtimeTraceDensity_le_one
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    {width : ℝ} (hwidth : 0 < width) {intervals : ℕ}
+    (hintervals : 0 < intervals) (maxShrink : ℕ)
+    (state : ℝ × ℝ) (hcurrent : state.1 ≤ logDensity state.2) :
+    (∫⁻ offset : Alignment, ∫⁻ allocation : ℤ,
+      ∑ length : Fin maxShrink,
+        ∫⁻ rejected : Fin length → ℝ, ∫⁻ fraction : ℝ,
+          runtimeTraceDensity logDensity width intervals maxShrink state
+            (Sigma.mk length rejected, ((offset, allocation), fraction))
+            ∂volume
+          ∂(Measure.pi fun _ : Fin length => (volume : Measure ℝ))
+        ∂Measure.count ∂(volume : Measure Alignment)) ≤ 1 := by
+  calc
+    (∫⁻ offset : Alignment, ∫⁻ allocation : ℤ,
+      ∑ length : Fin maxShrink,
+        ∫⁻ rejected : Fin length → ℝ, ∫⁻ fraction : ℝ,
+          runtimeTraceDensity logDensity width intervals maxShrink state
+            (Sigma.mk length rejected, ((offset, allocation), fraction))
+            ∂volume
+          ∂(Measure.pi fun _ : Fin length => (volume : Measure ℝ))
+        ∂Measure.count ∂(volume : Measure Alignment)) ≤
+        ∫⁻ _offset : Alignment, (1 : ENNReal) ∂volume := by
+      apply lintegral_mono
+      intro offset
+      calc
+        (∫⁻ allocation : ℤ,
+          ∑ length : Fin maxShrink,
+            ∫⁻ rejected : Fin length → ℝ, ∫⁻ fraction : ℝ,
+              runtimeTraceDensity logDensity width intervals maxShrink state
+                (Sigma.mk length rejected, ((offset, allocation), fraction))
+                ∂volume
+              ∂(Measure.pi fun _ : Fin length => (volume : Measure ℝ))
+            ∂Measure.count) ≤
+            ∫⁻ allocation : ℤ, allocationWeight intervals allocation
+              ∂Measure.count := by
+          apply lintegral_mono
+          intro allocation
+          exact sum_lintegral_runtimeTraceDensity_rejected_fraction_le
+            hlogDensity hwidth intervals maxShrink state hcurrent offset allocation
+        _ = 1 := allocationWeight_lintegral hintervals
+    _ = 1 := by simp
+
+/-- Tonelli reorders one fixed runtime-trace base into alignment, allocation,
+rejected-vector, and final-fraction order. -/
+theorem lintegral_fixedRuntimeTraceBase_runtimeTraceDensity
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (width : ℝ) (intervals maxShrink length : ℕ) (state : ℝ × ℝ) :
+    (∫⁻ trace : FixedRuntimeTrace length,
+      runtimeTraceDensity logDensity width intervals maxShrink state
+        (Sigma.mk length trace.1, trace.2) ∂fixedRuntimeTraceBase length) =
+      ∫⁻ offset : Alignment, ∫⁻ allocation : ℤ,
+        ∫⁻ rejected : Fin length → ℝ, ∫⁻ fraction : ℝ,
+          runtimeTraceDensity logDensity width intervals maxShrink state
+            (Sigma.mk length rejected, ((offset, allocation), fraction))
+            ∂volume
+          ∂(Measure.pi fun _ : Fin length => (volume : Measure ℝ))
+        ∂Measure.count ∂(volume : Measure Alignment) := by
+  let density : FixedRuntimeTrace length → ENNReal := fun trace =>
+    runtimeTraceDensity logDensity width intervals maxShrink state
+      (Sigma.mk length trace.1, trace.2)
+  have hdensity : Measurable density :=
+    (measurable_uncurry_runtimeTraceDensity_fixedLength hlogDensity width
+      intervals maxShrink length).of_uncurry_left
+  let restMeasure :=
+    (((volume : Measure Alignment).prod (Measure.count : Measure ℤ)).prod
+      (volume : Measure ℝ))
+  let rejectedMeasure :=
+    Measure.pi fun _ : Fin length => (volume : Measure ℝ)
+  have hrest : Measurable (fun rest : (Alignment × ℤ) × ℝ =>
+      ∫⁻ rejected : Fin length → ℝ,
+        density (rejected, rest) ∂rejectedMeasure) :=
+    hdensity.lintegral_prod_left'
+  have halignmentAllocation : Measurable (fun pair : Alignment × ℤ =>
+      ∫⁻ fraction : ℝ, ∫⁻ rejected : Fin length → ℝ,
+        density (rejected, (pair, fraction)) ∂rejectedMeasure ∂volume) :=
+    hrest.lintegral_prod_right
+  unfold fixedRuntimeTraceBase
+  change (∫⁻ trace, density trace ∂rejectedMeasure.prod restMeasure) = _
+  calc
+    (∫⁻ trace, density trace ∂rejectedMeasure.prod restMeasure) =
+        ∫⁻ rest, ∫⁻ rejected,
+          density (rejected, rest) ∂rejectedMeasure ∂restMeasure := by
+      exact MeasureTheory.lintegral_prod_symm' density hdensity
+    _ = ∫⁻ pair : Alignment × ℤ, ∫⁻ fraction : ℝ,
+          ∫⁻ rejected : Fin length → ℝ,
+            density (rejected, (pair, fraction)) ∂rejectedMeasure ∂volume
+          ∂((volume : Measure Alignment).prod Measure.count) := by
+      exact MeasureTheory.lintegral_prod _ hrest.aemeasurable
+    _ = ∫⁻ offset : Alignment, ∫⁻ allocation : ℤ,
+          ∫⁻ fraction : ℝ, ∫⁻ rejected : Fin length → ℝ,
+            density (rejected, ((offset, allocation), fraction))
+              ∂rejectedMeasure ∂volume ∂Measure.count ∂volume := by
+      exact MeasureTheory.lintegral_prod _ halignmentAllocation.aemeasurable
+    _ = ∫⁻ offset : Alignment, ∫⁻ allocation : ℤ,
+          ∫⁻ rejected : Fin length → ℝ, ∫⁻ fraction : ℝ,
+            density (rejected, ((offset, allocation), fraction))
+              ∂volume ∂rejectedMeasure ∂Measure.count ∂volume := by
+      apply lintegral_congr
+      intro offset
+      apply lintegral_congr
+      intro allocation
+      have hswap : Measurable (Function.uncurry
+          (fun fraction : ℝ => fun rejected : Fin length → ℝ =>
+            density (rejected, ((offset, allocation), fraction)))) := by
+        exact hdensity.comp (by fun_prop)
+      exact MeasureTheory.lintegral_lintegral_swap hswap.aemeasurable
+    _ = _ := rfl
+
+/-- Total mass of one fixed-length successful trace kernel in the reordered
+runtime coordinates. -/
+theorem fixedSuccessfulRuntimeTraceKernel_apply_univ
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (width : ℝ) (intervals maxShrink length : ℕ) (state : ℝ × ℝ) :
+    fixedSuccessfulRuntimeTraceKernel logDensity width intervals maxShrink length
+        state Set.univ =
+      ∫⁻ offset : Alignment, ∫⁻ allocation : ℤ,
+        ∫⁻ rejected : Fin length → ℝ, ∫⁻ fraction : ℝ,
+          runtimeTraceDensity logDensity width intervals maxShrink state
+            (Sigma.mk length rejected, ((offset, allocation), fraction))
+            ∂volume
+          ∂(Measure.pi fun _ : Fin length => (volume : Measure ℝ))
+        ∂Measure.count ∂(volume : Measure Alignment) := by
+  rw [fixedSuccessfulRuntimeTraceKernel,
+    ProbabilityTheory.Kernel.withDensity_apply' _
+      (measurable_uncurry_runtimeTraceDensity_fixedLength hlogDensity width
+        intervals maxShrink length),
+    ProbabilityTheory.Kernel.const_apply, Measure.restrict_univ]
+  exact lintegral_fixedRuntimeTraceBase_runtimeTraceDensity hlogDensity width
+    intervals maxShrink length state
+
+/-- The rejected-vector/final-fraction mass is measurable jointly in
+alignment and integer allocation. -/
+theorem measurable_lintegral_runtimeTraceDensity_rejected_fraction
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (width : ℝ) (intervals maxShrink length : ℕ) (state : ℝ × ℝ) :
+    Measurable (fun pair : Alignment × ℤ =>
+      ∫⁻ rejected : Fin length → ℝ, ∫⁻ fraction : ℝ,
+        runtimeTraceDensity logDensity width intervals maxShrink state
+          (Sigma.mk length rejected, ((pair.1, pair.2), fraction))
+          ∂volume
+        ∂(Measure.pi fun _ : Fin length => (volume : Measure ℝ))) := by
+  have hdensity : Measurable (fun point :
+      ((Alignment × ℤ) × (Fin length → ℝ)) × ℝ =>
+      runtimeTraceDensity logDensity width intervals maxShrink state
+        (Sigma.mk length point.1.2, ((point.1.1.1, point.1.1.2), point.2))) := by
+    have hfixed : Measurable (fun trace : FixedRuntimeTrace length =>
+        runtimeTraceDensity logDensity width intervals maxShrink state
+          (Sigma.mk length trace.1, trace.2)) :=
+      (measurable_uncurry_runtimeTraceDensity_fixedLength hlogDensity width
+        intervals maxShrink length).of_uncurry_left
+    have hpack : Measurable (fun point :
+        ((Alignment × ℤ) × (Fin length → ℝ)) × ℝ =>
+        ((point.1.2, (point.1.1, point.2)) : FixedRuntimeTrace length)) := by
+      fun_prop
+    exact hfixed.comp hpack
+  exact hdensity.lintegral_prod_right.lintegral_prod_right
+
+/-- After integrating allocation as well, fixed-length mass is measurable in
+the Haar alignment. -/
+theorem measurable_lintegral_allocation_runtimeTraceDensity_rejected_fraction
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (width : ℝ) (intervals maxShrink length : ℕ) (state : ℝ × ℝ) :
+    Measurable (fun offset : Alignment => ∫⁻ allocation : ℤ,
+      ∫⁻ rejected : Fin length → ℝ, ∫⁻ fraction : ℝ,
+        runtimeTraceDensity logDensity width intervals maxShrink state
+          (Sigma.mk length rejected, ((offset, allocation), fraction))
+          ∂volume
+        ∂(Measure.pi fun _ : Fin length => (volume : Measure ℝ))
+      ∂Measure.count) := by
+  exact (measurable_lintegral_runtimeTraceDensity_rejected_fraction
+    hlogDensity width intervals maxShrink length state).lintegral_prod_right
+
+/-- The total mass of the finite sum kernel is the nested integral whose
+pointwise length sum was bounded above. -/
+theorem successfulRuntimeTraceKernel_apply_univ
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (width : ℝ) (intervals maxShrink : ℕ) (state : ℝ × ℝ) :
+    successfulRuntimeTraceKernel logDensity width intervals maxShrink state Set.univ =
+      ∫⁻ offset : Alignment, ∫⁻ allocation : ℤ,
+        ∑ length : Fin maxShrink,
+          ∫⁻ rejected : Fin length → ℝ, ∫⁻ fraction : ℝ,
+            runtimeTraceDensity logDensity width intervals maxShrink state
+              (Sigma.mk length rejected, ((offset, allocation), fraction))
+              ∂volume
+            ∂(Measure.pi fun _ : Fin length => (volume : Measure ℝ))
+        ∂Measure.count ∂(volume : Measure Alignment) := by
+  rw [successfulRuntimeTraceKernel,
+    ProbabilityTheory.Kernel.finsetSum_apply' Finset.univ]
+  simp_rw [ProbabilityTheory.Kernel.map_apply' _
+    (measurable_runtimeTraceOfFixed _) _ MeasurableSet.univ,
+    Set.preimage_univ,
+    fixedSuccessfulRuntimeTraceKernel_apply_univ hlogDensity]
+  rw [← MeasureTheory.lintegral_finsetSum Finset.univ]
+  · apply lintegral_congr
+    intro offset
+    rw [← MeasureTheory.lintegral_finsetSum Finset.univ]
+    intro length _
+    exact (measurable_lintegral_runtimeTraceDensity_rejected_fraction
+      hlogDensity width intervals maxShrink length state).comp
+        (measurable_const.prodMk measurable_id)
+  · intro length _
+    exact measurable_lintegral_allocation_runtimeTraceDensity_rejected_fraction
+      hlogDensity width intervals maxShrink length state
+
+theorem successfulRuntimeTraceKernel_apply_univ_le_one
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    {width : ℝ} (hwidth : 0 < width) {intervals : ℕ}
+    (hintervals : 0 < intervals) (maxShrink : ℕ)
+    (state : ℝ × ℝ) (hcurrent : state.1 ≤ logDensity state.2) :
+    successfulRuntimeTraceKernel logDensity width intervals maxShrink
+      state Set.univ ≤ 1 := by
+  rw [successfulRuntimeTraceKernel_apply_univ hlogDensity]
+  exact lintegral_alignment_allocation_sum_runtimeTraceDensity_le_one
+    hlogDensity hwidth hintervals maxShrink state hcurrent
+
+/-- Valid augmented slice states are those whose sampled log height lies
+below the current state's log density. -/
+def runtimeSliceDomain (logDensity : ℝ → ℝ) : Set (ℝ × ℝ) :=
+  {state | state.1 ≤ logDensity state.2}
+
+theorem measurableSet_runtimeSliceDomain
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity) :
+    MeasurableSet (runtimeSliceDomain logDensity) :=
+  measurableSet_le measurable_fst (hlogDensity.comp measurable_snd)
+
+/-- Successful runtime kernel guarded to zero outside the valid augmented
+slice domain. This makes the trace construction a subkernel on the full
+ambient state space while agreeing literally with the executable density on
+every state emitted by the log-height kernel. -/
+noncomputable def guardedSuccessfulRuntimeTraceKernel
+    (logDensity : ℝ → ℝ) (hlogDensity : Measurable logDensity)
+    (width : ℝ) (intervals maxShrink : ℕ) :
+    ProbabilityTheory.Kernel (ℝ × ℝ) RuntimeRandomTrace :=
+  by
+    classical
+    exact ProbabilityTheory.Kernel.piecewise
+      (measurableSet_runtimeSliceDomain hlogDensity)
+      (successfulRuntimeTraceKernel logDensity width intervals maxShrink) 0
+
+theorem guardedSuccessfulRuntimeTraceKernel_isSFinite
+    (logDensity : ℝ → ℝ) (hlogDensity : Measurable logDensity)
+    (width : ℝ) (intervals maxShrink : ℕ) :
+    ProbabilityTheory.IsSFiniteKernel
+      (guardedSuccessfulRuntimeTraceKernel logDensity hlogDensity width intervals
+        maxShrink) := by
+  classical
+  letI : ProbabilityTheory.IsSFiniteKernel
+      (successfulRuntimeTraceKernel logDensity width intervals maxShrink) :=
+    successfulRuntimeTraceKernel_isSFinite logDensity width intervals maxShrink
+  unfold guardedSuccessfulRuntimeTraceKernel
+  infer_instance
+
+theorem guardedSuccessfulRuntimeTraceKernel_apply_univ_le_one
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    {width : ℝ} (hwidth : 0 < width) {intervals : ℕ}
+    (hintervals : 0 < intervals) (maxShrink : ℕ) (state : ℝ × ℝ) :
+    guardedSuccessfulRuntimeTraceKernel logDensity hlogDensity width intervals
+      maxShrink state Set.univ ≤ 1 := by
+  classical
+  rw [guardedSuccessfulRuntimeTraceKernel,
+    ProbabilityTheory.Kernel.piecewise_apply']
+  split_ifs with hstate
+  · exact successfulRuntimeTraceKernel_apply_univ_le_one hlogDensity hwidth
+      hintervals maxShrink state hstate
+  · simp
+
+/-- Complete probability kernel obtained from the certified finite-fiber
+successful subkernel by adjoining one exhaustion/identity atom. -/
+noncomputable def completedRuntimeTraceKernelFromFibers
+    (logDensity : ℝ → ℝ) (hlogDensity : Measurable logDensity)
+    (width : ℝ) (intervals maxShrink : ℕ) :
+    ProbabilityTheory.Kernel (ℝ × ℝ)
+      (Mcmc.Kernel.CompletedTrace RuntimeRandomTrace) :=
+  let successful := guardedSuccessfulRuntimeTraceKernel logDensity hlogDensity
+    width intervals maxShrink
+  successful.map Sum.inl +
+    (ProbabilityTheory.Kernel.const (ℝ × ℝ)
+      (Measure.dirac (Sum.inr ()))).withDensity
+        (fun state _ => 1 - successful state Set.univ)
+
+theorem completedRuntimeTraceKernelFromFibers_isMarkovKernel
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    {width : ℝ} (hwidth : 0 < width) {intervals : ℕ}
+    (hintervals : 0 < intervals) (maxShrink : ℕ) :
+    ProbabilityTheory.IsMarkovKernel
+      (completedRuntimeTraceKernelFromFibers logDensity hlogDensity width intervals
+        maxShrink) := by
+  let successful := guardedSuccessfulRuntimeTraceKernel logDensity hlogDensity
+    width intervals maxShrink
+  letI : ProbabilityTheory.IsSFiniteKernel successful :=
+    guardedSuccessfulRuntimeTraceKernel_isSFinite logDensity hlogDensity width
+      intervals maxShrink
+  have hmass : Measurable (fun state : ℝ × ℝ => successful state Set.univ) :=
+    ProbabilityTheory.Kernel.measurable_coe successful MeasurableSet.univ
+  have hfailureDensity : Measurable (Function.uncurry
+      (fun state : ℝ × ℝ => fun _ : Mcmc.Kernel.CompletedTrace RuntimeRandomTrace =>
+        1 - successful state Set.univ)) :=
+    measurable_const.sub (hmass.comp measurable_fst)
+  constructor
+  intro state
+  constructor
+  rw [completedRuntimeTraceKernelFromFibers,
+    ProbabilityTheory.Kernel.add_apply, Measure.add_apply,
+    ProbabilityTheory.Kernel.map_apply' successful measurable_inl state
+      MeasurableSet.univ,
+    Set.preimage_univ,
+    ProbabilityTheory.Kernel.withDensity_apply' _ hfailureDensity,
+    ProbabilityTheory.Kernel.const_apply, Measure.restrict_univ]
+  rw [MeasureTheory.lintegral_dirac']
+  · exact add_tsub_cancel_of_le
+      (guardedSuccessfulRuntimeTraceKernel_apply_univ_le_one hlogDensity hwidth
+        hintervals maxShrink state)
+  · exact measurable_const
+
 /-- Complete finite-budget trace kernel. Successful traces use the concrete
 density above; all missing mass is one explicit exhaustion outcome that the
 sampler interprets as the identity update. -/
