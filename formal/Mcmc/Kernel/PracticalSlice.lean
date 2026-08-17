@@ -1769,6 +1769,101 @@ theorem lintegral_finalFraction_accept_le
         Real.volume_Ico]
       simp
 
+/-! ### Bounded shrink-recursion mass -/
+
+/-- Lebesgue measure under the affine coordinate used to turn a unit fraction
+into a point of a nondegenerate bracket. -/
+theorem map_volume_bracketAffine (left width : ℝ) (hwidth : width ≠ 0) :
+    Measure.map (fun fraction : ℝ => left + width * fraction) volume =
+      ENNReal.ofReal |width⁻¹| • volume := by
+  rw [show (fun fraction : ℝ => left + width * fraction) =
+      (fun point : ℝ => left + point) ∘ (fun fraction : ℝ => width * fraction) by
+    funext fraction
+    rfl]
+  rw [← Measure.map_map (measurable_const_add left)
+    (measurable_const_mul width), Real.map_volume_mul_left hwidth,
+    Measure.map_smul, map_add_left_eq_self]
+
+/-- A uniform unit fraction, affinely interpreted in a positive bracket, is
+normalized Lebesgue measure on that bracket. -/
+theorem map_restrict_unitIco_bracketAffine
+    {left right : ℝ} (hlt : left < right) :
+    Measure.map (fun fraction : ℝ => left + (right - left) * fraction)
+        (volume.restrict (Set.Ico (0 : ℝ) 1)) =
+      ENNReal.ofReal ((right - left) : ℝ)⁻¹ •
+        volume.restrict (Set.Ico left right) := by
+  let width := right - left
+  have hwidth : 0 < width := sub_pos.mpr hlt
+  let e : ℝ ≃ᵐ ℝ := (affineHomeomorph width left hwidth.ne').toMeasurableEquiv
+  have himage : e '' Set.Ico (0 : ℝ) 1 = Set.Ico left right := by
+    simpa [e, width, sub_add_cancel] using
+      (affineHomeomorph_image_Ico width left (0 : ℝ) 1 hwidth)
+  have hpreimage : e ⁻¹' Set.Ico left right = Set.Ico (0 : ℝ) 1 := by
+    rw [← himage, e.preimage_image]
+  have hmap : Measure.map e volume =
+      ENNReal.ofReal width⁻¹ • volume := by
+    change Measure.map (fun fraction : ℝ => width * fraction + left) volume = _
+    simpa [add_comm, abs_of_pos (inv_pos.mpr hwidth)] using
+      map_volume_bracketAffine left width hwidth.ne'
+  rw [show (fun fraction : ℝ => left + (right - left) * fraction) = e by
+    funext fraction
+    simp [e, width, add_comm]]
+  rw [← hpreimage, ← e.restrict_map, hmap, Measure.restrict_smul]
+
+/-- Total probability of accepting within a bounded number of shrink
+attempts.  `acceptMass bracket` is the probability of accepting at the next
+attempt, while `rejectDensity bracket point` is the density of a rejection
+that continues from `nextBracket bracket point`.  A zero budget contributes
+no successful trace mass. -/
+noncomputable def boundedShrinkSuccessMass
+    {Bracket Point : Type*} [MeasurableSpace Point]
+    (base : Measure Point) (acceptMass : Bracket → ENNReal)
+    (rejectDensity : Bracket → Point → ENNReal)
+    (nextBracket : Bracket → Point → Bracket) : ℕ → Bracket → ENNReal
+  | 0, _ => 0
+  | attempts + 1, bracket =>
+      acceptMass bracket + ∫⁻ point,
+        rejectDensity bracket point *
+          boundedShrinkSuccessMass base acceptMass rejectDensity nextBracket
+            attempts (nextBracket bracket point) ∂base
+
+/-- If acceptance and rejection-continuation partition at most unit mass at
+every bracket, then the probability of a successful trace before any finite
+budget is at most one.  This is the abstract telescoping argument needed by
+bounded practical shrinkage. -/
+theorem boundedShrinkSuccessMass_le_one
+    {Bracket Point : Type*} [MeasurableSpace Point]
+    (base : Measure Point) (acceptMass : Bracket → ENNReal)
+    (rejectDensity : Bracket → Point → ENNReal)
+    (nextBracket : Bracket → Point → Bracket)
+    (hone : ∀ bracket,
+      acceptMass bracket + ∫⁻ point, rejectDensity bracket point ∂base ≤ 1) :
+    ∀ attempts bracket,
+      boundedShrinkSuccessMass base acceptMass rejectDensity nextBracket
+        attempts bracket ≤ 1 := by
+  intro attempts
+  induction attempts with
+  | zero => simp [boundedShrinkSuccessMass]
+  | succ attempts ih =>
+      intro bracket
+      rw [boundedShrinkSuccessMass]
+      calc
+        acceptMass bracket + ∫⁻ point,
+            rejectDensity bracket point *
+              boundedShrinkSuccessMass base acceptMass rejectDensity
+                nextBracket attempts (nextBracket bracket point) ∂base ≤
+            acceptMass bracket +
+              ∫⁻ point, rejectDensity bracket point ∂base := by
+          gcongr with point
+          calc
+            rejectDensity bracket point *
+                boundedShrinkSuccessMass base acceptMass rejectDensity
+                  nextBracket attempts (nextBracket bracket point) ≤
+                rejectDensity bracket point * 1 :=
+              mul_le_mul_right (ih (nextBracket bracket point)) _
+            _ = rejectDensity bracket point := mul_one _
+        _ ≤ 1 := hone bracket
+
 theorem rejectedTraceWeight_ne_top
     (logDensity : ℝ → ℝ) (threshold current : ℝ)
     (rejected : List ℝ) (bracket : ℝ × ℝ) :

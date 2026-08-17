@@ -4451,3 +4451,16 @@ Lebesgue lemma proves that intersecting the final uniform fraction with any
 acceptance event contributes at most unit mass. The remaining mass proof is
 therefore the telescoping finite shrink recursion: acceptance at one of the
 allowed rejected lengths plus exhaustion has total mass one.
+
+## 2026-08-17: abstract bounded-shrink telescoping foundation
+
+Factored the remaining row-mass argument into an algorithm-independent finite
+recursion and one-dimensional interval geometry. `boundedShrinkSuccessMass`
+adds immediate acceptance to the integral of rejection followed by the
+remaining budget; Lean proves by induction that it is at most one whenever
+each one-step accept/reject partition has mass at most one. Separately, Lean
+proves the exact pushforward identity taking Lebesgue measure on `[0,1)` under
+`u ↦ left + (right-left)u` to normalized Lebesgue measure on every positive
+bracket. The next step is to instantiate the one-step partition with the
+target's superlevel set and identify the fixed-length trace sum with this
+recursion.
