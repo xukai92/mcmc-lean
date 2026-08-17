@@ -1568,6 +1568,22 @@ theorem measurable_rejectedSequenceMk (length : ℕ) :
   apply Measurable.of_le_map
   exact iInf_le _ length
 
+/-- A function out of the coproduct measurable space on a sigma type is
+measurable exactly when every fiber restriction is measurable. -/
+theorem measurable_sigma_of_measurable_mk
+    {Index : Type*} {Fiber : Index → Type*} {Target : Type*}
+    [∀ index, MeasurableSpace (Fiber index)] [MeasurableSpace Target]
+    (f : (Σ index, Fiber index) → Target)
+    (hf : ∀ index, Measurable (fun value => f (Sigma.mk index value))) :
+    Measurable f := by
+  apply Measurable.of_le_map
+  change _ ≤ (⨅ index,
+    (inferInstance : MeasurableSpace (Fiber index)).map (Sigma.mk index)).map f
+  rw [MeasurableSpace.map_iInf]
+  refine le_iInf fun index => ?_
+  rw [MeasurableSpace.map_comp]
+  exact (hf index).le_map
+
 /-- Honest base measure for variable-length rejected traces: counting over
 the length and finite-dimensional Lebesgue measure within each fiber. -/
 noncomputable def rejectedSequenceLebesgue : Measure RejectedSequence :=
@@ -1674,7 +1690,7 @@ allocation is uniform on its configured finite range; rejected points carry
 their successive reciprocal-bracket-width densities; and the final primitive
 coordinate is uniform on `[0,1)`. -/
 noncomputable def runtimeTraceDensity
-    (logDensity : ℝ → ℝ) (width : ℝ) (intervals : ℕ)
+    (logDensity : ℝ → ℝ) (width : ℝ) (intervals maxShrink : ℕ)
     (state : ℝ × ℝ) (trace : RuntimeRandomTrace) : ENNReal :=
   let threshold := state.1
   let current := state.2
@@ -1685,20 +1701,42 @@ noncomputable def runtimeTraceDensity
   let finalBracket := shrinkRejectedPoints current rejected stepped
   let accepted := finalBracket.1 +
     (finalBracket.2 - finalBracket.1) * trace.2.2
-  if 0 ≤ allocation ∧ allocation < intervals ∧
+  if trace.1.1 < maxShrink ∧ 0 ≤ allocation ∧ allocation < intervals ∧
       trace.2.2 ∈ Set.Ico (0 : ℝ) 1 ∧
       threshold ≤ logDensity accepted then
     ENNReal.ofReal ((intervals : ℝ)⁻¹) *
       rejectedTraceWeight logDensity threshold current rejected stepped
   else 0
 
+theorem rejectedTraceWeight_ne_top
+    (logDensity : ℝ → ℝ) (threshold current : ℝ)
+    (rejected : List ℝ) (bracket : ℝ × ℝ) :
+    rejectedTraceWeight logDensity threshold current rejected bracket ≠ ⊤ := by
+  induction rejected generalizing bracket with
+  | nil => simp [rejectedTraceWeight]
+  | cons point remaining ih =>
+      simp only [rejectedTraceWeight]
+      split
+      · exact ENNReal.mul_ne_top ENNReal.ofReal_ne_top (ih _)
+      · simp
+
+theorem runtimeTraceDensity_ne_top
+    (logDensity : ℝ → ℝ) (width : ℝ) (intervals maxShrink : ℕ)
+    (state : ℝ × ℝ) (trace : RuntimeRandomTrace) :
+    runtimeTraceDensity logDensity width intervals maxShrink state trace ≠ ⊤ := by
+  simp only [runtimeTraceDensity]
+  split
+  · exact ENNReal.mul_ne_top ENNReal.ofReal_ne_top
+      (rejectedTraceWeight_ne_top logDensity state.1 state.2 _ _)
+  · simp
+
 /-- The concrete successful density is measurable on every fixed rejected
 dimension and integer-allocation fiber. -/
 theorem measurable_runtimeTraceDensity_fixedFiber
     {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
-    (width : ℝ) (intervals length : ℕ) (allocation : ℤ) :
+    (width : ℝ) (intervals maxShrink length : ℕ) (allocation : ℤ) :
     Measurable (fun point : ((ℝ × ℝ) × (Fin length → ℝ)) × (Alignment × ℝ) =>
-      runtimeTraceDensity logDensity width intervals point.1.1
+      runtimeTraceDensity logDensity width intervals maxShrink point.1.1
         (Sigma.mk length point.1.2,
           ((point.2.1, allocation), point.2.2))) := by
   have hstate : Measurable
@@ -1747,19 +1785,19 @@ theorem measurable_runtimeTraceDensity_fixedFiber
       (((hstate.prodMk hvalues).prodMk hstepped))
   have hcondition : Measurable
       (fun point : ((ℝ × ℝ) × (Fin length → ℝ)) × (Alignment × ℝ) =>
-        0 ≤ allocation ∧ allocation < intervals ∧
+        length < maxShrink ∧ 0 ≤ allocation ∧ allocation < intervals ∧
           point.2.2 ∈ Set.Ico (0 : ℝ) 1 ∧
           point.1.1.1 ≤ logDensity
             (let bracket := shrinkRejectedVector point.1.1.2 length point.1.2
               (runtimeSteppedBracket logDensity point.1.1.1 width point.1.1.2
                 intervals allocation point.2.1)
              bracket.1 + (bracket.2 - bracket.1) * point.2.2)) := by
-    exact measurable_const.and (measurable_const.and
+    exact measurable_const.and (measurable_const.and (measurable_const.and
       ((measurableSet_Ico.mem.comp hfraction).and
-        (measurableSet_le hthreshold (hlogDensity.comp haccepted)).mem))
+        (measurableSet_le hthreshold (hlogDensity.comp haccepted)).mem)))
   have hall : Measurable
       (fun point : ((ℝ × ℝ) × (Fin length → ℝ)) × (Alignment × ℝ) =>
-        if 0 ≤ allocation ∧ allocation < intervals ∧
+        if length < maxShrink ∧ 0 ≤ allocation ∧ allocation < intervals ∧
             point.2.2 ∈ Set.Ico (0 : ℝ) 1 ∧
             point.1.1.1 ≤ logDensity
               (let bracket := shrinkRejectedVector point.1.1.2 length point.1.2
@@ -1778,60 +1816,145 @@ theorem measurable_runtimeTraceDensity_fixedFiber
     shrinkRejectedVector_eq_shrinkRejectedPoints,
     rejectedTraceVectorWeight_eq_rejectedTraceWeight] using hall
 
-theorem rejectedTraceWeight_ne_top
-    (logDensity : ℝ → ℝ) (threshold current : ℝ)
-    (rejected : List ℝ) (bracket : ℝ × ℝ) :
-    rejectedTraceWeight logDensity threshold current rejected bracket ≠ ⊤ := by
-  induction rejected generalizing bracket with
-  | nil => simp [rejectedTraceWeight]
-  | cons point remaining ih =>
-      simp only [rejectedTraceWeight]
-      split
-      · exact ENNReal.mul_ne_top ENNReal.ofReal_ne_top (ih _)
-      · simp
+/-- Primitive trace carrier at one fixed rejected length. -/
+abbrev FixedRuntimeTrace (length : ℕ) :=
+  (Fin length → ℝ) × ((Alignment × ℤ) × ℝ)
 
-theorem runtimeTraceDensity_ne_top
-    (logDensity : ℝ → ℝ) (width : ℝ) (intervals : ℕ)
-    (state : ℝ × ℝ) (trace : RuntimeRandomTrace) :
-    runtimeTraceDensity logDensity width intervals state trace ≠ ⊤ := by
-  simp only [runtimeTraceDensity]
-  split
-  · exact ENNReal.mul_ne_top ENNReal.ofReal_ne_top
-      (rejectedTraceWeight_ne_top logDensity state.1 state.2 _ _)
-  · simp
+/-- After using the discrete measurable structure on integers, the density is
+jointly measurable in state and all trace coordinates at a fixed length. -/
+theorem measurable_uncurry_runtimeTraceDensity_fixedLength
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (width : ℝ) (intervals maxShrink length : ℕ) :
+    Measurable (Function.uncurry
+      (fun state (trace : FixedRuntimeTrace length) =>
+        runtimeTraceDensity logDensity width intervals maxShrink state
+          (Sigma.mk length trace.1, trace.2))) := by
+  let DenseDomain := ((ℝ × ℝ) × (Fin length → ℝ)) × (Alignment × ℝ)
+  have hallocation : Measurable (fun point : DenseDomain × ℤ =>
+      runtimeTraceDensity logDensity width intervals maxShrink point.1.1.1
+        (Sigma.mk length point.1.1.2,
+          ((point.1.2.1, point.2), point.1.2.2))) := by
+    apply measurable_from_prod_countable_left
+    intro allocation
+    exact measurable_runtimeTraceDensity_fixedFiber hlogDensity width
+      intervals maxShrink length allocation
+  have hpack : Measurable (fun point : (ℝ × ℝ) × FixedRuntimeTrace length =>
+      ((((point.1, point.2.1), (point.2.2.1.1, point.2.2.2)),
+        point.2.2.1.2) : DenseDomain × ℤ)) := by
+    fun_prop
+  exact hallocation.comp hpack
+
+/-- Common base measure at one rejected length. -/
+noncomputable def fixedRuntimeTraceBase (length : ℕ) :
+    Measure (FixedRuntimeTrace length) :=
+  (Measure.pi fun _ : Fin length => (volume : Measure ℝ)).prod
+    (((volume : Measure Alignment).prod (Measure.count : Measure ℤ)).prod
+      (volume : Measure ℝ))
+
+instance fixedRuntimeTraceBase.instSFinite (length : ℕ) :
+    SFinite (fixedRuntimeTraceBase length) := by
+  unfold fixedRuntimeTraceBase
+  infer_instance
+
+/-- Successful subkernel on one rejected-length fiber. -/
+noncomputable def fixedSuccessfulRuntimeTraceKernel
+    (logDensity : ℝ → ℝ) (width : ℝ) (intervals maxShrink length : ℕ) :
+    ProbabilityTheory.Kernel (ℝ × ℝ) (FixedRuntimeTrace length) :=
+  (ProbabilityTheory.Kernel.const (ℝ × ℝ)
+    (fixedRuntimeTraceBase length)).withDensity
+      (fun state trace =>
+        runtimeTraceDensity logDensity width intervals maxShrink state
+          (Sigma.mk length trace.1, trace.2))
+
+theorem fixedSuccessfulRuntimeTraceKernel_isSFinite
+    (logDensity : ℝ → ℝ)
+    (width : ℝ) (intervals maxShrink length : ℕ) :
+    ProbabilityTheory.IsSFiniteKernel
+      (fixedSuccessfulRuntimeTraceKernel logDensity width intervals
+        maxShrink length) := by
+  unfold fixedSuccessfulRuntimeTraceKernel
+  apply ProbabilityTheory.Kernel.IsSFiniteKernel.withDensity
+  intro state trace
+  exact runtimeTraceDensity_ne_top logDensity width intervals maxShrink state
+    (Sigma.mk length trace.1, trace.2)
+
+/-- Embed one fixed-length trace into the variable-length runtime carrier. -/
+def runtimeTraceOfFixed (length : ℕ) (trace : FixedRuntimeTrace length) :
+    RuntimeRandomTrace :=
+  (Sigma.mk length trace.1, trace.2)
+
+theorem measurable_runtimeTraceOfFixed (length : ℕ) :
+    Measurable (runtimeTraceOfFixed length) := by
+  exact (measurable_rejectedSequenceMk length).comp measurable_fst |>.prodMk
+    measurable_snd
+
+/-- Measurable successful trace subkernel summed over exactly the allowed
+rejected lengths. -/
+noncomputable def successfulRuntimeTraceKernel
+    (logDensity : ℝ → ℝ) (width : ℝ) (intervals maxShrink : ℕ) :
+    ProbabilityTheory.Kernel (ℝ × ℝ) RuntimeRandomTrace :=
+  ∑ length : Fin maxShrink,
+    (fixedSuccessfulRuntimeTraceKernel logDensity width intervals maxShrink
+      length).map (runtimeTraceOfFixed length)
+
+theorem successfulRuntimeTraceKernel_isSFinite
+    (logDensity : ℝ → ℝ)
+    (width : ℝ) (intervals maxShrink : ℕ) :
+    ProbabilityTheory.IsSFiniteKernel
+      (successfulRuntimeTraceKernel logDensity width intervals maxShrink) := by
+  unfold successfulRuntimeTraceKernel
+  apply ProbabilityTheory.Kernel.IsSFiniteKernel.finsetSum
+  intro length _
+  letI : ProbabilityTheory.IsSFiniteKernel
+      (fixedSuccessfulRuntimeTraceKernel logDensity width intervals maxShrink
+        length) :=
+    fixedSuccessfulRuntimeTraceKernel_isSFinite logDensity width intervals
+      maxShrink length
+  infer_instance
 
 theorem runtimeTraceDensity_zero_of_allocation_invalid
-    (logDensity : ℝ → ℝ) (width : ℝ) (intervals : ℕ)
+    (logDensity : ℝ → ℝ) (width : ℝ) (intervals maxShrink : ℕ)
     (state : ℝ × ℝ) (trace : RuntimeRandomTrace)
     (hinvalid : ¬(0 ≤ trace.2.1.2 ∧ trace.2.1.2 < intervals)) :
-    runtimeTraceDensity logDensity width intervals state trace = 0 := by
+    runtimeTraceDensity logDensity width intervals maxShrink state trace = 0 := by
   unfold runtimeTraceDensity
   simp only
   split
-  · next h => exact False.elim (hinvalid ⟨h.1, h.2.1⟩)
+  · next h => exact False.elim (hinvalid ⟨h.2.1, h.2.2.1⟩)
+  · rfl
+
+theorem runtimeTraceDensity_zero_of_length_ge
+    (logDensity : ℝ → ℝ) (width : ℝ) (intervals maxShrink : ℕ)
+    (state : ℝ × ℝ) (trace : RuntimeRandomTrace)
+    (hlength : maxShrink ≤ trace.1.1) :
+    runtimeTraceDensity logDensity width intervals maxShrink state trace = 0 := by
+  simp only [runtimeTraceDensity]
+  split
+  · next h => omega
   · rfl
 
 /-- Complete finite-budget trace kernel. Successful traces use the concrete
 density above; all missing mass is one explicit exhaustion outcome that the
 sampler interprets as the identity update. -/
 noncomputable def completedRuntimeTraceKernel
-    (logDensity : ℝ → ℝ) (width : ℝ) (intervals : ℕ) :
+    (logDensity : ℝ → ℝ) (width : ℝ) (intervals maxShrink : ℕ) :
     ProbabilityTheory.Kernel (ℝ × ℝ)
       (Mcmc.Kernel.CompletedTrace RuntimeRandomTrace) :=
   Mcmc.Kernel.completedTraceKernel runtimeRandomTraceBase
-    (runtimeTraceDensity logDensity width intervals)
+    (runtimeTraceDensity logDensity width intervals maxShrink)
 
 theorem completedRuntimeTraceKernel_isMarkovKernel
-    (logDensity : ℝ → ℝ) (width : ℝ) (intervals : ℕ)
+    (logDensity : ℝ → ℝ) (width : ℝ) (intervals maxShrink : ℕ)
     (hmeasurable : Measurable (Function.uncurry
-      (runtimeTraceDensity logDensity width intervals)))
+      (runtimeTraceDensity logDensity width intervals maxShrink)))
     (hsubprobability : ∀ state,
       Mcmc.Kernel.successfulTraceMass runtimeRandomTraceBase
-        (runtimeTraceDensity logDensity width intervals) state ≤ 1) :
+        (runtimeTraceDensity logDensity width intervals maxShrink) state ≤ 1) :
     ProbabilityTheory.IsMarkovKernel
-      (completedRuntimeTraceKernel logDensity width intervals) := by
+      (completedRuntimeTraceKernel logDensity width intervals maxShrink) := by
   exact Mcmc.Kernel.completedTraceKernel_isMarkovKernel
-    runtimeRandomTraceBase (runtimeTraceDensity logDensity width intervals)
+    runtimeRandomTraceBase
+      (runtimeTraceDensity logDensity width intervals maxShrink)
     hmeasurable hsubprobability
 
 /-- Integration against the variable-length base decomposes into the sum of

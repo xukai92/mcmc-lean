@@ -4424,3 +4424,18 @@ rejected length. Combining these results with fixed-allocation stopped-bracket
 measurability proves `runtimeTraceDensity` measurable on every pair of fixed
 rejected dimension and integer allocation fibers. The remaining assembly is
 now purely the countable/disjoint-union measurable-space lift.
+
+## 2026-08-17: bounded-length successful trace kernel
+
+Added the missing `maxShrink` guard to `runtimeTraceDensity`. Without
+`rejectedLength < maxShrink`, the density incorrectly assigned success mass to
+arbitrarily long rejection sequences and the desired subprobability statement
+would generally be false.
+
+Lifted fixed-fiber measurability across all integer allocations using their
+discrete measurable structure. Rather than assuming a product/sigma
+reassociation theorem, the actual successful runtime kernel is constructed as
+the finite sum over `Fin maxShrink` of fixed-length density kernels, each
+mapped into the variable-length carrier. Lean proves every component and the
+finite sum s-finite. This gives a genuine measurable kernel for exactly the
+allowed success lengths; the next obligation is its row mass at most one.
