@@ -4117,3 +4117,18 @@ constructs this evidence for every adjacent endpoint pair and returns the full
 Boolean barrier vector only when every edge is stable. This advances numerical
 composition but still treats ideal phase endpoints and their analytic error
 bounds as external witnesses.
+
+## 2026-08-17: bounded NUTS leaf and completed-tree decisions
+
+Connected bounded Hamiltonian evaluations to the two distinct leaf bits in
+Algorithm 3. `NUTSLeafEnergyCertificate` proves strict log-slice eligibility
+and divergence continuation agree with ideal arithmetic from explicit
+log-slice, energy, maximum-energy-error, and threshold-reduction bounds. The
+strict convention deliberately leaves equality uncertified; an endpoint may
+be ineligible while continuation remains true. Leaf and U-turn certificates
+now automatically establish the tree-local `DecisionsAgree` proposition, so
+Lean proves the entire computed recursive flag tree equals the ideal tree.
+Julia's `NUTSCompletedTreeCertificate` packages all visited leaves and joins
+and returns their eligible, continuation, and U-turn vectors only when every
+comparison is stable. Analytic construction of the ideal phase trajectory and
+Hamiltonian bounds remains a separate backend obligation.

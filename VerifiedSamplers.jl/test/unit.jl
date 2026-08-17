@@ -66,12 +66,40 @@ end
     @test Certificates.is_stable(separated_comparison)
     @test !Certificates.is_stable(ambiguous_comparison)
 
+    eligible_leaf = Certificates.certify_nuts_leaf_energy(
+        computed_log_slice=-2.0, ideal_log_slice=big"-2.0", log_slice_bound=0,
+        computed_energy=1.0, ideal_energy=big"1.0", energy_bound=0,
+        computed_max_energy_error=100.0, ideal_max_energy_error=big"100.0",
+        max_energy_error_bound=0)
+    ineligible_leaf = Certificates.certify_nuts_leaf_energy(
+        computed_log_slice=-0.5, ideal_log_slice=big"-0.5", log_slice_bound=0,
+        computed_energy=1.0, ideal_energy=big"1.0", energy_bound=0,
+        computed_max_energy_error=100.0, ideal_max_energy_error=big"100.0",
+        max_energy_error_bound=0)
+    boundary_leaf = Certificates.certify_nuts_leaf_energy(
+        computed_log_slice=-1.0, ideal_log_slice=big"-1.0", log_slice_bound=0,
+        computed_energy=1.0, ideal_energy=big"1.0", energy_bound=0,
+        computed_max_energy_error=100.0, ideal_max_energy_error=big"100.0",
+        max_energy_error_bound=0)
+    @test Certificates.certified_nuts_leaf_decisions(eligible_leaf) ==
+        (; eligible=true, continues=true)
+    @test Certificates.certified_nuts_leaf_decisions(ineligible_leaf) ==
+        (; eligible=false, continues=true)
+    @test Certificates.certified_nuts_leaf_decisions(boundary_leaf) === nothing
+
     uturn = Certificates.certify_uturn_decision(
         -2.0, big"-1.9", big"0.11", 3.0, big"2.9", big"0.11")
     ambiguous_uturn = Certificates.certify_uturn_decision(
         -2.0, big"-1.9", big"0.11", 0.125, big"0.125", big"0.125")
     @test Certificates.is_stable(uturn)
     @test !Certificates.is_stable(ambiguous_uturn)
+    nuts_tree = Certificates.NUTSCompletedTreeCertificate(
+        [eligible_leaf, ineligible_leaf], [uturn])
+    ambiguous_nuts_tree = Certificates.NUTSCompletedTreeCertificate(
+        [eligible_leaf, boundary_leaf], [uturn])
+    @test Certificates.certified_nuts_completed_tree(nuts_tree) ==
+        (; eligible=[true, false], continues=[true, true], turns=[true])
+    @test Certificates.certified_nuts_completed_tree(ambiguous_nuts_tree) === nothing
     vector_uturn = Certificates.certify_vector_uturn_decision(
         [0.0, 0.0], BigFloat[0, 0], [0.0, 0.0],
         [1.0, 1.0], BigFloat[1, 1], [0.0, 0.0],

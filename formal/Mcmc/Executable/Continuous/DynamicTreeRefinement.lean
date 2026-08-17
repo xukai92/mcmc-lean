@@ -97,6 +97,96 @@ theorem SeparatedComparisonCertificate.computedLess_eq_idealLess
     decide (certificate.idealLeft - certificate.idealRight < 0) at h
   simpa only [sub_lt_zero] using h
 
+/-! ### Slice eligibility and divergence continuation -/
+
+/-- Bounded Hamiltonian evidence for one NUTS leaf. We use the strict
+log-slice convention `logSlice < -energy`; equality is deliberately left
+uncertified. Divergence continuation uses
+`logSlice < maxEnergyError - energy`. -/
+structure NUTSLeafEnergyCertificate where
+  computedLogSlice : ℝ
+  idealLogSlice : ℝ
+  computedEnergy : ℝ
+  idealEnergy : ℝ
+  computedMaxEnergyError : ℝ
+  idealMaxEnergyError : ℝ
+  computedContinuationThreshold : ℝ
+  logSliceError : ℝ
+  energyError : ℝ
+  maxEnergyErrorError : ℝ
+  continuationThresholdRoundingError : ℝ
+  logSliceBound : Approximates computedLogSlice idealLogSlice logSliceError
+  energyBound : Approximates computedEnergy idealEnergy energyError
+  maxEnergyErrorBound : Approximates computedMaxEnergyError idealMaxEnergyError
+    maxEnergyErrorError
+  continuationThresholdRoundingBound : Approximates
+    computedContinuationThreshold (computedMaxEnergyError - computedEnergy)
+    continuationThresholdRoundingError
+  eligibleSeparated :
+    computedLogSlice - (-computedEnergy) < -(logSliceError + energyError) ∨
+      logSliceError + energyError < computedLogSlice - (-computedEnergy)
+  continuesSeparated :
+    computedLogSlice - computedContinuationThreshold <
+        -(logSliceError + (continuationThresholdRoundingError +
+          (maxEnergyErrorError + energyError))) ∨
+      logSliceError + (continuationThresholdRoundingError +
+        (maxEnergyErrorError + energyError)) <
+        computedLogSlice - computedContinuationThreshold
+
+noncomputable def NUTSLeafEnergyCertificate.eligibleComparison
+    (certificate : NUTSLeafEnergyCertificate) :
+    SeparatedComparisonCertificate where
+  computedLeft := certificate.computedLogSlice
+  idealLeft := certificate.idealLogSlice
+  computedRight := -certificate.computedEnergy
+  idealRight := -certificate.idealEnergy
+  leftError := certificate.logSliceError
+  rightError := certificate.energyError
+  leftBound := certificate.logSliceBound
+  rightBound := certificate.energyBound.neg
+  separated := certificate.eligibleSeparated
+
+noncomputable def NUTSLeafEnergyCertificate.continuesComparison
+    (certificate : NUTSLeafEnergyCertificate) :
+    SeparatedComparisonCertificate where
+  computedLeft := certificate.computedLogSlice
+  idealLeft := certificate.idealLogSlice
+  computedRight := certificate.computedContinuationThreshold
+  idealRight := certificate.idealMaxEnergyError - certificate.idealEnergy
+  leftError := certificate.logSliceError
+  rightError := certificate.continuationThresholdRoundingError +
+    (certificate.maxEnergyErrorError + certificate.energyError)
+  leftBound := certificate.logSliceBound
+  rightBound := certificate.continuationThresholdRoundingBound.compose
+    (certificate.maxEnergyErrorBound.sub certificate.energyBound)
+  separated := certificate.continuesSeparated
+
+noncomputable def NUTSLeafEnergyCertificate.computedEligible
+    (certificate : NUTSLeafEnergyCertificate) : Bool :=
+  certificate.eligibleComparison.computedLess
+
+noncomputable def NUTSLeafEnergyCertificate.idealEligible
+    (certificate : NUTSLeafEnergyCertificate) : Bool :=
+  certificate.eligibleComparison.idealLess
+
+noncomputable def NUTSLeafEnergyCertificate.computedContinues
+    (certificate : NUTSLeafEnergyCertificate) : Bool :=
+  certificate.continuesComparison.computedLess
+
+noncomputable def NUTSLeafEnergyCertificate.idealContinues
+    (certificate : NUTSLeafEnergyCertificate) : Bool :=
+  certificate.continuesComparison.idealLess
+
+theorem NUTSLeafEnergyCertificate.computedEligible_eq_idealEligible
+    (certificate : NUTSLeafEnergyCertificate) :
+    certificate.computedEligible = certificate.idealEligible :=
+  certificate.eligibleComparison.computedLess_eq_idealLess
+
+theorem NUTSLeafEnergyCertificate.computedContinues_eq_idealContinues
+    (certificate : NUTSLeafEnergyCertificate) :
+    certificate.computedContinues = certificate.idealContinues :=
+  certificate.continuesComparison.computedLess_eq_idealLess
+
 /-! ### Compositional vector endpoint bounds -/
 
 /-- Endpoint dot product used by the Euclidean vector U-turn test. -/
@@ -287,6 +377,25 @@ def RecursivePhaseTree.DecisionsAgree
         computedTurns left.leftmost right.rightmost =
           idealTurns left.leftmost right.rightmost
 
+/-- Leaf-energy and endpoint U-turn certificates automatically establish the
+tree-local decision agreement consumed by the recursive flag theorem. -/
+theorem RecursivePhaseTree.decisionsAgree_of_certificates
+    {Phase : Type*}
+    (leafCertificate : Phase → NUTSLeafEnergyCertificate)
+    (turnCertificate : Phase → Phase → UTurnDecisionCertificate)
+    (tree : RecursivePhaseTree Phase) :
+    Mcmc.Executable.Continuous.RecursivePhaseTree.DecisionsAgree
+      (fun phase => (leafCertificate phase).computedContinues)
+      (fun phase => (leafCertificate phase).idealContinues)
+      (fun left right => (turnCertificate left right).computedTurns)
+      (fun left right => (turnCertificate left right).idealTurns) tree := by
+  induction tree with
+  | leaf phase =>
+      exact (leafCertificate phase).computedContinues_eq_idealContinues
+  | node left right ihLeft ihRight =>
+      exact ⟨ihLeft, ihRight,
+        (turnCertificate left.leftmost right.rightmost).computedTurns_eq_idealTurns⟩
+
 /-- A tree-local collection of certified primitive decisions suffices to
 reproduce the exact ideal recursive flag tree. -/
 theorem RecursivePhaseTree.toBuildFlagTree_eq_of_decisionsAgree
@@ -306,6 +415,24 @@ theorem RecursivePhaseTree.toBuildFlagTree_eq_of_decisionsAgree
       rcases hagrees with ⟨hleft, hright, hroot⟩
       simp [RecursivePhaseTree.toBuildFlagTree, ihLeft hleft, ihRight hright,
         hroot]
+
+/-- Hence a completed tree whose primitive numeric decisions carry bounded
+certificates has exactly the ideal recursive stopping trace. -/
+theorem RecursivePhaseTree.certifiedBuildFlagTree_eq_ideal
+    {Phase : Type*}
+    (leafCertificate : Phase → NUTSLeafEnergyCertificate)
+    (turnCertificate : Phase → Phase → UTurnDecisionCertificate)
+    (tree : RecursivePhaseTree Phase) :
+    tree.toBuildFlagTree
+        (fun phase => (leafCertificate phase).computedContinues)
+        (fun left right => (turnCertificate left right).computedTurns) =
+      tree.toBuildFlagTree
+        (fun phase => (leafCertificate phase).idealContinues)
+        (fun left right => (turnCertificate left right).idealTurns) :=
+  Mcmc.Executable.Continuous.RecursivePhaseTree.toBuildFlagTree_eq_of_decisionsAgree
+    _ _ _ _ tree
+      (Mcmc.Executable.Continuous.RecursivePhaseTree.decisionsAgree_of_certificates
+        leafCertificate turnCertificate tree)
 
 /-- Pointwise equality of certified leaf and endpoint decisions lifts through
 the entire recursive `BuildTree` Boolean trace. -/

@@ -13,7 +13,10 @@ export BoundWitness, DecisionCertificate, certify_bound, certify_decision,
     certified_uturn_decision,
     VectorUTurnTrajectoryCertificate, certify_vector_uturn_trajectory,
     certified_uturn_decisions,
+    NUTSCompletedTreeCertificate, certified_nuts_completed_tree,
     CompletedTreeDecisionCertificate,
+    NUTSLeafEnergyCertificate, certify_nuts_leaf_energy,
+    certified_nuts_leaf_decisions,
     is_stable, uncertainty_band
 
 """A checked, execution-specific absolute-error claim.
@@ -60,6 +63,58 @@ struct SeparatedComparisonCertificate
     left::BoundWitness
     right::BoundWitness
     separation::BigFloat
+end
+
+"""Bounded strict slice-eligibility and divergence decisions for one leaf."""
+struct NUTSLeafEnergyCertificate
+    log_slice::BoundWitness
+    energy::BoundWitness
+    max_energy_error::BoundWitness
+    eligible::SeparatedComparisonCertificate
+    continues::SeparatedComparisonCertificate
+end
+
+
+is_stable(certificate::NUTSLeafEnergyCertificate) =
+    is_stable(certificate.eligible) && is_stable(certificate.continues)
+uncertainty_band(certificate::NUTSLeafEnergyCertificate) = max(
+    uncertainty_band(certificate.eligible),
+    uncertainty_band(certificate.continues))
+
+function certify_nuts_leaf_energy(; computed_log_slice::Real,
+        ideal_log_slice::Real, log_slice_bound::Real,
+        computed_energy::Real, ideal_energy::Real, energy_bound::Real,
+        computed_max_energy_error::Real, ideal_max_energy_error::Real,
+        max_energy_error_bound::Real,
+        continuation_rounding_bound::Real=0, precision::Integer=256)
+    log_slice = certify_bound(computed_log_slice, ideal_log_slice,
+        log_slice_bound; precision=precision)
+    energy = certify_bound(computed_energy, ideal_energy, energy_bound;
+        precision=precision)
+    max_error = certify_bound(computed_max_energy_error, ideal_max_energy_error,
+        max_energy_error_bound; precision=precision)
+    eligible = certify_comparison(computed_log_slice, ideal_log_slice,
+        log_slice_bound, -Float64(computed_energy), -BigFloat(ideal_energy),
+        energy_bound; precision=precision)
+    computed_continuation_threshold =
+        Float64(computed_max_energy_error) - Float64(computed_energy)
+    continues = certify_comparison(computed_log_slice, ideal_log_slice,
+        log_slice_bound,
+        computed_continuation_threshold,
+        BigFloat(ideal_max_energy_error) - BigFloat(ideal_energy),
+        BigFloat(continuation_rounding_bound) +
+            BigFloat(max_energy_error_bound) + BigFloat(energy_bound);
+        precision=precision)
+    NUTSLeafEnergyCertificate(log_slice, energy, max_error, eligible, continues)
+end
+
+"""Return `(eligible, continues)`, or `nothing` if either bit is ambiguous."""
+function certified_nuts_leaf_decisions(certificate::NUTSLeafEnergyCertificate)
+    is_stable(certificate) || return nothing
+    (; eligible=certificate.eligible.left.computed <
+            certificate.eligible.right.computed,
+        continues=certificate.continues.left.computed <
+            certificate.continues.right.computed)
 end
 
 is_stable(certificate::SeparatedComparisonCertificate) =
@@ -255,6 +310,27 @@ band, matching Lean's tree-local `DecisionsAgree` interface.
 struct CompletedTreeDecisionCertificate
     leaf_comparisons::Vector{SeparatedComparisonCertificate}
     uturn_decisions::Vector{UTurnDecisionCertificate}
+end
+
+"""Leaf and join certificates for one complete recursive NUTS tree."""
+struct NUTSCompletedTreeCertificate
+    leaves::Vector{NUTSLeafEnergyCertificate}
+    joins::Vector{UTurnDecisionCertificate}
+end
+
+is_stable(certificate::NUTSCompletedTreeCertificate) =
+    all(is_stable, certificate.leaves) && all(is_stable, certificate.joins)
+uncertainty_band(certificate::NUTSCompletedTreeCertificate) = max(
+    maximum(uncertainty_band, certificate.leaves; init=big"0"),
+    maximum(uncertainty_band, certificate.joins; init=big"0"))
+
+"""Expose all certified tree bits, or fail closed if any margin is ambiguous."""
+function certified_nuts_completed_tree(certificate::NUTSCompletedTreeCertificate)
+    is_stable(certificate) || return nothing
+    leaf = [certified_nuts_leaf_decisions(item) for item in certificate.leaves]
+    (; eligible=Bool[item.eligible for item in leaf],
+        continues=Bool[item.continues for item in leaf],
+        turns=Bool[certified_uturn_decision(item)::Bool for item in certificate.joins])
 end
 
 is_stable(certificate::CompletedTreeDecisionCertificate) =
