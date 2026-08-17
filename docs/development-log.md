@@ -4510,3 +4510,19 @@ left branch and assigns the exact missing mass to one right-branch exhaustion
 atom. Lean proves this completed kernel is a Markov kernel on the full ambient
 state space. Remaining practical-slice work is the primitive derived-bracket
 reversal and completed joint-law preservation.
+
+## 2026-08-17: bracket-free primitive runtime reversal
+
+Defined `primitiveRuntimeAugmentedReverse` directly on the coordinates the
+runtime consumes: rejected points, Haar alignment, integer allocation, and
+the final unit fraction. It deterministically reconstructs the final bracket,
+turns the fraction into the accepted state, reroots alignment/allocation, and
+records the old state as the reverse fraction. The existing dependent
+allocation theorem is specialized to the unrestricted runtime integer on the
+global valid-allocation event. Together with same-side rejected replay, Lean
+proves that the reverse execution derives exactly the same final bracket.
+`PrimitiveRuntimeSuccess` packages the actual successful-trace obligations;
+from it Lean derives reverse-fraction validity, involutivity of the primitive
+rerooting, and exact forward/reverse equality of `runtimeTraceDensity`.
+Remaining is lifting this pointwise certificate through the completed
+successful/exhaustion joint law.

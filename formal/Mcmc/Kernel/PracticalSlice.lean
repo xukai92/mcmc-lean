@@ -3119,6 +3119,544 @@ theorem completedRuntimeTraceKernel_isMarkovKernel
       (runtimeTraceDensity logDensity width intervals maxShrink)
     hmeasurable hsubprobability
 
+/-! ### Primitive runtime-trace reversal -/
+
+/-- Reroot a primitive successful runtime trace without storing its stopped
+bracket. The bracket is derived from the old augmented state and trace,
+the accepted fraction becomes the new state, and the reverse fraction records
+the old state in that same bracket. -/
+noncomputable def primitiveRuntimeAugmentedReverse
+    (logDensity : ℝ → ℝ) (width : ℝ) (intervals : ℕ)
+    (point : (ℝ × ℝ) × RuntimeRandomTrace) :
+    (ℝ × ℝ) × RuntimeRandomTrace :=
+  let bracket := runtimeFinalBracket logDensity point.1.1 width point.1.2
+    intervals point.2
+  let accepted := acceptedProposalReverse bracket.1 bracket.2
+    (point.1.2, point.2.2.2)
+  ((point.1.1, accepted.1),
+    (point.2.1,
+      (alignmentAllocationReverse width point.1.2 accepted.1 point.2.2.1,
+        accepted.2)))
+
+theorem primitiveRuntimeAugmentedReverse_newState
+    (logDensity : ℝ → ℝ) (width : ℝ) (intervals : ℕ)
+    (point : (ℝ × ℝ) × RuntimeRandomTrace) :
+    (primitiveRuntimeAugmentedReverse logDensity width intervals point).1 =
+      (point.1.1,
+        runtimeAcceptedPoint logDensity point.1.1 width point.1.2 intervals
+          point.2) := by
+  rfl
+
+theorem primitiveRuntimeAugmentedReverse_rejected
+    (logDensity : ℝ → ℝ) (width : ℝ) (intervals : ℕ)
+    (point : (ℝ × ℝ) × RuntimeRandomTrace) :
+    (primitiveRuntimeAugmentedReverse logDensity width intervals point).2.1 =
+      point.2.1 := by
+  rfl
+
+theorem primitiveRuntimeAugmentedReverse_grid
+    (logDensity : ℝ → ℝ) (width : ℝ) (intervals : ℕ)
+    (point : (ℝ × ℝ) × RuntimeRandomTrace) :
+    (primitiveRuntimeAugmentedReverse logDensity width intervals point).2.2.1 =
+      alignmentAllocationReverse width point.1.2
+        (runtimeAcceptedPoint logDensity point.1.1 width point.1.2 intervals
+          point.2) point.2.2.1 := by
+  rfl
+
+theorem primitiveRuntimeAugmentedReverse_fraction
+    (logDensity : ℝ → ℝ) (width : ℝ) (intervals : ℕ)
+    (point : (ℝ × ℝ) × RuntimeRandomTrace) :
+    (primitiveRuntimeAugmentedReverse logDensity width intervals point).2.2.2 =
+      (point.1.2 -
+        (runtimeFinalBracket logDensity point.1.1 width point.1.2 intervals
+          point.2).1) /
+        ((runtimeFinalBracket logDensity point.1.1 width point.1.2 intervals
+          point.2).2 -
+        (runtimeFinalBracket logDensity point.1.1 width point.1.2 intervals
+          point.2).1) := by
+  rfl
+
+/-- If rerooting gives the same stepped-out bracket and no rejected point
+separates the old and accepted states, replaying the primitive rejected trace
+derives exactly the same final bracket in reverse. -/
+theorem primitiveRuntimeFinalBracket_reverse
+    (logDensity : ℝ → ℝ) (threshold width old : ℝ) (intervals : ℕ)
+    (trace : RuntimeRandomTrace)
+    (hstepped :
+      runtimeSteppedBracket logDensity threshold width old intervals
+          trace.2.1.2 trace.2.1.1 =
+        runtimeSteppedBracket logDensity threshold width
+          (runtimeAcceptedPoint logDensity threshold width old intervals trace)
+          intervals
+          (alignmentAllocationReverse width old
+            (runtimeAcceptedPoint logDensity threshold width old intervals trace)
+            trace.2.1).2
+          (alignmentAllocationReverse width old
+            (runtimeAcceptedPoint logDensity threshold width old intervals trace)
+            trace.2.1).1)
+    (hsame : ∀ rejected ∈ List.ofFn trace.1.2,
+      (rejected < old) =
+        (rejected < runtimeAcceptedPoint logDensity threshold width old intervals trace)) :
+    runtimeFinalBracket logDensity threshold width old intervals trace =
+      runtimeFinalBracket logDensity threshold width
+        (runtimeAcceptedPoint logDensity threshold width old intervals trace)
+        intervals
+        (primitiveRuntimeAugmentedReverse logDensity width intervals
+          ((threshold, old), trace)).2 := by
+  unfold runtimeFinalBracket
+  rw [primitiveRuntimeAugmentedReverse_rejected,
+    primitiveRuntimeAugmentedReverse_grid]
+  rw [← hstepped]
+  exact shrinkRejectedPoints_eq_of_sameSide hsame
+
+/-- The proof-oriented dependent-allocation stepping-out reversal specializes
+to the primitive runtime's unrestricted integer allocation on the global
+valid-allocation event. -/
+theorem runtimeSteppedBracket_reverse
+    (logDensity : ℝ → ℝ) (threshold : ℝ) (intervals : ℕ)
+    {width old new : ℝ} (hwidth : width ≠ 0) (grid : Alignment × ℤ)
+    (hgrid : grid ∈ globalValidAllocation intervals width old new)
+    (hleftNonneg : 0 ≤ integerAlignmentShift width old new grid.1 →
+      ∀ index < (integerAlignmentShift width old new grid.1).toNat,
+        threshold < logDensity
+          (initialLeft width new
+            (reverseOffset width old new (alignmentCoordinate grid.1)) -
+              (index : ℝ) * width))
+    (hleftNonpos : integerAlignmentShift width old new grid.1 ≤ 0 →
+      ∀ index < (-integerAlignmentShift width old new grid.1).toNat,
+        threshold < logDensity
+          (initialLeft width old (alignmentCoordinate grid.1) -
+            (index : ℝ) * width))
+    (hrightNonneg : 0 ≤ integerAlignmentShift width old new grid.1 →
+      ∀ index < (integerAlignmentShift width old new grid.1).toNat,
+        threshold < logDensity
+          (initialRight width old (alignmentCoordinate grid.1) +
+            (index : ℝ) * width))
+    (hrightNonpos : integerAlignmentShift width old new grid.1 ≤ 0 →
+      ∀ index < (-integerAlignmentShift width old new grid.1).toNat,
+        threshold < logDensity
+          (initialRight width new
+            (reverseOffset width old new (alignmentCoordinate grid.1)) +
+              (index : ℝ) * width)) :
+    runtimeSteppedBracket logDensity threshold width old intervals grid.2 grid.1 =
+      runtimeSteppedBracket logDensity threshold width new intervals
+        (alignmentAllocationReverse width old new grid).2
+        (alignmentAllocationReverse width old new grid).1 := by
+  let shift := integerAlignmentShift width old new grid.1
+  have hvalid : 0 ≤ grid.2 ∧ grid.2 < intervals ∧
+      0 ≤ grid.2 + shift ∧ grid.2 + shift < intervals := by
+    simpa only [globalValidAllocation, Set.mem_setOf_eq, shift] using hgrid
+  let allocation : ValidAllocation intervals shift := ⟨grid.2, hvalid⟩
+  have hproof := steppedBracket_reverseAllocation logDensity threshold hwidth
+    (show shift =
+      ⌊alignmentCoordinate grid.1 + (new - old) / width⌋ by
+        rfl)
+    allocation hleftNonneg hleftNonpos hrightNonneg hrightNonpos
+  rw [runtimeSteppedBracket_eq_steppedBracket logDensity threshold width old
+    allocation grid.1]
+  let reversed := reverseAllocation intervals shift allocation
+  change steppedBracket logDensity threshold width old
+      (alignmentCoordinate grid.1) allocation =
+    runtimeSteppedBracket logDensity threshold width new intervals
+      reversed.1 (reverseAlignment width old new grid.1)
+  rw [runtimeSteppedBracket_eq_steppedBracket logDensity threshold width new
+    reversed (reverseAlignment width old new grid.1)]
+  rw [alignmentCoordinate_reverseAlignment]
+  exact hproof
+
+/-- End-to-end derived-bracket equality for the primitive runtime trace,
+with the stepping-out interior obligations exposed explicitly. -/
+theorem primitiveRuntimeFinalBracket_reverse_of_success
+    (logDensity : ℝ → ℝ) (threshold : ℝ) (intervals : ℕ)
+    {width old : ℝ} (hwidth : width ≠ 0) (trace : RuntimeRandomTrace)
+    (hgrid : trace.2.1 ∈ globalValidAllocation intervals width old
+      (runtimeAcceptedPoint logDensity threshold width old intervals trace))
+    (hleftNonneg : 0 ≤ integerAlignmentShift width old
+        (runtimeAcceptedPoint logDensity threshold width old intervals trace)
+        trace.2.1.1 →
+      ∀ index < (integerAlignmentShift width old
+        (runtimeAcceptedPoint logDensity threshold width old intervals trace)
+        trace.2.1.1).toNat,
+        threshold < logDensity
+          (initialLeft width
+            (runtimeAcceptedPoint logDensity threshold width old intervals trace)
+            (reverseOffset width old
+              (runtimeAcceptedPoint logDensity threshold width old intervals trace)
+              (alignmentCoordinate trace.2.1.1)) - (index : ℝ) * width))
+    (hleftNonpos : integerAlignmentShift width old
+        (runtimeAcceptedPoint logDensity threshold width old intervals trace)
+        trace.2.1.1 ≤ 0 →
+      ∀ index < (-integerAlignmentShift width old
+        (runtimeAcceptedPoint logDensity threshold width old intervals trace)
+        trace.2.1.1).toNat,
+        threshold < logDensity
+          (initialLeft width old (alignmentCoordinate trace.2.1.1) -
+            (index : ℝ) * width))
+    (hrightNonneg : 0 ≤ integerAlignmentShift width old
+        (runtimeAcceptedPoint logDensity threshold width old intervals trace)
+        trace.2.1.1 →
+      ∀ index < (integerAlignmentShift width old
+        (runtimeAcceptedPoint logDensity threshold width old intervals trace)
+        trace.2.1.1).toNat,
+        threshold < logDensity
+          (initialRight width old (alignmentCoordinate trace.2.1.1) +
+            (index : ℝ) * width))
+    (hrightNonpos : integerAlignmentShift width old
+        (runtimeAcceptedPoint logDensity threshold width old intervals trace)
+        trace.2.1.1 ≤ 0 →
+      ∀ index < (-integerAlignmentShift width old
+        (runtimeAcceptedPoint logDensity threshold width old intervals trace)
+        trace.2.1.1).toNat,
+        threshold < logDensity
+          (initialRight width
+            (runtimeAcceptedPoint logDensity threshold width old intervals trace)
+            (reverseOffset width old
+              (runtimeAcceptedPoint logDensity threshold width old intervals trace)
+              (alignmentCoordinate trace.2.1.1)) + (index : ℝ) * width))
+    (hsame : ∀ rejected ∈ List.ofFn trace.1.2,
+      (rejected < old) =
+        (rejected < runtimeAcceptedPoint logDensity threshold width old intervals trace)) :
+    runtimeFinalBracket logDensity threshold width old intervals trace =
+      runtimeFinalBracket logDensity threshold width
+        (runtimeAcceptedPoint logDensity threshold width old intervals trace)
+        intervals
+        (primitiveRuntimeAugmentedReverse logDensity width intervals
+          ((threshold, old), trace)).2 := by
+  apply primitiveRuntimeFinalBracket_reverse logDensity threshold width old
+    intervals trace
+  · exact runtimeSteppedBracket_reverse logDensity threshold intervals hwidth
+      trace.2.1 hgrid hleftNonneg hleftNonpos hrightNonneg hrightNonpos
+  · exact hsame
+
+/-- Once the deterministically derived bracket agrees in reverse, the
+bracket-free primitive runtime rerooting is an involution. -/
+theorem primitiveRuntimeAugmentedReverse_involutive_of_finalBracket
+    (logDensity : ℝ → ℝ) {width : ℝ} (hwidth : width ≠ 0)
+    (intervals : ℕ) (point : (ℝ × ℝ) × RuntimeRandomTrace)
+    (hbracket :
+      (runtimeFinalBracket logDensity point.1.1 width point.1.2 intervals
+        point.2).1 <
+      (runtimeFinalBracket logDensity point.1.1 width point.1.2 intervals
+        point.2).2)
+    (hreverse :
+      runtimeFinalBracket logDensity point.1.1 width
+          (runtimeAcceptedPoint logDensity point.1.1 width point.1.2 intervals
+            point.2) intervals
+          (primitiveRuntimeAugmentedReverse logDensity width intervals point).2 =
+        runtimeFinalBracket logDensity point.1.1 width point.1.2 intervals
+          point.2) :
+    primitiveRuntimeAugmentedReverse logDensity width intervals
+        (primitiveRuntimeAugmentedReverse logDensity width intervals point) = point := by
+  rcases point with ⟨⟨threshold, old⟩, trace⟩
+  let bracket := runtimeFinalBracket logDensity threshold width old intervals trace
+  let accepted := acceptedProposalReverse bracket.1 bracket.2
+    (old, trace.2.2)
+  have haccepted := acceptedProposalReverse_involutive
+    (sub_ne_zero.mpr hbracket.ne') (old, trace.2.2)
+  have hgrid := alignmentAllocationReverse_reverse
+    (old := old) (new := accepted.1) hwidth trace.2.1
+  change primitiveRuntimeAugmentedReverse logDensity width intervals
+      ((threshold, accepted.1),
+        (trace.1,
+          (alignmentAllocationReverse width old accepted.1 trace.2.1,
+            accepted.2))) = ((threshold, old), trace)
+  unfold primitiveRuntimeAugmentedReverse
+  simp only
+  have hreverse' : runtimeFinalBracket logDensity threshold width accepted.1 intervals
+      (trace.1,
+        (alignmentAllocationReverse width old accepted.1 trace.2.1,
+          accepted.2)) = bracket := by
+    exact hreverse
+  rw [hreverse']
+  rw [show acceptedProposalReverse bracket.1 bracket.2
+      (accepted.1, accepted.2) = (old, trace.2.2) by exact haccepted]
+  rw [hgrid]
+
+/-- Replaying a primitive reverse trace whose derived bracket agrees recovers
+the old state as its accepted point. -/
+theorem primitiveRuntimeAcceptedPoint_reverse
+    (logDensity : ℝ → ℝ) {width : ℝ} (intervals : ℕ)
+    (point : (ℝ × ℝ) × RuntimeRandomTrace)
+    (hbracket :
+      (runtimeFinalBracket logDensity point.1.1 width point.1.2 intervals
+        point.2).1 <
+      (runtimeFinalBracket logDensity point.1.1 width point.1.2 intervals
+        point.2).2)
+    (hreverse :
+      runtimeFinalBracket logDensity point.1.1 width
+          (runtimeAcceptedPoint logDensity point.1.1 width point.1.2 intervals
+            point.2) intervals
+          (primitiveRuntimeAugmentedReverse logDensity width intervals point).2 =
+        runtimeFinalBracket logDensity point.1.1 width point.1.2 intervals
+          point.2) :
+    runtimeAcceptedPoint logDensity point.1.1 width
+        (runtimeAcceptedPoint logDensity point.1.1 width point.1.2 intervals
+          point.2) intervals
+        (primitiveRuntimeAugmentedReverse logDensity width intervals point).2 =
+      point.1.2 := by
+  let bracket := runtimeFinalBracket logDensity point.1.1 width point.1.2
+    intervals point.2
+  change
+    (runtimeFinalBracket logDensity point.1.1 width
+      (runtimeAcceptedPoint logDensity point.1.1 width point.1.2 intervals point.2)
+      intervals
+      (primitiveRuntimeAugmentedReverse logDensity width intervals point).2).1 +
+      ((runtimeFinalBracket logDensity point.1.1 width
+        (runtimeAcceptedPoint logDensity point.1.1 width point.1.2 intervals point.2)
+        intervals
+        (primitiveRuntimeAugmentedReverse logDensity width intervals point).2).2 -
+       (runtimeFinalBracket logDensity point.1.1 width
+        (runtimeAcceptedPoint logDensity point.1.1 width point.1.2 intervals point.2)
+        intervals
+        (primitiveRuntimeAugmentedReverse logDensity width intervals point).2).1) *
+      (primitiveRuntimeAugmentedReverse logDensity width intervals point).2.2.2 =
+      point.1.2
+  rw [hreverse, primitiveRuntimeAugmentedReverse_fraction]
+  have hne : bracket.2 - bracket.1 ≠ 0 := sub_ne_zero.mpr hbracket.ne'
+  change bracket.1 + (bracket.2 - bracket.1) *
+      ((point.1.2 - bracket.1) / (bracket.2 - bracket.1)) = point.1.2
+  field_simp
+  ring
+
+/-- If the old point lies in the derived final bracket, the primitive reverse
+fraction is again a valid unit fraction. -/
+theorem primitiveRuntimeAugmentedReverse_fraction_mem
+    (logDensity : ℝ → ℝ) (width : ℝ) (intervals : ℕ)
+    (point : (ℝ × ℝ) × RuntimeRandomTrace)
+    (hold : point.1.2 ∈ Set.Ico
+      (runtimeFinalBracket logDensity point.1.1 width point.1.2 intervals
+        point.2).1
+      (runtimeFinalBracket logDensity point.1.1 width point.1.2 intervals
+        point.2).2) :
+    (primitiveRuntimeAugmentedReverse logDensity width intervals point).2.2.2 ∈
+      Set.Ico (0 : ℝ) 1 := by
+  rw [primitiveRuntimeAugmentedReverse_fraction]
+  let bracket := runtimeFinalBracket logDensity point.1.1 width point.1.2
+    intervals point.2
+  have hbracketlt : bracket.1 < bracket.2 := by
+    exact lt_of_le_of_lt hold.1 hold.2
+  have hwidth : 0 < bracket.2 - bracket.1 := sub_pos.mpr hbracketlt
+  constructor
+  · exact div_nonneg (sub_nonneg.mpr hold.1) hwidth.le
+  · rw [div_lt_one hwidth]
+    linarith [hold.2]
+
+/-- The primitive successful density is pointwise invariant under rerooting
+once the derived-bracket, allocation, and accepted-coordinate replay
+conditions are established. -/
+theorem runtimeTraceDensity_primitiveReverse
+    (logDensity : ℝ → ℝ) {width : ℝ} (intervals maxShrink : ℕ)
+    (point : (ℝ × ℝ) × RuntimeRandomTrace)
+    (hwidth : width ≠ 0)
+    (hlength : point.2.1.1 < maxShrink)
+    (hgrid : point.2.2.1 ∈ globalValidAllocation intervals width point.1.2
+      (runtimeAcceptedPoint logDensity point.1.1 width point.1.2 intervals
+        point.2))
+    (hfraction : point.2.2.2 ∈ Set.Ico (0 : ℝ) 1)
+    (hnew : point.1.1 ≤ logDensity
+      (runtimeAcceptedPoint logDensity point.1.1 width point.1.2 intervals
+        point.2))
+    (hold : point.1.1 ≤ logDensity point.1.2)
+    (hreverseFraction :
+      (primitiveRuntimeAugmentedReverse logDensity width intervals point).2.2.2 ∈
+        Set.Ico (0 : ℝ) 1)
+    (hstepped :
+      runtimeSteppedBracket logDensity point.1.1 width point.1.2 intervals
+          point.2.2.1.2 point.2.2.1.1 =
+        runtimeSteppedBracket logDensity point.1.1 width
+          (runtimeAcceptedPoint logDensity point.1.1 width point.1.2 intervals
+            point.2) intervals
+          (primitiveRuntimeAugmentedReverse logDensity width intervals point).2.2.1.2
+          (primitiveRuntimeAugmentedReverse logDensity width intervals point).2.2.1.1)
+    (hsame : ∀ rejected ∈ List.ofFn point.2.1.2,
+      (rejected < point.1.2) =
+        (rejected < runtimeAcceptedPoint logDensity point.1.1 width point.1.2
+          intervals point.2))
+    (hbracket :
+      (runtimeFinalBracket logDensity point.1.1 width point.1.2 intervals
+        point.2).1 <
+      (runtimeFinalBracket logDensity point.1.1 width point.1.2 intervals
+        point.2).2)
+    (hfinal :
+      runtimeFinalBracket logDensity point.1.1 width
+          (runtimeAcceptedPoint logDensity point.1.1 width point.1.2 intervals
+            point.2) intervals
+          (primitiveRuntimeAugmentedReverse logDensity width intervals point).2 =
+        runtimeFinalBracket logDensity point.1.1 width point.1.2 intervals
+          point.2) :
+    runtimeTraceDensity logDensity width intervals maxShrink
+        (primitiveRuntimeAugmentedReverse logDensity width intervals point).1
+        (primitiveRuntimeAugmentedReverse logDensity width intervals point).2 =
+      runtimeTraceDensity logDensity width intervals maxShrink point.1 point.2 := by
+  let new := runtimeAcceptedPoint logDensity point.1.1 width point.1.2 intervals
+    point.2
+  have hreverseGrid :
+      (primitiveRuntimeAugmentedReverse logDensity width intervals point).2.2.1 ∈
+        globalValidAllocation intervals width new point.1.2 := by
+    have hmembership := hgrid
+    rw [← alignmentAllocationReverse_preimage_globalValidAllocation hwidth]
+      at hmembership
+    simpa [new, primitiveRuntimeAugmentedReverse_grid] using hmembership
+  have hrecover : runtimeAcceptedPoint logDensity point.1.1 width new intervals
+      (primitiveRuntimeAugmentedReverse logDensity width intervals point).2 =
+      point.1.2 :=
+    primitiveRuntimeAcceptedPoint_reverse logDensity intervals point hbracket hfinal
+  have hweight :
+      rejectedTraceWeight logDensity point.1.1 new
+          (List.ofFn point.2.1.2)
+          (runtimeSteppedBracket logDensity point.1.1 width new intervals
+            (primitiveRuntimeAugmentedReverse logDensity width intervals point).2.2.1.2
+            (primitiveRuntimeAugmentedReverse logDensity width intervals point).2.2.1.1) =
+        rejectedTraceWeight logDensity point.1.1 point.1.2
+          (List.ofFn point.2.1.2)
+          (runtimeSteppedBracket logDensity point.1.1 width point.1.2 intervals
+            point.2.2.1.2 point.2.2.1.1) := by
+    rw [← hstepped]
+    exact (rejectedTraceWeight_eq_of_sameSide logDensity point.1.1 hsame).symm
+  have hforwardAllocation : 0 ≤ point.2.2.1.2 ∧
+      point.2.2.1.2 < intervals := ⟨hgrid.1, hgrid.2.1⟩
+  have hreverseAllocation :
+      0 ≤ (primitiveRuntimeAugmentedReverse logDensity width intervals point).2.2.1.2 ∧
+      (primitiveRuntimeAugmentedReverse logDensity width intervals point).2.2.1.2 <
+        intervals := ⟨hreverseGrid.1, hreverseGrid.2.1⟩
+  have hrejectedSequence := primitiveRuntimeAugmentedReverse_rejected
+    logDensity width intervals point
+  have hreverseLength :
+      (primitiveRuntimeAugmentedReverse logDensity width intervals point).2.1.1 =
+        point.2.1.1 := congrArg Sigma.fst hrejectedSequence
+  have hrejectedList :
+      List.ofFn
+          (primitiveRuntimeAugmentedReverse logDensity width intervals point).2.1.2 =
+        List.ofFn point.2.1.2 :=
+    congrArg (fun sequence : RejectedSequence => List.ofFn sequence.2)
+      hrejectedSequence
+  have hforwardAccepted : point.1.1 ≤ logDensity
+      (let bracket := shrinkRejectedPoints point.1.2 (List.ofFn point.2.1.2)
+        (runtimeSteppedBracket logDensity point.1.1 width point.1.2 intervals
+          point.2.2.1.2 point.2.2.1.1)
+       bracket.1 + (bracket.2 - bracket.1) * point.2.2.2) := by
+    exact hnew
+  have hreverseAccepted : point.1.1 ≤ logDensity
+      (let reverseTrace :=
+          (primitiveRuntimeAugmentedReverse logDensity width intervals point).2
+       let bracket := shrinkRejectedPoints new (List.ofFn reverseTrace.1.2)
+        (runtimeSteppedBracket logDensity point.1.1 width new intervals
+          reverseTrace.2.1.2 reverseTrace.2.1.1)
+       bracket.1 + (bracket.2 - bracket.1) * reverseTrace.2.2) := by
+    change point.1.1 ≤ logDensity
+      (runtimeAcceptedPoint logDensity point.1.1 width new intervals
+        (primitiveRuntimeAugmentedReverse logDensity width intervals point).2)
+    rw [hrecover]
+    exact hold
+  have hforwardCondition : point.2.1.1 < maxShrink ∧
+      0 ≤ point.2.2.1.2 ∧ point.2.2.1.2 < intervals ∧
+      point.2.2.2 ∈ Set.Ico (0 : ℝ) 1 ∧
+      point.1.1 ≤ logDensity
+        (let bracket := shrinkRejectedPoints point.1.2 (List.ofFn point.2.1.2)
+          (runtimeSteppedBracket logDensity point.1.1 width point.1.2 intervals
+            point.2.2.1.2 point.2.2.1.1)
+         bracket.1 + (bracket.2 - bracket.1) * point.2.2.2) :=
+    ⟨hlength, hforwardAllocation.1, hforwardAllocation.2, hfraction,
+      hforwardAccepted⟩
+  have hreverseCondition :
+      (primitiveRuntimeAugmentedReverse logDensity width intervals point).2.1.1 <
+          maxShrink ∧
+      0 ≤ (primitiveRuntimeAugmentedReverse logDensity width intervals point).2.2.1.2 ∧
+      (primitiveRuntimeAugmentedReverse logDensity width intervals point).2.2.1.2 <
+          intervals ∧
+      (primitiveRuntimeAugmentedReverse logDensity width intervals point).2.2.2 ∈
+          Set.Ico (0 : ℝ) 1 ∧
+      point.1.1 ≤ logDensity
+        (let reverseTrace :=
+          (primitiveRuntimeAugmentedReverse logDensity width intervals point).2
+         let bracket := shrinkRejectedPoints new (List.ofFn reverseTrace.1.2)
+          (runtimeSteppedBracket logDensity point.1.1 width new intervals
+            reverseTrace.2.1.2 reverseTrace.2.1.1)
+         bracket.1 + (bracket.2 - bracket.1) * reverseTrace.2.2) :=
+    ⟨hreverseLength.symm ▸ hlength, hreverseAllocation.1,
+      hreverseAllocation.2, hreverseFraction, hreverseAccepted⟩
+  simp only [runtimeTraceDensity, primitiveRuntimeAugmentedReverse_newState]
+  rw [if_pos hreverseCondition, if_pos hforwardCondition]
+  rw [hrejectedList, hweight]
+
+/-- Exact certificate carried by a successful primitive runtime trace. It
+contains only properties of coordinates the algorithm actually consumes; the
+stopped and final brackets remain derived data. -/
+structure PrimitiveRuntimeSuccess
+    (logDensity : ℝ → ℝ) (width : ℝ) (intervals maxShrink : ℕ)
+    (point : (ℝ × ℝ) × RuntimeRandomTrace) : Prop where
+  length_lt : point.2.1.1 < maxShrink
+  grid_valid : point.2.2.1 ∈ globalValidAllocation intervals width point.1.2
+    (runtimeAcceptedPoint logDensity point.1.1 width point.1.2 intervals point.2)
+  fraction_mem : point.2.2.2 ∈ Set.Ico (0 : ℝ) 1
+  old_mem : point.1.2 ∈ Set.Ico
+    (runtimeFinalBracket logDensity point.1.1 width point.1.2 intervals point.2).1
+    (runtimeFinalBracket logDensity point.1.1 width point.1.2 intervals point.2).2
+  old_in_slice : point.1.1 ≤ logDensity point.1.2
+  new_in_slice : point.1.1 ≤ logDensity
+    (runtimeAcceptedPoint logDensity point.1.1 width point.1.2 intervals point.2)
+  stepped_reverse :
+    runtimeSteppedBracket logDensity point.1.1 width point.1.2 intervals
+        point.2.2.1.2 point.2.2.1.1 =
+      runtimeSteppedBracket logDensity point.1.1 width
+        (runtimeAcceptedPoint logDensity point.1.1 width point.1.2 intervals point.2)
+        intervals
+        (primitiveRuntimeAugmentedReverse logDensity width intervals point).2.2.1.2
+        (primitiveRuntimeAugmentedReverse logDensity width intervals point).2.2.1.1
+  rejected_same_side : ∀ rejected ∈ List.ofFn point.2.1.2,
+    (rejected < point.1.2) =
+      (rejected < runtimeAcceptedPoint logDensity point.1.1 width point.1.2
+        intervals point.2)
+
+theorem PrimitiveRuntimeSuccess.finalBracket_reverse
+    {logDensity : ℝ → ℝ} {width : ℝ} {intervals maxShrink : ℕ}
+    {point : (ℝ × ℝ) × RuntimeRandomTrace}
+    (hsuccess : PrimitiveRuntimeSuccess logDensity width intervals maxShrink point) :
+    runtimeFinalBracket logDensity point.1.1 width
+        (runtimeAcceptedPoint logDensity point.1.1 width point.1.2 intervals point.2)
+        intervals
+        (primitiveRuntimeAugmentedReverse logDensity width intervals point).2 =
+      runtimeFinalBracket logDensity point.1.1 width point.1.2 intervals point.2 := by
+  exact (primitiveRuntimeFinalBracket_reverse logDensity point.1.1 width
+    point.1.2 intervals point.2 hsuccess.stepped_reverse
+      hsuccess.rejected_same_side).symm
+
+theorem PrimitiveRuntimeSuccess.reverse_fraction_mem
+    {logDensity : ℝ → ℝ} {width : ℝ} {intervals maxShrink : ℕ}
+    {point : (ℝ × ℝ) × RuntimeRandomTrace}
+    (hsuccess : PrimitiveRuntimeSuccess logDensity width intervals maxShrink point) :
+    (primitiveRuntimeAugmentedReverse logDensity width intervals point).2.2.2 ∈
+      Set.Ico (0 : ℝ) 1 :=
+  primitiveRuntimeAugmentedReverse_fraction_mem logDensity width intervals point
+    hsuccess.old_mem
+
+theorem PrimitiveRuntimeSuccess.reverse_involutive
+    {logDensity : ℝ → ℝ} {width : ℝ} {intervals maxShrink : ℕ}
+    {point : (ℝ × ℝ) × RuntimeRandomTrace}
+    (hsuccess : PrimitiveRuntimeSuccess logDensity width intervals maxShrink point)
+    (hwidth : width ≠ 0) :
+    primitiveRuntimeAugmentedReverse logDensity width intervals
+        (primitiveRuntimeAugmentedReverse logDensity width intervals point) = point := by
+  exact primitiveRuntimeAugmentedReverse_involutive_of_finalBracket logDensity
+    hwidth intervals point (lt_of_le_of_lt hsuccess.old_mem.1 hsuccess.old_mem.2)
+    hsuccess.finalBracket_reverse
+
+theorem PrimitiveRuntimeSuccess.density_invariant
+    {logDensity : ℝ → ℝ} {width : ℝ} {intervals maxShrink : ℕ}
+    {point : (ℝ × ℝ) × RuntimeRandomTrace}
+    (hsuccess : PrimitiveRuntimeSuccess logDensity width intervals maxShrink point)
+    (hwidth : width ≠ 0) :
+    runtimeTraceDensity logDensity width intervals maxShrink
+        (primitiveRuntimeAugmentedReverse logDensity width intervals point).1
+        (primitiveRuntimeAugmentedReverse logDensity width intervals point).2 =
+      runtimeTraceDensity logDensity width intervals maxShrink point.1 point.2 := by
+  exact runtimeTraceDensity_primitiveReverse logDensity intervals maxShrink point
+    hwidth hsuccess.length_lt hsuccess.grid_valid hsuccess.fraction_mem
+    hsuccess.new_in_slice hsuccess.old_in_slice hsuccess.reverse_fraction_mem
+    hsuccess.stepped_reverse hsuccess.rejected_same_side
+    (lt_of_le_of_lt hsuccess.old_mem.1 hsuccess.old_mem.2)
+    hsuccess.finalBracket_reverse
+
 /-- Integration against the variable-length base decomposes into the sum of
 finite-dimensional Lebesgue integrals. -/
 theorem lintegral_rejectedSequenceLebesgue
