@@ -599,6 +599,11 @@ def CompletedTreeStoppingData.admissible
     (root : Fin (2 ^ depth)) : Prop :=
   depth ≤ stopping.continuationDepth root
 
+instance CompletedTreeStoppingData.admissibleDecidablePred
+    {depth : ℕ} (stopping : CompletedTreeStoppingData depth) :
+    DecidablePred stopping.admissible :=
+  fun root => Nat.decLe depth (stopping.continuationDepth root)
+
 theorem CompletedTreeStoppingData.admissible_iff_eq_depth
     {depth : ℕ} (stopping : CompletedTreeStoppingData depth)
     (root : Fin (2 ^ depth)) :
@@ -624,11 +629,6 @@ tree. -/
 abbrev CompletedTreeStoppingData.AdmissibleRoot
     {depth : ℕ} (stopping : CompletedTreeStoppingData depth) :=
   { root : Fin (2 ^ depth) // stopping.admissible root }
-
-noncomputable instance CompletedTreeStoppingData.admissibleRootFintype
-    {depth : ℕ} (stopping : CompletedTreeStoppingData depth) :
-    Fintype stopping.AdmissibleRoot :=
-  Fintype.ofFinite stopping.AdmissibleRoot
 
 /-- On the C.4-admissible root subtype every retained endpoint is available
 under the compatible completed-tree trace. -/

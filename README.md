@@ -153,7 +153,13 @@ Lean-mirrored global reroot check, selects only when that certificate succeeds,
 and otherwise performs the proved-safe identity fallback without consuming a
 selection draw. This makes the standard-like first-stop boundary directly
 executable and diagnostic, but is not yet an equivalence proof for recursive
-doubling/subtree-exclusion NUTS. For example:
+doubling/subtree-exclusion NUTS. Separately, the finite mathematical layer now
+assembles a complete state-dependent completed-tree sampler: it normalizes the
+joint target/tree weight on each C.4-admissible root subtype, runs the proved
+rooted transition, lifts it to the common phase state, and proves the collapsed
+kernel reversible and stationary. Its explicit support hypotheses still have
+to be connected to the Julia tree/slice generator and representative draws.
+For example:
 
 ```julia
 sampler = CertifiedDynamicHMC(q -> -sum(abs2, q) / 2, q -> q, 0.12, 8)

@@ -4051,3 +4051,20 @@ them into one common-state reversible and stationary sampler through the
 outer augmentation theorem. The remaining production-specific NUTS work is
 to instantiate these fiber records from the concrete completed-tree data and
 target/slice weights and to prove executable representative-draw refinement.
+
+## 2026-08-17: finite completed-tree NUTS fiber instantiation
+
+Closed the remaining finite mathematical instantiation of the varying-fiber
+theorem. `completedTreeAdmissibleTarget` normalizes an arbitrary nonnegative
+weight over exactly one completed tree's C.4-admissible roots.
+`CompletedTreeStoppingData.admissibleSubtypeFiber` installs the previously
+proved rooted completed-tree transition on that conditional target and proves
+the full-state fiber certificate. A family of these records now constructs
+`completedTreeAuxiliarySampler`; Lean proves the resulting common-state kernel
+reversible and stationary after the state-dependent completed-tree/slice
+auxiliary is discarded. The theorem deliberately exposes its support
+conditions: joint slice weight is positive at every admitted root, has a
+positive admitted normalizer, and is zero outside C.4. It does not yet prove
+that the Julia recursive builder's tree/slice distribution and streaming
+representative draw satisfy those conditions; that executable refinement is
+the remaining production-NUTS boundary.

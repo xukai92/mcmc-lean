@@ -98,6 +98,67 @@ structure AdmissibleSubtypeFiber
   outside_zero : ∀ state, ¬ admitted state → weight state = 0
   reversible : kernel.Reversible target
 
+/-! ### Completed-tree admissible fibers -/
+
+/-- Total unnormalized weight of the roots retained by condition C.4 for one
+completed doubling tree. -/
+noncomputable def completedTreeAdmissibleNormalizer
+    {depth : ℕ} (stopping : CompletedTreeStoppingData depth)
+    (weight : Fin (2 ^ depth) → ℝ) : ℝ :=
+  ∑ root : stopping.AdmissibleRoot, weight root.val
+
+/-- Normalize a positive full-state weight over exactly the C.4-admissible
+roots of a completed tree. -/
+noncomputable def completedTreeAdmissibleTarget
+    {depth : ℕ} (stopping : CompletedTreeStoppingData depth)
+    (weight : Fin (2 ^ depth) → ℝ)
+    (hweight : ∀ root : stopping.AdmissibleRoot, 0 ≤ weight root.val)
+    (hnormalizer : 0 < completedTreeAdmissibleNormalizer stopping weight) :
+    Distribution stopping.AdmissibleRoot where
+  mass root := weight root.val /
+    completedTreeAdmissibleNormalizer stopping weight
+  nonneg root := div_nonneg (hweight root) hnormalizer.le
+  sum_mass := by
+    rw [← Finset.sum_div]
+    exact div_self hnormalizer.ne'
+
+@[simp] theorem completedTreeAdmissibleTarget_mass
+    {depth : ℕ} (stopping : CompletedTreeStoppingData depth)
+    (weight : Fin (2 ^ depth) → ℝ)
+    (hweight : ∀ root : stopping.AdmissibleRoot, 0 ≤ weight root.val)
+    (hnormalizer : 0 < completedTreeAdmissibleNormalizer stopping weight)
+    (root : stopping.AdmissibleRoot) :
+    (completedTreeAdmissibleTarget stopping weight hweight hnormalizer).mass root =
+      weight root.val / completedTreeAdmissibleNormalizer stopping weight :=
+  rfl
+
+/-- A completed tree whose admitted roots have positive weight and whose
+inadmissible roots have zero weight supplies the varying-subtype certificate
+used by the common-state NUTS augmentation. -/
+noncomputable def CompletedTreeStoppingData.admissibleSubtypeFiber
+    {depth : ℕ} (stopping : CompletedTreeStoppingData depth)
+    (weight : Fin (2 ^ depth) → ℝ)
+    (hpositive : ∀ root : stopping.AdmissibleRoot, 0 < weight root.val)
+    (hnormalizer : 0 < completedTreeAdmissibleNormalizer stopping weight)
+    (houtside : ∀ state, ¬ stopping.admissible state → weight state = 0) :
+    AdmissibleSubtypeFiber weight stopping.admissible := by
+  classical
+  exact {
+    normalizer := completedTreeAdmissibleNormalizer stopping weight
+    normalizer_pos := hnormalizer
+    target := completedTreeAdmissibleTarget stopping weight
+      (fun root => (hpositive root).le) hnormalizer
+    kernel := ((stopping.rootedSampler
+      (completedTreeAdmissibleTarget stopping weight
+        (fun root => (hpositive root).le) hnormalizer)
+      (fun root => div_pos (hpositive root) hnormalizer)).toCertified.kernel)
+    target_mass := fun _ => rfl
+    outside_zero := houtside
+    reversible := stopping.rootedSampler_reversible
+      (completedTreeAdmissibleTarget stopping weight
+        (fun root => (hpositive root).le) hnormalizer)
+      (fun root => div_pos (hpositive root) hnormalizer) }
+
 /-- Normalized subtype reversibility transfers to the unnormalized full-state
 fiber after the total lift, including all cross-boundary zero cases. -/
 theorem AdmissibleSubtypeFiber.lift_balance
@@ -145,6 +206,30 @@ structure AuxiliarySubtypeFiberCertificate
     AdmissibleSubtypeFiber
       (auxiliaryJointWeight target auxiliaryLaw auxiliary)
       (admitted auxiliary)
+
+/-- Assemble the varying C.4-admissible fibers of a family of completed trees.
+The assumptions state the exact support compatibility needed by the rooted
+completed-tree theorem: the joint slice weight is positive on every retained
+root and zero on every rejected root. -/
+noncomputable def completedTreeAuxiliaryFiberCertificate
+    {depth : ℕ}
+    (target : Distribution (Fin (2 ^ depth)))
+    (auxiliaryLaw : Fin (2 ^ depth) → Distribution Aux)
+    (stopping : Aux → CompletedTreeStoppingData depth)
+    (hpositive : ∀ auxiliary
+      (root : (stopping auxiliary).AdmissibleRoot),
+      0 < auxiliaryJointWeight target auxiliaryLaw auxiliary root.val)
+    (hnormalizer : ∀ auxiliary,
+      0 < completedTreeAdmissibleNormalizer (stopping auxiliary)
+        (auxiliaryJointWeight target auxiliaryLaw auxiliary))
+    (houtside : ∀ auxiliary state,
+      ¬ (stopping auxiliary).admissible state →
+      auxiliaryJointWeight target auxiliaryLaw auxiliary state = 0) :
+    AuxiliarySubtypeFiberCertificate target auxiliaryLaw
+      (fun auxiliary => (stopping auxiliary).admissible) where
+  fiber auxiliary := (stopping auxiliary).admissibleSubtypeFiber
+    (auxiliaryJointWeight target auxiliaryLaw auxiliary)
+    (hpositive auxiliary) (hnormalizer auxiliary) (houtside auxiliary)
 
 /-- Collapsed state transition obtained by drawing an auxiliary conditionally
 on the current state and applying its indexed conditional transition. -/
@@ -400,6 +485,72 @@ theorem AuxiliarySubtypeFiberCertificate.toCertifiedSampler_stationary
     (certificate.toCertifiedSampler target auxiliaryLaw admitted).kernel.Stationary
       target :=
   (certificate.toCertifiedSampler target auxiliaryLaw admitted).stationary
+
+/-! ### Fully assembled finite completed-tree NUTS sampler -/
+
+/-- Common-state transition obtained by drawing a completed-tree auxiliary,
+running its certified C.4-admissible rooted transition, and forgetting the
+auxiliary. -/
+noncomputable def completedTreeAuxiliarySampler
+    {depth : ℕ}
+    (target : Distribution (Fin (2 ^ depth)))
+    (auxiliaryLaw : Fin (2 ^ depth) → Distribution Aux)
+    (stopping : Aux → CompletedTreeStoppingData depth)
+    (hpositive : ∀ auxiliary
+      (root : (stopping auxiliary).AdmissibleRoot),
+      0 < auxiliaryJointWeight target auxiliaryLaw auxiliary root.val)
+    (hnormalizer : ∀ auxiliary,
+      0 < completedTreeAdmissibleNormalizer (stopping auxiliary)
+        (auxiliaryJointWeight target auxiliaryLaw auxiliary))
+    (houtside : ∀ auxiliary state,
+      ¬ (stopping auxiliary).admissible state →
+      auxiliaryJointWeight target auxiliaryLaw auxiliary state = 0) :
+    CertifiedAuxiliarySampler target Aux :=
+  (completedTreeAuxiliaryFiberCertificate target auxiliaryLaw stopping
+    hpositive hnormalizer houtside).toCertifiedSampler target auxiliaryLaw
+      (fun auxiliary => (stopping auxiliary).admissible)
+
+/-- The fully assembled finite completed-tree transition satisfies detailed
+balance on the common phase state space. -/
+theorem completedTreeAuxiliarySampler_reversible
+    {depth : ℕ}
+    (target : Distribution (Fin (2 ^ depth)))
+    (auxiliaryLaw : Fin (2 ^ depth) → Distribution Aux)
+    (stopping : Aux → CompletedTreeStoppingData depth)
+    (hpositive : ∀ auxiliary
+      (root : (stopping auxiliary).AdmissibleRoot),
+      0 < auxiliaryJointWeight target auxiliaryLaw auxiliary root.val)
+    (hnormalizer : ∀ auxiliary,
+      0 < completedTreeAdmissibleNormalizer (stopping auxiliary)
+        (auxiliaryJointWeight target auxiliaryLaw auxiliary))
+    (houtside : ∀ auxiliary state,
+      ¬ (stopping auxiliary).admissible state →
+      auxiliaryJointWeight target auxiliaryLaw auxiliary state = 0) :
+    (completedTreeAuxiliarySampler target auxiliaryLaw stopping hpositive
+      hnormalizer houtside).kernel.Reversible target :=
+  (completedTreeAuxiliarySampler target auxiliaryLaw stopping hpositive
+    hnormalizer houtside).reversible
+
+/-- Consequently the fully assembled finite completed-tree transition
+preserves its declared target distribution. -/
+theorem completedTreeAuxiliarySampler_stationary
+    {depth : ℕ}
+    (target : Distribution (Fin (2 ^ depth)))
+    (auxiliaryLaw : Fin (2 ^ depth) → Distribution Aux)
+    (stopping : Aux → CompletedTreeStoppingData depth)
+    (hpositive : ∀ auxiliary
+      (root : (stopping auxiliary).AdmissibleRoot),
+      0 < auxiliaryJointWeight target auxiliaryLaw auxiliary root.val)
+    (hnormalizer : ∀ auxiliary,
+      0 < completedTreeAdmissibleNormalizer (stopping auxiliary)
+        (auxiliaryJointWeight target auxiliaryLaw auxiliary))
+    (houtside : ∀ auxiliary state,
+      ¬ (stopping auxiliary).admissible state →
+      auxiliaryJointWeight target auxiliaryLaw auxiliary state = 0) :
+    (completedTreeAuxiliarySampler target auxiliaryLaw stopping hpositive
+      hnormalizer houtside).kernel.Stationary target :=
+  (completedTreeAuxiliarySampler target auxiliaryLaw stopping hpositive
+    hnormalizer houtside).stationary
 
 /-! ### Exact conditional-refresh instantiation -/
 
