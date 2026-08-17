@@ -4294,3 +4294,21 @@ density. This is precisely the pointwise obligation supplied by the existing
 successful stepping-out/shrinkage symmetry theorem. The remaining global
 construction is the measure sum across integer shifts and stopped brackets,
 followed by the auxiliary-kernel invariance wrapper.
+
+## 2026-08-17: global practical-slice allocation law
+
+Replaced the remaining countable shift/allocation gluing obligation by an
+equivalent non-dependent ambient construction. The runtime integer alignment
+shift is measurable and cancels exactly under rerooting. Translation of the
+integer allocation by this offset-dependent shift is a skew product preserving
+Haar alignment volume times counting measure. Lean restricts that ambient law
+to exactly the event on which both allocations lie in the configured finite
+range and proves reversal exchanges the forward and reverse restrictions.
+
+`globalRejectedTraceReverse_measurePreserving` composes this result with an
+arbitrary s-finite variable-length rejected-sequence law and the restricted
+accepted-proposal reversal. Its density variant transports distinct forward
+and reverse likelihoods from their pointwise reversal equality. This theorem
+has genuinely combined every integer shift and allocation stratum; varying the
+stopped bracket and connecting the resulting trace law to the auxiliary slice
+kernel remain separate obligations.

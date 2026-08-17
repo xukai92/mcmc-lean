@@ -292,6 +292,138 @@ theorem sum_restrict_alignmentShiftStratum
     (measurableSet_alignmentShiftStratum width old new), hcover,
     Measure.restrict_univ]
 
+/-- The integer grid displacement attached to a circle-valued alignment.
+Unlike `alignmentShift`, this is the runtime index used to translate the
+counting-measure allocation coordinate. -/
+noncomputable def integerAlignmentShift
+    (width old new : ℝ) (offset : Alignment) : ℤ :=
+  ⌊alignmentCoordinate offset + (new - old) / width⌋
+
+theorem measurable_integerAlignmentShift (width old new : ℝ) :
+    Measurable (integerAlignmentShift width old new) := by
+  exact Int.measurable_floor.comp
+    (measurable_alignmentCoordinate.add measurable_const)
+
+theorem cast_integerAlignmentShift
+    {width old new : ℝ} (hwidth : width ≠ 0) (offset : Alignment) :
+    (integerAlignmentShift width old new offset : ℝ) =
+      alignmentShift width old new (alignmentCoordinate offset) := by
+  exact (alignmentShift_eq_floor hwidth).symm
+
+/-- Rerooting reverses the integer displacement, not merely its real-valued
+embedding. This is the cancellation law needed by the global allocation
+coordinate. -/
+theorem integerAlignmentShift_reverse
+    {width old new : ℝ} (hwidth : width ≠ 0) (offset : Alignment) :
+    integerAlignmentShift width new old
+        (reverseAlignment width old new offset) =
+      -integerAlignmentShift width old new offset := by
+  apply Int.cast_injective (α := ℝ)
+  rw [cast_integerAlignmentShift hwidth
+      (reverseAlignment width old new offset),
+    Int.cast_neg, cast_integerAlignmentShift hwidth offset,
+    alignmentCoordinate_reverseAlignment,
+    alignmentShift_reverse hwidth (alignmentCoordinate_mem offset)]
+
+/-- Simultaneously reroot the uniform grid alignment and translate its
+unbounded integer allocation coordinate. Restricting this ambient map to the
+finite valid-allocation event will recover the practical algorithm. -/
+noncomputable def alignmentAllocationReverse
+    (width old new : ℝ) (point : Alignment × ℤ) : Alignment × ℤ :=
+  (reverseAlignment width old new point.1,
+    point.2 + integerAlignmentShift width old new point.1)
+
+/-- Haar alignment volume times integer counting measure is invariant under
+the state-dependent grid rerooting. This global theorem packages the
+countable shift-stratum sum as a single skew-product statement. -/
+theorem alignmentAllocationReverse_measurePreserving (width old new : ℝ) :
+    MeasurePreserving (alignmentAllocationReverse width old new)
+      ((volume : Measure Alignment).prod (Measure.count : Measure ℤ))
+      ((volume : Measure Alignment).prod (Measure.count : Measure ℤ)) := by
+  refine (reverseAlignment_measurePreserving width old new).skew_product
+    (g := fun offset allocation =>
+      allocation + integerAlignmentShift width old new offset) ?_ ?_
+  · exact measurable_snd.add
+      ((measurable_integerAlignmentShift width old new).comp measurable_fst)
+  · filter_upwards [] with offset
+    exact map_add_right_eq_self Measure.count
+      (integerAlignmentShift width old new offset)
+
+/-- The ambient grid rerooting is an involution after exchanging the old and
+new states. -/
+theorem alignmentAllocationReverse_reverse
+    {width old new : ℝ} (hwidth : width ≠ 0) (point : Alignment × ℤ) :
+    alignmentAllocationReverse width new old
+        (alignmentAllocationReverse width old new point) = point := by
+  apply Prod.ext
+  · apply (AddCircle.measurableEquivIco (1 : ℝ) 0).injective
+    apply Subtype.ext
+    change alignmentCoordinate
+        (reverseAlignment width new old
+          (reverseAlignment width old new point.1)) =
+      alignmentCoordinate point.1
+    rw [alignmentCoordinate_reverseAlignment,
+      alignmentCoordinate_reverseAlignment,
+      reverseOffset_reverseOffset hwidth (alignmentCoordinate_mem point.1)]
+  · simp [alignmentAllocationReverse,
+      integerAlignmentShift_reverse hwidth]
+
+/-- The measurable part of the ambient alignment/allocation space on which
+both the forward allocation and its rerooting lie in the configured finite
+range. This is the non-dependent presentation of `ValidAllocation`. -/
+def globalValidAllocation
+    (intervals : ℕ) (width old new : ℝ) : Set (Alignment × ℤ) :=
+  {point |
+    0 ≤ point.2 ∧ point.2 < intervals ∧
+    0 ≤ point.2 + integerAlignmentShift width old new point.1 ∧
+      point.2 + integerAlignmentShift width old new point.1 < intervals}
+
+theorem measurableSet_globalValidAllocation
+    (intervals : ℕ) (width old new : ℝ) :
+    MeasurableSet (globalValidAllocation intervals width old new) := by
+  let shifted : Alignment × ℤ → ℤ := fun point =>
+    point.2 + integerAlignmentShift width old new point.1
+  have hshifted : Measurable shifted :=
+    measurable_snd.add
+      ((measurable_integerAlignmentShift width old new).comp measurable_fst)
+  have hallocation : Measurable (fun point : Alignment × ℤ => point.2) :=
+    measurable_snd
+  have hzero : Measurable (fun _ : Alignment × ℤ => (0 : ℤ)) :=
+    measurable_const
+  have hbound : Measurable (fun _ : Alignment × ℤ => (intervals : ℤ)) :=
+    measurable_const
+  exact (measurableSet_le hzero hallocation).inter
+    ((measurableSet_lt hallocation hbound).inter
+      ((measurableSet_le hzero hshifted).inter
+        (measurableSet_lt hshifted hbound)))
+
+/-- The valid finite allocation event is exchanged exactly when old and new
+states are exchanged. -/
+theorem alignmentAllocationReverse_preimage_globalValidAllocation
+    {intervals : ℕ} {width old new : ℝ} (hwidth : width ≠ 0) :
+    alignmentAllocationReverse width old new ⁻¹'
+        globalValidAllocation intervals width new old =
+      globalValidAllocation intervals width old new := by
+  ext point
+  simp only [Set.mem_preimage, globalValidAllocation, Set.mem_setOf_eq,
+    alignmentAllocationReverse]
+  rw [integerAlignmentShift_reverse hwidth]
+  omega
+
+/-- Global grid rerooting preserves Haar × counting measure after restriction
+to the bounded successful-allocation event. This is the summed counterpart of
+the separate fixed-shift allocation equivalences. -/
+theorem alignmentAllocationReverse_restrict_measurePreserving
+    {intervals : ℕ} {width old new : ℝ} (hwidth : width ≠ 0) :
+    MeasurePreserving (alignmentAllocationReverse width old new)
+      (((volume : Measure Alignment).prod (Measure.count : Measure ℤ)).restrict
+        (globalValidAllocation intervals width old new))
+      (((volume : Measure Alignment).prod (Measure.count : Measure ℤ)).restrict
+        (globalValidAllocation intervals width new old)) := by
+  have h := (alignmentAllocationReverse_measurePreserving width old new).restrict_preimage
+    (measurableSet_globalValidAllocation intervals width new old)
+  simpa [alignmentAllocationReverse_preimage_globalValidAllocation hwidth] using h
+
 /-- Expansion allocations for which Neal's integer displacement stays inside
 the finite uniform allocation range. This is exactly the allocation component
 of the successful reversible-trace event. -/
@@ -1152,6 +1284,86 @@ abbrev RejectedSequence := Σ length : ℕ, Fin length → ℝ
 abbrev RejectedTraceStratum (intervals : ℕ) (shift : ℤ) :=
   RejectedSequence ×
     ((Alignment × ValidAllocation intervals shift) × (ℝ × ℝ))
+
+/-- A non-dependent carrier for the complete variable-length practical-slice
+trace. The integer allocation is unrestricted in the carrier and bounded by
+`globalValidAllocation` in its measure. -/
+abbrev GlobalRejectedTrace :=
+  RejectedSequence × ((Alignment × ℤ) × (ℝ × ℝ))
+
+/-- Global successful-trace reversal, simultaneously covering every integer
+alignment-shift stratum and every valid finite allocation. -/
+noncomputable def globalRejectedTraceReverse
+    (width old new left right : ℝ) (trace : GlobalRejectedTrace) :
+    GlobalRejectedTrace :=
+  (trace.1,
+    (alignmentAllocationReverse width old new trace.2.1,
+      acceptedProposalReverse left right trace.2.2))
+
+/-- The global variable-length trace law is preserved between the forward and
+reverse bounded-allocation events. Unlike the fixed-stratum theorem, this
+single statement has already summed over all integer alignment shifts. -/
+theorem globalRejectedTraceReverse_measurePreserving
+    {rejectedLaw : Measure RejectedSequence} [SFinite rejectedLaw]
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (threshold : ℝ) (intervals : ℕ)
+    {width old new : ℝ} (hgridWidth : width ≠ 0)
+    {left right : ℝ} (hbracketWidth : left < right) :
+    MeasurePreserving
+      (globalRejectedTraceReverse width old new left right)
+      (rejectedLaw.prod
+        ((((volume : Measure Alignment).prod (Measure.count : Measure ℤ)).restrict
+            (globalValidAllocation intervals width old new)).prod
+          (((volume : Measure ℝ).prod volume).restrict
+            (acceptedProposalSuccess logDensity threshold left right))))
+      (rejectedLaw.prod
+        ((((volume : Measure Alignment).prod (Measure.count : Measure ℤ)).restrict
+            (globalValidAllocation intervals width new old)).prod
+          (((volume : Measure ℝ).prod volume).restrict
+            (acceptedProposalSuccess logDensity threshold left right)))) := by
+  have hinner :=
+    (alignmentAllocationReverse_restrict_measurePreserving
+      (intervals := intervals) (old := old) (new := new) hgridWidth).prod
+      (acceptedProposalReverse_restrict_measurePreserving hlogDensity threshold
+        hbracketWidth)
+  have hall := (MeasurePreserving.id rejectedLaw).prod hinner
+  convert hall using 1
+  funext trace
+  rfl
+
+/-- A measurable forward/reverse likelihood can be attached after the global
+shift/allocation sum. This is the interface used by the stopped-bracket and
+shrink-trace likelihood calculation. -/
+theorem globalRejectedTraceReverse_withDensity_measurePreserving
+    {rejectedLaw : Measure RejectedSequence} [SFinite rejectedLaw]
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (threshold : ℝ) (intervals : ℕ)
+    {width old new : ℝ} (hgridWidth : width ≠ 0)
+    {left right : ℝ} (hbracketWidth : left < right)
+    (sourceDensity targetDensity : GlobalRejectedTrace → ENNReal)
+    (htargetDensity : Measurable targetDensity)
+    (hinvariant : ∀ trace,
+      targetDensity
+          (globalRejectedTraceReverse width old new left right trace) =
+        sourceDensity trace) :
+    MeasurePreserving
+      (globalRejectedTraceReverse width old new left right)
+      ((rejectedLaw.prod
+        ((((volume : Measure Alignment).prod (Measure.count : Measure ℤ)).restrict
+            (globalValidAllocation intervals width old new)).prod
+          (((volume : Measure ℝ).prod volume).restrict
+            (acceptedProposalSuccess logDensity threshold left right)))).withDensity
+        sourceDensity)
+      ((rejectedLaw.prod
+        ((((volume : Measure Alignment).prod (Measure.count : Measure ℤ)).restrict
+            (globalValidAllocation intervals width new old)).prod
+          (((volume : Measure ℝ).prod volume).restrict
+            (acceptedProposalSuccess logDensity threshold left right)))).withDensity
+        targetDensity) :=
+  measurePreserving_withDensity_of_map_invariant
+    (globalRejectedTraceReverse_measurePreserving hlogDensity threshold intervals
+      hgridWidth hbracketWidth)
+    htargetDensity hinvariant
 
 /-- Successful trace reversal leaves every rejected point and its length
 unchanged; only alignment, allocation, and accepted coordinates are rerooted. -/
