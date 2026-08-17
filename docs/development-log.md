@@ -48,7 +48,16 @@
   nonempty concatenation has elapsed time exactly `firstHorizon +
   secondElapsed`; the empty-second case returns the first elapsed time. The
   next deterministic theorem is equality of the concatenated executor with
-  sequential execution under the timed-family semigroup law.
+  sequential execution under the timed-family semigroup law. That theorem is
+  now complete. `TimedRefreshProcess.HasSemigroup` packages the fixed-time
+  Chapman--Kolmogorov law; the concatenated prefix and shifted suffix execute
+  identically to their source schedules, while the bridge coordinate composes
+  the first residual evolution with the second schedule's first
+  evolve-and-refresh step. Lean handles zero and positive second counts
+  separately and proves equality of the complete fixed-count kernels. The
+  exact Gaussian-BPS timed family instantiates this interface from its existing
+  horizon semigroup theorem. Only the pushforward convolution law for the two
+  independent random schedules remains before the refreshed semigroup result.
 
 - Closed the rejected-length sigma assembly for the practical-slice joint
   law. The variable-dimensional runtime base is now proved equal to the

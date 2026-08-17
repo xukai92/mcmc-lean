@@ -3503,6 +3503,17 @@ theorem standardGaussianBPSHorizonKernel_semigroup
   · rw [standardGaussianBPSHorizonKernel_comp_apply_of_pos_of_velocity_ne_zero
       (ι := ι) hhorizonPos extra initial hvelocity]
 
+/-- The jointly timed Gaussian-BPS transition satisfies the generic semigroup
+interface consumed by Poisson refresh-schedule concatenation. -/
+theorem standardGaussianBPSTimedRefreshProcess_hasSemigroup :
+    (standardGaussianBPSTimedRefreshProcess (ι := ι)).HasSemigroup := by
+  intro first second
+  unfold TimedRefreshProcess.section standardGaussianBPSTimedRefreshProcess
+  rw [comap_standardGaussianBPSJointHorizonKernel,
+    comap_standardGaussianBPSJointHorizonKernel,
+    comap_standardGaussianBPSJointHorizonKernel]
+  exact standardGaussianBPSHorizonKernel_semigroup (ι := ι) first second
+
 /-! ### Multidimensional Gaussian-BPS stationarity boundary -/
 
 /-- Canonical standard-Gaussian position/velocity target for the

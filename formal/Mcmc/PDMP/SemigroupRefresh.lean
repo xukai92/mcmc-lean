@@ -171,6 +171,26 @@ structure TimedRefreshProcess (State : Type*) [MeasurableSpace State] where
 attribute [instance] TimedRefreshProcess.evolve_markov
   TimedRefreshProcess.refresh_markov
 
+/-- Fixed-time section of a jointly timed transition. -/
+noncomputable def TimedRefreshProcess.section
+    (process : TimedRefreshProcess State) (time : NNReal) :
+    Kernel State State :=
+  Kernel.comap process.evolve (fun state => (state, time))
+    (measurable_id.prodMk measurable_const)
+
+instance TimedRefreshProcess.section.instIsMarkovKernel
+    (process : TimedRefreshProcess State) (time : NNReal) :
+    IsMarkovKernel (process.section time) := by
+  unfold TimedRefreshProcess.section
+  infer_instance
+
+/-- Chapman--Kolmogorov law for the timed transition before refreshment. -/
+def TimedRefreshProcess.HasSemigroup
+    (process : TimedRefreshProcess State) : Prop :=
+  ∀ first second : NNReal,
+    process.section second ∘ₖ process.section first =
+      process.section (first + second)
+
 /-- Evolve by one schedule coordinate and then refresh, retaining the padded
 schedule for subsequent coordinates. -/
 noncomputable def TimedRefreshProcess.scheduledCoordinateStep
@@ -196,8 +216,7 @@ noncomputable def TimedRefreshProcess.fixedCoordinateStep
     (process : TimedRefreshProcess State)
     (schedule : CandidateScheduleSample) (index : ℕ) : Kernel State State :=
   process.refresh ∘ₖ
-    Kernel.comap process.evolve (fun state => (state, schedule.2 index))
-      (measurable_id.prodMk measurable_const)
+    process.section (schedule.2 index)
 
 instance TimedRefreshProcess.fixedCoordinateStep.instIsMarkovKernel
     (process : TimedRefreshProcess State)
@@ -205,6 +224,29 @@ instance TimedRefreshProcess.fixedCoordinateStep.instIsMarkovKernel
     IsMarkovKernel (process.fixedCoordinateStep schedule index) := by
   unfold TimedRefreshProcess.fixedCoordinateStep
   infer_instance
+
+theorem TimedRefreshProcess.fixedCoordinateStep_concatenate_first
+    (process : TimedRefreshProcess State) (firstHorizon : NNReal)
+    (firstCount secondCount index : ℕ)
+    (first second : CandidateScheduleSample) (hindex : index < firstCount) :
+    process.fixedCoordinateStep
+      (concatenateRefreshSchedules firstHorizon firstCount secondCount
+        (first, second)) index =
+      process.fixedCoordinateStep first index := by
+  unfold TimedRefreshProcess.fixedCoordinateStep
+  rw [concatenateRefreshSchedules_first _ _ _ _ _ _ hindex]
+
+theorem TimedRefreshProcess.fixedCoordinateStep_concatenate_second_succ
+    (process : TimedRefreshProcess State) (firstHorizon : NNReal)
+    (firstCount secondCount index : ℕ)
+    (first second : CandidateScheduleSample)
+    (hindex : index + 1 < secondCount) :
+    process.fixedCoordinateStep
+      (concatenateRefreshSchedules firstHorizon firstCount secondCount
+        (first, second)) (firstCount + index + 1) =
+      process.fixedCoordinateStep second (index + 1) := by
+  unfold TimedRefreshProcess.fixedCoordinateStep
+  rw [concatenateRefreshSchedules_second_succ _ _ _ _ _ _ hindex]
 
 theorem TimedRefreshProcess.scheduledCoordinateStep_fixed
     (process : TimedRefreshProcess State)
@@ -281,6 +323,50 @@ theorem TimedRefreshProcess.executeFixedRange_add
       congr 2
       omega
 
+/-- Every range wholly inside the first block of a concatenated schedule
+executes exactly as the original first schedule. -/
+theorem TimedRefreshProcess.executeFixedRange_concatenate_first
+    (process : TimedRefreshProcess State) (firstHorizon : NNReal)
+    (firstCount secondCount start count : ℕ)
+    (first second : CandidateScheduleSample)
+    (hbound : start + count ≤ firstCount) :
+    process.executeFixedRange
+      (concatenateRefreshSchedules firstHorizon firstCount secondCount
+        (first, second)) start count =
+      process.executeFixedRange first start count := by
+  induction count generalizing start with
+  | zero => rfl
+  | succ count ih =>
+      simp only [TimedRefreshProcess.executeFixedRange]
+      rw [ih (start + 1) (by omega)]
+      rw [process.fixedCoordinateStep_concatenate_first
+        firstHorizon firstCount secondCount start first second (by omega)]
+
+/-- Every positive-offset range inside the second block of a concatenated
+schedule executes exactly as the correspondingly indexed second schedule. -/
+theorem TimedRefreshProcess.executeFixedRange_concatenate_second
+    (process : TimedRefreshProcess State) (firstHorizon : NNReal)
+    (firstCount secondCount offset count : ℕ)
+    (first second : CandidateScheduleSample) (hoffset : 0 < offset)
+    (hbound : offset + count ≤ secondCount) :
+    process.executeFixedRange
+      (concatenateRefreshSchedules firstHorizon firstCount secondCount
+        (first, second)) (firstCount + offset) count =
+      process.executeFixedRange second offset count := by
+  induction count generalizing offset with
+  | zero => rfl
+  | succ count ih =>
+      simp only [TimedRefreshProcess.executeFixedRange]
+      rw [show firstCount + offset + 1 = firstCount + (offset + 1) by omega]
+      rw [ih (offset + 1) (by omega) (by omega)]
+      have hindex : offset - 1 + 1 < secondCount := by omega
+      have hcoordinate :=
+        process.fixedCoordinateStep_concatenate_second_succ
+          firstHorizon firstCount secondCount (offset - 1) first second hindex
+      rw [show firstCount + (offset - 1) + 1 = firstCount + offset by omega,
+        show offset - 1 + 1 = offset by omega] at hcoordinate
+      rw [hcoordinate]
+
 /-- Scheduled execution retains its fixed schedule and has exactly the
 state-only fixed-range law. -/
 theorem TimedRefreshProcess.executeScheduledRange_apply_fixed
@@ -333,10 +419,7 @@ instance TimedRefreshProcess.scheduledResidual.instIsMarkovKernel
 noncomputable def TimedRefreshProcess.fixedResidual
     (process : TimedRefreshProcess State) (horizon : NNReal)
     (schedule : CandidateScheduleSample) : Kernel State State :=
-  Kernel.comap process.evolve
-    (fun state =>
-      (state, horizon - scheduleElapsed schedule.1 schedule))
-    (measurable_id.prodMk measurable_const)
+  process.section (horizon - scheduleElapsed schedule.1 schedule)
 
 instance TimedRefreshProcess.fixedResidual.instIsMarkovKernel
     (process : TimedRefreshProcess State) (horizon : NNReal)
@@ -344,6 +427,25 @@ instance TimedRefreshProcess.fixedResidual.instIsMarkovKernel
     IsMarkovKernel (process.fixedResidual horizon schedule) := by
   unfold TimedRefreshProcess.fixedResidual
   infer_instance
+
+/-- The bridge coordinate of a concatenated schedule exactly combines the
+first residual evolution with the first evolution-and-refresh step of the
+second schedule. -/
+theorem TimedRefreshProcess.fixedCoordinateStep_concatenate_bridge
+    (process : TimedRefreshProcess State) (hsemigroup : process.HasSemigroup)
+    (firstHorizon : NNReal) (firstCount secondCount : ℕ)
+    (first second : CandidateScheduleSample) (hsecond : 0 < secondCount)
+    (hfirstCount : first.1 = firstCount) :
+    process.fixedCoordinateStep
+      (concatenateRefreshSchedules firstHorizon firstCount secondCount
+        (first, second)) firstCount =
+      process.fixedCoordinateStep second 0 ∘ₖ
+        process.fixedResidual firstHorizon first := by
+  unfold TimedRefreshProcess.fixedCoordinateStep
+    TimedRefreshProcess.fixedResidual
+  rw [hfirstCount]
+  rw [concatenateRefreshSchedules_bridge _ _ _ _ _ hsecond,
+    Kernel.comp_assoc, hsemigroup]
 
 /-- Execute a fixed count of scheduled refreshes and the residual evolution. -/
 noncomputable def TimedRefreshProcess.executeScheduledCount
@@ -384,6 +486,69 @@ theorem TimedRefreshProcess.executeScheduledCount_apply_fixed
   rw [← Measure.deterministic_comp_eq_map (by fun_prop),
     Measure.comp_assoc, Kernel.comp_deterministic_eq_comap]
   congr 1
+
+/-- Concatenating two valid fixed schedules gives exactly sequential execution
+across the adjacent horizons. -/
+theorem TimedRefreshProcess.executeFixedCount_concatenate
+    (process : TimedRefreshProcess State) (hsemigroup : process.HasSemigroup)
+    (firstHorizon secondHorizon : NNReal) (firstCount secondCount : ℕ)
+    (first second : CandidateScheduleSample)
+    (hfirstCount : first.1 = firstCount)
+    (hsecondCount : second.1 = secondCount)
+    (hfirstValid : scheduleElapsed firstCount first ≤ firstHorizon) :
+    process.executeFixedCount (firstHorizon + secondHorizon)
+      (concatenateRefreshSchedules firstHorizon firstCount secondCount
+        (first, second)) =
+      process.executeFixedCount secondHorizon second ∘ₖ
+        process.executeFixedCount firstHorizon first := by
+  cases secondCount with
+  | zero =>
+      unfold TimedRefreshProcess.executeFixedCount
+      rw [hfirstCount, hsecondCount]
+      rw [concatenateRefreshSchedules_fst]
+      simp only [Nat.add_zero]
+      simp only [TimedRefreshProcess.executeFixedRange]
+      rw [process.executeFixedRange_concatenate_first
+        firstHorizon firstCount 0 0 firstCount first second (by omega)]
+      unfold TimedRefreshProcess.fixedResidual
+      simp only [concatenateRefreshSchedules_fst, Nat.add_zero]
+      have helapsed := scheduleElapsed_concatenateRefreshSchedules_zero
+        firstHorizon firstCount first second
+      simp only [Nat.add_zero] at helapsed
+      rw [helapsed]
+      simp only [hsecondCount, scheduleElapsed, Finset.range_zero,
+        Finset.sum_empty, tsub_zero]
+      simp only [Kernel.comp_id, hfirstCount]
+      rw [← Kernel.comp_assoc, hsemigroup]
+      congr 2
+      simpa only [scheduleElapsed, add_comm] using
+        (add_tsub_assoc_of_le hfirstValid secondHorizon)
+  | succ remaining =>
+      unfold TimedRefreshProcess.executeFixedCount
+      rw [hfirstCount, hsecondCount]
+      rw [concatenateRefreshSchedules_fst]
+      rw [process.executeFixedRange_add _ 0 firstCount (remaining + 1)]
+      rw [process.executeFixedRange_concatenate_first
+        firstHorizon firstCount (remaining + 1) 0 firstCount first second
+          (by omega)]
+      simp only [TimedRefreshProcess.executeFixedRange]
+      simp only [zero_add]
+      rw [process.executeFixedRange_concatenate_second
+        firstHorizon firstCount (remaining + 1) 1 remaining first second
+          (by omega) (by omega)]
+      rw [process.fixedCoordinateStep_concatenate_bridge hsemigroup
+        firstHorizon firstCount (remaining + 1) first second (by omega)
+          hfirstCount]
+      unfold TimedRefreshProcess.fixedResidual
+      simp only [concatenateRefreshSchedules_fst, hfirstCount, hsecondCount]
+      rw [scheduleElapsed_concatenateRefreshSchedules_of_pos
+        firstHorizon firstCount (remaining + 1) first second (by omega)
+          hfirstValid]
+      rw [show firstHorizon + secondHorizon -
+          (firstHorizon + scheduleElapsed (remaining + 1) second) =
+          secondHorizon - scheduleElapsed (remaining + 1) second by
+        exact add_tsub_add_eq_tsub_left _ _ _]
+      simp only [Kernel.comp_assoc]
 
 private theorem measurableSet_timedRefreshScheduleCount
     (count : ℕ) :
