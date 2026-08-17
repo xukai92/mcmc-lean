@@ -4479,3 +4479,18 @@ height is below the current log density. Consequently the abstract bounded
 recursion has successful mass at most one for every runtime stepping-out
 bracket. Remaining is the finite-dimensional Fubini identification between
 that recursion and the sum of the concrete `Fin n → ℝ` trace fibers.
+
+## 2026-08-17: finite-dimensional shrink fibers equal the recursion
+
+Closed the rejected-vector Fubini bridge. A reusable Tonelli theorem splits
+`Fin (n+1) → ℝ` under product Lebesgue measure into its head and `Fin n`
+tail. The runtime final-fraction indicator is measurable and its integral is
+proved equal to normalized superlevel mass on every positive bracket. Lean
+then proves the exact recurrence for `fixedShrinkSuccessMass`: the
+`n+1`-rejection fiber is one rejected-point density times the `n`-tail fiber
+in the updated bracket. Fixed masses are measurable in the bracket, so finite
+sums commute with the rejection integral. Consequently, the sum of every
+fiber `n < maxShrink` equals `boundedShrinkSuccessMass` exactly and is at most
+one from every valid stepped-out bracket. Remaining for the concrete runtime
+kernel is lifting this bound through the normalized integer allocation and
+Haar alignment factors.

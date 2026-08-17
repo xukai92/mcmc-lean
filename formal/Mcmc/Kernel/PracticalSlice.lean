@@ -1797,6 +1797,47 @@ theorem lintegral_finalFraction_accept_le
 
 /-! ### Bounded shrink-recursion mass -/
 
+/-- Tonelli decomposition of a finite real vector into its zeroth coordinate
+and its remaining coordinates. This is the measurable bridge between concrete
+`Fin n → ℝ` trace fibers and the recursive shrink calculation. -/
+theorem lintegral_piFinSucc_zero (length : ℕ)
+    (weight : (Fin (length + 1) → ℝ) → ENNReal)
+    (hweight : Measurable weight) :
+    (∫⁻ values : Fin (length + 1) → ℝ, weight values
+        ∂(Measure.pi fun _ : Fin (length + 1) => (volume : Measure ℝ))) =
+      ∫⁻ head : ℝ, ∫⁻ tail : Fin length → ℝ,
+        weight (Fin.cons head tail)
+          ∂(Measure.pi fun _ : Fin length => (volume : Measure ℝ)) ∂volume := by
+  let e := MeasurableEquiv.piFinSuccAbove
+    (fun _ : Fin (length + 1) => ℝ) (0 : Fin (length + 1))
+  have hpreserving := MeasureTheory.measurePreserving_piFinSuccAbove
+    (fun _ : Fin (length + 1) => (volume : Measure ℝ))
+    (0 : Fin (length + 1))
+  calc
+    (∫⁻ values : Fin (length + 1) → ℝ, weight values
+        ∂(Measure.pi fun _ : Fin (length + 1) => (volume : Measure ℝ))) =
+        ∫⁻ pair : ℝ × (Fin length → ℝ), weight (e.symm pair)
+          ∂((volume : Measure ℝ).prod
+            (Measure.pi fun _ : Fin length => (volume : Measure ℝ))) :=
+      (hpreserving.symm.lintegral_comp hweight).symm
+    _ = ∫⁻ head : ℝ, ∫⁻ tail : Fin length → ℝ,
+          weight (e.symm (head, tail))
+            ∂(Measure.pi fun _ : Fin length => (volume : Measure ℝ)) ∂volume := by
+      change (∫⁻ pair : ℝ × (Fin length → ℝ),
+        (weight ∘ e.symm) pair
+          ∂((volume : Measure ℝ).prod
+            (Measure.pi fun _ : Fin length => (volume : Measure ℝ)))) = _
+      rw [MeasureTheory.lintegral_prod _
+        ((hweight.comp e.symm.measurable).aemeasurable)]
+      rfl
+    _ = ∫⁻ head : ℝ, ∫⁻ tail : Fin length → ℝ,
+          weight (Fin.cons head tail)
+            ∂(Measure.pi fun _ : Fin length => (volume : Measure ℝ)) ∂volume := by
+      congr with head
+      congr with tail
+      simp [e, MeasurableEquiv.piFinSuccAbove_symm_apply,
+        Fin.insertNthEquiv]
+
 /-- Lebesgue measure under the affine coordinate used to turn a unit fraction
 into a point of a nondegenerate bracket. -/
 theorem map_volume_bracketAffine (left width : ℝ) (hwidth : width ≠ 0) :
@@ -1885,6 +1926,77 @@ noncomputable def shrinkAcceptMass (logDensity : ℝ → ℝ)
     (threshold : ℝ) (bracket : ℝ × ℝ) : ENNReal :=
   normalizedBracketMeasure bracket (shrinkAcceptedSet logDensity threshold)
 
+/-- Acceptance indicator in the primitive unit-fraction coordinate. -/
+noncomputable def finalFractionAcceptWeight (logDensity : ℝ → ℝ)
+    (threshold : ℝ) (bracket : ℝ × ℝ) (fraction : ℝ) : ENNReal :=
+  if fraction ∈ Set.Ico (0 : ℝ) 1 ∧
+      threshold ≤ logDensity
+        (bracket.1 + (bracket.2 - bracket.1) * fraction) then 1 else 0
+
+theorem measurable_finalFractionAcceptWeight
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (threshold : ℝ) :
+    Measurable (Function.uncurry
+      (finalFractionAcceptWeight logDensity threshold)) := by
+  have hproposal : Measurable (fun point : (ℝ × ℝ) × ℝ =>
+      point.1.1 + (point.1.2 - point.1.1) * point.2) := by fun_prop
+  unfold Function.uncurry finalFractionAcceptWeight
+  exact Measurable.ite
+    (((measurableSet_Ico.mem.comp measurable_snd).and
+      (measurableSet_le measurable_const (hlogDensity.comp hproposal)).mem).setOf)
+    measurable_const measurable_const
+
+/-- Acceptance mass expressed directly in the runtime fraction coordinate. -/
+noncomputable def finalFractionAcceptMass (logDensity : ℝ → ℝ)
+    (threshold : ℝ) (bracket : ℝ × ℝ) : ENNReal :=
+  ∫⁻ fraction, finalFractionAcceptWeight logDensity threshold bracket fraction ∂volume
+
+theorem measurable_finalFractionAcceptMass
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (threshold : ℝ) :
+    Measurable (finalFractionAcceptMass logDensity threshold) := by
+  exact (measurable_finalFractionAcceptWeight hlogDensity threshold).lintegral_prod_right
+
+/-- On a positive bracket, the runtime fraction-coordinate acceptance mass is
+the normalized superlevel-set mass. -/
+theorem finalFractionAcceptMass_eq_shrinkAcceptMass
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (threshold : ℝ) {bracket : ℝ × ℝ} (hlt : bracket.1 < bracket.2) :
+    finalFractionAcceptMass logDensity threshold bracket =
+      shrinkAcceptMass logDensity threshold bracket := by
+  let accepted := shrinkAcceptedSet logDensity threshold
+  let affine := fun fraction : ℝ =>
+    bracket.1 + (bracket.2 - bracket.1) * fraction
+  have haccepted : MeasurableSet accepted :=
+    measurableSet_shrinkAcceptedSet hlogDensity threshold
+  have haffine : Measurable affine := by fun_prop
+  have hset : MeasurableSet (Set.Ico (0 : ℝ) 1 ∩ affine ⁻¹' accepted) :=
+    measurableSet_Ico.inter (haffine haccepted)
+  have hmap := congrArg (fun measure : Measure ℝ => measure accepted)
+    (map_restrict_unitIco_bracketAffine hlt)
+  rw [Measure.map_apply haffine haccepted,
+    Measure.restrict_apply (haffine haccepted), Measure.smul_apply,
+    Measure.restrict_apply haccepted] at hmap
+  rw [finalFractionAcceptMass, show
+      (fun fraction => finalFractionAcceptWeight logDensity threshold bracket fraction) =
+        (Set.Ico (0 : ℝ) 1 ∩ affine ⁻¹' accepted).indicator (fun _ => 1) by
+    funext fraction
+    by_cases hfraction : fraction ∈ Set.Ico (0 : ℝ) 1 ∩ affine ⁻¹' accepted
+    · rw [Set.indicator_of_mem hfraction]
+      simp only [Set.mem_inter_iff, Set.mem_preimage, accepted,
+        shrinkAcceptedSet, Set.mem_setOf_eq] at hfraction
+      rw [finalFractionAcceptWeight, if_pos hfraction]
+    · rw [Set.indicator_of_notMem hfraction]
+      simp only [Set.mem_inter_iff, Set.mem_preimage, accepted,
+        shrinkAcceptedSet, Set.mem_setOf_eq] at hfraction
+      rw [finalFractionAcceptWeight, if_neg hfraction]]
+  rw [lintegral_indicator hset, MeasureTheory.lintegral_const,
+    Measure.restrict_apply_univ]
+  rw [shrinkAcceptMass, normalizedBracketMeasure, Measure.smul_apply,
+    Measure.restrict_apply haccepted]
+  simpa only [one_mul, smul_eq_mul, accepted, affine,
+    Set.inter_comm] using hmap
+
 /-- Point-coordinate density of drawing a proposal in the current bracket and
 rejecting it. -/
 noncomputable def shrinkRejectDensity (logDensity : ℝ → ℝ)
@@ -1892,6 +2004,16 @@ noncomputable def shrinkRejectDensity (logDensity : ℝ → ℝ)
   if point ∈ Set.Ico bracket.1 bracket.2 ∧ logDensity point < threshold then
     ENNReal.ofReal (bracket.2 - bracket.1)⁻¹
   else 0
+
+theorem measurable_shrinkRejectDensity
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (threshold : ℝ) (bracket : ℝ × ℝ) :
+    Measurable (shrinkRejectDensity logDensity threshold bracket) := by
+  unfold shrinkRejectDensity
+  exact Measurable.ite
+    ((measurableSet_Ico.mem.and
+      (measurableSet_lt hlogDensity measurable_const).mem).setOf)
+    measurable_const measurable_const
 
 /-- Integrating the rejected-point density gives the normalized mass of the
 complement of the target superlevel set. -/
@@ -2124,6 +2246,186 @@ theorem practicalBoundedShrinkSuccessMass_le_one
   · intro candidate point hcandidate hnonzero
     exact hcandidate.preserved_by_shrinkBracket hnonzero
   · exact hbracket
+
+/-- Runtime-coordinate version of the bounded mass bound. Its immediate
+acceptance term is literally the integral over the final unit fraction used
+by `runtimeTraceDensity`. -/
+theorem practicalBoundedFinalFractionMass_le_one
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (threshold current : ℝ) (attempts : ℕ) (bracket : ℝ × ℝ)
+    (hbracket : ValidShrinkBracket logDensity threshold current bracket) :
+    boundedShrinkSuccessMass volume
+      (finalFractionAcceptMass logDensity threshold)
+      (shrinkRejectDensity logDensity threshold)
+      (fun candidate point => shrinkBracket current point candidate)
+      attempts bracket ≤ 1 := by
+  apply boundedShrinkSuccessMass_le_one_of_invariant volume
+    (finalFractionAcceptMass logDensity threshold)
+    (shrinkRejectDensity logDensity threshold)
+    (fun candidate point => shrinkBracket current point candidate)
+    (ValidShrinkBracket logDensity threshold current)
+  · intro candidate hcandidate
+    rw [finalFractionAcceptMass_eq_shrinkAcceptMass hlogDensity threshold
+      hcandidate.lt]
+    exact (shrinkAcceptMass_add_lintegral_reject hlogDensity threshold
+      hcandidate.lt).le
+  · intro candidate point hcandidate hnonzero
+    exact hcandidate.preserved_by_shrinkBracket hnonzero
+  · exact hbracket
+
+/-- Successful mass on exactly one fixed rejected-point fiber, after
+integrating the final primitive unit fraction. -/
+noncomputable def fixedShrinkSuccessMass
+    (logDensity : ℝ → ℝ) (threshold current : ℝ)
+    (length : ℕ) (bracket : ℝ × ℝ) : ENNReal :=
+  ∫⁻ rejected : Fin length → ℝ,
+    rejectedTraceVectorWeight logDensity threshold current length rejected bracket *
+      finalFractionAcceptMass logDensity threshold
+        (shrinkRejectedVector current length rejected bracket)
+      ∂(Measure.pi fun _ : Fin length => (volume : Measure ℝ))
+
+theorem measurable_fixedShrinkSuccessWeight
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (threshold current : ℝ) (length : ℕ) (bracket : ℝ × ℝ) :
+    Measurable (fun rejected : Fin length → ℝ =>
+      rejectedTraceVectorWeight logDensity threshold current length rejected bracket *
+        finalFractionAcceptMass logDensity threshold
+          (shrinkRejectedVector current length rejected bracket)) := by
+  have hpackWeight : Measurable (fun rejected : Fin length → ℝ =>
+      ((((threshold, current), rejected), bracket) :
+        ((ℝ × ℝ) × (Fin length → ℝ)) × (ℝ × ℝ))) := by
+    fun_prop
+  have hweight := (measurable_rejectedTraceVectorWeight hlogDensity length).comp
+    hpackWeight
+  have hpackFinal : Measurable (fun rejected : Fin length → ℝ =>
+      (((current, rejected), bracket) :
+        (ℝ × (Fin length → ℝ)) × (ℝ × ℝ))) := by
+    fun_prop
+  have hfinal := (measurable_shrinkRejectedVector length).comp
+    hpackFinal
+  exact hweight.mul
+    ((measurable_finalFractionAcceptMass hlogDensity threshold).comp hfinal)
+
+/-- Fixed-length successful mass is measurable as the starting bracket
+varies. -/
+theorem measurable_fixedShrinkSuccessMass
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (threshold current : ℝ) (length : ℕ) :
+    Measurable (fixedShrinkSuccessMass logDensity threshold current length) := by
+  have hweight : Measurable (fun point : (ℝ × ℝ) × (Fin length → ℝ) =>
+      rejectedTraceVectorWeight logDensity threshold current length point.2 point.1) := by
+    have hpack : Measurable (fun point : (ℝ × ℝ) × (Fin length → ℝ) =>
+        ((((threshold, current), point.2), point.1) :
+          ((ℝ × ℝ) × (Fin length → ℝ)) × (ℝ × ℝ))) := by
+      fun_prop
+    exact (measurable_rejectedTraceVectorWeight hlogDensity length).comp hpack
+  have hfinal : Measurable (fun point : (ℝ × ℝ) × (Fin length → ℝ) =>
+      shrinkRejectedVector current length point.2 point.1) := by
+    have hpack : Measurable (fun point : (ℝ × ℝ) × (Fin length → ℝ) =>
+        (((current, point.2), point.1) :
+          (ℝ × (Fin length → ℝ)) × (ℝ × ℝ))) := by
+      fun_prop
+    exact (measurable_shrinkRejectedVector length).comp hpack
+  have hintegrand : Measurable
+      (Function.uncurry (fun bracket rejected =>
+        rejectedTraceVectorWeight logDensity threshold current length rejected bracket *
+          finalFractionAcceptMass logDensity threshold
+            (shrinkRejectedVector current length rejected bracket))) :=
+    hweight.mul
+      ((measurable_finalFractionAcceptMass hlogDensity threshold).comp hfinal)
+  exact hintegrand.lintegral_prod_right
+
+@[simp] theorem fixedShrinkSuccessMass_zero
+    (logDensity : ℝ → ℝ) (threshold current : ℝ) (bracket : ℝ × ℝ) :
+    fixedShrinkSuccessMass logDensity threshold current 0 bracket =
+      finalFractionAcceptMass logDensity threshold bracket := by
+  simp [fixedShrinkSuccessMass, rejectedTraceVectorWeight,
+    shrinkRejectedVector]
+
+/-- Adding one rejected coordinate gives the expected first-rejection
+factor followed by the fixed mass of the remaining tail. -/
+theorem fixedShrinkSuccessMass_succ
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (threshold current : ℝ) (length : ℕ) (bracket : ℝ × ℝ) :
+    fixedShrinkSuccessMass logDensity threshold current (length + 1) bracket =
+      ∫⁻ point : ℝ,
+        shrinkRejectDensity logDensity threshold bracket point *
+          fixedShrinkSuccessMass logDensity threshold current length
+            (shrinkBracket current point bracket) ∂volume := by
+  rw [fixedShrinkSuccessMass,
+    lintegral_piFinSucc_zero length _
+      (measurable_fixedShrinkSuccessWeight hlogDensity threshold current
+        (length + 1) bracket)]
+  congr with point
+  by_cases hpoint : point ∈ Set.Ico bracket.1 bracket.2 ∧
+      logDensity point < threshold
+  · have hcondition : (bracket.1 ≤ point ∧ point < bracket.2) ∧
+        logDensity point < threshold := by
+      simpa only [Set.mem_Ico] using hpoint
+    simp only [rejectedTraceVectorWeight, Fin.cons_zero, hcondition,
+      shrinkRejectedVector, Fin.cons_succ, shrinkRejectDensity,
+      fixedShrinkSuccessMass]
+    rw [← MeasureTheory.lintegral_const_mul]
+    · apply lintegral_congr
+      intro tail
+      simp [hpoint.1, mul_assoc]
+    · exact measurable_fixedShrinkSuccessWeight hlogDensity threshold current
+        length (shrinkBracket current point bracket)
+  · have hcondition : ¬((bracket.1 ≤ point ∧ point < bracket.2) ∧
+        logDensity point < threshold) := by
+      simpa only [Set.mem_Ico] using hpoint
+    simp [rejectedTraceVectorWeight, shrinkRejectedVector,
+      shrinkRejectDensity, hcondition]
+
+/-- Summing all fixed rejected lengths below a budget is exactly the abstract
+bounded recursion. -/
+theorem sum_fixedShrinkSuccessMass_eq_bounded
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (threshold current : ℝ) (attempts : ℕ) (bracket : ℝ × ℝ) :
+    (∑ length : Fin attempts,
+      fixedShrinkSuccessMass logDensity threshold current length bracket) =
+      boundedShrinkSuccessMass volume
+        (finalFractionAcceptMass logDensity threshold)
+        (shrinkRejectDensity logDensity threshold)
+        (fun candidate point => shrinkBracket current point candidate)
+        attempts bracket := by
+  induction attempts generalizing bracket with
+  | zero => simp [boundedShrinkSuccessMass]
+  | succ attempts ih =>
+      rw [Fin.sum_univ_succ]
+      simp only [Fin.val_zero, Fin.val_succ]
+      rw [fixedShrinkSuccessMass_zero,
+        boundedShrinkSuccessMass]
+      congr 1
+      simp_rw [fixedShrinkSuccessMass_succ hlogDensity]
+      rw [← MeasureTheory.lintegral_finsetSum Finset.univ]
+      · apply lintegral_congr
+        intro point
+        rw [← Finset.mul_sum]
+        congr 1
+        exact ih (shrinkBracket current point bracket)
+      · intro length _
+        have hupdate : Measurable (fun point : ℝ =>
+            shrinkBracket current point bracket) := by
+          have hpack : Measurable (fun point : ℝ =>
+              (((current, point), bracket) : (ℝ × ℝ) × (ℝ × ℝ))) := by
+            fun_prop
+          exact measurable_shrinkBracket.comp hpack
+        exact (measurable_shrinkRejectDensity hlogDensity threshold bracket).mul
+          ((measurable_fixedShrinkSuccessMass hlogDensity threshold current length).comp
+            hupdate)
+
+/-- The concrete sum over every allowed rejected length is a subprobability
+from a valid starting bracket. -/
+theorem sum_fixedShrinkSuccessMass_le_one
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (threshold current : ℝ) (attempts : ℕ) (bracket : ℝ × ℝ)
+    (hbracket : ValidShrinkBracket logDensity threshold current bracket) :
+    (∑ length : Fin attempts,
+      fixedShrinkSuccessMass logDensity threshold current length bracket) ≤ 1 := by
+  rw [sum_fixedShrinkSuccessMass_eq_bounded hlogDensity]
+  exact practicalBoundedFinalFractionMass_le_one hlogDensity threshold current
+    attempts bracket hbracket
 
 theorem rejectedTraceWeight_ne_top
     (logDensity : ℝ → ℝ) (threshold current : ℝ)
