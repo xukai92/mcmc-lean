@@ -4132,3 +4132,18 @@ Julia's `NUTSCompletedTreeCertificate` packages all visited leaves and joins
 and returns their eligible, continuation, and U-turn vectors only when every
 comparison is stable. Analytic construction of the ideal phase trajectory and
 Hamiltonian bounds remains a separate backend obligation.
+
+## 2026-08-17: leapfrog endpoint to NUTS phase adapter
+
+Connected the existing HMC numerical endpoint interface directly to dynamic
+tree decisions. `VectorApproximates.at` extracts scalar coordinate bounds from
+the list-level leapfrog certificate. `CertifiedLeapfrogPhaseEndpoint` reindexes
+certified position and momentum lists onto one declared finite dimension, and
+`CertifiedLeapfrogPhaseTrajectory` stores a common-dimension bounded phase
+array. Two adapted endpoints now construct the previously proved vector U-turn
+certificate using only strict separation premises. Lean proves its computed
+and ideal bits are exactly `vectorAdjacentUTurn` on the corresponding phase
+pairs, then proves those bits equal. This closes the interface adapter; a
+concrete Float64 backend must still provide the per-step error recurrence,
+Hamiltonian evaluation bounds, and final reduction bounds for every generated
+endpoint.

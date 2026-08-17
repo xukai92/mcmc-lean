@@ -22,6 +22,15 @@ theorem VectorApproximates.refl (value : List ℝ) :
   intro i hi _
   simp
 
+/-- Extract a coordinatewise scalar bound at any index known to lie in both
+vectors. This named adapter feeds componentwise phase-space certificates. -/
+theorem VectorApproximates.at
+    {computed ideal : List ℝ} {error : ℝ}
+    (h : VectorApproximates computed ideal error)
+    (i : ℕ) (hcomputed : i < computed.length) (hideal : i < ideal.length) :
+    Approximates computed[i] ideal[i] error :=
+  h.2 i hcomputed hideal
+
 /-- One leapfrog step's abstract rounding contract. It deliberately isolates
 the backend-specific arithmetic and gradient evaluation bounds. -/
 structure LeapfrogStepCertificate where

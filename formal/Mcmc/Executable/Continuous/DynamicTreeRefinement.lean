@@ -1,4 +1,4 @@
-import Mcmc.Executable.Continuous.BoundedRWMH
+import Mcmc.Executable.Continuous.BoundedHMC
 import Mcmc.Finite.CertifiedDynamicTree
 
 /-!
@@ -189,6 +189,98 @@ theorem NUTSLeafEnergyCertificate.computedContinues_eq_idealContinues
 
 /-! ### Compositional vector endpoint bounds -/
 
+/-- One certified leapfrog endpoint reindexed onto a caller-declared common
+phase dimension. The existing list-level endpoint certificate remains the
+source of every coordinate bound. -/
+structure CertifiedLeapfrogPhaseEndpoint (dimension : ℕ) where
+  step : LeapfrogStepCertificate
+  positionLength : step.computedPosition.length = dimension
+  momentumLength : step.computedMomentum.length = dimension
+
+/-- A finite phase trajectory whose every stored endpoint carries the
+existing leapfrog position/momentum error certificate on one common dimension. -/
+structure CertifiedLeapfrogPhaseTrajectory (count dimension : ℕ) where
+  endpoint : Fin count → CertifiedLeapfrogPhaseEndpoint dimension
+
+/-- Exact endpoint constructor, useful for the ideal interpreter and for
+regression examples. -/
+noncomputable def CertifiedLeapfrogPhaseEndpoint.exact
+    {dimension : ℕ} (position momentum : List ℝ)
+    (hposition : position.length = dimension)
+    (hmomentum : momentum.length = dimension) :
+    CertifiedLeapfrogPhaseEndpoint dimension where
+  step := {
+    computedPosition := position
+    idealPosition := position
+    computedMomentum := momentum
+    idealMomentum := momentum
+    positionError := 0
+    momentumError := 0
+    position_bound := VectorApproximates.refl position
+    momentum_bound := VectorApproximates.refl momentum }
+  positionLength := hposition
+  momentumLength := hmomentum
+
+noncomputable def CertifiedLeapfrogPhaseEndpoint.computedPosition
+    {dimension : ℕ} (endpoint : CertifiedLeapfrogPhaseEndpoint dimension) :
+    Fin dimension → ℝ :=
+  fun i => endpoint.step.computedPosition[i.val]'(by
+    simp [endpoint.positionLength])
+
+noncomputable def CertifiedLeapfrogPhaseEndpoint.idealPosition
+    {dimension : ℕ} (endpoint : CertifiedLeapfrogPhaseEndpoint dimension) :
+    Fin dimension → ℝ :=
+  fun i => endpoint.step.idealPosition[i.val]'(by
+    rw [← endpoint.step.position_bound.1, endpoint.positionLength]
+    exact i.isLt)
+
+noncomputable def CertifiedLeapfrogPhaseEndpoint.computedMomentum
+    {dimension : ℕ} (endpoint : CertifiedLeapfrogPhaseEndpoint dimension) :
+    Fin dimension → ℝ :=
+  fun i => endpoint.step.computedMomentum[i.val]'(by
+    simp [endpoint.momentumLength])
+
+noncomputable def CertifiedLeapfrogPhaseEndpoint.idealMomentum
+    {dimension : ℕ} (endpoint : CertifiedLeapfrogPhaseEndpoint dimension) :
+    Fin dimension → ℝ :=
+  fun i => endpoint.step.idealMomentum[i.val]'(by
+    rw [← endpoint.step.momentum_bound.1, endpoint.momentumLength]
+    exact i.isLt)
+
+noncomputable def CertifiedLeapfrogPhaseTrajectory.computedPhase
+    {count dimension : ℕ}
+    (trajectory : CertifiedLeapfrogPhaseTrajectory count dimension) :
+    Fin count → ((Fin dimension → ℝ) × (Fin dimension → ℝ)) :=
+  fun index => ((trajectory.endpoint index).computedPosition,
+    (trajectory.endpoint index).computedMomentum)
+
+noncomputable def CertifiedLeapfrogPhaseTrajectory.idealPhase
+    {count dimension : ℕ}
+    (trajectory : CertifiedLeapfrogPhaseTrajectory count dimension) :
+    Fin count → ((Fin dimension → ℝ) × (Fin dimension → ℝ)) :=
+  fun index => ((trajectory.endpoint index).idealPosition,
+    (trajectory.endpoint index).idealMomentum)
+
+/-- The phase adapter preserves the position bound at every coordinate. -/
+theorem CertifiedLeapfrogPhaseEndpoint.position_approximates
+    {dimension : ℕ} (endpoint : CertifiedLeapfrogPhaseEndpoint dimension)
+    (i : Fin dimension) :
+    Approximates (endpoint.computedPosition i) (endpoint.idealPosition i)
+      endpoint.step.positionError := by
+  exact endpoint.step.position_bound.at i.val
+    (by simp [endpoint.positionLength])
+    (by rw [← endpoint.step.position_bound.1, endpoint.positionLength]; exact i.isLt)
+
+/-- The phase adapter preserves the momentum bound at every coordinate. -/
+theorem CertifiedLeapfrogPhaseEndpoint.momentum_approximates
+    {dimension : ℕ} (endpoint : CertifiedLeapfrogPhaseEndpoint dimension)
+    (i : Fin dimension) :
+    Approximates (endpoint.computedMomentum i) (endpoint.idealMomentum i)
+      endpoint.step.momentumError := by
+  exact endpoint.step.momentum_bound.at i.val
+    (by simp [endpoint.momentumLength])
+    (by rw [← endpoint.step.momentum_bound.1, endpoint.momentumLength]; exact i.isLt)
+
 /-- Endpoint dot product used by the Euclidean vector U-turn test. -/
 noncomputable def endpointDot {ι : Type*} [Fintype ι]
     (leftPosition rightPosition momentum : ι → ℝ) : ℝ :=
@@ -298,6 +390,46 @@ structure VectorUTurnDecisionCertificate (ι : Type*) [Fintype ι] where
       computedRightMomentum leftPositionError rightPositionError rightMomentumError
     computed < -error ∨ error < computed
 
+/-- Two existing leapfrog endpoint certificates supply every continuous
+field of a vector U-turn certificate; only strict decision separation remains
+for the caller to prove. -/
+noncomputable def CertifiedLeapfrogPhaseEndpoint.vectorUTurnCertificate
+    {dimension : ℕ}
+    (left right : CertifiedLeapfrogPhaseEndpoint dimension)
+    (leftSeparated :
+      let computed := endpointDot left.computedPosition right.computedPosition
+        left.computedMomentum
+      let error := endpointDotError left.idealPosition right.idealPosition
+        left.computedMomentum (fun _ => left.step.positionError)
+        (fun _ => right.step.positionError) (fun _ => left.step.momentumError)
+      computed < -error ∨ error < computed)
+    (rightSeparated :
+      let computed := endpointDot left.computedPosition right.computedPosition
+        right.computedMomentum
+      let error := endpointDotError left.idealPosition right.idealPosition
+        right.computedMomentum (fun _ => left.step.positionError)
+        (fun _ => right.step.positionError) (fun _ => right.step.momentumError)
+      computed < -error ∨ error < computed) :
+    VectorUTurnDecisionCertificate (Fin dimension) where
+  computedLeftPosition := left.computedPosition
+  idealLeftPosition := left.idealPosition
+  computedRightPosition := right.computedPosition
+  idealRightPosition := right.idealPosition
+  computedLeftMomentum := left.computedMomentum
+  idealLeftMomentum := left.idealMomentum
+  computedRightMomentum := right.computedMomentum
+  idealRightMomentum := right.idealMomentum
+  leftPositionError := fun _ => left.step.positionError
+  rightPositionError := fun _ => right.step.positionError
+  leftMomentumError := fun _ => left.step.momentumError
+  rightMomentumError := fun _ => right.step.momentumError
+  leftPositionBound := left.position_approximates
+  rightPositionBound := right.position_approximates
+  leftMomentumBound := left.momentum_approximates
+  rightMomentumBound := right.momentum_approximates
+  leftSeparated := leftSeparated
+  rightSeparated := rightSeparated
+
 /-- Pair of certified endpoint dot products used by the vector U-turn rule. -/
 structure UTurnDecisionCertificate where
   leftMomentum : SeparatedZeroCertificate
@@ -362,6 +494,49 @@ noncomputable def VectorUTurnDecisionCertificate.toUTurnDecisionCertificate
       certificate.leftPositionBound certificate.rightPositionBound
       certificate.rightMomentumBound
     separated := certificate.rightSeparated }
+
+/-- The scalar certificate's computed bit is definitionally the vector
+U-turn predicate on the adapted computed phase endpoints. -/
+theorem VectorUTurnDecisionCertificate.computedTurns_eq_vectorAdjacentUTurn
+    {ι : Type*} [Fintype ι]
+    (certificate : VectorUTurnDecisionCertificate ι) :
+    certificate.toUTurnDecisionCertificate.computedTurns =
+      vectorAdjacentUTurn
+        (certificate.computedLeftPosition, certificate.computedLeftMomentum)
+        (certificate.computedRightPosition, certificate.computedRightMomentum) := by
+  simp [VectorUTurnDecisionCertificate.toUTurnDecisionCertificate,
+    UTurnDecisionCertificate.computedTurns,
+    SeparatedZeroCertificate.computedNegative, vectorAdjacentUTurn, endpointDot]
+  rfl
+
+/-- Likewise the certificate's ideal bit is the exact ideal vector U-turn
+predicate used by `CompletedTreeStoppingData`. -/
+theorem VectorUTurnDecisionCertificate.idealTurns_eq_vectorAdjacentUTurn
+    {ι : Type*} [Fintype ι]
+    (certificate : VectorUTurnDecisionCertificate ι) :
+    certificate.toUTurnDecisionCertificate.idealTurns =
+      vectorAdjacentUTurn
+        (certificate.idealLeftPosition, certificate.idealLeftMomentum)
+        (certificate.idealRightPosition, certificate.idealRightMomentum) := by
+  simp [VectorUTurnDecisionCertificate.toUTurnDecisionCertificate,
+    UTurnDecisionCertificate.idealTurns,
+    SeparatedZeroCertificate.idealNegative, vectorAdjacentUTurn, endpointDot]
+  rfl
+
+/-- Therefore a separated componentwise endpoint certificate proves the
+computed U-turn callback agrees with the exact ideal callback. -/
+theorem VectorUTurnDecisionCertificate.vectorAdjacentUTurn_eq
+    {ι : Type*} [Fintype ι]
+    (certificate : VectorUTurnDecisionCertificate ι) :
+    vectorAdjacentUTurn
+        (certificate.computedLeftPosition, certificate.computedLeftMomentum)
+        (certificate.computedRightPosition, certificate.computedRightMomentum) =
+      vectorAdjacentUTurn
+        (certificate.idealLeftPosition, certificate.idealLeftMomentum)
+        (certificate.idealRightPosition, certificate.idealRightMomentum) := by
+  rw [← certificate.computedTurns_eq_vectorAdjacentUTurn,
+    ← certificate.idealTurns_eq_vectorAdjacentUTurn]
+  exact certificate.toUTurnDecisionCertificate.computedTurns_eq_idealTurns
 
 /-- Tree-local certificate proposition: only decisions actually visited by
 this completed recursive tree need witnesses. -/
