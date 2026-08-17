@@ -1037,6 +1037,11 @@ instance standardGaussianBPSHorizonKernel.instIsMarkovKernel
   unfold standardGaussianBPSHorizonKernel
   infer_instance
 
+@[simp] theorem standardGaussianBPSHorizonKernel_zero :
+    standardGaussianBPSHorizonKernel (ι := ι) 0 = Kernel.id := by
+  unfold standardGaussianBPSHorizonKernel
+  exact PartialInverseHazardClock.completedHorizonKernel_zero _ _ _
+
 /-- The completion count used by the exact Gaussian-BPS horizon kernel is a
 genuine finished prefix almost surely. -/
 theorem standardGaussianBPS_completionCount_finished_ae

@@ -4865,4 +4865,6 @@ measurability of the totalized completed endpoint/kernel are now also closed:
 the generic layer measurably selects the first completed prefix, proves the
 fallback branch null under `CompletesFiniteHorizons`, and packages the result
 as a Markov kernel. Its semigroup and stationarity laws and multidimensional
-ergodicity remain separate milestones.
+ergodicity remain separate milestones. The first semigroup boundary law is
+closed separately: totalized execution at zero remaining time is pointwise the
+initial state, hence the completed zero-horizon kernel is exactly `Kernel.id`.

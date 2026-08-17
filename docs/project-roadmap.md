@@ -670,8 +670,9 @@ by paper date:
    This proves almost-sure finite-horizon completion for finite-dimensional
    standard-Gaussian BPS. The generic layer now selects the first completed
    prefix measurably, totalizes only on the null explosive set, and constructs
-   the exact Markov horizon kernel. Its semigroup law, target stationarity,
-   and ergodicity remain.
+   the exact Markov horizon kernel. The zero-horizon member is now proved
+   exactly equal to the identity kernel. The positive-time composition law,
+   target stationarity, and ergodicity remain.
 
    The nonlinear reversible-jump branch is complete at the exact theorem and
    executable-client levels; only the shared Float64 primitive boundary

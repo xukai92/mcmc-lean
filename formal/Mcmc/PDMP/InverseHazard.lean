@@ -726,6 +726,24 @@ noncomputable def PartialInverseHazardClock.completedReplayEndpoint
     (input : (NNReal × State) × (ℕ → NNReal)) : State :=
   (clock.replayPrefix jump (clock.completionCount jump input) input).2
 
+theorem PartialInverseHazardClock.completionCount_zero_remaining
+    (clock : PartialInverseHazardClock State) (jump : State → State)
+    (state : State) (hazards : ℕ → NNReal) :
+    clock.completionCount jump ((0, state), hazards) = 0 := by
+  classical
+  apply (Nat.find_eq_zero
+    (clock.completionSearch_exists jump ((0, state), hazards))).2
+  apply Or.inl
+  rfl
+
+@[simp] theorem PartialInverseHazardClock.completedReplayEndpoint_zero
+    (clock : PartialInverseHazardClock State) (jump : State → State)
+    (state : State) (hazards : ℕ → NNReal) :
+    clock.completedReplayEndpoint jump ((0, state), hazards) = state := by
+  unfold PartialInverseHazardClock.completedReplayEndpoint
+  rw [clock.completionCount_zero_remaining]
+  rfl
+
 theorem PartialInverseHazardClock.measurable_completedReplayEndpoint
     (clock : PartialInverseHazardClock State) {jump : State → State}
     (hjump : Measurable jump) :
@@ -757,6 +775,33 @@ instance PartialInverseHazardClock.completedHorizonKernel.instIsMarkovKernel
   apply Kernel.IsMarkovKernel.map
   exact clock.measurable_completedReplayEndpoint hjump |>.comp
     ((measurable_const.prodMk measurable_fst).prodMk measurable_snd)
+
+/-- At zero horizon the completed inverse-clock kernel is exactly identity. -/
+@[simp] theorem PartialInverseHazardClock.completedHorizonKernel_zero
+    (clock : PartialInverseHazardClock State)
+    (jump : State → State) (hjump : Measurable jump) :
+    clock.completedHorizonKernel jump hjump 0 = Kernel.id := by
+  ext initial event hevent
+  unfold PartialInverseHazardClock.completedHorizonKernel
+  have hendpoint : Measurable (fun input : State × (ℕ → NNReal) =>
+      clock.completedReplayEndpoint jump ((0, input.1), input.2)) :=
+    clock.measurable_completedReplayEndpoint hjump |>.comp
+      ((measurable_const.prodMk measurable_fst).prodMk measurable_snd)
+  rw [Kernel.map_apply (f := fun input : State × (ℕ → NNReal) =>
+      clock.completedReplayEndpoint jump ((0, input.1), input.2)) _ hendpoint,
+    Kernel.prod_apply, Kernel.id_apply, Kernel.const_apply,
+    Measure.dirac_prod, Measure.map_map
+      hendpoint
+      (by fun_prop)]
+  have hfun :
+      (fun input : State × (ℕ → NNReal) =>
+        clock.completedReplayEndpoint jump ((0, input.1), input.2)) ∘
+          Prod.mk initial = fun _ => initial := by
+    funext hazards
+    exact clock.completedReplayEndpoint_zero jump initial hazards
+  rw [hfun]
+  rw [Measure.map_const, measure_univ, one_smul,
+    Measure.dirac_apply' _ hevent]
 
 /-- One restart candidate with a fresh unit-exponential hazard mark. -/
 noncomputable def PartialInverseHazardClock.cappedStepKernel
