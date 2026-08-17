@@ -7575,6 +7575,134 @@ theorem guardedRuntimeAugmentedReverse_jointLaw_measurePreserving
     guardedRuntimeAugmentedReverse_map_jointLaw hlogDensity hwidth intervals
       maxShrink⟩
 
+/-- Lift successful variable-length replay to the completed trace carrier;
+the exhaustion outcome is an explicit identity branch. -/
+noncomputable def completedRuntimeAugmentedReverse
+    (logDensity : ℝ → ℝ) (width : ℝ) (intervals maxShrink : ℕ) :
+    ((ℝ × ℝ) × Mcmc.Kernel.CompletedTrace RuntimeRandomTrace) →
+      ((ℝ × ℝ) × Mcmc.Kernel.CompletedTrace RuntimeRandomTrace)
+  | (state, Sum.inl trace) =>
+      let reversed := guardedRuntimeAugmentedReverse logDensity width intervals
+        maxShrink (state, trace)
+      (reversed.1, Sum.inl reversed.2)
+  | (state, Sum.inr _) => (state, Sum.inr ())
+
+theorem measurable_completedRuntimeAugmentedReverse
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (width : ℝ) (intervals maxShrink : ℕ) :
+    Measurable
+      (completedRuntimeAugmentedReverse logDensity width intervals maxShrink) := by
+  let successfulBranch : ((ℝ × ℝ) × RuntimeRandomTrace) →
+      ((ℝ × ℝ) × Mcmc.Kernel.CompletedTrace RuntimeRandomTrace) := fun point =>
+    let reversed := guardedRuntimeAugmentedReverse logDensity width intervals
+      maxShrink point
+    (reversed.1, Sum.inl reversed.2)
+  let failureBranch : ((ℝ × ℝ) × Unit) →
+      ((ℝ × ℝ) × Mcmc.Kernel.CompletedTrace RuntimeRandomTrace) := fun point =>
+    (point.1, Sum.inr ())
+  have hsuccessful : Measurable successfulBranch :=
+    (measurable_fst.comp
+      (measurable_guardedRuntimeAugmentedReverse hlogDensity width intervals
+        maxShrink)).prodMk
+      (measurable_inl.comp (measurable_snd.comp
+        (measurable_guardedRuntimeAugmentedReverse hlogDensity width intervals
+          maxShrink)))
+  have hfailure : Measurable failureBranch :=
+    measurable_fst.prodMk (measurable_inr.comp measurable_const)
+  have hall := (hsuccessful.sumElim hfailure).comp
+    (MeasurableEquiv.prodSumDistrib (ℝ × ℝ) RuntimeRandomTrace Unit).measurable
+  convert hall using 1
+  funext point
+  rcases point with ⟨state, trace | failure⟩
+  · rfl
+  · rfl
+
+def completedRuntimeSuccessEmbedding
+    (point : (ℝ × ℝ) × RuntimeRandomTrace) :
+    (ℝ × ℝ) × Mcmc.Kernel.CompletedTrace RuntimeRandomTrace :=
+  (point.1, Sum.inl point.2)
+
+def completedRuntimeFailureEmbedding (state : ℝ × ℝ) :
+    (ℝ × ℝ) × Mcmc.Kernel.CompletedTrace RuntimeRandomTrace :=
+  (state, Sum.inr ())
+
+theorem measurable_completedRuntimeSuccessEmbedding :
+    Measurable completedRuntimeSuccessEmbedding :=
+  measurable_fst.prodMk (measurable_inl.comp measurable_snd)
+
+theorem measurable_completedRuntimeFailureEmbedding :
+    Measurable completedRuntimeFailureEmbedding :=
+  measurable_id.prodMk (measurable_inr.comp measurable_const)
+
+/-- Completion is measure-theoretically harmless: any preserved successful
+joint law may be combined with any state law assigned to exhaustion, because
+the latter branch is literally the identity. -/
+theorem completedRuntimeAugmentedReverse_measurePreserving_of_success
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    (width : ℝ) (intervals maxShrink : ℕ)
+    (successfulJoint : Measure ((ℝ × ℝ) × RuntimeRandomTrace))
+    (failureState : Measure (ℝ × ℝ))
+    (hsuccess : MeasurePreserving
+      (guardedRuntimeAugmentedReverse logDensity width intervals maxShrink)
+      successfulJoint successfulJoint) :
+    MeasurePreserving
+      (completedRuntimeAugmentedReverse logDensity width intervals maxShrink)
+      (Measure.map completedRuntimeSuccessEmbedding successfulJoint +
+        Measure.map completedRuntimeFailureEmbedding failureState)
+      (Measure.map completedRuntimeSuccessEmbedding successfulJoint +
+        Measure.map completedRuntimeFailureEmbedding failureState) := by
+  refine ⟨measurable_completedRuntimeAugmentedReverse hlogDensity width intervals
+    maxShrink, ?_⟩
+  rw [Measure.map_add _ _
+    (measurable_completedRuntimeAugmentedReverse hlogDensity width intervals
+      maxShrink)]
+  have hsuccessComp :
+      completedRuntimeAugmentedReverse logDensity width intervals maxShrink ∘
+          completedRuntimeSuccessEmbedding =
+        completedRuntimeSuccessEmbedding ∘
+          guardedRuntimeAugmentedReverse logDensity width intervals maxShrink := by
+    funext point
+    rfl
+  have hfailureComp :
+      completedRuntimeAugmentedReverse logDensity width intervals maxShrink ∘
+          completedRuntimeFailureEmbedding =
+        completedRuntimeFailureEmbedding := by
+    funext state
+    rfl
+  rw [Measure.map_map
+    (measurable_completedRuntimeAugmentedReverse hlogDensity width intervals
+      maxShrink) measurable_completedRuntimeSuccessEmbedding,
+    hsuccessComp,
+    ← Measure.map_map measurable_completedRuntimeSuccessEmbedding
+      hsuccess.measurable,
+    hsuccess.map_eq]
+  rw [Measure.map_map
+    (measurable_completedRuntimeAugmentedReverse hlogDensity width intervals
+      maxShrink) measurable_completedRuntimeFailureEmbedding,
+    hfailureComp]
+
+/-- The completed replay preserves the explicitly assembled successful law
+and any exhaustion-state law. This is the measure-level completion theorem
+used before identifying the two summands with the completed trace kernel. -/
+theorem completedRuntimeAugmentedReverse_explicit_measurePreserving
+    {logDensity : ℝ → ℝ} (hlogDensity : Measurable logDensity)
+    {width : ℝ} (hwidth : 0 < width) (intervals maxShrink : ℕ)
+    (failureState : Measure (ℝ × ℝ)) :
+    let successfulJoint :=
+      ((((volume : Measure ℝ).prod volume).prod runtimeRandomTraceBase).withDensity
+        (fun point => runtimeTraceDensity logDensity width intervals maxShrink
+          point.1 point.2))
+    MeasurePreserving
+      (completedRuntimeAugmentedReverse logDensity width intervals maxShrink)
+      (Measure.map completedRuntimeSuccessEmbedding successfulJoint +
+        Measure.map completedRuntimeFailureEmbedding failureState)
+      (Measure.map completedRuntimeSuccessEmbedding successfulJoint +
+        Measure.map completedRuntimeFailureEmbedding failureState) := by
+  exact completedRuntimeAugmentedReverse_measurePreserving_of_success
+    hlogDensity width intervals maxShrink _ failureState
+    (guardedRuntimeAugmentedReverse_jointLaw_measurePreserving hlogDensity
+      hwidth intervals maxShrink)
+
 /-- Integration against the variable-length base decomposes into the sum of
 finite-dimensional Lebesgue integrals. -/
 theorem lintegral_rejectedSequenceLebesgue

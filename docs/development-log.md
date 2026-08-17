@@ -11,8 +11,11 @@
   coproduct of fixed-dimensional augmented carriers upgrades fiberwise
   measurability to global measurability, so the result is exposed as an
   ordinary `MeasurePreserving` theorem usable by deterministic kernels.
-  The remaining end-to-end step is to adjoin the explicit exhaustion outcome
-  and identify the resulting preserved law with
+  Successful replay has also been lifted to `Trace ⊕ Unit`: the exhaustion
+  outcome is a globally measurable literal identity branch, and the sum of
+  the embedded successful law with any exhaustion-state law is proved measure
+  preserving. The remaining end-to-end step is the kernel-algebra identity
+  equating those two explicit summands with
   `completedRuntimeTraceKernelFromFibers` before projection to the sampler.
 
 - Built the repeated finite-horizon executor above the partial inverse clock.
