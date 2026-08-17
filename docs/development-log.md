@@ -4387,3 +4387,19 @@ success guards and multiplies the successive rejected-point conditional
 densities. It is proved everywhere finite and zero on invalid allocations.
 Joint measurability, normalization, and the derived-bracket augmented reversal
 remain the next proof obligations.
+
+## 2026-08-17: exact finite-budget fallback mass
+
+Corrected the normalization target for bounded shrinkage. The successful trace
+density is generally only a subprobability: rejecting through the entire
+finite attempt budget returns the current point and carries the missing mass.
+The reusable `CompletedTrace` construction embeds successful traces into a sum
+type and adds one exhaustion atom with density `1 - successfulTraceMass`.
+Lean proves this completed density measurable whenever the success density is,
+proves it integrates to one under the exact subprobability bound, and constructs
+the resulting Markov trace kernel.
+
+`completedRuntimeTraceKernel` instantiates that construction with the concrete
+primitive practical trace base and density. Its remaining client hypotheses
+are now accurately stated as joint measurability and success mass at most one;
+normalization is no longer incorrectly demanded of the success branch alone.

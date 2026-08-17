@@ -1524,6 +1524,29 @@ theorem runtimeTraceDensity_zero_of_allocation_invalid
   · next h => exact False.elim (hinvalid ⟨h.1, h.2.1⟩)
   · rfl
 
+/-- Complete finite-budget trace kernel. Successful traces use the concrete
+density above; all missing mass is one explicit exhaustion outcome that the
+sampler interprets as the identity update. -/
+noncomputable def completedRuntimeTraceKernel
+    (logDensity : ℝ → ℝ) (width : ℝ) (intervals : ℕ) :
+    ProbabilityTheory.Kernel (ℝ × ℝ)
+      (Mcmc.Kernel.CompletedTrace RuntimeRandomTrace) :=
+  Mcmc.Kernel.completedTraceKernel runtimeRandomTraceBase
+    (runtimeTraceDensity logDensity width intervals)
+
+theorem completedRuntimeTraceKernel_isMarkovKernel
+    (logDensity : ℝ → ℝ) (width : ℝ) (intervals : ℕ)
+    (hmeasurable : Measurable (Function.uncurry
+      (runtimeTraceDensity logDensity width intervals)))
+    (hsubprobability : ∀ state,
+      Mcmc.Kernel.successfulTraceMass runtimeRandomTraceBase
+        (runtimeTraceDensity logDensity width intervals) state ≤ 1) :
+    ProbabilityTheory.IsMarkovKernel
+      (completedRuntimeTraceKernel logDensity width intervals) := by
+  exact Mcmc.Kernel.completedTraceKernel_isMarkovKernel
+    runtimeRandomTraceBase (runtimeTraceDensity logDensity width intervals)
+    hmeasurable hsubprobability
+
 /-- Integration against the variable-length base decomposes into the sum of
 finite-dimensional Lebesgue integrals. -/
 theorem lintegral_rejectedSequenceLebesgue

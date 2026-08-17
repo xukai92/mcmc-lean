@@ -1394,6 +1394,126 @@ theorem compProd_normalizedTraceKernel
     Measure.compProd_const]
   rfl
 
+/-! ### Completing a successful trace sublaw with an identity fallback -/
+
+/-- A completed finite-budget trace either records a successful execution or
+the single exhaustion outcome. -/
+abbrev CompletedTrace (Trace : Type*) := Trace ⊕ Unit
+
+/-- Base measure obtained by embedding the successful trace base and adding
+one counting atom for budget exhaustion. -/
+noncomputable def completedTraceBase
+    {Trace : Type*} [MeasurableSpace Trace] (base : Measure Trace) :
+    Measure (CompletedTrace Trace) :=
+  base.map Sum.inl + Measure.dirac (Sum.inr ())
+
+instance completedTraceBase.instSFinite
+    {Trace : Type*} [MeasurableSpace Trace]
+    (base : Measure Trace) [SFinite base] :
+    SFinite (completedTraceBase base) := by
+  unfold completedTraceBase
+  infer_instance
+
+/-- Total mass of the successful execution density. -/
+noncomputable def successfulTraceMass
+    {Trace : Type*} [MeasurableSpace Trace]
+    (base : Measure Trace) (density : (ℝ × State) → Trace → ENNReal)
+    (state : ℝ × State) : ENNReal :=
+  ∫⁻ trace, density state trace ∂base
+
+/-- Add the missing probability mass as the exhaustion/identity outcome. -/
+noncomputable def completedTraceDensity
+    {Trace : Type*} [MeasurableSpace Trace]
+    (base : Measure Trace) (density : (ℝ × State) → Trace → ENNReal)
+    (state : ℝ × State) : CompletedTrace Trace → ENNReal
+  | Sum.inl trace => density state trace
+  | Sum.inr _ => 1 - successfulTraceMass base density state
+
+theorem measurable_successfulTraceMass
+    {Trace : Type*} [MeasurableSpace Trace]
+    (base : Measure Trace) [SFinite base]
+    {density : (ℝ × State) → Trace → ENNReal}
+    (hdensity : Measurable (Function.uncurry density)) :
+    Measurable (successfulTraceMass base density) := by
+  exact hdensity.lintegral_prod_right
+
+theorem completedTraceDensity_lintegral
+    {Trace : Type*} [MeasurableSpace Trace]
+    (base : Measure Trace) [SFinite base]
+    (density : (ℝ × State) → Trace → ENNReal)
+    (hdensity : Measurable (Function.uncurry density))
+    (hmass : ∀ state, successfulTraceMass base density state ≤ 1)
+    (state : ℝ × State) :
+    ∫⁻ outcome, completedTraceDensity base density state outcome
+        ∂completedTraceBase base = 1 := by
+  have houtcome : Measurable (completedTraceDensity base density state) :=
+    Measurable.sumElim hdensity.of_uncurry_left measurable_const
+  rw [completedTraceBase, lintegral_add_measure]
+  rw [MeasureTheory.lintegral_map houtcome measurable_inl]
+  rw [lintegral_dirac' _ houtcome]
+  simp only [completedTraceDensity]
+  exact add_tsub_cancel_of_le (hmass state)
+
+theorem measurable_uncurry_completedTraceDensity
+    {Trace : Type*} [MeasurableSpace Trace]
+    (base : Measure Trace) [SFinite base]
+    {density : (ℝ × State) → Trace → ENNReal}
+    (hdensity : Measurable (Function.uncurry density)) :
+    Measurable (Function.uncurry (completedTraceDensity base density)) := by
+  have hmass := measurable_successfulTraceMass base hdensity
+  let branch : (((ℝ × State) × Trace) ⊕ ((ℝ × State) × Unit)) → ENNReal :=
+    Sum.elim (Function.uncurry density)
+      (fun point => 1 - successfulTraceMass base density point.1)
+  have hbranch : Measurable branch := by
+    exact hdensity.sumElim (measurable_const.sub (hmass.comp measurable_fst))
+  have h := hbranch.comp
+    (MeasurableEquiv.prodSumDistrib (ℝ × State) Trace Unit).measurable
+  convert h using 1
+  funext point
+  rcases point with ⟨state, trace | failure⟩
+  · change density state trace = branch
+      (Equiv.prodSumDistrib (ℝ × State) Trace Unit (state, Sum.inl trace))
+    rw [Equiv.prodSumDistrib_apply_left]
+    rfl
+  · change 1 - successfulTraceMass base density state = branch
+      (Equiv.prodSumDistrib (ℝ × State) Trace Unit (state, Sum.inr failure))
+    rw [Equiv.prodSumDistrib_apply_right]
+    rfl
+
+omit [MeasurableSpace State] in
+theorem completedTraceDensity_ne_top
+    {Trace : Type*} [MeasurableSpace Trace]
+    (base : Measure Trace)
+    (density : (ℝ × State) → Trace → ENNReal)
+    (hfinite : ∀ state trace, density state trace ≠ ∞)
+    (state : ℝ × State) (outcome : CompletedTrace Trace) :
+    completedTraceDensity base density state outcome ≠ ∞ := by
+  cases outcome with
+  | inl trace => exact hfinite state trace
+  | inr failure => simp [completedTraceDensity]
+
+/-- Markov trace kernel obtained by adjoining the exact finite-budget
+exhaustion probability to a successful subprobability density. -/
+noncomputable def completedTraceKernel
+    {Trace : Type*} [MeasurableSpace Trace]
+    (base : Measure Trace) [SFinite base]
+    (density : (ℝ × State) → Trace → ENNReal) :
+    Kernel (ℝ × State) (CompletedTrace Trace) :=
+  normalizedTraceKernel (completedTraceBase base)
+    (completedTraceDensity base density)
+
+theorem completedTraceKernel_isMarkovKernel
+    {Trace : Type*} [MeasurableSpace Trace]
+    (base : Measure Trace) [SFinite base]
+    (density : (ℝ × State) → Trace → ENNReal)
+    (hdensity : Measurable (Function.uncurry density))
+    (hmass : ∀ state, successfulTraceMass base density state ≤ 1) :
+    IsMarkovKernel (completedTraceKernel base density) := by
+  apply normalizedTraceKernel_isMarkovKernel
+    (completedTraceBase base) (completedTraceDensity base density)
+    (measurable_uncurry_completedTraceDensity base hdensity)
+  exact completedTraceDensity_lintegral base density hdensity hmass
+
 /-- Horizontal update obtained by sampling a complete independent execution
 trace, applying a deterministic map on augmented-state--trace space, and
 discarding the transformed trace. This is the appropriate semantics when the
