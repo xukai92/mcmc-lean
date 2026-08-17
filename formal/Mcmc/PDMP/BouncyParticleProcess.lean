@@ -246,6 +246,153 @@ theorem BouncyParticleBounceData.refreshedHorizonKernel_invariant
   exact hbounce.comp
     (bouncyParticleVelocityRefresh_invariant positionTarget velocityTarget)
 
+/-! ### Standard-Gaussian finite-dimensional clock algebra -/
+
+/-- For the standard Gaussian position target, the BPS event normal is the
+current position itself. -/
+noncomputable def standardGaussianBouncyParticleBounceData :
+    BouncyParticleBounceData ι where
+  normal := id
+  measurable_bounce := by
+    unfold bouncyReflection squaredEuclideanNorm euclideanInner
+    fun_prop
+
+/-- Initial directional derivative `⟨v,x⟩` along a Gaussian BPS ray. -/
+noncomputable def gaussianBPSLinearCoefficient
+    (state : BouncyParticleState ι) : ℝ :=
+  euclideanInner state.2 state.1
+
+/-- Nonnegative slope `‖v‖²` of the directional derivative along the ray. -/
+noncomputable def gaussianBPSQuadraticCoefficient
+    (state : BouncyParticleState ι) : ℝ :=
+  squaredEuclideanNorm state.2
+
+theorem gaussianBPSQuadraticCoefficient_nonneg
+    (state : BouncyParticleState ι) :
+    0 ≤ gaussianBPSQuadraticCoefficient state :=
+  squaredEuclideanNorm_nonneg state.2
+
+theorem gaussianBPSQuadraticCoefficient_pos
+    (state : BouncyParticleState ι) (hvelocity : state.2 ≠ 0) :
+    0 < gaussianBPSQuadraticCoefficient state :=
+  squaredEuclideanNorm_pos hvelocity
+
+/-- Along linear motion, the Gaussian directional derivative is affine in
+time. This is the finite-dimensional reduction behind the exact inverse
+integrated-hazard formula. -/
+theorem euclideanInner_velocity_gaussianFlow
+    (state : BouncyParticleState ι) (time : NNReal) :
+    euclideanInner state.2 (bouncyParticleFlow time state).1 =
+      gaussianBPSLinearCoefficient state +
+        (time : ℝ) * gaussianBPSQuadraticCoefficient state := by
+  unfold bouncyParticleFlow gaussianBPSLinearCoefficient
+    gaussianBPSQuadraticCoefficient squaredEuclideanNorm
+  change euclideanInner state.2 (state.1 + (time : ℝ) • state.2) = _
+  rw [euclideanInner_add_right, euclideanInner_smul_right]
+
+/-- Hence the canonical standard-Gaussian BPS rate is a positive part of one
+affine scalar function. -/
+theorem standardGaussianBPS_stateRate_flow
+    (state : BouncyParticleState ι) (time : NNReal) :
+    standardGaussianBouncyParticleBounceData.stateRate
+        (bouncyParticleFlow time state) =
+      max 0 (gaussianBPSLinearCoefficient state +
+        (time : ℝ) * gaussianBPSQuadraticCoefficient state) := by
+  unfold BouncyParticleBounceData.stateRate
+    standardGaussianBouncyParticleBounceData bouncyRate
+  change max 0 (euclideanInner state.2 (bouncyParticleFlow time state).1) = _
+  rw [euclideanInner_velocity_gaussianFlow]
+
+/-- Real-valued closed-form candidate solving the Gaussian integrated-hazard
+equation when velocity is nonzero. The outer `toNNReal` used by the clock is
+introduced separately after positivity is established. -/
+noncomputable def gaussianBPSWaitingTimeReal
+    (state : BouncyParticleState ι) (hazard : NNReal) : ℝ :=
+  let a := gaussianBPSLinearCoefficient state
+  let b := gaussianBPSQuadraticCoefficient state
+  (Real.sqrt ((max 0 a) ^ 2 + 2 * b * (hazard : ℝ)) - a) / b
+
+theorem gaussianBPSWaitingTimeReal_pos
+    (state : BouncyParticleState ι) {hazard : NNReal}
+    (hvelocity : state.2 ≠ 0) (hhazard : 0 < hazard) :
+    0 < gaussianBPSWaitingTimeReal state hazard := by
+  let a := gaussianBPSLinearCoefficient state
+  let b := gaussianBPSQuadraticCoefficient state
+  have hb : 0 < b := gaussianBPSQuadraticCoefficient_pos state hvelocity
+  have hh : 0 < (hazard : ℝ) := by exact_mod_cast hhazard
+  have hsqrt : a < Real.sqrt ((max 0 a) ^ 2 + 2 * b * (hazard : ℝ)) := by
+    have hnonneg : 0 ≤ (max 0 a) ^ 2 + 2 * b * (hazard : ℝ) := by positivity
+    by_cases ha : 0 ≤ a
+    · have hinside : a ^ 2 < (max 0 a) ^ 2 + 2 * b * (hazard : ℝ) := by
+        rw [max_eq_right ha]
+        nlinarith
+      nlinarith [Real.sq_sqrt hnonneg,
+        Real.sqrt_nonneg ((max 0 a) ^ 2 + 2 * b * (hazard : ℝ))]
+    · have ha' : a < 0 := lt_of_not_ge ha
+      exact lt_of_lt_of_le ha' (Real.sqrt_nonneg _)
+  unfold gaussianBPSWaitingTimeReal
+  dsimp only
+  exact div_pos (sub_pos.mpr hsqrt) hb
+
+/-- Nonnegative clock-valued version of the closed-form Gaussian wait. -/
+noncomputable def gaussianBPSWaitingTime
+    (state : BouncyParticleState ι) (hazard : NNReal) : NNReal :=
+  Real.toNNReal (gaussianBPSWaitingTimeReal state hazard)
+
+theorem gaussianBPSWaitingTime_coe
+    (state : BouncyParticleState ι) {hazard : NNReal}
+    (hvelocity : state.2 ≠ 0) (hhazard : 0 < hazard) :
+    (gaussianBPSWaitingTime state hazard : ℝ) =
+      gaussianBPSWaitingTimeReal state hazard := by
+  rw [gaussianBPSWaitingTime, Real.coe_toNNReal]
+  exact (gaussianBPSWaitingTimeReal_pos state hvelocity hhazard).le
+
+theorem gaussianBPSWaitingTime_pos
+    (state : BouncyParticleState ι) {hazard : NNReal}
+    (hvelocity : state.2 ≠ 0) (hhazard : 0 < hazard) :
+    0 < gaussianBPSWaitingTime state hazard := by
+  rw [← NNReal.coe_pos, gaussianBPSWaitingTime_coe state hvelocity hhazard]
+  exact gaussianBPSWaitingTimeReal_pos state hvelocity hhazard
+
+/-- At the closed-form wait, the affine directional derivative reaches the
+positive square-root endpoint used to invert accumulated hazard. -/
+theorem gaussianBPS_affine_at_waitingTimeReal
+    (state : BouncyParticleState ι) {hazard : NNReal}
+    (hvelocity : state.2 ≠ 0) :
+    gaussianBPSLinearCoefficient state +
+        gaussianBPSQuadraticCoefficient state *
+          gaussianBPSWaitingTimeReal state hazard =
+      Real.sqrt
+        ((max 0 (gaussianBPSLinearCoefficient state)) ^ 2 +
+          2 * gaussianBPSQuadraticCoefficient state * (hazard : ℝ)) := by
+  have hb : gaussianBPSQuadraticCoefficient state ≠ 0 :=
+    ne_of_gt (gaussianBPSQuadraticCoefficient_pos state hvelocity)
+  unfold gaussianBPSWaitingTimeReal
+  dsimp only
+  field_simp
+  ring
+
+/-- Algebraic inverse-hazard identity. Once the scalar integral of the
+positive affine part is identified with this positive-part square increment,
+the exact clock inverse follows immediately. -/
+theorem gaussianBPS_positivePartSquare_waitingTimeReal
+    (state : BouncyParticleState ι) {hazard : NNReal}
+    (hvelocity : state.2 ≠ 0) :
+    (max 0 (gaussianBPSLinearCoefficient state +
+        gaussianBPSQuadraticCoefficient state *
+          gaussianBPSWaitingTimeReal state hazard)) ^ 2 -
+      (max 0 (gaussianBPSLinearCoefficient state)) ^ 2 =
+        2 * gaussianBPSQuadraticCoefficient state * (hazard : ℝ) := by
+  rw [gaussianBPS_affine_at_waitingTimeReal state hvelocity]
+  have hb : 0 ≤ gaussianBPSQuadraticCoefficient state :=
+    gaussianBPSQuadraticCoefficient_nonneg state
+  have hinside : 0 ≤
+      (max 0 (gaussianBPSLinearCoefficient state)) ^ 2 +
+        2 * gaussianBPSQuadraticCoefficient state * (hazard : ℝ) := by
+    positivity
+  rw [max_eq_right (Real.sqrt_nonneg _), Real.sq_sqrt hinside]
+  ring
+
 /-! ### Exact unbounded-rate inverse clocks -/
 
 /-- Target-specific exact inverse of the integrated BPS rate. This is the

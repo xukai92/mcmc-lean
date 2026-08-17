@@ -4356,6 +4356,20 @@ zero with the PG iteration count. This is uniformity in particle count for a
 fixed model and horizon. The penalty list grows with the Feynman--Kac horizon,
 so no horizon-uniform mixing rate or joint horizon/count asymptotic is claimed.
 
+## 2026-08-17: multidimensional Gaussian BPS clock reduction
+
+Started the concrete partial inverse clock for standard-Gaussian BPS in an
+arbitrary finite dimension. The target normal is now packaged as measurable
+bounce data. Along a linear ray, Lean proves the canonical rate is exactly
+`max 0 (a + t b)`, where `a = ⟨v,x⟩` and `b = ‖v‖²`; nonzero velocity gives
+`b > 0`. The closed-form wait
+`(sqrt((max 0 a)^2 + 2 b h) - a) / b` is defined, proved positive for positive
+hazard, transported to `NNReal`, and proved to satisfy the endpoint
+positive-part-square identity. The remaining clock-instantiation step is the
+scalar interval-integral identity equating accumulated `max 0 (a + tb)` with
+that square increment. Almost-sure finite-horizon completion remains a later
+nonexplosion argument and is not inferred from this algebra.
+
 ## 2026-08-17: practical-slice stratum measure preservation
 
 Upgraded allocation rerooting from a finite-sum identity to preservation of
