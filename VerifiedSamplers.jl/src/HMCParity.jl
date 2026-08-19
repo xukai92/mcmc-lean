@@ -299,8 +299,9 @@ end
 
 """Fixed-parameter No-U-Turn Sampler.
 
-`termination` is `:classic` or `:generalized`; `selection` is `:multinomial`
-or `:slice`; `integrator` is `:leapfrog`, `:jittered`, or `:tempered`.
+`termination` is `:classic`, `:generalized`, or `:strict_generalized`;
+`selection` is `:multinomial` or `:slice`; `integrator` is `:leapfrog`,
+`:jittered`, or `:tempered`.
 Jitter is realized once per trajectory, while tempering wraps each one-step
 dynamic-tree leaf in the symmetric half-temper schedule. The nominal step size,
 metric, maximum depth, and divergence threshold are fixed. No warmup or
@@ -335,8 +336,10 @@ function NUTS(logdensity::F, gradient::G, step_size::Real;
     max_depth > 0 || throw(ArgumentError("maximum tree depth must be positive"))
     isfinite(Δmax) && Δmax > 0 || throw(ArgumentError(
         "maximum energy error must be finite and positive"))
-    termination in (:classic, :generalized) || throw(ArgumentError(
-        "termination must be :classic or :generalized"))
+    termination in (:classic, :generalized, :strict_generalized) ||
+        throw(ArgumentError(
+            "termination must be :classic, :generalized, or " *
+            ":strict_generalized"))
     selection in (:multinomial, :slice) || throw(ArgumentError(
         "selection must be :multinomial or :slice"))
     NUTS{F,G,typeof(metric)}(logdensity, gradient, metric, ε,
@@ -390,6 +393,12 @@ end
 _maxabs(left::Float64, right::Float64) =
     abs(left) > abs(right) ? left : right
 
+function _nuts_uturn_generalized(left::_NUTSPhase, right::_NUTSPhase,
+        momentum_sum::AbstractVector{<:Real}, velocity)
+    dot(momentum_sum, velocity(left.momentum)) <= 0 ||
+        dot(momentum_sum, velocity(right.momentum)) <= 0
+end
+
 function _nuts_uturn(sampler::NUTS, left::_NUTSPhase, right::_NUTSPhase,
         momentum_sum::AbstractVector{<:Real}, velocity)
     if sampler.termination === :classic
@@ -397,9 +406,19 @@ function _nuts_uturn(sampler::NUTS, left::_NUTSPhase, right::_NUTSPhase,
         dot(displacement, velocity(left.momentum)) <= 0 ||
             dot(displacement, velocity(right.momentum)) <= 0
     else
-        dot(momentum_sum, velocity(left.momentum)) <= 0 ||
-            dot(momentum_sum, velocity(right.momentum)) <= 0
+        _nuts_uturn_generalized(left, right, momentum_sum, velocity)
     end
+end
+
+function _strict_nuts_uturn(left::_NUTSTree, right::_NUTSTree,
+        velocity)
+    combined_sum = left.momentum_sum .+ right.momentum_sum
+    _nuts_uturn_generalized(
+        left.left, right.right, combined_sum, velocity) ||
+        _nuts_uturn_generalized(left.left, right.left,
+            left.momentum_sum .+ right.left.momentum, velocity) ||
+        _nuts_uturn_generalized(left.right, right.right,
+            left.right.momentum .+ right.momentum_sum, velocity)
 end
 
 function _choose_subtree_candidate!(source::Runtime.AbstractRandomSource,
@@ -420,8 +439,10 @@ end
 function _combine_nuts_trees(sampler::NUTS, left::_NUTSTree,
         right::_NUTSTree, velocity, candidate::_NUTSPhase)
     momentum_sum = left.momentum_sum .+ right.momentum_sum
-    stopped = left.stopped || right.stopped ||
+    turned = sampler.termination === :strict_generalized ?
+        _strict_nuts_uturn(left, right, velocity) :
         _nuts_uturn(sampler, left.left, right.right, momentum_sum, velocity)
+    stopped = left.stopped || right.stopped || turned
     _NUTSTree(left.left, right.right, candidate, momentum_sum,
         _logaddexp(left.logweight, right.logweight),
         left.eligible + right.eligible,

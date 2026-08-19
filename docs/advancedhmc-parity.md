@@ -23,7 +23,7 @@ coverage are tracked separately.
 |---|---|
 | Static trajectory | Endpoint HMC with fixed step count or fixed integration time |
 | Fixed multinomial trajectory | Multinomial HMC with a fixed trajectory |
-| Dynamic trajectory | Classic and generalized no-U-turn termination |
+| Dynamic trajectory | Classic, generalized, and strict-generalized no-U-turn termination |
 | Dynamic selection | Multinomial and slice selection for each no-U-turn criterion |
 | Integrators | Ordinary, per-trajectory jittered, and tempered leapfrog |
 | Metrics | Unit, diagonal, dense, and fixed low-rank-update Euclidean metrics |
@@ -56,8 +56,10 @@ available for endpoint HMC and NUTS, but deliberately rejected by the fixed
 multinomial constructor: endpoint correction alone does not establish the
 weights required to select among intermediate tempered states.
 
-The production-shaped fixed-parameter NUTS family is now runnable. Existing
-checked dynamic-tree samplers remain distinct foundations and conservative
+The production-shaped fixed-parameter NUTS family is now runnable, including
+AdvancedHMC's strict-generalized criterion and its two additional subtree
+U-turn checks. Existing checked dynamic-tree samplers remain distinct
+foundations and conservative
 clients: runtime availability is not relabeled as verified recursive NUTS
 without the remaining correspondence argument.
 
@@ -99,7 +101,7 @@ construct, or introduce a typed sub-IR/certified primitive.
 | Fixed multinomial HMC | Complete for ordinary and per-trajectory jittered leapfrog | Existing exact fixed-step multinomial-HMC theory; lifting its invariance through the state-independent jitter law remains to be packaged as a dedicated theorem |
 | Jittered endpoint HMC | Complete | Runtime mixture over fixed-step transitions; dedicated IR/refinement pending |
 | Tempered endpoint HMC | Complete | Runtime implementation; formal integrator/refinement pending |
-| Fixed-parameter NUTS family | Complete for classic/generalized × slice/multinomial × ordinary/jittered/tempered runtime combinations | Lean proves equal continuation and equal ordered candidate occurrences for successful online/completed builds; numerical tree construction and full transition correspondence remain pending |
+| Fixed-parameter NUTS family | Complete for classic/generalized/strict-generalized × slice/multinomial × ordinary/jittered/tempered runtime combinations | Lean proves equal continuation and equal ordered candidate occurrences for successful online/completed builds; numerical tree construction and full transition correspondence remain pending |
 | Partial momentum refresh | Complete for fixed-step endpoint runtime | Formal momentum-refresh foundations exist; runtime composition refinement pending |
 | Fixed low-rank-update metric | Complete through dense Reference lowering | General constant-metric foundations exist; factorized-performance lowering is not claimed |
 | Structured transition diagnostics | Complete for NUTS and partial-refresh transitions | Diagnostic data are not part of kernel correctness |
@@ -128,8 +130,9 @@ depths = [result.tree_depth for result in run.diagnostics]
 divergences = count(result -> result.divergent, run.diagnostics)
 ```
 
-Changing `termination` to `:classic` or `selection` to `:slice` selects the
-other covered combinations. This is presently a tested runtime implementation,
+Changing `termination` to `:classic` or `:strict_generalized`, or changing
+`selection` to `:slice`, selects the other covered combinations. This is
+presently a tested runtime implementation,
 not yet the endpoint of a Lean theorem identifying the online recursive Julia
 transition with the certified completed-tree kernel.
 

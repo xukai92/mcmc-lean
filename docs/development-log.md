@@ -66,6 +66,14 @@ constructing the selected fixed-step sampler. Seeded equality tests identify
 the jittered and tempered wrappers with those underlying transitions, including
 a non-unit metric.
 
+The upstream completion audit identified a previously omitted dynamic criterion:
+`StrictGeneralisedNoUTurn`. The public NUTS constructor now accepts
+`termination=:strict_generalized` and applies the ordinary generalized check
+plus AdvancedHMC's left- and right-subtree interface checks at every merge.
+Deterministic tests cover the complete three-termination × two-selection ×
+three-integrator runtime matrix, and a synthetic tree distinguishes the strict
+criterion from the ordinary generalized one.
+
 ## 2026-08-19: typed finite artifact parsing and lightweight optimization plan
 
 Added a Lean parser for the canonical S-expression artifact syntax and a typed

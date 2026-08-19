@@ -4,18 +4,19 @@
 
     for (integrator_index, integrator) in enumerate(
             (:leapfrog, :jittered, :tempered)),
-            termination in (:classic, :generalized),
+            (termination_index, termination) in enumerate(
+                (:classic, :generalized, :strict_generalized)),
             selection in (:multinomial, :slice)
         sampler = NUTS(logdensity, gradient, 0.2;
             max_depth=5, max_energy_error=100.0, termination, selection,
             integrator, jitter=0.2, temperature=1.1)
         first = sample_with_diagnostics(
             MersenneTwister(0x8100 + integrator_index * 64 +
-                Int(termination === :generalized) * 16 +
+                termination_index * 16 +
                 Int(selection === :slice)), sampler, zeros(2), 80)
         second = sample_with_diagnostics(
             MersenneTwister(0x8100 + integrator_index * 64 +
-                Int(termination === :generalized) * 16 +
+                termination_index * 16 +
                 Int(selection === :slice)), sampler, zeros(2), 80)
         @test first.samples == second.samples
         @test size(first.samples) == (2, 80)
@@ -106,6 +107,26 @@
         @test accepted.position == [1.0]
         @test rejected.position == [0.0]
     end
+
+    # The strict generalized criterion adds the two subtree checks used by
+    # AdvancedHMC. This synthetic merge passes the ordinary whole-tree check
+    # but turns at the left/subtree interface.
+    phase(momentum) = VerifiedSamplers._NUTSPhase(
+        [0.0], [momentum], 0.0, 0.0)
+    left_tree = VerifiedSamplers._NUTSTree(phase(1.0), phase(1.0),
+        phase(1.0), [-10.0], 0.0, 1, 0.0, 1, 0.0, false, false)
+    right_tree = VerifiedSamplers._NUTSTree(phase(1.0), phase(1.0),
+        phase(1.0), [20.0], 0.0, 1, 0.0, 1, 0.0, false, false)
+    generalized = NUTS(logdensity, gradient, 0.2;
+        termination=:generalized)
+    strict = NUTS(logdensity, gradient, 0.2;
+        termination=:strict_generalized)
+    ordinary_merge = VerifiedSamplers._combine_nuts_trees(
+        generalized, left_tree, right_tree, identity, phase(1.0))
+    strict_merge = VerifiedSamplers._combine_nuts_trees(
+        strict, left_tree, right_tree, identity, phase(1.0))
+    @test !ordinary_merge.stopped
+    @test strict_merge.stopped
 
     depth_limited = NUTS(logdensity, gradient, 0.01;
         max_depth=1, max_energy_error=100.0)
