@@ -14,7 +14,6 @@
     const colors = {
         "verified-reference": "#bf8700",
         "verified-optimized": "#1f6feb",
-        "optimized-runtime": "#8250df",
         "advancedhmc": "#cf222e"
     };
     const targetNames = {
