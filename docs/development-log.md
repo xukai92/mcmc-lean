@@ -1,5 +1,26 @@
 # Development log
 
+## 2026-08-19: calibrated RWMH quality regression
+
+Reused the existing seeded scalar Gaussian RWMH chain to exercise the shared
+moment, covariance, marginal-quantile, autocorrelation-ESS, and batch-means
+interfaces in one integrated regression. The mean tolerance is calibrated by
+the observed batch-means Monte Carlo standard error, while variance and
+quantile tolerances remain conservative fixed regression thresholds. This adds
+no extra sampling workload and remains empirical implementation evidence, not
+a convergence theorem.
+
+## 2026-08-19: completed RWMH sampler-development record
+
+Applied the sampler-development obligation template to scalar Gaussian RWMH.
+The resulting record connects the general-state Markov, reversibility, and
+invariance theorems to the exact kernel denotation, explicit-trace Lean
+interpreter, canonical artifact, Julia Reference/public/Optimized paths, and
+shared diagnostics. It also records normalization and convergence as separate
+obligations and keeps Julia `Float64`, callback, parser, and RNG assumptions
+outside the exact-real theorem. This is documentation of the existing golden
+path, not a new algorithm or a stronger execution theorem.
+
 ## 2026-08-19: fixed-parameter HMC runtime parity and recursive control bridge
 
 Added a non-adaptive Julia HMC surface covering fixed integration time,

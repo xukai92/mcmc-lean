@@ -4,6 +4,9 @@ Copy this record into a design issue or sampler-specific document when adding
 an algorithm. It is an obligation ledger, not a requirement to force the
 mathematics through the current executable IR.
 
+See the [Gaussian RWMH development record](rwmh-development-record.md) for a
+completed end-to-end example.
+
 ## 1. Mathematical identity
 
 - **Sampler name:**

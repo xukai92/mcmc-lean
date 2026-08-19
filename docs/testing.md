@@ -533,9 +533,11 @@ diagnostics is promoted to a stationarity or convergence proof.
 
 Quality work follows a stability-first order:
 
-1. share definitions and deterministic unit tests (current phase);
+1. share definitions and deterministic unit tests (complete);
 2. add small known-covariance and known-quantile sampler regressions with
-   batch-means uncertainty used to calibrate tolerances;
+   batch-means uncertainty used to calibrate tolerances (scalar Gaussian RWMH
+   complete; extend only when an existing sampler fixture supplies a stable,
+   analytical target);
 3. add multiple-chain split rank-normalized R-hat and bulk/tail ESS to the
    benchmark report, including ESS per gradient evaluation; and
 4. add covariance and ECDF/quantile visualizations with explicit Monte Carlo

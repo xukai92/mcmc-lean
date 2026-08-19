@@ -1166,8 +1166,21 @@ end
         sampler = GaussianRWMH(x -> -x^2 / 2, 1.0)
         chain = sample(MersenneTwister(2026), sampler, 0.0, 50_000)
         retained = @view chain[5_001:end]
-        @test abs(mean(retained)) < 0.08
-        @test abs(var(retained) - 1.0) < 0.12
+        retained_matrix = reshape(retained, 1, :)
+        diagnostics = QualityDiagnostics.moment_diagnostics(
+            retained_matrix, [0.0], [1.0])
+        mean_standard_error = only(
+            QualityDiagnostics.batch_mean_standard_error(retained_matrix))
+        @test abs(only(diagnostics.means)) < max(0.02, 4 * mean_standard_error)
+        @test diagnostics.relative_variance_rmse < 0.12
+        @test diagnostics.minimum_ess > 2_000
+        @test QualityDiagnostics.covariance_max_error(
+            retained_matrix, reshape([1.0], 1, 1)) < 0.12
+        normal_probabilities = [0.1, 0.5, 0.9]
+        normal_quantiles = reshape([-1.2815515655446004, 0.0,
+            1.2815515655446004], 1, :)
+        @test QualityDiagnostics.marginal_quantile_max_error(retained_matrix,
+            normal_probabilities, normal_quantiles) < 0.08
 
         accept_trace = Runtime.FloatTraceSource([
             Runtime.NormalEvent(0.5), Runtime.UniformEvent(0.8)])
