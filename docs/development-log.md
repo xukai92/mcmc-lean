@@ -47,6 +47,18 @@ these are deliberately separate rules. The maximum-energy diagnostic retains
 the signed error with greatest absolute magnitude rather than only its
 absolute value.
 
+Fixed multinomial HMC now composes with per-trajectory step-size jitter for
+unit, diagonal, dense, and fixed low-rank-update metrics. A deterministic trace
+test identifies the result with the existing fixed-step Reference transition at
+the realized step size, and metric smoke tests plus a Gaussian-moment diagnostic
+exercise the public API. The constructor intentionally rejects tempered
+multinomial trajectories: the endpoint tempering argument does not supply the
+correct weights for selecting an intermediate tempered state, and a strong
+diagnostic gave empirical evidence of bias for the naive energy weighting.
+Tempered endpoint HMC and tempered NUTS remain available; fixed tempered
+multinomial selection needs a separate weighting theorem before it can be
+exposed safely.
+
 ## 2026-08-19: typed finite artifact parsing and lightweight optimization plan
 
 Added a Lean parser for the canonical S-expression artifact syntax and a typed

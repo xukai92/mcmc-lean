@@ -838,25 +838,54 @@ coupled_meeting_diagnostic(sampler::Xu21CoupledSampler, initial::Tuple,
     coupled_meeting_diagnostic(Random.default_rng(), sampler, initial,
         replicates, max_steps)
 
+function _hmc_integrator_parameters(integrator::Symbol,
+        jitter::Real, temperature::Real)
+    integrator in (:leapfrog, :jittered, :tempered) || throw(ArgumentError(
+        "integrator must be :leapfrog, :jittered, or :tempered"))
+    jitter_amount, tempering = Float64(jitter), Float64(temperature)
+    isfinite(jitter_amount) && 0 <= jitter_amount < 1 || throw(ArgumentError(
+        "jitter must lie in [0, 1)"))
+    isfinite(tempering) && tempering > 0 || throw(ArgumentError(
+        "temperature must be finite and positive"))
+    integrator, jitter_amount, tempering
+end
+
 struct MultinomialHMC{F,G}
     logdensity::F
     gradient::G
     step_size::Float64
     steps::Int
+    integrator::Symbol
+    jitter::Float64
     function MultinomialHMC(logdensity::F, gradient::G, step_size::Real,
-            steps::Integer=10) where {F,G}
+            steps::Integer=10; integrator::Symbol=:leapfrog,
+            jitter::Real=0.1) where {F,G}
         converted = Float64(step_size)
         isfinite(converted) && converted > 0 ||
             throw(ArgumentError("step size must be finite and positive"))
         steps > 0 || throw(ArgumentError("trajectory length must be positive"))
-        new{F,G}(logdensity, gradient, converted, Int(steps))
+        kind, jitter_amount, _ =
+            _hmc_integrator_parameters(integrator, jitter, 1.0)
+        kind in (:leapfrog, :jittered) || throw(ArgumentError(
+            "fixed multinomial HMC supports :leapfrog and :jittered; " *
+            "tempered intermediate selection requires a weighting theorem"))
+        new{F,G}(logdensity, gradient, converted, Int(steps), kind,
+            jitter_amount)
     end
+end
+
+function _multinomial_hmc_step!(source::Runtime.AbstractRandomSource,
+        sampler::MultinomialHMC, current::AbstractVector{<:Real})
+    step_size = sampler.integrator === :jittered ?
+        sampler.step_size * (1 + sampler.jitter *
+            (2Runtime.uniform_unit!(source) - 1)) : sampler.step_size
+    Reference.multinomial_hmc_step!(source, sampler.logdensity,
+        sampler.gradient, step_size, sampler.steps, current)
 end
 
 function step(rng::AbstractRNG, sampler::MultinomialHMC,
         current::AbstractVector{<:Real})
-    Reference.multinomial_hmc_step!(Runtime.RNGSource(rng), sampler.logdensity,
-        sampler.gradient, sampler.step_size, sampler.steps, current)
+    _multinomial_hmc_step!(Runtime.RNGSource(rng), sampler, current)
 end
 
 step(sampler::MultinomialHMC, current::AbstractVector{<:Real}) =
@@ -962,14 +991,23 @@ struct MetricMultinomialHMC{F,G,M}
     metric::M
     step_size::Float64
     steps::Int
+    integrator::Symbol
+    jitter::Float64
     function MetricMultinomialHMC(logdensity::F, gradient::G, metric::M,
-            step_size::Real, steps::Integer=10) where
+            step_size::Real, steps::Integer=10;
+            integrator::Symbol=:leapfrog, jitter::Real=0.1) where
             {F,G,M<:Union{DiagonalMetric,DenseMetric,RankUpdateMetric}}
         converted = Float64(step_size)
         isfinite(converted) && converted > 0 ||
             throw(ArgumentError("step size must be finite and positive"))
         steps > 0 || throw(ArgumentError("trajectory length must be positive"))
-        new{F,G,M}(logdensity, gradient, metric, converted, Int(steps))
+        kind, jitter_amount, _ =
+            _hmc_integrator_parameters(integrator, jitter, 1.0)
+        kind in (:leapfrog, :jittered) || throw(ArgumentError(
+            "fixed multinomial HMC supports :leapfrog and :jittered; " *
+            "tempered intermediate selection requires a weighting theorem"))
+        new{F,G,M}(logdensity, gradient, metric, converted, Int(steps), kind,
+            jitter_amount)
     end
 end
 
@@ -1112,11 +1150,19 @@ sample(sampler::CertifiedRelativisticMultinomialHMC,
         initial::AbstractVector{<:Real}, count::Integer) =
     sample(Random.default_rng(), sampler, initial, count)
 
+function _multinomial_hmc_step!(source::Runtime.AbstractRandomSource,
+        sampler::MetricMultinomialHMC, current::AbstractVector{<:Real})
+    step_size = sampler.integrator === :jittered ?
+        sampler.step_size * (1 + sampler.jitter *
+            (2Runtime.uniform_unit!(source) - 1)) : sampler.step_size
+    Reference.metric_multinomial_hmc_step!(source, sampler.logdensity,
+        sampler.gradient, step_size, sampler.steps, current,
+        metric_mass(sampler.metric))
+end
+
 function step(rng::AbstractRNG, sampler::MetricMultinomialHMC,
         current::AbstractVector{<:Real})
-    Reference.metric_multinomial_hmc_step!(Runtime.RNGSource(rng),
-        sampler.logdensity, sampler.gradient, sampler.step_size, sampler.steps,
-        current, metric_mass(sampler.metric))
+    _multinomial_hmc_step!(Runtime.RNGSource(rng), sampler, current)
 end
 
 step(sampler::MetricMultinomialHMC, current::AbstractVector{<:Real}) =

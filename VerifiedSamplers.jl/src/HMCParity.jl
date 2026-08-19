@@ -306,7 +306,8 @@ function NUTS(logdensity::F, gradient::G, step_size::Real;
     metric isa Union{Nothing,DiagonalMetric,DenseMetric,RankUpdateMetric} ||
         throw(ArgumentError("unsupported fixed metric"))
     ε, Δmax = Float64(step_size), Float64(max_energy_error)
-    jitter_amount, tempering = Float64(jitter), Float64(temperature)
+    kind, jitter_amount, tempering =
+        _hmc_integrator_parameters(integrator, jitter, temperature)
     isfinite(ε) && ε > 0 ||
         throw(ArgumentError("step size must be finite and positive"))
     max_depth > 0 || throw(ArgumentError("maximum tree depth must be positive"))
@@ -316,14 +317,8 @@ function NUTS(logdensity::F, gradient::G, step_size::Real;
         "termination must be :classic or :generalized"))
     selection in (:multinomial, :slice) || throw(ArgumentError(
         "selection must be :multinomial or :slice"))
-    integrator in (:leapfrog, :jittered, :tempered) || throw(ArgumentError(
-        "integrator must be :leapfrog, :jittered, or :tempered"))
-    isfinite(jitter_amount) && 0 <= jitter_amount < 1 || throw(ArgumentError(
-        "jitter must lie in [0, 1)"))
-    isfinite(tempering) && tempering > 0 || throw(ArgumentError(
-        "temperature must be finite and positive"))
     NUTS{F,G,typeof(metric)}(logdensity, gradient, metric, ε,
-        Int(max_depth), Δmax, termination, selection, integrator,
+        Int(max_depth), Δmax, termination, selection, kind,
         jitter_amount, tempering)
 end
 

@@ -138,6 +138,59 @@ end
     end
 end
 
+@testset "multinomial integrator composition" begin
+    logdensity(q) = -sum(abs2, q) / 2
+    gradient(q) = q
+
+    jittered_source = Runtime.FloatTraceSource([
+        Runtime.UniformEvent(0.75), Runtime.NormalEvent(0.4),
+        Runtime.NormalEvent(-0.3), Runtime.IndexEvent(big(1)),
+        Runtime.UniformEvent(0.65)])
+    fixed_source = Runtime.FloatTraceSource([
+        Runtime.NormalEvent(0.4), Runtime.NormalEvent(-0.3),
+        Runtime.IndexEvent(big(1)), Runtime.UniformEvent(0.65)])
+    actual = VerifiedSamplers._multinomial_hmc_step!(jittered_source,
+        MultinomialHMC(logdensity, gradient, 0.2, 3;
+            integrator=:jittered, jitter=0.25), [0.2, -0.1])
+    expected = Reference.multinomial_hmc_step!(
+        fixed_source, logdensity, gradient, 0.225, 3, [0.2, -0.1])
+    @test actual ≈ expected atol=2e-14 rtol=2e-14
+    @test Runtime.remaining(jittered_source) == 0
+    @test Runtime.remaining(fixed_source) == 0
+
+    metrics = (
+        nothing,
+        DiagonalMetric([1.0, 2.0]),
+        DenseMetric([1.0 0.2; 0.2 1.5]),
+        RankUpdateMetric([1.0, 2.0], [1.0; -0.5;;], [0.25;;]),
+    )
+    for (index, metric) in enumerate(metrics)
+        sampler = metric === nothing ?
+            MultinomialHMC(logdensity, gradient, 0.15, 4;
+                integrator=:jittered, jitter=0.2) :
+            MetricMultinomialHMC(logdensity, gradient, metric, 0.15, 4;
+                integrator=:jittered, jitter=0.2)
+        draws = sample(MersenneTwister(0x7200 + 16index), sampler,
+            zeros(2), 30)
+        @test size(draws) == (2, 30)
+        @test all(isfinite, draws)
+    end
+
+    sampler = MultinomialHMC(logdensity, gradient, 0.2, 6;
+        integrator=:jittered, jitter=0.2)
+    draws = sample(MersenneTwister(0x7250), sampler,
+        zeros(2), 25_000)[:, 2_501:end]
+    @test all(abs.(vec(mean(draws; dims=2))) .< 0.08)
+    @test all(abs.(vec(var(draws; dims=2)) .- 1) .< 0.12)
+
+    @test_throws ArgumentError MultinomialHMC(logdensity, gradient, 0.2, 4;
+        integrator=:unknown)
+    @test_throws ArgumentError MultinomialHMC(logdensity, gradient, 0.2, 4;
+        integrator=:tempered)
+    @test_throws ArgumentError MetricMultinomialHMC(logdensity, gradient,
+        DiagonalMetric([1.0, 1.0]), 0.2, 4; integrator=:tempered)
+end
+
 @testset "partial momentum refresh" begin
     logdensity(q) = -sum(abs2, q) / 2
     gradient(q) = q

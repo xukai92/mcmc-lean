@@ -39,15 +39,22 @@ The maintained combinations are:
 |---|---:|---:|---:|---:|
 | Fixed-step endpoint | Yes | Yes | Yes | Yes, ordinary integrator |
 | Fixed integration time endpoint | Yes | Via equivalent fixed nominal step count | Via equivalent fixed nominal step count | No dedicated wrapper |
-| Fixed multinomial | Yes | No dedicated wrapper | No dedicated wrapper | No dedicated wrapper |
+| Fixed multinomial | Yes | Yes | No; intermediate-point weights need a separate theorem | No dedicated wrapper |
 | Dynamic NUTS | Yes | Yes | Yes | No dedicated wrapper |
 
 All maintained ordinary endpoint and NUTS paths accept unit, diagonal, dense,
-and fixed low-rank-update metrics. Jittered, tempered, and partial-refresh
-endpoint paths accept the same metrics. “Via equivalent fixed nominal step
-count” means the user constructs the corresponding integrator sampler with the
-step count determined from the nominal step size; it is not yet one composable
-constructor.
+and fixed low-rank-update metrics. Jittered fixed multinomial HMC and the
+jittered, tempered, and partial-refresh endpoint paths accept the same metrics.
+“Via equivalent fixed nominal step count” means the user constructs the
+corresponding integrator sampler with the step count determined from the nominal
+step size; it is not yet one composable constructor.
+
+The jittered multinomial constructor draws one state-independent step size and
+then invokes the existing fixed-step multinomial transition. It is therefore a
+mixture over the maintained fixed-step kernels. Symmetric momentum tempering is
+available for endpoint HMC and NUTS, but deliberately rejected by the fixed
+multinomial constructor: endpoint correction alone does not establish the
+weights required to select among intermediate tempered states.
 
 The production-shaped fixed-parameter NUTS family is now runnable. Existing
 checked dynamic-tree samplers remain distinct foundations and conservative
@@ -89,7 +96,7 @@ construct, or introduce a typed sub-IR/certified primitive.
 |---|---|---|
 | Fixed-step endpoint HMC | Complete | Existing exact endpoint-HMC theory |
 | Fixed-integration-time endpoint HMC | Complete | Reuses a fixed positive step count; dedicated public documentation pending |
-| Fixed multinomial HMC | Complete | Existing exact multinomial-HMC theory |
+| Fixed multinomial HMC | Complete for ordinary and per-trajectory jittered leapfrog | Existing exact fixed-step multinomial-HMC theory; lifting its invariance through the state-independent jitter law remains to be packaged as a dedicated theorem |
 | Jittered endpoint HMC | Complete | Runtime mixture over fixed-step transitions; dedicated IR/refinement pending |
 | Tempered endpoint HMC | Complete | Runtime implementation; formal integrator/refinement pending |
 | Fixed-parameter NUTS family | Complete for classic/generalized × slice/multinomial × ordinary/jittered/tempered runtime combinations | Lean proves equal continuation and equal ordered candidate occurrences for successful online/completed builds; numerical tree construction and full transition correspondence remain pending |
