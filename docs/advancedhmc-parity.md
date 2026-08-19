@@ -66,7 +66,7 @@ construct, or introduce a typed sub-IR/certified primitive.
 | Fixed multinomial HMC | Complete | Existing exact multinomial-HMC theory |
 | Jittered endpoint HMC | Complete | Runtime mixture over fixed-step transitions; dedicated IR/refinement pending |
 | Tempered endpoint HMC | Complete | Runtime implementation; formal integrator/refinement pending |
-| Fixed-parameter NUTS family | Complete for all four runtime combinations | Lean proves that online early-exit recursion and completed-tree checking have the same continuation result; candidate-selection, numerical-state, and full transition correspondence remain pending |
+| Fixed-parameter NUTS family | Complete for all four runtime combinations | Lean proves equal continuation and equal ordered candidate occurrences for successful online/completed builds; numerical tree construction and full transition correspondence remain pending |
 | Partial momentum refresh | Complete for fixed-step endpoint runtime | Formal momentum-refresh foundations exist; runtime composition refinement pending |
 | Fixed low-rank-update metric | Complete through dense Reference lowering | General constant-metric foundations exist; factorized-performance lowering is not claimed |
 | Structured transition diagnostics | Complete for NUTS and partial-refresh transitions | Diagnostic data are not part of kernel correctness |
@@ -104,6 +104,11 @@ The existing formal bridge is narrower and useful: for a precomputed recursive
 phase tree, `onlineBuildSummary_continues_eq_toBuildFlagTree` proves that an
 online builder which skips the right subtree after failure returns the same
 continuation bit as the completed-tree checker. A successful online build also
-visits every leaf. These theorems validate the early-exit Boolean control flow;
-they do not identify Julia's numerical tree construction or its slice or
-multinomial candidate selection with a verified transition kernel.
+visits every leaf and returns exactly the completed tree's candidate
+occurrences, preserving order and multiplicity. The generic consumer theorem
+then covers weighting and selection under any fixed random trace. Existing
+bounded leaf-energy and U-turn certificates now refine the entire online
+summary—continuation, visit count, and candidates—to its ideal-real counterpart.
+These theorems do not yet identify Julia's concrete recursive call trace with
+the formal precomputed tree, or the resulting complete transition with a
+verified invariant kernel.

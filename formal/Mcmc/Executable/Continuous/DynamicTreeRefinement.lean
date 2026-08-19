@@ -643,6 +643,28 @@ theorem RecursivePhaseTree.toBuildFlagTree_eq_of_decisionsAgree
       simp [RecursivePhaseTree.toBuildFlagTree, ihLeft hleft, ihRight hright,
         hroot]
 
+/-- The same tree-local certificates refine production-style early-exit
+recursion, including its visited count and ordered candidate occurrences—not
+only the completed Boolean flag tree. -/
+theorem RecursivePhaseTree.onlineBuildSummary_eq_of_decisionsAgree
+    {Phase : Type*}
+    (computedLeaf idealLeaf : Phase → Bool)
+    (computedTurns idealTurns : Phase → Phase → Bool)
+    (tree : RecursivePhaseTree Phase)
+    (hagrees : Mcmc.Executable.Continuous.RecursivePhaseTree.DecisionsAgree
+      computedLeaf idealLeaf computedTurns idealTurns tree) :
+    tree.onlineBuildSummary computedLeaf computedTurns =
+      tree.onlineBuildSummary idealLeaf idealTurns := by
+  induction tree with
+  | leaf phase =>
+      have hleaf : computedLeaf phase = idealLeaf phase := by
+        simpa [RecursivePhaseTree.DecisionsAgree] using hagrees
+      simp [RecursivePhaseTree.onlineBuildSummary, hleaf]
+  | node left right ihLeft ihRight =>
+      rcases hagrees with ⟨hleft, hright, hroot⟩
+      simp [RecursivePhaseTree.onlineBuildSummary, ihLeft hleft,
+        ihRight hright, hroot]
+
 /-- Hence a completed tree whose primitive numeric decisions carry bounded
 certificates has exactly the ideal recursive stopping trace. -/
 theorem RecursivePhaseTree.certifiedBuildFlagTree_eq_ideal
@@ -657,6 +679,24 @@ theorem RecursivePhaseTree.certifiedBuildFlagTree_eq_ideal
         (fun phase => (leafCertificate phase).idealContinues)
         (fun left right => (turnCertificate left right).idealTurns) :=
   Mcmc.Executable.Continuous.RecursivePhaseTree.toBuildFlagTree_eq_of_decisionsAgree
+    _ _ _ _ tree
+      (Mcmc.Executable.Continuous.RecursivePhaseTree.decisionsAgree_of_certificates
+        leafCertificate turnCertificate tree)
+
+/-- Bounded leaf-energy and U-turn certificates therefore identify the entire
+computed online summary with its ideal-real counterpart. -/
+theorem RecursivePhaseTree.certifiedOnlineBuildSummary_eq_ideal
+    {Phase : Type*}
+    (leafCertificate : Phase → NUTSLeafEnergyCertificate)
+    (turnCertificate : Phase → Phase → UTurnDecisionCertificate)
+    (tree : RecursivePhaseTree Phase) :
+    tree.onlineBuildSummary
+        (fun phase => (leafCertificate phase).computedContinues)
+        (fun left right => (turnCertificate left right).computedTurns) =
+      tree.onlineBuildSummary
+        (fun phase => (leafCertificate phase).idealContinues)
+        (fun left right => (turnCertificate left right).idealTurns) :=
+  Mcmc.Executable.Continuous.RecursivePhaseTree.onlineBuildSummary_eq_of_decisionsAgree
     _ _ _ _ tree
       (Mcmc.Executable.Continuous.RecursivePhaseTree.decisionsAgree_of_certificates
         leafCertificate turnCertificate tree)

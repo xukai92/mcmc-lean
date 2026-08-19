@@ -14,9 +14,15 @@ stationarity claim.
 At the formal control-flow boundary, `RecursivePhaseTree.onlineBuildSummary`
 models production-style early exit on a precomputed phase tree. Lean proves
 that its continuation result equals the existing completed-tree flag semantics
-and that a successful build visits every leaf. Numerical tree construction,
-candidate selection, and the correspondence of the complete Julia NUTS
-transition to a verified invariant kernel remain explicit obligations.
+and that a successful build visits every leaf. It now also retains candidate
+occurrences and proves that every successful online build yields exactly the
+completed tree's ordered leaf sequence, including multiplicity. A generic
+consumer congruence theorem covers weighting and selection under a fixed random
+trace. The bounded numerical refinement now lifts tree-local leaf-energy and
+U-turn certificates through that full online summary, including visited count
+and candidate order. Connecting Julia's concrete recursive call trace to the
+formal precomputed tree, and then the complete Julia transition to a verified
+invariant kernel, remain explicit obligations.
 
 ## 2026-08-19: typed finite artifact parsing and lightweight optimization plan
 

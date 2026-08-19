@@ -654,6 +654,23 @@ def RecursivePhaseTree.leafCount {Phase : Type*} :
   | .leaf _ => 1
   | .node left right => left.leafCount + right.leafCount
 
+/-- Phase points in left-to-right recursive traversal order. This list keeps
+trajectory multiplicity: two leaves with the same phase value remain two
+candidate occurrences. -/
+def RecursivePhaseTree.leaves {Phase : Type*} :
+    RecursivePhaseTree Phase → List Phase
+  | .leaf phase => [phase]
+  | .node left right => left.leaves ++ right.leaves
+
+@[simp] theorem RecursivePhaseTree.length_leaves {Phase : Type*}
+    (tree : RecursivePhaseTree Phase) :
+    tree.leaves.length = tree.leafCount := by
+  induction tree with
+  | leaf phase => rfl
+  | node left right ihLeft ihRight =>
+      simp [RecursivePhaseTree.leaves, RecursivePhaseTree.leafCount,
+        ihLeft, ihRight]
+
 /-- Left half of a flat length-`2^(depth+1)` trajectory. -/
 def balancedPhaseLeftHalf {Phase : Type*} {depth : ℕ}
     (phases : Fin (2 ^ (depth + 1)) → Phase) : Fin (2 ^ depth) → Phase :=
@@ -743,10 +760,12 @@ theorem RecursivePhaseTree.toBuildFlagTree_continues_eq_true_iff
 /-! ### Production-style early-exit recursion -/
 
 /-- Observable control summary of a recursive tree build. `visitedLeaves`
-counts completed numerical leaves; `continues` records whether the complete
+counts completed numerical leaves; `candidates` retains eligible phase
+occurrences in traversal order; `continues` records whether the complete
 subtree passed every leaf and internal U-turn check encountered online. -/
-structure OnlineBuildSummary where
+structure OnlineBuildSummary (Phase : Type*) where
   visitedLeaves : Nat
+  candidates : List Phase
   continues : Bool
   deriving DecidableEq, Repr
 
@@ -756,17 +775,20 @@ subtree fails. This deliberately excludes candidate selection and numerical
 state construction, which have separate semantic obligations. -/
 def RecursivePhaseTree.onlineBuildSummary {Phase : Type*}
     (leafContinues : Phase → Bool) (endpointTurns : Phase → Phase → Bool) :
-    RecursivePhaseTree Phase → OnlineBuildSummary
-  | .leaf phase => ⟨1, leafContinues phase⟩
+    RecursivePhaseTree Phase → OnlineBuildSummary Phase
+  | .leaf phase =>
+      ⟨1, if leafContinues phase then [phase] else [], leafContinues phase⟩
   | .node left right =>
       let leftResult := left.onlineBuildSummary leafContinues endpointTurns
       if !leftResult.continues then leftResult
       else
         let rightResult := right.onlineBuildSummary leafContinues endpointTurns
         if !rightResult.continues then
-          ⟨leftResult.visitedLeaves + rightResult.visitedLeaves, false⟩
+          ⟨leftResult.visitedLeaves + rightResult.visitedLeaves,
+            leftResult.candidates ++ rightResult.candidates, false⟩
         else
           ⟨leftResult.visitedLeaves + rightResult.visitedLeaves,
+            leftResult.candidates ++ rightResult.candidates,
             !(endpointTurns left.leftmost right.rightmost)⟩
 
 /-- Early-exit recursion succeeds exactly when the corresponding completed
@@ -822,6 +844,60 @@ theorem RecursivePhaseTree.onlineBuildSummary_visitedLeaves_eq_leafCount
       simp [RecursivePhaseTree.onlineBuildSummary, hleftContinues,
         hrightContinues, ihLeft hleftContinues, ihRight hrightContinues,
         RecursivePhaseTree.leafCount]
+
+/-- When online recursion succeeds, its candidate occurrences are exactly the
+completed tree's leaves, in the same traversal order. Consequently any later
+weighting or selection routine receives the same candidate sequence. -/
+theorem RecursivePhaseTree.onlineBuildSummary_candidates_eq_leaves
+    {Phase : Type*} (leafContinues : Phase → Bool)
+    (endpointTurns : Phase → Phase → Bool)
+    (tree : RecursivePhaseTree Phase)
+    (hcontinues :
+      (tree.onlineBuildSummary leafContinues endpointTurns).continues = true) :
+    (tree.onlineBuildSummary leafContinues endpointTurns).candidates =
+      tree.leaves := by
+  induction tree with
+  | leaf phase =>
+      simp [RecursivePhaseTree.onlineBuildSummary,
+        RecursivePhaseTree.leaves] at hcontinues ⊢
+      exact hcontinues
+  | node left right ihLeft ihRight =>
+      have hall := (onlineBuildSummary_continues_eq_true_iff
+        leafContinues endpointTurns (.node left right)).mp hcontinues
+      have hleftContinues := (onlineBuildSummary_continues_eq_true_iff
+        leafContinues endpointTurns left).mpr hall.1
+      have hrightContinues := (onlineBuildSummary_continues_eq_true_iff
+        leafContinues endpointTurns right).mpr hall.2.1
+      simp [RecursivePhaseTree.onlineBuildSummary, hleftContinues,
+        hrightContinues, ihLeft hleftContinues, ihRight hrightContinues,
+        RecursivePhaseTree.leaves]
+
+/-- Successful online recursion therefore produces one candidate occurrence
+per completed leaf. -/
+theorem RecursivePhaseTree.onlineBuildSummary_candidates_length
+    {Phase : Type*} (leafContinues : Phase → Bool)
+    (endpointTurns : Phase → Phase → Bool)
+    (tree : RecursivePhaseTree Phase)
+    (hcontinues :
+      (tree.onlineBuildSummary leafContinues endpointTurns).continues = true) :
+    (tree.onlineBuildSummary leafContinues endpointTurns).candidates.length =
+      tree.leafCount := by
+  rw [tree.onlineBuildSummary_candidates_eq_leaves leafContinues endpointTurns
+    hcontinues, tree.length_leaves]
+
+/-- Any deterministic downstream consumer—including weighting followed by
+selection under a fixed random trace—therefore returns the same result from a
+successful online build and from the completed candidate sequence. -/
+theorem RecursivePhaseTree.onlineBuildSummary_candidateConsumer_eq
+    {Phase Result : Type*} (leafContinues : Phase → Bool)
+    (endpointTurns : Phase → Phase → Bool)
+    (tree : RecursivePhaseTree Phase) (consume : List Phase → Result)
+    (hcontinues :
+      (tree.onlineBuildSummary leafContinues endpointTurns).continues = true) :
+    consume (tree.onlineBuildSummary leafContinues endpointTurns).candidates =
+      consume tree.leaves := by
+  rw [tree.onlineBuildSummary_candidates_eq_leaves leafContinues endpointTurns
+    hcontinues]
 
 /-- Concrete finite-dimensional NUTS flag tree using the already formalized
 Euclidean endpoint U-turn predicate. -/
