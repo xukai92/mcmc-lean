@@ -1291,6 +1291,31 @@ end
         @test_throws ArgumentError VectorHMC(logdensity, gradient, 0.0)
         @test_throws ArgumentError step(MersenneTwister(1), sampler, Float64[])
     end
+    @testset "shared benchmark target contracts" begin
+        targets = TestTargets.suite(2)
+        @test getproperty.(targets, :name) == [
+            "isotropic-gaussian", "correlated-gaussian-rho-0.9",
+            "product-quartic", "ill-conditioned-gaussian",
+            "regularized-logistic"]
+        point, δ = [0.3, -0.4], 1e-6
+        for target in targets
+            finite_difference = [(target.logdensity(point + δ .* (1:2 .== j)) -
+                target.logdensity(point - δ .* (1:2 .== j))) / (2δ)
+                for j in 1:2]
+            @test finite_difference ≈ -target.gradient(point) atol=1e-8
+            @test target.logdensity(point) == target.logdensity(-point)
+        end
+
+        for (offset, name) in enumerate(("product-quartic", "regularized-logistic"))
+            target = only(filter(target -> target.name == name, targets))
+            sampler = VectorHMC(target.logdensity, target.gradient, 0.12, 8)
+            chain = sample(MersenneTwister(0x7a40 + offset), sampler,
+                zeros(2), 20_000)[:, 2001:end]
+            @test maximum(abs, vec(mean(chain; dims=2))) < 0.08
+            empirical_variance = vec(var(chain; dims=2))
+            @test maximum(abs.(empirical_variance ./ target.variance .- 1)) < 0.15
+        end
+    end
     @testset "constant-metric vector HMC" begin
         covariance = [1.0 0.85; 0.85 2.0]
         precision = inv(covariance)

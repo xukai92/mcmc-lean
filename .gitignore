@@ -5,3 +5,7 @@
 /VerifiedSamplers.jl/Manifest.toml
 /docs/build/
 /docs/.documenter-src/
+/benchmark/results/dev.csv
+/benchmark/results/dev-timings.csv
+/benchmark/results/dev-quality.csv
+/benchmark/results/dev-metadata.csv

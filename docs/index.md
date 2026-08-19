@@ -31,6 +31,8 @@ arguments, and explicit audits of the targeted papers.
   separating parked platform refinements.
 - [Testing strategy](testing.md) separates proved properties from executable,
   differential, and statistical tests.
+- [Benchmark report](benchmarks.md) compares maintained HMC implementations
+  with AdvancedHMC on a small reproducible target suite.
 - [Progress matrix](progress.md) summarizes method-by-property and paper-target
   coverage without hiding conditional or parked boundaries.
 - [Core release audit](core-release-audit.md) maps each completed

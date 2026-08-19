@@ -14,6 +14,7 @@ pages = [
     ],
     "Testing and roadmap" => [
         "Testing strategy" => "testing.md",
+        "Benchmark report" => "benchmarks.md",
         "Progress matrix" => "progress.md",
         "Core release audit" => "core-release-audit.md",
         "Project completion status" => "project-status.md",
@@ -48,7 +49,8 @@ published_files = [
     "generated/architecture-graphs.md",
     "executable-architecture.md", "verified-execution-and-optimization.md",
     "continuous-executable-contract.md",
-    "testing.md", "progress.md", "core-release-audit.md", "project-status.md",
+    "testing.md", "benchmarks.md", "progress.md", "core-release-audit.md",
+    "project-status.md",
     "project-roadmap.md", "executable-roadmap.md",
     "finite-executable-roadmap.md",
     "development-log.md", "development-log-archive.md",
@@ -84,7 +86,7 @@ makedocs(
         # guard, not a browser or theorem-correctness boundary.
         size_threshold_warn = 490 * 2^10,
         size_threshold = 520 * 2^10,
-        search_size_threshold_warn = 930 * 2^10,
+        search_size_threshold_warn = 950 * 2^10,
         inventory_version = "dev",
     ),
     pages = pages,
