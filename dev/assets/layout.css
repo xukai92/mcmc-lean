@@ -1,0 +1,21 @@
+#verified-samplers-width-toggle {
+    align-items: center;
+    display: inline-flex;
+    font-size: 0.85rem;
+    gap: 0.35rem;
+    white-space: nowrap;
+}
+
+@media screen and (min-width: 1056px) {
+    html.verified-samplers-full-width #documenter .docs-main {
+        margin-right: 1rem;
+        max-width: none;
+        width: auto;
+    }
+}
+
+@media screen and (max-width: 700px) {
+    #verified-samplers-width-toggle .docs-label {
+        display: none;
+    }
+}
