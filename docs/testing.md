@@ -522,3 +522,24 @@ omits wall-clock thresholds, which would be unstable across machines. The
 command also requires the reference and optimized HMC chains to agree exactly
 under identical seeded draws. The registered Julia suite separately enforces
 minimum ESS, differential replay, and exact callback-count regressions.
+
+Sampling-quality formulas shared with the HMC benchmark live in
+`VerifiedSamplers.jl/test/support/QualityDiagnostics.jl`. Integrated tests use
+the same initial-positive-sequence ESS, known-moment, covariance, marginal
+quantile, and batch-means standard-error definitions as benchmark clients.
+Small calibrated regressions belong in the test suite; multi-chain and
+exploratory summaries remain non-gating benchmark evidence. None of these
+diagnostics is promoted to a stationarity or convergence proof.
+
+Quality work follows a stability-first order:
+
+1. share definitions and deterministic unit tests (current phase);
+2. add small known-covariance and known-quantile sampler regressions with
+   batch-means uncertainty used to calibrate tolerances;
+3. add multiple-chain split rank-normalized R-hat and bulk/tail ESS to the
+   benchmark report, including ESS per gradient evaluation; and
+4. add covariance and ECDF/quantile visualizations with explicit Monte Carlo
+   uncertainty and conspicuous non-gating warnings.
+
+Only metrics demonstrated stable across supported Julia versions and CI
+machines should become integrated pass/fail contracts.

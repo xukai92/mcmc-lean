@@ -1285,8 +1285,8 @@ end
         chain = sample(MersenneTwister(0x8c21), sampler, [0.0, 0.0], 40_000)
         retained = @view chain[:, 4001:end]
         @test all(abs.(vec(mean(retained; dims=2))) .< 0.08)
-        covariance = cov(permutedims(retained))
-        @test maximum(abs.(covariance - I)) < 0.12
+        @test QualityDiagnostics.covariance_max_error(
+            retained, Matrix{Float64}(I, 2, 2)) < 0.12
         @test size(sample(MersenneTwister(1), sampler, [0.0, 0.0], 3)) == (2, 3)
         @test_throws ArgumentError VectorHMC(logdensity, gradient, 0.0)
         @test_throws ArgumentError step(MersenneTwister(1), sampler, Float64[])
@@ -1311,9 +1311,11 @@ end
             sampler = VectorHMC(target.logdensity, target.gradient, 0.12, 8)
             chain = sample(MersenneTwister(0x7a40 + offset), sampler,
                 zeros(2), 20_000)[:, 2001:end]
-            @test maximum(abs, vec(mean(chain; dims=2))) < 0.08
-            empirical_variance = vec(var(chain; dims=2))
-            @test maximum(abs.(empirical_variance ./ target.variance .- 1)) < 0.15
+            diagnostics = QualityDiagnostics.moment_diagnostics(
+                chain, target.mean, target.variance)
+            @test maximum(abs, diagnostics.means) < 0.08
+            @test maximum(abs.(diagnostics.variances ./
+                target.variance .- 1)) < 0.15
         end
     end
     @testset "constant-metric vector HMC" begin

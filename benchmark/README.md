@@ -59,8 +59,10 @@ report does not relabel it with the current checkout or machine.
 Separate quality chains write `benchmark/results/quality.csv`. They report
 moment error against each fixture's known mean and marginal variance, minimum
 coordinate ESS, ESS/s, movement, AdvancedHMC acceptance and divergences, and
-mean integration work. These extend the lightweight gradient and moment checks
-registered in the Julia integration suite.
+mean integration work. The formulas come from the shared
+`VerifiedSamplers.jl/test/support/QualityDiagnostics.jl` support module rather
+than a benchmark-specific implementation. These extend the lightweight
+gradient and moment checks registered in the Julia integration suite.
 
 Quality diagnostics in the report are not convergence proofs or CI gates. The
 planned stronger checks are multiple independently seeded chains, split

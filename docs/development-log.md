@@ -6196,3 +6196,18 @@ the report.
 The stored CSV has a companion metadata record containing the producing
 commit, Julia version, and CPU. Report regeneration reads that record rather
 than stamping historical measurements with the current checkout or machine.
+
+The first consolidation phase adds a copyable sampler-development obligation
+record for researchers and agents. It preserves the existing Lean-first flow:
+mathematical definitions and proofs can precede or omit executable lowering,
+while later IR, Reference, optimized, and diagnostic obligations remain
+explicit. Sampling-quality calculations are now shared test support rather
+than benchmark-local formulas. The integrated suite and benchmark consume the
+same ESS and known-moment implementation; covariance, marginal-quantile, and
+batch-means standard-error helpers establish the next calibrated-test boundary.
+
+A sampler-independent invariance lemma was also moved out of Hamiltonian HMC:
+`Kernel.Invariant.smul` now lives in `Mcmc.Kernel.Invariant`, the public home
+for reusable target-preservation closure facts. This is a structural cleanup,
+not a new algorithm claim; existing HMC proofs consume the same theorem from
+the lower layer.

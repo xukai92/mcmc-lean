@@ -7,6 +7,8 @@ using VerifiedSamplers
 
 include(joinpath(@__DIR__, "..", "VerifiedSamplers.jl", "test", "support",
     "TestTargets.jl"))
+include(joinpath(@__DIR__, "..", "VerifiedSamplers.jl", "test", "support",
+    "QualityDiagnostics.jl"))
 
 const DEV_MODE = "--dev" in ARGS
 const UNKNOWN_ARGUMENTS = filter(!=("--dev"), ARGS)
@@ -115,38 +117,21 @@ function nuts_average_steps(hamiltonian, kernel, seed::Int, draws::Int)
     total_steps / draws
 end
 
-function ess(values; max_lag=min(500, length(values) ÷ 4))
-    centered = values .- mean(values)
-    variance = sum(abs2, centered) / length(centered)
-    variance > 0 || return 0.0
-    correlation_sum = 0.0
-    for lag in 1:max_lag
-        correlation = dot(@view(centered[1:(end - lag)]),
-            @view(centered[(lag + 1):end])) /
-            ((length(centered) - lag) * variance)
-        correlation <= 0 && break
-        correlation_sum += correlation
-    end
-    length(values) / (1 + 2correlation_sum)
-end
-
 function quality_summary(target, algorithm, implementation, chain, seconds;
         acceptance=NaN, divergences=0, average_steps=LEAPFROG_STEPS)
     burnin = QUALITY_DRAWS ÷ 10
-    retained = @view chain[:, (burnin + 1):end]
-    means = vec(mean(retained; dims=2))
-    variances = vec(var(retained; dims=2))
-    standardized_mean_rmse = sqrt(mean(abs2,
-        (means .- target.mean) ./ sqrt.(target.variance)))
-    relative_variance_rmse = sqrt(mean(abs2,
-        variances ./ target.variance .- 1))
-    coordinate_count = min(4, size(retained, 1))
-    minimum_ess = minimum(ess(@view retained[index, :])
-        for index in 1:coordinate_count)
+    coordinate_count = min(4, size(chain, 1))
+    diagnostics = QualityDiagnostics.moment_diagnostics(
+        chain, target.mean, target.variance; burnin,
+        ess_coordinates=coordinate_count)
+    retained_draws = diagnostics.retained_draws
+    minimum_ess = diagnostics.minimum_ess
+    standardized_mean_rmse = diagnostics.standardized_mean_rmse
+    relative_variance_rmse = diagnostics.relative_variance_rmse
     movement = mean(any(@view(chain[:, index]) .!= @view(chain[:, index - 1]))
         for index in 2:size(chain, 2))
     push!(QUALITY_ROWS, (; target=target.name, dimension=DIMENSION, algorithm,
-        implementation, draws=QUALITY_DRAWS, retained_draws=size(retained, 2),
+        implementation, draws=QUALITY_DRAWS, retained_draws,
         seconds, draws_per_second=QUALITY_DRAWS / seconds,
         minimum_ess, ess_per_second=minimum_ess / seconds,
         standardized_mean_rmse, relative_variance_rmse, movement,

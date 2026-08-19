@@ -1,5 +1,6 @@
 import Mcmc.Hamiltonian.Invariance
 import Mcmc.Hamiltonian.MomentumRefresh
+import Mcmc.Kernel.Invariant
 import Mcmc.Kernel.LiftEvolveProject
 import Mathlib.MeasureTheory.Measure.WithDensity
 import Mathlib.Probability.Kernel.Composition.Lemmas
@@ -131,12 +132,6 @@ theorem standardMomentumMeasure_eq_smul_kinetic :
     simp only [Pi.smul_apply, smul_eq_mul]
     exact isotropicGaussianPDF_one_eq_prefactor_mul_kinetic p]
   exact withDensity_smul _ measurable_kineticBoltzmannWeight
-
-/-- Invariance is unchanged by scaling the invariant measure. -/
-theorem Kernel.Invariant.smul {α : Type*} [MeasurableSpace α]
-    {κ : Kernel α α} {μ : Measure α} (h : κ.Invariant μ) (c : ℝ≥0∞) :
-    κ.Invariant (c • μ) := by
-  rw [Kernel.Invariant, Measure.comp_smul, h]
 
 /-- The usual position Boltzmann target paired with standard Gaussian momentum
 is a scalar multiple of the phase Boltzmann target. -/

@@ -21,6 +21,8 @@ arguments, and explicit audits of the targeted papers.
 - [Adding a sampler](development-guide.md) gives the contributor workflow from
   mathematical formalization through IR lowering, refinement, and Julia
   integration.
+- [Sampler development record](sampler-development-template.md) is a copyable
+  obligation ledger for theorem, execution, optimization, and diagnostics.
 - [Non-adaptive AdvancedHMC parity](advancedhmc-parity.md) records the current
   fixed-parameter HMC/NUTS runtime-coverage goal and its exclusions.
 - [Verified execution and optimization](verified-execution-and-optimization.md)

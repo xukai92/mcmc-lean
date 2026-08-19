@@ -43,6 +43,13 @@ executable representation ──refines──► mathematical sampler
 The mathematical definition should not be weakened or reshaped merely because
 the current IR lacks a construct.
 
+Start each addition with a copy of the
+[sampler development record](sampler-development-template.md). It keeps theorem,
+execution, optimization, and diagnostic obligations visible to both researchers
+and coding agents without making every stage mandatory. In particular, a
+mathematics-only contribution can complete its declared formal obligations and
+leave executable lowering explicitly pending.
+
 ## 1. Formalize the mathematical sampler
 
 Start under `formal/Mcmc/` at the lowest reusable layer. Prefer mathlib
