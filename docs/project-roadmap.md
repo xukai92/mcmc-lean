@@ -31,6 +31,14 @@ Floating-point refinement/certification is no longer required for core
 completion. The existing certificate stack remains an experimental, tested
 research layer.
 
+The next trust-reduction slice is deliberately finite and exact: Lean parses
+the artifact S-expression syntax, decodes categorical and generic finite-MH
+programs back into typed IR, and proves byte-for-byte re-rendering. Broader
+optimization remains demand-driven; the maintained Julia optimized layer is
+already sufficient, and established Julia transformation libraries will be
+used only for concrete measured passes. See the
+[execution and optimization note](verified-execution-and-optimization.md).
+
 The other theorem-heavy endpoints are parked as well: production-recursive
 NUTS equivalence, multidimensional BPS uniqueness/ergodicity, realistic
 never-freezing continuous adaptation, and fully general growing-horizon

@@ -57,6 +57,7 @@ import Mcmc.Executable.Finite.Program
 import Mcmc.Executable.Finite.CompilerIR
 import Mcmc.Executable.Finite.CompilerIRInterpreter
 import Mcmc.Executable.IRFormat
+import Mcmc.Executable.IRParser
 import Mcmc.Executable.ComposableIR
 import Mcmc.Executable.ConstrainedTransformIR
 import Mcmc.Executable.ComposableSemantics

@@ -11,7 +11,7 @@ boundaries; paper-specific repairs live in the corresponding coverage audits.
 | Core formal library | Complete at the declared theorem surface | Exact kernels/laws and their stated invariance, coupling, convergence, or estimator properties compile without proof placeholders |
 | Paper targets | Complete with documented corrections | Xu et al. (2021), Xu and Ge (2024), and the formal core drawn from Ge et al. (2018) have claim-by-claim audits |
 | Maintained Julia runtime | Complete for the registered core methods | Public samplers, generated/reference paths, optimized implementations, and registered diagnostics pass the release suite |
-| Cross-language assurance | Complete at the declared exact/guarded boundary | IR regeneration, oracle replay, exact finite execution, and selected per-run certificates are checked |
+| Cross-language assurance | Complete at the declared exact/guarded boundary | IR regeneration, typed finite parse/decode/re-render, oracle replay, exact finite execution, and selected per-run certificates are checked |
 | Universal floating-point assurance | Parked | No generic Julia/LLVM/IEEE-754/`libm`/RNG theorem is claimed |
 | Hard research extensions | Parked after substantial foundations | Production-NUTS equivalence, multidimensional BPS uniqueness/ergodicity, broader adaptive convergence, and model-uniform growing-horizon particle results are not core blockers |
 

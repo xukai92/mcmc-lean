@@ -371,6 +371,17 @@ correctness and extraction, but it is not an MCMC algorithm.
   Conditioning](https://software.imdea.org/~ab/Publications/bagnallSB_pldi23.pdf),
   PLDI 2023.
 
+### Julia transformation infrastructure
+
+[Metatheory.jl](https://juliasymbolics.github.io/Metatheory.jl/stable/) offers
+term rewriting and equality saturation for custom symbolic term interfaces;
+[IRTools.jl](https://fluxml.ai/IRTools.jl/latest/) exposes lowered Julia IR for
+analysis and transformation. They are implementation infrastructure, not proof
+systems for the sampler semantics. Verified Samplers therefore keeps semantic
+preservation in Lean or in a Lean-checked witness, and adopts either Julia
+library only for a concrete, measured transformation rather than maintaining a
+parallel general-purpose optimizer.
+
 ## Implications for this repository
 
 Nishimura, Dunson, and Lu embed discrete parameters into piecewise-constant
@@ -398,19 +409,19 @@ Markov kernel, satisfies detailed balance, and has the requested target as a
 stationary distribution. Detailed balance and stationarity alone do **not**
 show that the chain converges to that distribution from every initial state.
 
-A natural progression is:
+The repository has now implemented the following progression:
 
 1. retain the elementary finite proof as a transparent reference result;
 2. embed finite distributions and transition matrices into mathlib's
    measure-theoretic `ProbabilityTheory.Kernel` API;
 3. connect finite detailed balance to `Kernel.IsReversible` and obtain
    invariance using the library theorem;
-4. add irreducibility and aperiodicity hypotheses and prove a finite-state
-   convergence theorem; and
-5. generalize MH to measurable state spaces using measures, densities, or
+4. add explicit irreducibility/aperiodicity or minorization hypotheses for
+   scoped finite-state convergence results; and
+5. generalize MH to measurable state spaces using measures, densities, and
    Radon--Nikodym derivatives.
 
-Accordingly, descriptions of the current result should use terms such as
-"finite-state MH stationarity" or "detailed-balance correctness." Claims of
-"MCMC convergence" should be reserved for a theorem that includes the needed
+Accordingly, descriptions continue to distinguish "finite-state MH
+stationarity" and "detailed-balance correctness" from convergence. Claims of
+"MCMC convergence" are reserved for theorems that include the needed
 ergodicity hypotheses and a specified mode of convergence.

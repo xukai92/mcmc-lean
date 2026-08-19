@@ -6,6 +6,8 @@ pages = [
         "Formalization" => "architecture.md",
         "Lean-generated graphs" => "generated/architecture-graphs.md",
         "Executable system" => "executable-architecture.md",
+        "Verified execution and optimization" =>
+            "verified-execution-and-optimization.md",
         "Continuous executable contract" => "continuous-executable-contract.md",
     ],
     "Testing and roadmap" => [
@@ -40,7 +42,8 @@ pages = [
 # Documenter never copies its build directory back into itself.
 published_files = [
     "index.md", "architecture.md", "generated/architecture-graphs.md",
-    "executable-architecture.md", "continuous-executable-contract.md",
+    "executable-architecture.md", "verified-execution-and-optimization.md",
+    "continuous-executable-contract.md",
     "testing.md", "progress.md", "core-release-audit.md", "project-status.md",
     "project-roadmap.md", "executable-roadmap.md",
     "finite-executable-roadmap.md",
@@ -77,7 +80,7 @@ makedocs(
         # guard, not a browser or theorem-correctness boundary.
         size_threshold_warn = 490 * 2^10,
         size_threshold = 520 * 2^10,
-        search_size_threshold_warn = 900 * 2^10,
+        search_size_threshold_warn = 930 * 2^10,
         inventory_version = "dev",
     ),
     pages = pages,

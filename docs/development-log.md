@@ -1,5 +1,17 @@
 # Development log
 
+## 2026-08-19: typed finite artifact parsing and lightweight optimization plan
+
+Added a Lean parser for the canonical S-expression artifact syntax and a typed
+decoder for the finite command IR. The categorical and generic finite-MH
+programs now have compiled byte-for-byte parse/decode/re-render theorems;
+escaped strings round-trip, and an ill-typed return is rejected. This closes a
+finite serializer-format trust gap without claiming equivalence to the Julia
+parser or a formal semantics for Julia. The execution plan now keeps the
+existing handwritten `Optimized` layer, avoids a new optimizer framework, and
+reserves Metatheory.jl or IRTools.jl for concrete benchmark-motivated
+transformations whose semantic preservation is separately proved or checked.
+
 ## 2026-08-19: documentation consolidation and progress matrix
 
 Reduced the root README from a theorem ledger to a concise project entry point

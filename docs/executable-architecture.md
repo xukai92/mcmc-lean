@@ -60,6 +60,10 @@ The Julia interpreter, runtime, and optimized sources are maintained by hand.
 The IR artifact is committed so installing the Julia package does not require
 Lean.
 
+The [verified execution and optimization note](verified-execution-and-optimization.md)
+records these trust boundaries, the Lean artifact-parser path, and the
+deliberately lightweight role of Julia transformation libraries.
+
 ## Layered dependency graph
 
 ```mermaid

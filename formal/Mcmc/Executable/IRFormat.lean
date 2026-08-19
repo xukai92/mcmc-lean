@@ -88,7 +88,8 @@ private def stmtRender : Stmt → String
 private def Input.render (input : Input) : String :=
   list ["input", tyRender input.type, quote input.name]
 
-private def programRender (program : Program) : String :=
+/-- Render one typed finite command-IR program in the artifact format. -/
+def finiteProgramRender (program : Program) : String :=
   list ["program", quote program.name,
     list ("inputs" :: program.inputs.map Input.render),
     list ("body" :: program.body.map stmtRender)]
@@ -263,7 +264,8 @@ private def dynamicTreeDescriptorRender
 /-- Serialize all reference entry programs with a format version. -/
 def render : String :=
   list (["verified-samplers-ir", toString version,
-    programRender categoricalProgram, programRender metropolisHastingsProgram,
+    finiteProgramRender categoricalProgram,
+    finiteProgramRender metropolisHastingsProgram,
     continuousProgramRender Continuous.CompilerIR.gaussianRwmhProgram,
     continuousProgramRender Continuous.CompilerIR.scalarHmcProgram,
     continuousProgramRender Continuous.CompilerIR.vectorHmcProgram,
