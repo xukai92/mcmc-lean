@@ -1,0 +1,511 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1050" height="1440" viewBox="0 0 1050 1440" role="img" aria-labelledby="title desc">
+<title id="title">HMC transition-throughput distributions</title>
+<desc id="desc">Points show complete-chain timing repetitions; larger points and horizontal intervals show medians and interquartile ranges.</desc>
+<rect width="100%" height="100%" fill="white"/>
+<line x1="285.0" y1="48" x2="285.0" y2="1375" stroke="#d8dee4"/>
+<text x="285.0" y="30" text-anchor="middle" font-family="sans-serif" font-size="13" fill="#57606a">1000</text>
+<line x1="518.3333333333334" y1="48" x2="518.3333333333334" y2="1375" stroke="#d8dee4"/>
+<text x="518.3333333333334" y="30" text-anchor="middle" font-family="sans-serif" font-size="13" fill="#57606a">10000</text>
+<line x1="751.6666666666667" y1="48" x2="751.6666666666667" y2="1375" stroke="#d8dee4"/>
+<text x="751.6666666666667" y="30" text-anchor="middle" font-family="sans-serif" font-size="13" fill="#57606a">100000</text>
+<line x1="985.0" y1="48" x2="985.0" y2="1375" stroke="#d8dee4"/>
+<text x="985.0" y="30" text-anchor="middle" font-family="sans-serif" font-size="13" fill="#57606a">1000000</text>
+<text x="635.0" y="1395" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#24292f">transitions per second (log scale; higher is better)</text>
+<text x="271" y="72" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Isotropic Gaussian · Endpoint</text>
+<circle cx="583.8261732074959" cy="49" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="615.3126686232642" cy="51" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="615.8722054825125" cy="47" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="616.2602837672619" cy="49" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="614.9030282542494" cy="51" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="614.9626548931012" cy="47" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="616.5272798392034" cy="49" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="615.2277816834879" cy="51" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="615.77878586137" cy="47" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="616.1911660254511" cy="49" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<line x1="615.0290016495974" y1="49" x2="616.111519960805" y2="49" stroke="#bf8700" stroke-width="5" stroke-linecap="round"/>
+<circle cx="615.5459952448276" cy="49" r="6" fill="#bf8700" stroke="white" stroke-width="1.5"/>
+<circle cx="720.9915842542657" cy="67" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="723.0688615028689" cy="69" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="707.2456654756365" cy="65" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="711.3598003899424" cy="67" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="730.6904723753903" cy="69" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="797.0501549925344" cy="65" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="800.8442429951234" cy="67" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="807.3553076537886" cy="69" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="800.2454142281264" cy="65" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="802.5621983748006" cy="67" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<line x1="721.5149092663753" y1="67" x2="800.694867229994" y2="67" stroke="#1f6feb" stroke-width="5" stroke-linecap="round"/>
+<circle cx="769.2079148100447" cy="67" r="6" fill="#1f6feb" stroke="white" stroke-width="1.5"/>
+<circle cx="601.0277020869803" cy="85" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="636.1067520609015" cy="87" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="703.9588416531415" cy="83" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="711.5423283043924" cy="85" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="712.6246178829883" cy="87" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="713.3430449565144" cy="83" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="713.9784145425995" cy="85" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="714.7012895442147" cy="87" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="713.0351674468186" cy="83" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="713.9768880729055" cy="85" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<line x1="705.9085780345652" y1="85" x2="713.8187985900713" y2="85" stroke="#cf222e" stroke-width="5" stroke-linecap="round"/>
+<circle cx="712.830100577025" cy="85" r="6" fill="#cf222e" stroke="white" stroke-width="1.5"/>
+<text x="271" y="142" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Isotropic Gaussian · Multinomial</text>
+<circle cx="533.3058635687762" cy="119" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="615.2757921207092" cy="121" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="607.6302187876593" cy="117" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="600.3166447788299" cy="119" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="604.7156474580911" cy="121" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="596.528505403249" cy="117" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="599.9994982175085" cy="119" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="600.11397202017" cy="121" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="598.6697025150826" cy="117" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="598.6649847657783" cy="119" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<line x1="598.6661642236959" y1="119" x2="603.6336696290373" y2="119" stroke="#bf8700" stroke-width="5" stroke-linecap="round"/>
+<circle cx="600.0567512832959" cy="119" r="6" fill="#bf8700" stroke="white" stroke-width="1.5"/>
+<circle cx="638.023875160286" cy="137" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="631.1124253860958" cy="139" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="662.8338459412748" cy="135" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="687.7810303066976" cy="137" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="692.9574733221721" cy="139" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="690.9030162496858" cy="135" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="687.6292832621791" cy="137" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="672.0560472019106" cy="139" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="680.9991679423902" cy="135" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="681.8798303101389" cy="137" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<line x1="665.2192650086488" y1="137" x2="687.7431148437361" y2="137" stroke="#1f6feb" stroke-width="5" stroke-linecap="round"/>
+<circle cx="681.4404558056744" cy="137" r="6" fill="#1f6feb" stroke="white" stroke-width="1.5"/>
+<circle cx="582.250813530414" cy="155" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="611.6719494753829" cy="157" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="647.934017379657" cy="153" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="644.6494079839108" cy="155" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="645.1173386023297" cy="157" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="648.3653280452586" cy="153" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="645.3877873764325" cy="155" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="643.1147082800614" cy="157" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="643.9464559494802" cy="153" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="644.7240183970655" cy="155" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<line x1="643.3232860922305" y1="155" x2="645.3202428203156" y2="155" stroke="#cf222e" stroke-width="5" stroke-linecap="round"/>
+<circle cx="644.686720057184" cy="155" r="6" fill="#cf222e" stroke="white" stroke-width="1.5"/>
+<text x="271" y="212" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Isotropic Gaussian · Nuts</text>
+<circle cx="458.79152936128025" cy="225" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="494.9885839844211" cy="227" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="495.52912079152" cy="223" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="493.0992615094567" cy="225" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="496.17970560210927" cy="227" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="478.5760760769107" cy="223" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="465.5186571753785" cy="225" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="494.66126959795895" cy="227" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="501.13719123770045" cy="223" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="500.79452171023195" cy="225" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<line x1="482.4066201088941" y1="225" x2="496.01745055806" y2="225" stroke="#cf222e" stroke-width="5" stroke-linecap="round"/>
+<circle cx="494.82505894476503" cy="225" r="6" fill="#cf222e" stroke="white" stroke-width="1.5"/>
+<line x1="20" y1="242.0" x2="1030" y2="242.0" stroke="#8c959f" stroke-width="2"/>
+<text x="271" y="282" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Correlated Gaussian (ρ=0.9) · Endpoint</text>
+<circle cx="500.96653370512774" cy="259" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="532.9785727203005" cy="261" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="531.995941381199" cy="257" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="528.7727973880757" cy="259" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="528.0588745333108" cy="261" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="526.744126882773" cy="257" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="526.4524318376417" cy="259" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="525.188840766524" cy="261" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="528.0585668984199" cy="257" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="528.9651307334491" cy="259" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<line x1="526.525434353637" y1="259" x2="528.917081609379" y2="259" stroke="#bf8700" stroke-width="5" stroke-linecap="round"/>
+<circle cx="528.0587207159822" cy="259" r="6" fill="#bf8700" stroke="white" stroke-width="1.5"/>
+<circle cx="602.0144064517951" cy="277" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="594.0162295092069" cy="279" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="625.3624646882367" cy="275" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="637.5454518821114" cy="277" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="636.9657185318899" cy="279" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="640.8202884964869" cy="275" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="638.5998604198151" cy="277" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="635.986869999799" cy="279" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="632.3409282673927" cy="275" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="634.0030026746654" cy="277" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<line x1="627.1526489387766" y1="277" x2="637.4008291809305" y2="277" stroke="#1f6feb" stroke-width="5" stroke-linecap="round"/>
+<circle cx="634.9997910912532" cy="277" r="6" fill="#1f6feb" stroke="white" stroke-width="1.5"/>
+<circle cx="546.7573520811394" cy="295" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="588.7932574156878" cy="297" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="604.6561730076065" cy="293" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="604.092918896643" cy="295" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="606.3106995149267" cy="297" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="605.3238099140522" cy="293" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="604.6827958727927" cy="295" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="604.2347427688394" cy="297" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="606.3873447304807" cy="293" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="603.8620164789047" cy="295" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<line x1="603.919791427074" y1="295" x2="605.1639361442885" y2="295" stroke="#cf222e" stroke-width="5" stroke-linecap="round"/>
+<circle cx="604.4456769668407" cy="295" r="6" fill="#cf222e" stroke="white" stroke-width="1.5"/>
+<text x="271" y="352" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Correlated Gaussian (ρ=0.9) · Multinomial</text>
+<circle cx="459.9689519411369" cy="329" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="490.72483728878626" cy="331" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="489.98025766183594" cy="327" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="490.061753518473" cy="329" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="490.7573420109359" cy="331" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="490.90090557640474" cy="327" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="491.7399424843279" cy="329" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="493.70341263005355" cy="331" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="492.8196592817633" cy="327" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="490.77214401274114" cy="329" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<line x1="490.2279316726641" y1="329" x2="491.5308336449825" y2="329" stroke="#bf8700" stroke-width="5" stroke-linecap="round"/>
+<circle cx="490.7647432821035" cy="329" r="6" fill="#bf8700" stroke="white" stroke-width="1.5"/>
+<circle cx="531.8261738146417" cy="347" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="564.6116206716495" cy="349" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="575.9263452266634" cy="345" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="578.544903196967" cy="347" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="580.0067911443091" cy="349" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="580.8689569801288" cy="345" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="579.6490764353558" cy="347" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="581.5259875188624" cy="349" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="584.1849757291448" cy="345" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="583.2264614889838" cy="347" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<line x1="576.5873555763148" y1="347" x2="581.3621288278148" y2="347" stroke="#1f6feb" stroke-width="5" stroke-linecap="round"/>
+<circle cx="579.8280916317278" cy="347" r="6" fill="#1f6feb" stroke="white" stroke-width="1.5"/>
+<circle cx="537.967069245841" cy="365" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="578.5243852121364" cy="367" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="585.6679872788498" cy="363" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="582.9630343450119" cy="365" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="584.6936200693948" cy="367" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="584.3798064691266" cy="363" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="587.9292132980438" cy="365" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="588.8009042020985" cy="367" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="588.610051790439" cy="363" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="590.0980256482117" cy="365" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<line x1="583.319088691972" y1="365" x2="588.4402705299874" y2="365" stroke="#cf222e" stroke-width="5" stroke-linecap="round"/>
+<circle cx="585.1819747703005" cy="365" r="6" fill="#cf222e" stroke="white" stroke-width="1.5"/>
+<text x="271" y="422" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Correlated Gaussian (ρ=0.9) · Nuts</text>
+<circle cx="345.3683421504036" cy="435" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="352.84366298132977" cy="437" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="342.3751548692858" cy="433" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="352.1629872952617" cy="435" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="341.5555766039623" cy="437" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="351.63296453457104" cy="433" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="339.3764530388995" cy="435" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="350.73425169062415" cy="437" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="339.4956559164943" cy="433" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="350.59034385897684" cy="435" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<line x1="341.76109343585466" y1="435" x2="351.40903244466546" y2="435" stroke="#cf222e" stroke-width="5" stroke-linecap="round"/>
+<circle cx="348.012976723418" cy="435" r="6" fill="#cf222e" stroke="white" stroke-width="1.5"/>
+<text x="271" y="492" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Correlated Gaussian (ρ=0.9) · Preconditioned-endpoint</text>
+<circle cx="502.77756293990626" cy="505" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="539.9257855393313" cy="507" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="541.4088556372174" cy="503" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="545.6220776851117" cy="505" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="543.206366815635" cy="507" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="545.3311018162638" cy="503" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="543.8738392966015" cy="505" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="540.6789925567597" cy="507" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="543.280168552014" cy="503" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="541.0305074636378" cy="505" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<line x1="540.7669856630938" y1="505" x2="543.7257473549334" y2="505" stroke="#cf222e" stroke-width="5" stroke-linecap="round"/>
+<circle cx="542.3115967595465" cy="505" r="6" fill="#cf222e" stroke="white" stroke-width="1.5"/>
+<text x="271" y="562" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Correlated Gaussian (ρ=0.9) · Preconditioned-multinomial</text>
+<circle cx="496.6946252984527" cy="575" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="527.0332789169406" cy="577" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="527.2613813186837" cy="573" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="526.8382374129105" cy="575" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="525.3354281126086" cy="577" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="523.1514389836964" cy="573" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="526.2720773593528" cy="575" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="526.9580531673703" cy="577" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="524.3682408450597" cy="573" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="522.8132299190486" cy="575" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<line x1="523.4570119653895" y1="575" x2="526.9281125073599" y2="575" stroke="#cf222e" stroke-width="5" stroke-linecap="round"/>
+<circle cx="525.8048349205742" cy="575" r="6" fill="#cf222e" stroke="white" stroke-width="1.5"/>
+<line x1="20" y1="592.0" x2="1030" y2="592.0" stroke="#8c959f" stroke-width="2"/>
+<text x="271" y="632" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Product quartic · Endpoint</text>
+<circle cx="544.1052906889341" cy="609" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="606.0893884792549" cy="611" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="607.4968044559881" cy="607" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="612.0474115482599" cy="609" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="606.4440843816037" cy="611" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="608.4391615484459" cy="607" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="608.9760894954768" cy="609" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="600.0457488453467" cy="611" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="606.9809414829483" cy="607" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="608.2015774311949" cy="609" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<line x1="606.1781789145637" y1="609" x2="608.3798177197009" y2="609" stroke="#bf8700" stroke-width="5" stroke-linecap="round"/>
+<circle cx="607.2392012288603" cy="609" r="6" fill="#bf8700" stroke="white" stroke-width="1.5"/>
+<circle cx="673.2857459941379" cy="627" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="656.054363089359" cy="629" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="675.1639763913067" cy="625" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="741.2304572363096" cy="627" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="763.0598261449404" cy="629" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="770.5219267938846" cy="625" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="771.8631212944515" cy="627" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="757.1182461302008" cy="629" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="766.9218512614179" cy="625" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="765.4289523444313" cy="627" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<line x1="696.1273440057569" y1="627" x2="766.5506833808795" y2="627" stroke="#1f6feb" stroke-width="5" stroke-linecap="round"/>
+<circle cx="760.1325763573789" cy="627" r="6" fill="#1f6feb" stroke="white" stroke-width="1.5"/>
+<circle cx="583.8851397898213" cy="645" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="629.072126727184" cy="647" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="680.7358102237872" cy="643" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="672.8207848114982" cy="645" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="678.6890637011063" cy="647" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="681.1217987521657" cy="643" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="678.8887703408527" cy="645" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="676.4270762545884" cy="647" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="681.3747206627186" cy="643" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="678.8171384751045" cy="645" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<line x1="673.7344607058076" y1="645" x2="680.2771968413567" y2="645" stroke="#cf222e" stroke-width="5" stroke-linecap="round"/>
+<circle cx="678.7531213218417" cy="645" r="6" fill="#cf222e" stroke="white" stroke-width="1.5"/>
+<text x="271" y="702" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Product quartic · Multinomial</text>
+<circle cx="518.6254549638661" cy="679" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="581.6245647356986" cy="681" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="577.904002218215" cy="677" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="580.7209921313292" cy="679" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="579.6601237985834" cy="681" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="578.9735779657212" cy="677" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="580.4653443968609" cy="679" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="577.9961142045811" cy="681" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="580.1394905267009" cy="677" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="579.1111543994984" cy="679" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<line x1="578.2413654820679" y1="679" x2="580.383979109334" y2="679" stroke="#bf8700" stroke-width="5" stroke-linecap="round"/>
+<circle cx="579.386010843632" cy="679" r="6" fill="#bf8700" stroke="white" stroke-width="1.5"/>
+<circle cx="590.091795544613" cy="697" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="607.346858319097" cy="699" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="677.1564878976997" cy="695" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="665.7589888720472" cy="697" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="661.7485384852637" cy="699" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="654.5267423049522" cy="695" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="657.2254331535039" cy="697" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="656.0896284937355" cy="699" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="658.3022289789221" cy="695" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="649.8218974286654" cy="697" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<line x1="651.0187452567945" y1="697" x2="660.8978867012024" y2="697" stroke="#1f6feb" stroke-width="5" stroke-linecap="round"/>
+<circle cx="656.6591221304809" cy="697" r="6" fill="#1f6feb" stroke="white" stroke-width="1.5"/>
+<circle cx="563.013585835349" cy="715" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="606.0161897132755" cy="717" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="629.4357228550505" cy="713" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="633.8954800647489" cy="715" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="632.2323712232228" cy="717" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="632.4534738199116" cy="713" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="634.6644090676214" cy="715" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="631.2167083157487" cy="717" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="632.0958910541151" cy="713" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="635.2539905898964" cy="715" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<line x1="629.8839122847444" y1="715" x2="633.5368976686032" y2="715" stroke="#cf222e" stroke-width="5" stroke-linecap="round"/>
+<circle cx="632.1641541153867" cy="715" r="6" fill="#cf222e" stroke="white" stroke-width="1.5"/>
+<text x="271" y="772" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Product quartic · Nuts</text>
+<circle cx="496.0914059462989" cy="785" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="551.3519063161239" cy="787" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="551.0019368318863" cy="783" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="549.614456488998" cy="785" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="546.8077735392333" cy="787" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="551.6880584793165" cy="783" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="548.8101025102919" cy="785" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="547.9472640681433" cy="787" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="549.9316470585197" cy="783" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="550.4529494478049" cy="785" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<line x1="548.1636634175452" y1="785" x2="550.8649685610753" y2="785" stroke="#cf222e" stroke-width="5" stroke-linecap="round"/>
+<circle cx="549.773175878757" cy="785" r="6" fill="#cf222e" stroke="white" stroke-width="1.5"/>
+<line x1="20" y1="802.0" x2="1030" y2="802.0" stroke="#8c959f" stroke-width="2"/>
+<text x="271" y="842" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Ill-conditioned Gaussian · Endpoint</text>
+<circle cx="543.0659452629084" cy="819" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="607.2901717733505" cy="821" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="611.1245227685029" cy="817" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="611.0070989042949" cy="819" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="613.7668282237202" cy="821" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="616.6023392844986" cy="817" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="613.3026447960233" cy="819" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="610.1076560886574" cy="821" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="610.487317755586" cy="817" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="608.9090648659444" cy="819" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<line x1="609.2100443735262" y1="819" x2="612.7624876362345" y2="819" stroke="#bf8700" stroke-width="5" stroke-linecap="round"/>
+<circle cx="610.7475415947745" cy="819" r="6" fill="#bf8700" stroke="white" stroke-width="1.5"/>
+<circle cx="675.7965109957884" cy="837" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="654.9291386849197" cy="839" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="674.1794594835108" cy="835" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="757.208091021882" cy="837" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="778.7852954163227" cy="839" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="781.4617375700418" cy="835" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="775.589317819592" cy="837" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="769.3061702513892" cy="839" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="764.9424370437278" cy="835" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="771.2992198165307" cy="837" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<line x1="703.0261481758196" y1="837" x2="774.5337001247312" y2="837" stroke="#1f6feb" stroke-width="5" stroke-linecap="round"/>
+<circle cx="767.147790874531" cy="837" r="6" fill="#1f6feb" stroke="white" stroke-width="1.5"/>
+<circle cx="581.1318302951711" cy="855" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="642.1916727893893" cy="857" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="698.5192933414642" cy="853" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="706.4777351399241" cy="855" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="704.6775084230089" cy="857" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="708.3155813820167" cy="853" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="700.6515752680275" cy="855" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="705.3860851011061" cy="857" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="702.1071321490606" cy="853" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="705.7106508351183" cy="855" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<line x1="699.0565848467736" y1="855" x2="705.629606807136" y2="855" stroke="#cf222e" stroke-width="5" stroke-linecap="round"/>
+<circle cx="703.4004697807386" cy="855" r="6" fill="#cf222e" stroke="white" stroke-width="1.5"/>
+<text x="271" y="912" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Ill-conditioned Gaussian · Multinomial</text>
+<circle cx="522.8436273274594" cy="889" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="582.2473709491269" cy="891" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="575.4304365478563" cy="887" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="577.1450647687748" cy="889" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="577.6945695856812" cy="891" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="573.250892383661" cy="887" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="571.8253573154425" cy="889" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="575.4988119644474" cy="891" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="578.5344857361179" cy="887" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="571.1635529832233" cy="889" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<line x1="572.1836255217086" y1="889" x2="577.5574724818" y2="889" stroke="#bf8700" stroke-width="5" stroke-linecap="round"/>
+<circle cx="575.4646300231375" cy="889" r="6" fill="#bf8700" stroke="white" stroke-width="1.5"/>
+<circle cx="591.9860502226968" cy="907" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="613.0388331352319" cy="909" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="675.0306940619532" cy="905" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="669.9402692967869" cy="907" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="654.1429080408423" cy="909" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="647.7870713075513" cy="905" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="657.2293182502979" cy="907" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="659.4520261508101" cy="909" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="659.6752643696655" cy="905" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="654.96867132955" cy="907" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<line x1="649.4137923388059" y1="907" x2="659.6195009029418" y2="907" stroke="#1f6feb" stroke-width="5" stroke-linecap="round"/>
+<circle cx="656.1052986328848" cy="907" r="6" fill="#1f6feb" stroke="white" stroke-width="1.5"/>
+<circle cx="567.1787817157726" cy="925" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="606.4991427539112" cy="927" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="644.438664426121" cy="923" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="643.4177245383387" cy="925" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="644.1749225959406" cy="927" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="640.6671451195677" cy="923" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="644.2611131890972" cy="925" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="644.828410485552" cy="927" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="643.6920296325516" cy="923" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="643.7699861585888" cy="925" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<line x1="641.3618209470708" y1="925" x2="644.2395724125738" y2="925" stroke="#cf222e" stroke-width="5" stroke-linecap="round"/>
+<circle cx="643.7310153919893" cy="925" r="6" fill="#cf222e" stroke="white" stroke-width="1.5"/>
+<text x="271" y="982" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Ill-conditioned Gaussian · Nuts</text>
+<circle cx="296.8002766724519" cy="995" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="293.9147389207186" cy="997" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="298.4039599599154" cy="993" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="298.6587329204905" cy="995" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="306.90760735578976" cy="997" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="309.894465240836" cy="993" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="311.2991235745389" cy="995" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="311.6266138663831" cy="997" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="296.0044091058495" cy="993" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="294.8482986307689" cy="995" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<line x1="296.2039627563076" y1="995" x2="309.15596367340294" y2="995" stroke="#cf222e" stroke-width="5" stroke-linecap="round"/>
+<circle cx="298.5314265075557" cy="995" r="6" fill="#cf222e" stroke="white" stroke-width="1.5"/>
+<text x="271" y="1052" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Ill-conditioned Gaussian · Preconditioned-endpoint</text>
+<circle cx="569.3790312565218" cy="1065" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="625.6528102104696" cy="1067" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="677.2045425469857" cy="1063" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="682.5701487067781" cy="1065" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="683.6147280403297" cy="1067" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="679.4988978964511" cy="1063" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="678.5261608423366" cy="1065" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="681.2016474561885" cy="1067" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="679.9532150531395" cy="1063" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="673.9229851724699" cy="1065" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<line x1="674.7533907158802" y1="1065" x2="680.8909783094255" y2="1065" stroke="#cf222e" stroke-width="5" stroke-linecap="round"/>
+<circle cx="679.0136965502836" cy="1065" r="6" fill="#cf222e" stroke="white" stroke-width="1.5"/>
+<text x="271" y="1122" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Ill-conditioned Gaussian · Preconditioned-multinomial</text>
+<circle cx="556.1309254453986" cy="1135" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="601.9013903836816" cy="1137" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="627.5935299080109" cy="1133" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="628.2160329263236" cy="1135" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="626.6558648967607" cy="1137" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="627.582276607639" cy="1133" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="636.0659815565202" cy="1135" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="642.8002478491937" cy="1137" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="643.3221851239666" cy="1133" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="640.1055522870931" cy="1135" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<line x1="626.8882630294593" y1="1135" x2="639.1106557148173" y2="1135" stroke="#cf222e" stroke-width="5" stroke-linecap="round"/>
+<circle cx="627.9052594207551" cy="1135" r="6" fill="#cf222e" stroke="white" stroke-width="1.5"/>
+<line x1="20" y1="1152.0" x2="1030" y2="1152.0" stroke="#8c959f" stroke-width="2"/>
+<text x="271" y="1192" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Regularized logistic · Endpoint</text>
+<circle cx="509.98011630230985" cy="1169" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="551.4277067701618" cy="1171" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="552.3797293269565" cy="1167" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="554.2349451247512" cy="1169" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="552.0655616784951" cy="1171" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="552.9627763506578" cy="1167" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="554.787757246943" cy="1169" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="552.7055962799402" cy="1171" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="552.1131396336227" cy="1167" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="551.8426340409849" cy="1169" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<line x1="551.8984119439397" y1="1169" x2="552.8985424977045" y2="1169" stroke="#bf8700" stroke-width="5" stroke-linecap="round"/>
+<circle cx="552.2465221471598" cy="1169" r="6" fill="#bf8700" stroke="white" stroke-width="1.5"/>
+<circle cx="611.7092676714576" cy="1187" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="609.3532605248486" cy="1189" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="618.5063369409554" cy="1185" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="652.607522464562" cy="1187" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="656.6709390924225" cy="1189" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="658.1333690654601" cy="1185" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="655.9951865485323" cy="1187" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="656.6922280670428" cy="1189" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="658.891149236749" cy="1185" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="658.5003288584428" cy="1187" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<line x1="628.1661077611461" y1="1187" x2="657.7750006812378" y2="1187" stroke="#1f6feb" stroke-width="5" stroke-linecap="round"/>
+<circle cx="656.3336260993865" cy="1187" r="6" fill="#1f6feb" stroke="white" stroke-width="1.5"/>
+<circle cx="550.3577372517052" cy="1205" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="581.1847734721737" cy="1207" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="609.4710159882009" cy="1203" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="607.5343894649907" cy="1205" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="610.1595809300204" cy="1207" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="606.7896016120837" cy="1203" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="610.5450414065788" cy="1205" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="608.1525086739649" cy="1207" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="608.3621318231981" cy="1203" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="610.2542429307266" cy="1205" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<line x1="606.9763123902997" y1="1205" x2="609.9878778292904" y2="1205" stroke="#cf222e" stroke-width="5" stroke-linecap="round"/>
+<circle cx="608.2573744520805" cy="1205" r="6" fill="#cf222e" stroke="white" stroke-width="1.5"/>
+<text x="271" y="1262" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Regularized logistic · Multinomial</text>
+<circle cx="468.7261326415594" cy="1239" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="503.46034352611514" cy="1241" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="504.3198621773914" cy="1237" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="502.80141880683163" cy="1239" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="504.28596167272667" cy="1241" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="503.80797606529416" cy="1237" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="502.4140734091691" cy="1239" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="503.9017583274343" cy="1241" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="504.8369548890133" cy="1237" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<circle cx="505.4564452660486" cy="1239" r="3" fill="#bf8700" fill-opacity="0.30"/>
+<line x1="502.9665521032448" y1="1239" x2="504.3113881143844" y2="1239" stroke="#bf8700" stroke-width="5" stroke-linecap="round"/>
+<circle cx="503.8548780453792" cy="1239" r="6" fill="#bf8700" stroke="white" stroke-width="1.5"/>
+<circle cx="542.2372643987535" cy="1257" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="555.1244197129992" cy="1259" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="584.1909974568439" cy="1255" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="584.7453646337651" cy="1257" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="585.9312063338282" cy="1259" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="585.0218730512146" cy="1255" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="584.9878998794522" cy="1257" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="583.8848114084224" cy="1259" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="587.5296510390399" cy="1255" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<circle cx="587.114289907986" cy="1257" r="3" fill="#1f6feb" fill-opacity="0.30"/>
+<line x1="583.961444696519" y1="1257" x2="585.70463685948" y2="1257" stroke="#1f6feb" stroke-width="5" stroke-linecap="round"/>
+<circle cx="584.8667048168189" cy="1257" r="6" fill="#1f6feb" stroke="white" stroke-width="1.5"/>
+<circle cx="538.0948597479684" cy="1275" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="565.8173738588157" cy="1277" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="585.4957239233056" cy="1273" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="585.3462584226377" cy="1275" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="585.5579757783191" cy="1277" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="582.1514153241486" cy="1273" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="579.6335964888997" cy="1275" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="578.6990534817596" cy="1277" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="580.0107430747969" cy="1273" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="581.4294883208263" cy="1275" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<line x1="578.9334984699171" y1="1275" x2="584.5569409183829" y2="1275" stroke="#cf222e" stroke-width="5" stroke-linecap="round"/>
+<circle cx="580.7225985691093" cy="1275" r="6" fill="#cf222e" stroke="white" stroke-width="1.5"/>
+<text x="271" y="1332" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Regularized logistic · Nuts</text>
+<circle cx="412.9769026307681" cy="1345" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="428.6171869937924" cy="1347" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="428.69241811009294" cy="1343" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="428.1337614173759" cy="1345" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="430.286368785566" cy="1347" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="429.05282727101024" cy="1343" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="426.85919537424826" cy="1345" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="425.46806287262723" cy="1347" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="403.8784097595139" cy="1343" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<circle cx="427.1494025736546" cy="1345" r="3" fill="#cf222e" fill-opacity="0.30"/>
+<line x1="425.8176404789451" y1="1345" x2="428.67361556643687" y2="1345" stroke="#cf222e" stroke-width="5" stroke-linecap="round"/>
+<circle cx="427.6427772327218" cy="1345" r="6" fill="#cf222e" stroke="white" stroke-width="1.5"/>
+<circle cx="285" cy="1420" r="5" fill="#bf8700"/>
+<text x="295" y="1425" font-family="sans-serif" font-size="13" fill="#24292f">verified-reference</text>
+<circle cx="460" cy="1420" r="5" fill="#1f6feb"/>
+<text x="470" y="1425" font-family="sans-serif" font-size="13" fill="#24292f">verified-optimized</text>
+<circle cx="635" cy="1420" r="5" fill="#cf222e"/>
+<text x="645" y="1425" font-family="sans-serif" font-size="13" fill="#24292f">advancedhmc</text>
+</svg>
