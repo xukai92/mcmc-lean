@@ -10,6 +10,7 @@ pages = [
         "Fixed-step HMC record" => "hmc-development-record.md",
         "AdvancedHMC parity" => "advancedhmc-parity.md",
         "Lean-generated graphs" => "generated/architecture-graphs.md",
+        "Julia backend registry" => "generated/backend-registry.md",
         "Executable system" => "executable-architecture.md",
         "Verified execution and optimization" =>
             "verified-execution-and-optimization.md",
@@ -54,6 +55,7 @@ published_files = [
     "hmc-development-record.md",
     "advancedhmc-parity.md",
     "generated/architecture-graphs.md",
+    "generated/backend-registry.md",
     "executable-architecture.md", "verified-execution-and-optimization.md",
     "continuous-executable-contract.md",
     "testing.md", "benchmarks.md", "progress.md", "core-release-audit.md",
@@ -100,7 +102,8 @@ makedocs(
         # combined historical text.
         size_threshold_warn = 490 * 2^10,
         size_threshold = 520 * 2^10,
-        search_size_threshold_warn = 1024 * 2^10,
+        # Includes the generated Lean assurance and Julia backend registries.
+        search_size_threshold_warn = 1080 * 2^10,
         inventory_version = "dev",
     ),
     pages = pages,

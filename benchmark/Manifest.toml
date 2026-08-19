@@ -411,7 +411,7 @@ uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
 version = "1.11.0"
 
 [[deps.VerifiedSamplers]]
-deps = ["LinearAlgebra", "Random"]
+deps = ["LinearAlgebra", "Random", "Statistics"]
 path = "../VerifiedSamplers.jl"
 uuid = "a2be83b2-9346-4302-8d4f-58648cd525d4"
 version = "0.1.0"

@@ -81,8 +81,7 @@ independent handwritten comparison and does not inherit the Lean theorem.
 The continuous Julia tests cover forced accept/reject traces, random-source
 consumption, validation errors, Reference/Optimized agreement, and seeded
 Gaussian moment checks. Shared moment, covariance, quantile, ESS, and
-batch-means formulas live in
-`VerifiedSamplers.jl/test/support/QualityDiagnostics.jl`. Statistical tests are
+batch-means formulas live in `VerifiedSamplers.Evaluation`. Statistical tests are
 implementation regressions, not proofs of detailed balance or convergence.
 
 ## 7. Completion evidence

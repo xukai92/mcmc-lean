@@ -1167,19 +1167,19 @@ end
         chain = sample(MersenneTwister(2026), sampler, 0.0, 50_000)
         retained = @view chain[5_001:end]
         retained_matrix = reshape(retained, 1, :)
-        diagnostics = QualityDiagnostics.moment_diagnostics(
+        diagnostics = Evaluation.moment_diagnostics(
             retained_matrix, [0.0], [1.0])
         mean_standard_error = only(
-            QualityDiagnostics.batch_mean_standard_error(retained_matrix))
+            Evaluation.batch_mean_standard_error(retained_matrix))
         @test abs(only(diagnostics.means)) < max(0.02, 4 * mean_standard_error)
         @test diagnostics.relative_variance_rmse < 0.12
         @test diagnostics.minimum_ess > 2_000
-        @test QualityDiagnostics.covariance_max_error(
+        @test Evaluation.covariance_max_error(
             retained_matrix, reshape([1.0], 1, 1)) < 0.12
         normal_probabilities = [0.1, 0.5, 0.9]
         normal_quantiles = reshape([-1.2815515655446004, 0.0,
             1.2815515655446004], 1, :)
-        @test QualityDiagnostics.marginal_quantile_max_error(retained_matrix,
+        @test Evaluation.marginal_quantile_max_error(retained_matrix,
             normal_probabilities, normal_quantiles) < 0.08
 
         accept_trace = Runtime.FloatTraceSource([
@@ -1193,13 +1193,13 @@ end
         for (events, expected) in (([
                 Runtime.NormalEvent(0.5), Runtime.UniformEvent(0.8)], 0.5), ([
                 Runtime.NormalEvent(2.0), Runtime.UniformEvent(0.9)], 0.0))
-            comparison = TraceConformance.replay_float_pair(events,
+            comparison = Evaluation.replay_pair(events,
                 source -> Reference.gaussian_rwmh_step!(source,
                     x -> -x^2 / 2, 1.0, 0.0),
                 source -> Optimized.gaussian_rwmh_step!(source,
                     x -> -x^2 / 2, 1.0, 0.0))
             @test comparison.reference == expected
-            @test TraceConformance.conforms(comparison)
+            @test Evaluation.conforms(comparison)
         end
         generic_cases = [
             (x -> -abs(x), 0.25, 1.0,
@@ -1210,12 +1210,12 @@ end
                 [Runtime.NormalEvent(0.25), Runtime.UniformEvent(0.2)]),
         ]
         for (logdensity, scale, current, events) in generic_cases
-            comparison = TraceConformance.replay_float_pair(events,
+            comparison = Evaluation.replay_pair(events,
                 source -> Reference.gaussian_rwmh_step!(source,
                     logdensity, scale, current),
                 source -> Optimized.gaussian_rwmh_step!(source,
                     logdensity, scale, current))
-            @test TraceConformance.conforms(comparison)
+            @test Evaluation.conforms(comparison)
         end
         @test_throws ArgumentError Reference.gaussian_rwmh_step!(
             Runtime.FloatTraceSource(Runtime.FloatTraceEvent[]), identity, 0.0, 0.0)
@@ -1237,12 +1237,12 @@ end
             (-0.5, [Runtime.NormalEvent(-1.0), Runtime.UniformEvent(0.4)]),
         ]
         for (current, events) in cases
-            comparison = TraceConformance.replay_float_pair(events,
+            comparison = Evaluation.replay_pair(events,
                 source -> Reference.scalar_hmc_step!(source,
                     logdensity, gradient, 0.4, 3, current),
                 source -> Optimized.scalar_hmc_step!(source,
                     logdensity, gradient, 0.4, 3, current))
-            @test TraceConformance.conforms(comparison)
+            @test Evaluation.conforms(comparison)
         end
 
         sampler = ScalarHMC(logdensity, gradient, 0.2, 5)
@@ -1289,14 +1289,14 @@ end
         chain = sample(MersenneTwister(0x8c21), sampler, [0.0, 0.0], 40_000)
         retained = @view chain[:, 4001:end]
         @test all(abs.(vec(mean(retained; dims=2))) .< 0.08)
-        @test QualityDiagnostics.covariance_max_error(
+        @test Evaluation.covariance_max_error(
             retained, Matrix{Float64}(I, 2, 2)) < 0.12
         @test size(sample(MersenneTwister(1), sampler, [0.0, 0.0], 3)) == (2, 3)
         @test_throws ArgumentError VectorHMC(logdensity, gradient, 0.0)
         @test_throws ArgumentError step(MersenneTwister(1), sampler, Float64[])
     end
     @testset "shared benchmark target contracts" begin
-        targets = TestTargets.suite(2)
+        targets = Evaluation.standard_targets(2)
         @test getproperty.(targets, :name) == [
             "isotropic-gaussian", "correlated-gaussian-rho-0.9",
             "product-quartic", "ill-conditioned-gaussian",
@@ -1310,7 +1310,7 @@ end
             @test target.logdensity(point) == target.logdensity(-point)
         end
 
-        correlated = TestTargets.suite(9)[2]
+        correlated = Evaluation.standard_targets(9)[2]
         ρ = 0.9
         covariance = [ρ^abs(i - j) for i in 1:9, j in 1:9]
         dense_precision = inv(Symmetric(covariance))
@@ -1324,7 +1324,7 @@ end
             sampler = VectorHMC(target.logdensity, target.gradient, 0.12, 8)
             chain = sample(MersenneTwister(0x7a40 + offset), sampler,
                 zeros(2), 20_000)[:, 2001:end]
-            diagnostics = QualityDiagnostics.moment_diagnostics(
+            diagnostics = Evaluation.moment_diagnostics(
                 chain, target.mean, target.variance)
             @test maximum(abs, diagnostics.means) < 0.08
             @test maximum(abs.(diagnostics.variances ./

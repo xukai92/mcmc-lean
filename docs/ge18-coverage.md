@@ -97,7 +97,7 @@ bound away from zero, the Jacobian error composes additively, and `exp` has an
 explicit upper-domain transport bound. Platform-local libm errors remain the
 numerical boundary.
 The same positive-log convention was introduced in IR 14 and remains in the
-current version 19 artifact, including transform direction and inverse-
+current version 20 artifact, including transform direction and inverse-
 Jacobian metadata.
 IR 16 adds the open-unit artanh-affine equivalence and its full inverse-
 Jacobian convention. `OpenUnitTransformedRWMH` consumes that convention and

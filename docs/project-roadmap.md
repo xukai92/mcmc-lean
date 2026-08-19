@@ -53,29 +53,31 @@ the precise boundary.
 These milestones improve the research-to-runtime system around the samplers
 already present. They do not add a new major theorem or sampler family.
 
-The 2026-08-19 audit found five concrete system gaps:
+The 2026-08-19 audit found five concrete system gaps. The foundation pass has
+closed the engineering portions while preserving the stated proof boundaries:
 
 - formal sampler mathematics is broad and deep, but executable-refinement
   theorem shapes are not yet uniform across the maintained methods;
 - the finite command IR has typed Lean parsing and exact replay, while
   continuous support is split among several specialized descriptors and Julia
   interpreter correspondence remains test-supported;
-- the completed-tree C.4 NUTS Reference is now productive on every maintained
-  benchmark fixture; reusable cross-backend replay remains the bridge priority;
-- the Julia package works but concentrates public orchestration and certificate
-  code in two large files, with no shared parallel/accelerator capability
-  protocol; and
-- the optimization-agent loop, parallel execution, and accelerator backend are
-  designed in documentation but not yet packaged as maintained tools.
+- the completed-tree C.4 NUTS Reference is productive on every maintained
+  benchmark fixture, and reusable replay now compares outcomes, failures, and
+  event consumption;
+- large historical Julia files remain, but public Evaluation, Backends, DHMC,
+  and optimized-NUTS surfaces are separated and capability declarations are
+  generated into the documentation; and
+- a gated optimization trial, explicit-seed parallel executor, maintained host
+  batch implementation, and fail-closed accelerator adapter are packaged.
 
 | Phase | Main layer | Deliverable | Effort |
 |---|---|---|---|
-| 1. Assurance and backend contract | Lean docs + Julia runtime | Extend the machine-generated assurance vocabulary beyond the two golden paths; define backend capabilities, evidence classes, explicit event/RNG ownership, and fail-closed unsupported operations | Medium |
-| 2. Productive Reference and cross-backend conformance | Bridge / IR | Completed for NUTS productivity via C.4 rerooted traces; next build one reusable replay/witness harness for Julia Reference and every alternative backend | Medium |
-| 3. Optimization acceptance loop | Testing / transformation | A machine-readable loop that proposes one change, runs exact/trace/property/statistical gates, benchmarks it, and records acceptance or rejection with its assurance class | Medium |
-| 4. Julia modularization | Julia package | Move sampler-specific engines out of the large public module, preserve the public API, and expose Reference/Optimized/backend capability registries without parallel handwritten dispatch surfaces | Medium |
-| 5. Parallel execution | Julia backend | Deterministic independent-chain execution from an explicit seed list, sequential equivalence per chain, scaling benchmarks, then only proved-associative within-chain scans | Medium, then high |
-| 6. Accelerator backend | Julia/CUDA or another array backend | Batched fixed-step transitions using the same Reference contract and conformance suite; device reductions, callbacks, and RNG behavior remain explicit backend assumptions | High |
+| 1. Assurance and backend contract | Lean docs + Julia runtime | **Initial contract complete:** typed evidence classes and fail-closed capability declarations are public; extending generated sampler facets remains continuous documentation work | Medium |
+| 2. Productive Reference and cross-backend conformance | Bridge / IR | **Reusable harness complete:** maintained deterministic replay compares results, matching failures, and event consumption for any backend pair | Medium |
+| 3. Optimization acceptance loop | Testing / transformation | **First gated loop complete:** an explicit baseline, full release gate, measured threshold, assurance class, and machine-readable acceptance record govern the NUTS pass; general search remains demand-driven | Medium |
+| 4. Julia modularization | Julia package | **In progress:** Evaluation, Backends, and the Optimized NUTS forwarding surface are separated; continue extracting coherent engines without changing the public API | Medium |
+| 5. Parallel execution | Julia backend | **Independent chains complete:** explicit seeds reproduce sequential results in stable order over Julia threads; within-chain scans remain conditional on a proved decomposition | Medium, then high |
+| 6. Accelerator backend | Julia/CUDA or another array backend | **Scoped backend complete:** fail-closed adapters, explicit events, and an ordinary-array batch reference are maintained; Gaussian RWMH has an accelerator-ready broadcast implementation with host Reference conformance. No particular GPU runtime or device arithmetic is claimed tested | High |
 | 7. Optional numerical evidence | Lean certificates + backends | Reuse existing error/margin certificates across CPU, parallel, and accelerator executions when a concrete decision or benchmark warrants them; no universal IEEE/libm project | High and demand-driven |
 | Continuous documentation | All layers | Generate assurance matrices and architecture graphs from Lean/registries, keep executable examples current, and make benchmark evidence classes visible in reports | Low recurring |
 
@@ -139,7 +141,7 @@ verified single-chain kernels, and Julia exposes replay-level meeting events.
 ### B2. Executable Xu and Ge (2024) sampler — complete at the exact and guarded-runtime levels
 
 The corrected diagonal constant-metric program introduced in IR version 10 is
-retained in the current version 19 artifact, which contains a working
+retained in the current version 20 artifact, which contains a working
 relativistic multinomial specialization, with Reference/Optimized Julia replay
 tests. A position-dependent fixed-point solver now exists in Reference and
 Optimized Julia with residual reporting, while Lean constructs its exact

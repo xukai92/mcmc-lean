@@ -28,6 +28,17 @@ This focused run prints its transformation name, assurance class, per-chain
 times, median, and throughput. It complements rather than replaces the full
 cross-implementation benchmark and correctness gates.
 
+To make a fail-closed acceptance decision, first record the pre-change median,
+then run the complete release gate and candidate measurement together:
+
+```sh
+make optimization-trial OPTIMIZATION_BASELINE_SECONDS=1.23 \
+    OPTIMIZATION_MINIMUM_SPEEDUP=1.05
+```
+
+The command emits a line-oriented acceptance record and fails if any gate or
+the requested speedup fails. A benchmark alone never accepts a change.
+
 Development mode defaults to 1,000 transitions and three timed chains per
 case. It writes `benchmark/results/dev.csv` rather than replacing the full
 `latest.csv`, and marks the generated page as non-publication-quality. The
@@ -84,10 +95,11 @@ moment error against each fixture's known mean and marginal variance, minimum
 coordinate ESS, ESS/s, movement, AdvancedHMC acceptance and divergences, and
 mean integration work. New runs also report worst split rank-normalized R-hat,
 minimum bulk/tail ESS, and a labelled ESS-per-gradient-work proxy across the
-first four coordinates. The formulas come from the shared
-`VerifiedSamplers.jl/test/support/QualityDiagnostics.jl` support module rather
-than a benchmark-specific implementation. These extend the lightweight
-gradient and moment checks registered in the Julia integration suite.
+first four coordinates. The formulas and standard targets come from the
+shared `VerifiedSamplers.Evaluation` module rather than a benchmark-specific
+implementation. Integrated tests consume that same layer for lightweight
+regression gates; this benchmark adds larger workloads, timing, aggregation,
+and reporting.
 
 Because every compared implementation now pays the same chain-storage cost,
 no second quality-only sampling workload is needed. Diagnostic calculations

@@ -1,4 +1,5 @@
-module QualityDiagnostics
+"""Statistical diagnostics shared by tests and evaluation workloads."""
+module Diagnostics
 
 using LinearAlgebra
 using Statistics

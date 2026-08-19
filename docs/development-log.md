@@ -1,5 +1,41 @@
 # Development log
 
+## 2026-08-19: backend contracts, replay, and independent chains
+
+The Julia package now exposes typed backend capabilities separately from
+assurance classes, rejects unsupported capabilities, and promotes deterministic
+trace replay from test support into `VerifiedSamplers.Evaluation`. Replay
+compares values or matching failures and exact event consumption. A parallel
+CPU executor runs independent chains from explicit seeds and preserves input
+ordering, with sequential-equivalence tests. The optimized NUTS forwarding
+surface moved out of the central public module without changing its API.
+Exact-integer replay also compares the complete sequence of requested draw
+bounds, not only results and remaining trace length.
+
+Optimization trials now require an explicit pre-change baseline, the complete
+release gate, a measured speedup threshold, and a machine-readable acceptance
+record. Numerical certificates remain optional evidence rather than an
+execution layer.
+
+A batched-transition protocol adds a maintained ordinary-array reference and a
+fail-closed accelerator adapter. Adapters declare operations and evidence and
+own device transfer, RNG, reductions, callbacks, and materialization; merely
+registering one grants no numerical or formal assurance. The backend capability
+page is generated directly from the Julia registry.
+The first maintained accelerator-ready operation is batched Gaussian RWMH over
+broadcast-compatible arrays. Gaussian and uniform events are explicit, and its
+host-array result is checked event-for-event against scalar Reference. No GPU
+runtime or device arithmetic is thereby certified.
+
+## 2026-08-19: shared Evaluation layer
+
+Standard evaluation targets and sampling-quality diagnostics now live in the
+public `VerifiedSamplers.Evaluation` module. CI tests consume it for small,
+stable regression gates; the benchmark consumes the same definitions and adds
+multi-chain workloads, timing, aggregation, CSV output, and visualization.
+The benchmark no longer reaches into `test/support`, while remaining
+explicitly layered on top of the statistical evaluation foundation.
+
 ## 2026-08-19: first measured NUTS optimization and width control
 
 An agentic code-review pass found that the optimized NUTS path redundantly
@@ -202,7 +238,7 @@ Julia-semantics proof.
 The Julia artifact decoder now rejects unknown input kinds and duplicate input
 names instead of allowing an unknown kind through or silently overwriting an
 environment binding. Runtime argument validation explicitly covers every input
-kind present in canonical artifact version 19, including exact natural vectors
+kind present in canonical artifact version 20, including exact natural vectors
 and matrices and the existing certified-HMC callbacks. Parser and validator
 regressions cover the rejection cases. The artifact format and algorithm set
 are unchanged.

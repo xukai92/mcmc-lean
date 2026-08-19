@@ -396,9 +396,10 @@ equivalent to Lean.
 
 Continuous floating-point certification and new sampler families are not
 required by these directions. Existing certificates remain an optional,
-backend-neutral evidence path. A future benchmark-motivated transformation may
-use an established Julia rewriting library, but only after the specific
-semantic obligation is clear.
+backend-neutral evidence path. The first measured NUTS pass now has a
+fail-closed acceptance command; future benchmark-motivated transformations may
+use established Julia rewriting libraries only after the specific semantic
+obligation is clear.
 
 ### Backend family and parallelism
 
@@ -416,21 +417,41 @@ This is a shared-contract fan-out, not a compilation claim that all backends
 are already proved equivalent. Exact finite programs can use exhaustive or
 trace equality. Continuous programs normally combine shared event traces,
 bounded numerical checks where useful, and explicitly empirical statistical
-tests. A backend capability record should reject unsupported primitives rather
-than silently fall back to different semantics.
+tests. The public backend registry rejects unsupported capabilities and batched
+operations rather than silently falling back to different semantics.
 
-Parallel development should proceed in two levels:
+Parallel development proceeds in two levels:
 
-1. run independent chains concurrently with an explicit seed list and require
-   each chain to reproduce its sequential backend result; then
+1. independent chains now run concurrently from an explicit seed list and
+   reproduce their sequential backend results in stable order; then
 2. parallelize within a chain only for algorithms whose recurrence has an
    associative scan or another proved decomposition.
 
-Accelerators follow the same split. Batched independent chains and vectorized
-fixed-step transitions are the first useful target. Device-specific floating
-point, reductions, callbacks, and RNG streams remain backend obligations; the
-existing numerical certificates may check selected executions without becoming
+Accelerators follow the same split. The maintained host batch implementation
+and `AcceleratorBatchBackend` define the contract. Gaussian RWMH additionally
+has an accelerator-ready broadcast operation whose Gaussian and uniform events
+are explicit and whose host execution is replayed against Reference. This is
+not evidence for a particular GPU runtime: device-specific floating point,
+transfers, reductions, callbacks, and RNG streams remain adapter obligations.
+Existing numerical certificates may check selected executions without becoming
 a mandatory layer between IR and execution.
+
+For example, independent chains retain ordinary sampler dispatch inside the
+per-chain callback:
+
+```julia
+using VerifiedSamplers
+
+sampler = GaussianRWMH(x -> -x^2 / 2, 0.5)
+chains = VerifiedSamplers.Backends.run_chains([11, 12, 13]) do rng, index
+    sample(rng, sampler, 0.0, 1_000)
+end
+```
+
+The index is available for chain-local initial states but does not alter seed
+ownership. `step_batch` provides the corresponding operation-labelled host or
+accelerator adapter boundary. Unsupported operation symbols raise an error
+before launch.
 
 ### Feedback from search into verification
 

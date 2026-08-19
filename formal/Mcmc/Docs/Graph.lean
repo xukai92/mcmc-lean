@@ -123,12 +123,12 @@ def executableGraph : Graph where
     ⟨"typed", "serialized", some "Lean generator", false⟩,
     ⟨"serialized", "reference", some "direct interpretation", false⟩,
     ⟨"reference", "optimized", some "differential tests", false⟩,
-    ⟨"reference", "parallel", some "shared replay contract", true⟩,
-    ⟨"reference", "accelerator", some "shared replay contract", true⟩,
+    ⟨"reference", "parallel", some "explicit-seed replay tests", false⟩,
+    ⟨"reference", "accelerator", some "host replay; device open", true⟩,
     ⟨"ideal", "bounds", some "proved bounded refinement", false⟩,
     ⟨"bounds", "float", some "platform-local operation bounds", true⟩,
     ⟨"optimized", "float", some "executes as", false⟩]
-  note := "Solid arrows are implemented generation, proved refinement, or tested conformance links as labeled. Dashed backend arrows are roadmap contracts: parallel and accelerator implementations should refine or test against the same Julia Reference semantics rather than introduce new sampler theorems. The dashed numerical arrow isolates platform-specific libm, rounding, reduction, and RNG evidence needed to instantiate the proved bounded certificates."
+  note := "Solid arrows are implemented generation, proved refinement, or tested conformance links as labeled. Parallel independent chains now have explicit-seed sequential-equivalence tests. Batched Gaussian RWMH has host replay through the accelerator-ready broadcast backend, but the accelerator arrow stays dashed because no particular device runtime or arithmetic is tested. The dashed numerical arrow isolates platform-specific libm, rounding, reduction, and RNG evidence needed to instantiate the proved bounded certificates."
 
 /-- Complete generated Markdown page for the documentation site. -/
 def renderGraphs : String :=

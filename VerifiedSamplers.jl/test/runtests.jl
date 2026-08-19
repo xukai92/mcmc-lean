@@ -7,14 +7,13 @@ using VerifiedSamplers
 const Runtime = VerifiedSamplers.Runtime
 const Reference = VerifiedSamplers.Reference
 const Optimized = VerifiedSamplers.Optimized
+const Evaluation = VerifiedSamplers.Evaluation
+const Backends = VerifiedSamplers.Backends
 const REPO_ROOT = normpath(joinpath(@__DIR__, "..", ".."))
 const ORACLE = joinpath(REPO_ROOT, "formal", ".lake", "build", "bin", "mcmc_oracle")
 
-include("support/TestTargets.jl")
-include("support/QualityDiagnostics.jl")
-include("support/TraceConformance.jl")
-
 include("properties.jl")
+include("backends.jl")
 include("quality_diagnostics.jl")
 include("geweke.jl")
 include("unit.jl")

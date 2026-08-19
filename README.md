@@ -18,6 +18,9 @@ formal/                         Lean library, examples, IR, and oracle
 VerifiedSamplers.jl/            maintained Julia package
   src/Reference/                generated/interpreted reference layer
   src/Optimized/                independent optimized implementations
+  src/Backends/                 capability, batching, and parallel contracts
+  src/Evaluation/               shared targets and statistical diagnostics
+  src/Public/                   extracted public sampler dispatch surfaces
 docs/                           architecture, theorem coverage, and roadmaps
 Makefile                        reproducible build, generation, and test gates
 ```

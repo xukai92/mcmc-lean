@@ -8,6 +8,8 @@ include("Runtime/Runtime.jl")
 include("Certificates/Certificates.jl")
 include("Reference/Reference.jl")
 include("Optimized/Optimized.jl")
+include("Backends/Backends.jl")
+include("Evaluation/Evaluation.jl")
 
 export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, BoundedRejectionSlice, SteppingOutSlice, SteppingOutSliceTrace, RestrictedQuarticSliceTraceCertificate, trace_stepping_out_slice, certify_stepping_out_slice_trace, certify_restricted_quartic_slice_trace, ShearedBirthDeathRJ, SpatialBirthDeathRJ, sheared_birth_unshear, TwoStateMH, GaussianRWMH, PositiveTransformedRWMH, OpenUnitTransformedRWMH,
     WarmupGaussianRWMH, GaussianRWMHWarmupResult, IndefiniteAdaptiveBool,
@@ -66,55 +68,11 @@ export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, Bounded
     ObservationCursor, observation_cursor, resume_observation, run_observations,
     FiniteHMMParticleGibbs,
     fixed_point_generalized_leapfrog, sample
-export Certificates, Optimized
+export Backends, Certificates, Evaluation, Optimized
 
 fixed_point_generalized_leapfrog(args...; kwargs...) =
     Reference.fixed_point_generalized_leapfrog(args...; kwargs...)
-
-"""Coordinate-wise discontinuous HMC for a positive categorical target.
-
-Categories are arranged on a cycle.  Each coordinate update moves to the next
-or previous category, corresponding to the paper's `epsilon = mass`
-specialization.  `steps` controls the number of updates made under one
-refreshed Laplace momentum.
-"""
-struct CategoricalDHMC
-    probabilities::Vector{Float64}
-    steps::Int
-    function CategoricalDHMC(probabilities::AbstractVector{<:Real},
-            steps::Integer=1)
-        converted = Float64.(probabilities)
-        length(converted) >= 2 ||
-            throw(ArgumentError("DHMC needs at least two categories"))
-        all(x -> isfinite(x) && x > 0, converted) ||
-            throw(ArgumentError("category probabilities must be finite and positive"))
-        steps > 0 || throw(ArgumentError("trajectory length must be positive"))
-        new(converted, Int(steps))
-    end
-end
-
-function step(rng::AbstractRNG, sampler::CategoricalDHMC, current::Integer)
-    Reference.categorical_dhmc_step!(Runtime.RNGSource(rng),
-        sampler.probabilities, sampler.steps, current)
-end
-
-step(sampler::CategoricalDHMC, current::Integer) =
-    step(Random.default_rng(), sampler, current)
-
-function sample(rng::AbstractRNG, sampler::CategoricalDHMC,
-        initial::Integer, count::Integer)
-    count >= 0 || throw(ArgumentError("sample count must be nonnegative"))
-    states = Vector{Int}(undef, count)
-    current = Int(initial)
-    for index in eachindex(states)
-        current = step(rng, sampler, current)
-        states[index] = current
-    end
-    states
-end
-
-sample(sampler::CategoricalDHMC, initial::Integer, count::Integer) =
-    sample(Random.default_rng(), sampler, initial, count)
+include("Public/CategoricalDHMC.jl")
 
 """Explicit suspend/resume state for a finite sequence of observation factors.
 
@@ -2836,55 +2794,6 @@ sample(sampler::TwoStateMH, initial::Bool, count::Integer) =
     sample(Random.default_rng(), sampler, initial, count)
 
 include("HMCParity.jl")
-
-# Keep the independent production-shaped implementation in the namespace that
-# accurately describes its role. It remains implemented alongside the other
-# parity clients because it reuses their private fixed-metric HMC machinery.
-@eval Optimized begin
-    using ..VerifiedSamplers: OptimizedNUTS
-
-    """Handwritten production-shaped NUTS comparator.
-
-    This runtime supports the broader fixed-parameter parity surface but is
-    not identified with the checked Reference `VerifiedSamplers.NUTS`.
-    """
-    struct NUTS{S}
-        implementation::S
-    end
-
-    NUTS(args...; kwargs...) =
-        NUTS(OptimizedNUTS(args...; kwargs...))
-
-    export NUTS
-end
-
-transition(rng::AbstractRNG, sampler::Optimized.NUTS, current) =
-    transition(rng, sampler.implementation, current)
-transition(sampler::Optimized.NUTS, current) =
-    transition(sampler.implementation, current)
-step(rng::AbstractRNG, sampler::Optimized.NUTS, current) =
-    step(rng, sampler.implementation, current)
-step(sampler::Optimized.NUTS, current) =
-    step(sampler.implementation, current)
-sample(rng::AbstractRNG, sampler::Optimized.NUTS, initial, count::Integer) =
-    sample(rng, sampler.implementation, initial, count)
-sample(sampler::Optimized.NUTS, initial, count::Integer) =
-    sample(sampler.implementation, initial, count)
-sample_with_diagnostics(rng::AbstractRNG, sampler::Optimized.NUTS,
-        initial, count::Integer) =
-    sample_with_diagnostics(rng, sampler.implementation, initial, count)
-sample_with_diagnostics(sampler::Optimized.NUTS, initial, count::Integer) =
-    sample_with_diagnostics(sampler.implementation, initial, count)
-
-# Internal hooks used by the production-shaped property tests. Keeping these
-# delegations here lets the implementation engine remain private.
-_nuts_step_size!(source, sampler::Optimized.NUTS) =
-    _nuts_step_size!(source, sampler.implementation)
-_nuts_phase(sampler::Optimized.NUTS, args...) =
-    _nuts_phase(sampler.implementation, args...)
-_build_nuts_tree!(source, sampler::Optimized.NUTS, args...) =
-    _build_nuts_tree!(source, sampler.implementation, args...)
-_combine_nuts_trees(sampler::Optimized.NUTS, args...) =
-    _combine_nuts_trees(sampler.implementation, args...)
+include("Public/OptimizedNUTS.jl")
 
 end

@@ -3,6 +3,7 @@ using Statistics
 using VerifiedSamplers
 
 const Optimized = VerifiedSamplers.Optimized
+const Evaluation = VerifiedSamplers.Evaluation
 
 logdensity(q) = -sum(abs2, q) / 2
 gradient(q) = q
@@ -32,6 +33,20 @@ function main()
     println("median_seconds=$elapsed")
     println("draws_per_second=$(draws / elapsed)")
     println("times=$(join(times, ','))")
+    if haskey(ENV, "OPTIMIZATION_BASELINE_SECONDS")
+        baseline = parse(Float64, ENV["OPTIMIZATION_BASELINE_SECONDS"])
+        minimum_speedup = parse(Float64,
+            get(ENV, "OPTIMIZATION_MINIMUM_SPEEDUP", "1.0"))
+        trial = Evaluation.OptimizationTrial(
+            "float64-owned-phase-specialization",
+            "test-supported-operation-specialization",
+            baseline, elapsed, minimum_speedup,
+            [Evaluation.GateResult(:release, true,
+                "make test prerequisite completed")])
+        println("--- acceptance-record ---")
+        println(Evaluation.render_record(trial))
+        Evaluation.accepted(trial) || exit(2)
+    end
 end
 
 main()

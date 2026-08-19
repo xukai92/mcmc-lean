@@ -533,13 +533,28 @@ command also requires the reference and optimized HMC chains to agree exactly
 under identical seeded draws. The registered Julia suite separately enforces
 minimum ESS, differential replay, and exact callback-count regressions.
 
-Sampling-quality formulas shared with the HMC benchmark live in
-`VerifiedSamplers.jl/test/support/QualityDiagnostics.jl`. Integrated tests use
-the same initial-positive-sequence ESS, known-moment, covariance, marginal
-quantile, and batch-means standard-error definitions as benchmark clients.
+Sampling-quality formulas and standard targets shared with the HMC benchmark
+live in `VerifiedSamplers.Evaluation`. Integrated tests use the same
+initial-positive-sequence ESS, known-moment, covariance, marginal-quantile,
+and batch-means standard-error definitions as benchmark clients.
 Small calibrated regressions belong in the test suite; multi-chain and
 exploratory summaries remain non-gating benchmark evidence. None of these
 diagnostics is promoted to a stationarity or convergence proof.
+
+Deterministic backend conformance lives beside these diagnostics in
+`VerifiedSamplers.Evaluation`. It replays one typed event sequence through any
+two operations and compares successful values or captured failures together
+with the unconsumed-event count. `VerifiedSamplers.Backends` separately records
+capabilities and evidence classes; requesting an unsupported feature fails
+closed. Its parallel CPU executor accepts an explicit seed list and tests that
+threaded independent chains equal the corresponding sequential chains in the
+same order.
+
+The sibling batched-backend contract is tested first against its maintained
+ordinary-array implementation. Accelerator adapters must advertise each
+operation explicitly; the contract tests result ordering, one seed per state,
+and rejection of unsupported operations. A mock adapter tests dispatch only
+and is not presented as hardware or numerical evidence.
 
 Quality work follows a stability-first order:
 
@@ -560,8 +575,12 @@ Only metrics demonstrated stable across supported Julia versions and CI
 machines should become integrated pass/fail contracts.
 
 Deterministic continuous Reference/Optimized checks use the shared
-`test/support/TraceConformance.jl` harness. It constructs independent trace
-sources from the same primitive-event list and compares both the returned value
-and remaining-event count. The RWMH and scalar-HMC golden paths use this
-contract; algorithm-specific tests still state the expected accept/reject
-result where useful.
+`VerifiedSamplers.Evaluation` replay contract. It constructs independent trace
+sources from the same primitive-event list and compares returned values or
+matching failures together with the remaining-event count. The RWMH and
+scalar-HMC golden paths use this contract; algorithm-specific tests still
+state the expected accept/reject result where useful.
+
+The exact-integer overload additionally compares every bound requested from
+the trace source. This catches two implementations that return the same state
+while assigning different meanings to the supplied random integer.

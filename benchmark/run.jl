@@ -4,11 +4,6 @@ using Random
 using Statistics
 using VerifiedSamplers
 
-include(joinpath(@__DIR__, "..", "VerifiedSamplers.jl", "test", "support",
-    "TestTargets.jl"))
-include(joinpath(@__DIR__, "..", "VerifiedSamplers.jl", "test", "support",
-    "QualityDiagnostics.jl"))
-
 const DEV_MODE = "--dev" in ARGS
 const UNKNOWN_ARGUMENTS = filter(!=("--dev"), ARGS)
 isempty(UNKNOWN_ARGUMENTS) || error(
@@ -30,6 +25,7 @@ const NUTS_REFERENCE_DEPTH = parse(Int,
 const Runtime = VerifiedSamplers.Runtime
 const Reference = VerifiedSamplers.Reference
 const Optimized = VerifiedSamplers.Optimized
+const Evaluation = VerifiedSamplers.Evaluation
 const RAW_TIMINGS = NamedTuple[]
 const QUALITY_ROWS = NamedTuple[]
 const STARTED_CASES = Ref(0)
@@ -186,29 +182,29 @@ function quality_summary(target, algorithm, implementation, outputs, seconds)
     retained_chains = [@view chain[:, (burnin + 1):end] for chain in chains]
     combined = reduce(hcat, retained_chains)
     coordinate_count = min(4, size(combined, 1))
-    diagnostics = QualityDiagnostics.moment_diagnostics(
+    diagnostics = Evaluation.moment_diagnostics(
         combined, target.mean, target.variance;
         ess_coordinates=coordinate_count)
     retained_draws = diagnostics.retained_draws
     minimum_ess = diagnostics.minimum_ess
     standardized_mean_rmse = diagnostics.standardized_mean_rmse
     relative_variance_rmse = diagnostics.relative_variance_rmse
-    rank_diagnostics = [QualityDiagnostics.split_rank_diagnostics(
+    rank_diagnostics = [Evaluation.split_rank_diagnostics(
         hcat([vec(@view chain[coordinate, :]) for chain in retained_chains]...))
         for coordinate in 1:coordinate_count]
     rank_normalized_rhat = maximum(
         diagnostic.rank_normalized_rhat for diagnostic in rank_diagnostics)
     bulk_ess = minimum(diagnostic.bulk_ess for diagnostic in rank_diagnostics)
     tail_ess = minimum(diagnostic.tail_ess for diagnostic in rank_diagnostics)
-    chain_standard_errors = [QualityDiagnostics.batch_mean_standard_error(chain)
+    chain_standard_errors = [Evaluation.batch_mean_standard_error(chain)
         for chain in retained_chains]
     mean_mcse = maximum(sqrt(sum(error[coordinate]^2
         for error in chain_standard_errors)) / length(chains)
         for coordinate in axes(combined, 1))
     covariance = known_covariance(target)
     covariance_max_error = covariance === nothing ? NaN :
-        QualityDiagnostics.covariance_max_error(combined, covariance)
-    median_max_error = QualityDiagnostics.marginal_quantile_max_error(
+        Evaluation.covariance_max_error(combined, covariance)
+    median_max_error = Evaluation.marginal_quantile_max_error(
         combined, [0.5], zeros(DIMENSION, 1))
     movement = mean(mean(any(@view(chain[:, index]) .!=
         @view(chain[:, index - 1])) for index in 2:size(chain, 2))
@@ -461,7 +457,7 @@ function main()
         "HMC_SEEDS must provide at least two seeds")
     length(unique(BENCHMARK_SEEDS)) == length(BENCHMARK_SEEDS) || error(
         "HMC_SEEDS must not contain duplicates")
-    target_suite = TestTargets.suite(DIMENSION)
+    target_suite = Evaluation.standard_targets(DIMENSION)
     STARTED_CASES[] = 0
     TOTAL_CASES[] = sum(target.metric_mass === nothing ? 9 : 15
         for target in target_suite)

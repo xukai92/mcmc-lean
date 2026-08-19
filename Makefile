@@ -1,4 +1,4 @@
-.PHONY: all formal oracle julia test generate check-generated generate-docs check-docs-generated docs benchmarks benchmark-dev benchmark-hmc benchmark-report benchmark-nuts-optimization experiments experiment-xu21 experiment-xu21-logistic experiment-particle-gibbs-count experiment-dynamic-hmc experiment-restricted-quartic experiment-reversible-jump experiment-warmup-rwmh experiment-indefinite-adaptation experiment-indefinite-continuous-adaptation experiment-constrained-transforms experiment-ge-pg-hmc experiment-gaussian-softabs experiment-gaussian-performance
+.PHONY: all formal oracle julia test generate check-generated generate-docs check-docs-generated docs benchmarks benchmark-dev benchmark-hmc benchmark-report benchmark-nuts-optimization optimization-trial experiments experiment-xu21 experiment-xu21-logistic experiment-particle-gibbs-count experiment-dynamic-hmc experiment-restricted-quartic experiment-reversible-jump experiment-warmup-rwmh experiment-indefinite-adaptation experiment-indefinite-continuous-adaptation experiment-constrained-transforms experiment-ge-pg-hmc experiment-gaussian-softabs experiment-gaussian-performance
 
 XU21_SEED ?= 2021
 XU21_REPLICATES ?= 100
@@ -67,13 +67,20 @@ generate-docs:
 	cd formal && lake build generate_docs
 	@mkdir -p docs/generated
 	formal/.lake/build/bin/generate_docs docs/generated/architecture-graphs.md
+	julia --project=VerifiedSamplers.jl \
+		VerifiedSamplers.jl/tools/generate_backend_docs.jl \
+		docs/generated/backend-registry.md
 
 check-docs-generated:
 	cd formal && lake build generate_docs
-	@tmp_file=$$(mktemp); \
-	trap 'rm -f "$$tmp_file"' EXIT; \
-	formal/.lake/build/bin/generate_docs "$$tmp_file"; \
-	cmp "$$tmp_file" docs/generated/architecture-graphs.md
+	@tmp_dir=$$(mktemp -d); \
+	trap 'rm -rf "$$tmp_dir"' EXIT; \
+	formal/.lake/build/bin/generate_docs "$$tmp_dir/architecture.md"; \
+	julia --project=VerifiedSamplers.jl \
+		VerifiedSamplers.jl/tools/generate_backend_docs.jl \
+		"$$tmp_dir/backends.md"; \
+	cmp "$$tmp_dir/architecture.md" docs/generated/architecture-graphs.md; \
+	cmp "$$tmp_dir/backends.md" docs/generated/backend-registry.md
 
 docs: generate-docs
 	julia --project=docs -e 'using Pkg; Pkg.instantiate()'
@@ -93,6 +100,15 @@ benchmark-report:
 
 benchmark-nuts-optimization:
 	julia --project=benchmark benchmark/nuts_optimization.jl
+
+# A candidate is accepted only after the complete release gate and a measured
+# speedup over an explicitly supplied pre-change baseline.
+optimization-trial: test
+	@test -n "$(OPTIMIZATION_BASELINE_SECONDS)" || \
+		(echo "set OPTIMIZATION_BASELINE_SECONDS to the pre-change median" >&2; exit 2)
+	OPTIMIZATION_BASELINE_SECONDS=$(OPTIMIZATION_BASELINE_SECONDS) \
+	OPTIMIZATION_MINIMUM_SPEEDUP=$${OPTIMIZATION_MINIMUM_SPEEDUP:-1.0} \
+		julia --project=benchmark benchmark/nuts_optimization.jl
 
 experiments: experiment-xu21 experiment-xu21-logistic \
 	experiment-particle-gibbs-count experiment-dynamic-hmc \

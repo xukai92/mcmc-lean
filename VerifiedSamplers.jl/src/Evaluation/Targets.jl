@@ -1,9 +1,11 @@
-module TestTargets
+"""Standard target distributions shared by tests and evaluation workloads."""
+module Targets
 
 using LinearAlgebra
 
-export Target, suite
+export Target, standard_targets
 
+"""A differentiable target together with known moments and optional metrics."""
 struct Target{F,G,M,C}
     name::String
     logdensity::F
@@ -45,7 +47,8 @@ function ar1_precision_mul(q, ρ)
     result
 end
 
-function suite(dimension::Integer)
+"""Construct the maintained suite of continuous targets at `dimension`."""
+function standard_targets(dimension::Integer)
     dimension >= 2 || throw(ArgumentError("target dimension must be at least two"))
     zeros_d = zeros(dimension)
 

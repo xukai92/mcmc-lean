@@ -83,11 +83,11 @@ flowchart LR
   typed -->|Lean generator| serialized
   serialized -->|direct interpretation| reference
   reference -->|differential tests| optimized
-  reference -.->|shared replay contract| parallel
-  reference -.->|shared replay contract| accelerator
+  reference -->|explicit-seed replay tests| parallel
+  reference -.->|host replay; device open| accelerator
   ideal -->|proved bounded refinement| bounds
   bounds -.->|platform-local operation bounds| float
   optimized -->|executes as| float
 ```
 
-Solid arrows are implemented generation, proved refinement, or tested conformance links as labeled. Dashed backend arrows are roadmap contracts: parallel and accelerator implementations should refine or test against the same Julia Reference semantics rather than introduce new sampler theorems. The dashed numerical arrow isolates platform-specific libm, rounding, reduction, and RNG evidence needed to instantiate the proved bounded certificates.
+Solid arrows are implemented generation, proved refinement, or tested conformance links as labeled. Parallel independent chains now have explicit-seed sequential-equivalence tests. Batched Gaussian RWMH has host replay through the accelerator-ready broadcast backend, but the accelerator arrow stays dashed because no particular device runtime or arithmetic is tested. The dashed numerical arrow isolates platform-specific libm, rounding, reduction, and RNG evidence needed to instantiate the proved bounded certificates.
