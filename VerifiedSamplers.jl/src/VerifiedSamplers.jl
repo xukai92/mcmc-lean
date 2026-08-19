@@ -66,7 +66,7 @@ export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, Bounded
     ObservationCursor, observation_cursor, resume_observation, run_observations,
     FiniteHMMParticleGibbs,
     fixed_point_generalized_leapfrog, sample
-export Certificates
+export Certificates, Optimized
 
 fixed_point_generalized_leapfrog(args...; kwargs...) =
     Reference.fixed_point_generalized_leapfrog(args...; kwargs...)
@@ -2681,13 +2681,16 @@ struct CheckedRecursiveDynamicHMC{F,G}
     end
 end
 
-"""Verified checked-or-identity NUTS Reference sampler.
+"""Checked-or-identity NUTS Reference sampler driven by Lean-owned IR.
 
-This is the public name for the Lean-IR-interpreted recursive dynamic sampler.
-It is intentionally distinct from the production-shaped, handwritten `NUTS`
-runtime until equivalence with that algorithm is proved.
+This canonical public `NUTS` name denotes the implementation connected to the
+exact-real invariance theorem. The independent handwritten implementation is
+available as `Optimized.NUTS`; equivalence between the two is not claimed.
 """
-const VerifiedNUTS = CheckedRecursiveDynamicHMC
+const NUTS = CheckedRecursiveDynamicHMC
+
+"""Compatibility alias for the canonical checked Reference `NUTS`."""
+const VerifiedNUTS = NUTS
 
 function _checked_recursive_dynamic_hmc_step!(
         source::Runtime.AbstractRandomSource, sampler::CheckedRecursiveDynamicHMC,
@@ -2831,5 +2834,55 @@ sample(sampler::TwoStateMH, initial::Bool, count::Integer) =
     sample(Random.default_rng(), sampler, initial, count)
 
 include("HMCParity.jl")
+
+# Keep the independent production-shaped implementation in the namespace that
+# accurately describes its role. It remains implemented alongside the other
+# parity clients because it reuses their private fixed-metric HMC machinery.
+@eval Optimized begin
+    using ..VerifiedSamplers: OptimizedNUTS
+
+    """Handwritten production-shaped NUTS comparator.
+
+    This runtime supports the broader fixed-parameter parity surface but is
+    not identified with the checked Reference `VerifiedSamplers.NUTS`.
+    """
+    struct NUTS{S}
+        implementation::S
+    end
+
+    NUTS(args...; kwargs...) =
+        NUTS(OptimizedNUTS(args...; kwargs...))
+
+    export NUTS
+end
+
+transition(rng::AbstractRNG, sampler::Optimized.NUTS, current) =
+    transition(rng, sampler.implementation, current)
+transition(sampler::Optimized.NUTS, current) =
+    transition(sampler.implementation, current)
+step(rng::AbstractRNG, sampler::Optimized.NUTS, current) =
+    step(rng, sampler.implementation, current)
+step(sampler::Optimized.NUTS, current) =
+    step(sampler.implementation, current)
+sample(rng::AbstractRNG, sampler::Optimized.NUTS, initial, count::Integer) =
+    sample(rng, sampler.implementation, initial, count)
+sample(sampler::Optimized.NUTS, initial, count::Integer) =
+    sample(sampler.implementation, initial, count)
+sample_with_diagnostics(rng::AbstractRNG, sampler::Optimized.NUTS,
+        initial, count::Integer) =
+    sample_with_diagnostics(rng, sampler.implementation, initial, count)
+sample_with_diagnostics(sampler::Optimized.NUTS, initial, count::Integer) =
+    sample_with_diagnostics(sampler.implementation, initial, count)
+
+# Internal hooks used by the production-shaped property tests. Keeping these
+# delegations here lets the implementation engine remain private.
+_nuts_step_size!(source, sampler::Optimized.NUTS) =
+    _nuts_step_size!(source, sampler.implementation)
+_nuts_phase(sampler::Optimized.NUTS, args...) =
+    _nuts_phase(sampler.implementation, args...)
+_build_nuts_tree!(source, sampler::Optimized.NUTS, args...) =
+    _build_nuts_tree!(source, sampler.implementation, args...)
+_combine_nuts_trees(sampler::Optimized.NUTS, args...) =
+    _combine_nuts_trees(sampler.implementation, args...)
 
 end

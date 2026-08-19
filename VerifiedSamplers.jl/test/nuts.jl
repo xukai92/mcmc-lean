@@ -2,12 +2,16 @@
     logdensity(q) = -sum(abs2, q) / 2
     gradient(q) = q
 
+    namespaced = Optimized.NUTS(logdensity, gradient, 0.2)
+    @test typeof(namespaced).name.module === Optimized
+    @test NUTS !== Optimized.NUTS
+
     for (integrator_index, integrator) in enumerate(
             (:leapfrog, :jittered, :tempered)),
             (termination_index, termination) in enumerate(
                 (:classic, :generalized, :strict_generalized)),
             selection in (:multinomial, :slice)
-        sampler = NUTS(logdensity, gradient, 0.2;
+        sampler = Optimized.NUTS(logdensity, gradient, 0.2;
             max_depth=5, max_energy_error=100.0, termination, selection,
             integrator, jitter=0.2, temperature=1.1)
         first = sample_with_diagnostics(
@@ -40,7 +44,7 @@
     for (metric_index, metric) in enumerate(metrics),
             (integrator_index, integrator) in enumerate(
                 (:leapfrog, :jittered, :tempered))
-        metric_sampler = NUTS(logdensity, gradient, 0.15;
+        metric_sampler = Optimized.NUTS(logdensity, gradient, 0.15;
             metric, max_depth=4, integrator, jitter=0.2, temperature=1.1)
         metric_chain = sample(
             MersenneTwister(0x8400 + 16metric_index + integrator_index),
@@ -50,19 +54,19 @@
     end
 
     jitter_source = Runtime.FloatTraceSource([Runtime.UniformEvent(0.75)])
-    jittered = NUTS(logdensity, gradient, 0.2;
+    jittered = Optimized.NUTS(logdensity, gradient, 0.2;
         integrator=:jittered, jitter=0.25)
     @test VerifiedSamplers._nuts_step_size!(jitter_source, jittered) == 0.225
     @test Runtime.remaining(jitter_source) == 0
 
-    ordinary = NUTS(logdensity, gradient, 0.2;
+    ordinary = Optimized.NUTS(logdensity, gradient, 0.2;
         integrator=:leapfrog, max_depth=5)
-    neutral_tempering = NUTS(logdensity, gradient, 0.2;
+    neutral_tempering = Optimized.NUTS(logdensity, gradient, 0.2;
         integrator=:tempered, temperature=1.0, max_depth=5)
     @test sample(MersenneTwister(0x8450), ordinary, zeros(2), 80) ==
         sample(MersenneTwister(0x8450), neutral_tempering, zeros(2), 80)
 
-    divergent = NUTS(logdensity, gradient, 10.0;
+    divergent = Optimized.NUTS(logdensity, gradient, 10.0;
         max_depth=3, max_energy_error=0.01)
     result = transition(MersenneTwister(0x8121), divergent, zeros(2))
     @test result.divergent
@@ -74,9 +78,9 @@
     # deliberately inconsistent force creates a known energy error of 1/2.
     flat_logdensity(q) = 0.0
     constant_gradient(q) = ones(length(q))
-    slice_divergence = NUTS(flat_logdensity, constant_gradient, 1.0;
+    slice_divergence = Optimized.NUTS(flat_logdensity, constant_gradient, 1.0;
         max_depth=1, max_energy_error=0.1, selection=:slice)
-    multinomial_divergence = NUTS(flat_logdensity, constant_gradient, 1.0;
+    multinomial_divergence = Optimized.NUTS(flat_logdensity, constant_gradient, 1.0;
         max_depth=1, max_energy_error=0.1, selection=:multinomial)
     velocity = identity
     phase = VerifiedSamplers._nuts_phase(
@@ -117,9 +121,9 @@
         phase(1.0), [-10.0], 0.0, 1, 0.0, 1, 0.0, false, false)
     right_tree = VerifiedSamplers._NUTSTree(phase(1.0), phase(1.0),
         phase(1.0), [20.0], 0.0, 1, 0.0, 1, 0.0, false, false)
-    generalized = NUTS(logdensity, gradient, 0.2;
+    generalized = Optimized.NUTS(logdensity, gradient, 0.2;
         termination=:generalized)
-    strict = NUTS(logdensity, gradient, 0.2;
+    strict = Optimized.NUTS(logdensity, gradient, 0.2;
         termination=:strict_generalized)
     ordinary_merge = VerifiedSamplers._combine_nuts_trees(
         generalized, left_tree, right_tree, identity, phase(1.0))
@@ -128,7 +132,7 @@
     @test !ordinary_merge.stopped
     @test strict_merge.stopped
 
-    depth_limited = NUTS(logdensity, gradient, 0.01;
+    depth_limited = Optimized.NUTS(logdensity, gradient, 0.01;
         max_depth=1, max_energy_error=100.0)
     limited_result = transition(
         MersenneTwister(0x8123), depth_limited, zeros(2))
@@ -141,7 +145,7 @@
     @test isfinite(limited_result.max_hamiltonian_energy_error)
 
     for (index, integrator) in enumerate((:leapfrog, :jittered, :tempered))
-        gaussian = NUTS(logdensity, gradient, 0.25;
+        gaussian = Optimized.NUTS(logdensity, gradient, 0.25;
             max_depth=6, termination=:generalized, selection=:multinomial,
             integrator, jitter=0.2, temperature=1.1)
         draws = sample(MersenneTwister(0x8122 + index), gaussian,
@@ -150,18 +154,18 @@
         @test all(abs.(vec(var(draws; dims=2)) .- 1) .< 0.15)
     end
 
-    @test_throws ArgumentError NUTS(logdensity, gradient, 0.2;
+    @test_throws ArgumentError Optimized.NUTS(logdensity, gradient, 0.2;
         termination=:unknown)
-    @test_throws ArgumentError NUTS(logdensity, gradient, 0.2;
+    @test_throws ArgumentError Optimized.NUTS(logdensity, gradient, 0.2;
         selection=:unknown)
-    @test_throws ArgumentError NUTS(logdensity, gradient, 0.2;
+    @test_throws ArgumentError Optimized.NUTS(logdensity, gradient, 0.2;
         max_depth=0)
-    @test_throws ArgumentError NUTS(logdensity, gradient, 0.2;
+    @test_throws ArgumentError Optimized.NUTS(logdensity, gradient, 0.2;
         max_energy_error=Inf)
-    @test_throws ArgumentError NUTS(logdensity, gradient, 0.2;
+    @test_throws ArgumentError Optimized.NUTS(logdensity, gradient, 0.2;
         integrator=:unknown)
-    @test_throws ArgumentError NUTS(logdensity, gradient, 0.2;
+    @test_throws ArgumentError Optimized.NUTS(logdensity, gradient, 0.2;
         integrator=:jittered, jitter=1.0)
-    @test_throws ArgumentError NUTS(logdensity, gradient, 0.2;
+    @test_throws ArgumentError Optimized.NUTS(logdensity, gradient, 0.2;
         integrator=:tempered, temperature=0.0)
 end

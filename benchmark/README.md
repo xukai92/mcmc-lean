@@ -36,8 +36,8 @@ identical.
 
 New runs include VerifiedSamplers' separately labelled production-shaped NUTS
 runtime and report observed average leapfrog counts because work per transition
-is dynamic. It is labelled `verified-runtime`, rather than
-`verified-reference`: its public implementation is tested, but full Lean
+is dynamic. It is labelled `optimized-runtime`, rather than
+`verified-reference`: `Optimized.NUTS` is tested, but full Lean
 transition correspondence remains open. The certified checked-tree samplers
 remain distinct from both production-shaped runtimes. Historical committed
 results are not retroactively supplemented until the full benchmark is rerun.

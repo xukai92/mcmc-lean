@@ -1,5 +1,15 @@
 # Development log
 
+## 2026-08-19: NUTS names follow verification boundaries
+
+The canonical public `NUTS` constructor now denotes the checked,
+Lean-IR-driven Reference implementation. The independent handwritten
+production-shaped comparator is available as `Optimized.NUTS`. The older
+`VerifiedNUTS` and `CheckedRecursiveDynamicHMC` names remain compatibility
+aliases. Benchmark rows for the handwritten implementation are correspondingly
+labelled `optimized-runtime`; no equivalence between the two transitions is
+claimed.
+
 ## 2026-08-19: continuous checked-row invariance bridge
 
 Added the general-state theorem needed by checked multinomial NUTS selection.
@@ -16,8 +26,8 @@ become singleton rows, while accepted families retain their candidates.
 The Julia `CheckedRecursiveDynamicHMC` path now delegates row construction,
 global checking, identity fallback, and weighted selection directly to the
 decoded `checked-nuts-reference` program interpreter. It is also exported as
-`VerifiedNUTS`. The existing public `NUTS` type remains the independently
-handwritten production-shaped comparator and is not relabelled.
+canonical `NUTS`. The independent handwritten production-shaped comparator is
+now explicitly named `Optimized.NUTS`.
 
 `Program.rawOrbitCandidateRows` now identifies the concrete
 `recursiveDoublingCandidateRow` interpreter with the continuous checked-row
@@ -43,9 +53,9 @@ This closes the exact-real measure-level theorem and migrates the
 conservative checked Reference sampler. It does not yet prove that Julia's
 floating leapfrog and U-turn callbacks refine that exact-real orbit-row family,
 nor
-that the separate production-shaped `NUTS` transition is equivalent to the
+that the separate production-shaped `Optimized.NUTS` transition is equivalent to the
 checked Reference. Those boundaries remain required before changing the
-production benchmark's `verified-runtime` label.
+production benchmark's `optimized-runtime` label.
 
 ## 2026-08-19: Lean-owned checked NUTS subtree IR foundation
 
@@ -72,16 +82,17 @@ root-retention/reroot-equality check, and consumes no selection mark on the
 identity branch; conformance tests compare this result with the pre-existing
 certificate API. The general continuous checked-row invariance theorem is now
 available in the next layer, while the concrete recursive interpreter's
-orbit-covariance proof and public sampler migration remain. Accordingly the
-benchmark remains labelled `verified-runtime`.
+orbit-covariance proof and public sampler migration remained at this milestone.
+The later namespace cleanup and rerun now label the independent comparator
+`optimized-runtime`.
 
 ## 2026-08-19: completed implemented-sampler benchmark rows
 
 Extended new HMC benchmark runs with the already implemented VerifiedSamplers
 production-shaped NUTS runtime and the Reference and Optimized constant-metric
-endpoint and multinomial paths. NUTS is deliberately labelled
-`verified-runtime`, since its full Lean transition-correspondence proof remains
-open. Case-level progress reporting now identifies the target, algorithm,
+endpoint and multinomial paths. The handwritten NUTS comparator is deliberately
+labelled `optimized-runtime`, since its full Lean transition-correspondence
+proof remains open. Case-level progress reporting now identifies the target, algorithm,
 implementation, total case count, and elapsed wall time outside timed regions.
 The full benchmark was rerun before publishing these changes.
 

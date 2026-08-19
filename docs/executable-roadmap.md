@@ -19,9 +19,10 @@ mixture, momentum refresh, and position projection now have exact invariance
 theorems, and the Euclidean endpoint predicate discharges the exact-real
 measurability condition. The remaining boundary is numerical refinement of
 the concrete floating trajectory and callback. The maintained
-Julia `VerifiedNUTS`/`CheckedRecursiveDynamicHMC` client now routes its row
+Julia `NUTS` (`VerifiedNUTS`/`CheckedRecursiveDynamicHMC` compatibility aliases)
+now routes its row
 construction, checker, identity fallback, and selection through the decoded
-Lean program; the separate production-shaped `NUTS` implementation remains a
+Lean program; the separate production-shaped `Optimized.NUTS` implementation remains a
 runtime-only comparator. A checked Lean
 two-leaf counterexample now proves why this cannot follow from root retention
 or first stopping alone: asymmetric rows fail reroot equality and the safe

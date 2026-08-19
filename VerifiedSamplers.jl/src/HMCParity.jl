@@ -307,7 +307,7 @@ dynamic-tree leaf in the symmetric half-temper schedule. The nominal step size,
 metric, maximum depth, and divergence threshold are fixed. No warmup or
 adaptation is performed.
 """
-struct NUTS{F,G,M}
+struct OptimizedNUTS{F,G,M}
     logdensity::F
     gradient::G
     metric::M
@@ -321,7 +321,7 @@ struct NUTS{F,G,M}
     temperature::Float64
 end
 
-function NUTS(logdensity::F, gradient::G, step_size::Real;
+function OptimizedNUTS(logdensity::F, gradient::G, step_size::Real;
         metric=nothing, max_depth::Integer=10, max_energy_error::Real=1000.0,
         termination::Symbol=:generalized,
         selection::Symbol=:multinomial, integrator::Symbol=:leapfrog,
@@ -342,18 +342,18 @@ function NUTS(logdensity::F, gradient::G, step_size::Real;
             ":strict_generalized"))
     selection in (:multinomial, :slice) || throw(ArgumentError(
         "selection must be :multinomial or :slice"))
-    NUTS{F,G,typeof(metric)}(logdensity, gradient, metric, ε,
+    OptimizedNUTS{F,G,typeof(metric)}(logdensity, gradient, metric, ε,
         Int(max_depth), Δmax, termination, selection, kind,
         jitter_amount, tempering)
 end
 
-function _nuts_step_size!(source::Runtime.AbstractRandomSource, sampler::NUTS)
+function _nuts_step_size!(source::Runtime.AbstractRandomSource, sampler::OptimizedNUTS)
     sampler.integrator === :jittered || return sampler.step_size
     uniform = Runtime.uniform_unit!(source)
     sampler.step_size * (1 + sampler.jitter * (2uniform - 1))
 end
 
-function _nuts_phase(sampler::NUTS, position, momentum, velocity)
+function _nuts_phase(sampler::OptimizedNUTS, position, momentum, velocity)
     q, p = Float64.(position), Float64.(momentum)
     logdensity = Float64(sampler.logdensity(q))
     isfinite(logdensity) || throw(DomainError(logdensity,
@@ -362,7 +362,7 @@ function _nuts_phase(sampler::NUTS, position, momentum, velocity)
     _NUTSPhase(q, p, -energy, energy)
 end
 
-function _nuts_leapfrog(sampler::NUTS, phase::_NUTSPhase,
+function _nuts_leapfrog(sampler::OptimizedNUTS, phase::_NUTSPhase,
         direction::Int, velocity, realized_step_size::Float64=sampler.step_size)
     ε = direction * realized_step_size
     momentum = phase.momentum
@@ -399,7 +399,7 @@ function _nuts_uturn_generalized(left::_NUTSPhase, right::_NUTSPhase,
         dot(momentum_sum, velocity(right.momentum)) <= 0
 end
 
-function _nuts_uturn(sampler::NUTS, left::_NUTSPhase, right::_NUTSPhase,
+function _nuts_uturn(sampler::OptimizedNUTS, left::_NUTSPhase, right::_NUTSPhase,
         momentum_sum::AbstractVector{<:Real}, velocity)
     if sampler.termination === :classic
         displacement = right.position .- left.position
@@ -436,7 +436,7 @@ function _choose_subtree_candidate!(source::Runtime.AbstractRandomSource,
     end
 end
 
-function _combine_nuts_trees(sampler::NUTS, left::_NUTSTree,
+function _combine_nuts_trees(sampler::OptimizedNUTS, left::_NUTSTree,
         right::_NUTSTree, velocity, candidate::_NUTSPhase)
     momentum_sum = left.momentum_sum .+ right.momentum_sum
     turned = sampler.termination === :strict_generalized ?
@@ -453,7 +453,7 @@ function _combine_nuts_trees(sampler::NUTS, left::_NUTSTree,
 end
 
 function _combine_nuts_trees!(source::Runtime.AbstractRandomSource,
-        sampler::NUTS, left::_NUTSTree, right::_NUTSTree, velocity)
+        sampler::OptimizedNUTS, left::_NUTSTree, right::_NUTSTree, velocity)
     candidate = _choose_subtree_candidate!(
         source, sampler.selection, left, right)
     _combine_nuts_trees(sampler, left, right, velocity, candidate)
@@ -471,7 +471,7 @@ function _choose_outer_candidate!(source::Runtime.AbstractRandomSource,
 end
 
 function _build_nuts_tree!(source::Runtime.AbstractRandomSource,
-        sampler::NUTS, start::_NUTSPhase, direction::Int, depth::Int,
+        sampler::OptimizedNUTS, start::_NUTSPhase, direction::Int, depth::Int,
         initial_energy::Float64, log_slice::Float64, velocity,
         realized_step_size::Float64=sampler.step_size)
     if depth == 0
@@ -502,7 +502,7 @@ function _build_nuts_tree!(source::Runtime.AbstractRandomSource,
     end
 end
 
-function transition(rng::AbstractRNG, sampler::NUTS,
+function transition(rng::AbstractRNG, sampler::OptimizedNUTS,
         current::AbstractVector{<:Real})
     source = Runtime.RNGSource(rng)
     initial = Float64.(current)
@@ -555,16 +555,16 @@ function transition(rng::AbstractRNG, sampler::NUTS,
         sampler.termination, sampler.selection)
 end
 
-transition(sampler::NUTS, current::AbstractVector{<:Real}) =
+transition(sampler::OptimizedNUTS, current::AbstractVector{<:Real}) =
     transition(Random.default_rng(), sampler, current)
 
-step(rng::AbstractRNG, sampler::NUTS, current::AbstractVector{<:Real}) =
+step(rng::AbstractRNG, sampler::OptimizedNUTS, current::AbstractVector{<:Real}) =
     transition(rng, sampler, current).position
 
-step(sampler::NUTS, current::AbstractVector{<:Real}) =
+step(sampler::OptimizedNUTS, current::AbstractVector{<:Real}) =
     step(Random.default_rng(), sampler, current)
 
-function sample(rng::AbstractRNG, sampler::NUTS,
+function sample(rng::AbstractRNG, sampler::OptimizedNUTS,
         initial::AbstractVector{<:Real}, count::Integer)
     count >= 0 || throw(ArgumentError("sample count must be nonnegative"))
     current = Float64.(initial)
@@ -576,10 +576,10 @@ function sample(rng::AbstractRNG, sampler::NUTS,
     samples
 end
 
-sample(sampler::NUTS, initial::AbstractVector{<:Real}, count::Integer) =
+sample(sampler::OptimizedNUTS, initial::AbstractVector{<:Real}, count::Integer) =
     sample(Random.default_rng(), sampler, initial, count)
 
-function sample_with_diagnostics(rng::AbstractRNG, sampler::NUTS,
+function sample_with_diagnostics(rng::AbstractRNG, sampler::OptimizedNUTS,
         initial::AbstractVector{<:Real}, count::Integer)
     count >= 0 || throw(ArgumentError("sample count must be nonnegative"))
     current = Float64.(initial)
@@ -594,7 +594,7 @@ function sample_with_diagnostics(rng::AbstractRNG, sampler::NUTS,
     (; samples, diagnostics)
 end
 
-sample_with_diagnostics(sampler::NUTS,
+sample_with_diagnostics(sampler::OptimizedNUTS,
         initial::AbstractVector{<:Real}, count::Integer) =
     sample_with_diagnostics(Random.default_rng(), sampler, initial, count)
 

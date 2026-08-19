@@ -131,8 +131,8 @@ function run_verified_metric(stepper, target, seed::Int, draws::Int)
         average_steps=Float64(LEAPFROG_STEPS), gradients_per_step=2)
 end
 
-function run_verified_nuts(target, seed::Int, draws::Int)
-    sampler = VerifiedSamplers.NUTS(
+function run_optimized_nuts(target, seed::Int, draws::Int)
+    sampler = VerifiedSamplers.Optimized.NUTS(
         target.logdensity, target.gradient, STEP_SIZE;
         max_depth=NUTS_MAX_DEPTH, termination=:generalized,
         selection=:multinomial)
@@ -253,7 +253,7 @@ function benchmark_target(target)
     run_advanced(components.hamiltonian, components.endpoint, SEED, 100)
     run_advanced(components.hamiltonian, components.multinomial, SEED, 100)
     run_advanced(components.hamiltonian, components.nuts, SEED, 100)
-    run_verified_nuts(target, SEED, 100)
+    run_optimized_nuts(target, SEED, 100)
 
     endpoint_reference = measure_case(target, "endpoint", "verified-reference",
         seed -> run_verified(
@@ -276,8 +276,8 @@ function benchmark_target(target)
     nuts_advanced = measure_case(target, "nuts", "advancedhmc",
         seed -> run_advanced(
         components.hamiltonian, components.nuts, seed, DRAWS))
-    nuts_verified = measure_case(target, "nuts", "verified-runtime",
-        seed -> run_verified_nuts(target, seed, DRAWS))
+    nuts_optimized = measure_case(target, "nuts", "optimized-runtime",
+        seed -> run_optimized_nuts(target, seed, DRAWS))
 
     measured = [
         ("endpoint", "verified-reference", endpoint_reference),
@@ -286,7 +286,7 @@ function benchmark_target(target)
         ("multinomial", "verified-reference", multinomial_reference),
         ("multinomial", "verified-optimized", multinomial_optimized),
         ("multinomial", "advancedhmc", multinomial_advanced),
-        ("nuts", "verified-runtime", nuts_verified),
+        ("nuts", "optimized-runtime", nuts_optimized),
         ("nuts", "advancedhmc", nuts_advanced)]
     for (algorithm, implementation, trial) in measured
         quality_summary(target, algorithm, implementation, trial.outputs,
@@ -309,8 +309,8 @@ function benchmark_target(target)
             average_steps(multinomial_optimized)),
         result(target, "multinomial", "advancedhmc", multinomial_advanced,
             average_steps(multinomial_advanced)),
-        result(target, "nuts", "verified-runtime", nuts_verified,
-            average_steps(nuts_verified)),
+        result(target, "nuts", "optimized-runtime", nuts_optimized,
+            average_steps(nuts_optimized)),
         result(target, "nuts", "advancedhmc", nuts_advanced,
             average_steps(nuts_advanced)),
     ]

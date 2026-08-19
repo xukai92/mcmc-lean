@@ -54,10 +54,11 @@ function write_svg(rows, timings)
     x_position(value) = left + chart_width *
         (log10(value) - log10(lower)) / (log10(upper) - log10(lower))
     colors = Dict("verified-reference" => "#bf8700",
-        "verified-optimized" => "#1f6feb", "verified-runtime" => "#8250df",
+        "verified-optimized" => "#1f6feb", "optimized-runtime" => "#8250df",
+        "verified-runtime" => "#8250df",
         "advancedhmc" => "#cf222e")
     implementation_order = ("verified-reference", "verified-optimized",
-        "verified-runtime", "advancedhmc")
+        "optimized-runtime", "verified-runtime", "advancedhmc")
     implementations = filter(implementation -> any(
         row -> row.implementation == implementation, rows), implementation_order)
     offsets = length(implementations) == 3 ?
@@ -134,9 +135,9 @@ function write_doc(rows, timings, quality, metadata)
             println(io, "These historical preconditioned endpoint and multinomial rows are AdvancedHMC-only; they predate the implemented VerifiedSamplers benchmark cases and are not retroactively supplemented.\n")
         end
         has_verified_nuts = any(row -> row.algorithm == "nuts" &&
-            row.implementation == "verified-runtime", rows)
+            row.implementation in ("optimized-runtime", "verified-runtime"), rows)
         if has_verified_nuts
-            println(io, "VerifiedSamplers NUTS is labelled `verified-runtime`, not `verified-reference`: the production-shaped implementation is tested, while full Lean transition correspondence remains open.\n")
+            println(io, "VerifiedSamplers `Optimized.NUTS` is labelled `optimized-runtime`, not `verified-reference`: the production-shaped implementation is tested, while full Lean transition correspondence remains open.\n")
         else
             println(io, "The historical NUTS measurements are AdvancedHMC-only. They predate the repository's separately labelled production-shaped NUTS runtime and are not retroactively supplemented.\n")
         end

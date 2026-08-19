@@ -109,8 +109,8 @@ construct, or introduce a typed sub-IR/certified primitive.
 | Fixed multinomial HMC | Complete for ordinary and per-trajectory jittered leapfrog | Existing exact fixed-step multinomial-HMC theory; lifting its invariance through the state-independent jitter law remains to be packaged as a dedicated theorem |
 | Jittered endpoint HMC | Complete | Runtime mixture over fixed-step transitions; dedicated IR/refinement pending |
 | Tempered endpoint HMC | Complete | Runtime implementation; formal integrator/refinement pending |
-| Fixed-parameter NUTS family | Complete for classic/generalized/strict-generalized × slice/multinomial × ordinary/jittered/tempered runtime combinations | Lean proves equal continuation and equal ordered candidate occurrences for successful online/completed builds; numerical tree construction and full transition correspondence remain pending |
-| Checked `VerifiedNUTS` Reference | Complete for bounded recursive Euclidean U-turn rows with checked-or-identity fallback | Exact-real invariance covers fair traces, refresh, and projection; Float64 refinement remains explicit and equivalence to production-shaped NUTS is not claimed |
+| `Optimized.NUTS` production-shaped family | Complete for classic/generalized/strict-generalized × slice/multinomial × ordinary/jittered/tempered runtime combinations | Lean proves equal continuation and equal ordered candidate occurrences for successful online/completed builds; numerical tree construction and full transition correspondence remain pending |
+| Checked `NUTS` Reference | Complete for bounded recursive Euclidean U-turn rows with checked-or-identity fallback | Exact-real invariance covers fair traces, refresh, and projection; Float64 refinement remains explicit and equivalence to `Optimized.NUTS` is not claimed |
 | Partial momentum refresh | Complete for fixed-step endpoint runtime | Formal momentum-refresh foundations exist; runtime composition refinement pending |
 | Fixed low-rank-update metric | Complete through dense Reference lowering | General constant-metric foundations exist; factorized-performance lowering is not claimed |
 | Structured transition diagnostics | Complete for NUTS and partial-refresh transitions | Diagnostic data are not part of kernel correctness |
@@ -127,7 +127,7 @@ using VerifiedSamplers
 logdensity(q) = -sum(abs2, q) / 2
 gradient(q) = q
 
-sampler = NUTS(logdensity, gradient, 0.25;
+sampler = Optimized.NUTS(logdensity, gradient, 0.25;
     max_depth=8,
     max_energy_error=1000.0,
     termination=:generalized,

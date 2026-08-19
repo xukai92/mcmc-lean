@@ -460,7 +460,8 @@ end
     @test reference == [0.0]
     @test Runtime.remaining(reference_source) == 1
 
-    @test VerifiedNUTS === CheckedRecursiveDynamicHMC
+    @test NUTS === CheckedRecursiveDynamicHMC
+    @test VerifiedNUTS === NUTS
 
     first_chain = sample(MersenneTwister(0xdecaf), sampler, [0.0], 20)
     second_chain = sample(MersenneTwister(0xdecaf), sampler, [0.0], 20)
@@ -470,7 +471,7 @@ end
         flat_logdensity, zero_gradient, 0.0, 3)
     @test_throws ArgumentError CheckedRecursiveDynamicHMC(
         flat_logdensity, zero_gradient, 0.5, 0)
-    @test_throws ArgumentError VerifiedNUTS(
+    @test_throws ArgumentError NUTS(
         flat_logdensity, zero_gradient, 0.5, 2048)
     @test_throws ArgumentError step(MersenneTwister(1), sampler, Float64[])
 end
