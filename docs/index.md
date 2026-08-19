@@ -47,8 +47,9 @@ arguments, and explicit audits of the targeted papers.
   cross-paper goal into one evidence-backed matrix, defines the core release
   boundary, and separates parked research extensions.
 - [Development log](development-log.md) records current completed work and
-  remaining obligations; its [archive](development-log-archive.md) preserves
-  older milestone detail.
+  remaining obligations; archive [part 1](development-log-archive.md),
+  [part 2](development-log-archive-2.md), and
+  [part 3](development-log-archive-3.md) preserve older milestone detail.
 - [Overall project roadmap](project-roadmap.md) integrates paper targets,
   executable work, and the broader algorithm scope review.
 - [Ge et al. 2018 coverage](ge18-coverage.md) separates the checked

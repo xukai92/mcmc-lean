@@ -77,6 +77,11 @@ empirical evidence, not proofs or stable CI gates unless their calibration is
 documented. See `benchmark/README.md` for workloads, environment overrides,
 and interpretation.
 
+CI runs `make test` and `make check-docs-generated` for ordinary changes.
+The documentation workflow also builds Documenter after checking that the
+committed Lean-generated page is current; it must not hide a stale generated
+artifact by regenerating it implicitly.
+
 Run the narrow module check while developing, then run `lake build` before
 finishing any code change. Documentation-only changes do not require a build
 unless they alter commands, module names, or generated documentation inputs.

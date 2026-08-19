@@ -1,0 +1,28 @@
+name: Validation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: validation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  formal-and-runtime:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: leanprover/lean-action@v1
+        with:
+          auto-config: false
+          lake-package-directory: formal
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: '1.12'
+      - uses: julia-actions/cache@v2
+      - name: Build proofs, check generated IR, and test Julia runtime
+        run: make test
+      - name: Check Lean-generated documentation
+        run: make check-docs-generated

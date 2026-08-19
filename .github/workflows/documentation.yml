@@ -29,8 +29,8 @@ jobs:
           # Keep CI aligned with the Julia version recorded in docs/Manifest.toml.
           version: '1.12'
       - uses: julia-actions/cache@v2
-      - name: Build Lean-generated documentation
-        run: make generate-docs
+      - name: Check Lean-generated documentation
+        run: make check-docs-generated
       - name: Instantiate documentation environment
         run: julia --project=docs -e 'using Pkg; Pkg.instantiate()'
       - name: Build and deploy documentation

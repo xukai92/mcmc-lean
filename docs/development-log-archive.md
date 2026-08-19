@@ -2,6 +2,8 @@
 
 This archive contains the earlier detailed milestone record. Current work is
 tracked in the [development log](development-log.md).
+Continue with [part 2](development-log-archive-2.md) and
+[part 3](development-log-archive-3.md).
 
 ## 2026-08-13: paper coverage audit
 
@@ -2825,3 +2827,16 @@ probabilities without extra cases in the kernel definition.
 
 Supporting repository work in this milestone included the initial Lake
 project, a related-work survey, and coding-agent workflow instructions.
+
+## 2026-08-19: documentation consolidation and progress matrix
+
+Reduced the root README from a theorem ledger to a concise project entry point
+covering layout, scope, build gates, executable examples, claim discipline, and
+links to canonical detail. Added `docs/progress.md` as the method-by-property
+matrix for exact laws, invariance, convergence, Julia coverage, and execution
+refinement, plus a separate paper-target table. Reconciled the active roadmap
+and project-status wording with the completed core audit, corrected the stale
+multi-step regional-certificate description, and retained hard numerical and
+analysis endpoints as explicitly parked research. The README examples execute,
+and generated-doc, Documenter, link, and formatting checks are release gates
+for this pass.

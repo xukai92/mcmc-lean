@@ -26,7 +26,9 @@ pages = [
         "Finite executable roadmap" => "finite-executable-roadmap.md",
         "Development log" => [
             "Current" => "development-log.md",
-            "Archive" => "development-log-archive.md",
+            "Archive, part 1" => "development-log-archive.md",
+            "Archive, part 2" => "development-log-archive-2.md",
+            "Archive, part 3" => "development-log-archive-3.md",
         ],
     ],
     "Paper coverage" => [
@@ -59,6 +61,7 @@ published_files = [
     "project-roadmap.md", "executable-roadmap.md",
     "finite-executable-roadmap.md",
     "development-log.md", "development-log-archive.md",
+    "development-log-archive-2.md", "development-log-archive-3.md",
     "ge18-coverage.md", "xu21-coverage.md", "xu21-roadmap.md", "xu24-coverage.md",
     "xu24-roadmap.md", "related-work.md", "algorithm-scope-review.md",
     "betancourt17-coverage.md",
@@ -84,14 +87,13 @@ makedocs(
         prettyurls = get(ENV, "CI", "false") == "true",
         assets = ["assets/mermaid.js"],
         repolink = "https://github.com/xukai92/mcmc-lean",
-        # The theorem-level development log is intentionally detailed and its
-        # rendered HTML includes Documenter's navigation metadata. Keep a
-        # headroom above the current theorem ledger while older epochs continue
-        # to move to development-log-archive.md. This is a documentation-size
-        # guard, not a browser or theorem-correctness boundary.
+        # The current log and each archive epoch are bounded independently.
+        # The search index intentionally includes all three published archive
+        # pages, so its warning threshold has modest headroom above their
+        # combined historical text.
         size_threshold_warn = 490 * 2^10,
         size_threshold = 520 * 2^10,
-        search_size_threshold_warn = 950 * 2^10,
+        search_size_threshold_warn = 1024 * 2^10,
         inventory_version = "dev",
     ),
     pages = pages,
