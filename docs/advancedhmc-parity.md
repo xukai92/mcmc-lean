@@ -110,6 +110,7 @@ construct, or introduce a typed sub-IR/certified primitive.
 | Jittered endpoint HMC | Complete | Runtime mixture over fixed-step transitions; dedicated IR/refinement pending |
 | Tempered endpoint HMC | Complete | Runtime implementation; formal integrator/refinement pending |
 | Fixed-parameter NUTS family | Complete for classic/generalized/strict-generalized × slice/multinomial × ordinary/jittered/tempered runtime combinations | Lean proves equal continuation and equal ordered candidate occurrences for successful online/completed builds; numerical tree construction and full transition correspondence remain pending |
+| Checked `VerifiedNUTS` Reference | Complete for bounded recursive Euclidean U-turn rows with checked-or-identity fallback | Exact-real invariance covers fair traces, refresh, and projection; Float64 refinement remains explicit and equivalence to production-shaped NUTS is not claimed |
 | Partial momentum refresh | Complete for fixed-step endpoint runtime | Formal momentum-refresh foundations exist; runtime composition refinement pending |
 | Fixed low-rank-update metric | Complete through dense Reference lowering | General constant-metric foundations exist; factorized-performance lowering is not claimed |
 | Structured transition diagnostics | Complete for NUTS and partial-refresh transitions | Diagnostic data are not part of kernel correctness |

@@ -13,10 +13,12 @@ theorem-backed only when `certificate.valid` is true. Equivalence with a
 specific recursive production NUTS tree builder remains open. Lean now proves
 measure-level detailed balance for measurable, orbit-covariant checked rows;
 the concrete bounded `recursiveDoublingCandidateRow` interpreter is now proved
-to construct orbit-covariant checked rows for each fixed direction trace when
-its exact endpoint callback is orbit stable. The remaining formal boundary is
-measurability and numerical refinement of the callback, plus the explicit
-continuous mixture over the state-independent direction-trace law. The maintained
+to construct orbit-covariant checked rows for each bounded direction trace when
+its exact endpoint callback is orbit stable. The state-independent fair trace
+mixture, momentum refresh, and position projection now have exact invariance
+theorems, and the Euclidean endpoint predicate discharges the exact-real
+measurability condition. The remaining boundary is numerical refinement of
+the concrete floating trajectory and callback. The maintained
 Julia `VerifiedNUTS`/`CheckedRecursiveDynamicHMC` client now routes its row
 construction, checker, identity fallback, and selection through the decoded
 Lean program; the separate production-shaped `NUTS` implementation remains a

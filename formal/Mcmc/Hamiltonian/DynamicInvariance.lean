@@ -21,56 +21,123 @@ open ProbabilityTheory
 
 variable {ι : Type*} [Fintype ι]
 
+/-! ### State-independent finite kernel mixtures -/
+
+/-- Average a finite family of kernels using a state-independent PMF. -/
+noncomputable def finiteKernelMixture
+    {Aux State : Type*} [Fintype Aux] [MeasurableSpace State]
+    (weights : PMF Aux) (kernels : Aux → Kernel State State) :
+    Kernel State State where
+  toFun state := ∑ auxiliary, weights auxiliary • kernels auxiliary state
+  measurable' := by
+    refine Measure.measurable_of_measurable_coe _ fun s hs => ?_
+    simp only [Measure.finsetSum_apply, Measure.smul_apply, smul_eq_mul]
+    exact Finset.measurable_sum _ fun auxiliary hauxiliary =>
+      measurable_const.mul ((kernels auxiliary).measurable_coe hs)
+
+instance finiteKernelMixture_isMarkovKernel
+    {Aux State : Type*} [Fintype Aux] [MeasurableSpace State]
+    (weights : PMF Aux) (kernels : Aux → Kernel State State)
+    [∀ auxiliary, IsMarkovKernel (kernels auxiliary)] :
+    IsMarkovKernel (finiteKernelMixture weights kernels) where
+  isProbabilityMeasure state := by
+    constructor
+    change (∑ auxiliary, weights auxiliary • kernels auxiliary state) Set.univ = 1
+    rw [Measure.finsetSum_apply]
+    simp only [Measure.smul_apply, smul_eq_mul, measure_univ, mul_one]
+    exact (tsum_fintype _).symm.trans (PMF.tsum_coe weights)
+
+theorem finiteKernelMixture_comp_measure
+    {Aux State : Type*} [Fintype Aux] [MeasurableSpace State]
+    (weights : PMF Aux) (kernels : Aux → Kernel State State)
+    (initial : Measure State) :
+    finiteKernelMixture weights kernels ∘ₘ initial =
+      ∑ auxiliary, weights auxiliary • (kernels auxiliary ∘ₘ initial) := by
+  ext s hs
+  rw [Measure.bind_apply hs (finiteKernelMixture weights kernels).aemeasurable]
+  change (∫⁻ state, (∑ auxiliary, weights auxiliary • kernels auxiliary state) s
+    ∂initial) = _
+  simp only [Measure.finsetSum_apply, Measure.smul_apply, smul_eq_mul]
+  rw [lintegral_finsetSum]
+  · apply Finset.sum_congr rfl
+    intro auxiliary hauxiliary
+    rw [lintegral_const_mul _ ((kernels auxiliary).measurable_coe hs)]
+    rw [Measure.bind_apply hs (kernels auxiliary).aemeasurable]
+  · intro auxiliary hauxiliary
+    exact measurable_const.mul ((kernels auxiliary).measurable_coe hs)
+
+/-- A state-independent finite mixture preserves every measure preserved by
+each component. -/
+theorem finiteKernelMixture_invariant
+    {Aux State : Type*} [Fintype Aux] [MeasurableSpace State]
+    (weights : PMF Aux) (kernels : Aux → Kernel State State)
+    (target : Measure State)
+    (hinvariant : ∀ auxiliary, (kernels auxiliary).Invariant target) :
+    (finiteKernelMixture weights kernels).Invariant target := by
+  rw [Kernel.Invariant, finiteKernelMixture_comp_measure]
+  simp_rw [(hinvariant _).def]
+  ext s hs
+  rw [Measure.finsetSum_apply]
+  simp only [Measure.smul_apply, smul_eq_mul]
+  have hweights : (∑ auxiliary : Aux, weights auxiliary) = 1 :=
+    (tsum_fintype fun auxiliary : Aux => weights auxiliary).symm.trans
+      (PMF.tsum_coe weights)
+  rw [← Finset.sum_mul, hweights, one_mul]
+
 /-- A globally checked family of finite candidate rows expressed in orbit
 coordinates.  `orbitCovariant` states that rebuilding after moving the phase
 point and changing the distinguished origin addresses the same physical
 trajectory rows. -/
 structure CertifiedTrajectoryCandidateRows
     (gradient : Position ι → Position ι) (ε : ℝ) (L : ℕ) where
-  rows : PhaseSpace ι → Fin (L + 1) → Finset (Fin (L + 1))
-  checks : ∀ z, Mcmc.Finite.MarkovKernel.CertifiedDynamicTree.Checks (rows z)
+  rows : PhaseSpace ι → Fin (L + 1) →
+    Fin (L + 1) → Finset (Fin (L + 1))
+  checks : ∀ z anchor,
+    Mcmc.Finite.MarkovKernel.CertifiedDynamicTree.Checks (rows z anchor)
   orbitCovariant : ∀ z origin selected,
-    rows (offsetLeapfrogTrajectory gradient ε origin z selected) selected =
-      rows z selected
+    rows (offsetLeapfrogTrajectory gradient ε origin z selected) selected = rows z origin
 
 /-- Raw orbit-coordinate rows before applying the executable global checker.
 The covariance requirement covers every possible distinguished root, so the
 check result cannot change merely because the same orbit is rerooted. -/
 structure RawTrajectoryCandidateRows
     (gradient : Position ι → Position ι) (ε : ℝ) (L : ℕ) where
-  rows : PhaseSpace ι → Fin (L + 1) → Finset (Fin (L + 1))
-  orbitCovariant : ∀ (z : PhaseSpace ι) (origin selected root : Fin (L + 1)),
-    rows (offsetLeapfrogTrajectory gradient ε origin z selected) root = rows z root
+  rows : PhaseSpace ι → Fin (L + 1) →
+    Fin (L + 1) → Finset (Fin (L + 1))
+  orbitCovariant : ∀ (z : PhaseSpace ι) (origin selected : Fin (L + 1)),
+    rows (offsetLeapfrogTrajectory gradient ε origin z selected) selected = rows z origin
 
 /-- Executable checked-or-identity sanitization of a complete row family. -/
 def RawTrajectoryCandidateRows.checkedRows
     {gradient : Position ι → Position ι} {ε : ℝ} {L : ℕ}
     (raw : RawTrajectoryCandidateRows gradient ε L)
-    (z : PhaseSpace ι) (root : Fin (L + 1)) : Finset (Fin (L + 1)) :=
-  if Mcmc.Finite.MarkovKernel.CertifiedDynamicTree.check (raw.rows z) then
-    raw.rows z root
+    (z : PhaseSpace ι) (anchor root : Fin (L + 1)) : Finset (Fin (L + 1)) :=
+  if Mcmc.Finite.MarkovKernel.CertifiedDynamicTree.check (raw.rows z anchor) then
+    raw.rows z anchor root
   else {root}
 
 omit [Fintype ι] in
 theorem RawTrajectoryCandidateRows.checkedRows_checks
     {gradient : Position ι → Position ι} {ε : ℝ} {L : ℕ}
-    (raw : RawTrajectoryCandidateRows gradient ε L) (z : PhaseSpace ι) :
-    Mcmc.Finite.MarkovKernel.CertifiedDynamicTree.Checks (raw.checkedRows z) := by
+    (raw : RawTrajectoryCandidateRows gradient ε L) (z : PhaseSpace ι)
+    (anchor : Fin (L + 1)) :
+    Mcmc.Finite.MarkovKernel.CertifiedDynamicTree.Checks
+      (raw.checkedRows z anchor) := by
   classical
   by_cases hcheck :
-      Mcmc.Finite.MarkovKernel.CertifiedDynamicTree.check (raw.rows z) = true
+      Mcmc.Finite.MarkovKernel.CertifiedDynamicTree.check (raw.rows z anchor) = true
   · have hchecks :=
       (Mcmc.Finite.MarkovKernel.CertifiedDynamicTree.check_eq_true_iff
-        (raw.rows z)).mp hcheck
-    have heq : raw.checkedRows z = raw.rows z := by
+        (raw.rows z anchor)).mp hcheck
+    have heq : raw.checkedRows z anchor = raw.rows z anchor := by
       funext root
       simp [RawTrajectoryCandidateRows.checkedRows, hcheck]
     rw [heq]
     exact hchecks
   · have hfalse :
-        Mcmc.Finite.MarkovKernel.CertifiedDynamicTree.check (raw.rows z) = false :=
+      Mcmc.Finite.MarkovKernel.CertifiedDynamicTree.check (raw.rows z anchor) = false :=
       Bool.eq_false_of_not_eq_true hcheck
-    have heq : raw.checkedRows z = fun root => {root} := by
+    have heq : raw.checkedRows z anchor = fun root => {root} := by
       funext root
       simp [RawTrajectoryCandidateRows.checkedRows, hfalse]
     rw [heq]
@@ -84,16 +151,14 @@ omit [Fintype ι] in
 theorem RawTrajectoryCandidateRows.checkedRows_orbitCovariant
     {gradient : Position ι → Position ι} {ε : ℝ} {L : ℕ}
     (raw : RawTrajectoryCandidateRows gradient ε L) :
-    ∀ (z : PhaseSpace ι) (origin selected root : Fin (L + 1)),
-      raw.checkedRows (offsetLeapfrogTrajectory gradient ε origin z selected) root =
-        raw.checkedRows z root := by
+    ∀ (z : PhaseSpace ι) (origin selected : Fin (L + 1)),
+      raw.checkedRows (offsetLeapfrogTrajectory gradient ε origin z selected) selected =
+        raw.checkedRows z origin := by
   classical
-  intro z origin selected root
-  have hrows : raw.rows (offsetLeapfrogTrajectory gradient ε origin z selected) =
-      raw.rows z := by
-    funext candidateRoot
-    exact raw.orbitCovariant z origin selected candidateRoot
-  simp [RawTrajectoryCandidateRows.checkedRows, hrows]
+  intro z origin selected
+  have hrows := raw.orbitCovariant z origin selected
+  unfold RawTrajectoryCandidateRows.checkedRows
+  rw [hrows]
 
 /-- Every orbit-covariant raw builder becomes a proof-bearing continuous
 candidate certificate after the executable checked-or-identity wrapper. -/
@@ -103,15 +168,14 @@ def RawTrajectoryCandidateRows.toCertified
     CertifiedTrajectoryCandidateRows gradient ε L where
   rows := raw.checkedRows
   checks := raw.checkedRows_checks
-  orbitCovariant := fun z origin selected =>
-    raw.checkedRows_orbitCovariant z origin selected selected
+  orbitCovariant := raw.checkedRows_orbitCovariant
 
 /-- Boolean mask decoded from proof-bearing checked orbit rows. -/
 def CertifiedTrajectoryCandidateRows.mask
     {gradient : Position ι → Position ι} {ε : ℝ} {L : ℕ}
-    (certificate : CertifiedTrajectoryCandidateRows gradient ε L) :
+  (certificate : CertifiedTrajectoryCandidateRows gradient ε L) :
     TrajectoryCandidateMask ι L :=
-  fun z origin selected => decide (selected ∈ certificate.rows z origin)
+  fun z origin selected => decide (selected ∈ certificate.rows z origin origin)
 
 omit [Fintype ι] in
 theorem CertifiedTrajectoryCandidateRows.mask_root
@@ -119,7 +183,8 @@ theorem CertifiedTrajectoryCandidateRows.mask_root
     (certificate : CertifiedTrajectoryCandidateRows gradient ε L) :
     ∀ z origin, certificate.mask z origin origin = true := by
   intro z origin
-  simp [CertifiedTrajectoryCandidateRows.mask, (certificate.checks z).1 origin]
+  simp [CertifiedTrajectoryCandidateRows.mask,
+    (certificate.checks z origin).1 origin]
 
 omit [Fintype ι] in
 theorem CertifiedTrajectoryCandidateRows.mask_reroot
@@ -130,9 +195,9 @@ theorem CertifiedTrajectoryCandidateRows.mask_reroot
           (offsetLeapfrogTrajectory gradient ε origin z selected) selected i =
         certificate.mask z origin i := by
   intro z origin selected hselected i
-  have hmem : selected ∈ certificate.rows z origin := by
+  have hmem : selected ∈ certificate.rows z origin origin := by
     simpa [CertifiedTrajectoryCandidateRows.mask] using hselected
-  have hrows := (certificate.checks z).2 origin selected hmem
+  have hrows := (certificate.checks z origin).2 origin selected hmem
   apply Bool.decide_congr
   rw [certificate.orbitCovariant z origin selected, hrows]
 
@@ -149,13 +214,13 @@ theorem CertifiedTrajectoryCandidateRows.mask_pair
   rw [certificate.orbitCovariant z origin selected]
   constructor
   · intro horigin
-    have hrows := (certificate.checks z).2 selected origin horigin
+    have hrows := (certificate.checks z origin).2 selected origin horigin
     rw [hrows]
-    exact (certificate.checks z).1 selected
+    exact (certificate.checks z origin).1 selected
   · intro hselected
-    have hrows := (certificate.checks z).2 origin selected hselected
+    have hrows := (certificate.checks z origin).2 origin selected hselected
     rw [hrows]
-    exact (certificate.checks z).1 origin
+    exact (certificate.checks z origin).1 origin
 
 /-- Measurability of every Boolean candidate decision. -/
 def MeasurableTrajectoryCandidateMask {L : ℕ}

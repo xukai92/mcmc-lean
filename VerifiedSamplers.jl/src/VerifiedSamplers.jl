@@ -2674,6 +2674,9 @@ struct CheckedRecursiveDynamicHMC{F,G}
         isfinite(converted) && converted > 0 ||
             throw(ArgumentError("step size must be finite and positive"))
         steps > 0 || throw(ArgumentError("trajectory length must be positive"))
+        max_depth = Reference.NUTS_TREE_PROGRAMS["checked-nuts-reference"].max_depth
+        BigInt(steps) + 1 < (BigInt(1) << (max_depth + 1)) ||
+            throw(ArgumentError("trajectory depth exceeds the Lean NUTS program"))
         new{F,G}(logdensity, gradient, converted, Int(steps))
     end
 end
@@ -2697,14 +2700,14 @@ function _checked_recursive_dynamic_hmc_step!(
     count = sampler.steps + 1
     origin = Int(Runtime.draw_below!(source, count))
     for _ in 1:origin
-        q, p = Optimized.vector_leapfrog(sampler.gradient,
+        q, p = Reference.vector_leapfrog_step(sampler.gradient,
             -sampler.step_size, q, p)
     end
     positions = Vector{Vector{Float64}}(undef, count)
     momenta = similar(positions)
     positions[1], momenta[1] = copy(q), copy(p)
     for index in 2:count
-        q, p = Optimized.vector_leapfrog(sampler.gradient,
+        q, p = Reference.vector_leapfrog_step(sampler.gradient,
             sampler.step_size, q, p)
         positions[index], momenta[index] = copy(q), copy(p)
     end

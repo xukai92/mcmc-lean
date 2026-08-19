@@ -441,6 +441,12 @@ end
     zero_gradient(q) = zero(q)
     sampler = CheckedRecursiveDynamicHMC(flat_logdensity, zero_gradient, 0.5, 3)
 
+    forward = Reference.vector_leapfrog_step(zero_gradient, 0.5, [0.0], [1.0])
+    backward = Reference.vector_leapfrog_step(
+        zero_gradient, -0.5, forward[1], forward[2])
+    @test forward == ([0.5], [1.0])
+    @test backward == ([0.0], [1.0])
+
     # A sampled two-bit direction trace produces boundary-dependent rooted
     # rows on this monotone orbit. Global certification rejects it, so the
     # proved randomized checked-or-identity policy consumes no selector draw.
@@ -464,6 +470,8 @@ end
         flat_logdensity, zero_gradient, 0.0, 3)
     @test_throws ArgumentError CheckedRecursiveDynamicHMC(
         flat_logdensity, zero_gradient, 0.5, 0)
+    @test_throws ArgumentError VerifiedNUTS(
+        flat_logdensity, zero_gradient, 0.5, 2048)
     @test_throws ArgumentError step(MersenneTwister(1), sampler, Float64[])
 end
 

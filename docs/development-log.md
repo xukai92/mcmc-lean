@@ -21,14 +21,28 @@ handwritten production-shaped comparator and is not relabelled.
 
 `Program.rawOrbitCandidateRows` now identifies the concrete
 `recursiveDoublingCandidateRow` interpreter with the continuous checked-row
-interface for each fixed direction trace. Pointwise orbit stability of the
+interface for each bounded direction trace. Pointwise orbit stability of the
 endpoint-turn callback proves covariance of every emitted row, after which the
 global checker, identity fallback, detailed-balance theorem, and invariance
 theorem compose in `Program.checkedOrbitKernel_invariant`.
+The bounded trace length is explicit and checked against the artifact's
+maximum, matching Julia's decoder contract. Lean now also forms the fair
+state-independent mixture over all direction traces of that length and proves
+it invariant. Finally, momentum refresh and position projection are composed
+in `Program.positionRandomizedCheckedOrbitKernel_invariant`, giving the
+user-facing exact-real target theorem rather than only a phase-space result.
+The row certificate now carries the orbit's anchor index explicitly; this
+prevents hypothetical reroot rows from accidentally being computed on shifted
+physical orbits. Lean proves that the actual Euclidean endpoint U-turn
+predicate is measurable and stable under reanchoring. Consequently
+`Program.positionVectorUTurnReferenceKernel_invariant` discharges the complete
+ideal structural stack without leaving abstract checker or measurability
+assumptions.
 
-This closes the previously missing measure-level theorem and migrates the
+This closes the exact-real measure-level theorem and migrates the
 conservative checked Reference sampler. It does not yet prove that Julia's
-floating row callbacks refine a measurable exact-real orbit-row family, nor
+floating leapfrog and U-turn callbacks refine that exact-real orbit-row family,
+nor
 that the separate production-shaped `NUTS` transition is equivalent to the
 checked Reference. Those boundaries remain required before changing the
 production benchmark's `verified-runtime` label.

@@ -14,6 +14,7 @@ export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_ou
     fixed_point_generalized_leapfrog,
     fixed_point_generalized_leapfrog_trace,
     FixedPointGeneralizedLeapfrogTrace,
+    vector_leapfrog_step,
     certified_relativistic_multinomial_hmc_step!,
     dynamic_select_float!, streaming_eligible_select!, recursive_doubling_rows,
     NUTSTreeLeaf, NUTSTreeNode, NUTSSubtreeResult, build_nuts_phase_tree,
@@ -24,6 +25,24 @@ export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_ou
     IR_FORMAT_VERSION
 
 const IR_FORMAT_VERSION = 20
+
+"""Execute one instance of the Lean IR `vector-leapfrog` primitive."""
+function vector_leapfrog_step(gradient, step_size::Real,
+        initial_position::AbstractVector{<:Real},
+        initial_momentum::AbstractVector{<:Real})
+    position = Float64.(initial_position)
+    momentum = Float64.(initial_momentum)
+    length(position) == length(momentum) ||
+        throw(DimensionMismatch("position and momentum dimensions differ"))
+    ε = Float64(step_size)
+    isfinite(ε) || throw(ArgumentError("step size must be finite"))
+    half_momentum = momentum .- (ε / 2) .* gradient(position)
+    position = position .+ ε .* half_momentum
+    momentum = half_momentum .- (ε / 2) .* gradient(position)
+    all(isfinite, position) && all(isfinite, momentum) ||
+        throw(DomainError((position, momentum), "leapfrog state must be finite"))
+    position, momentum
+end
 
 """Stable target-weighted selection from a supplied candidate index set.
 
@@ -880,9 +899,8 @@ function eval_expr(raw, env::Dict{String,Any})
         position = Float64.(eval_expr(node[4], env))
         momentum = Float64.(eval_expr(node[5], env))
         for _ in 1:steps
-            half_momentum = momentum .- (step_size / 2) .* env["gradient"](position)
-            position = position .+ step_size .* half_momentum
-            momentum = half_momentum .- (step_size / 2) .* env["gradient"](position)
+            position, momentum = vector_leapfrog_step(
+                env["gradient"], step_size, position, momentum)
         end
         return tag == "vector-leapfrog-position" ? position : momentum
     end

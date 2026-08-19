@@ -1,5 +1,7 @@
 import Mcmc.Executable.Continuous.DynamicTreeRefinement
 import Mcmc.Hamiltonian.DynamicInvariance
+import Mcmc.Hamiltonian.HMC
+import Mcmc.Finite.MeasureKernel
 
 /-!
 # Typed executable IR for checked NUTS tree construction
@@ -20,6 +22,8 @@ that separate implication is supplied by `DynamicTreeRefinement` certificates.
 namespace Mcmc.Executable.Continuous.NUTSIR
 
 open Mcmc.Finite.MarkovKernel
+open MeasureTheory
+open scoped ProbabilityTheory
 
 /-- Selection rule carried by a complete NUTS program.  Both rules are part of
 the production runtime surface; their weighted candidate consumers are kept
@@ -406,6 +410,76 @@ theorem Program.checkedCandidateProgram_stationary
 
 /-! ### Continuous orbit-row interpretation -/
 
+/-- Endpoint decision matrix obtained from the physical leapfrog orbit anchored
+at the current index. This is the exact-real callback shape mirrored by the
+Julia row interpreter. -/
+noncomputable def offsetEndpointTurns
+    {ι : Type*} [Fintype ι]
+    (gradient : Mcmc.Hamiltonian.Position ι → Mcmc.Hamiltonian.Position ι)
+    (ε : ℝ) {L : ℕ}
+    (turns : Mcmc.Hamiltonian.PhaseSpace ι →
+      Mcmc.Hamiltonian.PhaseSpace ι → Bool)
+    (z : Mcmc.Hamiltonian.PhaseSpace ι) (anchor left right : Fin (L + 1)) : Bool :=
+  turns (Mcmc.Hamiltonian.offsetLeapfrogTrajectory gradient ε anchor z left)
+    (Mcmc.Hamiltonian.offsetLeapfrogTrajectory gradient ε anchor z right)
+
+/-- Reanchoring the same physical orbit leaves every indexed endpoint decision
+unchanged. -/
+theorem offsetEndpointTurns_orbitStable
+    {ι : Type*} [Fintype ι]
+    (gradient : Mcmc.Hamiltonian.Position ι → Mcmc.Hamiltonian.Position ι)
+    (ε : ℝ) {L : ℕ}
+    (turns : Mcmc.Hamiltonian.PhaseSpace ι →
+      Mcmc.Hamiltonian.PhaseSpace ι → Bool) :
+    ∀ (z : Mcmc.Hamiltonian.PhaseSpace ι)
+      (origin selected left right : Fin (L + 1)),
+      offsetEndpointTurns gradient ε turns
+          (Mcmc.Hamiltonian.offsetLeapfrogTrajectory gradient ε origin z selected)
+          selected left right =
+        offsetEndpointTurns gradient ε turns z origin left right := by
+  intro z origin selected left right
+  unfold offsetEndpointTurns
+  rw [Mcmc.Hamiltonian.offsetLeapfrogTrajectory_reroot]
+  rw [Mcmc.Hamiltonian.offsetLeapfrogTrajectory_reroot]
+
+theorem measurable_offsetEndpointTurns
+    {ι : Type*} [Fintype ι]
+    {gradient : Mcmc.Hamiltonian.Position ι → Mcmc.Hamiltonian.Position ι}
+    (hgradient : Measurable gradient) (ε : ℝ) {L : ℕ}
+    (turns : Mcmc.Hamiltonian.PhaseSpace ι →
+      Mcmc.Hamiltonian.PhaseSpace ι → Bool)
+    (hturns : Measurable fun pair :
+      Mcmc.Hamiltonian.PhaseSpace ι × Mcmc.Hamiltonian.PhaseSpace ι =>
+        turns pair.1 pair.2)
+    (anchor left right : Fin (L + 1)) :
+    Measurable fun z => offsetEndpointTurns gradient ε turns z anchor left right := by
+  exact hturns.comp <| Measurable.prodMk
+    (Mcmc.Hamiltonian.measurable_offsetLeapfrogTrajectory
+      hgradient ε anchor left)
+    (Mcmc.Hamiltonian.measurable_offsetLeapfrogTrajectory
+      hgradient ε anchor right)
+
+theorem measurable_vectorAdjacentUTurn
+    {ι : Type*} [Fintype ι] :
+    Measurable fun pair : Mcmc.Hamiltonian.PhaseSpace ι ×
+        Mcmc.Hamiltonian.PhaseSpace ι =>
+      Mcmc.Finite.MarkovKernel.vectorAdjacentUTurn pair.1 pair.2 := by
+  apply measurable_to_bool
+  rw [show (fun pair : Mcmc.Hamiltonian.PhaseSpace ι ×
+      Mcmc.Hamiltonian.PhaseSpace ι =>
+        Mcmc.Finite.MarkovKernel.vectorAdjacentUTurn pair.1 pair.2) ⁻¹' {true} =
+      {pair | (∑ i, (pair.2.1 i - pair.1.1 i) * pair.1.2 i) < 0} ∪
+      {pair | (∑ i, (pair.2.1 i - pair.1.1 i) * pair.2.2 i) < 0} by
+    ext pair
+    simp [Mcmc.Finite.MarkovKernel.vectorAdjacentUTurn]]
+  apply MeasurableSet.union
+  · apply measurableSet_lt
+    · fun_prop
+    · exact measurable_const
+  · apply measurableSet_lt
+    · fun_prop
+    · exact measurable_const
+
 /-- Interpret the same recursive-doubling row builder on every exact
 Hamiltonian orbit base point. A fixed direction trace is an auxiliary
 state-independent draw; endpoint decisions are allowed to depend on the
@@ -414,23 +488,96 @@ def Program.rawOrbitCandidateRows
     {ι : Type*} [Fintype ι]
     (program : Program) (gradient : Mcmc.Hamiltonian.Position ι →
       Mcmc.Hamiltonian.Position ι) (ε : ℝ) (L : ℕ)
-    (trace : Fin program.maxDepth → Bool)
-    (turns : Mcmc.Hamiltonian.PhaseSpace ι →
+    (depth : ℕ) (_hdepth : depth ≤ program.maxDepth)
+    (trace : Fin depth → Bool)
+    (turns : Mcmc.Hamiltonian.PhaseSpace ι → Fin (L + 1) →
       Fin (L + 1) → Fin (L + 1) → Bool)
     (horbit : ∀ (z : Mcmc.Hamiltonian.PhaseSpace ι)
       (origin selected left right : Fin (L + 1)),
       turns (Mcmc.Hamiltonian.offsetLeapfrogTrajectory gradient ε origin z selected)
-          left right = turns z left right) :
+          selected left right = turns z origin left right) :
     Mcmc.Hamiltonian.RawTrajectoryCandidateRows gradient ε L where
-  rows z root :=
+  rows z anchor root :=
     Mcmc.Executable.DynamicTreeIR.recursiveDoublingCandidateRow
-      (L + 1) program.maxDepth (turns z) trace root
+      (L + 1) depth (turns z anchor) trace root
   orbitCovariant := by
-    intro z origin selected root
+    intro z origin selected
+    funext root
     exact Mcmc.Executable.DynamicTreeIR.recursiveDoublingCandidateRow_congr
-      (L + 1) program.maxDepth
-      (turns (Mcmc.Hamiltonian.offsetLeapfrogTrajectory gradient ε origin z selected))
-      (turns z) (horbit z origin selected) trace root
+      (L + 1) depth
+      (turns (Mcmc.Hamiltonian.offsetLeapfrogTrajectory gradient ε origin z selected)
+        selected)
+      (turns z origin) (horbit z origin selected) trace root
+
+/-- Coordinatewise measurability of the endpoint bits is sufficient for the
+entire finite recursive builder, global checker, identity fallback, and final
+candidate mask to be measurable. -/
+theorem Program.rawOrbitCandidateRows_mask_measurable
+    {ι : Type*} [Fintype ι]
+    (program : Program) (gradient : Mcmc.Hamiltonian.Position ι →
+      Mcmc.Hamiltonian.Position ι) (ε : ℝ) (L depth : ℕ)
+    (hdepth : depth ≤ program.maxDepth) (trace : Fin depth → Bool)
+    (turns : Mcmc.Hamiltonian.PhaseSpace ι → Fin (L + 1) →
+      Fin (L + 1) → Fin (L + 1) → Bool)
+    (horbit : ∀ (z : Mcmc.Hamiltonian.PhaseSpace ι)
+      (origin selected left right : Fin (L + 1)),
+      turns (Mcmc.Hamiltonian.offsetLeapfrogTrajectory gradient ε origin z selected)
+          selected left right = turns z origin left right)
+    (hmeasurable : ∀ anchor left right,
+      Measurable fun z => turns z anchor left right) :
+    Mcmc.Hamiltonian.MeasurableTrajectoryCandidateMask
+      ((program.rawOrbitCandidateRows gradient ε L depth hdepth trace turns
+        horbit).toCertified.mask) := by
+  intro origin selected
+  let decode := fun matrix : Fin (L + 1) → Fin (L + 1) → Bool =>
+    decide (selected ∈
+      (if Mcmc.Finite.MarkovKernel.CertifiedDynamicTree.check
+          (fun root => Mcmc.Executable.DynamicTreeIR.recursiveDoublingCandidateRow
+            (L + 1) depth matrix trace root)
+        then Mcmc.Executable.DynamicTreeIR.recursiveDoublingCandidateRow
+          (L + 1) depth matrix trace origin
+        else {origin}))
+  have hmatrix : Measurable fun z => turns z origin := by
+    apply measurable_pi_lambda
+    intro left
+    apply measurable_pi_lambda
+    intro right
+    exact hmeasurable origin left right
+  have heq : (fun z =>
+      (program.rawOrbitCandidateRows gradient ε L depth hdepth trace turns
+        horbit).toCertified.mask z origin selected) =
+      fun z => decode (turns z origin) := by
+    rfl
+  rw [heq]
+  exact (measurable_of_countable decode).comp hmatrix
+
+/-- Continuous checked-or-identity kernel denoted by one fixed direction
+trace of the executable recursive program. -/
+noncomputable def Program.checkedOrbitKernel
+    {ι : Type*} [Fintype ι]
+    (program : Program)
+    (potential : Mcmc.Hamiltonian.Position ι → ℝ)
+    (gradient : Mcmc.Hamiltonian.Position ι → Mcmc.Hamiltonian.Position ι)
+    (hpotential : Measurable potential) (hgradient : Measurable gradient)
+    (ε : ℝ) (L depth : ℕ) (hdepth : depth ≤ program.maxDepth)
+    (trace : Fin depth → Bool)
+    (turns : Mcmc.Hamiltonian.PhaseSpace ι → Fin (L + 1) →
+      Fin (L + 1) → Fin (L + 1) → Bool)
+    (horbit : ∀ (z : Mcmc.Hamiltonian.PhaseSpace ι)
+      (origin selected left right : Fin (L + 1)),
+      turns (Mcmc.Hamiltonian.offsetLeapfrogTrajectory gradient ε origin z selected)
+          selected left right = turns z origin left right)
+    (hmask : Mcmc.Hamiltonian.MeasurableTrajectoryCandidateMask
+      ((program.rawOrbitCandidateRows gradient ε L depth hdepth trace turns
+        horbit).toCertified.mask)) :
+    ProbabilityTheory.Kernel (Mcmc.Hamiltonian.PhaseSpace ι)
+      (Mcmc.Hamiltonian.PhaseSpace ι) :=
+  Mcmc.Hamiltonian.randomizedDynamicMultinomialKernel potential gradient ε
+    (program.rawOrbitCandidateRows gradient ε L depth hdepth trace turns
+      horbit).toCertified.mask
+    (program.rawOrbitCandidateRows gradient ε L depth hdepth trace turns
+      horbit).toCertified.mask_root
+    hpotential hgradient hmask
 
 /-- The exact recursive NUTS row interpreter, global checker, identity
 fallback, and multinomial selection preserve the phase-space Boltzmann target.
@@ -443,21 +590,269 @@ theorem Program.checkedOrbitKernel_invariant
     {gradient : Mcmc.Hamiltonian.Position ι → Mcmc.Hamiltonian.Position ι}
     (hpotential : Measurable potential)
     (hgradient : Measurable gradient)
-    (ε : ℝ) (L : ℕ) (trace : Fin program.maxDepth → Bool)
-    (turns : Mcmc.Hamiltonian.PhaseSpace ι →
+    (ε : ℝ) (L depth : ℕ) (hdepth : depth ≤ program.maxDepth)
+    (trace : Fin depth → Bool)
+    (turns : Mcmc.Hamiltonian.PhaseSpace ι → Fin (L + 1) →
       Fin (L + 1) → Fin (L + 1) → Bool)
     (horbit : ∀ (z : Mcmc.Hamiltonian.PhaseSpace ι)
       (origin selected left right : Fin (L + 1)),
       turns (Mcmc.Hamiltonian.offsetLeapfrogTrajectory gradient ε origin z selected)
-          left right = turns z left right)
+          selected left right = turns z origin left right)
     (hmask : Mcmc.Hamiltonian.MeasurableTrajectoryCandidateMask
-      ((program.rawOrbitCandidateRows gradient ε L trace turns horbit).toCertified.mask)) :
-    (Mcmc.Hamiltonian.randomizedDynamicMultinomialKernel potential gradient ε
-      (program.rawOrbitCandidateRows gradient ε L trace turns horbit).toCertified.mask
-      (program.rawOrbitCandidateRows gradient ε L trace turns horbit).toCertified.mask_root
-      hpotential hgradient hmask).Invariant
+      ((program.rawOrbitCandidateRows gradient ε L depth hdepth trace turns
+        horbit).toCertified.mask)) :
+    (program.checkedOrbitKernel potential gradient hpotential hgradient ε L depth
+      hdepth trace turns horbit hmask).Invariant
         (Mcmc.Hamiltonian.phaseBoltzmannTarget potential) :=
-  (program.rawOrbitCandidateRows gradient ε L trace turns horbit).toCertified
+  (program.rawOrbitCandidateRows gradient ε L depth hdepth trace turns horbit).toCertified
     |>.randomizedKernel_invariant hpotential hgradient ε hmask
+
+/-- Full continuous Reference kernel: draw the complete fair direction trace
+independently of the current phase point, then execute its checked component. -/
+noncomputable def Program.randomizedCheckedOrbitKernel
+    {ι : Type*} [Fintype ι]
+    (program : Program)
+    (potential : Mcmc.Hamiltonian.Position ι → ℝ)
+    (gradient : Mcmc.Hamiltonian.Position ι → Mcmc.Hamiltonian.Position ι)
+    (hpotential : Measurable potential) (hgradient : Measurable gradient)
+    (ε : ℝ) (L depth : ℕ) (hdepth : depth ≤ program.maxDepth)
+    (turns : Mcmc.Hamiltonian.PhaseSpace ι → Fin (L + 1) →
+      Fin (L + 1) → Fin (L + 1) → Bool)
+    (horbit : ∀ (z : Mcmc.Hamiltonian.PhaseSpace ι)
+      (origin selected left right : Fin (L + 1)),
+      turns (Mcmc.Hamiltonian.offsetLeapfrogTrajectory gradient ε origin z selected)
+          selected left right = turns z origin left right)
+    (hmask : ∀ trace, Mcmc.Hamiltonian.MeasurableTrajectoryCandidateMask
+      ((program.rawOrbitCandidateRows gradient ε L depth hdepth trace turns
+        horbit).toCertified.mask)) :
+    ProbabilityTheory.Kernel (Mcmc.Hamiltonian.PhaseSpace ι)
+      (Mcmc.Hamiltonian.PhaseSpace ι) :=
+  Mcmc.Hamiltonian.finiteKernelMixture
+    (uniformDirectionTraceLaw depth).toPMF
+    (fun trace => program.checkedOrbitKernel potential gradient hpotential hgradient
+      ε L depth hdepth trace turns horbit (hmask trace))
+
+instance Program.randomizedCheckedOrbitKernel_isMarkovKernel
+    {ι : Type*} [Fintype ι]
+    (program : Program)
+    (potential : Mcmc.Hamiltonian.Position ι → ℝ)
+    (gradient : Mcmc.Hamiltonian.Position ι → Mcmc.Hamiltonian.Position ι)
+    (hpotential : Measurable potential) (hgradient : Measurable gradient)
+    (ε : ℝ) (L depth : ℕ) (hdepth : depth ≤ program.maxDepth)
+    (turns : Mcmc.Hamiltonian.PhaseSpace ι → Fin (L + 1) →
+      Fin (L + 1) → Fin (L + 1) → Bool)
+    (horbit : ∀ (z : Mcmc.Hamiltonian.PhaseSpace ι)
+      (origin selected left right : Fin (L + 1)),
+      turns (Mcmc.Hamiltonian.offsetLeapfrogTrajectory gradient ε origin z selected)
+          selected left right = turns z origin left right)
+    (hmask : ∀ trace, Mcmc.Hamiltonian.MeasurableTrajectoryCandidateMask
+      ((program.rawOrbitCandidateRows gradient ε L depth hdepth trace turns
+        horbit).toCertified.mask)) :
+    ProbabilityTheory.IsMarkovKernel
+      (program.randomizedCheckedOrbitKernel potential gradient hpotential hgradient
+        ε L depth hdepth turns horbit hmask) := by
+  constructor
+  intro state
+  constructor
+  change (∑ trace,
+    (uniformDirectionTraceLaw depth).toPMF trace •
+      program.checkedOrbitKernel potential gradient hpotential hgradient ε L depth
+        hdepth trace turns horbit (hmask trace) state) Set.univ = 1
+  rw [MeasureTheory.Measure.finsetSum_apply]
+  simp only [MeasureTheory.Measure.smul_apply, smul_eq_mul]
+  trans ∑ trace, (uniformDirectionTraceLaw depth).toPMF trace
+  · apply Finset.sum_congr rfl
+    intro trace htrace
+    have hcomponent : ProbabilityTheory.IsMarkovKernel
+        (program.checkedOrbitKernel potential gradient hpotential hgradient ε L depth
+          hdepth trace turns horbit (hmask trace)) := by
+      unfold Program.checkedOrbitKernel
+      infer_instance
+    letI := hcomponent
+    rw [measure_univ, mul_one]
+  · exact (tsum_fintype _).symm.trans
+      (PMF.tsum_coe (uniformDirectionTraceLaw depth).toPMF)
+
+/-- The fair state-independent direction-trace mixture preserves the
+phase-space Boltzmann target. -/
+theorem Program.randomizedCheckedOrbitKernel_invariant
+    {ι : Type*} [Fintype ι]
+    (program : Program)
+    {potential : Mcmc.Hamiltonian.Position ι → ℝ}
+    {gradient : Mcmc.Hamiltonian.Position ι → Mcmc.Hamiltonian.Position ι}
+    (hpotential : Measurable potential) (hgradient : Measurable gradient)
+    (ε : ℝ) (L depth : ℕ) (hdepth : depth ≤ program.maxDepth)
+    (turns : Mcmc.Hamiltonian.PhaseSpace ι → Fin (L + 1) →
+      Fin (L + 1) → Fin (L + 1) → Bool)
+    (horbit : ∀ (z : Mcmc.Hamiltonian.PhaseSpace ι)
+      (origin selected left right : Fin (L + 1)),
+      turns (Mcmc.Hamiltonian.offsetLeapfrogTrajectory gradient ε origin z selected)
+          selected left right = turns z origin left right)
+    (hmask : ∀ trace, Mcmc.Hamiltonian.MeasurableTrajectoryCandidateMask
+      ((program.rawOrbitCandidateRows gradient ε L depth hdepth trace turns
+        horbit).toCertified.mask)) :
+    (program.randomizedCheckedOrbitKernel potential gradient hpotential hgradient
+      ε L depth hdepth turns horbit hmask).Invariant
+        (Mcmc.Hamiltonian.phaseBoltzmannTarget potential) := by
+  apply Mcmc.Hamiltonian.finiteKernelMixture_invariant
+  intro trace
+  exact program.checkedOrbitKernel_invariant hpotential hgradient ε L depth hdepth
+    trace turns horbit (hmask trace)
+
+/-- User-facing checked NUTS Reference kernel: refresh momentum, execute the
+fair checked orbit transition, and project back to position space. -/
+noncomputable def Program.positionRandomizedCheckedOrbitKernel
+    {ι : Type*} [Fintype ι]
+    (program : Program)
+    (potential : Mcmc.Hamiltonian.Position ι → ℝ)
+    (gradient : Mcmc.Hamiltonian.Position ι → Mcmc.Hamiltonian.Position ι)
+    (hpotential : Measurable potential) (hgradient : Measurable gradient)
+    (ε : ℝ) (L depth : ℕ) (hdepth : depth ≤ program.maxDepth)
+    (turns : Mcmc.Hamiltonian.PhaseSpace ι → Fin (L + 1) →
+      Fin (L + 1) → Fin (L + 1) → Bool)
+    (horbit : ∀ (z : Mcmc.Hamiltonian.PhaseSpace ι)
+      (origin selected left right : Fin (L + 1)),
+      turns (Mcmc.Hamiltonian.offsetLeapfrogTrajectory gradient ε origin z selected)
+          selected left right = turns z origin left right)
+    (hmask : ∀ trace, Mcmc.Hamiltonian.MeasurableTrajectoryCandidateMask
+      ((program.rawOrbitCandidateRows gradient ε L depth hdepth trace turns
+        horbit).toCertified.mask))
+    (momentumTarget : MeasureTheory.Measure (Mcmc.Hamiltonian.Momentum ι)) :
+    ProbabilityTheory.Kernel (Mcmc.Hamiltonian.Position ι)
+      (Mcmc.Hamiltonian.Position ι) :=
+  (program.randomizedCheckedOrbitKernel potential gradient hpotential hgradient
+      ε L depth hdepth turns horbit hmask ∘ₖ
+    Mcmc.Hamiltonian.positionMomentumLift momentumTarget).map
+      (Prod.fst : Mcmc.Hamiltonian.PhaseSpace ι → Mcmc.Hamiltonian.Position ι)
+
+instance Program.positionRandomizedCheckedOrbitKernel_isMarkovKernel
+    {ι : Type*} [Fintype ι]
+    (program : Program)
+    (potential : Mcmc.Hamiltonian.Position ι → ℝ)
+    (gradient : Mcmc.Hamiltonian.Position ι → Mcmc.Hamiltonian.Position ι)
+    (hpotential : Measurable potential) (hgradient : Measurable gradient)
+    (ε : ℝ) (L depth : ℕ) (hdepth : depth ≤ program.maxDepth)
+    (turns : Mcmc.Hamiltonian.PhaseSpace ι → Fin (L + 1) →
+      Fin (L + 1) → Fin (L + 1) → Bool)
+    (horbit : ∀ (z : Mcmc.Hamiltonian.PhaseSpace ι)
+      (origin selected left right : Fin (L + 1)),
+      turns (Mcmc.Hamiltonian.offsetLeapfrogTrajectory gradient ε origin z selected)
+          selected left right = turns z origin left right)
+    (hmask : ∀ trace, Mcmc.Hamiltonian.MeasurableTrajectoryCandidateMask
+      ((program.rawOrbitCandidateRows gradient ε L depth hdepth trace turns
+        horbit).toCertified.mask))
+    (momentumTarget : MeasureTheory.Measure (Mcmc.Hamiltonian.Momentum ι))
+    [MeasureTheory.IsProbabilityMeasure momentumTarget] :
+    ProbabilityTheory.IsMarkovKernel
+      (program.positionRandomizedCheckedOrbitKernel potential gradient hpotential
+        hgradient ε L depth hdepth turns horbit hmask momentumTarget) := by
+  unfold Program.positionRandomizedCheckedOrbitKernel
+  exact ProbabilityTheory.Kernel.IsMarkovKernel.map _ measurable_fst
+
+/-- A compatible position target is invariant under the complete public
+checked NUTS Reference transition, including refresh and projection. -/
+theorem Program.positionRandomizedCheckedOrbitKernel_invariant
+    {ι : Type*} [Fintype ι]
+    (program : Program)
+    {potential : Mcmc.Hamiltonian.Position ι → ℝ}
+    {gradient : Mcmc.Hamiltonian.Position ι → Mcmc.Hamiltonian.Position ι}
+    (hpotential : Measurable potential) (hgradient : Measurable gradient)
+    (ε : ℝ) (L depth : ℕ) (hdepth : depth ≤ program.maxDepth)
+    (turns : Mcmc.Hamiltonian.PhaseSpace ι → Fin (L + 1) →
+      Fin (L + 1) → Fin (L + 1) → Bool)
+    (horbit : ∀ (z : Mcmc.Hamiltonian.PhaseSpace ι)
+      (origin selected left right : Fin (L + 1)),
+      turns (Mcmc.Hamiltonian.offsetLeapfrogTrajectory gradient ε origin z selected)
+          selected left right = turns z origin left right)
+    (hmask : ∀ trace, Mcmc.Hamiltonian.MeasurableTrajectoryCandidateMask
+      ((program.rawOrbitCandidateRows gradient ε L depth hdepth trace turns
+        horbit).toCertified.mask))
+    (positionTarget : MeasureTheory.Measure (Mcmc.Hamiltonian.Position ι))
+    [MeasureTheory.SFinite positionTarget]
+    (momentumTarget : MeasureTheory.Measure (Mcmc.Hamiltonian.Momentum ι))
+    [MeasureTheory.IsProbabilityMeasure momentumTarget]
+    (hfactor : positionTarget.prod momentumTarget =
+      Mcmc.Hamiltonian.phaseBoltzmannTarget potential) :
+    (program.positionRandomizedCheckedOrbitKernel potential gradient hpotential
+      hgradient ε L depth hdepth turns horbit hmask momentumTarget).Invariant
+        positionTarget := by
+  change (Mcmc.Kernel.liftEvolveProject
+    (Mcmc.Hamiltonian.positionMomentumLift momentumTarget)
+    (program.randomizedCheckedOrbitKernel potential gradient hpotential hgradient
+      ε L depth hdepth turns horbit hmask)
+    (Prod.fst : Mcmc.Hamiltonian.PhaseSpace ι → Mcmc.Hamiltonian.Position ι)
+      measurable_fst).Invariant positionTarget
+  have htrajectory := program.randomizedCheckedOrbitKernel_invariant
+    hpotential hgradient ε L depth hdepth turns horbit hmask
+  rw [← hfactor] at htrajectory
+  unfold Mcmc.Hamiltonian.positionMomentumLift
+  apply Mcmc.Kernel.compProdEvolveFst_invariant
+  rw [MeasureTheory.Measure.compProd_const]
+  exact htrajectory
+
+/-- Fully instantiated exact-real Reference kernel using the Euclidean
+endpoint U-turn predicate decoded by the current artifact. -/
+noncomputable def Program.positionVectorUTurnReferenceKernel
+    {ι : Type*} [Fintype ι]
+    (program : Program)
+    (potential : Mcmc.Hamiltonian.Position ι → ℝ)
+    (gradient : Mcmc.Hamiltonian.Position ι → Mcmc.Hamiltonian.Position ι)
+    (hpotential : Measurable potential) (hgradient : Measurable gradient)
+    (ε : ℝ) (L depth : ℕ) (hdepth : depth ≤ program.maxDepth)
+    (momentumTarget : Measure (Mcmc.Hamiltonian.Momentum ι)) :
+    ProbabilityTheory.Kernel (Mcmc.Hamiltonian.Position ι)
+      (Mcmc.Hamiltonian.Position ι) :=
+  program.positionRandomizedCheckedOrbitKernel potential gradient hpotential hgradient
+    ε L depth hdepth
+    (offsetEndpointTurns gradient ε
+      Mcmc.Finite.MarkovKernel.vectorAdjacentUTurn)
+    (offsetEndpointTurns_orbitStable gradient ε
+      Mcmc.Finite.MarkovKernel.vectorAdjacentUTurn)
+    (fun trace => program.rawOrbitCandidateRows_mask_measurable gradient ε L depth
+      hdepth trace
+      (offsetEndpointTurns gradient ε
+        Mcmc.Finite.MarkovKernel.vectorAdjacentUTurn)
+      (offsetEndpointTurns_orbitStable gradient ε
+        Mcmc.Finite.MarkovKernel.vectorAdjacentUTurn)
+      (fun anchor left right => measurable_offsetEndpointTurns hgradient ε
+        Mcmc.Finite.MarkovKernel.vectorAdjacentUTurn measurable_vectorAdjacentUTurn
+        anchor left right))
+    momentumTarget
+
+/-- Main exact-real correctness theorem for the maintained checked NUTS
+Reference: fair bounded direction traces, recursive rows, global certification,
+identity fallback, multinomial selection, Gaussian-compatible refresh, and
+position projection preserve the declared position target. -/
+theorem Program.positionVectorUTurnReferenceKernel_invariant
+    {ι : Type*} [Fintype ι]
+    (program : Program)
+    {potential : Mcmc.Hamiltonian.Position ι → ℝ}
+    {gradient : Mcmc.Hamiltonian.Position ι → Mcmc.Hamiltonian.Position ι}
+    (hpotential : Measurable potential) (hgradient : Measurable gradient)
+    (ε : ℝ) (L depth : ℕ) (hdepth : depth ≤ program.maxDepth)
+    (positionTarget : Measure (Mcmc.Hamiltonian.Position ι))
+    [SFinite positionTarget]
+    (momentumTarget : Measure (Mcmc.Hamiltonian.Momentum ι))
+    [IsProbabilityMeasure momentumTarget]
+    (hfactor : positionTarget.prod momentumTarget =
+      Mcmc.Hamiltonian.phaseBoltzmannTarget potential) :
+    (program.positionVectorUTurnReferenceKernel potential gradient hpotential
+      hgradient ε L depth hdepth momentumTarget).Invariant positionTarget := by
+  apply program.positionRandomizedCheckedOrbitKernel_invariant hpotential hgradient
+    ε L depth hdepth
+    (offsetEndpointTurns gradient ε
+      Mcmc.Finite.MarkovKernel.vectorAdjacentUTurn)
+    (offsetEndpointTurns_orbitStable gradient ε
+      Mcmc.Finite.MarkovKernel.vectorAdjacentUTurn)
+    (fun trace => program.rawOrbitCandidateRows_mask_measurable gradient ε L depth
+      hdepth trace
+      (offsetEndpointTurns gradient ε
+        Mcmc.Finite.MarkovKernel.vectorAdjacentUTurn)
+      (offsetEndpointTurns_orbitStable gradient ε
+        Mcmc.Finite.MarkovKernel.vectorAdjacentUTurn)
+      (fun anchor left right => measurable_offsetEndpointTurns hgradient ε
+        Mcmc.Finite.MarkovKernel.vectorAdjacentUTurn measurable_vectorAdjacentUTurn
+        anchor left right))
+    positionTarget momentumTarget hfactor
 
 end Mcmc.Executable.Continuous.NUTSIR
