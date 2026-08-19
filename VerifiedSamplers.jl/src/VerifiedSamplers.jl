@@ -2681,17 +2681,6 @@ struct CheckedRecursiveDynamicHMC{F,G}
     end
 end
 
-"""Checked-or-identity NUTS Reference sampler driven by Lean-owned IR.
-
-This canonical public `NUTS` name denotes the implementation connected to the
-exact-real invariance theorem. The independent handwritten implementation is
-available as `Optimized.NUTS`; equivalence between the two is not claimed.
-"""
-const NUTS = CheckedRecursiveDynamicHMC
-
-"""Compatibility alias for the canonical checked Reference `NUTS`."""
-const VerifiedNUTS = NUTS
-
 function _checked_recursive_dynamic_hmc_step!(
         source::Runtime.AbstractRandomSource, sampler::CheckedRecursiveDynamicHMC,
         current::AbstractVector{<:Real})
@@ -2752,6 +2741,19 @@ end
 sample(sampler::CheckedRecursiveDynamicHMC,
         initial::AbstractVector{<:Real}, count::Integer) =
     sample(Random.default_rng(), sampler, initial, count)
+
+"""Productive completed-tree NUTS Reference sampler.
+
+This canonical public name uses the C.4 construction proved in Lean: every
+possible root receives the unique direction trace that reconstructs the same
+completed tree, and selection is restricted to roots that complete before a
+U-turn. The independent handwritten implementation remains available as
+`Optimized.NUTS`; transition equivalence between the two is not claimed.
+"""
+const NUTS = CompletedTreeC4DynamicHMC
+
+"""Compatibility alias for the canonical completed-tree Reference `NUTS`."""
+const VerifiedNUTS = NUTS
 
 struct FiniteKernelWeights
     rows::Vector{Vector{BigInt}}

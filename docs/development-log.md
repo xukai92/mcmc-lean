@@ -1,5 +1,20 @@
 # Development log
 
+## 2026-08-19: canonical NUTS uses productive completed-tree rerooting
+
+The canonical Julia `NUTS` Reference now uses `CompletedTreeC4DynamicHMC`.
+Unlike the fixed-trace global checker, this construction gives every possible
+root its unique direction trace for reconstructing the same completed tree,
+then retains the roots satisfying the C.4 stopping condition. Lean proves the
+fair reconstruction traces have equal mass and proves reversibility and
+stationarity of the resulting completed-tree sampler. The older
+`CheckedRecursiveDynamicHMC` remains available as the conservative
+checked-or-identity experiment rather than an alias for `NUTS`.
+
+The Julia suite now requires canonical `NUTS` to make a nonidentity move on a
+seeded Gaussian run. The benchmark parameter is tree depth
+(`HMC_NUTS_REFERENCE_DEPTH`) rather than a misleading arbitrary orbit length.
+
 ## 2026-08-19: interactive benchmark explorer
 
 The benchmark report generator now emits a browser dataset from the same
@@ -10,11 +25,13 @@ The existing SVG remains the non-JavaScript and portable-rendering fallback.
 
 ## 2026-08-19: NUTS names follow verification boundaries
 
-The canonical public `NUTS` constructor now denotes the checked,
-Lean-IR-driven Reference implementation. The independent handwritten
-production-shaped comparator is available as `Optimized.NUTS`. The older
-`VerifiedNUTS` and `CheckedRecursiveDynamicHMC` names remain compatibility
-aliases. Benchmark rows for the handwritten implementation are correspondingly
+This earlier milestone moved the canonical public `NUTS` constructor to the
+checked, Lean-IR-driven Reference implementation. The completed-tree milestone
+above subsequently made `NUTS` productive; `CheckedRecursiveDynamicHMC` now
+names only the older conservative experiment. The independent handwritten
+production-shaped comparator is available as `Optimized.NUTS`, while
+`VerifiedNUTS` remains a compatibility alias. Benchmark rows for the
+handwritten implementation are correspondingly
 labelled `verified-optimized`, while checked `NUTS` is
 `verified-reference`. The optimized label records empirical conformance and
 statistical evidence; no equivalence theorem between the two transitions is

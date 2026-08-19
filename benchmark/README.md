@@ -35,14 +35,13 @@ trajectory construction and selection mechanics are not claimed to be
 identical.
 
 NUTS rows use the same three implementation labels as the rest of the report.
-`verified-reference` is the checked Lean-IR-driven `NUTS` sampler;
+`verified-reference` is the Lean-proved completed-tree C.4 `NUTS` sampler;
 `verified-optimized` is the independent production-shaped `Optimized.NUTS`,
 whose conformance and sampling-quality evidence is empirical rather than a
 formal transition-equivalence proof; and `advancedhmc` is the external
 comparison. Mean leapfrog work is reported because NUTS work is dynamic.
-The report must also call out zero-movement checked Reference rows: an identity
-fallback is mathematically safe but its throughput is not useful sampling
-performance.
+The report calls out any zero-movement Reference rows: a correct identity
+component can still have throughput that is not useful sampling performance.
 
 The full runner records ten complete chains per case using the explicit fixed
 seed list `4109:4118` by default. The report shows every chain timing together
@@ -96,6 +95,6 @@ suite; the multi-chain and distributional report remains in this environment.
 The workload can be changed through `HMC_DIMENSION`, `HMC_DRAWS`,
 `HMC_LEAPFROG_STEPS`, `HMC_STEP_SIZE`, `HMC_SEED`, and `HMC_SEEDS`.
 `HMC_NUTS_MAX_DEPTH` controls the AdvancedHMC and optimized NUTS tree-depth
-cap. `HMC_NUTS_REFERENCE_STEPS` controls the checked Reference orbit bound.
+cap. `HMC_NUTS_REFERENCE_DEPTH` controls the completed-tree Reference depth.
 `HMC_SEED` determines
 the default consecutive seed list; an explicit `HMC_SEEDS` takes precedence.

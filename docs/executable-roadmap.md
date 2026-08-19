@@ -18,12 +18,13 @@ its exact endpoint callback is orbit stable. The state-independent fair trace
 mixture, momentum refresh, and position projection now have exact invariance
 theorems, and the Euclidean endpoint predicate discharges the exact-real
 measurability condition. The remaining boundary is numerical refinement of
-the concrete floating trajectory and callback. The maintained
-Julia `NUTS` (`VerifiedNUTS`/`CheckedRecursiveDynamicHMC` compatibility aliases)
-now routes its row
-construction, checker, identity fallback, and selection through the decoded
-Lean program; the separate production-shaped `Optimized.NUTS` implementation remains a
-runtime-only comparator. A checked Lean
+the concrete floating trajectory and callback. The maintained Julia `NUTS`
+(`VerifiedNUTS` compatibility alias) now uses the productive completed-tree
+C.4 construction: every possible root receives its unique reconstruction
+trace and selection is restricted to the common admissible component.
+`CheckedRecursiveDynamicHMC` separately retains the fixed-trace decoded-program
+experiment and its checked identity fallback. The production-shaped
+`Optimized.NUTS` implementation remains a runtime-only comparator. A checked Lean
 two-leaf counterexample now proves why this cannot follow from root retention
 or first stopping alone: asymmetric rows fail reroot equality and the safe
 wrapper becomes identity. The conservative

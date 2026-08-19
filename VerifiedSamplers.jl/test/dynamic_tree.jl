@@ -460,9 +460,6 @@ end
     @test reference == [0.0]
     @test Runtime.remaining(reference_source) == 1
 
-    @test NUTS === CheckedRecursiveDynamicHMC
-    @test VerifiedNUTS === NUTS
-
     first_chain = sample(MersenneTwister(0xdecaf), sampler, [0.0], 20)
     second_chain = sample(MersenneTwister(0xdecaf), sampler, [0.0], 20)
     @test first_chain == second_chain
@@ -471,9 +468,21 @@ end
         flat_logdensity, zero_gradient, 0.0, 3)
     @test_throws ArgumentError CheckedRecursiveDynamicHMC(
         flat_logdensity, zero_gradient, 0.5, 0)
-    @test_throws ArgumentError NUTS(
-        flat_logdensity, zero_gradient, 0.5, 2048)
     @test_throws ArgumentError step(MersenneTwister(1), sampler, Float64[])
+end
+
+@testset "canonical productive NUTS Reference" begin
+    logdensity(q) = -sum(abs2, q) / 2
+    gradient(q) = q
+    @test NUTS === CompletedTreeC4DynamicHMC
+    @test VerifiedNUTS === NUTS
+
+    sampler = NUTS(logdensity, gradient, 0.12, 3)
+    chain = sample(MersenneTwister(0x6e757473), sampler, [0.0, 0.0], 200)
+    @test size(chain) == (2, 200)
+    @test all(isfinite, chain)
+    @test any(!iszero, chain)
+    @test any(index -> chain[:, index] != chain[:, index - 1], 2:size(chain, 2))
 end
 
 @testset "interpreted Lean NUTS subtree program" begin

@@ -60,9 +60,8 @@ The 2026-08-19 audit found five concrete system gaps:
 - the finite command IR has typed Lean parsing and exact replay, while
   continuous support is split among several specialized descriptors and Julia
   interpreter correspondence remains test-supported;
-- the checked NUTS Reference takes its safe identity fallback on every current
-  benchmark fixture, so making already-verified rows productive is more urgent
-  than adding another sampler;
+- the completed-tree C.4 NUTS Reference is now productive on every maintained
+  benchmark fixture; reusable cross-backend replay remains the bridge priority;
 - the Julia package works but concentrates public orchestration and certificate
   code in two large files, with no shared parallel/accelerator capability
   protocol; and
@@ -72,7 +71,7 @@ The 2026-08-19 audit found five concrete system gaps:
 | Phase | Main layer | Deliverable | Effort |
 |---|---|---|---|
 | 1. Assurance and backend contract | Lean docs + Julia runtime | Extend the machine-generated assurance vocabulary beyond the two golden paths; define backend capabilities, evidence classes, explicit event/RNG ownership, and fail-closed unsupported operations | Medium |
-| 2. Productive Reference and cross-backend conformance | Bridge / IR | Diagnose the checked NUTS all-identity benchmark behavior; obtain a productive checked row family without weakening fallback safety, and build one reusable replay/witness harness for Julia Reference and every alternative backend | Medium–high |
+| 2. Productive Reference and cross-backend conformance | Bridge / IR | Completed for NUTS productivity via C.4 rerooted traces; next build one reusable replay/witness harness for Julia Reference and every alternative backend | Medium |
 | 3. Optimization acceptance loop | Testing / transformation | A machine-readable loop that proposes one change, runs exact/trace/property/statistical gates, benchmarks it, and records acceptance or rejection with its assurance class | Medium |
 | 4. Julia modularization | Julia package | Move sampler-specific engines out of the large public module, preserve the public API, and expose Reference/Optimized/backend capability registries without parallel handwritten dispatch surfaces | Medium |
 | 5. Parallel execution | Julia backend | Deterministic independent-chain execution from an explicit seed list, sequential equivalence per chain, scaling benchmarks, then only proved-associative within-chain scans | Medium, then high |

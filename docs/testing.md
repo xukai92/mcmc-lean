@@ -157,14 +157,15 @@ returns the current state without consuming a selector draw. This exercises
 the stationary checked-mixture boundary; it does not assert equivalence to an
 unchecked production NUTS recursion.
 
-The public `NUTS` name denotes the checked recursive Reference client;
-`VerifiedNUTS` remains a compatibility alias.
-Its deterministic trace test verifies that an invalid row family takes the
-identity branch without consuming the reserved selection mark, while the
-generic interpreter suite covers valid selection, row checking, candidate
-ordering, directional construction, and bounded outer traces. The separately
-tested `Optimized.NUTS` family is handwritten production-shaped code and remains
-runtime-only evidence.
+The public `NUTS` name denotes the productive completed-tree C.4 Reference
+client; `VerifiedNUTS` remains a compatibility alias. Its tests require seeded
+nonidentity movement and deterministic finite output. The separate
+`CheckedRecursiveDynamicHMC` experiment verifies that an invalid fixed-trace
+row family takes the identity branch without consuming the reserved selection
+mark, while the generic interpreter suite covers valid selection, row
+checking, candidate ordering, directional construction, and bounded outer
+traces. The separately tested `Optimized.NUTS` family is handwritten
+production-shaped code and remains runtime-only evidence.
 
 Position-dependent generalized leapfrog now has Reference-versus-Optimized
 fixed-point tests using nonseparable derivatives, direct checks of both

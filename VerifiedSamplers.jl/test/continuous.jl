@@ -1310,6 +1310,15 @@ end
             @test target.logdensity(point) == target.logdensity(-point)
         end
 
+        correlated = TestTargets.suite(9)[2]
+        ρ = 0.9
+        covariance = [ρ^abs(i - j) for i in 1:9, j in 1:9]
+        dense_precision = inv(Symmetric(covariance))
+        probe = collect(range(-0.8, 1.1; length=9))
+        @test correlated.logdensity(probe) ≈
+            -dot(probe, dense_precision * probe) / 2 rtol=1e-12
+        @test correlated.gradient(probe) ≈ dense_precision * probe rtol=1e-12
+
         for (offset, name) in enumerate(("product-quartic", "regularized-logistic"))
             target = only(filter(target -> target.name == name, targets))
             sampler = VectorHMC(target.logdensity, target.gradient, 0.12, 8)
