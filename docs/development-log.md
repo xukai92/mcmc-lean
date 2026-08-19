@@ -1,5 +1,23 @@
 # Development log
 
+## 2026-08-19: canonical continuous and whole-artifact syntax round trips
+
+Lean now checks canonical parse/re-render results for the existing scalar
+Gaussian-RWMH and scalar fixed-step-HMC declarations. The complete artifact
+already has a checked envelope parse. These deliberately remain syntax
+results; the exact finite core retains the stronger typed decoder, while a
+general typed continuous decoder and Julia-interpreter correspondence remain
+outside this bounded improvement.
+
+## 2026-08-19: shared deterministic trace-conformance contract
+
+Added a small test-support harness that replays one floating-point primitive
+event list through independent Reference and Optimized sources and compares
+both results and trace consumption. Scalar Gaussian RWMH and fixed-step HMC now
+use the shared contract, retaining explicit expected accept/reject checks where
+applicable. This standardizes existing test evidence without treating it as a
+Julia-semantics proof.
+
 ## 2026-08-19: exhaustive maintained IR input validation
 
 The Julia artifact decoder now rejects unknown input kinds and duplicate input

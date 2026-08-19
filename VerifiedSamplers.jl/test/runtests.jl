@@ -12,6 +12,7 @@ const ORACLE = joinpath(REPO_ROOT, "formal", ".lake", "build", "bin", "mcmc_orac
 
 include("support/TestTargets.jl")
 include("support/QualityDiagnostics.jl")
+include("support/TraceConformance.jl")
 
 include("properties.jl")
 include("quality_diagnostics.jl")

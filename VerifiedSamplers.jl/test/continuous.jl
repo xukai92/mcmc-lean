@@ -1193,16 +1193,13 @@ end
         for (events, expected) in (([
                 Runtime.NormalEvent(0.5), Runtime.UniformEvent(0.8)], 0.5), ([
                 Runtime.NormalEvent(2.0), Runtime.UniformEvent(0.9)], 0.0))
-            reference_source = Runtime.FloatTraceSource(events)
-            optimized_source = Runtime.FloatTraceSource(events)
-            reference = Reference.gaussian_rwmh_step!(reference_source,
-                x -> -x^2 / 2, 1.0, 0.0)
-            optimized = Optimized.gaussian_rwmh_step!(optimized_source,
-                x -> -x^2 / 2, 1.0, 0.0)
-            @test reference == expected
-            @test optimized == reference
-            @test Runtime.remaining(reference_source) == 0
-            @test Runtime.remaining(optimized_source) == 0
+            comparison = TraceConformance.replay_float_pair(events,
+                source -> Reference.gaussian_rwmh_step!(source,
+                    x -> -x^2 / 2, 1.0, 0.0),
+                source -> Optimized.gaussian_rwmh_step!(source,
+                    x -> -x^2 / 2, 1.0, 0.0))
+            @test comparison.reference == expected
+            @test TraceConformance.conforms(comparison)
         end
         generic_cases = [
             (x -> -abs(x), 0.25, 1.0,
@@ -1213,15 +1210,12 @@ end
                 [Runtime.NormalEvent(0.25), Runtime.UniformEvent(0.2)]),
         ]
         for (logdensity, scale, current, events) in generic_cases
-            reference_source = Runtime.FloatTraceSource(events)
-            optimized_source = Runtime.FloatTraceSource(events)
-            reference = Reference.gaussian_rwmh_step!(reference_source,
-                logdensity, scale, current)
-            optimized = Optimized.gaussian_rwmh_step!(optimized_source,
-                logdensity, scale, current)
-            @test optimized == reference
-            @test Runtime.remaining(reference_source) == 0
-            @test Runtime.remaining(optimized_source) == 0
+            comparison = TraceConformance.replay_float_pair(events,
+                source -> Reference.gaussian_rwmh_step!(source,
+                    logdensity, scale, current),
+                source -> Optimized.gaussian_rwmh_step!(source,
+                    logdensity, scale, current))
+            @test TraceConformance.conforms(comparison)
         end
         @test_throws ArgumentError Reference.gaussian_rwmh_step!(
             Runtime.FloatTraceSource(Runtime.FloatTraceEvent[]), identity, 0.0, 0.0)
@@ -1243,15 +1237,12 @@ end
             (-0.5, [Runtime.NormalEvent(-1.0), Runtime.UniformEvent(0.4)]),
         ]
         for (current, events) in cases
-            reference_source = Runtime.FloatTraceSource(events)
-            optimized_source = Runtime.FloatTraceSource(events)
-            reference = Reference.scalar_hmc_step!(reference_source,
-                logdensity, gradient, 0.4, 3, current)
-            optimized = Optimized.scalar_hmc_step!(optimized_source,
-                logdensity, gradient, 0.4, 3, current)
-            @test optimized == reference
-            @test Runtime.remaining(reference_source) == 0
-            @test Runtime.remaining(optimized_source) == 0
+            comparison = TraceConformance.replay_float_pair(events,
+                source -> Reference.scalar_hmc_step!(source,
+                    logdensity, gradient, 0.4, 3, current),
+                source -> Optimized.scalar_hmc_step!(source,
+                    logdensity, gradient, 0.4, 3, current))
+            @test TraceConformance.conforms(comparison)
         end
 
         sampler = ScalarHMC(logdensity, gradient, 0.2, 5)

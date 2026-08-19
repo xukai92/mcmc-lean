@@ -355,4 +355,19 @@ theorem renderedArtifact_registeredFiniteProgramsRoundTrip :
     registeredFiniteProgramsRoundTrip IRFormat.render := by
   native_decide
 
+open Mcmc.Executable.Continuous.CompilerIR in
+/-- The existing scalar Gaussian-RWMH declaration canonically parses and
+re-renders. This is a syntax result, not a typed continuous-IR decoder or an
+interpreter-correspondence theorem. -/
+theorem gaussianRwmhProgram_textRoundTrips :
+    textRoundTrips (IRFormat.continuousProgramRender gaussianRwmhProgram) := by
+  native_decide
+
+open Mcmc.Executable.Continuous.CompilerIR in
+/-- The existing scalar fixed-step-HMC declaration canonically parses and
+re-renders. Its stronger semantic boundaries remain recorded separately. -/
+theorem scalarHmcProgram_textRoundTrips :
+    textRoundTrips (IRFormat.continuousProgramRender scalarHmcProgram) := by
+  native_decide
+
 end Mcmc.Executable.IRParser

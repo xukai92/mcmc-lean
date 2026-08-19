@@ -545,3 +545,10 @@ Quality work follows a stability-first order:
 
 Only metrics demonstrated stable across supported Julia versions and CI
 machines should become integrated pass/fail contracts.
+
+Deterministic continuous Reference/Optimized checks use the shared
+`test/support/TraceConformance.jl` harness. It constructs independent trace
+sources from the same primitive-event list and compares both the returned value
+and remaining-event count. The RWMH and scalar-HMC golden paths use this
+contract; algorithm-specific tests still state the expected accept/reject
+result where useful.

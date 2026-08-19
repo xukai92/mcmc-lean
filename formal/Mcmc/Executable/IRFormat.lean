@@ -160,7 +160,10 @@ private def continuousStmtRender : Continuous.CompilerIR.Stmt → String
   | .return value => list ["return", continuousExprRender value]
   | .returnVector value => list ["return", continuousExprRender value]
 
-private def continuousProgramRender
+/-- Serialize one typed scalar/vector continuous command program. This is
+public so the independent artifact parser can state declaration-level
+round-trip checks without duplicating the serializer. -/
+def continuousProgramRender
     (program : Continuous.CompilerIR.Program) : String :=
   let inputs :=
     [list ["input", "source", quote program.sourceInput],
