@@ -1,5 +1,15 @@
 # Development log
 
+## 2026-08-19: non-gating multi-chain benchmark diagnostics
+
+The benchmark quality path now uses independently seeded chains and the shared
+split rank-normalized R-hat, bulk/tail ESS, covariance, marginal-quantile, and
+batch-means functions. New CSV rows include a clearly labelled gradient-work
+proxy, maximum Gaussian covariance error, symmetry-implied marginal-median
+error, and mean MCSE. Reports remain backward-compatible with historical rows
+and mark R-hat above 1.01 visibly without turning it into a CI gate. A tiny
+development run validated the harness; the slow full benchmark was not rerun.
+
 ## 2026-08-19: canonical continuous and whole-artifact syntax round trips
 
 Lean now checks canonical parse/re-render results for the existing scalar

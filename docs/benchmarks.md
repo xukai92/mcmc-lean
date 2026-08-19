@@ -116,56 +116,54 @@ The stored NUTS measurements are likewise AdvancedHMC-only. They were produced b
 
 ## Sampling quality
 
-Quality runs are separate seeded chains rather than BenchmarkTools trials. Moment errors use each target's known zero mean and analytical or independently computed marginal variance. ESS is the minimum autocorrelation ESS among the first four coordinates after ten-percent burn-in.
+Quality runs are separate seeded chains rather than BenchmarkTools trials. Timing trajectories could support diagnostics if their draws were retained and independently seeded, but doing so would charge storage and diagnostic instrumentation to the performance measurement. The separate protocol keeps that choice explicit. Moment errors use each target's known zero mean and analytical or independently computed marginal variance. New runs report the worst split rank-normalized R-hat and minimum bulk/tail ESS among the first four coordinates after ten-percent per-chain burn-in. Stored historical rows made before these fields were introduced display an em dash. A warning marker at R-hat above 1.01 is conspicuous but non-gating.
 
-| Target | Algorithm | Implementation | ESS/s | Mean RMSE (std.) | Variance RMSE (relative) | Movement | Acceptance | Divergences | Mean steps |
-|---|---|---|---:|---:|---:|---:|---:|---:|---:|
-| Isotropic Gaussian | endpoint | verified-optimized | 14149.4 | 0.017 | 0.018 | 0.996 | — | 0 | 10.0 |
-| Isotropic Gaussian | endpoint | advancedhmc | 7497.2 | 0.017 | 0.016 | 0.996 | 0.995 | 0 | 10.0 |
-| Isotropic Gaussian | multinomial | verified-optimized | 909.6 | 0.042 | 0.041 | 0.993 | — | 0 | 10.0 |
-| Isotropic Gaussian | multinomial | advancedhmc | 382.7 | 0.039 | 0.041 | 0.909 | 0.998 | 0 | 10.0 |
-| Isotropic Gaussian | nuts | advancedhmc | 7137.7 | 0.004 | 0.016 | 1.000 | 0.996 | 0 | 63.0 |
-| Correlated Gaussian (ρ=0.9) | endpoint | verified-optimized | 614.2 | 0.035 | 0.051 | 0.975 | — | 0 | 10.0 |
-| Correlated Gaussian (ρ=0.9) | endpoint | advancedhmc | 534.9 | 0.038 | 0.040 | 0.976 | 0.974 | 0 | 10.0 |
-| Correlated Gaussian (ρ=0.9) | multinomial | verified-optimized | 97.2 | 0.102 | 0.075 | 0.993 | — | 0 | 10.0 |
-| Correlated Gaussian (ρ=0.9) | multinomial | advancedhmc | 35.7 | 0.102 | 0.173 | 0.908 | 0.954 | 0 | 10.0 |
-| Correlated Gaussian (ρ=0.9) | nuts | advancedhmc | 1159.6 | 0.006 | 0.012 | 1.000 | 0.948 | 0 | 122.1 |
-| Correlated Gaussian (ρ=0.9) | preconditioned-endpoint | advancedhmc | 1344.0 | 0.015 | 0.016 | 0.996 | 0.995 | 0 | 10.0 |
-| Correlated Gaussian (ρ=0.9) | preconditioned-multinomial | advancedhmc | 282.8 | 0.039 | 0.029 | 0.909 | 0.998 | 0 | 10.0 |
-| Product quartic | endpoint | verified-optimized | 23965.5 | 0.011 | 0.008 | 0.988 | — | 0 | 10.0 |
-| Product quartic | endpoint | advancedhmc | 14574.5 | 0.011 | 0.007 | 0.989 | 0.988 | 0 | 10.0 |
-| Product quartic | multinomial | verified-optimized | 1470.4 | 0.029 | 0.021 | 0.993 | — | 0 | 10.0 |
-| Product quartic | multinomial | advancedhmc | 1460.1 | 0.030 | 0.021 | 0.908 | 0.990 | 0 | 10.0 |
-| Product quartic | nuts | advancedhmc | 7209.2 | 0.006 | 0.010 | 1.000 | 0.988 | 0 | 31.0 |
-| Ill-conditioned Gaussian | endpoint | verified-optimized | 10619.1 | 0.062 | 0.075 | 0.877 | — | 0 | 10.0 |
-| Ill-conditioned Gaussian | endpoint | advancedhmc | 8584.5 | 0.058 | 0.069 | 0.879 | 0.877 | 0 | 10.0 |
-| Ill-conditioned Gaussian | multinomial | verified-optimized | 20503.6 | 0.145 | 0.155 | 0.993 | — | 0 | 10.0 |
-| Ill-conditioned Gaussian | multinomial | advancedhmc | 21411.9 | 0.126 | 0.149 | 0.904 | 0.896 | 0 | 10.0 |
-| Ill-conditioned Gaussian | nuts | advancedhmc | 925.4 | 0.007 | 0.017 | 1.000 | 0.888 | 0 | 324.3 |
-| Ill-conditioned Gaussian | preconditioned-endpoint | advancedhmc | 4825.6 | 0.017 | 0.016 | 0.996 | 0.995 | 0 | 10.0 |
-| Ill-conditioned Gaussian | preconditioned-multinomial | advancedhmc | 336.7 | 0.039 | 0.041 | 0.909 | 0.998 | 0 | 10.0 |
-| Regularized logistic | endpoint | verified-optimized | 7296.6 | 0.014 | 0.016 | 0.993 | — | 0 | 10.0 |
-| Regularized logistic | endpoint | advancedhmc | 5162.5 | 0.014 | 0.014 | 0.993 | 0.993 | 0 | 10.0 |
-| Regularized logistic | multinomial | verified-optimized | 563.0 | 0.035 | 0.034 | 0.993 | — | 0 | 10.0 |
-| Regularized logistic | multinomial | advancedhmc | 630.5 | 0.033 | 0.037 | 0.909 | 0.997 | 0 | 10.0 |
-| Regularized logistic | nuts | advancedhmc | 3497.9 | 0.006 | 0.017 | 1.000 | 0.994 | 0 | 50.4 |
+| Target | Algorithm | Implementation | R-hat | Bulk ESS | Tail ESS | Bulk ESS/gradient proxy | Mean MCSE (max) | Covariance error (max) | Median error (max) | ESS/s | Mean RMSE (std.) | Variance RMSE (relative) | Movement | Acceptance | Divergences | Mean steps |
+|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Isotropic Gaussian | endpoint | verified-optimized | — | — | — | — | — | — | — | 14149.4 | 0.017 | 0.018 | 0.996 | — | 0 | 10.0 |
+| Isotropic Gaussian | endpoint | advancedhmc | — | — | — | — | — | — | — | 7497.2 | 0.017 | 0.016 | 0.996 | 0.995 | 0 | 10.0 |
+| Isotropic Gaussian | multinomial | verified-optimized | — | — | — | — | — | — | — | 909.6 | 0.042 | 0.041 | 0.993 | — | 0 | 10.0 |
+| Isotropic Gaussian | multinomial | advancedhmc | — | — | — | — | — | — | — | 382.7 | 0.039 | 0.041 | 0.909 | 0.998 | 0 | 10.0 |
+| Isotropic Gaussian | nuts | advancedhmc | — | — | — | — | — | — | — | 7137.7 | 0.004 | 0.016 | 1.000 | 0.996 | 0 | 63.0 |
+| Correlated Gaussian (ρ=0.9) | endpoint | verified-optimized | — | — | — | — | — | — | — | 614.2 | 0.035 | 0.051 | 0.975 | — | 0 | 10.0 |
+| Correlated Gaussian (ρ=0.9) | endpoint | advancedhmc | — | — | — | — | — | — | — | 534.9 | 0.038 | 0.040 | 0.976 | 0.974 | 0 | 10.0 |
+| Correlated Gaussian (ρ=0.9) | multinomial | verified-optimized | — | — | — | — | — | — | — | 97.2 | 0.102 | 0.075 | 0.993 | — | 0 | 10.0 |
+| Correlated Gaussian (ρ=0.9) | multinomial | advancedhmc | — | — | — | — | — | — | — | 35.7 | 0.102 | 0.173 | 0.908 | 0.954 | 0 | 10.0 |
+| Correlated Gaussian (ρ=0.9) | nuts | advancedhmc | — | — | — | — | — | — | — | 1159.6 | 0.006 | 0.012 | 1.000 | 0.948 | 0 | 122.1 |
+| Correlated Gaussian (ρ=0.9) | preconditioned-endpoint | advancedhmc | — | — | — | — | — | — | — | 1344.0 | 0.015 | 0.016 | 0.996 | 0.995 | 0 | 10.0 |
+| Correlated Gaussian (ρ=0.9) | preconditioned-multinomial | advancedhmc | — | — | — | — | — | — | — | 282.8 | 0.039 | 0.029 | 0.909 | 0.998 | 0 | 10.0 |
+| Product quartic | endpoint | verified-optimized | — | — | — | — | — | — | — | 23965.5 | 0.011 | 0.008 | 0.988 | — | 0 | 10.0 |
+| Product quartic | endpoint | advancedhmc | — | — | — | — | — | — | — | 14574.5 | 0.011 | 0.007 | 0.989 | 0.988 | 0 | 10.0 |
+| Product quartic | multinomial | verified-optimized | — | — | — | — | — | — | — | 1470.4 | 0.029 | 0.021 | 0.993 | — | 0 | 10.0 |
+| Product quartic | multinomial | advancedhmc | — | — | — | — | — | — | — | 1460.1 | 0.030 | 0.021 | 0.908 | 0.990 | 0 | 10.0 |
+| Product quartic | nuts | advancedhmc | — | — | — | — | — | — | — | 7209.2 | 0.006 | 0.010 | 1.000 | 0.988 | 0 | 31.0 |
+| Ill-conditioned Gaussian | endpoint | verified-optimized | — | — | — | — | — | — | — | 10619.1 | 0.062 | 0.075 | 0.877 | — | 0 | 10.0 |
+| Ill-conditioned Gaussian | endpoint | advancedhmc | — | — | — | — | — | — | — | 8584.5 | 0.058 | 0.069 | 0.879 | 0.877 | 0 | 10.0 |
+| Ill-conditioned Gaussian | multinomial | verified-optimized | — | — | — | — | — | — | — | 20503.6 | 0.145 | 0.155 | 0.993 | — | 0 | 10.0 |
+| Ill-conditioned Gaussian | multinomial | advancedhmc | — | — | — | — | — | — | — | 21411.9 | 0.126 | 0.149 | 0.904 | 0.896 | 0 | 10.0 |
+| Ill-conditioned Gaussian | nuts | advancedhmc | — | — | — | — | — | — | — | 925.4 | 0.007 | 0.017 | 1.000 | 0.888 | 0 | 324.3 |
+| Ill-conditioned Gaussian | preconditioned-endpoint | advancedhmc | — | — | — | — | — | — | — | 4825.6 | 0.017 | 0.016 | 0.996 | 0.995 | 0 | 10.0 |
+| Ill-conditioned Gaussian | preconditioned-multinomial | advancedhmc | — | — | — | — | — | — | — | 336.7 | 0.039 | 0.041 | 0.909 | 0.998 | 0 | 10.0 |
+| Regularized logistic | endpoint | verified-optimized | — | — | — | — | — | — | — | 7296.6 | 0.014 | 0.016 | 0.993 | — | 0 | 10.0 |
+| Regularized logistic | endpoint | advancedhmc | — | — | — | — | — | — | — | 5162.5 | 0.014 | 0.014 | 0.993 | 0.993 | 0 | 10.0 |
+| Regularized logistic | multinomial | verified-optimized | — | — | — | — | — | — | — | 563.0 | 0.035 | 0.034 | 0.993 | — | 0 | 10.0 |
+| Regularized logistic | multinomial | advancedhmc | — | — | — | — | — | — | — | 630.5 | 0.033 | 0.037 | 0.909 | 0.997 | 0 | 10.0 |
+| Regularized logistic | nuts | advancedhmc | — | — | — | — | — | — | — | 3497.9 | 0.006 | 0.017 | 1.000 | 0.994 | 0 | 50.4 |
 
 ## Interpretation
 
 Endpoint rows are directly matched fixed-step proposals. Multinomial rows share the target and integration budget, but the packages use different trajectory construction and selection mechanics. NUTS uses variable work per transition, so its draws/s should be read together with its mean leapfrog count and not compared directly with fixed ten-step HMC.
 
-The timing distribution describes repeated execution on one machine and is not a cross-machine confidence interval. The quality table reports acceptance, divergences, a simple autocorrelation ESS estimate, and ESS/s, but not yet ESS per gradient evaluation. These are diagnostics rather than proofs that a chain has converged.
+The timing distribution describes repeated execution on one machine and is not a cross-machine confidence interval. The quality table reports acceptance, divergences, autocorrelation ESS, and—on new runs—split rank-normalized R-hat plus bulk/tail ESS. The ESS/gradient column is explicitly a work proxy: it divides bulk ESS by recorded leapfrog work, using two gradient callbacks per maintained direct leapfrog step and one per AdvancedHMC-reported step. It is not an instrumented hardware counter. These are diagnostics rather than proofs that a chain has converged.
 
 ## Quality-check roadmap
 
 Lightweight, reproducible checks belong in the integrated Julia tests: retain the target gradient contracts and known-moment regressions, add full covariance checks for correlated Gaussian targets, and add a small set of analytically known marginal quantiles. Their tolerances must account for autocorrelation and remain stable in routine CI.
 
-The benchmark should carry the more computational and exploratory checks:
+The benchmark now runs independently seeded quality chains and reports split rank-normalized R-hat, bulk/tail ESS, and a clearly labelled gradient-work proxy. Remaining exploratory improvements are:
 
-- run multiple independently seeded chains and report between-chain diagnostics such as split rank-normalized R-hat;
-- report bulk and tail ESS, preferably also per gradient evaluation;
-- visualize covariance error for Gaussian targets and empirical-versus-known quantiles or ECDF differences for product targets;
-- attach Monte Carlo uncertainty to moment and quantile errors instead of interpreting raw errors without a sampling scale;
+- add raw-chain covariance and ECDF plots; new runs already record maximum Gaussian covariance error and symmetry-implied marginal median error;
+- extend the recorded batch-means mean MCSE to uncertainty intervals for covariance and quantile errors;
 - define conspicuous warning thresholds, while keeping benchmark diagnostics non-gating until their calibration is demonstrably stable.
 
 ## Targets

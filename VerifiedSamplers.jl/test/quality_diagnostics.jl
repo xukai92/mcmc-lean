@@ -27,4 +27,18 @@
         chain, zeros(2), [1.0, 0.0])
     @test_throws DimensionMismatch QualityDiagnostics.covariance_max_error(
         chain, Matrix{Float64}(I, 3, 3))
+
+    independent = hcat(randn(MersenneTwister(11), 400),
+        randn(MersenneTwister(12), 400), randn(MersenneTwister(13), 400),
+        randn(MersenneTwister(14), 400))
+    rank_diagnostics = QualityDiagnostics.split_rank_diagnostics(independent)
+    @test rank_diagnostics.rank_normalized_rhat < 1.05
+    @test rank_diagnostics.bulk_ess > 500
+    @test rank_diagnostics.tail_ess > 300
+    shifted = copy(independent)
+    shifted[:, 4] .+= 3
+    @test QualityDiagnostics.split_rank_diagnostics(
+        shifted).rank_normalized_rhat > 1.1
+    @test_throws ArgumentError QualityDiagnostics.split_rank_diagnostics(
+        independent[:, 1:1])
 end

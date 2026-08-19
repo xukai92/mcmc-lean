@@ -59,20 +59,32 @@ report does not relabel it with the current checkout or machine.
 Separate quality chains write `benchmark/results/quality.csv`. They report
 moment error against each fixture's known mean and marginal variance, minimum
 coordinate ESS, ESS/s, movement, AdvancedHMC acceptance and divergences, and
-mean integration work. The formulas come from the shared
+mean integration work. New runs also report worst split rank-normalized R-hat,
+minimum bulk/tail ESS, and a labelled ESS-per-gradient-work proxy across the
+first four coordinates. The formulas come from the shared
 `VerifiedSamplers.jl/test/support/QualityDiagnostics.jl` support module rather
 than a benchmark-specific implementation. These extend the lightweight
 gradient and moment checks registered in the Julia integration suite.
 
-Quality diagnostics in the report are not convergence proofs or CI gates. The
-planned stronger checks are multiple independently seeded chains, split
-rank-normalized R-hat, bulk and tail ESS (also per gradient evaluation), full
-covariance error for Gaussian targets, marginal quantile or ECDF error for
-product targets, and Monte Carlo uncertainty for reported errors. Small,
+This separation is methodological, not a limitation of timing trajectories.
+Timing repetitions could be used for quality assessment if their complete
+draws were retained and their seeds made independent, but storage and
+diagnostic instrumentation would then contaminate the throughput workload.
+
+Quality diagnostics in the report are not convergence proofs or CI gates.
+Multiple independently seeded chains, split rank-normalized R-hat, and
+bulk/tail ESS are implemented. New runs also record maximum covariance error
+for Gaussian fixtures, maximum marginal-median error (all fixtures are
+symmetric), and batch-means Monte Carlo standard error for means. Remaining
+work is raw-chain covariance/ECDF visualization and uncertainty intervals for
+covariance and quantile errors. Small,
 stable covariance and known-quantile regressions belong in the integrated test
 suite; the multi-chain and distributional report remains in this environment.
 
 The workload can be changed through `HMC_DIMENSION`, `HMC_DRAWS`,
 `HMC_LEAPFROG_STEPS`, `HMC_STEP_SIZE`, `HMC_SEED`, and
 `HMC_BENCHMARK_SECONDS`. `HMC_NUTS_MAX_DEPTH` controls the NUTS tree-depth cap.
-`HMC_QUALITY_DRAWS` controls the separate sampling-quality chains.
+`HMC_QUALITY_DRAWS` controls draws per separate sampling-quality chain, and
+`HMC_QUALITY_CHAINS` controls their independently seeded chain count (four by
+default). Full mode defaults to four 5,000-draw chains, retaining the previous
+20,000-draw total while enabling between-chain diagnostics.

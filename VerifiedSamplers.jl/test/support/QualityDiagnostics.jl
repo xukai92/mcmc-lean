@@ -4,7 +4,8 @@ using LinearAlgebra
 using Statistics
 
 export autocorrelation_ess, moment_diagnostics, covariance_max_error,
-    marginal_quantile_max_error, batch_mean_standard_error
+    marginal_quantile_max_error, batch_mean_standard_error,
+    split_rank_diagnostics
 
 function retained_samples(chain::AbstractMatrix{<:Real}, burnin::Integer)
     0 <= burnin < size(chain, 2) || throw(ArgumentError(
@@ -102,6 +103,108 @@ function batch_mean_standard_error(chain::AbstractMatrix{<:Real};
         ((batch - 1) * batch_size + 1):(batch * batch_size)])
         for index in axes(retained, 1), batch in 1:batch_count]
     vec(std(batch_means; dims=2, corrected=true)) ./ sqrt(batch_count)
+end
+
+function standard_normal_quantile(probability::Real)
+    0 < probability < 1 || throw(ArgumentError(
+        "normal-score probability must lie strictly inside (0, 1)"))
+    a = (-39.69683028665376, 220.9460984245205, -275.9285104469687,
+        138.3577518672690, -30.66479806614716, 2.506628277459239)
+    b = (-54.47609879822406, 161.5858368580409, -155.6989798598866,
+        66.80131188771972, -13.28068155288572)
+    c = (-0.007784894002430293, -0.3223964580411365,
+        -2.400758277161838, -2.549732539343734, 4.374664141464968,
+        2.938163982698783)
+    d = (0.007784695709041462, 0.3224671290700398,
+        2.445134137142996, 3.754408661907416)
+    lower = 0.02425
+    if probability < lower
+        q = sqrt(-2log(probability))
+        return (((((c[1] * q + c[2]) * q + c[3]) * q + c[4]) * q +
+            c[5]) * q + c[6]) / ((((d[1] * q + d[2]) * q + d[3]) * q +
+            d[4]) * q + 1)
+    elseif probability > 1 - lower
+        q = sqrt(-2log1p(-probability))
+        return -(((((c[1] * q + c[2]) * q + c[3]) * q + c[4]) * q +
+            c[5]) * q + c[6]) / ((((d[1] * q + d[2]) * q + d[3]) * q +
+            d[4]) * q + 1)
+    end
+    q = probability - 0.5
+    r = q * q
+    (((((a[1] * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * r +
+        a[6]) * q / (((((b[1] * r + b[2]) * r + b[3]) * r + b[4]) * r +
+        b[5]) * r + 1)
+end
+
+function rank_normalize(samples::AbstractMatrix{<:Real})
+    all(isfinite, samples) || throw(ArgumentError(
+        "rank diagnostics require finite samples"))
+    values = vec(Float64.(samples))
+    order = sortperm(values)
+    ranks = Vector{Float64}(undef, length(values))
+    first_index = 1
+    while first_index <= length(order)
+        last_index = first_index
+        value = values[order[first_index]]
+        while last_index < length(order) &&
+                values[order[last_index + 1]] == value
+            last_index += 1
+        end
+        rank = (first_index + last_index) / 2
+        for index in first_index:last_index
+            ranks[order[index]] = rank
+        end
+        first_index = last_index + 1
+    end
+    probabilities = (ranks .- 3 / 8) ./ (length(ranks) + 1 / 4)
+    reshape(standard_normal_quantile.(probabilities), size(samples))
+end
+
+function split_chains(samples::AbstractMatrix{<:Real})
+    size(samples, 2) >= 2 || throw(ArgumentError(
+        "split diagnostics require at least two chains"))
+    half = size(samples, 1) ÷ 2
+    half >= 4 || throw(ArgumentError(
+        "split diagnostics require at least eight draws per chain"))
+    hcat(@view(samples[1:half, :]),
+        @view(samples[(end - half + 1):end, :]))
+end
+
+function basic_rhat(samples::AbstractMatrix{<:Real})
+    draws = size(samples, 1)
+    within = mean(var(@view(samples[:, chain]); corrected=true)
+        for chain in axes(samples, 2))
+    between = draws * var(vec(mean(samples; dims=1)); corrected=true)
+    within == 0 && return between == 0 ? 1.0 : Inf
+    sqrt(((draws - 1) / draws * within + between / draws) / within)
+end
+
+function summed_chain_ess(samples::AbstractMatrix{<:Real})
+    total = sum(autocorrelation_ess(@view(samples[:, chain]))
+        for chain in axes(samples, 2))
+    min(Float64(length(samples)), total)
+end
+
+"""Non-gating split rank-normalized R-hat and bulk/tail ESS diagnostics.
+
+Rows are draws and columns are independently seeded chains. ESS uses the
+shared initial-positive-sequence estimator after splitting and rank
+normalization; tail ESS is the smaller indicator ESS at the pooled 5% and 95%
+quantiles.
+"""
+function split_rank_diagnostics(samples::AbstractMatrix{<:Real})
+    split = split_chains(samples)
+    normalized = rank_normalize(split)
+    folded = rank_normalize(abs.(split .- median(vec(split))))
+    rank_normalized_rhat = max(basic_rhat(normalized), basic_rhat(folded))
+    bulk_ess = summed_chain_ess(normalized)
+    lower, upper = quantile(vec(split), (0.05, 0.95))
+    lower_indicator = Float64.(split .<= lower)
+    upper_indicator = Float64.(split .>= upper)
+    tail_ess = min(summed_chain_ess(lower_indicator),
+        summed_chain_ess(upper_indicator))
+    (; rank_normalized_rhat, bulk_ess, tail_ess,
+        split_draws=size(split, 1), split_chains=size(split, 2))
 end
 
 end

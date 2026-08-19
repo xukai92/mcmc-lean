@@ -25,13 +25,24 @@ const BENCHMARK_SECONDS = parse(Float64,
 const BENCHMARK_SAMPLES = REPETITIONS
 const NUTS_MAX_DEPTH = parse(Int, get(ENV, "HMC_NUTS_MAX_DEPTH", "10"))
 const QUALITY_DRAWS = parse(Int,
-    get(ENV, "HMC_QUALITY_DRAWS", DEV_MODE ? "1000" : "20000"))
+    get(ENV, "HMC_QUALITY_DRAWS", DEV_MODE ? "500" : "5000"))
+const QUALITY_CHAINS = parse(Int, get(ENV, "HMC_QUALITY_CHAINS", "4"))
 
 const Runtime = VerifiedSamplers.Runtime
 const Reference = VerifiedSamplers.Reference
 const Optimized = VerifiedSamplers.Optimized
 const RAW_TIMINGS = NamedTuple[]
 const QUALITY_ROWS = NamedTuple[]
+
+function known_covariance(target)
+    target.name == "isotropic-gaussian" && return Matrix{Float64}(I,
+        DIMENSION, DIMENSION)
+    target.name == "correlated-gaussian-rho-0.9" &&
+        return Matrix{Float64}(target.advanced_inverse_mass)
+    target.name == "ill-conditioned-gaussian" &&
+        return Matrix(Diagonal(target.variance))
+    nothing
+end
 
 struct DevMeasurement
     times::Vector{Float64}
@@ -117,57 +128,94 @@ function nuts_average_steps(hamiltonian, kernel, seed::Int, draws::Int)
     total_steps / draws
 end
 
-function quality_summary(target, algorithm, implementation, chain, seconds;
-        acceptance=NaN, divergences=0, average_steps=LEAPFROG_STEPS)
+function quality_summary(target, algorithm, implementation, chains, seconds;
+        acceptance=NaN, divergences=0, average_steps=LEAPFROG_STEPS,
+        gradients_per_step=1)
     burnin = QUALITY_DRAWS ÷ 10
-    coordinate_count = min(4, size(chain, 1))
+    retained_chains = [@view chain[:, (burnin + 1):end] for chain in chains]
+    combined = reduce(hcat, retained_chains)
+    coordinate_count = min(4, size(combined, 1))
     diagnostics = QualityDiagnostics.moment_diagnostics(
-        chain, target.mean, target.variance; burnin,
+        combined, target.mean, target.variance;
         ess_coordinates=coordinate_count)
     retained_draws = diagnostics.retained_draws
     minimum_ess = diagnostics.minimum_ess
     standardized_mean_rmse = diagnostics.standardized_mean_rmse
     relative_variance_rmse = diagnostics.relative_variance_rmse
-    movement = mean(any(@view(chain[:, index]) .!= @view(chain[:, index - 1]))
-        for index in 2:size(chain, 2))
+    rank_diagnostics = [QualityDiagnostics.split_rank_diagnostics(
+        hcat([vec(@view chain[coordinate, :]) for chain in retained_chains]...))
+        for coordinate in 1:coordinate_count]
+    rank_normalized_rhat = maximum(
+        diagnostic.rank_normalized_rhat for diagnostic in rank_diagnostics)
+    bulk_ess = minimum(diagnostic.bulk_ess for diagnostic in rank_diagnostics)
+    tail_ess = minimum(diagnostic.tail_ess for diagnostic in rank_diagnostics)
+    chain_standard_errors = [QualityDiagnostics.batch_mean_standard_error(chain)
+        for chain in retained_chains]
+    mean_mcse = maximum(sqrt(sum(error[coordinate]^2
+        for error in chain_standard_errors)) / QUALITY_CHAINS
+        for coordinate in axes(combined, 1))
+    covariance = known_covariance(target)
+    covariance_max_error = covariance === nothing ? NaN :
+        QualityDiagnostics.covariance_max_error(combined, covariance)
+    median_max_error = QualityDiagnostics.marginal_quantile_max_error(
+        combined, [0.5], zeros(DIMENSION, 1))
+    movement = mean(mean(any(@view(chain[:, index]) .!=
+        @view(chain[:, index - 1])) for index in 2:size(chain, 2))
+        for chain in chains)
+    total_draws = QUALITY_DRAWS * QUALITY_CHAINS
+    gradient_proxy = total_draws * average_steps * gradients_per_step
     push!(QUALITY_ROWS, (; target=target.name, dimension=DIMENSION, algorithm,
-        implementation, draws=QUALITY_DRAWS, retained_draws,
-        seconds, draws_per_second=QUALITY_DRAWS / seconds,
+        implementation, chains=QUALITY_CHAINS, draws_per_chain=QUALITY_DRAWS,
+        retained_draws, seconds, draws_per_second=total_draws / seconds,
         minimum_ess, ess_per_second=minimum_ess / seconds,
+        rank_normalized_rhat, bulk_ess, tail_ess,
+        bulk_ess_per_gradient_proxy=bulk_ess / gradient_proxy,
+        mean_mcse, covariance_max_error, median_max_error,
         standardized_mean_rmse, relative_variance_rmse, movement,
         acceptance, divergences, average_steps))
 end
 
 function verified_quality(target, algorithm, stepper)
-    source = Runtime.RNGSource(MersenneTwister(SEED + 91))
-    chain = Matrix{Float64}(undef, DIMENSION, QUALITY_DRAWS)
-    position = zeros(DIMENSION)
-    seconds = @elapsed for index in axes(chain, 2)
-        position = stepper(source, target.logdensity, target.gradient, STEP_SIZE,
-            LEAPFROG_STEPS, position)
-        chain[:, index] = position
+    chains = Matrix{Float64}[]
+    seconds = @elapsed for chain_index in 1:QUALITY_CHAINS
+        source = Runtime.RNGSource(MersenneTwister(SEED + 91 + chain_index))
+        chain = Matrix{Float64}(undef, DIMENSION, QUALITY_DRAWS)
+        position = zeros(DIMENSION)
+        for index in axes(chain, 2)
+            position = stepper(source, target.logdensity, target.gradient,
+                STEP_SIZE, LEAPFROG_STEPS, position)
+            chain[:, index] = position
+        end
+        push!(chains, chain)
     end
-    quality_summary(target, algorithm, "verified-optimized", chain, seconds)
+    quality_summary(target, algorithm, "verified-optimized", chains, seconds;
+        gradients_per_step=2)
 end
 
 function advanced_quality(target, algorithm, hamiltonian, kernel)
-    rng = MersenneTwister(SEED + 91)
-    hamiltonian, transition = AdvancedHMC.sample_init(
-        rng, hamiltonian, zeros(DIMENSION))
-    chain = Matrix{Float64}(undef, DIMENSION, QUALITY_DRAWS)
+    chains = Matrix{Float64}[]
     acceptance_sum = 0.0
     divergences = 0
     step_sum = 0
-    seconds = @elapsed for index in axes(chain, 2)
-        transition = AdvancedHMC.transition(rng, hamiltonian, kernel, transition.z)
-        chain[:, index] = transition.z.θ
-        acceptance_sum += transition.stat.acceptance_rate
-        divergences += transition.stat.numerical_error
-        step_sum += transition.stat.n_steps
+    seconds = @elapsed for chain_index in 1:QUALITY_CHAINS
+        rng = MersenneTwister(SEED + 91 + chain_index)
+        chain_hamiltonian, transition = AdvancedHMC.sample_init(
+            rng, hamiltonian, zeros(DIMENSION))
+        chain = Matrix{Float64}(undef, DIMENSION, QUALITY_DRAWS)
+        for index in axes(chain, 2)
+            transition = AdvancedHMC.transition(
+                rng, chain_hamiltonian, kernel, transition.z)
+            chain[:, index] = transition.z.θ
+            acceptance_sum += transition.stat.acceptance_rate
+            divergences += transition.stat.numerical_error
+            step_sum += transition.stat.n_steps
+        end
+        push!(chains, chain)
     end
-    quality_summary(target, algorithm, "advancedhmc", chain, seconds;
-        acceptance=acceptance_sum / QUALITY_DRAWS, divergences,
-        average_steps=step_sum / QUALITY_DRAWS)
+    total_draws = QUALITY_DRAWS * QUALITY_CHAINS
+    quality_summary(target, algorithm, "advancedhmc", chains, seconds;
+        acceptance=acceptance_sum / total_draws, divergences,
+        average_steps=step_sum / total_draws)
 end
 
 function quality_target(target)
@@ -327,6 +375,7 @@ function main()
     NUTS_MAX_DEPTH > 0 || error("HMC_NUTS_MAX_DEPTH must be positive")
     REPETITIONS > 0 || error("HMC_REPETITIONS must be positive")
     QUALITY_DRAWS > 10 || error("HMC_QUALITY_DRAWS must exceed ten")
+    QUALITY_CHAINS >= 2 || error("HMC_QUALITY_CHAINS must be at least two")
     target_suite = TestTargets.suite(DIMENSION)
     rows = reduce(vcat, benchmark_target(target) for target in target_suite)
     foreach(quality_target, target_suite)

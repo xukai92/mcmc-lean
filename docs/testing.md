@@ -539,9 +539,12 @@ Quality work follows a stability-first order:
    complete; extend only when an existing sampler fixture supplies a stable,
    analytical target);
 3. add multiple-chain split rank-normalized R-hat and bulk/tail ESS to the
-   benchmark report, including ESS per gradient evaluation; and
-4. add covariance and ECDF/quantile visualizations with explicit Monte Carlo
-   uncertainty and conspicuous non-gating warnings.
+   benchmark report, including an explicitly labelled gradient-work proxy
+   (complete for new benchmark runs); and
+4. record Gaussian covariance error, symmetry-implied marginal-median error,
+   and batch-means uncertainty (complete for new runs), then add raw-chain
+   covariance/ECDF visualizations only if retaining those larger artifacts is
+   justified.
 
 Only metrics demonstrated stable across supported Julia versions and CI
 machines should become integrated pass/fail contracts.

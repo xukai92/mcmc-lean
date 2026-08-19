@@ -26,6 +26,18 @@ function read_metadata(path)
     Dict(split(line, ','; limit=2) for line in readlines(path))
 end
 
+optional_float(row, name::Symbol) = hasproperty(row, name) ?
+    parse(Float64, getproperty(row, name)) : nothing
+
+function diagnostic_cell(row, name::Symbol; digits::Integer=1,
+        warning=nothing)
+    value = optional_float(row, name)
+    value === nothing && return "—"
+    isfinite(value) || return "—"
+    rendered = @sprintf("%.*f", digits, value)
+    warning !== nothing && warning(value) ? "⚠ $rendered" : rendered
+end
+
 escape_xml(value) = replace(string(value), '&' => "&amp;", '<' => "&lt;",
     '>' => "&gt;", '"' => "&quot;")
 
@@ -121,6 +133,10 @@ function write_doc(rows, timings, quality, metadata)
         println(io, "- Step size: `$(first_row.step_size)`")
         println(io, "- Fixed trajectory length: `$(first_row.configured_steps)` leapfrog steps")
         println(io, "- Gradients: analytic callbacks for both packages; AD time excluded\n")
+        if !isempty(quality) && hasproperty(first(quality), :chains)
+            println(io, "- Quality chains per case: `$(first(quality).chains)`")
+            println(io, "- Quality draws per chain: `$(first(quality).draws_per_chain)`\n")
+        end
         println(io, "## Results\n")
         println(io, "### Median transitions per second\n")
         implementations = unique(row.implementation for row in rows)
@@ -153,24 +169,32 @@ function write_doc(rows, timings, quality, metadata)
             println(io, "| $(display_name(row.target)) | $(row.algorithm) | $(row.implementation) | $(@sprintf("%.1f ms", median_ms)) | $(@sprintf("%.1f–%.1f ms", q25_ms, q75_ms)) | $(@sprintf("%.0f", parse(Float64, row.draws_per_second))) | $(@sprintf("%.1f", parse(Float64, row.average_steps))) | $(row.allocations) |")
         end
         println(io, "\n## Sampling quality\n")
-        println(io, "Quality runs are separate seeded chains rather than BenchmarkTools trials. Moment errors use each target's known zero mean and analytical or independently computed marginal variance. ESS is the minimum autocorrelation ESS among the first four coordinates after ten-percent burn-in.\n")
-        println(io, "| Target | Algorithm | Implementation | ESS/s | Mean RMSE (std.) | Variance RMSE (relative) | Movement | Acceptance | Divergences | Mean steps |")
-        println(io, "|---|---|---|---:|---:|---:|---:|---:|---:|---:|")
+        println(io, "Quality runs are separate seeded chains rather than BenchmarkTools trials. Timing trajectories could support diagnostics if their draws were retained and independently seeded, but doing so would charge storage and diagnostic instrumentation to the performance measurement. The separate protocol keeps that choice explicit. Moment errors use each target's known zero mean and analytical or independently computed marginal variance. New runs report the worst split rank-normalized R-hat and minimum bulk/tail ESS among the first four coordinates after ten-percent per-chain burn-in. Stored historical rows made before these fields were introduced display an em dash. A warning marker at R-hat above 1.01 is conspicuous but non-gating.\n")
+        println(io, "| Target | Algorithm | Implementation | R-hat | Bulk ESS | Tail ESS | Bulk ESS/gradient proxy | Mean MCSE (max) | Covariance error (max) | Median error (max) | ESS/s | Mean RMSE (std.) | Variance RMSE (relative) | Movement | Acceptance | Divergences | Mean steps |")
+        println(io, "|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
         for row in quality
             acceptance = isnan(parse(Float64, row.acceptance)) ? "—" :
                 @sprintf("%.3f", parse(Float64, row.acceptance))
-            println(io, "| $(display_name(row.target)) | $(row.algorithm) | $(row.implementation) | $(@sprintf("%.1f", parse(Float64, row.ess_per_second))) | $(@sprintf("%.3f", parse(Float64, row.standardized_mean_rmse))) | $(@sprintf("%.3f", parse(Float64, row.relative_variance_rmse))) | $(@sprintf("%.3f", parse(Float64, row.movement))) | $acceptance | $(row.divergences) | $(@sprintf("%.1f", parse(Float64, row.average_steps))) |")
+            rhat = diagnostic_cell(row, :rank_normalized_rhat; digits=3,
+                warning=value -> value > 1.01)
+            bulk = diagnostic_cell(row, :bulk_ess; digits=1)
+            tail = diagnostic_cell(row, :tail_ess; digits=1)
+            per_gradient = diagnostic_cell(
+                row, :bulk_ess_per_gradient_proxy; digits=4)
+            mean_mcse = diagnostic_cell(row, :mean_mcse; digits=4)
+            covariance_error = diagnostic_cell(
+                row, :covariance_max_error; digits=4)
+            median_error = diagnostic_cell(row, :median_max_error; digits=4)
+            println(io, "| $(display_name(row.target)) | $(row.algorithm) | $(row.implementation) | $rhat | $bulk | $tail | $per_gradient | $mean_mcse | $covariance_error | $median_error | $(@sprintf("%.1f", parse(Float64, row.ess_per_second))) | $(@sprintf("%.3f", parse(Float64, row.standardized_mean_rmse))) | $(@sprintf("%.3f", parse(Float64, row.relative_variance_rmse))) | $(@sprintf("%.3f", parse(Float64, row.movement))) | $acceptance | $(row.divergences) | $(@sprintf("%.1f", parse(Float64, row.average_steps))) |")
         end
         println(io, "\n## Interpretation\n")
         println(io, "Endpoint rows are directly matched fixed-step proposals. Multinomial rows share the target and integration budget, but the packages use different trajectory construction and selection mechanics. NUTS uses variable work per transition, so its draws/s should be read together with its mean leapfrog count and not compared directly with fixed ten-step HMC.\n")
-        println(io, "The timing distribution describes repeated execution on one machine and is not a cross-machine confidence interval. The quality table reports acceptance, divergences, a simple autocorrelation ESS estimate, and ESS/s, but not yet ESS per gradient evaluation. These are diagnostics rather than proofs that a chain has converged.\n")
+        println(io, "The timing distribution describes repeated execution on one machine and is not a cross-machine confidence interval. The quality table reports acceptance, divergences, autocorrelation ESS, and—on new runs—split rank-normalized R-hat plus bulk/tail ESS. The ESS/gradient column is explicitly a work proxy: it divides bulk ESS by recorded leapfrog work, using two gradient callbacks per maintained direct leapfrog step and one per AdvancedHMC-reported step. It is not an instrumented hardware counter. These are diagnostics rather than proofs that a chain has converged.\n")
         println(io, "## Quality-check roadmap\n")
         println(io, "Lightweight, reproducible checks belong in the integrated Julia tests: retain the target gradient contracts and known-moment regressions, add full covariance checks for correlated Gaussian targets, and add a small set of analytically known marginal quantiles. Their tolerances must account for autocorrelation and remain stable in routine CI.\n")
-        println(io, "The benchmark should carry the more computational and exploratory checks:\n")
-        println(io, "- run multiple independently seeded chains and report between-chain diagnostics such as split rank-normalized R-hat;")
-        println(io, "- report bulk and tail ESS, preferably also per gradient evaluation;")
-        println(io, "- visualize covariance error for Gaussian targets and empirical-versus-known quantiles or ECDF differences for product targets;")
-        println(io, "- attach Monte Carlo uncertainty to moment and quantile errors instead of interpreting raw errors without a sampling scale;")
+        println(io, "The benchmark now runs independently seeded quality chains and reports split rank-normalized R-hat, bulk/tail ESS, and a clearly labelled gradient-work proxy. Remaining exploratory improvements are:\n")
+        println(io, "- add raw-chain covariance and ECDF plots; new runs already record maximum Gaussian covariance error and symmetry-implied marginal median error;")
+        println(io, "- extend the recorded batch-means mean MCSE to uncertainty intervals for covariance and quantile errors;")
         println(io, "- define conspicuous warning thresholds, while keeping benchmark diagnostics non-gating until their calibration is demonstrably stable.\n")
         println(io, "## Targets\n")
         println(io, "- **Isotropic Gaussian:** baseline identity geometry.")
