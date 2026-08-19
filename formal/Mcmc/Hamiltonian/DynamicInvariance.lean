@@ -33,6 +33,79 @@ structure CertifiedTrajectoryCandidateRows
     rows (offsetLeapfrogTrajectory gradient ε origin z selected) selected =
       rows z selected
 
+/-- Raw orbit-coordinate rows before applying the executable global checker.
+The covariance requirement covers every possible distinguished root, so the
+check result cannot change merely because the same orbit is rerooted. -/
+structure RawTrajectoryCandidateRows
+    (gradient : Position ι → Position ι) (ε : ℝ) (L : ℕ) where
+  rows : PhaseSpace ι → Fin (L + 1) → Finset (Fin (L + 1))
+  orbitCovariant : ∀ (z : PhaseSpace ι) (origin selected root : Fin (L + 1)),
+    rows (offsetLeapfrogTrajectory gradient ε origin z selected) root = rows z root
+
+/-- Executable checked-or-identity sanitization of a complete row family. -/
+def RawTrajectoryCandidateRows.checkedRows
+    {gradient : Position ι → Position ι} {ε : ℝ} {L : ℕ}
+    (raw : RawTrajectoryCandidateRows gradient ε L)
+    (z : PhaseSpace ι) (root : Fin (L + 1)) : Finset (Fin (L + 1)) :=
+  if Mcmc.Finite.MarkovKernel.CertifiedDynamicTree.check (raw.rows z) then
+    raw.rows z root
+  else {root}
+
+omit [Fintype ι] in
+theorem RawTrajectoryCandidateRows.checkedRows_checks
+    {gradient : Position ι → Position ι} {ε : ℝ} {L : ℕ}
+    (raw : RawTrajectoryCandidateRows gradient ε L) (z : PhaseSpace ι) :
+    Mcmc.Finite.MarkovKernel.CertifiedDynamicTree.Checks (raw.checkedRows z) := by
+  classical
+  by_cases hcheck :
+      Mcmc.Finite.MarkovKernel.CertifiedDynamicTree.check (raw.rows z) = true
+  · have hchecks :=
+      (Mcmc.Finite.MarkovKernel.CertifiedDynamicTree.check_eq_true_iff
+        (raw.rows z)).mp hcheck
+    have heq : raw.checkedRows z = raw.rows z := by
+      funext root
+      simp [RawTrajectoryCandidateRows.checkedRows, hcheck]
+    rw [heq]
+    exact hchecks
+  · have hfalse :
+        Mcmc.Finite.MarkovKernel.CertifiedDynamicTree.check (raw.rows z) = false :=
+      Bool.eq_false_of_not_eq_true hcheck
+    have heq : raw.checkedRows z = fun root => {root} := by
+      funext root
+      simp [RawTrajectoryCandidateRows.checkedRows, hfalse]
+    rw [heq]
+    constructor
+    · intro root
+      simp
+    · intro root leaf hleaf
+      simp_all
+
+omit [Fintype ι] in
+theorem RawTrajectoryCandidateRows.checkedRows_orbitCovariant
+    {gradient : Position ι → Position ι} {ε : ℝ} {L : ℕ}
+    (raw : RawTrajectoryCandidateRows gradient ε L) :
+    ∀ (z : PhaseSpace ι) (origin selected root : Fin (L + 1)),
+      raw.checkedRows (offsetLeapfrogTrajectory gradient ε origin z selected) root =
+        raw.checkedRows z root := by
+  classical
+  intro z origin selected root
+  have hrows : raw.rows (offsetLeapfrogTrajectory gradient ε origin z selected) =
+      raw.rows z := by
+    funext candidateRoot
+    exact raw.orbitCovariant z origin selected candidateRoot
+  simp [RawTrajectoryCandidateRows.checkedRows, hrows]
+
+/-- Every orbit-covariant raw builder becomes a proof-bearing continuous
+candidate certificate after the executable checked-or-identity wrapper. -/
+def RawTrajectoryCandidateRows.toCertified
+    {gradient : Position ι → Position ι} {ε : ℝ} {L : ℕ}
+    (raw : RawTrajectoryCandidateRows gradient ε L) :
+    CertifiedTrajectoryCandidateRows gradient ε L where
+  rows := raw.checkedRows
+  checks := raw.checkedRows_checks
+  orbitCovariant := fun z origin selected =>
+    raw.checkedRows_orbitCovariant z origin selected selected
+
 /-- Boolean mask decoded from proof-bearing checked orbit rows. -/
 def CertifiedTrajectoryCandidateRows.mask
     {gradient : Position ι → Position ι} {ε : ℝ} {L : ℕ}

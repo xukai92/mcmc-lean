@@ -18,7 +18,7 @@ export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, Bounded
     initialize_phase,
     CertifiedDynamicHMC,
     CompletedTreeC4DynamicHMC,
-    CheckedFirstStopDynamicHMC, CheckedRecursiveDynamicHMC,
+    CheckedFirstStopDynamicHMC, CheckedRecursiveDynamicHMC, VerifiedNUTS,
     streaming_eligible_select,
     MetricMultinomialHMC,
     CategoricalDHMC,
@@ -2678,9 +2678,16 @@ struct CheckedRecursiveDynamicHMC{F,G}
     end
 end
 
+"""Verified checked-or-identity NUTS Reference sampler.
+
+This is the public name for the Lean-IR-interpreted recursive dynamic sampler.
+It is intentionally distinct from the production-shaped, handwritten `NUTS`
+runtime until equivalence with that algorithm is proved.
+"""
+const VerifiedNUTS = CheckedRecursiveDynamicHMC
+
 function _checked_recursive_dynamic_hmc_step!(
-        source::Runtime.AbstractRandomSource, selector,
-        sampler::CheckedRecursiveDynamicHMC,
+        source::Runtime.AbstractRandomSource, sampler::CheckedRecursiveDynamicHMC,
         current::AbstractVector{<:Real})
     initial = Float64.(current)
     isempty(initial) && throw(ArgumentError("position cannot be empty"))
@@ -2703,24 +2710,21 @@ function _checked_recursive_dynamic_hmc_step!(
     end
     depth = floor(Int, log2(count))
     directions = [Runtime.draw_below!(source, 2) == 1 for _ in 1:depth]
-    certificate = generated_dynamic_tree("checked-recursive-doubling",
-        positions, momenta, directions)
-    certificate.valid || return initial
-    candidates = certificate.candidates[origin + 1]
-    logweights = [begin
-        value = Float64(sampler.logdensity(positions[index])) -
-            sum(abs2, momenta[index]) / 2
+    program = Reference.NUTS_TREE_PROGRAMS["checked-nuts-reference"]
+    selected = Reference.checked_nuts_or_identity_select!(source, program,
+        positions, momenta, directions, origin + 1,
+        (position, momentum) -> begin
+        value = Float64(sampler.logdensity(position)) - sum(abs2, momentum) / 2
         isfinite(value) || throw(DomainError(value,
             "dynamic trajectory log weight must be finite"))
         value
-    end for index in candidates]
-    copy(positions[selector(source, candidates, logweights)])
+    end)
+    selected == origin + 1 ? initial : copy(positions[selected])
 end
 
 function step(rng::AbstractRNG, sampler::CheckedRecursiveDynamicHMC,
         current::AbstractVector{<:Real})
-    _checked_recursive_dynamic_hmc_step!(Runtime.RNGSource(rng),
-        Reference.dynamic_select_float!, sampler, current)
+    _checked_recursive_dynamic_hmc_step!(Runtime.RNGSource(rng), sampler, current)
 end
 
 step(sampler::CheckedRecursiveDynamicHMC,

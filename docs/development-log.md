@@ -9,12 +9,22 @@ Boltzmann measure when the mask retains its root, is reroot invariant at every
 admitted candidate, and has symmetric pair membership. A proof-bearing
 `CertifiedTrajectoryCandidateRows` interface derives those algebraic
 conditions from globally checked finite rows plus Hamiltonian-orbit covariance.
+Lean also proves that an arbitrary orbit-covariant raw row builder can be made
+total by the executable checked-or-identity transformation: rejected families
+become singleton rows, while accepted families retain their candidates.
 
-This closes the previously missing measure-level theorem; it does not yet
-prove that the concrete recursive NUTS interpreter emits an orbit-covariant,
-measurable row family. That interpreter-to-certificate theorem and migration
-of the public Julia sampler remain required before changing its
-`verified-runtime` label.
+The Julia `CheckedRecursiveDynamicHMC` path now delegates row construction,
+global checking, identity fallback, and weighted selection directly to the
+decoded `checked-nuts-reference` program interpreter. It is also exported as
+`VerifiedNUTS`. The existing public `NUTS` type remains the independently
+handwritten production-shaped comparator and is not relabelled.
+
+This closes the previously missing measure-level theorem and migrates the
+conservative checked Reference sampler. It does not yet prove that Julia's
+floating row callbacks refine a measurable exact-real orbit-row family, nor
+that the separate production-shaped `NUTS` transition is equivalent to the
+checked Reference. Those boundaries remain required before changing the
+production benchmark's `verified-runtime` label.
 
 ## 2026-08-19: Lean-owned checked NUTS subtree IR foundation
 

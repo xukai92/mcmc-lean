@@ -449,14 +449,12 @@ end
         Runtime.IndexEvent(1), Runtime.IndexEvent(0),
         Runtime.UniformEvent(0.25)]
     reference_source = Runtime.FloatTraceSource(copy(events))
-    optimized_source = Runtime.FloatTraceSource(copy(events))
     reference = VerifiedSamplers._checked_recursive_dynamic_hmc_step!(
-        reference_source, Reference.dynamic_select_float!, sampler, [0.0])
-    optimized = VerifiedSamplers._checked_recursive_dynamic_hmc_step!(
-        optimized_source, Optimized.dynamic_select_float!, sampler, [0.0])
-    @test reference == optimized == [0.0]
+        reference_source, sampler, [0.0])
+    @test reference == [0.0]
     @test Runtime.remaining(reference_source) == 1
-    @test Runtime.remaining(optimized_source) == 1
+
+    @test VerifiedNUTS === CheckedRecursiveDynamicHMC
 
     first_chain = sample(MersenneTwister(0xdecaf), sampler, [0.0], 20)
     second_chain = sample(MersenneTwister(0xdecaf), sampler, [0.0], 20)

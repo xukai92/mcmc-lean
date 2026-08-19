@@ -13,7 +13,11 @@ theorem-backed only when `certificate.valid` is true. Equivalence with a
 specific recursive production NUTS tree builder remains open. Lean now proves
 measure-level detailed balance for measurable, orbit-covariant checked rows;
 the remaining gap is proving that the concrete bounded recursive interpreter
-constructs such rows. A checked Lean
+constructs such exact-real measurable rows from its callbacks. The maintained
+Julia `VerifiedNUTS`/`CheckedRecursiveDynamicHMC` client now routes its row
+construction, checker, identity fallback, and selection through the decoded
+Lean program; the separate production-shaped `NUTS` implementation remains a
+runtime-only comparator. A checked Lean
 two-leaf counterexample now proves why this cannot follow from root retention
 or first stopping alone: asymmetric rows fail reroot equality and the safe
 wrapper becomes identity. The conservative
