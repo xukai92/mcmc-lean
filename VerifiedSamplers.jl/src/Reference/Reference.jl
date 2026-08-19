@@ -16,10 +16,11 @@ export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_ou
     FixedPointGeneralizedLeapfrogTrace,
     certified_relativistic_multinomial_hmc_step!,
     dynamic_select_float!, streaming_eligible_select!, recursive_doubling_rows,
+    NUTSTreeLeaf, NUTSTreeNode, NUTSSubtreeResult, interpret_nuts_subtree,
     coupled_multinomial_hmc_step!, coupled_gaussian_rwmh_step!, xu21_coupled_step!,
     IR_FORMAT_VERSION
 
-const IR_FORMAT_VERSION = 19
+const IR_FORMAT_VERSION = 20
 
 """Stable target-weighted selection from a supplied candidate index set.
 
@@ -471,6 +472,89 @@ struct DynamicTreeDescriptor
     failure_policy::String
 end
 
+struct NUTSTreeProgramDescriptor
+    name::String
+    max_depth::Int
+    selection::String
+    termination::String
+    failure_policy::String
+    recursion::String
+    candidates::String
+end
+
+function decode_nuts_tree_program(node::SList)
+    values = items(node)
+    length(values) == 8 && atom(values[1]) == "nuts-tree-program" ||
+        error("invalid NUTS tree program")
+    max_depth = parse(Int, atom(values[3]))
+    max_depth > 0 || error("NUTS tree depth must be positive")
+    descriptor = NUTSTreeProgramDescriptor(atom(values[2]), max_depth,
+        (atom(value) for value in values[4:end])...)
+    descriptor.selection in ("multinomial", "slice") ||
+        error("unsupported NUTS selection: $(descriptor.selection)")
+    descriptor.termination in ("classic", "generalized", "strict-generalized") ||
+        error("unsupported NUTS termination: $(descriptor.termination)")
+    descriptor.failure_policy == "checked-or-identity" ||
+        error("unsupported NUTS failure policy: $(descriptor.failure_policy)")
+    descriptor.recursion == "online-early-exit" ||
+        error("unsupported NUTS recursion: $(descriptor.recursion)")
+    descriptor.candidates == "ordered-candidate-occurrences" ||
+        error("unsupported NUTS candidate semantics: $(descriptor.candidates)")
+    descriptor
+end
+
+"""Leaf syntax consumed by the generic NUTS tree-program interpreter."""
+struct NUTSTreeLeaf{P}
+    phase::P
+end
+
+"""Binary tree syntax consumed by the generic NUTS tree-program interpreter."""
+struct NUTSTreeNode{L,R}
+    left::L
+    right::R
+end
+
+"""Exact structural result of a decoded Lean NUTS tree program."""
+struct NUTSSubtreeResult{P}
+    visited_leaves::Int
+    candidates::Vector{P}
+    continues::Bool
+end
+
+_tree_leftmost(tree::NUTSTreeLeaf) = tree.phase
+_tree_leftmost(tree::NUTSTreeNode) = _tree_leftmost(tree.left)
+_tree_rightmost(tree::NUTSTreeLeaf) = tree.phase
+_tree_rightmost(tree::NUTSTreeNode) = _tree_rightmost(tree.right)
+
+"""Interpret Lean's versioned online-early-exit NUTS subtree semantics.
+
+The callbacks supply phase-local numerical decisions. Their agreement with
+ideal-real decisions is a separate certificate obligation; this interpreter
+owns only the structural control flow and ordered candidate occurrences.
+"""
+function interpret_nuts_subtree(program::NUTSTreeProgramDescriptor,
+        tree::NUTSTreeLeaf, leaf_continues, endpoint_turns)
+    continues = Bool(leaf_continues(tree.phase))
+    candidates = continues ? [tree.phase] : typeof(tree.phase)[]
+    NUTSSubtreeResult(1, candidates, continues)
+end
+
+function interpret_nuts_subtree(program::NUTSTreeProgramDescriptor,
+        tree::NUTSTreeNode, leaf_continues, endpoint_turns)
+    left = interpret_nuts_subtree(
+        program, tree.left, leaf_continues, endpoint_turns)
+    left.continues || return left
+    right = interpret_nuts_subtree(
+        program, tree.right, leaf_continues, endpoint_turns)
+    candidates = vcat(left.candidates, right.candidates)
+    right.continues || return NUTSSubtreeResult(
+        left.visited_leaves + right.visited_leaves, candidates, false)
+    continues = !Bool(endpoint_turns(
+        _tree_leftmost(tree.left), _tree_rightmost(tree.right)))
+    NUTSSubtreeResult(
+        left.visited_leaves + right.visited_leaves, candidates, continues)
+end
+
 function decode_dynamic_tree(node::SList)
     values = items(node)
     length(values) == 9 && atom(values[1]) == "dynamic-tree" ||
@@ -506,6 +590,7 @@ function load_artifact(path::String)
     schedules = Dict{String,ScheduleDescriptor}()
     transforms = Dict{String,TransformDescriptor}()
     dynamic_trees = Dict{String,DynamicTreeDescriptor}()
+    nuts_tree_programs = Dict{String,NUTSTreeProgramDescriptor}()
     for node in root[3:end]
         values = items(aslist(node))
         tag = atom(values[1])
@@ -534,18 +619,24 @@ function load_artifact(path::String)
             haskey(dynamic_trees, descriptor.name) &&
                 error("duplicate dynamic-tree descriptor: $(descriptor.name)")
             dynamic_trees[descriptor.name] = descriptor
+        elseif tag == "nuts-tree-program"
+            descriptor = decode_nuts_tree_program(aslist(node))
+            haskey(nuts_tree_programs, descriptor.name) &&
+                error("duplicate NUTS tree program: $(descriptor.name)")
+            nuts_tree_programs[descriptor.name] = descriptor
         else
             error("unknown top-level IR declaration: $tag")
         end
     end
-    programs, targets, schedules, transforms, dynamic_trees
+    programs, targets, schedules, transforms, dynamic_trees, nuts_tree_programs
 end
 
 # Retain the program-only loader for downstream callers while the artifact now
 # also carries restricted target declarations.
 load_programs(path::String) = first(load_artifact(path))
 
-const PROGRAMS, TARGETS, SCHEDULES, TRANSFORMS, DYNAMIC_TREES =
+const PROGRAMS, TARGETS, SCHEDULES, TRANSFORMS, DYNAMIC_TREES,
+    NUTS_TREE_PROGRAMS =
     load_artifact(joinpath(@__DIR__, "Samplers.ir"))
 
 function checked_logdensity(callback, state)

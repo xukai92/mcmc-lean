@@ -343,7 +343,7 @@ end
 end
 
 @testset "versioned reference IR" begin
-    @test Reference.IR_FORMAT_VERSION == 19
+    @test Reference.IR_FORMAT_VERSION == 20
     @test sort!(collect(keys(Reference.PROGRAMS))) ==
         ["categorical_index!", "certified_relativistic_multinomial_hmc_step!",
         "coupled_gaussian_rwmh_step!",
@@ -377,6 +377,15 @@ end
     @test dynamic.subtree_policy == "recursive-exclusion"
     @test dynamic.selection_policy == "eligible-count-streaming"
     @test dynamic.failure_policy == "checked-or-identity"
+    @test collect(keys(Reference.NUTS_TREE_PROGRAMS)) ==
+        ["checked-nuts-reference"]
+    nuts = Reference.NUTS_TREE_PROGRAMS["checked-nuts-reference"]
+    @test nuts.max_depth == 10
+    @test nuts.selection == "multinomial"
+    @test nuts.termination == "generalized"
+    @test nuts.failure_policy == "checked-or-identity"
+    @test nuts.recursion == "online-early-exit"
+    @test nuts.candidates == "ordered-candidate-occurrences"
     @test_throws ArgumentError generated_dynamic_tree(
         "missing", [0.0], [1.0], Bool[])
     @test_throws ErrorException Reference.parse_document("(unterminated")

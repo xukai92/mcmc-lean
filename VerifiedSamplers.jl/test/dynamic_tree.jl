@@ -468,3 +468,33 @@ end
         flat_logdensity, zero_gradient, 0.5, 0)
     @test_throws ArgumentError step(MersenneTwister(1), sampler, Float64[])
 end
+
+@testset "interpreted Lean NUTS subtree program" begin
+    program = Reference.NUTS_TREE_PROGRAMS["checked-nuts-reference"]
+    tree = Reference.NUTSTreeNode(
+        Reference.NUTSTreeNode(
+            Reference.NUTSTreeLeaf(0), Reference.NUTSTreeLeaf(1)),
+        Reference.NUTSTreeNode(
+            Reference.NUTSTreeLeaf(2), Reference.NUTSTreeLeaf(3)))
+
+    complete = Reference.interpret_nuts_subtree(
+        program, tree, _ -> true, (_, _) -> false)
+    @test complete.visited_leaves == 4
+    @test complete.candidates == [0, 1, 2, 3]
+    @test complete.continues
+
+    visited = Int[]
+    left_failure = Reference.interpret_nuts_subtree(program, tree,
+        phase -> (push!(visited, phase); phase != 1), (_, _) -> false)
+    @test visited == [0, 1]
+    @test left_failure.visited_leaves == 2
+    @test left_failure.candidates == [0]
+    @test !left_failure.continues
+
+    joins = Tuple{Int,Int}[]
+    root_turn = Reference.interpret_nuts_subtree(program, tree, _ -> true,
+        (left, right) -> (push!(joins, (left, right)); (left, right) == (0, 3)))
+    @test joins == [(0, 1), (2, 3), (0, 3)]
+    @test root_turn.candidates == [0, 1, 2, 3]
+    @test !root_turn.continues
+end

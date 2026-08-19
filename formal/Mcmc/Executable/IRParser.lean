@@ -370,4 +370,12 @@ theorem scalarHmcProgram_textRoundTrips :
     textRoundTrips (IRFormat.continuousProgramRender scalarHmcProgram) := by
   native_decide
 
+/-- The first executable checked-NUTS tree program has canonical syntax.  Its
+stronger structural semantics are proved in `Continuous.NUTSIR`; this theorem
+guards only the independent textual transport boundary. -/
+theorem checkedNutsTreeProgram_textRoundTrips :
+    textRoundTrips (IRFormat.nutsTreeProgramRender "checked-nuts-reference"
+      Mcmc.Executable.Continuous.NUTSIR.referenceProgram) := by
+  native_decide
+
 end Mcmc.Executable.IRParser

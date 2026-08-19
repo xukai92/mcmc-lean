@@ -1,5 +1,22 @@
 # Development log
 
+## 2026-08-19: Lean-owned checked NUTS subtree IR foundation
+
+Added the first typed executable NUTS tree program in Lean. Its interpreter
+owns early-exit recursion, visited-leaf accounting, continuation, and ordered
+candidate occurrences; Lean proves it equal to the existing audited
+`OnlineBuildSummary`. The program also reuses the checked candidate-row
+stationarity theorem while explicitly withholding a continuous Float64
+invariance claim.
+
+Artifact format version 20 now carries the concrete
+`checked-nuts-reference` tree program. Julia strictly decodes that program and
+uses a small generic tree interpreter with deterministic success, early-left-
+failure, and root-turn tests. This is not yet a complete NUTS transition: phase
+integration, weighted selection, outer direction-trace execution, and the
+continuous orbit lift remain the next correspondence layers. Accordingly the
+benchmark remains labelled `verified-runtime`.
+
 ## 2026-08-19: completed implemented-sampler benchmark rows
 
 Extended new HMC benchmark runs with the already implemented VerifiedSamplers

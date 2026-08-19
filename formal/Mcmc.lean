@@ -74,6 +74,7 @@ import Mcmc.Executable.Continuous.BoundedSlice
 import Mcmc.Executable.Continuous.BoundedHMC
 import Mcmc.Executable.Continuous.BackendCertificates
 import Mcmc.Executable.Continuous.DynamicTreeRefinement
+import Mcmc.Executable.Continuous.NUTSIR
 import Mcmc.Executable.Continuous.DyadicLeapfrogCertificate
 import Mcmc.Executable.Continuous.RestrictedTarget
 import Mcmc.Executable.Continuous.RestrictedRefinement

@@ -8,6 +8,7 @@ import Mcmc.Executable.Continuous.RestrictedArtifact
 import Mcmc.Executable.ComposableIR
 import Mcmc.Executable.ConstrainedTransformIR
 import Mcmc.Executable.DynamicTreeIR
+import Mcmc.Executable.Continuous.NUTSIR
 
 /-!
 # Versioned textual format for sampler IR
@@ -20,7 +21,7 @@ namespace Mcmc.Executable.IRFormat
 
 open Finite.CompilerIR
 
-def version : Nat := 19
+def version : Nat := 20
 
 private def quote (value : String) : String :=
   let escapedBackslash := value.replace "\\" "\\\\"
@@ -264,6 +265,31 @@ private def dynamicTreeDescriptorRender
     dynamicTreeSelectionPolicyRender descriptor.selectionPolicy,
     dynamicTreeFailurePolicyRender descriptor.failurePolicy]
 
+private def nutsSelectionRender :
+    Continuous.NUTSIR.SelectionRule → String
+  | .multinomial => "multinomial"
+  | .slice => "slice"
+
+private def nutsTerminationRender :
+    Continuous.NUTSIR.TerminationRule → String
+  | .classic => "classic"
+  | .generalized => "generalized"
+  | .strictGeneralized => "strict-generalized"
+
+private def nutsFailureRender : Continuous.NUTSIR.FailureRule → String
+  | .checkedOrIdentity => "checked-or-identity"
+
+/-- Serialize an executable checked NUTS tree program.  The final two tags are
+semantic commitments proved by `NUTSIR.executeSubtree_toOnlineSummary`, not
+backend implementation hints. -/
+def nutsTreeProgramRender (name : String)
+    (program : Continuous.NUTSIR.Program) : String :=
+  list ["nuts-tree-program", quote name, toString program.maxDepth,
+    nutsSelectionRender program.selection,
+    nutsTerminationRender program.termination,
+    nutsFailureRender program.failure,
+    "online-early-exit", "ordered-candidate-occurrences"]
+
 /-- Serialize all reference entry programs with a format version. -/
 def render : String :=
   list (["verified-samplers-ir", toString version,
@@ -288,7 +314,9 @@ def render : String :=
     scheduleDescriptorRender ComposableIR.gePgHmcSchedule,
     transformDescriptorRender ConstrainedTransformIR.positiveLog,
     transformDescriptorRender ConstrainedTransformIR.openUnitArtanh] ++
-    [dynamicTreeDescriptorRender DynamicTreeIR.checkedRecursiveDoubling] ++
+    [dynamicTreeDescriptorRender DynamicTreeIR.checkedRecursiveDoubling,
+      nutsTreeProgramRender "checked-nuts-reference"
+        Continuous.NUTSIR.referenceProgram] ++
     Continuous.CoupledXu21.renderedPrograms) ++ "\n"
 
 end Mcmc.Executable.IRFormat
