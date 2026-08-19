@@ -34,13 +34,12 @@ implementation; they have the same target and integration budget, but their
 trajectory construction and selection mechanics are not claimed to be
 identical.
 
-New runs include VerifiedSamplers' separately labelled production-shaped NUTS
-runtime and report observed average leapfrog counts because work per transition
-is dynamic. It is labelled `optimized-runtime`, rather than
-`verified-reference`: `Optimized.NUTS` is tested, but full Lean
-transition correspondence remains open. The certified checked-tree samplers
-remain distinct from both production-shaped runtimes. Historical committed
-results are not retroactively supplemented until the full benchmark is rerun.
+NUTS rows use the same three implementation labels as the rest of the report.
+`verified-reference` is the checked Lean-IR-driven `NUTS` sampler;
+`verified-optimized` is the independent production-shaped `Optimized.NUTS`,
+whose conformance and sampling-quality evidence is empirical rather than a
+formal transition-equivalence proof; and `advancedhmc` is the external
+comparison. Mean leapfrog work is reported because NUTS work is dynamic.
 
 The full runner records ten complete chains per case using the explicit fixed
 seed list `4109:4118` by default. The report shows every chain timing together
@@ -93,5 +92,7 @@ suite; the multi-chain and distributional report remains in this environment.
 
 The workload can be changed through `HMC_DIMENSION`, `HMC_DRAWS`,
 `HMC_LEAPFROG_STEPS`, `HMC_STEP_SIZE`, `HMC_SEED`, and `HMC_SEEDS`.
-`HMC_NUTS_MAX_DEPTH` controls the NUTS tree-depth cap. `HMC_SEED` determines
+`HMC_NUTS_MAX_DEPTH` controls the AdvancedHMC and optimized NUTS tree-depth
+cap. `HMC_NUTS_REFERENCE_STEPS` controls the checked Reference orbit bound.
+`HMC_SEED` determines
 the default consecutive seed list; an explicit `HMC_SEEDS` takes precedence.

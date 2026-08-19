@@ -24,6 +24,8 @@ const CONFIGURED_SEEDS = parse.(Int,
 const BENCHMARK_SEEDS = DEV_MODE ?
     CONFIGURED_SEEDS[1:min(3, length(CONFIGURED_SEEDS))] : CONFIGURED_SEEDS
 const NUTS_MAX_DEPTH = parse(Int, get(ENV, "HMC_NUTS_MAX_DEPTH", "10"))
+const NUTS_REFERENCE_STEPS = parse(Int,
+    get(ENV, "HMC_NUTS_REFERENCE_STEPS", "15"))
 
 const Runtime = VerifiedSamplers.Runtime
 const Reference = VerifiedSamplers.Reference
@@ -129,6 +131,18 @@ function run_verified_metric(stepper, target, seed::Int, draws::Int)
     end
     (; chain, acceptance=NaN, divergences=0,
         average_steps=Float64(LEAPFROG_STEPS), gradients_per_step=2)
+end
+
+function run_verified_nuts(target, seed::Int, draws::Int)
+    sampler = VerifiedSamplers.NUTS(target.logdensity, target.gradient,
+        STEP_SIZE, NUTS_REFERENCE_STEPS)
+    chain = VerifiedSamplers.sample(
+        MersenneTwister(seed), sampler, zeros(DIMENSION), draws)
+    # Each transition constructs `steps` forward orbit edges after first moving
+    # a uniformly selected origin 0:steps edges backward.
+    average_steps = 1.5 * NUTS_REFERENCE_STEPS
+    (; chain, acceptance=NaN, divergences=0, average_steps,
+        gradients_per_step=2)
 end
 
 function run_optimized_nuts(target, seed::Int, draws::Int)
@@ -253,6 +267,7 @@ function benchmark_target(target)
     run_advanced(components.hamiltonian, components.endpoint, SEED, 100)
     run_advanced(components.hamiltonian, components.multinomial, SEED, 100)
     run_advanced(components.hamiltonian, components.nuts, SEED, 100)
+    run_verified_nuts(target, SEED, 100)
     run_optimized_nuts(target, SEED, 100)
 
     endpoint_reference = measure_case(target, "endpoint", "verified-reference",
@@ -276,7 +291,9 @@ function benchmark_target(target)
     nuts_advanced = measure_case(target, "nuts", "advancedhmc",
         seed -> run_advanced(
         components.hamiltonian, components.nuts, seed, DRAWS))
-    nuts_optimized = measure_case(target, "nuts", "optimized-runtime",
+    nuts_reference = measure_case(target, "nuts", "verified-reference",
+        seed -> run_verified_nuts(target, seed, DRAWS))
+    nuts_optimized = measure_case(target, "nuts", "verified-optimized",
         seed -> run_optimized_nuts(target, seed, DRAWS))
 
     measured = [
@@ -286,7 +303,8 @@ function benchmark_target(target)
         ("multinomial", "verified-reference", multinomial_reference),
         ("multinomial", "verified-optimized", multinomial_optimized),
         ("multinomial", "advancedhmc", multinomial_advanced),
-        ("nuts", "optimized-runtime", nuts_optimized),
+        ("nuts", "verified-reference", nuts_reference),
+        ("nuts", "verified-optimized", nuts_optimized),
         ("nuts", "advancedhmc", nuts_advanced)]
     for (algorithm, implementation, trial) in measured
         quality_summary(target, algorithm, implementation, trial.outputs,
@@ -309,7 +327,9 @@ function benchmark_target(target)
             average_steps(multinomial_optimized)),
         result(target, "multinomial", "advancedhmc", multinomial_advanced,
             average_steps(multinomial_advanced)),
-        result(target, "nuts", "optimized-runtime", nuts_optimized,
+        result(target, "nuts", "verified-reference", nuts_reference,
+            average_steps(nuts_reference)),
+        result(target, "nuts", "verified-optimized", nuts_optimized,
             average_steps(nuts_optimized)),
         result(target, "nuts", "advancedhmc", nuts_advanced,
             average_steps(nuts_advanced)),
@@ -435,13 +455,15 @@ function main()
     LEAPFROG_STEPS > 0 || error("HMC_LEAPFROG_STEPS must be positive")
     STEP_SIZE > 0 || error("HMC_STEP_SIZE must be positive")
     NUTS_MAX_DEPTH > 0 || error("HMC_NUTS_MAX_DEPTH must be positive")
+    NUTS_REFERENCE_STEPS > 0 ||
+        error("HMC_NUTS_REFERENCE_STEPS must be positive")
     length(BENCHMARK_SEEDS) >= 2 || error(
         "HMC_SEEDS must provide at least two seeds")
     length(unique(BENCHMARK_SEEDS)) == length(BENCHMARK_SEEDS) || error(
         "HMC_SEEDS must not contain duplicates")
     target_suite = TestTargets.suite(DIMENSION)
     STARTED_CASES[] = 0
-    TOTAL_CASES[] = sum(target.metric_mass === nothing ? 8 : 14
+    TOTAL_CASES[] = sum(target.metric_mass === nothing ? 9 : 15
         for target in target_suite)
     BENCHMARK_STARTED_NS[] = time_ns()
     rows = reduce(vcat, benchmark_target(target) for target in target_suite)

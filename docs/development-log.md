@@ -15,7 +15,9 @@ Lean-IR-driven Reference implementation. The independent handwritten
 production-shaped comparator is available as `Optimized.NUTS`. The older
 `VerifiedNUTS` and `CheckedRecursiveDynamicHMC` names remain compatibility
 aliases. Benchmark rows for the handwritten implementation are correspondingly
-labelled `optimized-runtime`; no equivalence between the two transitions is
+labelled `verified-optimized`, while checked `NUTS` is
+`verified-reference`. The optimized label records empirical conformance and
+statistical evidence; no equivalence theorem between the two transitions is
 claimed.
 
 ## 2026-08-19: continuous checked-row invariance bridge
@@ -63,7 +65,8 @@ floating leapfrog and U-turn callbacks refine that exact-real orbit-row family,
 nor
 that the separate production-shaped `Optimized.NUTS` transition is equivalent to the
 checked Reference. Those boundaries remain required before changing the
-production benchmark's `optimized-runtime` label.
+`verified-optimized` row from empirical evidence to a formal correspondence
+claim.
 
 ## 2026-08-19: Lean-owned checked NUTS subtree IR foundation
 
@@ -91,16 +94,17 @@ identity branch; conformance tests compare this result with the pre-existing
 certificate API. The general continuous checked-row invariance theorem is now
 available in the next layer, while the concrete recursive interpreter's
 orbit-covariance proof and public sampler migration remained at this milestone.
-The later namespace cleanup and rerun now label the independent comparator
-`optimized-runtime`.
+The later namespace cleanup and rerun now label the checked client
+`verified-reference` and the independent comparator `verified-optimized`.
 
 ## 2026-08-19: completed implemented-sampler benchmark rows
 
 Extended new HMC benchmark runs with the already implemented VerifiedSamplers
 production-shaped NUTS runtime and the Reference and Optimized constant-metric
-endpoint and multinomial paths. The handwritten NUTS comparator is deliberately
-labelled `optimized-runtime`, since its full Lean transition-correspondence
-proof remains open. Case-level progress reporting now identifies the target, algorithm,
+endpoint and multinomial paths. The handwritten NUTS comparator is labelled
+`verified-optimized`, denoting empirical conformance and statistical evidence
+rather than a completed Lean transition-correspondence proof. Case-level
+progress reporting now identifies the target, algorithm,
 implementation, total case count, and elapsed wall time outside timed regions.
 The full benchmark was rerun before publishing these changes.
 
