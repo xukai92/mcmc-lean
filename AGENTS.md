@@ -64,6 +64,19 @@ The root `Makefile` provides `make formal`, `make julia`, and `make test`.
 Reference generation is explicit through `make generate`; it must not occur as
 an implicit side effect of an ordinary build.
 
+The HMC benchmark has its own pinned Julia environment under `benchmark/`.
+Use `make benchmark-dev` while changing the harness or report: it runs the
+small workload and writes development results without replacing the committed
+full-run measurements. Run `make benchmark-hmc` only when intentionally
+refreshing the full benchmark evidence, then run `make benchmark-report` to
+regenerate `docs/benchmarks.md` and its chart. Review changes to all files under
+`benchmark/results/`, especially `metadata.csv`, before committing them; timing
+results describe the recorded machine and producing commit and must not be
+presented as measurements from another checkout. Benchmark diagnostics are
+empirical evidence, not proofs or stable CI gates unless their calibration is
+documented. See `benchmark/README.md` for workloads, environment overrides,
+and interpretation.
+
 Run the narrow module check while developing, then run `lake build` before
 finishing any code change. Documentation-only changes do not require a build
 unless they alter commands, module names, or generated documentation inputs.
