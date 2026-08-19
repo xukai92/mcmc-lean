@@ -54,9 +54,15 @@ function write_svg(rows, timings)
     x_position(value) = left + chart_width *
         (log10(value) - log10(lower)) / (log10(upper) - log10(lower))
     colors = Dict("verified-reference" => "#bf8700",
-        "verified-optimized" => "#1f6feb", "advancedhmc" => "#cf222e")
-    offsets = Dict("verified-reference" => -18, "verified-optimized" => 0,
-        "advancedhmc" => 18)
+        "verified-optimized" => "#1f6feb", "verified-runtime" => "#8250df",
+        "advancedhmc" => "#cf222e")
+    implementation_order = ("verified-reference", "verified-optimized",
+        "verified-runtime", "advancedhmc")
+    implementations = filter(implementation -> any(
+        row -> row.implementation == implementation, rows), implementation_order)
+    offsets = length(implementations) == 3 ?
+        Dict(zip(implementations, (-18, 0, 18))) :
+        Dict(zip(implementations, (-24, -8, 8, 24)))
     height = 110 + row_height * length(groups)
     mkpath(dirname(SVG))
     open(SVG, "w") do io
@@ -78,7 +84,7 @@ function write_svg(rows, timings)
             end
             label = "$(display_name(target)) · $(uppercasefirst(algorithm))"
             println(io, "<text x=\"$(left - 14)\" y=\"$(center + 5)\" text-anchor=\"end\" font-family=\"sans-serif\" font-size=\"14\" fill=\"#24292f\">$(escape_xml(label))</text>")
-            for implementation in ("verified-reference", "verified-optimized", "advancedhmc")
+            for implementation in implementations
                 selected = filter(row -> row.target == target &&
                     row.algorithm == algorithm && row.implementation == implementation,
                     timings)
@@ -95,8 +101,8 @@ function write_svg(rows, timings)
             end
         end
         legend_y = height - 20
-        for (index, implementation) in enumerate(("verified-reference", "verified-optimized", "advancedhmc"))
-            x = left + 175 * (index - 1)
+        for (index, implementation) in enumerate(implementations)
+            x = left + (length(implementations) == 3 ? 175 : 165) * (index - 1)
             println(io, "<circle cx=\"$x\" cy=\"$legend_y\" r=\"5\" fill=\"$(colors[implementation])\"/>")
             println(io, "<text x=\"$(x + 10)\" y=\"$(legend_y + 5)\" font-family=\"sans-serif\" font-size=\"13\" fill=\"#24292f\">$(implementation)</text>")
         end
@@ -120,8 +126,20 @@ function write_doc(rows, timings, quality, metadata)
         println(io, "This is a reproducible implementation benchmark, not a theorem about convergence or a claim that Float64 execution is identical to the exact-real Lean semantics.\n")
         println(io, "![HMC transition-throughput distributions](assets/benchmarks/hmc-throughput.svg)\n")
         println(io, "Rows are grouped first by target and then by algorithm. Within each row, colors compare libraries implementing that same `target × algorithm` case. Small translucent points are complete-chain timing repetitions; large points and thick intervals are medians and IQRs. The shared logarithmic axis retains absolute throughput and remains extensible to additional libraries.\n")
-        println(io, "Preconditioned endpoint and multinomial rows are AdvancedHMC-only in this first pass; their absence of VerifiedSamplers points is intentional, not missing data.\n")
-        println(io, "The stored NUTS measurements are likewise AdvancedHMC-only. They were produced before the repository added its separately labelled production-shaped NUTS runtime and are not retroactively supplemented. That runtime remains runtime-only at the current Lean correspondence boundary.\n")
+        has_verified_metric = any(row -> startswith(row.algorithm,
+            "preconditioned-") && startswith(row.implementation, "verified-"), rows)
+        if has_verified_metric
+            println(io, "Preconditioned endpoint and multinomial rows include VerifiedSamplers' Reference and Optimized constant-metric paths.\n")
+        else
+            println(io, "These historical preconditioned endpoint and multinomial rows are AdvancedHMC-only; they predate the implemented VerifiedSamplers benchmark cases and are not retroactively supplemented.\n")
+        end
+        has_verified_nuts = any(row -> row.algorithm == "nuts" &&
+            row.implementation == "verified-runtime", rows)
+        if has_verified_nuts
+            println(io, "VerifiedSamplers NUTS is labelled `verified-runtime`, not `verified-reference`: the production-shaped implementation is tested, while full Lean transition correspondence remains open.\n")
+        else
+            println(io, "The historical NUTS measurements are AdvancedHMC-only. They predate the repository's separately labelled production-shaped NUTS runtime and are not retroactively supplemented.\n")
+        end
         println(io, "## Configuration\n")
         first_row = first(rows)
         println(io, "- Commit: `$(metadata["commit"])`")

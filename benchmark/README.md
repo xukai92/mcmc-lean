@@ -1,7 +1,8 @@
 # HMC benchmarks
 
 This isolated Julia environment compares fixed-step endpoint HMC,
-fixed-length multinomial HMC, and AdvancedHMC NUTS on a small target suite. The
+fixed-length multinomial HMC, and fixed-parameter NUTS from VerifiedSamplers
+and AdvancedHMC on a small target suite. The
 default workload is 10,000 transitions in 100 dimensions, with step size 0.08;
 the fixed-length algorithms use 10 leapfrog steps per transition.
 
@@ -33,23 +34,27 @@ implementation; they have the same target and integration budget, but their
 trajectory construction and selection mechanics are not claimed to be
 identical.
 
-The committed NUTS row is AdvancedHMC-only and reports its observed average
-leapfrog count because its work per transition is dynamic. Those measurements
-predate the repository's separately labelled production-shaped NUTS runtime.
-That runtime is not retroactively inserted into the stored results, and its
-Lean invariance/correspondence boundary remains explicit. The certified
-checked-tree samplers remain distinct from both production-shaped runtimes.
+New runs include VerifiedSamplers' separately labelled production-shaped NUTS
+runtime and report observed average leapfrog counts because work per transition
+is dynamic. It is labelled `verified-runtime`, rather than
+`verified-reference`: its public implementation is tested, but full Lean
+transition correspondence remains open. The certified checked-tree samplers
+remain distinct from both production-shaped runtimes. Historical committed
+results are not retroactively supplemented until the full benchmark is rerun.
 
 The full runner records ten complete chains per case using the explicit fixed
 seed list `4109:4118` by default. The report shows every chain timing together
 with the median and IQR. `HMC_SEEDS` accepts a comma-separated replacement;
-development mode uses the first three configured seeds.
+development mode uses the first three configured seeds. During execution the
+runner prints the current target/algorithm/implementation case, total case
+count, and elapsed wall time; progress output occurs outside timed regions.
 
 The report covers an isotropic Gaussian, an AR(1)-correlated Gaussian, a
 product quartic, an ill-conditioned diagonal Gaussian, and a symmetric
 regularized-logistic target. The latter two targets extend the original suite;
-preconditioned endpoint and multinomial rows are AdvancedHMC-only in this
-first pass. Raw results are written to
+preconditioned endpoint and multinomial rows include the implemented
+VerifiedSamplers Reference and Optimized constant-metric paths in new runs.
+Raw results are written to
 `benchmark/results/latest.csv`, with repetition-level measurements in
 `benchmark/results/timings.csv`. `benchmark/report.jl` generates the committed
 documentation page and SVG chart from those files. Run metadata is stored

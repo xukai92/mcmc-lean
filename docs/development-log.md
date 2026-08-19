@@ -1,5 +1,15 @@
 # Development log
 
+## 2026-08-19: completed implemented-sampler benchmark rows
+
+Extended new HMC benchmark runs with the already implemented VerifiedSamplers
+production-shaped NUTS runtime and the Reference and Optimized constant-metric
+endpoint and multinomial paths. NUTS is deliberately labelled
+`verified-runtime`, since its full Lean transition-correspondence proof remains
+open. Case-level progress reporting now identifies the target, algorithm,
+implementation, total case count, and elapsed wall time outside timed regions.
+The full benchmark was rerun before publishing these changes.
+
 Earlier milestones are preserved in archive
 [part 1](development-log-archive.md),
 [part 2](development-log-archive-2.md), and

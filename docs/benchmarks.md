@@ -6,9 +6,9 @@ This is a reproducible implementation benchmark, not a theorem about convergence
 
 Rows are grouped first by target and then by algorithm. Within each row, colors compare libraries implementing that same `target × algorithm` case. Small translucent points are complete-chain timing repetitions; large points and thick intervals are medians and IQRs. The shared logarithmic axis retains absolute throughput and remains extensible to additional libraries.
 
-Preconditioned endpoint and multinomial rows are AdvancedHMC-only in this first pass; their absence of VerifiedSamplers points is intentional, not missing data.
+These historical preconditioned endpoint and multinomial rows are AdvancedHMC-only; they predate the implemented VerifiedSamplers benchmark cases and are not retroactively supplemented.
 
-The stored NUTS measurements are likewise AdvancedHMC-only. They were produced before the repository added its separately labelled production-shaped NUTS runtime and are not retroactively supplemented. That runtime remains runtime-only at the current Lean correspondence boundary.
+The historical NUTS measurements are AdvancedHMC-only. They predate the repository's separately labelled production-shaped NUTS runtime and are not retroactively supplemented.
 
 ## Configuration
 

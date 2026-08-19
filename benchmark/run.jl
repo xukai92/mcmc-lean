@@ -30,6 +30,9 @@ const Reference = VerifiedSamplers.Reference
 const Optimized = VerifiedSamplers.Optimized
 const RAW_TIMINGS = NamedTuple[]
 const QUALITY_ROWS = NamedTuple[]
+const STARTED_CASES = Ref(0)
+const TOTAL_CASES = Ref(0)
+const BENCHMARK_STARTED_NS = Ref(0)
 
 function known_covariance(target)
     target.name == "isotropic-gaussian" && return Matrix{Float64}(I,
@@ -62,6 +65,16 @@ function measure(f)
         push!(outputs, measurement.value)
     end
     ChainMeasurement(times, bytes, outputs, median(times), Int(median(bytes)))
+end
+
+function measure_case(target, algorithm, implementation, f)
+    STARTED_CASES[] += 1
+    elapsed = (time_ns() - BENCHMARK_STARTED_NS[]) / 1e9
+    println("[benchmark] case $(STARTED_CASES[])/$(TOTAL_CASES[]): " *
+        "$(target.name) / $algorithm / $implementation " *
+        "($(round(elapsed; digits=1)) s elapsed)")
+    flush(stdout)
+    measure(f)
 end
 
 function advanced_components(target)
@@ -103,6 +116,34 @@ function run_verified(stepper, target, seed::Int, draws::Int)
     end
     (; chain, acceptance=NaN, divergences=0,
         average_steps=Float64(LEAPFROG_STEPS), gradients_per_step=2)
+end
+
+function run_verified_metric(stepper, target, seed::Int, draws::Int)
+    source = Runtime.RNGSource(MersenneTwister(seed))
+    chain = Matrix{Float64}(undef, DIMENSION, draws)
+    position = zeros(DIMENSION)
+    for index in axes(chain, 2)
+        position = stepper(source, target.logdensity, target.gradient,
+            STEP_SIZE, LEAPFROG_STEPS, position, target.metric_mass)
+        chain[:, index] = position
+    end
+    (; chain, acceptance=NaN, divergences=0,
+        average_steps=Float64(LEAPFROG_STEPS), gradients_per_step=2)
+end
+
+function run_verified_nuts(target, seed::Int, draws::Int)
+    sampler = VerifiedSamplers.NUTS(
+        target.logdensity, target.gradient, STEP_SIZE;
+        max_depth=NUTS_MAX_DEPTH, termination=:generalized,
+        selection=:multinomial)
+    run = VerifiedSamplers.sample_with_diagnostics(
+        MersenneTwister(seed), sampler, zeros(DIMENSION), draws)
+    diagnostics = run.diagnostics
+    (; chain=run.samples,
+        acceptance=mean(getproperty.(diagnostics, :acceptance_rate)),
+        divergences=count(diagnostic -> diagnostic.divergent, diagnostics),
+        average_steps=mean(getproperty.(diagnostics, :leapfrog_steps)),
+        gradients_per_step=2)
 end
 
 function run_advanced(hamiltonian, kernel, seed::Int, draws::Int)
@@ -212,21 +253,31 @@ function benchmark_target(target)
     run_advanced(components.hamiltonian, components.endpoint, SEED, 100)
     run_advanced(components.hamiltonian, components.multinomial, SEED, 100)
     run_advanced(components.hamiltonian, components.nuts, SEED, 100)
+    run_verified_nuts(target, SEED, 100)
 
-    endpoint_reference = measure(seed -> run_verified(
+    endpoint_reference = measure_case(target, "endpoint", "verified-reference",
+        seed -> run_verified(
         Reference.vector_hmc_step!, target, seed, DRAWS))
-    endpoint_optimized = measure(seed -> run_verified(
+    endpoint_optimized = measure_case(target, "endpoint", "verified-optimized",
+        seed -> run_verified(
         Optimized.vector_hmc_step!, target, seed, DRAWS))
-    endpoint_advanced = measure(seed -> run_advanced(
+    endpoint_advanced = measure_case(target, "endpoint", "advancedhmc",
+        seed -> run_advanced(
         components.hamiltonian, components.endpoint, seed, DRAWS))
-    multinomial_reference = measure(seed -> run_verified(
+    multinomial_reference = measure_case(target, "multinomial",
+        "verified-reference", seed -> run_verified(
         Reference.multinomial_hmc_step!, target, seed, DRAWS))
-    multinomial_optimized = measure(seed -> run_verified(
+    multinomial_optimized = measure_case(target, "multinomial",
+        "verified-optimized", seed -> run_verified(
         Optimized.multinomial_hmc_step!, target, seed, DRAWS))
-    multinomial_advanced = measure(seed -> run_advanced(
+    multinomial_advanced = measure_case(target, "multinomial", "advancedhmc",
+        seed -> run_advanced(
         components.hamiltonian, components.multinomial, seed, DRAWS))
-    nuts_advanced = measure(seed -> run_advanced(
+    nuts_advanced = measure_case(target, "nuts", "advancedhmc",
+        seed -> run_advanced(
         components.hamiltonian, components.nuts, seed, DRAWS))
+    nuts_verified = measure_case(target, "nuts", "verified-runtime",
+        seed -> run_verified_nuts(target, seed, DRAWS))
 
     measured = [
         ("endpoint", "verified-reference", endpoint_reference),
@@ -235,6 +286,7 @@ function benchmark_target(target)
         ("multinomial", "verified-reference", multinomial_reference),
         ("multinomial", "verified-optimized", multinomial_optimized),
         ("multinomial", "advancedhmc", multinomial_advanced),
+        ("nuts", "verified-runtime", nuts_verified),
         ("nuts", "advancedhmc", nuts_advanced)]
     for (algorithm, implementation, trial) in measured
         quality_summary(target, algorithm, implementation, trial.outputs,
@@ -257,28 +309,76 @@ function benchmark_target(target)
             average_steps(multinomial_optimized)),
         result(target, "multinomial", "advancedhmc", multinomial_advanced,
             average_steps(multinomial_advanced)),
+        result(target, "nuts", "verified-runtime", nuts_verified,
+            average_steps(nuts_verified)),
         result(target, "nuts", "advancedhmc", nuts_advanced,
             average_steps(nuts_advanced)),
     ]
     if target.metric_mass !== nothing
+        metric_reference_check = run_verified_metric(
+            Reference.metric_hmc_step!, target, SEED, 100).chain[:, end]
+        metric_optimized_check = run_verified_metric(
+            Optimized.metric_hmc_step!, target, SEED, 100).chain[:, end]
+        metric_reference_check ≈ metric_optimized_check || error(
+            "Reference and Optimized metric endpoint HMC disagree for $(target.name)")
+        metric_multi_reference_check = run_verified_metric(
+            Reference.metric_multinomial_hmc_step!, target, SEED, 100).chain[:, end]
+        metric_multi_optimized_check = run_verified_metric(
+            Optimized.metric_multinomial_hmc_step!, target, SEED, 100).chain[:, end]
+        metric_multi_reference_check ≈ metric_multi_optimized_check || error(
+            "Reference and Optimized metric multinomial HMC disagree for $(target.name)")
         run_advanced(components.metric_hamiltonian,
             components.metric_endpoint, SEED, 100)
-        metric_advanced = measure(seed -> run_advanced(
+        metric_reference = measure_case(target, "preconditioned-endpoint",
+            "verified-reference", seed -> run_verified_metric(
+            Reference.metric_hmc_step!, target, seed, DRAWS))
+        metric_optimized = measure_case(target, "preconditioned-endpoint",
+            "verified-optimized", seed -> run_verified_metric(
+            Optimized.metric_hmc_step!, target, seed, DRAWS))
+        metric_advanced = measure_case(target, "preconditioned-endpoint",
+            "advancedhmc", seed -> run_advanced(
             components.metric_hamiltonian, components.metric_endpoint,
             seed, DRAWS))
-        quality_summary(target, "preconditioned-endpoint", "advancedhmc",
-            metric_advanced.outputs, sum(metric_advanced.times) / 1e9)
+        for (implementation, trial) in (("verified-reference", metric_reference),
+                ("verified-optimized", metric_optimized),
+                ("advancedhmc", metric_advanced))
+            quality_summary(target, "preconditioned-endpoint", implementation,
+                trial.outputs, sum(trial.times) / 1e9)
+        end
         append!(results, [
+            result(target, "preconditioned-endpoint", "verified-reference",
+                metric_reference, average_steps(metric_reference)),
+            result(target, "preconditioned-endpoint", "verified-optimized",
+                metric_optimized, average_steps(metric_optimized)),
             result(target, "preconditioned-endpoint", "advancedhmc",
                 metric_advanced, average_steps(metric_advanced)),
         ])
 
-        metric_multi_advanced = measure(seed -> run_advanced(
+        metric_multi_reference = measure_case(target,
+            "preconditioned-multinomial", "verified-reference",
+            seed -> run_verified_metric(
+            Reference.metric_multinomial_hmc_step!, target, seed, DRAWS))
+        metric_multi_optimized = measure_case(target,
+            "preconditioned-multinomial", "verified-optimized",
+            seed -> run_verified_metric(
+            Optimized.metric_multinomial_hmc_step!, target, seed, DRAWS))
+        metric_multi_advanced = measure_case(target,
+            "preconditioned-multinomial", "advancedhmc",
+            seed -> run_advanced(
             components.metric_hamiltonian, components.metric_multinomial,
             seed, DRAWS))
-        quality_summary(target, "preconditioned-multinomial", "advancedhmc",
-            metric_multi_advanced.outputs, sum(metric_multi_advanced.times) / 1e9)
+        for (implementation, trial) in
+                (("verified-reference", metric_multi_reference),
+                    ("verified-optimized", metric_multi_optimized),
+                    ("advancedhmc", metric_multi_advanced))
+            quality_summary(target, "preconditioned-multinomial", implementation,
+                trial.outputs, sum(trial.times) / 1e9)
+        end
         append!(results, [
+            result(target, "preconditioned-multinomial", "verified-reference",
+                metric_multi_reference, average_steps(metric_multi_reference)),
+            result(target, "preconditioned-multinomial", "verified-optimized",
+                metric_multi_optimized, average_steps(metric_multi_optimized)),
             result(target, "preconditioned-multinomial", "advancedhmc",
                 metric_multi_advanced, average_steps(metric_multi_advanced)),
         ])
@@ -340,6 +440,10 @@ function main()
     length(unique(BENCHMARK_SEEDS)) == length(BENCHMARK_SEEDS) || error(
         "HMC_SEEDS must not contain duplicates")
     target_suite = TestTargets.suite(DIMENSION)
+    STARTED_CASES[] = 0
+    TOTAL_CASES[] = sum(target.metric_mass === nothing ? 8 : 14
+        for target in target_suite)
+    BENCHMARK_STARTED_NS[] = time_ns()
     rows = reduce(vcat, benchmark_target(target) for target in target_suite)
     write_results(rows)
 end
