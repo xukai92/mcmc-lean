@@ -17,6 +17,17 @@ For fast harness and page-layout iteration, use:
 make benchmark-dev
 ```
 
+To exercise the small acceptance benchmark for the current optimized-NUTS
+phase-specialization pass, use:
+
+```sh
+make benchmark-nuts-optimization
+```
+
+This focused run prints its transformation name, assurance class, per-chain
+times, median, and throughput. It complements rather than replaces the full
+cross-implementation benchmark and correctness gates.
+
 Development mode defaults to 1,000 transitions and three timed chains per
 case. It writes `benchmark/results/dev.csv` rather than replacing the full
 `latest.csv`, and marks the generated page as non-publication-quality. The

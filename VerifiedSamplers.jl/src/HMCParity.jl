@@ -353,13 +353,18 @@ function _nuts_step_size!(source::Runtime.AbstractRandomSource, sampler::Optimiz
     sampler.step_size * (1 + sampler.jitter * (2uniform - 1))
 end
 
-function _nuts_phase(sampler::OptimizedNUTS, position, momentum, velocity)
-    q, p = Float64.(position), Float64.(momentum)
-    logdensity = Float64(sampler.logdensity(q))
+function _nuts_phase(sampler::OptimizedNUTS,
+        position::Vector{Float64}, momentum::Vector{Float64}, velocity)
+    logdensity = Float64(sampler.logdensity(position))
     isfinite(logdensity) || throw(DomainError(logdensity,
         "log density must be finite"))
-    energy = -logdensity + dot(p, velocity(p)) / 2
-    _NUTSPhase(q, p, -energy, energy)
+    energy = -logdensity + dot(momentum, velocity(momentum)) / 2
+    _NUTSPhase(position, momentum, -energy, energy)
+end
+
+function _nuts_phase(sampler::OptimizedNUTS, position, momentum, velocity)
+    q, p = Float64.(position), Float64.(momentum)
+    _nuts_phase(sampler, q, p, velocity)
 end
 
 function _nuts_leapfrog(sampler::OptimizedNUTS, phase::_NUTSPhase,

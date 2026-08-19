@@ -1,5 +1,25 @@
 # Development log
 
+## 2026-08-19: first measured NUTS optimization and width control
+
+An agentic code-review pass found that the optimized NUTS path redundantly
+copied already-owned phase vectors. It now specializes phase construction for
+already-owned
+`Vector{Float64}` states, eliminating redundant elementwise conversions at
+every tree leaf while preserving the generic conversion boundary. The
+repeatable `make benchmark-nuts-optimization` acceptance experiment reports
+its transformation and assurance class; the initial 100-dimensional run
+improved median 10,000-draw time from 0.865 to 0.755 seconds. Existing trace,
+property, and statistical gates remain required because this is a
+test-supported Julia optimization, not a new Lean transition-equivalence
+theorem. Program-transformation packages, profilers, and compiler diagnostics
+are documented as optional tools available throughout future optimization
+passes rather than mandatory pipeline stages.
+
+Documenter retains its readable 50-rem default. A navbar toggle now switches
+between normal and full-width content, persists the preference locally, and
+falls back to the normal responsive layout on small screens.
+
 ## 2026-08-19: canonical NUTS uses productive completed-tree rerooting
 
 The canonical Julia `NUTS` Reference now uses `CompletedTreeC4DynamicHMC`.

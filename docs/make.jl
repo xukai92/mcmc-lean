@@ -86,6 +86,8 @@ makedocs(
     format = Documenter.HTML(
         prettyurls = get(ENV, "CI", "false") == "true",
         assets = [
+            "assets/layout.css",
+            "assets/layout.js",
             "assets/mermaid.js",
             "assets/benchmarks/hmc-interactive-data.js",
             "assets/benchmarks/hmc-interactive.css",

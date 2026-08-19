@@ -310,6 +310,13 @@ execution certificate, or explicitly classified as test-supported.
 
 ### Julia transformation ecosystem
 
+Program-transformation and diagnostic packages are tools available to the
+optimization agent, not mandatory stages in a fixed compiler pipeline. An
+optimization pass may begin with profiling, allocation inspection, compiler
+IR, equality saturation, benchmark evidence, or direct code review. What
+defines the loop is the propose–gate–measure discipline and the recorded
+assurance class, not which discovery tool produced the candidate.
+
 The project should not build a general transformation engine from scratch.
 For transformations over the custom sampler term language,
 [Metatheory.jl](https://juliasymbolics.github.io/Metatheory.jl/stable/) provides
@@ -323,6 +330,35 @@ No dependency is added until a concrete, benchmark-motivated transformation
 needs it. At that point Lean should still state or check the semantic
 equivalence; the Julia library is an implementation mechanism, not the source
 of the proof.
+
+### First measured transformation: owned NUTS phases
+
+The first optimization-loop exercise was an agentic code-review pass. It
+specializes `Optimized.NUTS` phase
+construction when its inputs are already owned `Vector{Float64}` values. The
+generic lowering performed `Float64.(position)` and `Float64.(momentum)` at
+every tree leaf even though leapfrog had just produced values of exactly that
+type. The specialization removes those dead conversions and retains the
+generic conversion method for other input types.
+
+This is a type-directed dead-copy elimination, not a change to tree semantics:
+log density, kinetic energy, U-turn decisions, RNG consumption, and candidate
+selection retain their order. The ordinary deterministic NUTS tests are the
+conformance gate; statistical tests remain empirical protection rather than a
+proof of Julia semantics. On the maintained 100-dimensional isotropic
+Gaussian workload with five 10,000-draw chains, the median changed from
+0.865 seconds before the rewrite to 0.755 seconds after it, about a 13%
+improvement in this rerun. Run the post-transformation measurement with:
+
+```sh
+make benchmark-nuts-optimization
+```
+
+The experiment prints the transformation name, assurance class, complete
+chain timings, median, and throughput. This deliberately small pass validates
+the acceptance workflow without implying that Metatheory.jl, IRTools.jl, a
+profiler, or a general search engine must occupy a particular phase. Those
+remain optional tools for future agentic passes.
 
 ## Current directions
 
@@ -344,8 +380,10 @@ sampler family:
    Backend work must make event/RNG scheduling, reductions, callback behavior,
    and supported IR primitives explicit. It should not duplicate the sampler's
    mathematical correctness proof.
-4. **Controlled optimization search.** Provide a small agentic loop that may
-   propose Julia or IR changes, but accepts them only after compilation,
+4. **Controlled optimization search.** Maintain a small agentic loop that may
+   use manual inspection, profilers, compiler diagnostics, transformation
+   libraries, or other tools to propose Julia or IR changes, but accepts them
+   only after compilation,
    deterministic conformance, applicable certificates, statistical diagnostics,
    and benchmark improvement. One measured exact transformation should precede
    any general transformation framework.
