@@ -24,9 +24,8 @@ chain length.
 
 The comparison uses an identity mass matrix and analytic gradients for both
 packages; it intentionally excludes automatic-differentiation time. Compilation
-is warmed before `BenchmarkTools` measures each complete chain. The benchmark
-uses the low-level transition interfaces so that AdvancedHMC's optional sample
-and diagnostic storage is not charged only to AdvancedHMC.
+is warmed before each complete chain is measured. Every implementation stores
+the full chain, so timing and quality use exactly the same execution workload.
 
 The endpoint rows implement directly corresponding endpoint proposals. The
 multinomial rows compare each package's fixed-length multinomial trajectory
@@ -41,9 +40,10 @@ That runtime is not retroactively inserted into the stored results, and its
 Lean invariance/correspondence boundary remains explicit. The certified
 checked-tree samplers remain distinct from both production-shaped runtimes.
 
-The full runner records ten complete-chain timing repetitions per case by
-default. The report shows every repetition together with the median and IQR;
-`HMC_REPETITIONS` changes that fixed count.
+The full runner records ten complete chains per case using the explicit fixed
+seed list `4109:4118` by default. The report shows every chain timing together
+with the median and IQR. `HMC_SEEDS` accepts a comma-separated replacement;
+development mode uses the first three configured seeds.
 
 The report covers an isotropic Gaussian, an AR(1)-correlated Gaussian, a
 product quartic, an ill-conditioned diagonal Gaussian, and a symmetric
@@ -56,7 +56,8 @@ documentation page and SVG chart from those files. Run metadata is stored
 separately in `benchmark/results/metadata.csv`, so regenerating a historical
 report does not relabel it with the current checkout or machine.
 
-Separate quality chains write `benchmark/results/quality.csv`. They report
+The same timed chains write quality summaries to
+`benchmark/results/quality.csv`. They report
 moment error against each fixture's known mean and marginal variance, minimum
 coordinate ESS, ESS/s, movement, AdvancedHMC acceptance and divergences, and
 mean integration work. New runs also report worst split rank-normalized R-hat,
@@ -66,10 +67,9 @@ first four coordinates. The formulas come from the shared
 than a benchmark-specific implementation. These extend the lightweight
 gradient and moment checks registered in the Julia integration suite.
 
-This separation is methodological, not a limitation of timing trajectories.
-Timing repetitions could be used for quality assessment if their complete
-draws were retained and their seeds made independent, but storage and
-diagnostic instrumentation would then contaminate the throughput workload.
+Because every compared implementation now pays the same chain-storage cost,
+no second quality-only sampling workload is needed. Diagnostic calculations
+run after timing and are not charged to throughput.
 
 Quality diagnostics in the report are not convergence proofs or CI gates.
 Multiple independently seeded chains, split rank-normalized R-hat, and
@@ -82,9 +82,6 @@ stable covariance and known-quantile regressions belong in the integrated test
 suite; the multi-chain and distributional report remains in this environment.
 
 The workload can be changed through `HMC_DIMENSION`, `HMC_DRAWS`,
-`HMC_LEAPFROG_STEPS`, `HMC_STEP_SIZE`, `HMC_SEED`, and
-`HMC_BENCHMARK_SECONDS`. `HMC_NUTS_MAX_DEPTH` controls the NUTS tree-depth cap.
-`HMC_QUALITY_DRAWS` controls draws per separate sampling-quality chain, and
-`HMC_QUALITY_CHAINS` controls their independently seeded chain count (four by
-default). Full mode defaults to four 5,000-draw chains, retaining the previous
-20,000-draw total while enabling between-chain diagnostics.
+`HMC_LEAPFROG_STEPS`, `HMC_STEP_SIZE`, `HMC_SEED`, and `HMC_SEEDS`.
+`HMC_NUTS_MAX_DEPTH` controls the NUTS tree-depth cap. `HMC_SEED` determines
+the default consecutive seed list; an explicit `HMC_SEEDS` takes precedence.

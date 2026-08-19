@@ -113,6 +113,7 @@ function display_name(value)
 end
 
 function write_doc(rows, timings, quality, metadata)
+    combined_protocol = !isempty(quality) && hasproperty(first(quality), :chains)
     open(DOC, "w") do io
         println(io, "# HMC benchmark report\n")
         DEV_MODE && println(io, "!!! warning \"Development-mode results\"\n    This page was generated from a short `--dev` run for layout iteration. Its timings are not publication-quality.\n")
@@ -133,9 +134,9 @@ function write_doc(rows, timings, quality, metadata)
         println(io, "- Step size: `$(first_row.step_size)`")
         println(io, "- Fixed trajectory length: `$(first_row.configured_steps)` leapfrog steps")
         println(io, "- Gradients: analytic callbacks for both packages; AD time excluded\n")
-        if !isempty(quality) && hasproperty(first(quality), :chains)
-            println(io, "- Quality chains per case: `$(first(quality).chains)`")
-            println(io, "- Quality draws per chain: `$(first(quality).draws_per_chain)`\n")
+        if combined_protocol
+            println(io, "- Fixed timed/quality seeds per case: `$(join(unique(row.seed for row in timings), ", "))`")
+            println(io, "- Retained timed chains per case: `$(first(quality).chains)`\n")
         end
         println(io, "## Results\n")
         println(io, "### Median transitions per second\n")
@@ -169,7 +170,11 @@ function write_doc(rows, timings, quality, metadata)
             println(io, "| $(display_name(row.target)) | $(row.algorithm) | $(row.implementation) | $(@sprintf("%.1f ms", median_ms)) | $(@sprintf("%.1f–%.1f ms", q25_ms, q75_ms)) | $(@sprintf("%.0f", parse(Float64, row.draws_per_second))) | $(@sprintf("%.1f", parse(Float64, row.average_steps))) | $(row.allocations) |")
         end
         println(io, "\n## Sampling quality\n")
-        println(io, "Quality runs are separate seeded chains rather than BenchmarkTools trials. Timing trajectories could support diagnostics if their draws were retained and independently seeded, but doing so would charge storage and diagnostic instrumentation to the performance measurement. The separate protocol keeps that choice explicit. Moment errors use each target's known zero mean and analytical or independently computed marginal variance. New runs report the worst split rank-normalized R-hat and minimum bulk/tail ESS among the first four coordinates after ten-percent per-chain burn-in. Stored historical rows made before these fields were introduced display an em dash. A warning marker at R-hat above 1.01 is conspicuous but non-gating.\n")
+        if combined_protocol
+            println(io, "The same independently seeded full chains supply timing and quality evidence. Full-chain storage is included equally in every implementation's timing; diagnostics are computed afterward. Moment errors use each target's known zero mean and analytical or independently computed marginal variance. The table reports the worst split rank-normalized R-hat and minimum bulk/tail ESS among the first four coordinates after ten-percent per-chain burn-in. A warning marker at R-hat above 1.01 is conspicuous but non-gating.\n")
+        else
+            println(io, "These committed historical measurements predate the combined timing/quality protocol. Their quality runs were separate seeded chains, and fields introduced later display an em dash. Regenerating this report preserves that provenance rather than relabelling old measurements.\n")
+        end
         println(io, "| Target | Algorithm | Implementation | R-hat | Bulk ESS | Tail ESS | Bulk ESS/gradient proxy | Mean MCSE (max) | Covariance error (max) | Median error (max) | ESS/s | Mean RMSE (std.) | Variance RMSE (relative) | Movement | Acceptance | Divergences | Mean steps |")
         println(io, "|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
         for row in quality

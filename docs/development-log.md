@@ -1,5 +1,15 @@
 # Development log
 
+## 2026-08-19: unified timing and quality benchmark chains
+
+Reworked the benchmark protocol so each timed repetition uses a distinct seed
+from an explicit fixed list, retains its complete chain, and supplies both
+performance and quality evidence. All compared implementations now pay the
+same chain-storage cost; diagnostic calculations happen after timing, and the
+separate quality-only sampling workload is removed. Historical committed CSVs
+remain provenance-correct and render through the backward-compatible report.
+The full benchmark was not rerun.
+
 ## 2026-08-19: non-gating multi-chain benchmark diagnostics
 
 The benchmark quality path now uses independently seeded chains and the shared

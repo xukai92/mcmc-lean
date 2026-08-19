@@ -116,7 +116,7 @@ The stored NUTS measurements are likewise AdvancedHMC-only. They were produced b
 
 ## Sampling quality
 
-Quality runs are separate seeded chains rather than BenchmarkTools trials. Timing trajectories could support diagnostics if their draws were retained and independently seeded, but doing so would charge storage and diagnostic instrumentation to the performance measurement. The separate protocol keeps that choice explicit. Moment errors use each target's known zero mean and analytical or independently computed marginal variance. New runs report the worst split rank-normalized R-hat and minimum bulk/tail ESS among the first four coordinates after ten-percent per-chain burn-in. Stored historical rows made before these fields were introduced display an em dash. A warning marker at R-hat above 1.01 is conspicuous but non-gating.
+These committed historical measurements predate the combined timing/quality protocol. Their quality runs were separate seeded chains, and fields introduced later display an em dash. Regenerating this report preserves that provenance rather than relabelling old measurements.
 
 | Target | Algorithm | Implementation | R-hat | Bulk ESS | Tail ESS | Bulk ESS/gradient proxy | Mean MCSE (max) | Covariance error (max) | Median error (max) | ESS/s | Mean RMSE (std.) | Variance RMSE (relative) | Movement | Acceptance | Divergences | Mean steps |
 |---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|

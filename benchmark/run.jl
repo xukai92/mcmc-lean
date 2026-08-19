@@ -1,5 +1,4 @@
 using AdvancedHMC
-using BenchmarkTools
 using LinearAlgebra
 using Random
 using Statistics
@@ -19,14 +18,12 @@ const DRAWS = parse(Int, get(ENV, "HMC_DRAWS", DEV_MODE ? "1000" : "10000"))
 const LEAPFROG_STEPS = parse(Int, get(ENV, "HMC_LEAPFROG_STEPS", "10"))
 const STEP_SIZE = parse(Float64, get(ENV, "HMC_STEP_SIZE", "0.08"))
 const SEED = parse(Int, get(ENV, "HMC_SEED", "4109"))
-const REPETITIONS = parse(Int, get(ENV, "HMC_REPETITIONS", DEV_MODE ? "3" : "10"))
-const BENCHMARK_SECONDS = parse(Float64,
-    get(ENV, "HMC_BENCHMARK_SECONDS", DEV_MODE ? "0.05" : "120"))
-const BENCHMARK_SAMPLES = REPETITIONS
+const DEFAULT_SEEDS = join(SEED .+ (0:9), ',')
+const CONFIGURED_SEEDS = parse.(Int,
+    split(get(ENV, "HMC_SEEDS", DEFAULT_SEEDS), ','))
+const BENCHMARK_SEEDS = DEV_MODE ?
+    CONFIGURED_SEEDS[1:min(3, length(CONFIGURED_SEEDS))] : CONFIGURED_SEEDS
 const NUTS_MAX_DEPTH = parse(Int, get(ENV, "HMC_NUTS_MAX_DEPTH", "10"))
-const QUALITY_DRAWS = parse(Int,
-    get(ENV, "HMC_QUALITY_DRAWS", DEV_MODE ? "500" : "5000"))
-const QUALITY_CHAINS = parse(Int, get(ENV, "HMC_QUALITY_CHAINS", "4"))
 
 const Runtime = VerifiedSamplers.Runtime
 const Reference = VerifiedSamplers.Reference
@@ -44,27 +41,27 @@ function known_covariance(target)
     nothing
 end
 
-struct DevMeasurement
+struct ChainMeasurement
     times::Vector{Float64}
+    bytes::Vector{Int}
+    outputs::Vector{Any}
     time::Float64
     memory::Int
 end
 
 function measure(f)
-    if DEV_MODE
-        times = Float64[]
-        memory = Int[]
-        for _ in 1:REPETITIONS
-            GC.gc()
-            measurement = @timed f()
-            push!(times, measurement.time * 1e9)
-            push!(memory, measurement.bytes)
-        end
-        return DevMeasurement(times, median(times), Int(median(memory)))
+    f(first(BENCHMARK_SEEDS)) # compile and warm before measured chains
+    times = Float64[]
+    bytes = Int[]
+    outputs = Any[]
+    for seed in BENCHMARK_SEEDS
+        GC.gc()
+        measurement = @timed f(seed)
+        push!(times, measurement.time * 1e9)
+        push!(bytes, measurement.bytes)
+        push!(outputs, measurement.value)
     end
-    benchmarkable = @benchmarkable $f() evals=1
-    BenchmarkTools.run(benchmarkable;
-        seconds=BENCHMARK_SECONDS, samples=BENCHMARK_SAMPLES)
+    ChainMeasurement(times, bytes, outputs, median(times), Int(median(bytes)))
 end
 
 function advanced_components(target)
@@ -97,41 +94,40 @@ end
 
 function run_verified(stepper, target, seed::Int, draws::Int)
     source = Runtime.RNGSource(MersenneTwister(seed))
+    chain = Matrix{Float64}(undef, DIMENSION, draws)
     position = zeros(DIMENSION)
-    for _ in 1:draws
+    for index in axes(chain, 2)
         position = stepper(source, target.logdensity, target.gradient,
             STEP_SIZE, LEAPFROG_STEPS, position)
+        chain[:, index] = position
     end
-    position
+    (; chain, acceptance=NaN, divergences=0,
+        average_steps=Float64(LEAPFROG_STEPS), gradients_per_step=2)
 end
 
 function run_advanced(hamiltonian, kernel, seed::Int, draws::Int)
     rng = MersenneTwister(seed)
     hamiltonian, transition = AdvancedHMC.sample_init(
         rng, hamiltonian, zeros(DIMENSION))
-    for _ in 1:draws
+    chain = Matrix{Float64}(undef, DIMENSION, draws)
+    acceptance_sum = 0.0
+    divergences = 0
+    step_sum = 0
+    for index in axes(chain, 2)
         transition = AdvancedHMC.transition(
             rng, hamiltonian, kernel, transition.z)
+        chain[:, index] = transition.z.θ
+        acceptance_sum += transition.stat.acceptance_rate
+        divergences += transition.stat.numerical_error
+        step_sum += transition.stat.n_steps
     end
-    transition.z.θ
+    (; chain, acceptance=acceptance_sum / draws, divergences,
+        average_steps=step_sum / draws, gradients_per_step=1)
 end
 
-function nuts_average_steps(hamiltonian, kernel, seed::Int, draws::Int)
-    rng = MersenneTwister(seed)
-    hamiltonian, transition = AdvancedHMC.sample_init(
-        rng, hamiltonian, zeros(DIMENSION))
-    total_steps = 0
-    for _ in 1:draws
-        transition = AdvancedHMC.transition(rng, hamiltonian, kernel, transition.z)
-        total_steps += transition.stat.n_steps
-    end
-    total_steps / draws
-end
-
-function quality_summary(target, algorithm, implementation, chains, seconds;
-        acceptance=NaN, divergences=0, average_steps=LEAPFROG_STEPS,
-        gradients_per_step=1)
-    burnin = QUALITY_DRAWS ÷ 10
+function quality_summary(target, algorithm, implementation, outputs, seconds)
+    chains = getproperty.(outputs, :chain)
+    burnin = DRAWS ÷ 10
     retained_chains = [@view chain[:, (burnin + 1):end] for chain in chains]
     combined = reduce(hcat, retained_chains)
     coordinate_count = min(4, size(combined, 1))
@@ -152,7 +148,7 @@ function quality_summary(target, algorithm, implementation, chains, seconds;
     chain_standard_errors = [QualityDiagnostics.batch_mean_standard_error(chain)
         for chain in retained_chains]
     mean_mcse = maximum(sqrt(sum(error[coordinate]^2
-        for error in chain_standard_errors)) / QUALITY_CHAINS
+        for error in chain_standard_errors)) / length(chains)
         for coordinate in axes(combined, 1))
     covariance = known_covariance(target)
     covariance_max_error = covariance === nothing ? NaN :
@@ -162,10 +158,15 @@ function quality_summary(target, algorithm, implementation, chains, seconds;
     movement = mean(mean(any(@view(chain[:, index]) .!=
         @view(chain[:, index - 1])) for index in 2:size(chain, 2))
         for chain in chains)
-    total_draws = QUALITY_DRAWS * QUALITY_CHAINS
+    total_draws = DRAWS * length(chains)
+    average_steps = mean(getproperty.(outputs, :average_steps))
+    gradients_per_step = only(unique(getproperty.(outputs, :gradients_per_step)))
     gradient_proxy = total_draws * average_steps * gradients_per_step
+    acceptance_values = filter(isfinite, getproperty.(outputs, :acceptance))
+    acceptance = isempty(acceptance_values) ? NaN : mean(acceptance_values)
+    divergences = sum(getproperty.(outputs, :divergences))
     push!(QUALITY_ROWS, (; target=target.name, dimension=DIMENSION, algorithm,
-        implementation, chains=QUALITY_CHAINS, draws_per_chain=QUALITY_DRAWS,
+        implementation, chains=length(chains), draws_per_chain=DRAWS,
         retained_draws, seconds, draws_per_second=total_draws / seconds,
         minimum_ess, ess_per_second=minimum_ess / seconds,
         rank_normalized_rhat, bulk_ess, tail_ess,
@@ -175,74 +176,14 @@ function quality_summary(target, algorithm, implementation, chains, seconds;
         acceptance, divergences, average_steps))
 end
 
-function verified_quality(target, algorithm, stepper)
-    chains = Matrix{Float64}[]
-    seconds = @elapsed for chain_index in 1:QUALITY_CHAINS
-        source = Runtime.RNGSource(MersenneTwister(SEED + 91 + chain_index))
-        chain = Matrix{Float64}(undef, DIMENSION, QUALITY_DRAWS)
-        position = zeros(DIMENSION)
-        for index in axes(chain, 2)
-            position = stepper(source, target.logdensity, target.gradient,
-                STEP_SIZE, LEAPFROG_STEPS, position)
-            chain[:, index] = position
-        end
-        push!(chains, chain)
-    end
-    quality_summary(target, algorithm, "verified-optimized", chains, seconds;
-        gradients_per_step=2)
-end
-
-function advanced_quality(target, algorithm, hamiltonian, kernel)
-    chains = Matrix{Float64}[]
-    acceptance_sum = 0.0
-    divergences = 0
-    step_sum = 0
-    seconds = @elapsed for chain_index in 1:QUALITY_CHAINS
-        rng = MersenneTwister(SEED + 91 + chain_index)
-        chain_hamiltonian, transition = AdvancedHMC.sample_init(
-            rng, hamiltonian, zeros(DIMENSION))
-        chain = Matrix{Float64}(undef, DIMENSION, QUALITY_DRAWS)
-        for index in axes(chain, 2)
-            transition = AdvancedHMC.transition(
-                rng, chain_hamiltonian, kernel, transition.z)
-            chain[:, index] = transition.z.θ
-            acceptance_sum += transition.stat.acceptance_rate
-            divergences += transition.stat.numerical_error
-            step_sum += transition.stat.n_steps
-        end
-        push!(chains, chain)
-    end
-    total_draws = QUALITY_DRAWS * QUALITY_CHAINS
-    quality_summary(target, algorithm, "advancedhmc", chains, seconds;
-        acceptance=acceptance_sum / total_draws, divergences,
-        average_steps=step_sum / total_draws)
-end
-
-function quality_target(target)
-    components = advanced_components(target)
-    verified_quality(target, "endpoint", Optimized.vector_hmc_step!)
-    advanced_quality(target, "endpoint", components.hamiltonian,
-        components.endpoint)
-    verified_quality(target, "multinomial", Optimized.multinomial_hmc_step!)
-    advanced_quality(target, "multinomial", components.hamiltonian,
-        components.multinomial)
-    advanced_quality(target, "nuts", components.hamiltonian, components.nuts)
-    if target.metric_mass !== nothing
-        advanced_quality(target, "preconditioned-endpoint",
-            components.metric_hamiltonian, components.metric_endpoint)
-        advanced_quality(target, "preconditioned-multinomial",
-            components.metric_hamiltonian, components.metric_multinomial)
-    end
-end
-
 function result(target, algorithm, implementation, trial, average_steps)
-    estimate = DEV_MODE ? trial : BenchmarkTools.median(trial)
     times = trial.times ./ 1e9
     seconds = median(times)
-    for (repetition, nanoseconds) in enumerate(trial.times)
+    for (repetition, (seed, nanoseconds)) in enumerate(
+            zip(BENCHMARK_SEEDS, trial.times))
         repetition_seconds = nanoseconds / 1e9
         push!(RAW_TIMINGS, (; target=target.name, dimension=DIMENSION,
-            algorithm, implementation, repetition, seed=SEED,
+            algorithm, implementation, repetition, seed,
             seconds=repetition_seconds,
             draws_per_second=DRAWS / repetition_seconds))
     end
@@ -250,75 +191,96 @@ function result(target, algorithm, implementation, trial, average_steps)
         step_size=STEP_SIZE, configured_steps=LEAPFROG_STEPS, average_steps,
         draws=DRAWS, median_seconds=seconds,
         q25_seconds=quantile(times, 0.25), q75_seconds=quantile(times, 0.75),
-        draws_per_second=DRAWS / seconds, memory_bytes=estimate.memory,
-        allocations=DEV_MODE ? "n/a" : string(estimate.allocs))
+        draws_per_second=DRAWS / seconds, memory_bytes=trial.memory,
+        allocations="n/a")
 end
 
 function benchmark_target(target)
     components = advanced_components(target)
-    reference_check = run_verified(Reference.vector_hmc_step!, target, SEED, 100)
-    optimized_check = run_verified(Optimized.vector_hmc_step!, target, SEED, 100)
+    reference_check = run_verified(
+        Reference.vector_hmc_step!, target, SEED, 100).chain[:, end]
+    optimized_check = run_verified(
+        Optimized.vector_hmc_step!, target, SEED, 100).chain[:, end]
     reference_check == optimized_check || error(
         "Reference and Optimized endpoint HMC disagree for $(target.name)")
     multinomial_reference_check = run_verified(
-        Reference.multinomial_hmc_step!, target, SEED, 100)
+        Reference.multinomial_hmc_step!, target, SEED, 100).chain[:, end]
     multinomial_optimized_check = run_verified(
-        Optimized.multinomial_hmc_step!, target, SEED, 100)
+        Optimized.multinomial_hmc_step!, target, SEED, 100).chain[:, end]
     multinomial_reference_check ≈ multinomial_optimized_check || error(
         "Reference and Optimized multinomial HMC disagree for $(target.name)")
     run_advanced(components.hamiltonian, components.endpoint, SEED, 100)
     run_advanced(components.hamiltonian, components.multinomial, SEED, 100)
     run_advanced(components.hamiltonian, components.nuts, SEED, 100)
 
-    endpoint_reference = measure(() -> run_verified(
-        Reference.vector_hmc_step!, target, SEED, DRAWS))
-    endpoint_optimized = measure(() -> run_verified(
-        Optimized.vector_hmc_step!, target, SEED, DRAWS))
-    endpoint_advanced = measure(() -> run_advanced(
-        components.hamiltonian, components.endpoint, SEED, DRAWS))
-    multinomial_reference = measure(() -> run_verified(
-        Reference.multinomial_hmc_step!, target, SEED, DRAWS))
-    multinomial_optimized = measure(() -> run_verified(
-        Optimized.multinomial_hmc_step!, target, SEED, DRAWS))
-    multinomial_advanced = measure(() -> run_advanced(
-        components.hamiltonian, components.multinomial, SEED, DRAWS))
-    nuts_advanced = measure(() -> run_advanced(
-        components.hamiltonian, components.nuts, SEED, DRAWS))
-    average_nuts_steps = nuts_average_steps(
-        components.hamiltonian, components.nuts, SEED, DRAWS)
+    endpoint_reference = measure(seed -> run_verified(
+        Reference.vector_hmc_step!, target, seed, DRAWS))
+    endpoint_optimized = measure(seed -> run_verified(
+        Optimized.vector_hmc_step!, target, seed, DRAWS))
+    endpoint_advanced = measure(seed -> run_advanced(
+        components.hamiltonian, components.endpoint, seed, DRAWS))
+    multinomial_reference = measure(seed -> run_verified(
+        Reference.multinomial_hmc_step!, target, seed, DRAWS))
+    multinomial_optimized = measure(seed -> run_verified(
+        Optimized.multinomial_hmc_step!, target, seed, DRAWS))
+    multinomial_advanced = measure(seed -> run_advanced(
+        components.hamiltonian, components.multinomial, seed, DRAWS))
+    nuts_advanced = measure(seed -> run_advanced(
+        components.hamiltonian, components.nuts, seed, DRAWS))
+
+    measured = [
+        ("endpoint", "verified-reference", endpoint_reference),
+        ("endpoint", "verified-optimized", endpoint_optimized),
+        ("endpoint", "advancedhmc", endpoint_advanced),
+        ("multinomial", "verified-reference", multinomial_reference),
+        ("multinomial", "verified-optimized", multinomial_optimized),
+        ("multinomial", "advancedhmc", multinomial_advanced),
+        ("nuts", "advancedhmc", nuts_advanced)]
+    for (algorithm, implementation, trial) in measured
+        quality_summary(target, algorithm, implementation, trial.outputs,
+            sum(trial.times) / 1e9)
+    end
+
+    average_steps(trial) = mean(
+        getproperty.(trial.outputs, :average_steps))
 
     results = [
         result(target, "endpoint", "verified-reference", endpoint_reference,
-            LEAPFROG_STEPS),
+            average_steps(endpoint_reference)),
         result(target, "endpoint", "verified-optimized", endpoint_optimized,
-            LEAPFROG_STEPS),
+            average_steps(endpoint_optimized)),
         result(target, "endpoint", "advancedhmc", endpoint_advanced,
-            LEAPFROG_STEPS),
+            average_steps(endpoint_advanced)),
         result(target, "multinomial", "verified-reference", multinomial_reference,
-            LEAPFROG_STEPS),
+            average_steps(multinomial_reference)),
         result(target, "multinomial", "verified-optimized", multinomial_optimized,
-            LEAPFROG_STEPS),
+            average_steps(multinomial_optimized)),
         result(target, "multinomial", "advancedhmc", multinomial_advanced,
-            LEAPFROG_STEPS),
-        result(target, "nuts", "advancedhmc", nuts_advanced, average_nuts_steps),
+            average_steps(multinomial_advanced)),
+        result(target, "nuts", "advancedhmc", nuts_advanced,
+            average_steps(nuts_advanced)),
     ]
     if target.metric_mass !== nothing
         run_advanced(components.metric_hamiltonian,
             components.metric_endpoint, SEED, 100)
-        metric_advanced = measure(() -> run_advanced(
+        metric_advanced = measure(seed -> run_advanced(
             components.metric_hamiltonian, components.metric_endpoint,
-            SEED, DRAWS))
+            seed, DRAWS))
+        quality_summary(target, "preconditioned-endpoint", "advancedhmc",
+            metric_advanced.outputs, sum(metric_advanced.times) / 1e9)
         append!(results, [
             result(target, "preconditioned-endpoint", "advancedhmc",
-                metric_advanced, LEAPFROG_STEPS),
+                metric_advanced, average_steps(metric_advanced)),
         ])
 
-        metric_multi_advanced = measure(() -> run_advanced(
+        metric_multi_advanced = measure(seed -> run_advanced(
             components.metric_hamiltonian, components.metric_multinomial,
-            SEED, DRAWS))
+            seed, DRAWS))
+        quality_summary(target, "preconditioned-multinomial", "advancedhmc",
+            metric_multi_advanced.outputs, sum(metric_multi_advanced.times) / 1e9)
         append!(results, [
             result(target, "preconditioned-multinomial", "advancedhmc",
-                metric_multi_advanced, LEAPFROG_STEPS),
+                metric_multi_advanced, average_steps(metric_multi_advanced)),
         ])
     end
     results
@@ -369,16 +331,16 @@ end
 
 function main()
     DIMENSION >= 2 || error("HMC_DIMENSION must be at least two")
-    DRAWS > 0 || error("HMC_DRAWS must be positive")
+    DRAWS >= 8 || error("HMC_DRAWS must be at least eight for split diagnostics")
     LEAPFROG_STEPS > 0 || error("HMC_LEAPFROG_STEPS must be positive")
     STEP_SIZE > 0 || error("HMC_STEP_SIZE must be positive")
     NUTS_MAX_DEPTH > 0 || error("HMC_NUTS_MAX_DEPTH must be positive")
-    REPETITIONS > 0 || error("HMC_REPETITIONS must be positive")
-    QUALITY_DRAWS > 10 || error("HMC_QUALITY_DRAWS must exceed ten")
-    QUALITY_CHAINS >= 2 || error("HMC_QUALITY_CHAINS must be at least two")
+    length(BENCHMARK_SEEDS) >= 2 || error(
+        "HMC_SEEDS must provide at least two seeds")
+    length(unique(BENCHMARK_SEEDS)) == length(BENCHMARK_SEEDS) || error(
+        "HMC_SEEDS must not contain duplicates")
     target_suite = TestTargets.suite(DIMENSION)
     rows = reduce(vcat, benchmark_target(target) for target in target_suite)
-    foreach(quality_target, target_suite)
     write_results(rows)
 end
 
