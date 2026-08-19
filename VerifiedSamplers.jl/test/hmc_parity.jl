@@ -16,6 +16,22 @@
     @test sample(MersenneTwister(0x71af), metric_time, zeros(2), 20) ==
         sample(MersenneTwister(0x71af), metric_steps, zeros(2), 20)
 
+    jittered_time = FixedIntegrationTimeHMC(logdensity, gradient, 0.2, 1.0;
+        integrator=:jittered, jitter=0.25)
+    jittered_steps = JitteredHMC(
+        logdensity, gradient, 0.2, 5; jitter=0.25)
+    @test jittered_time.steps == 5
+    @test sample(MersenneTwister(0x71ac), jittered_time, zeros(2), 20) ==
+        sample(MersenneTwister(0x71ac), jittered_steps, zeros(2), 20)
+
+    tempered_time = FixedIntegrationTimeHMC(logdensity, gradient, metric,
+        0.25, 1.0; integrator=:tempered, temperature=1.1)
+    tempered_steps = TemperedHMC(logdensity, gradient, metric, 0.25, 4;
+        temperature=1.1)
+    @test tempered_time.steps == 4
+    @test sample(MersenneTwister(0x71ab), tempered_time, zeros(2), 20) ==
+        sample(MersenneTwister(0x71ab), tempered_steps, zeros(2), 20)
+
     @test_throws ArgumentError FixedIntegrationTimeHMC(
         logdensity, gradient, 0.0, 1.0)
     short_time = FixedIntegrationTimeHMC(
@@ -26,6 +42,8 @@
             VectorHMC(logdensity, gradient, 1.0, 1), zeros(2), 10)
     @test_throws ArgumentError FixedIntegrationTimeHMC(
         logdensity, gradient, 1.0, 0.0)
+    @test_throws ArgumentError FixedIntegrationTimeHMC(
+        logdensity, gradient, 0.2, 1.0; integrator=:unknown)
 end
 
 @testset "jittered HMC" begin

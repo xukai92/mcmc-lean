@@ -28,17 +28,39 @@ function _fixed_integration_steps(step_size::Real, integration_time::Real)
 end
 
 function FixedIntegrationTimeHMC(logdensity::F, gradient::G,
-        step_size::Real, integration_time::Real) where {F,G}
+        step_size::Real, integration_time::Real;
+        integrator::Symbol=:leapfrog, jitter::Real=0.1,
+        temperature::Real=1.0) where {F,G}
     ε, λ, steps = _fixed_integration_steps(step_size, integration_time)
-    FixedIntegrationTimeHMC(VectorHMC(logdensity, gradient, ε, steps), λ, steps)
+    kind, amount, tempering =
+        _hmc_integrator_parameters(integrator, jitter, temperature)
+    fixed = if kind === :jittered
+        JitteredHMC(logdensity, gradient, ε, steps; jitter=amount)
+    elseif kind === :tempered
+        TemperedHMC(logdensity, gradient, ε, steps; temperature=tempering)
+    else
+        VectorHMC(logdensity, gradient, ε, steps)
+    end
+    FixedIntegrationTimeHMC(fixed, λ, steps)
 end
 
 function FixedIntegrationTimeHMC(logdensity::F, gradient::G,
-        metric::M, step_size::Real, integration_time::Real) where
+        metric::M, step_size::Real, integration_time::Real;
+        integrator::Symbol=:leapfrog, jitter::Real=0.1,
+        temperature::Real=1.0) where
         {F,G,M<:Union{DiagonalMetric,DenseMetric,RankUpdateMetric}}
     ε, λ, steps = _fixed_integration_steps(step_size, integration_time)
-    FixedIntegrationTimeHMC(
-        MetricHMC(logdensity, gradient, metric, ε, steps), λ, steps)
+    kind, amount, tempering =
+        _hmc_integrator_parameters(integrator, jitter, temperature)
+    fixed = if kind === :jittered
+        JitteredHMC(logdensity, gradient, metric, ε, steps; jitter=amount)
+    elseif kind === :tempered
+        TemperedHMC(logdensity, gradient, metric, ε, steps;
+            temperature=tempering)
+    else
+        MetricHMC(logdensity, gradient, metric, ε, steps)
+    end
+    FixedIntegrationTimeHMC(fixed, λ, steps)
 end
 
 step(rng::AbstractRNG, sampler::FixedIntegrationTimeHMC, current) =

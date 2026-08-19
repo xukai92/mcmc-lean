@@ -38,16 +38,16 @@ The maintained combinations are:
 | Trajectory | Ordinary | Jittered | Tempered | Partial refresh |
 |---|---:|---:|---:|---:|
 | Fixed-step endpoint | Yes | Yes | Yes | Yes, ordinary integrator |
-| Fixed integration time endpoint | Yes | Via equivalent fixed nominal step count | Via equivalent fixed nominal step count | No dedicated wrapper |
+| Fixed integration time endpoint | Yes | Yes | Yes | No dedicated wrapper |
 | Fixed multinomial | Yes | Yes | No; intermediate-point weights need a separate theorem | No dedicated wrapper |
 | Dynamic NUTS | Yes | Yes | Yes | No dedicated wrapper |
 
 All maintained ordinary endpoint and NUTS paths accept unit, diagonal, dense,
 and fixed low-rank-update metrics. Jittered fixed multinomial HMC and the
 jittered, tempered, and partial-refresh endpoint paths accept the same metrics.
-“Via equivalent fixed nominal step count” means the user constructs the
-corresponding integrator sampler with the step count determined from the nominal
-step size; it is not yet one composable constructor.
+The fixed-integration-time constructor determines the positive step count from
+the nominal step size, then composes that count with the selected endpoint
+integrator.
 
 The jittered multinomial constructor draws one state-independent step size and
 then invokes the existing fixed-step multinomial transition. It is therefore a
@@ -95,7 +95,7 @@ construct, or introduce a typed sub-IR/certified primitive.
 | Capability | Runtime | Formal boundary |
 |---|---|---|
 | Fixed-step endpoint HMC | Complete | Existing exact endpoint-HMC theory |
-| Fixed-integration-time endpoint HMC | Complete | Reuses a fixed positive step count; dedicated public documentation pending |
+| Fixed-integration-time endpoint HMC | Complete for ordinary, jittered, and tempered leapfrog | Reuses the corresponding fixed positive-step endpoint transition; dedicated formal wrapper pending |
 | Fixed multinomial HMC | Complete for ordinary and per-trajectory jittered leapfrog | Existing exact fixed-step multinomial-HMC theory; lifting its invariance through the state-independent jitter law remains to be packaged as a dedicated theorem |
 | Jittered endpoint HMC | Complete | Runtime mixture over fixed-step transitions; dedicated IR/refinement pending |
 | Tempered endpoint HMC | Complete | Runtime implementation; formal integrator/refinement pending |

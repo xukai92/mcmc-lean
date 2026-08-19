@@ -59,6 +59,13 @@ Tempered endpoint HMC and tempered NUTS remain available; fixed tempered
 multinomial selection needs a separate weighting theorem before it can be
 exposed safely.
 
+The fixed-integration-time endpoint constructor now accepts the same ordinary,
+jittered, and tempered integrator choices as fixed-step endpoint HMC. It derives
+the positive step count from integration time and nominal step size before
+constructing the selected fixed-step sampler. Seeded equality tests identify
+the jittered and tempered wrappers with those underlying transitions, including
+a non-unit metric.
+
 ## 2026-08-19: typed finite artifact parsing and lightweight optimization plan
 
 Added a Lean parser for the canonical S-expression artifact syntax and a typed
