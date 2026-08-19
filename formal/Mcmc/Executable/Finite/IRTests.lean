@@ -40,4 +40,17 @@ example :
       (fun left right => decide (left = 3 ∧ right = 6)) 5 3 6 = true := by
   native_decide
 
+/-- Complete recursive continuation succeeds when every leaf and join in the
+same interval succeeds. -/
+example :
+    Mcmc.Executable.DynamicTreeIR.recursiveSubtreeContinues
+      (fun _ => true) (fun _ _ => false) 5 3 6 = true := by
+  native_decide
+
+/-- A failed interior leaf is propagated through the concrete recursion. -/
+example :
+    Mcmc.Executable.DynamicTreeIR.recursiveSubtreeContinues
+      (fun index => decide (index != 4)) (fun _ _ => false) 5 3 6 = false := by
+  native_decide
+
 end Mcmc.Executable.Finite.CompilerIR.Tests

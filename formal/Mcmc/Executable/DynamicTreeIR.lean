@@ -221,6 +221,21 @@ def recursiveSubtreeTurns (turns : ℕ → ℕ → Bool) : ℕ → ℕ → ℕ �
           recursiveSubtreeTurns turns fuel (middle + 1) right
       else false
 
+/-- Fuel-bounded continuation bit for the complete recursive subtree call.
+Singleton intervals run the leaf eligibility/divergence check; internal
+intervals require both recursive calls and their endpoint join to continue. -/
+def recursiveSubtreeContinues
+    (leafContinues : ℕ → Bool) (turns : ℕ → ℕ → Bool) :
+    ℕ → ℕ → ℕ → Bool
+  | 0, _, _ => false
+  | fuel + 1, left, right =>
+      if left < right then
+        let middle := (left + right) / 2
+        recursiveSubtreeContinues leafContinues turns fuel left middle &&
+          recursiveSubtreeContinues leafContinues turns fuel (middle + 1) right &&
+          !(turns left right)
+      else leafContinues left
+
 /-- Structural turn aggregation for a balanced interval of `2 ^ depth`
 consecutive phase indices beginning at `start`. This is the power-of-two
 specialization of `recursiveSubtreeTurns`, stated without midpoint division. -/
@@ -305,6 +320,67 @@ theorem recursiveSubtreeTurns_eq_balancedIntervalPhaseTree
   rw [recursiveSubtreeTurns_eq_balancedSubtreeTurns turns depth start fuel hfuel,
     balancedIntervalPhaseTree_anyEndpointTurns]
 
+/-- With sufficient fuel, the concrete recursive continuation—including
+arbitrary leaf eligibility/divergence bits—is the completed structural flag
+tree's continuation bit on the same balanced interval. -/
+theorem recursiveSubtreeContinues_eq_buildFlagTree
+    (leafContinues : ℕ → Bool) (turns : ℕ → ℕ → Bool)
+    (depth start fuel : ℕ) (hfuel : depth < fuel) :
+    recursiveSubtreeContinues leafContinues turns fuel start
+        (start + 2 ^ depth - 1) =
+      ((balancedIntervalPhaseTree depth start).toBuildFlagTree
+        leafContinues turns).continues := by
+  induction depth generalizing start fuel with
+  | zero =>
+      cases fuel with
+      | zero => omega
+      | succ fuel =>
+          simp [recursiveSubtreeContinues, balancedIntervalPhaseTree,
+            RecursivePhaseTree.toBuildFlagTree]
+  | succ depth ih =>
+      cases fuel with
+      | zero => omega
+      | succ fuel =>
+          have hfuel' : depth < fuel := by omega
+          have hhalf : 0 < 2 ^ depth := pow_pos (by omega) _
+          have hleftRight :
+              start < start + 2 ^ (depth + 1) - 1 := by
+            rw [pow_succ]
+            omega
+          rw [recursiveSubtreeContinues]
+          simp only [hleftRight, if_true]
+          have hmidpoint :
+              (start + (start + 2 ^ (depth + 1) - 1)) / 2 =
+                start + 2 ^ depth - 1 := by
+            rw [pow_succ]
+            simpa [Nat.mul_comm] using
+              balancedInterval_midpoint start (2 ^ depth) hhalf
+          rw [hmidpoint, ih start fuel hfuel']
+          have hnext : start + 2 ^ depth - 1 + 1 =
+              start + 2 ^ depth := by omega
+          rw [hnext]
+          have hright :
+              start + 2 ^ (depth + 1) - 1 =
+                (start + 2 ^ depth) + 2 ^ depth - 1 := by
+            rw [pow_succ]
+            omega
+          rw [hright, ih (start + 2 ^ depth) fuel hfuel']
+          simp [balancedIntervalPhaseTree,
+            RecursivePhaseTree.toBuildFlagTree]
+
+/-- Hence the concrete recursion and production-style structural online
+recursion return identical continuation bits, including every leaf failure. -/
+theorem recursiveSubtreeContinues_eq_onlineBuildSummary
+    (leafContinues : ℕ → Bool) (turns : ℕ → ℕ → Bool)
+    (depth start fuel : ℕ) (hfuel : depth < fuel) :
+    recursiveSubtreeContinues leafContinues turns fuel start
+        (start + 2 ^ depth - 1) =
+      ((balancedIntervalPhaseTree depth start).onlineBuildSummary
+        leafContinues turns).continues := by
+  rw [recursiveSubtreeContinues_eq_buildFlagTree leafContinues turns depth
+    start fuel hfuel,
+    RecursivePhaseTree.onlineBuildSummary_continues_eq_toBuildFlagTree]
+
 /-- Equivalently, when leaves themselves are valid, the structural online
 builder continues exactly when the concrete index recursion reports no turn. -/
 theorem onlineBuildSummary_continues_eq_not_recursiveSubtreeTurns
@@ -337,6 +413,27 @@ theorem onlineBuildSummary_candidates_eq_range
   rw [RecursivePhaseTree.onlineBuildSummary_candidates_eq_leaves
     (fun _ : ℕ => true) turns (balancedIntervalPhaseTree depth start)
       hcontinues]
+  exact balancedIntervalPhaseTree_leaves depth start
+
+/-- More generally, if the concrete recursion succeeds after arbitrary leaf
+checks, its structural online counterpart contains every consecutive candidate
+occurrence in the balanced interval. -/
+theorem onlineBuildSummary_candidates_eq_range_of_continues
+    (leafContinues : ℕ → Bool) (turns : ℕ → ℕ → Bool)
+    (depth start fuel : ℕ) (hfuel : depth < fuel)
+    (hcontinues : recursiveSubtreeContinues leafContinues turns fuel start
+      (start + 2 ^ depth - 1) = true) :
+    ((balancedIntervalPhaseTree depth start).onlineBuildSummary
+        leafContinues turns).candidates =
+      (List.range (2 ^ depth)).map (start + ·) := by
+  have honline :
+      ((balancedIntervalPhaseTree depth start).onlineBuildSummary
+          leafContinues turns).continues = true := by
+    rw [← recursiveSubtreeContinues_eq_onlineBuildSummary leafContinues turns
+      depth start fuel hfuel]
+    exact hcontinues
+  rw [RecursivePhaseTree.onlineBuildSummary_candidates_eq_leaves
+    leafContinues turns (balancedIntervalPhaseTree depth start) honline]
   exact balancedIntervalPhaseTree_leaves depth start
 
 /-- Execute one depth-indexed left/right expansion. Out-of-range expansions

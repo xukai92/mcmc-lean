@@ -111,7 +111,9 @@ bounded leaf-energy and U-turn certificates now refine the entire online
 summary—continuation, visit count, and candidates—to its ideal-real counterpart.
 For balanced power-of-two intervals, the fuel-bounded index recursion used by
 the generated descriptor is also proved equal to the structural U-turn fold;
-a successful leaf-valid subtree emits exactly its consecutive index range.
-These theorems do not yet identify Julia's concrete call trace with that Lean
-index recursion, combine index recursion with every leaf-failure branch, or
-identify the resulting complete transition with a verified invariant kernel.
+the corresponding concrete continuation recursion now includes arbitrary
+leaf eligibility/divergence checks and is proved equal to both completed and
+online structural continuation. Every successful subtree emits exactly its
+consecutive index range. These theorems do not yet identify Julia's concrete
+call trace with that Lean index recursion or identify the resulting complete
+transition with a verified invariant kernel.

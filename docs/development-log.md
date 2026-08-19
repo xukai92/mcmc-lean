@@ -23,10 +23,13 @@ U-turn certificates through that full online summary, including visited count
 and candidate order. The generated descriptor's fuel-bounded midpoint checker
 is now proved equal to structural U-turn aggregation on every balanced
 power-of-two interval. If it reports no turn, Lean identifies the online
-candidate occurrences with the exact consecutive index range. Connecting
-Julia's concrete call trace to this Lean recursion, integrating every
-leaf-failure branch, and then relating the complete Julia transition to a
-verified invariant kernel remain explicit obligations.
+candidate occurrences with the exact consecutive index range. A second
+fuel-bounded recursion incorporates arbitrary leaf eligibility/divergence
+bits; Lean proves its continuation equals both the completed flag tree and the
+early-exit online summary, and proves the same exact range result whenever it
+succeeds. Connecting Julia's concrete call trace to this Lean recursion and
+then relating the complete Julia transition to a verified invariant kernel
+remain explicit obligations.
 
 ## 2026-08-19: typed finite artifact parsing and lightweight optimization plan
 
