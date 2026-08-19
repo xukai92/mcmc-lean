@@ -101,6 +101,10 @@ guarantees.
 
 - [Architecture](docs/architecture.md): mathlib measures through kernels,
   samplers, paper clients, and executable layers.
+- [Adding a sampler](docs/development-guide.md): contributor workflow from
+  mathematical formalization through IR refinement and Julia integration.
+- [AdvancedHMC parity](docs/advancedhmc-parity.md): current non-adaptive
+  fixed-parameter HMC/NUTS coverage goal.
 - [Progress matrix](docs/progress.md): concise method/property coverage.
 - [Core release audit](docs/core-release-audit.md): named evidence and release
   gates.

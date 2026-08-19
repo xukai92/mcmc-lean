@@ -18,6 +18,11 @@ arguments, and explicit audits of the targeted papers.
   Lean.
 - [Executable architecture](executable-architecture.md) explains the Lean IR,
   Julia reference interpreter, and optimized implementation.
+- [Adding a sampler](development-guide.md) gives the contributor workflow from
+  mathematical formalization through IR lowering, refinement, and Julia
+  integration.
+- [Non-adaptive AdvancedHMC parity](advancedhmc-parity.md) records the current
+  fixed-parameter HMC/NUTS runtime-coverage goal and its exclusions.
 - [Verified execution and optimization](verified-execution-and-optimization.md)
   separates serialization, execution witnesses, numerical certificates, and
   deliberately lightweight optimization paths.

@@ -12,13 +12,18 @@ include("Optimized/Optimized.jl")
 export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, BoundedRejectionSlice, SteppingOutSlice, SteppingOutSliceTrace, RestrictedQuarticSliceTraceCertificate, trace_stepping_out_slice, certify_stepping_out_slice_trace, certify_restricted_quartic_slice_trace, ShearedBirthDeathRJ, SpatialBirthDeathRJ, sheared_birth_unshear, TwoStateMH, GaussianRWMH, PositiveTransformedRWMH, OpenUnitTransformedRWMH,
     WarmupGaussianRWMH, GaussianRWMHWarmupResult, IndefiniteAdaptiveBool,
     IndefiniteAdaptiveContinuousRefresh, warmup,
-    ScalarHMC, VectorHMC, MultinomialHMC, CertifiedDynamicHMC,
+    ScalarHMC, VectorHMC, FixedIntegrationTimeHMC, JitteredHMC, TemperedHMC,
+    MultinomialHMC, NUTS, HMCTransition, transition, sample_with_diagnostics,
+    PartialMomentumHMC, HMCPhaseState, PartialMomentumTransition,
+    initialize_phase,
+    CertifiedDynamicHMC,
     CompletedTreeC4DynamicHMC,
     CheckedFirstStopDynamicHMC, CheckedRecursiveDynamicHMC,
     streaming_eligible_select,
     MetricMultinomialHMC,
     CategoricalDHMC,
-    DiagonalMetric, DenseMetric, MetricHMC, RelativisticMultinomialHMC,
+    DiagonalMetric, DenseMetric, RankUpdateMetric, MetricHMC,
+    RelativisticMultinomialHMC,
     GaussianSoftAbsGRHMC,
     CertifiedRelativisticMultinomialHMC,
     RestrictedExpr, RestrictedInput, RestrictedConst, RestrictedAdd,
@@ -895,6 +900,41 @@ struct DenseMetric
     end
 end
 
+"""Fixed Euclidean metric specified by a low-rank inverse-mass update.
+
+`inverse_mass = Diagonal(diagonal) + basis * update * basis'`. The current
+Reference backend materializes the corresponding dense mass matrix; the
+factorized `O(nk)` execution optimization is deliberately separate from the
+metric's semantics.
+"""
+struct RankUpdateMetric
+    diagonal::Vector{Float64}
+    basis::Matrix{Float64}
+    update::Matrix{Float64}
+    inverse_mass::Matrix{Float64}
+    mass::Matrix{Float64}
+    function RankUpdateMetric(diagonal::AbstractVector{<:Real},
+            basis::AbstractMatrix{<:Real}, update::AbstractMatrix{<:Real})
+        a = Float64.(diagonal)
+        b, d = Matrix{Float64}(basis), Matrix{Float64}(update)
+        isempty(a) && throw(ArgumentError("metric dimension must be positive"))
+        all(x -> isfinite(x) && x > 0, a) || throw(ArgumentError(
+            "rank-update diagonal must be finite and positive"))
+        size(b, 1) == length(a) || throw(DimensionMismatch("rank-update basis"))
+        size(d) == (size(b, 2), size(b, 2)) ||
+            throw(DimensionMismatch("rank-update inner matrix"))
+        all(isfinite, b) && all(isfinite, d) ||
+            throw(ArgumentError("rank-update factors must be finite"))
+        issymmetric(d) ||
+            throw(ArgumentError("rank-update inner matrix must be symmetric"))
+        precision = Matrix(Symmetric(Diagonal(a) + b * d * b'))
+        isposdef(precision) ||
+            throw(ArgumentError("rank-update inverse mass must be positive definite"))
+        mass = Matrix(inv(Symmetric(precision)))
+        new(a, b, d, precision, mass)
+    end
+end
+
 struct MetricHMC{F,G,M}
     logdensity::F
     gradient::G
@@ -902,7 +942,8 @@ struct MetricHMC{F,G,M}
     step_size::Float64
     steps::Int
     function MetricHMC(logdensity::F, gradient::G, metric::M,
-            step_size::Real, steps::Integer=10) where {F,G,M<:Union{DiagonalMetric,DenseMetric}}
+            step_size::Real, steps::Integer=10) where
+            {F,G,M<:Union{DiagonalMetric,DenseMetric,RankUpdateMetric}}
         converted = Float64(step_size)
         isfinite(converted) && converted > 0 ||
             throw(ArgumentError("step size must be finite and positive"))
@@ -913,6 +954,7 @@ end
 
 metric_mass(metric::DiagonalMetric) = metric.mass
 metric_mass(metric::DenseMetric) = metric.mass
+metric_mass(metric::RankUpdateMetric) = metric.mass
 
 struct MetricMultinomialHMC{F,G,M}
     logdensity::F
@@ -922,7 +964,7 @@ struct MetricMultinomialHMC{F,G,M}
     steps::Int
     function MetricMultinomialHMC(logdensity::F, gradient::G, metric::M,
             step_size::Real, steps::Integer=10) where
-            {F,G,M<:Union{DiagonalMetric,DenseMetric}}
+            {F,G,M<:Union{DiagonalMetric,DenseMetric,RankUpdateMetric}}
         converted = Float64(step_size)
         isfinite(converted) && converted > 0 ||
             throw(ArgumentError("step size must be finite and positive"))
@@ -2739,5 +2781,7 @@ end
 
 sample(sampler::TwoStateMH, initial::Bool, count::Integer) =
     sample(Random.default_rng(), sampler, initial, count)
+
+include("HMCParity.jl")
 
 end

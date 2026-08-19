@@ -740,6 +740,89 @@ theorem RecursivePhaseTree.toBuildFlagTree_continues_eq_true_iff
         RecursivePhaseTree.AllChecksPass,
         ihLeft, ihRight, and_assoc]
 
+/-! ### Production-style early-exit recursion -/
+
+/-- Observable control summary of a recursive tree build. `visitedLeaves`
+counts completed numerical leaves; `continues` records whether the complete
+subtree passed every leaf and internal U-turn check encountered online. -/
+structure OnlineBuildSummary where
+  visitedLeaves : Nat
+  continues : Bool
+  deriving DecidableEq, Repr
+
+/-- Execute the Boolean control flow of a production-style recursive build on
+a precomputed phase tree. The right subtree is not visited after the left
+subtree fails. This deliberately excludes candidate selection and numerical
+state construction, which have separate semantic obligations. -/
+def RecursivePhaseTree.onlineBuildSummary {Phase : Type*}
+    (leafContinues : Phase → Bool) (endpointTurns : Phase → Phase → Bool) :
+    RecursivePhaseTree Phase → OnlineBuildSummary
+  | .leaf phase => ⟨1, leafContinues phase⟩
+  | .node left right =>
+      let leftResult := left.onlineBuildSummary leafContinues endpointTurns
+      if !leftResult.continues then leftResult
+      else
+        let rightResult := right.onlineBuildSummary leafContinues endpointTurns
+        if !rightResult.continues then
+          ⟨leftResult.visitedLeaves + rightResult.visitedLeaves, false⟩
+        else
+          ⟨leftResult.visitedLeaves + rightResult.visitedLeaves,
+            !(endpointTurns left.leftmost right.rightmost)⟩
+
+/-- Early-exit recursion succeeds exactly when the corresponding completed
+recursive tree passes every local leaf and internal endpoint check. -/
+theorem RecursivePhaseTree.onlineBuildSummary_continues_eq_true_iff
+    {Phase : Type*} (leafContinues : Phase → Bool)
+    (endpointTurns : Phase → Phase → Bool)
+    (tree : RecursivePhaseTree Phase) :
+    (tree.onlineBuildSummary leafContinues endpointTurns).continues = true ↔
+      tree.AllChecksPass leafContinues endpointTurns := by
+  induction tree with
+  | leaf phase =>
+      simp [RecursivePhaseTree.onlineBuildSummary,
+        RecursivePhaseTree.AllChecksPass]
+  | node left right ihLeft ihRight =>
+      rw [RecursivePhaseTree.onlineBuildSummary]
+      split <;> simp_all [RecursivePhaseTree.AllChecksPass]
+      split <;> simp_all
+
+/-- Consequently the production-style online recursion and the completed-tree
+flag semantics return the same continuation bit. -/
+theorem RecursivePhaseTree.onlineBuildSummary_continues_eq_toBuildFlagTree
+    {Phase : Type*} (leafContinues : Phase → Bool)
+    (endpointTurns : Phase → Phase → Bool)
+    (tree : RecursivePhaseTree Phase) :
+    (tree.onlineBuildSummary leafContinues endpointTurns).continues =
+      (tree.toBuildFlagTree leafContinues endpointTurns).continues := by
+  apply Bool.eq_iff_iff.mpr
+  rw [tree.onlineBuildSummary_continues_eq_true_iff,
+    tree.toBuildFlagTree_continues_eq_true_iff]
+
+/-- A successful online recursion visited every leaf of the completed tree;
+early exit can only shorten a failed build. -/
+theorem RecursivePhaseTree.onlineBuildSummary_visitedLeaves_eq_leafCount
+    {Phase : Type*} (leafContinues : Phase → Bool)
+    (endpointTurns : Phase → Phase → Bool)
+    (tree : RecursivePhaseTree Phase)
+    (hcontinues :
+      (tree.onlineBuildSummary leafContinues endpointTurns).continues = true) :
+    (tree.onlineBuildSummary leafContinues endpointTurns).visitedLeaves =
+      tree.leafCount := by
+  induction tree with
+  | leaf phase => rfl
+  | node left right ihLeft ihRight =>
+      have hall := (onlineBuildSummary_continues_eq_true_iff
+        leafContinues endpointTurns (.node left right)).mp hcontinues
+      have hleft : left.AllChecksPass leafContinues endpointTurns := hall.1
+      have hright : right.AllChecksPass leafContinues endpointTurns := hall.2.1
+      have hleftContinues := (onlineBuildSummary_continues_eq_true_iff
+        leafContinues endpointTurns left).mpr hleft
+      have hrightContinues := (onlineBuildSummary_continues_eq_true_iff
+        leafContinues endpointTurns right).mpr hright
+      simp [RecursivePhaseTree.onlineBuildSummary, hleftContinues,
+        hrightContinues, ihLeft hleftContinues, ihRight hrightContinues,
+        RecursivePhaseTree.leafCount]
+
 /-- Concrete finite-dimensional NUTS flag tree using the already formalized
 Euclidean endpoint U-turn predicate. -/
 noncomputable def RecursivePhaseTree.toVectorNUTSBuildFlagTree

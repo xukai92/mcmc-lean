@@ -4,6 +4,8 @@ pages = [
     "Home" => "index.md",
     "Architecture" => [
         "Formalization" => "architecture.md",
+        "Adding a sampler" => "development-guide.md",
+        "AdvancedHMC parity" => "advancedhmc-parity.md",
         "Lean-generated graphs" => "generated/architecture-graphs.md",
         "Executable system" => "executable-architecture.md",
         "Verified execution and optimization" =>
@@ -41,7 +43,9 @@ pages = [
 # The Markdown files in docs/ remain canonical. Stage only published inputs so
 # Documenter never copies its build directory back into itself.
 published_files = [
-    "index.md", "architecture.md", "generated/architecture-graphs.md",
+    "index.md", "architecture.md", "development-guide.md",
+    "advancedhmc-parity.md",
+    "generated/architecture-graphs.md",
     "executable-architecture.md", "verified-execution-and-optimization.md",
     "continuous-executable-contract.md",
     "testing.md", "progress.md", "core-release-audit.md", "project-status.md",

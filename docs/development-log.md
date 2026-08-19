@@ -1,5 +1,23 @@
 # Development log
 
+## 2026-08-19: fixed-parameter HMC runtime parity and recursive control bridge
+
+Added a non-adaptive Julia HMC surface covering fixed integration time,
+per-trajectory step-size jitter, symmetric momentum tempering, persistent
+partial momentum refresh, and fixed low-rank-update metrics. Added classic and
+generalized NUTS with multinomial and slice selection, bounded tree depth,
+divergence termination, and structured diagnostics. Seeded primitive-trace,
+metric, divergence, reproducibility, and Gaussian-moment tests cover the new
+runtime paths. This is runtime coverage, not a blanket `Float64` correctness or
+stationarity claim.
+
+At the formal control-flow boundary, `RecursivePhaseTree.onlineBuildSummary`
+models production-style early exit on a precomputed phase tree. Lean proves
+that its continuation result equals the existing completed-tree flag semantics
+and that a successful build visits every leaf. Numerical tree construction,
+candidate selection, and the correspondence of the complete Julia NUTS
+transition to a verified invariant kernel remain explicit obligations.
+
 ## 2026-08-19: typed finite artifact parsing and lightweight optimization plan
 
 Added a Lean parser for the canonical S-expression artifact syntax and a typed
