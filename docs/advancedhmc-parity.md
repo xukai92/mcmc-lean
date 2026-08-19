@@ -63,6 +63,14 @@ foundations and conservative
 clients: runtime availability is not relabeled as verified recursive NUTS
 without the remaining correspondence argument.
 
+AdvancedHMC also exposes a position-dependent `GeneralizedLeapfrog`. That
+integrator is not silently counted as another entry in the fixed-Euclidean
+matrix above. The repository covers it on the separate GR-HMC track: Reference
+and Optimized Julia expose the fixed-point generalized-leapfrog primitive,
+certificate-aware clients enforce the declared implicit-solver boundary, and
+`GaussianSoftAbsGRHMC` is a public runnable sampler. Arbitrary
+position-dependent generalized-leapfrog NUTS composition is not claimed.
+
 ## Explicit exclusions
 
 - HMCDA, dual averaging, and initial-step-size adaptation;

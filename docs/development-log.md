@@ -74,6 +74,12 @@ Deterministic tests cover the complete three-termination × two-selection ×
 three-integrator runtime matrix, and a synthetic tree distinguishes the strict
 criterion from the ordinary generalized one.
 
+The parity page now also accounts explicitly for AdvancedHMC's
+position-dependent `GeneralizedLeapfrog`. Existing fixed-point Reference and
+Optimized execution, certified solver clients, and `GaussianSoftAbsGRHMC` are
+linked as the separate GR-HMC coverage track; they are not presented as an
+arbitrary composition with the fixed-Euclidean NUTS matrix.
+
 ## 2026-08-19: typed finite artifact parsing and lightweight optimization plan
 
 Added a Lean parser for the canonical S-expression artifact syntax and a typed
