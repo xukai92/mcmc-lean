@@ -6053,3 +6053,60 @@ identifies the complete computed checked-recursion kernel with its ideal-real
 counterpart at every depth. The oracle checks the complete endpoint array and
 rejects a mutated coordinate. This is a concrete rounded trajectory theorem,
 not a platform-wide IEEE bound or an arbitrary production-NUTS equivalence.
+
+## 2026-08-19: HMC benchmark suite and published report
+
+Added a local `benchmark/` Julia environment with BenchmarkTools and
+AdvancedHMC. Its configurable 100-dimensional isotropic-Gaussian,
+AR(1)-correlated-Gaussian, product-quartic, ill-conditioned-Gaussian, and
+regularized-logistic workloads compare the maintained Reference and Optimized
+endpoint-HMC transitions with AdvancedHMC's unit-metric
+`Leapfrog`/`FixedNSteps`/`EndPointTS` transition.
+All paths use analytic gradients, identical step size and trajectory length,
+and warmed low-level transition loops; the benchmark therefore excludes AD,
+compilation, and AdvancedHMC's optional retained-sample/diagnostic storage.
+The harness also reports the analogous Reference, Optimized, and AdvancedHMC
+fixed-length multinomial-trajectory timings. These share the target, metric,
+step size, and integration budget, but no cross-package pathwise equivalence is
+claimed for their different trajectory-selection mechanics.
+An AdvancedHMC-only generalized multinomial-NUTS row records transition
+throughput and its observed average leapfrog count. No checked dynamic-tree
+interface is relabeled as NUTS, because production recursive-NUTS equivalence
+remains outside the repository's claims.
+The runner emits tidy CSV with median and interquartile timing, throughput,
+memory, allocations, and mean integration work. A separate generator converts
+those committed results into an absolute-throughput SVG and full Documenter report;
+the site navigation and root index expose the new page without running noisy
+performance measurements during an ordinary documentation build.
+The full mode now uses ten fixed complete-chain timing repetitions per case
+and commits every repetition alongside the aggregate CSV. The report replaces
+normalized bars with a log-throughput dot-and-whisker chart: translucent points
+show individual runs, large points show medians, and intervals show the IQR.
+All three statistics are computed from the same raw timings. A three-repetition,
+1,000-transition `--dev` mode writes ignored scratch CSV and supports harness
+and layout iteration without replacing the published measurements.
+The report groups its absolute-throughput distribution by target and then
+algorithm. Each row compares libraries only for that common case, while the shared
+logarithmic throughput axis still permits legitimate cross-row reading and
+does not privilege one external library as a permanent baseline. Separate
+per-algorithm tables present targets as rows and available libraries as columns,
+so adding another comparison library extends the same structure naturally.
+The target definitions live under `VerifiedSamplers.jl/test/support/`, not in
+the installed sampler module. Registered Julia tests check every fixture's
+gradient and symmetry, and add direct product-quartic and regularized-logistic
+moment regressions. The benchmark includes those same fixtures, adds
+AdvancedHMC-only preconditioned endpoint and multinomial cases on the two
+geometry targets, and runs separate quality chains reporting moment error,
+minimum coordinate ESS, ESS/s, movement, acceptance, divergences, and mean
+integration work.
+
+Sampling-quality work is deliberately split by cost and stability. Integrated
+Julia tests own lightweight pass/fail contracts: target-gradient consistency,
+known moments, and eventually full covariance checks for correlated Gaussians
+and a few analytical marginal quantiles. The benchmark report owns heavier
+diagnostics: multiple independent chains, split rank-normalized R-hat, bulk
+and tail ESS (including ESS per gradient evaluation), covariance-error and
+empirical-quantile/ECDF views, and Monte Carlo uncertainty for reported errors.
+These benchmark diagnostics should gain visible warning thresholds after they
+are calibrated, but should not become flaky CI gates merely by being added to
+the report.

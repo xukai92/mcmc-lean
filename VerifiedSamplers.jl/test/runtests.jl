@@ -10,6 +10,8 @@ const Optimized = VerifiedSamplers.Optimized
 const REPO_ROOT = normpath(joinpath(@__DIR__, "..", ".."))
 const ORACLE = joinpath(REPO_ROOT, "formal", ".lake", "build", "bin", "mcmc_oracle")
 
+include("support/TestTargets.jl")
+
 include("properties.jl")
 include("geweke.jl")
 include("unit.jl")

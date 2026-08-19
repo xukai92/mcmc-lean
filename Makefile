@@ -1,4 +1,4 @@
-.PHONY: all formal oracle julia test generate check-generated generate-docs check-docs-generated docs experiments experiment-xu21 experiment-xu21-logistic experiment-particle-gibbs-count experiment-dynamic-hmc experiment-restricted-quartic experiment-reversible-jump experiment-warmup-rwmh experiment-indefinite-adaptation experiment-indefinite-continuous-adaptation experiment-constrained-transforms experiment-ge-pg-hmc experiment-gaussian-softabs experiment-gaussian-performance
+.PHONY: all formal oracle julia test generate check-generated generate-docs check-docs-generated docs benchmarks benchmark-dev benchmark-hmc benchmark-report experiments experiment-xu21 experiment-xu21-logistic experiment-particle-gibbs-count experiment-dynamic-hmc experiment-restricted-quartic experiment-reversible-jump experiment-warmup-rwmh experiment-indefinite-adaptation experiment-indefinite-continuous-adaptation experiment-constrained-transforms experiment-ge-pg-hmc experiment-gaussian-softabs experiment-gaussian-performance
 
 XU21_SEED ?= 2021
 XU21_REPLICATES ?= 100
@@ -78,6 +78,18 @@ check-docs-generated:
 docs: generate-docs
 	julia --project=docs -e 'using Pkg; Pkg.instantiate()'
 	julia --project=docs docs/make.jl
+
+benchmarks: benchmark-hmc benchmark-report
+
+benchmark-dev:
+	julia --project=benchmark benchmark/run.jl --dev
+	julia --project=benchmark benchmark/report.jl --dev
+
+benchmark-hmc:
+	julia --project=benchmark benchmark/run.jl
+
+benchmark-report:
+	julia --project=benchmark benchmark/report.jl
 
 experiments: experiment-xu21 experiment-xu21-logistic \
 	experiment-particle-gibbs-count experiment-dynamic-hmc \
