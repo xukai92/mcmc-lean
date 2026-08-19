@@ -3,7 +3,30 @@ module Runtime
 using Random
 
 export AbstractRandomSource, RNGSource, TraceSource, FloatTraceSource,
-    NormalEvent, UniformEvent, IndexEvent, draw_below!, standard_normal!, uniform_unit!, remaining
+    NormalEvent, UniformEvent, IndexEvent, draw_below!, standard_normal!,
+    uniform_unit!, remaining, checked_positive_float, checked_positive_count,
+    checked_finite_float
+
+"""Convert a public numeric parameter to a positive finite `Float64`."""
+function checked_positive_float(value::Real, label::AbstractString)
+    converted = Float64(value)
+    isfinite(converted) && converted > 0.0 ||
+        throw(ArgumentError("$label must be finite and positive"))
+    converted
+end
+
+"""Convert a public count parameter to a positive machine integer."""
+function checked_positive_count(value::Integer, label::AbstractString)
+    value > 0 || throw(ArgumentError("$label must be positive"))
+    Int(value)
+end
+
+"""Convert a scalar state to finite `Float64` runtime representation."""
+function checked_finite_float(value::Real, label::AbstractString)
+    converted = Float64(value)
+    isfinite(converted) || throw(ArgumentError("$label must be finite"))
+    converted
+end
 
 abstract type AbstractRandomSource end
 

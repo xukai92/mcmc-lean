@@ -1,5 +1,24 @@
 # Development log
 
+## 2026-08-19: exhaustive maintained IR input validation
+
+The Julia artifact decoder now rejects unknown input kinds and duplicate input
+names instead of allowing an unknown kind through or silently overwriting an
+environment binding. Runtime argument validation explicitly covers every input
+kind present in canonical artifact version 19, including exact natural vectors
+and matrices and the existing certified-HMC callbacks. Parser and validator
+regressions cover the rejection cases. The artifact format and algorithm set
+are unchanged.
+
+## 2026-08-19: shared scalar runtime input contracts
+
+Centralized the already-identical positive-finite parameter, positive-count,
+and finite scalar-state checks used by the public, Reference, and Optimized
+RWMH/scalar-HMC paths. Transition arithmetic and callback evaluation remain
+independent, preserving the value of differential testing. Unit tests fix the
+shared validation behavior. This is an execution-infrastructure refactor and
+does not change any sampler or theorem claim.
+
 ## 2026-08-19: generated assurance registry and HMC golden-path audit
 
 Added a Lean-maintained, generated assurance registry for the existing scalar

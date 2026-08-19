@@ -2,7 +2,9 @@ module Optimized
 
 using LinearAlgebra
 
-using ...Runtime: AbstractRandomSource, draw_below!, standard_normal!, uniform_unit!
+using ...Runtime: AbstractRandomSource, draw_below!, standard_normal!,
+    uniform_unit!, checked_positive_float, checked_positive_count,
+    checked_finite_float
 using ...Certificates: ImplicitSolveCertificate, certify_implicit_solve,
     certifies_exact_solver
 
@@ -526,9 +528,9 @@ end
 """Independent Float64 implementation of scalar one-step endpoint HMC."""
 function scalar_hmc_step!(source::AbstractRandomSource, logdensity, gradient,
         step_size::Float64, steps::Integer, current::Float64)
-    isfinite(step_size) && step_size > 0.0 ||
-        throw(ArgumentError("step size must be finite and positive"))
-    steps > 0 || throw(ArgumentError("leapfrog steps must be positive"))
+    checked_positive_float(step_size, "step size")
+    checked_positive_count(steps, "leapfrog steps")
+    checked_finite_float(current, "current state")
     momentum = standard_normal!(source)
     next_position, next_momentum = current, momentum
     for _ in 1:steps
@@ -544,7 +546,8 @@ end
 """Tested Float64 Gaussian RWMH step; not an exact realization of Lean `ℝ`."""
 function gaussian_rwmh_step!(source::AbstractRandomSource, logdensity,
         scale::Float64, current::Float64)
-    isfinite(scale) && scale > 0.0 || throw(ArgumentError("scale must be finite and positive"))
+    checked_positive_float(scale, "scale")
+    checked_finite_float(current, "current state")
     proposal = current + scale * standard_normal!(source)
     logratio = logdensity(proposal) - logdensity(current)
     log(uniform_unit!(source)) < min(0.0, logratio) ? proposal : current

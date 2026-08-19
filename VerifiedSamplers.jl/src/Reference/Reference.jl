@@ -2,7 +2,9 @@ module Reference
 
 using LinearAlgebra
 
-using ..Runtime: AbstractRandomSource, draw_below!, standard_normal!, uniform_unit!
+using ..Runtime: AbstractRandomSource, draw_below!, standard_normal!,
+    uniform_unit!, checked_positive_float, checked_positive_count,
+    checked_finite_float
 using ..Certificates: ImplicitSolveCertificate, certify_implicit_solve,
     certifies_exact_solver
 
@@ -378,6 +380,11 @@ struct Program
     body::Vector{Any}
 end
 
+const SUPPORTED_INPUT_KINDS = Set([
+    "source", "log-density", "gradient", "hamiltonian", "metric-factor",
+    "integrator", "nat", "nat-vector", "nat-matrix", "real",
+    "real-vector", "real-matrix"])
+
 struct OperatorDescriptor
     name::String
     engine::String
@@ -396,10 +403,15 @@ function decode_program(node::SList)
     input_node = items(aslist(values[3]))
     atom(input_node[1]) == "inputs" || error("invalid IR inputs")
     inputs = Tuple{String,String}[]
+    input_names = Set{String}()
     for raw in input_node[2:end]
         input = items(aslist(raw))
         length(input) == 3 && atom(input[1]) == "input" || error("invalid IR input")
-        push!(inputs, (atom(input[2]), atom(input[3])))
+        kind, name = atom(input[2]), atom(input[3])
+        kind in SUPPORTED_INPUT_KINDS || error("unsupported IR input kind: $kind")
+        name in input_names && error("duplicate IR input name: $name")
+        push!(input_names, name)
+        push!(inputs, (kind, name))
     end
     body_node = items(aslist(values[4]))
     atom(body_node[1]) == "body" || error("invalid IR body")
@@ -833,20 +845,33 @@ function execute_block(body, env::Dict{String,Any})
     nothing
 end
 
+function valid_input_value(kind::String, value)
+    kind == "source" && return value isa AbstractRandomSource
+    (kind == "log-density" || kind == "gradient") &&
+        return applicable(value, 0.0) || applicable(value, Float64[])
+    kind == "hamiltonian" && return applicable(value, Float64[], Float64[])
+    kind == "metric-factor" && return applicable(value, Float64[])
+    kind == "integrator" &&
+        return applicable(value, Float64[], Float64[], 0.0)
+    kind == "nat" && return value isa Integer && value >= 0
+    kind == "nat-vector" &&
+        return value isa AbstractVector{<:Integer}
+    kind == "nat-matrix" && return value isa AbstractVector &&
+        all(row -> row isa AbstractVector{<:Integer}, value)
+    kind == "real" && return value isa Real
+    kind == "real-vector" && return value isa AbstractVector{<:Real}
+    kind == "real-matrix" && return value isa AbstractMatrix{<:Real}
+    false
+end
+
 function run_program(name::String, arguments...)
     program = get(PROGRAMS, name, nothing)
     program === nothing && error("unknown IR program: $name")
     length(arguments) == length(program.inputs) || throw(ArgumentError("IR argument count"))
     env = Dict{String,Any}()
     for ((input_kind, input_name), value) in zip(program.inputs, arguments)
-        valid = input_kind == "source" ? value isa AbstractRandomSource :
-            input_kind == "log-density" || input_kind == "gradient" ?
-                (applicable(value, 0.0) || applicable(value, Float64[])) :
-            input_kind == "real" ? value isa Real : true
-        valid = input_kind == "nat" ? value isa Integer && value >= 0 : valid
-        valid = input_kind == "real-vector" ? value isa AbstractVector{<:Real} : valid
-        valid = input_kind == "real-matrix" ? value isa AbstractMatrix{<:Real} : valid
-        valid || throw(ArgumentError("invalid $input_kind input: $input_name"))
+        valid_input_value(input_kind, value) ||
+            throw(ArgumentError("invalid $input_kind input: $input_name"))
         env[input_name] = value
     end
     result = execute_block(program.body, env)
@@ -956,9 +981,8 @@ primitives use Julia's concrete Float64 semantics.
 """
 function gaussian_rwmh_step!(source::AbstractRandomSource, logdensity,
         scale::Float64, current::Float64)
-    isfinite(scale) && scale > 0.0 ||
-        throw(ArgumentError("scale must be finite and positive"))
-    isfinite(current) || throw(ArgumentError("current state must be finite"))
+    checked_positive_float(scale, "scale")
+    checked_finite_float(current, "current state")
     checked = value -> checked_logdensity(logdensity, value)
     Float64(run_program("gaussian_rwmh_step!", source, checked, scale, current))
 end
@@ -966,10 +990,9 @@ end
 """Float64 interpretation of the serialized scalar one-step HMC program."""
 function scalar_hmc_step!(source::AbstractRandomSource, logdensity, gradient,
         step_size::Float64, steps::Integer, current::Float64)
-    isfinite(step_size) && step_size > 0.0 ||
-        throw(ArgumentError("step size must be finite and positive"))
-    steps > 0 || throw(ArgumentError("leapfrog steps must be positive"))
-    isfinite(current) || throw(ArgumentError("current state must be finite"))
+    checked_positive_float(step_size, "step size")
+    checked_positive_count(steps, "leapfrog steps")
+    checked_finite_float(current, "current state")
     checked_log = value -> checked_logdensity(logdensity, value)
     checked_grad = value -> checked_gradient(gradient, value)
     Float64(run_program("scalar_hmc_step!", source, checked_log, checked_grad,

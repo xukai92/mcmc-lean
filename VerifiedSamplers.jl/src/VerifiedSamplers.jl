@@ -1257,20 +1257,17 @@ struct ScalarHMC{F,G}
     steps::Int
     function ScalarHMC{F,G}(logdensity::F, gradient::G,
             step_size::Float64, steps::Int) where {F,G}
-        isfinite(step_size) && step_size > 0.0 ||
-            throw(ArgumentError("step size must be finite and positive"))
-        steps > 0 || throw(ArgumentError("leapfrog steps must be positive"))
+        Runtime.checked_positive_float(step_size, "step size")
+        Runtime.checked_positive_count(steps, "leapfrog steps")
         new{F,G}(logdensity, gradient, step_size, steps)
     end
 end
 
 function ScalarHMC(logdensity::F, gradient::G, step_size::Real,
         steps::Integer=10) where {F,G}
-    converted = Float64(step_size)
-    isfinite(converted) && converted > 0.0 ||
-        throw(ArgumentError("step size must be finite and positive"))
-    steps > 0 || throw(ArgumentError("leapfrog steps must be positive"))
-    ScalarHMC{F,G}(logdensity, gradient, converted, Int(steps))
+    converted = Runtime.checked_positive_float(step_size, "step size")
+    converted_steps = Runtime.checked_positive_count(steps, "leapfrog steps")
+    ScalarHMC{F,G}(logdensity, gradient, converted, converted_steps)
 end
 
 function step(rng::AbstractRNG, sampler::ScalarHMC, current::Real)
@@ -1313,9 +1310,7 @@ struct GaussianRWMH{F}
     logdensity::F
     scale::Float64
     function GaussianRWMH(logdensity::F, scale::Real) where {F}
-        converted = Float64(scale)
-        isfinite(converted) && converted > 0.0 ||
-            throw(ArgumentError("scale must be finite and positive"))
+        converted = Runtime.checked_positive_float(scale, "scale")
         new{F}(logdensity, converted)
     end
 end

@@ -17,6 +17,14 @@
     @test_throws ArgumentError Reference.categorical_index!(Runtime.TraceSource([0]), [1, -1])
     @test_throws ArgumentError Optimized.categorical_index!(Runtime.TraceSource([0]), [1, -1])
     @test_throws ArgumentError sample(MersenneTwister(1), FiniteWeights([1]), -1)
+
+    @test Runtime.checked_positive_float(0.5, "scale") === 0.5
+    @test Runtime.checked_positive_count(big(3), "steps") === 3
+    @test Runtime.checked_finite_float(2, "state") === 2.0
+    @test_throws ArgumentError Runtime.checked_positive_float(Inf, "scale")
+    @test_throws ArgumentError Runtime.checked_positive_float(0, "scale")
+    @test_throws ArgumentError Runtime.checked_positive_count(0, "steps")
+    @test_throws ArgumentError Runtime.checked_finite_float(NaN, "state")
 end
 
 
@@ -372,6 +380,17 @@ end
     @test_throws ArgumentError generated_dynamic_tree(
         "missing", [0.0], [1.0], Bool[])
     @test_throws ErrorException Reference.parse_document("(unterminated")
+    unknown_input = Reference.parse_document(
+        "(program \"bad\" (inputs (input mystery \"x\")) (body))")
+    @test_throws ErrorException Reference.decode_program(
+        Reference.aslist(unknown_input))
+    duplicate_input = Reference.parse_document(
+        "(program \"bad\" (inputs (input real \"x\") (input nat \"x\")) (body))")
+    @test_throws ErrorException Reference.decode_program(
+        Reference.aslist(duplicate_input))
+    @test Reference.valid_input_value("nat-vector", BigInt[1, 2])
+    @test Reference.valid_input_value("nat-matrix", [BigInt[1], BigInt[2]])
+    @test !Reference.valid_input_value("unsupported", nothing)
     mktemp() do path, stream
         write(stream, "(verified-samplers-ir 2 bogus)\n")
         close(stream)
