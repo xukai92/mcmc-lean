@@ -31,6 +31,22 @@ succeeds. Connecting Julia's concrete call trace to this Lean recursion and
 then relating the complete Julia transition to a verified invariant kernel
 remain explicit obligations.
 
+The upstream API audit also corrected fixed-integration-time behavior to
+AdvancedHMC's `max(1, floor(λ / ε))`: a positive integration time shorter than
+one nominal step now executes one step instead of being rejected. The parity
+page distinguishes feature-level coverage from full Cartesian component
+composition and records which integrator/trajectory combinations have
+dedicated constructors. NUTS now supports ordinary, per-trajectory jittered,
+and tempered leapfrog across both termination criteria, both selection rules,
+and every maintained fixed metric. The audit also corrected slice-mode
+divergence to use its sampled log-slice threshold and changed reported tree
+depth to count only successful doublings, matching the upstream transition.
+Outer candidate replacement now uses the upstream subtree/current MH ratio,
+while recursive internal merges retain normalized combined-tree selection;
+these are deliberately separate rules. The maximum-energy diagnostic retains
+the signed error with greatest absolute magnitude rather than only its
+absolute value.
+
 ## 2026-08-19: typed finite artifact parsing and lightweight optimization plan
 
 Added a Lean parser for the canonical S-expression artifact syntax and a typed

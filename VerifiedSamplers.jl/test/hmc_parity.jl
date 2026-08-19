@@ -18,8 +18,14 @@
 
     @test_throws ArgumentError FixedIntegrationTimeHMC(
         logdensity, gradient, 0.0, 1.0)
-    @test_throws ArgumentError FixedIntegrationTimeHMC(
+    short_time = FixedIntegrationTimeHMC(
         logdensity, gradient, 1.0, 0.5)
+    @test short_time.steps == 1
+    @test sample(MersenneTwister(0x71ad), short_time, zeros(2), 10) ==
+        sample(MersenneTwister(0x71ad),
+            VectorHMC(logdensity, gradient, 1.0, 1), zeros(2), 10)
+    @test_throws ArgumentError FixedIntegrationTimeHMC(
+        logdensity, gradient, 1.0, 0.0)
 end
 
 @testset "jittered HMC" begin

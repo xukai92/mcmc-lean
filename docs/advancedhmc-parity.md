@@ -4,6 +4,14 @@ This page fixes the scope of the current runtime-coverage goal. The comparison
 target is the fixed-parameter algorithmic surface of AdvancedHMC.jl, not its
 adaptation, accelerator, or probabilistic-programming integrations.
 
+The audit follows AdvancedHMC's current [detailed API](https://turinglang.org/AdvancedHMC.jl/stable/api/)
+and its authoritative [integrator](https://github.com/TuringLang/AdvancedHMC.jl/blob/master/src/integrator.jl)
+and [trajectory](https://github.com/TuringLang/AdvancedHMC.jl/blob/master/src/trajectory.jl)
+sources. In particular, fixed integration time uses
+`max(1, floor(trajectory_length / nominal_step_size))`, and jitter is symmetric
+around the nominal step size. The prose formula in the upstream jitter
+docstring omits that symmetry, while the implementation applies it.
+
 “Runnable” means a stable public Julia constructor and `step`/`sample` path with
 deterministic tests. It does not by itself mean that Julia `Float64` execution
 has inherited an exact-real Lean theorem. Formal and execution-refinement
@@ -23,10 +31,28 @@ coverage are tracked separately.
 | Safety | Maximum tree depth and Hamiltonian-divergence termination |
 | Results | Structured acceptance, energy, step-count, depth, and divergence diagnostics |
 
-The main missing algorithm is a production-shaped fixed-parameter NUTS family.
-Existing checked dynamic-tree samplers are foundations and conservative clients;
-they are not relabeled as ordinary recursive NUTS without a correspondence
-argument.
+This is feature-level coverage, not a claim that every trajectory, integrator,
+metric, and momentum-refresh component can currently be combined arbitrarily.
+The maintained combinations are:
+
+| Trajectory | Ordinary | Jittered | Tempered | Partial refresh |
+|---|---:|---:|---:|---:|
+| Fixed-step endpoint | Yes | Yes | Yes | Yes, ordinary integrator |
+| Fixed integration time endpoint | Yes | Via equivalent fixed nominal step count | Via equivalent fixed nominal step count | No dedicated wrapper |
+| Fixed multinomial | Yes | No dedicated wrapper | No dedicated wrapper | No dedicated wrapper |
+| Dynamic NUTS | Yes | Yes | Yes | No dedicated wrapper |
+
+All maintained ordinary endpoint and NUTS paths accept unit, diagonal, dense,
+and fixed low-rank-update metrics. Jittered, tempered, and partial-refresh
+endpoint paths accept the same metrics. “Via equivalent fixed nominal step
+count” means the user constructs the corresponding integrator sampler with the
+step count determined from the nominal step size; it is not yet one composable
+constructor.
+
+The production-shaped fixed-parameter NUTS family is now runnable. Existing
+checked dynamic-tree samplers remain distinct foundations and conservative
+clients: runtime availability is not relabeled as verified recursive NUTS
+without the remaining correspondence argument.
 
 ## Explicit exclusions
 
@@ -66,7 +92,7 @@ construct, or introduce a typed sub-IR/certified primitive.
 | Fixed multinomial HMC | Complete | Existing exact multinomial-HMC theory |
 | Jittered endpoint HMC | Complete | Runtime mixture over fixed-step transitions; dedicated IR/refinement pending |
 | Tempered endpoint HMC | Complete | Runtime implementation; formal integrator/refinement pending |
-| Fixed-parameter NUTS family | Complete for all four runtime combinations | Lean proves equal continuation and equal ordered candidate occurrences for successful online/completed builds; numerical tree construction and full transition correspondence remain pending |
+| Fixed-parameter NUTS family | Complete for classic/generalized × slice/multinomial × ordinary/jittered/tempered runtime combinations | Lean proves equal continuation and equal ordered candidate occurrences for successful online/completed builds; numerical tree construction and full transition correspondence remain pending |
 | Partial momentum refresh | Complete for fixed-step endpoint runtime | Formal momentum-refresh foundations exist; runtime composition refinement pending |
 | Fixed low-rank-update metric | Complete through dense Reference lowering | General constant-metric foundations exist; factorized-performance lowering is not claimed |
 | Structured transition diagnostics | Complete for NUTS and partial-refresh transitions | Diagnostic data are not part of kernel correctness |

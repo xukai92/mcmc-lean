@@ -7,8 +7,8 @@ variants whose semantics reuse those established transition implementations.
 """Endpoint HMC terminated by a fixed integration time.
 
 The number of leapfrog updates is `floor(integration_time / step_size)`,
-matching the conventional fixed-integration-time termination rule. At least
-one update must fit. This is a fixed-parameter sampler; it performs no step-size
+with a minimum of one, matching AdvancedHMC's fixed-integration-time
+termination rule. This is a fixed-parameter sampler; it performs no step-size
 or metric adaptation.
 """
 struct FixedIntegrationTimeHMC{S}
@@ -23,9 +23,7 @@ function _fixed_integration_steps(step_size::Real, integration_time::Real)
         throw(ArgumentError("step size must be finite and positive"))
     isfinite(λ) && λ > 0 ||
         throw(ArgumentError("integration time must be finite and positive"))
-    steps = floor(Int, λ / ε)
-    steps > 0 || throw(ArgumentError(
-        "integration time must contain at least one leapfrog step"))
+    steps = max(1, floor(Int, λ / ε))
     ε, λ, steps
 end
 
@@ -280,8 +278,11 @@ end
 """Fixed-parameter No-U-Turn Sampler.
 
 `termination` is `:classic` or `:generalized`; `selection` is `:multinomial`
-or `:slice`. The step size, metric, maximum depth, and divergence threshold are
-fixed. No warmup or adaptation is performed.
+or `:slice`; `integrator` is `:leapfrog`, `:jittered`, or `:tempered`.
+Jitter is realized once per trajectory, while tempering wraps each one-step
+dynamic-tree leaf in the symmetric half-temper schedule. The nominal step size,
+metric, maximum depth, and divergence threshold are fixed. No warmup or
+adaptation is performed.
 """
 struct NUTS{F,G,M}
     logdensity::F
@@ -292,15 +293,20 @@ struct NUTS{F,G,M}
     max_energy_error::Float64
     termination::Symbol
     selection::Symbol
+    integrator::Symbol
+    jitter::Float64
+    temperature::Float64
 end
 
 function NUTS(logdensity::F, gradient::G, step_size::Real;
         metric=nothing, max_depth::Integer=10, max_energy_error::Real=1000.0,
         termination::Symbol=:generalized,
-        selection::Symbol=:multinomial) where {F,G}
+        selection::Symbol=:multinomial, integrator::Symbol=:leapfrog,
+        jitter::Real=0.1, temperature::Real=1.0) where {F,G}
     metric isa Union{Nothing,DiagonalMetric,DenseMetric,RankUpdateMetric} ||
         throw(ArgumentError("unsupported fixed metric"))
     ε, Δmax = Float64(step_size), Float64(max_energy_error)
+    jitter_amount, tempering = Float64(jitter), Float64(temperature)
     isfinite(ε) && ε > 0 ||
         throw(ArgumentError("step size must be finite and positive"))
     max_depth > 0 || throw(ArgumentError("maximum tree depth must be positive"))
@@ -310,8 +316,21 @@ function NUTS(logdensity::F, gradient::G, step_size::Real;
         "termination must be :classic or :generalized"))
     selection in (:multinomial, :slice) || throw(ArgumentError(
         "selection must be :multinomial or :slice"))
+    integrator in (:leapfrog, :jittered, :tempered) || throw(ArgumentError(
+        "integrator must be :leapfrog, :jittered, or :tempered"))
+    isfinite(jitter_amount) && 0 <= jitter_amount < 1 || throw(ArgumentError(
+        "jitter must lie in [0, 1)"))
+    isfinite(tempering) && tempering > 0 || throw(ArgumentError(
+        "temperature must be finite and positive"))
     NUTS{F,G,typeof(metric)}(logdensity, gradient, metric, ε,
-        Int(max_depth), Δmax, termination, selection)
+        Int(max_depth), Δmax, termination, selection, integrator,
+        jitter_amount, tempering)
+end
+
+function _nuts_step_size!(source::Runtime.AbstractRandomSource, sampler::NUTS)
+    sampler.integrator === :jittered || return sampler.step_size
+    uniform = Runtime.uniform_unit!(source)
+    sampler.step_size * (1 + sampler.jitter * (2uniform - 1))
 end
 
 function _nuts_phase(sampler::NUTS, position, momentum, velocity)
@@ -324,19 +343,23 @@ function _nuts_phase(sampler::NUTS, position, momentum, velocity)
 end
 
 function _nuts_leapfrog(sampler::NUTS, phase::_NUTSPhase,
-        direction::Int, velocity)
-    ε = direction * sampler.step_size
+        direction::Int, velocity, realized_step_size::Float64=sampler.step_size)
+    ε = direction * realized_step_size
+    momentum = phase.momentum
+    scale = sqrt(sampler.temperature)
+    sampler.integrator === :tempered && (momentum = momentum .* scale)
     force = Float64.(sampler.gradient(phase.position))
     length(force) == length(phase.position) ||
         throw(DimensionMismatch("gradient dimension"))
     all(isfinite, force) || throw(DomainError(force, "gradient must be finite"))
-    half = phase.momentum .- (ε / 2) .* force
+    half = momentum .- (ε / 2) .* force
     position = phase.position .+ ε .* velocity(half)
     force = Float64.(sampler.gradient(position))
     length(force) == length(position) ||
         throw(DimensionMismatch("gradient dimension"))
     all(isfinite, force) || throw(DomainError(force, "gradient must be finite"))
     momentum = half .- (ε / 2) .* force
+    sampler.integrator === :tempered && (momentum = momentum ./ scale)
     _nuts_phase(sampler, position, momentum, velocity)
 end
 
@@ -346,6 +369,9 @@ function _logaddexp(left::Float64, right::Float64)
     top = max(left, right)
     top + log(exp(left - top) + exp(right - top))
 end
+
+_maxabs(left::Float64, right::Float64) =
+    abs(left) > abs(right) ? left : right
 
 function _nuts_uturn(sampler::NUTS, left::_NUTSPhase, right::_NUTSPhase,
         momentum_sum::AbstractVector{<:Real}, velocity)
@@ -374,10 +400,8 @@ function _choose_subtree_candidate!(source::Runtime.AbstractRandomSource,
     end
 end
 
-function _combine_nuts_trees!(source::Runtime.AbstractRandomSource,
-        sampler::NUTS, left::_NUTSTree, right::_NUTSTree, velocity)
-    candidate = _choose_subtree_candidate!(
-        source, sampler.selection, left, right)
+function _combine_nuts_trees(sampler::NUTS, left::_NUTSTree,
+        right::_NUTSTree, velocity, candidate::_NUTSPhase)
     momentum_sum = left.momentum_sum .+ right.momentum_sum
     stopped = left.stopped || right.stopped ||
         _nuts_uturn(sampler, left.left, right.right, momentum_sum, velocity)
@@ -386,30 +410,54 @@ function _combine_nuts_trees!(source::Runtime.AbstractRandomSource,
         left.eligible + right.eligible,
         left.acceptance_sum + right.acceptance_sum,
         left.leapfrog_steps + right.leapfrog_steps,
-        max(left.max_energy_error, right.max_energy_error), stopped,
+        _maxabs(left.max_energy_error, right.max_energy_error), stopped,
         left.divergent || right.divergent)
+end
+
+function _combine_nuts_trees!(source::Runtime.AbstractRandomSource,
+        sampler::NUTS, left::_NUTSTree, right::_NUTSTree, velocity)
+    candidate = _choose_subtree_candidate!(
+        source, sampler.selection, left, right)
+    _combine_nuts_trees(sampler, left, right, velocity, candidate)
+end
+
+function _choose_outer_candidate!(source::Runtime.AbstractRandomSource,
+        selection::Symbol, current::_NUTSTree, subtree::_NUTSTree)
+    accept = if selection === :slice
+        current.eligible * Runtime.uniform_unit!(source) < subtree.eligible
+    else
+        log(Runtime.uniform_unit!(source)) <
+            subtree.logweight - current.logweight
+    end
+    accept ? subtree.candidate : current.candidate
 end
 
 function _build_nuts_tree!(source::Runtime.AbstractRandomSource,
         sampler::NUTS, start::_NUTSPhase, direction::Int, depth::Int,
-        initial_energy::Float64, log_slice::Float64, velocity)
+        initial_energy::Float64, log_slice::Float64, velocity,
+        realized_step_size::Float64=sampler.step_size)
     if depth == 0
-        next = _nuts_leapfrog(sampler, start, direction, velocity)
+        next = _nuts_leapfrog(
+            sampler, start, direction, velocity, realized_step_size)
         error = next.energy - initial_energy
-        divergent = !isfinite(error) || error > sampler.max_energy_error
+        divergent = if sampler.selection === :slice
+            !isfinite(error) || !(log_slice < sampler.max_energy_error + next.logweight)
+        else
+            !isfinite(error) || !(error < sampler.max_energy_error)
+        end
         eligible = sampler.selection === :slice ?
             Int(!divergent && next.logweight >= log_slice) : Int(!divergent)
         logweight = sampler.selection === :multinomial && !divergent ?
             next.logweight : -Inf
         _NUTSTree(next, next, next, copy(next.momentum), logweight, eligible,
-            exp(min(0.0, -error)), 1, abs(error), divergent, divergent)
+            exp(min(0.0, -error)), 1, error, divergent, divergent)
     else
         first = _build_nuts_tree!(source, sampler, start, direction, depth - 1,
-            initial_energy, log_slice, velocity)
+            initial_energy, log_slice, velocity, realized_step_size)
         first.stopped && return first
         second_start = direction < 0 ? first.left : first.right
         second = _build_nuts_tree!(source, sampler, second_start, direction,
-            depth - 1, initial_energy, log_slice, velocity)
+            depth - 1, initial_energy, log_slice, velocity, realized_step_size)
         direction < 0 ?
             _combine_nuts_trees!(source, sampler, second, first, velocity) :
             _combine_nuts_trees!(source, sampler, first, second, velocity)
@@ -422,6 +470,7 @@ function transition(rng::AbstractRNG, sampler::NUTS,
     initial = Float64.(current)
     isempty(initial) && throw(ArgumentError("position cannot be empty"))
     all(isfinite, initial) || throw(ArgumentError("position must be finite"))
+    realized_step_size = _nuts_step_size!(source, sampler)
     momentum, velocity = _fixed_metric_dynamics(
         source, sampler.metric, length(initial))
     initial_phase = _nuts_phase(sampler, initial, momentum, velocity)
@@ -435,11 +484,16 @@ function transition(rng::AbstractRNG, sampler::NUTS,
         direction = Runtime.draw_below!(source, 2) == 0 ? -1 : 1
         start = direction < 0 ? tree.left : tree.right
         subtree = _build_nuts_tree!(source, sampler, start, direction, depth,
-            initial_phase.energy, log_slice, velocity)
+            initial_phase.energy, log_slice, velocity, realized_step_size)
         if !subtree.stopped
+            candidate = _choose_outer_candidate!(
+                source, sampler.selection, tree, subtree)
             tree = direction < 0 ?
-                _combine_nuts_trees!(source, sampler, subtree, tree, velocity) :
-                _combine_nuts_trees!(source, sampler, tree, subtree, velocity)
+                _combine_nuts_trees(
+                    sampler, subtree, tree, velocity, candidate) :
+                _combine_nuts_trees(
+                    sampler, tree, subtree, velocity, candidate)
+            depth += 1
         else
             tree = _NUTSTree(
                 direction < 0 ? subtree.left : tree.left,
@@ -448,10 +502,9 @@ function transition(rng::AbstractRNG, sampler::NUTS,
                 tree.logweight, tree.eligible,
                 tree.acceptance_sum + subtree.acceptance_sum,
                 tree.leapfrog_steps + subtree.leapfrog_steps,
-                max(tree.max_energy_error, subtree.max_energy_error), true,
+                _maxabs(tree.max_energy_error, subtree.max_energy_error), true,
                 tree.divergent || subtree.divergent)
         end
-        depth += 1
     end
     selected = tree.candidate
     acceptance_rate = tree.leapfrog_steps == 0 ? 1.0 :
