@@ -85,7 +85,12 @@ makedocs(
     pagesonly = true,
     format = Documenter.HTML(
         prettyurls = get(ENV, "CI", "false") == "true",
-        assets = ["assets/mermaid.js"],
+        assets = [
+            "assets/mermaid.js",
+            "assets/benchmarks/hmc-interactive-data.js",
+            "assets/benchmarks/hmc-interactive.css",
+            "assets/benchmarks/hmc-interactive.js",
+        ],
         repolink = "https://github.com/xukai92/mcmc-lean",
         # The current log and each archive epoch are bounded independently.
         # The search index intentionally includes all three published archive

@@ -61,6 +61,11 @@ documentation page and SVG chart from those files. Run metadata is stored
 separately in `benchmark/results/metadata.csv`, so regenerating a historical
 report does not relabel it with the current checkout or machine.
 
+The generated Documenter page also includes an interactive Plotly explorer
+with metric, target, algorithm, implementation, and grouping controls. Its
+browser dataset is generated from the same committed CSV files. The SVG is
+retained as a static fallback for non-JavaScript readers and portable output.
+
 The same timed chains write quality summaries to
 `benchmark/results/quality.csv`. They report
 moment error against each fixture's known mean and marginal variance, minimum

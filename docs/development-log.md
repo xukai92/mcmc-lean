@@ -1,5 +1,13 @@
 # Development log
 
+## 2026-08-19: interactive benchmark explorer
+
+The benchmark report generator now emits a browser dataset from the same
+committed timing and quality CSVs used by its tables and static SVG. The
+Documenter page adds a Plotly explorer with metric, target, algorithm,
+implementation, and grouping controls, including per-seed timing hover data.
+The existing SVG remains the non-JavaScript and portable-rendering fallback.
+
 ## 2026-08-19: NUTS names follow verification boundaries
 
 The canonical public `NUTS` constructor now denotes the checked,

@@ -2,7 +2,18 @@
 
 This is a reproducible implementation benchmark, not a theorem about convergence or a claim that Float64 execution is identical to the exact-real Lean semantics.
 
-![HMC transition-throughput distributions](assets/benchmarks/hmc-throughput.svg)
+```@raw html
+<div id="hmc-benchmark-explorer" class="benchmark-explorer" aria-label="Interactive HMC benchmark explorer">
+  <p class="benchmark-loading">Loading interactive benchmark…</p>
+</div>
+```
+
+The interactive chart supports metric, target, algorithm, implementation, and grouping controls. Hover over a point for its chain seed and repetition or its aggregate quality diagnostics.
+
+??? note "Static chart fallback"
+    The committed SVG remains available for non-JavaScript readers and portable rendering.
+
+    ![HMC transition-throughput distributions](assets/benchmarks/hmc-throughput.svg)
 
 Rows are grouped first by target and then by algorithm. Within each row, colors compare libraries implementing that same `target × algorithm` case. Small translucent points are complete-chain timing repetitions; large points and thick intervals are medians and IQRs. The shared logarithmic axis retains absolute throughput and remains extensible to additional libraries.
 
