@@ -1,4 +1,7 @@
 import Mcmc.PDMP.ScheduledExecutionKernel
+import Mcmc.Kernel.GeneralConvergence
+import Mcmc.Kernel.LocalMinorizationCoupling
+import Mathlib.MeasureTheory.Measure.WithDensity
 
 /-!
 # Random refresh schedules for jointly timed Markov transitions
@@ -15,6 +18,260 @@ open scoped NNReal ProbabilityTheory
 namespace Mcmc.PDMP
 
 variable {State : Type*} [MeasurableSpace State]
+
+/-- Append two absolute timestamp vectors, translating the second vector to
+the adjacent interval. -/
+def shiftAppendTimestamps (firstHorizon : NNReal)
+    (first : Fin firstCount → ℝ) (second : Fin secondCount → ℝ) :
+    Fin (firstCount + secondCount) → ℝ :=
+  Fin.append first (fun i => (firstHorizon : ℝ) + second i)
+
+theorem measurable_shiftAppendTimestamps (firstHorizon : NNReal)
+    (firstCount secondCount : ℕ) :
+    Measurable (fun pair : (Fin firstCount → ℝ) × (Fin secondCount → ℝ) =>
+      shiftAppendTimestamps firstHorizon pair.1 pair.2) := by
+  apply measurable_pi_lambda
+  intro i
+  refine Fin.addCases (motive := fun i =>
+    Measurable (fun pair : (Fin firstCount → ℝ) ×
+      (Fin secondCount → ℝ) =>
+      shiftAppendTimestamps firstHorizon pair.1 pair.2 i)) ?_ ?_ i
+  · intro left
+    simp only [shiftAppendTimestamps, Fin.append_left]
+    fun_prop
+  · intro right
+    simp only [shiftAppendTimestamps, Fin.append_right]
+    fun_prop
+
+/-- Appending monotone timestamp blocks in adjacent intervals remains
+monotone when the first block ends by the boundary and the second starts
+nonnegatively. -/
+theorem monotone_shiftAppendTimestamps
+    (firstHorizon : NNReal) (first : Fin firstCount → ℝ)
+    (second : Fin secondCount → ℝ)
+    (hfirstMono : Monotone first) (hsecondMono : Monotone second)
+    (hfirstLe : ∀ i, first i ≤ (firstHorizon : ℝ))
+    (hsecondNonneg : ∀ i, 0 ≤ second i) :
+    Monotone (shiftAppendTimestamps firstHorizon first second) := by
+  intro i j hij
+  by_cases hi : i.val < firstCount
+  · let firstI : Fin firstCount := ⟨i.val, hi⟩
+    have hiEq : i = Fin.castAdd secondCount firstI := by
+      apply Fin.ext
+      rfl
+    by_cases hj : j.val < firstCount
+    · let firstJ : Fin firstCount := ⟨j.val, hj⟩
+      have hjEq : j = Fin.castAdd secondCount firstJ := by
+        apply Fin.ext
+        rfl
+      rw [hiEq, hjEq, shiftAppendTimestamps, Fin.append_left,
+        Fin.append_left]
+      exact hfirstMono (Fin.mk_le_mk.mpr hij)
+    · have hjOffset : j.val - firstCount < secondCount := by omega
+      let secondJ : Fin secondCount := ⟨j.val - firstCount, hjOffset⟩
+      have hjEq : j = Fin.natAdd firstCount secondJ := by
+        apply Fin.ext
+        simp [secondJ]
+        omega
+      rw [hiEq, hjEq, shiftAppendTimestamps, Fin.append_left,
+        Fin.append_right]
+      exact (hfirstLe firstI).trans
+        (le_add_of_nonneg_right (hsecondNonneg secondJ))
+  · have hiOffset : i.val - firstCount < secondCount := by omega
+    have hjOffset : j.val - firstCount < secondCount := by omega
+    let secondI : Fin secondCount := ⟨i.val - firstCount, hiOffset⟩
+    let secondJ : Fin secondCount := ⟨j.val - firstCount, hjOffset⟩
+    have hiEq : i = Fin.natAdd firstCount secondI := by
+      apply Fin.ext
+      simp [secondI]
+      omega
+    have hjEq : j = Fin.natAdd firstCount secondJ := by
+      apply Fin.ext
+      simp [secondJ]
+      omega
+    rw [hiEq, hjEq, shiftAppendTimestamps, Fin.append_right,
+      Fin.append_right]
+    have hIJ : secondI ≤ secondJ := Fin.mk_le_mk.mpr (by omega)
+    simpa [add_comm] using
+      (add_le_add_left (hsecondMono hIJ) (firstHorizon : ℝ))
+
+/-- Block-diagonal permutation that sorts each side of an appended timestamp
+vector without mixing the two adjacent intervals. -/
+noncomputable def shiftAppendSortPermutation
+    (first : Fin firstCount → ℝ) (second : Fin secondCount → ℝ) :
+    Equiv.Perm (Fin (firstCount + secondCount)) :=
+  finSumFinEquiv.symm |>.trans
+    ((Tuple.sort first).sumCongr (Tuple.sort second) |>.trans finSumFinEquiv)
+
+theorem shiftAppend_comp_shiftAppendSortPermutation
+    (firstHorizon : NNReal) (first : Fin firstCount → ℝ)
+    (second : Fin secondCount → ℝ) :
+    shiftAppendTimestamps firstHorizon first second ∘
+        shiftAppendSortPermutation first second =
+      shiftAppendTimestamps firstHorizon
+        (first ∘ Tuple.sort first) (second ∘ Tuple.sort second) := by
+  funext i
+  refine Fin.addCases (motive := fun i =>
+    (shiftAppendTimestamps firstHorizon first second ∘
+        shiftAppendSortPermutation first second) i =
+      shiftAppendTimestamps firstHorizon
+        (first ∘ Tuple.sort first) (second ∘ Tuple.sort second) i) ?_ ?_ i
+  · intro left
+    simp [shiftAppendSortPermutation, shiftAppendTimestamps,
+      Function.comp_apply]
+  · intro right
+    simp [shiftAppendSortPermutation, shiftAppendTimestamps,
+      Function.comp_apply]
+
+/-- Sorting a concatenation of timestamp blocks from adjacent intervals is
+the same as sorting each block separately and then appending them. -/
+theorem tupleSortValues_shiftAppend
+    (firstHorizon : NNReal) (first : Fin firstCount → ℝ)
+    (second : Fin secondCount → ℝ)
+    (hfirstLe : ∀ i, first i ≤ (firstHorizon : ℝ))
+    (hsecondNonneg : ∀ i, 0 ≤ second i) :
+    shiftAppendTimestamps firstHorizon first second ∘
+        Tuple.sort (shiftAppendTimestamps firstHorizon first second) =
+      shiftAppendTimestamps firstHorizon
+        (first ∘ Tuple.sort first) (second ∘ Tuple.sort second) := by
+  have hcandMono := monotone_shiftAppendTimestamps firstHorizon
+    (first ∘ Tuple.sort first) (second ∘ Tuple.sort second)
+    (Tuple.monotone_sort first) (Tuple.monotone_sort second)
+    (fun i => hfirstLe (Tuple.sort first i))
+    (fun i => hsecondNonneg (Tuple.sort second i))
+  rw [← shiftAppend_comp_shiftAppendSortPermutation] at hcandMono
+  have hunique := Tuple.unique_monotone hcandMono
+    (Tuple.monotone_sort
+      (shiftAppendTimestamps firstHorizon first second))
+  rw [shiftAppend_comp_shiftAppendSortPermutation] at hunique
+  exact hunique.symm
+
+/-- Wait conversion on coordinates in the first timestamp block is unchanged
+by appending an adjacent block. -/
+theorem orderedTimestampsToWaits_shiftAppend_castAdd
+    (firstHorizon : NNReal) (first : Fin firstCount → ℝ)
+    (second : Fin secondCount → ℝ) (i : Fin firstCount) :
+    orderedTimestampsToWaits
+        (shiftAppendTimestamps firstHorizon first second)
+        (Fin.castAdd secondCount i) =
+      orderedTimestampsToWaits first i := by
+  unfold orderedTimestampsToWaits
+  by_cases hzero : i.val = 0
+  · rw [dif_pos hzero, dif_pos (by simpa using hzero)]
+    rw [shiftAppendTimestamps, Fin.append_left]
+  · rw [dif_neg hzero, dif_neg (by simpa using hzero)]
+    rw [shiftAppendTimestamps, Fin.append_left]
+    let previousCombined : Fin (firstCount + secondCount) :=
+      ⟨(Fin.castAdd secondCount i).val - 1,
+        lt_of_le_of_lt (Nat.sub_le _ _) (Fin.castAdd secondCount i).isLt⟩
+    let previousFirst : Fin firstCount :=
+      ⟨i.val - 1, lt_of_le_of_lt (Nat.sub_le _ _) i.isLt⟩
+    have hprevious : previousCombined =
+        Fin.castAdd secondCount previousFirst := by
+      apply Fin.ext
+      rfl
+    change Real.toNNReal
+      (first i - shiftAppendTimestamps firstHorizon first second
+        previousCombined) = Real.toNNReal (first i - first previousFirst)
+    rw [hprevious, shiftAppendTimestamps, Fin.append_left]
+
+/-- Away from the first coordinate of the second block, translating and
+appending timestamps leaves its inter-event waits unchanged. -/
+theorem orderedTimestampsToWaits_shiftAppend_natAdd_succ
+    (firstHorizon : NNReal) (first : Fin firstCount → ℝ)
+    (second : Fin (secondCount + 1) → ℝ) (i : Fin secondCount) :
+    orderedTimestampsToWaits
+        (shiftAppendTimestamps firstHorizon first second)
+        (Fin.natAdd firstCount i.succ) =
+      orderedTimestampsToWaits second i.succ := by
+  unfold orderedTimestampsToWaits
+  rw [dif_neg (by simp), dif_neg (by simp)]
+  rw [shiftAppendTimestamps, Fin.append_right]
+  let previousCombined : Fin (firstCount + (secondCount + 1)) :=
+    ⟨(Fin.natAdd firstCount i.succ).val - 1,
+      lt_of_le_of_lt (Nat.sub_le _ _) (Fin.natAdd firstCount i.succ).isLt⟩
+  let previousSecond : Fin (secondCount + 1) :=
+    ⟨i.succ.val - 1,
+      lt_of_le_of_lt (Nat.sub_le _ _) i.succ.isLt⟩
+  have hprevious : previousCombined =
+      Fin.natAdd firstCount previousSecond := by
+    apply Fin.ext
+    simp [previousCombined, previousSecond]
+  change Real.toNNReal
+      (((firstHorizon : ℝ) + second i.succ) -
+        shiftAppendTimestamps firstHorizon first second previousCombined) =
+    Real.toNNReal (second i.succ - second previousSecond)
+  rw [hprevious, shiftAppendTimestamps, Fin.append_right]
+  apply congrArg Real.toNNReal
+  ring
+
+/-- The first wait in the translated second block is exactly its original
+first wait plus the unused residual of the first horizon. -/
+theorem orderedTimestampsToWaits_shiftAppend_bridge
+    (firstHorizon : NNReal) (first : Fin firstCount → ℝ)
+    (second : Fin (secondCount + 1) → ℝ)
+    (hfirstMono : Monotone first)
+    (hfirstNonneg : ∀ i, 0 ≤ first i)
+    (hfirstLe : ∀ i, first i ≤ (firstHorizon : ℝ))
+    (hsecondZero : 0 ≤ second 0) :
+    orderedTimestampsToWaits
+        (shiftAppendTimestamps firstHorizon first second)
+        (Fin.natAdd firstCount 0) =
+      (firstHorizon - ∑ i, orderedTimestampsToWaits first i) +
+        orderedTimestampsToWaits second 0 := by
+  cases firstCount with
+  | zero =>
+      have hzeroIndex : Fin.natAdd 0 (0 : Fin (secondCount + 1)) = 0 := by
+        apply Fin.ext
+        simp
+      rw [hzeroIndex]
+      apply NNReal.eq
+      rw [orderedTimestampsToWaits_zero,
+        orderedTimestampsToWaits_zero]
+      simp only [shiftAppendTimestamps,
+        Finset.univ_eq_empty, Finset.sum_empty, tsub_zero, NNReal.coe_add]
+      rw [Fin.append_left_nil first
+        (fun i => (firstHorizon : ℝ) + second i) rfl]
+      simp [Real.toNNReal_of_nonneg hsecondZero,
+        Real.toNNReal_of_nonneg
+          (add_nonneg (NNReal.coe_nonneg firstHorizon) hsecondZero)]
+  | succ n =>
+      have hsumReal := sum_orderedTimestampsToWaits first hfirstMono
+        (hfirstNonneg 0)
+      have hsumLe : (∑ i, orderedTimestampsToWaits first i) ≤
+          firstHorizon := by
+        rw [← NNReal.coe_le_coe, hsumReal]
+        exact hfirstLe (Fin.last n)
+      let previousCombined : Fin ((n + 1) + (secondCount + 1)) :=
+        ⟨(Fin.natAdd (n + 1) (0 : Fin (secondCount + 1))).val - 1,
+          lt_of_le_of_lt (Nat.sub_le _ _)
+            (Fin.natAdd (n + 1) (0 : Fin (secondCount + 1))).isLt⟩
+      have hprevious : previousCombined =
+          Fin.castAdd (secondCount + 1) (Fin.last n) := by
+        apply Fin.ext
+        simp [previousCombined]
+      have hbridgeWait :
+          orderedTimestampsToWaits
+              (shiftAppendTimestamps firstHorizon first second)
+              (Fin.natAdd (n + 1) 0) =
+            Real.toNNReal ((firstHorizon : ℝ) + second 0 -
+              first (Fin.last n)) := by
+        unfold orderedTimestampsToWaits
+        rw [dif_neg (by simp)]
+        change Real.toNNReal
+          (shiftAppendTimestamps firstHorizon first second
+              (Fin.natAdd (n + 1) 0) -
+            shiftAppendTimestamps firstHorizon first second previousCombined) = _
+        rw [hprevious, shiftAppendTimestamps, Fin.append_right,
+          Fin.append_left]
+      rw [hbridgeWait, orderedTimestampsToWaits_zero]
+      apply NNReal.eq
+      rw [NNReal.coe_add, NNReal.coe_sub hsumLe, hsumReal]
+      simp only [Real.coe_toNNReal _ hsecondZero]
+      have hdiff : 0 ≤ (firstHorizon : ℝ) + second 0 - first (Fin.last n) := by
+        linarith [hfirstLe (Fin.last n)]
+      rw [Real.coe_toNNReal _ hdiff]
+      ring
 
 /-- Concatenate padded wait schedules across adjacent horizons. The first
 wait of the second schedule is joined to the unused residual of the first
@@ -59,6 +316,485 @@ theorem measurable_concatenateRefreshSchedules (firstHorizon : NNReal)
   · exact hbridge
   · fun_prop
   · fun_prop
+
+/-- Concatenate two schedules using the counts stored in the schedules
+themselves. -/
+def concatenateAdjacentRefreshSchedules (firstHorizon : NNReal)
+    (schedules : CandidateScheduleSample × CandidateScheduleSample) :
+    CandidateScheduleSample :=
+  concatenateRefreshSchedules firstHorizon schedules.1.1 schedules.2.1 schedules
+
+/-- Stored-count schedule concatenation is measurable. -/
+theorem measurable_concatenateAdjacentRefreshSchedules
+    (firstHorizon : NNReal) :
+    Measurable (concatenateAdjacentRefreshSchedules firstHorizon) := by
+  intro event hevent
+  rw [show concatenateAdjacentRefreshSchedules firstHorizon ⁻¹' event =
+      ⋃ firstCount : ℕ, ⋃ secondCount : ℕ,
+        ({schedules | schedules.1.1 = firstCount ∧
+            schedules.2.1 = secondCount} ∩
+          concatenateRefreshSchedules firstHorizon firstCount secondCount ⁻¹'
+            event) by
+    ext schedules
+    simp only [Set.mem_preimage, Set.mem_iUnion, Set.mem_inter_iff,
+      Set.mem_setOf_eq]
+    constructor
+    · intro hschedules
+      exact ⟨schedules.1.1, schedules.2.1, ⟨rfl, rfl⟩, hschedules⟩
+    · rintro ⟨firstCount, secondCount, ⟨hfirst, hsecond⟩, hschedules⟩
+      simpa [concatenateAdjacentRefreshSchedules, hfirst, hsecond] using
+        hschedules]
+  apply MeasurableSet.iUnion
+  intro firstCount
+  apply MeasurableSet.iUnion
+  intro secondCount
+  exact ((measurableSet_eq_fun (measurable_fst.comp measurable_fst)
+      measurable_const).inter
+    (measurableSet_eq_fun (measurable_fst.comp measurable_snd)
+      measurable_const)).inter
+    ((measurable_concatenateRefreshSchedules firstHorizon firstCount
+      secondCount) hevent)
+
+/-- For already ordered timestamp blocks in adjacent intervals, conversion to
+padded waits commutes exactly with schedule concatenation. -/
+theorem padCandidateWaits_orderedTimestampsToWaits_shiftAppend
+    (firstHorizon : NNReal) (first : Fin firstCount → ℝ)
+    (second : Fin secondCount → ℝ)
+    (hfirstMono : Monotone first)
+    (hfirstNonneg : ∀ i, 0 ≤ first i)
+    (hfirstLe : ∀ i, first i ≤ (firstHorizon : ℝ))
+    (hsecondNonneg : ∀ i, 0 ≤ second i) :
+    padCandidateWaits (firstCount + secondCount)
+        (orderedTimestampsToWaits
+          (shiftAppendTimestamps firstHorizon first second)) =
+      concatenateRefreshSchedules firstHorizon firstCount secondCount
+        (padCandidateWaits firstCount (orderedTimestampsToWaits first),
+          padCandidateWaits secondCount (orderedTimestampsToWaits second)) := by
+  apply Prod.ext
+  · rfl
+  · funext index
+    by_cases hfirstIndex : index < firstCount
+    · have htotal : index < firstCount + secondCount := by omega
+      simp only [padCandidateWaits, htotal, dite_true,
+        concatenateRefreshSchedules, hfirstIndex]
+      exact orderedTimestampsToWaits_shiftAppend_castAdd firstHorizon first
+        second ⟨index, hfirstIndex⟩
+    · by_cases hsecondIndex : index - firstCount < secondCount
+      · have htotal : index < firstCount + secondCount := by omega
+        rw [show (padCandidateWaits (firstCount + secondCount)
+            (orderedTimestampsToWaits
+              (shiftAppendTimestamps firstHorizon first second))).2 index =
+            orderedTimestampsToWaits
+              (shiftAppendTimestamps firstHorizon first second) ⟨index, htotal⟩ by
+          simp [padCandidateWaits, htotal]]
+        change orderedTimestampsToWaits
+            (shiftAppendTimestamps firstHorizon first second) ⟨index, htotal⟩ =
+          (concatenateRefreshSchedules firstHorizon firstCount secondCount
+            (padCandidateWaits firstCount (orderedTimestampsToWaits first),
+              padCandidateWaits secondCount
+                (orderedTimestampsToWaits second))).2 index
+        by_cases hbridge : index = firstCount
+        · subst index
+          have hsecondPos : 0 < secondCount := by omega
+          obtain ⟨remaining, rfl⟩ := Nat.exists_eq_succ_of_ne_zero
+            (Nat.ne_of_gt hsecondPos)
+          simp only [concatenateRefreshSchedules, lt_irrefl, ↓reduceDIte,
+            Nat.sub_self, Nat.zero_lt_succ, ↓reduceIte]
+          unfold scheduleElapsed
+          rw [scheduleElapsed_padCandidateWaits]
+          have hbridgeIndex :
+              (⟨firstCount, htotal⟩ : Fin (firstCount + (remaining + 1))) =
+                Fin.natAdd firstCount 0 := by
+            apply Fin.ext
+            simp
+          rw [hbridgeIndex]
+          rw [show (padCandidateWaits (remaining + 1)
+              (orderedTimestampsToWaits second)).2 0 =
+              orderedTimestampsToWaits second 0 by
+            simp [padCandidateWaits]]
+          exact orderedTimestampsToWaits_shiftAppend_bridge firstHorizon
+            first second hfirstMono hfirstNonneg hfirstLe
+              (hsecondNonneg 0)
+        ·
+          have hoffsetPos : 0 < index - firstCount := by omega
+          obtain ⟨offset, hoffset⟩ := Nat.exists_eq_succ_of_ne_zero
+            (Nat.ne_of_gt hoffsetPos)
+          have hfirstLeIndex : firstCount ≤ index := by omega
+          have hindexValue : index = firstCount + offset + 1 := by
+            have hcancel := Nat.sub_add_cancel hfirstLeIndex
+            omega
+          have hsecondCountPos : 0 < secondCount := by omega
+          obtain ⟨remaining, hremaining⟩ := Nat.exists_eq_succ_of_ne_zero
+            (Nat.ne_of_gt hsecondCountPos)
+          subst secondCount
+          have hoffsetFin : offset < remaining := by omega
+          have hindexEq :
+              (⟨index, htotal⟩ : Fin (firstCount + (remaining + 1))) =
+                Fin.natAdd firstCount
+                  (⟨offset, hoffsetFin⟩ : Fin remaining).succ := by
+            apply Fin.ext
+            change index = firstCount + (offset + 1)
+            omega
+          rw [hindexEq]
+          simp only [concatenateRefreshSchedules, hindexValue,
+            show ¬firstCount + offset + 1 < firstCount by omega,
+            ↓reduceDIte,
+            show firstCount + offset + 1 - firstCount = offset + 1 by omega,
+            show offset + 1 < remaining + 1 by omega, ↓reduceDIte,
+            show firstCount + offset + 1 ≠ firstCount by omega,
+            ↓reduceIte]
+          rw [show (padCandidateWaits (remaining + 1)
+              (orderedTimestampsToWaits second)).2 (offset + 1) =
+              orderedTimestampsToWaits second
+                (⟨offset, hoffsetFin⟩ : Fin remaining).succ by
+            unfold padCandidateWaits
+            change (if h : offset + 1 < remaining + 1 then
+              orderedTimestampsToWaits second ⟨offset + 1, h⟩ else 0) = _
+            rw [dif_pos (by omega)]
+            congr 2]
+          simpa [padCandidateWaits] using
+            (orderedTimestampsToWaits_shiftAppend_natAdd_succ
+              firstHorizon first second ⟨offset, hoffsetFin⟩)
+      · have htotalNot : ¬index < firstCount + secondCount := by omega
+        simp [padCandidateWaits, concatenateRefreshSchedules, hfirstIndex,
+          hsecondIndex, htotalNot]
+
+/-- On the adjacent-horizon support, the complete raw-timestamp-to-schedule
+map commutes with translating/appending the raw blocks and concatenating the
+resulting schedules. -/
+theorem timestampsToSchedule_shiftAppend
+    (first : PositiveHorizon) (second : PositiveHorizon)
+    (firstTimes : Fin firstCount → ℝ)
+    (secondTimes : Fin secondCount → ℝ)
+    (hfirstInside : ∀ i,
+      firstTimes i ∈ Set.Ioc 0 (first.duration : ℝ))
+    (hsecondInside : ∀ i,
+      secondTimes i ∈ Set.Ioc 0 (second.duration : ℝ)) :
+    timestampsToSchedule (firstCount + secondCount)
+        (shiftAppendTimestamps first.duration firstTimes secondTimes) =
+      concatenateRefreshSchedules first.duration firstCount secondCount
+        (timestampsToSchedule firstCount firstTimes,
+          timestampsToSchedule secondCount secondTimes) := by
+  unfold timestampsToSchedule
+  rw [tupleSortValues_shiftAppend first.duration firstTimes secondTimes
+    (fun i => (hfirstInside i).2)
+    (fun i => le_of_lt (hsecondInside i).1)]
+  exact padCandidateWaits_orderedTimestampsToWaits_shiftAppend first.duration
+    (firstTimes ∘ Tuple.sort firstTimes)
+    (secondTimes ∘ Tuple.sort secondTimes)
+    (Tuple.monotone_sort firstTimes)
+    (fun i => le_of_lt (hfirstInside (Tuple.sort firstTimes i)).1)
+    (fun i => (hfirstInside (Tuple.sort firstTimes i)).2)
+    (fun i => le_of_lt (hsecondInside (Tuple.sort secondTimes i)).1)
+
+/-- Law-level version of timestamp/schedule concatenation for two independent
+uniform timestamp blocks. -/
+theorem map_timestampsToSchedule_shiftAppend_prod
+    (first second : PositiveHorizon) (firstCount secondCount : ℕ) :
+    Measure.map (timestampsToSchedule (firstCount + secondCount))
+        (Measure.map
+          (fun pair : (Fin firstCount → ℝ) × (Fin secondCount → ℝ) =>
+            shiftAppendTimestamps first.duration pair.1 pair.2)
+          ((first.candidateTimesMeasure firstCount).prod
+            (second.candidateTimesMeasure secondCount))) =
+      Measure.map
+        (concatenateRefreshSchedules first.duration firstCount secondCount)
+        ((first.fixedScheduleMeasure (timestampOrdering firstCount)).prod
+          (second.fixedScheduleMeasure
+            (timestampOrdering secondCount))) := by
+  rw [first.fixedScheduleMeasure_timestampOrdering,
+    second.fixedScheduleMeasure_timestampOrdering]
+  rw [Measure.map_prod_map _ _
+    (measurable_timestampsToSchedule firstCount)
+    (measurable_timestampsToSchedule secondCount)]
+  rw [Measure.map_map (measurable_timestampsToSchedule
+      (firstCount + secondCount))
+    (measurable_shiftAppendTimestamps first.duration firstCount secondCount)]
+  rw [Measure.map_map
+    (measurable_concatenateRefreshSchedules first.duration firstCount
+      secondCount)
+    ((measurable_timestampsToSchedule firstCount).prodMap
+      (measurable_timestampsToSchedule secondCount))]
+  apply Measure.map_congr
+  apply (Measure.ae_prod_iff_ae_ae
+    (measurableSet_eq_fun
+      ((measurable_timestampsToSchedule (firstCount + secondCount)).comp
+        (measurable_shiftAppendTimestamps first.duration firstCount
+          secondCount))
+      ((measurable_concatenateRefreshSchedules first.duration firstCount
+          secondCount).comp
+        ((measurable_timestampsToSchedule firstCount).prodMap
+          (measurable_timestampsToSchedule secondCount))))).2
+  filter_upwards [first.ae_candidateTimesMeasure_mem firstCount] with
+      firstTimes hfirst
+  filter_upwards [second.ae_candidateTimesMeasure_mem secondCount] with
+      secondTimes hsecond
+  exact timestampsToSchedule_shiftAppend first second firstTimes secondTimes
+    hfirst hsecond
+
+/-- Generic law-level timestamp concatenation for any two tuple laws supported
+on their respective adjacent horizons. -/
+theorem map_timestampsToSchedule_shiftAppend_prod_of_ae
+    (first second : PositiveHorizon) (firstCount secondCount : ℕ)
+    (firstLaw : Measure (Fin firstCount → ℝ))
+    (secondLaw : Measure (Fin secondCount → ℝ))
+    [SFinite firstLaw] [SFinite secondLaw]
+    (hfirst : ∀ᵐ times ∂firstLaw,
+      ∀ i, times i ∈ Set.Ioc 0 (first.duration : ℝ))
+    (hsecond : ∀ᵐ times ∂secondLaw,
+      ∀ i, times i ∈ Set.Ioc 0 (second.duration : ℝ)) :
+    Measure.map (timestampsToSchedule (firstCount + secondCount))
+        (Measure.map
+          (fun pair : (Fin firstCount → ℝ) × (Fin secondCount → ℝ) =>
+            shiftAppendTimestamps first.duration pair.1 pair.2)
+          (firstLaw.prod secondLaw)) =
+      Measure.map
+        (concatenateRefreshSchedules first.duration firstCount secondCount)
+        ((Measure.map (timestampsToSchedule firstCount) firstLaw).prod
+          (Measure.map (timestampsToSchedule secondCount) secondLaw)) := by
+  rw [Measure.map_prod_map _ _
+    (measurable_timestampsToSchedule firstCount)
+    (measurable_timestampsToSchedule secondCount)]
+  rw [Measure.map_map (measurable_timestampsToSchedule
+      (firstCount + secondCount))
+    (measurable_shiftAppendTimestamps first.duration firstCount secondCount)]
+  rw [Measure.map_map
+    (measurable_concatenateRefreshSchedules first.duration firstCount
+      secondCount)
+    ((measurable_timestampsToSchedule firstCount).prodMap
+      (measurable_timestampsToSchedule secondCount))]
+  apply Measure.map_congr
+  apply (Measure.ae_prod_iff_ae_ae
+    (measurableSet_eq_fun
+      ((measurable_timestampsToSchedule (firstCount + secondCount)).comp
+        (measurable_shiftAppendTimestamps first.duration firstCount
+          secondCount))
+      ((measurable_concatenateRefreshSchedules first.duration firstCount
+          secondCount).comp
+        ((measurable_timestampsToSchedule firstCount).prodMap
+          (measurable_timestampsToSchedule secondCount))))).2
+  filter_upwards [hfirst] with firstTimes hfirstTimes
+  filter_upwards [hsecond] with secondTimes hsecondTimes
+  exact timestampsToSchedule_shiftAppend first second firstTimes secondTimes
+    hfirstTimes hsecondTimes
+
+/-- Translating and appending independent timestamp-mass tuples produces the
+canonical first-block/second-block product measure on absolute timestamps. -/
+theorem map_shiftAppend_pi_timestampMass_prod
+    (first second : PositiveHorizon) (firstCount secondCount : ℕ) :
+    Measure.map
+        (fun pair : (Fin firstCount → ℝ) × (Fin secondCount → ℝ) =>
+          shiftAppendTimestamps first.duration pair.1 pair.2)
+        ((Measure.pi fun _ : Fin firstCount =>
+            first.timestampMassMeasure).prod
+          (Measure.pi fun _ : Fin secondCount =>
+            second.timestampMassMeasure)) =
+      Measure.pi fun i : Fin (firstCount + secondCount) =>
+        if canonicalBoolAssignment (firstCount + secondCount) firstCount i
+        then first.timestampMassMeasure
+        else Measure.map
+          (fun time : ℝ => (first.duration : ℝ) + time)
+          second.timestampMassMeasure := by
+  let shift : ℝ → ℝ := fun time => (first.duration : ℝ) + time
+  let shiftTuple : (Fin secondCount → ℝ) → (Fin secondCount → ℝ) :=
+    fun times i => shift (times i)
+  have hshift : Measurable shift := by
+    dsimp [shift]
+    fun_prop
+  have hshiftTuple : Measurable shiftTuple := by
+    dsimp [shiftTuple]
+    fun_prop
+  have hpi : Measure.map shiftTuple
+      (Measure.pi fun _ : Fin secondCount => second.timestampMassMeasure) =
+      Measure.pi fun _ : Fin secondCount =>
+        Measure.map shift second.timestampMassMeasure := by
+    exact Measure.pi_map_pi (fun _ => hshift.aemeasurable)
+  rw [← map_prod_pi_pi_finAppend first.timestampMassMeasure
+    (Measure.map shift second.timestampMassMeasure) firstCount secondCount]
+  rw [← hpi]
+  have hprod :
+      (Measure.pi fun _ : Fin firstCount => first.timestampMassMeasure).prod
+          (Measure.map shiftTuple
+            (Measure.pi fun _ : Fin secondCount =>
+              second.timestampMassMeasure)) =
+        Measure.map (Prod.map id shiftTuple)
+          ((Measure.pi fun _ : Fin firstCount =>
+              first.timestampMassMeasure).prod
+            (Measure.pi fun _ : Fin secondCount =>
+              second.timestampMassMeasure)) := by
+    simpa using Measure.map_prod_map
+      (Measure.pi fun _ : Fin firstCount => first.timestampMassMeasure)
+      (Measure.pi fun _ : Fin secondCount => second.timestampMassMeasure)
+      measurable_id hshiftTuple
+  rw [hprod]
+  rw [Measure.map_map (by fun_prop)
+    (measurable_id.prodMap hshiftTuple)]
+  apply congrArg (fun map => Measure.map map
+    ((Measure.pi fun _ : Fin firstCount => first.timestampMassMeasure).prod
+      (Measure.pi fun _ : Fin secondCount => second.timestampMassMeasure)))
+  funext pair
+  rfl
+
+/-- Each canonical count split in the adjacent timestamp expansion is exactly
+the pushforward of the product of the two unnormalized schedule masses by
+schedule concatenation. -/
+theorem map_timestampsToSchedule_canonical_eq_concatenate_mass
+    (first second : PositiveHorizon) (firstCount secondCount : ℕ) :
+    Measure.map (timestampsToSchedule (firstCount + secondCount))
+        (Measure.pi fun i : Fin (firstCount + secondCount) =>
+          if canonicalBoolAssignment (firstCount + secondCount) firstCount i
+          then first.timestampMassMeasure
+          else Measure.map
+            (fun time : ℝ => (first.duration : ℝ) + time)
+            second.timestampMassMeasure) =
+      Measure.map
+        (concatenateRefreshSchedules first.duration firstCount secondCount)
+        ((first.timestampScheduleMass firstCount).prod
+          (second.timestampScheduleMass secondCount)) := by
+  rw [← map_shiftAppend_pi_timestampMass_prod first second firstCount
+    secondCount]
+  rw [Measure.map_map (measurable_timestampsToSchedule
+      (firstCount + secondCount))
+    (measurable_shiftAppendTimestamps first.duration firstCount secondCount)]
+  unfold PositiveHorizon.timestampScheduleMass
+  rw [← Measure.map_map (measurable_timestampsToSchedule
+      (firstCount + secondCount))
+    (measurable_shiftAppendTimestamps first.duration firstCount secondCount)]
+  exact map_timestampsToSchedule_shiftAppend_prod_of_ae first second
+    firstCount secondCount
+    (Measure.pi fun _ : Fin firstCount => first.timestampMassMeasure)
+    (Measure.pi fun _ : Fin secondCount => second.timestampMassMeasure)
+    (first.ae_pi_timestampMassMeasure_mem firstCount)
+    (second.ae_pi_timestampMassMeasure_mem secondCount)
+
+/-- The schedule law on an adjacent horizon is a double Janossy sum over the
+two interval counts, with each term obtained by concatenating the corresponding
+unnormalized schedule masses. -/
+theorem poissonCandidateSchedule_add_eq_sum_concatenate_mass
+    (refreshRate : NNReal) (first second : PositiveHorizon) :
+    poissonCandidateSchedule
+        (refreshRate * (first.add second).duration) (first.add second) =
+      Measure.sum fun counts : ℕ × ℕ =>
+        (poissonScheduleMassWeight refreshRate first counts.1 *
+            poissonScheduleMassWeight refreshRate second counts.2) •
+          Measure.map
+            (concatenateRefreshSchedules first.duration counts.1 counts.2)
+            ((first.timestampScheduleMass counts.1).prod
+              (second.timestampScheduleMass counts.2)) := by
+  rw [poissonCandidateSchedule_eq_sum_timestampMass]
+  rw [show (Measure.sum fun n : ℕ =>
+      poissonScheduleMassWeight refreshRate (first.add second) n •
+        (first.add second).timestampScheduleMass n) =
+      Measure.sum (fun n : ℕ =>
+        ∑ k ∈ Finset.range (n + 1),
+          (poissonScheduleMassWeight refreshRate (first.add second) n *
+            (Nat.choose n k : ENNReal)) •
+          Measure.map (timestampsToSchedule n)
+            (Measure.pi fun i =>
+              if canonicalBoolAssignment n k i then
+                first.timestampMassMeasure
+              else Measure.map
+                (fun time : ℝ => (first.duration : ℝ) + time)
+                second.timestampMassMeasure)) by
+    apply Measure.sum_congr
+    intro n
+    rw [first.timestampScheduleMass_add_eq_sum_count second n]
+    simp_rw [← Nat.cast_smul_eq_nsmul ENNReal]
+    rw [Finset.smul_sum]
+    simp_rw [smul_smul]]
+  rw [show (Measure.sum fun n : ℕ =>
+      ∑ k ∈ Finset.range (n + 1),
+        (poissonScheduleMassWeight refreshRate (first.add second) n *
+          (Nat.choose n k : ENNReal)) •
+        Measure.map (timestampsToSchedule n)
+          (Measure.pi fun i =>
+            if canonicalBoolAssignment n k i then
+              first.timestampMassMeasure
+            else Measure.map
+              (fun time : ℝ => (first.duration : ℝ) + time)
+              second.timestampMassMeasure)) =
+      Measure.sum fun n : ℕ =>
+        ∑ k ∈ Finset.range (n + 1),
+          (poissonScheduleMassWeight refreshRate (first.add second)
+              (k + (n - k)) *
+            (Nat.choose (k + (n - k)) k : ENNReal)) •
+          Measure.map (timestampsToSchedule (k + (n - k)))
+            (Measure.pi fun i =>
+              if canonicalBoolAssignment (k + (n - k)) k i then
+                first.timestampMassMeasure
+              else Measure.map
+                (fun time : ℝ => (first.duration : ℝ) + time)
+                second.timestampMassMeasure) by
+    apply Measure.sum_congr
+    intro n
+    apply Finset.sum_congr rfl
+    intro k hk
+    rw [Nat.add_sub_of_le (Nat.le_of_lt_succ (Finset.mem_range.mp hk))]]
+  refine (measureSum_sum_range_succ_sub_eq_sum_prod
+    (fun k m =>
+      (poissonScheduleMassWeight refreshRate (first.add second) (k + m) *
+        (Nat.choose (k + m) k : ENNReal)) •
+      Measure.map (timestampsToSchedule (k + m))
+        (Measure.pi fun i =>
+          if canonicalBoolAssignment (k + m) k i then
+            first.timestampMassMeasure
+          else Measure.map
+            (fun time : ℝ => (first.duration : ℝ) + time)
+            second.timestampMassMeasure))).trans ?_
+  congr 1
+  funext counts
+  rw [map_timestampsToSchedule_canonical_eq_concatenate_mass first second
+    counts.1 counts.2]
+  rw [poissonScheduleMassWeight_add_mul_choose refreshRate first second
+    counts.1 counts.2]
+
+/-- On a fixed pair of Janossy count strata, stored-count concatenation agrees
+with the corresponding fixed-count concatenation, including independent
+scalar weights. -/
+theorem map_concatenateAdjacent_smul_timestampMass_prod
+    (first second : PositiveHorizon) (firstCount secondCount : ℕ)
+    (firstWeight secondWeight : ENNReal) :
+    Measure.map (concatenateAdjacentRefreshSchedules first.duration)
+        ((firstWeight • first.timestampScheduleMass firstCount).prod
+          (secondWeight • second.timestampScheduleMass secondCount)) =
+      (firstWeight * secondWeight) •
+        Measure.map
+          (concatenateRefreshSchedules first.duration firstCount secondCount)
+          ((first.timestampScheduleMass firstCount).prod
+            (second.timestampScheduleMass secondCount)) := by
+  rw [Measure.prod_smul_left, Measure.prod_smul_right, smul_smul,
+    Measure.map_smul]
+  congr 1
+  apply Measure.map_congr
+  apply (Measure.ae_prod_iff_ae_ae
+    (measurableSet_eq_fun
+      ((measurable_concatenateAdjacentRefreshSchedules first.duration))
+      (measurable_concatenateRefreshSchedules first.duration firstCount
+        secondCount))).2
+  filter_upwards [first.ae_timestampScheduleMass_fst firstCount] with
+      firstSchedule hfirst
+  filter_upwards [second.ae_timestampScheduleMass_fst secondCount] with
+      secondSchedule hsecond
+  simp [concatenateAdjacentRefreshSchedules, hfirst, hsecond]
+
+/-- Two independent homogeneous Poisson schedules on adjacent horizons,
+concatenated using their stored counts, have exactly the homogeneous Poisson
+schedule law on the combined horizon. -/
+theorem map_concatenateAdjacent_poissonCandidateSchedule_prod
+    (refreshRate : NNReal) (first second : PositiveHorizon) :
+    Measure.map (concatenateAdjacentRefreshSchedules first.duration)
+        ((poissonCandidateSchedule (refreshRate * first.duration) first).prod
+          (poissonCandidateSchedule (refreshRate * second.duration) second)) =
+      poissonCandidateSchedule
+        (refreshRate * (first.add second).duration) (first.add second) := by
+  rw [poissonCandidateSchedule_eq_sum_timestampMass,
+    poissonCandidateSchedule_eq_sum_timestampMass]
+  rw [Measure.prod_sum]
+  rw [Measure.map_sum
+    (measurable_concatenateAdjacentRefreshSchedules first.duration).aemeasurable]
+  simp_rw [map_concatenateAdjacent_smul_timestampMass_prod first second]
+  exact (poissonCandidateSchedule_add_eq_sum_concatenate_mass refreshRate
+    first second).symm
 
 theorem concatenateRefreshSchedules_first
     (firstHorizon : NNReal) (firstCount secondCount index : ℕ)
@@ -474,6 +1210,34 @@ instance TimedRefreshProcess.executeFixedCount.instIsMarkovKernel
   unfold TimedRefreshProcess.executeFixedCount
   infer_instance
 
+/-- A one-refresh padded schedule is exactly “evolve to the refresh time,
+refresh, then evolve through the residual horizon.” -/
+theorem TimedRefreshProcess.executeFixedCount_one
+    (process : TimedRefreshProcess State) (horizon : NNReal)
+    (waits : ℕ → NNReal) :
+    process.executeFixedCount horizon (1, waits) =
+      process.section (horizon - waits 0) ∘ₖ process.refresh ∘ₖ
+        process.section (waits 0) := by
+  simp [TimedRefreshProcess.executeFixedCount,
+    TimedRefreshProcess.fixedResidual, TimedRefreshProcess.executeFixedRange,
+    TimedRefreshProcess.fixedCoordinateStep, scheduleElapsed,
+    Kernel.comp_assoc]
+
+/-- A two-refresh schedule exposes the phase-space minorization structure:
+the first refreshed velocity can randomize the reached position, while the
+second independently randomizes the terminal velocity. -/
+theorem TimedRefreshProcess.executeFixedCount_two
+    (process : TimedRefreshProcess State) (horizon : NNReal)
+    (waits : ℕ → NNReal) :
+    process.executeFixedCount horizon (2, waits) =
+      process.section (horizon - (waits 0 + waits 1)) ∘ₖ process.refresh ∘ₖ
+        process.section (waits 1) ∘ₖ process.refresh ∘ₖ
+          process.section (waits 0) := by
+  simp [TimedRefreshProcess.executeFixedCount,
+    TimedRefreshProcess.fixedResidual, TimedRefreshProcess.executeFixedRange,
+    TimedRefreshProcess.fixedCoordinateStep, scheduleElapsed,
+    Finset.sum_range_succ, Kernel.comp_assoc]
+
 theorem TimedRefreshProcess.executeScheduledCount_apply_fixed
     (process : TimedRefreshProcess State) (horizon : NNReal)
     (schedule : CandidateScheduleSample) (state : State) :
@@ -637,6 +1401,33 @@ instance TimedRefreshProcess.countHorizonKernel.instIsMarkovKernel
   unfold TimedRefreshProcess.countHorizonKernel
   infer_instance
 
+/-- A fixed-schedule lower bound that is uniform on a measurable schedule
+region integrates to a local minorization of the corresponding conditional
+refresh-count kernel. The coefficient records the exact conditional mass of
+the selected schedule region. -/
+theorem TimedRefreshProcess.countHorizonKernel_locallyMinorizes_on
+    (process : TimedRefreshProcess State) (horizon : PositiveHorizon)
+    (count : ℕ) (D : Set State) (schedules : Set CandidateScheduleSample)
+    (hschedules : MeasurableSet schedules) (floor : ENNReal)
+    (reference : Measure State)
+    (hminor : ∀ state ∈ D, ∀ schedule ∈ schedules, ∀ event,
+      MeasurableSet event →
+        floor * reference event ≤
+          process.executeFixedCount horizon.duration schedule state event) :
+    Mcmc.Kernel.LocallyMinorizes
+      (process.countHorizonKernel horizon count) D
+      (horizon.fixedScheduleMeasure (timestampOrdering count) schedules *
+        floor) reference := by
+  unfold TimedRefreshProcess.countHorizonKernel
+  apply Mcmc.Kernel.independentParameterMixture_locallyMinorizes_on
+    (process.executeScheduled horizon.duration)
+    (horizon.fixedScheduleMeasure (timestampOrdering count))
+    D schedules hschedules floor reference
+  intro state hstate schedule hschedule event hevent
+  rw [process.executeScheduled_apply,
+    process.executeScheduledCount_apply_fixed]
+  exact hminor state hstate schedule hschedule event hevent
+
 /-- Exact decomposition of every transported law by the Poisson number of
 refreshes. This retains the zero-refresh and positive-refresh strata needed
 by later semigroup and minorization arguments. -/
@@ -656,6 +1447,132 @@ theorem TimedRefreshProcess.poissonHorizonKernel_comp_eq_sum_count
       poissonMeasure (refreshRate * horizon.duration) {count})
     (fun count : ℕ =>
       horizon.fixedScheduleMeasure (timestampOrdering count))
+
+/-- Every exact refresh-count stratum is a genuine submeasure of the
+unconditional refreshed transition. This is the direct bridge from a
+fixed-count minorization to the actual Poisson-clock kernel. -/
+theorem TimedRefreshProcess.poisson_count_weight_mul_le
+    (process : TimedRefreshProcess State) (refreshRate : NNReal)
+    (horizon : PositiveHorizon) (count : ℕ) (state : State)
+    (event : Set State) (hevent : MeasurableSet event) :
+    poissonMeasure (refreshRate * horizon.duration) {count} *
+        process.countHorizonKernel horizon count state event ≤
+      process.poissonHorizonKernel refreshRate horizon state event := by
+  have hdecomp := congrArg (fun measure : Measure State => measure event)
+    (process.poissonHorizonKernel_comp_eq_sum_count refreshRate horizon
+      (Measure.dirac state))
+  rw [Measure.dirac_bind (Kernel.measurable _), Measure.sum_apply _ hevent]
+    at hdecomp
+  rw [hdecomp]
+  simpa only [Measure.smul_apply, smul_eq_mul,
+    Measure.dirac_bind (Kernel.measurable _)] using
+      (ENNReal.le_tsum count :
+        (poissonMeasure (refreshRate * horizon.duration) {count} •
+          (process.countHorizonKernel horizon count ∘ₘ Measure.dirac state))
+            event ≤
+        ∑' n : ℕ,
+          (poissonMeasure (refreshRate * horizon.duration) {n} •
+            (process.countHorizonKernel horizon n ∘ₘ Measure.dirac state))
+              event)
+
+/-- At positive refresh rate, positivity of any fixed-count transition event
+lifts to positivity under the genuine Poisson-refresh transition. -/
+theorem TimedRefreshProcess.poissonHorizonKernel_pos_of_count
+    (process : TimedRefreshProcess State) {refreshRate : NNReal}
+    (hrefreshRate : 0 < refreshRate) (horizon : PositiveHorizon)
+    (count : ℕ) (state : State) (event : Set State)
+    (hevent : MeasurableSet event)
+    (hcount : 0 < process.countHorizonKernel horizon count state event) :
+    0 < process.poissonHorizonKernel refreshRate horizon state event := by
+  apply lt_of_lt_of_le _
+    (process.poisson_count_weight_mul_le refreshRate horizon count state event
+      hevent)
+  apply ENNReal.mul_pos
+  · rw [poissonMeasure_singleton]
+    apply ENNReal.ofReal_ne_zero_iff.mpr
+    have hintensity : 0 < refreshRate * horizon.duration :=
+      mul_pos hrefreshRate horizon.positive
+    positivity
+  · exact hcount.ne'
+
+/-- A uniform minorization proved on one conditional count stratum lifts to
+the actual Poisson-refresh kernel, with the exact Poisson singleton factor. -/
+theorem TimedRefreshProcess.poissonHorizonKernel_uniformlyMinorizes_of_count
+    (process : TimedRefreshProcess State) (refreshRate : NNReal)
+    (horizon : PositiveHorizon) (count : ℕ) (ε : ENNReal)
+    (reference : Measure State)
+    (hminor : Mcmc.Kernel.UniformlyMinorizes
+      (process.countHorizonKernel horizon count) ε reference) :
+    Mcmc.Kernel.UniformlyMinorizes
+      (process.poissonHorizonKernel refreshRate horizon)
+      (poissonMeasure (refreshRate * horizon.duration) {count} * ε)
+      reference := by
+  intro state event hevent
+  calc
+    (poissonMeasure (refreshRate * horizon.duration) {count} * ε) *
+          reference event =
+        poissonMeasure (refreshRate * horizon.duration) {count} *
+          (ε * reference event) := by ring
+    _ ≤ poissonMeasure (refreshRate * horizon.duration) {count} *
+          process.countHorizonKernel horizon count state event := by
+        gcongr
+        exact hminor state event hevent
+    _ ≤ process.poissonHorizonKernel refreshRate horizon state event :=
+      process.poisson_count_weight_mul_le refreshRate horizon count state
+        event hevent
+
+/-- The analogous local bridge retains the same state set. Consequently the
+geometric work for refreshed BPS may be carried out entirely on a convenient
+fixed-count stratum and then transferred without changing that set. -/
+theorem TimedRefreshProcess.poissonHorizonKernel_locallyMinorizes_of_count
+    (process : TimedRefreshProcess State) (refreshRate : NNReal)
+    (horizon : PositiveHorizon) (count : ℕ) (D : Set State) (ε : ENNReal)
+    (reference : Measure State)
+    (hminor : Mcmc.Kernel.LocallyMinorizes
+      (process.countHorizonKernel horizon count) D ε reference) :
+    Mcmc.Kernel.LocallyMinorizes
+      (process.poissonHorizonKernel refreshRate horizon) D
+      (poissonMeasure (refreshRate * horizon.duration) {count} * ε)
+      reference := by
+  intro state hstate event hevent
+  calc
+    (poissonMeasure (refreshRate * horizon.duration) {count} * ε) *
+          reference event =
+        poissonMeasure (refreshRate * horizon.duration) {count} *
+          (ε * reference event) := by ring
+    _ ≤ poissonMeasure (refreshRate * horizon.duration) {count} *
+          process.countHorizonKernel horizon count state event := by
+        gcongr
+        exact hminor state hstate event hevent
+    _ ≤ process.poissonHorizonKernel refreshRate horizon state event :=
+      process.poisson_count_weight_mul_le refreshRate horizon count state
+        event hevent
+
+/-- A uniform lower bound on a measurable region of fixed-count schedules
+lifts all the way to the genuine Poisson-refresh kernel. The resulting
+coefficient exposes both independent losses: conditional schedule-region
+mass and the exact Poisson count probability. -/
+theorem TimedRefreshProcess.poissonHorizonKernel_locallyMinorizes_on_schedules
+    (process : TimedRefreshProcess State) (refreshRate : NNReal)
+    (horizon : PositiveHorizon) (count : ℕ) (D : Set State)
+    (schedules : Set CandidateScheduleSample)
+    (hschedules : MeasurableSet schedules) (floor : ENNReal)
+    (reference : Measure State)
+    (hminor : ∀ state ∈ D, ∀ schedule ∈ schedules, ∀ event,
+      MeasurableSet event →
+        floor * reference event ≤
+          process.executeFixedCount horizon.duration schedule state event) :
+    Mcmc.Kernel.LocallyMinorizes
+      (process.poissonHorizonKernel refreshRate horizon) D
+      (poissonMeasure (refreshRate * horizon.duration) {count} *
+        (horizon.fixedScheduleMeasure (timestampOrdering count) schedules *
+          floor)) reference := by
+  apply process.poissonHorizonKernel_locallyMinorizes_of_count
+    refreshRate horizon count D
+    (horizon.fixedScheduleMeasure (timestampOrdering count) schedules * floor)
+    reference
+  exact process.countHorizonKernel_locallyMinorizes_on
+    horizon count D schedules hschedules floor reference hminor
 
 /-- A schedule carrying zero refreshes executes only the residual timed
 transition, independently of its unused padding coordinates. -/
@@ -725,5 +1642,133 @@ theorem TimedRefreshProcess.poissonHorizonKernel_invariant
   rw [process.comap_executeScheduled]
   exact process.executeFixedCount_invariant target horizon.duration schedule
     hevolve hrefresh
+
+/-- Independent homogeneous refresh clocks inherit the Chapman--Kolmogorov
+law from the timed process. -/
+theorem TimedRefreshProcess.poissonHorizonKernel_add
+    (process : TimedRefreshProcess State) (hsemigroup : process.HasSemigroup)
+    (refreshRate : NNReal) (first second : PositiveHorizon) :
+    process.poissonHorizonKernel refreshRate (first.add second) =
+      process.poissonHorizonKernel refreshRate second ∘ₖ
+        process.poissonHorizonKernel refreshRate first := by
+  ext state event hevent
+  unfold TimedRefreshProcess.poissonHorizonKernel
+    Mcmc.Kernel.independentParameterMixture
+  rw [Kernel.comp_apply]
+  repeat' rw [Kernel.comp_apply]
+  simp only [Kernel.prod_apply, Kernel.id_apply, Kernel.const_apply,
+    Measure.dirac_prod]
+  rw [Measure.bind_apply hevent
+    (process.executeScheduled (first.add second).duration).aemeasurable]
+  rw [Measure.bind_apply hevent
+    (process.executeScheduled second.duration ∘ₖ
+      (Kernel.id ×ₖ Kernel.const State
+        (poissonCandidateSchedule (refreshRate * second.duration) second))).aemeasurable]
+  rw [← map_concatenateAdjacent_poissonCandidateSchedule_prod refreshRate
+    first second]
+  rw [show Measure.map (Prod.mk state)
+      (Measure.map (concatenateAdjacentRefreshSchedules first.duration)
+        ((poissonCandidateSchedule (refreshRate * first.duration) first).prod
+          (poissonCandidateSchedule (refreshRate * second.duration) second))) =
+      Measure.map
+        (fun schedules =>
+          (state, concatenateAdjacentRefreshSchedules first.duration schedules))
+        ((poissonCandidateSchedule (refreshRate * first.duration) first).prod
+          (poissonCandidateSchedule (refreshRate * second.duration) second)) by
+    rw [Measure.map_map (by fun_prop)
+      (measurable_concatenateAdjacentRefreshSchedules first.duration)]
+    rfl]
+  rw [MeasureTheory.lintegral_map
+    (Kernel.measurable_coe
+      (process.executeScheduled (first.add second).duration) hevent)
+    (measurable_const.prodMk
+      (measurable_concatenateAdjacentRefreshSchedules first.duration))]
+  rw [Measure.lintegral_bind
+    (process.executeScheduled first.duration).aemeasurable
+    (Kernel.measurable_coe
+      (process.executeScheduled second.duration ∘ₖ
+        (Kernel.id ×ₖ Kernel.const State
+          (poissonCandidateSchedule (refreshRate * second.duration) second)))
+      hevent).aemeasurable]
+  have hrhsMeas : Measurable (fun input : ScheduledState State =>
+      ∫⁻ middle,
+        (process.executeScheduled second.duration ∘ₖ
+          (Kernel.id ×ₖ Kernel.const State
+          (poissonCandidateSchedule (refreshRate * second.duration) second)))
+          middle event ∂process.executeScheduled first.duration input) := by
+    apply Measurable.lintegral_kernel_prod_right
+    exact (Kernel.measurable_coe
+        (process.executeScheduled second.duration ∘ₖ
+          (Kernel.id ×ₖ Kernel.const State
+            (poissonCandidateSchedule (refreshRate * second.duration) second)))
+        hevent).comp measurable_snd
+  rw [MeasureTheory.lintegral_map hrhsMeas
+    (by fun_prop : Measurable (Prod.mk state))]
+  have hleftMeas : AEMeasurable
+      (fun schedules : CandidateScheduleSample × CandidateScheduleSample =>
+        process.executeScheduled (first.add second).duration
+          (state, concatenateAdjacentRefreshSchedules first.duration schedules)
+          event)
+      ((poissonCandidateSchedule (refreshRate * first.duration) first).prod
+        (poissonCandidateSchedule (refreshRate * second.duration) second)) := by
+    exact ((Kernel.measurable_coe
+      (process.executeScheduled (first.add second).duration) hevent).comp
+        (measurable_const.prodMk
+          (measurable_concatenateAdjacentRefreshSchedules first.duration))).aemeasurable
+  rw [MeasureTheory.lintegral_prod _ hleftMeas]
+  simp_rw [Kernel.comp_apply, Kernel.prod_apply, Kernel.id_apply,
+    Kernel.const_apply, Measure.dirac_prod]
+  simp_rw [Measure.bind_apply hevent
+    (process.executeScheduled second.duration).aemeasurable]
+  have hmapSecond (middle : State) :
+      (∫⁻ input : ScheduledState State,
+        process.executeScheduled second.duration input event
+          ∂Measure.map (Prod.mk middle)
+            (poissonCandidateSchedule (refreshRate * second.duration) second)) =
+      ∫⁻ secondSchedule,
+        process.executeScheduled second.duration (middle, secondSchedule) event
+          ∂poissonCandidateSchedule (refreshRate * second.duration) second := by
+    rw [MeasureTheory.lintegral_map
+      (Kernel.measurable_coe (process.executeScheduled second.duration) hevent)
+      (by fun_prop : Measurable (Prod.mk middle))]
+  simp_rw [hmapSecond]
+  apply lintegral_congr_ae
+  filter_upwards [ae_poissonCandidateSchedule_elapsed_le
+      (refreshRate * first.duration) first] with firstSchedule hfirstValid
+  have hswapMeas : AEMeasurable
+      (fun pair : State × CandidateScheduleSample =>
+        process.executeScheduled second.duration pair event)
+      ((process.executeScheduled first.duration (state, firstSchedule)).prod
+        (poissonCandidateSchedule (refreshRate * second.duration) second)) :=
+    (Kernel.measurable_coe (process.executeScheduled second.duration) hevent).aemeasurable
+  rw [← MeasureTheory.lintegral_prod _ hswapMeas]
+  rw [MeasureTheory.lintegral_prod_symm _ hswapMeas]
+  apply lintegral_congr
+  intro secondSchedule
+  simp_rw [process.executeScheduled_apply]
+  simp_rw [process.executeScheduledCount_apply_fixed]
+  rw [← Measure.bind_apply hevent
+    (process.executeFixedCount second.duration secondSchedule).aemeasurable]
+  rw [← Kernel.comp_apply]
+  rw [PositiveHorizon.add_duration]
+  unfold concatenateAdjacentRefreshSchedules
+  exact congrArg (fun kernel : Kernel State State => kernel state event)
+    (process.executeFixedCount_concatenate hsemigroup first.duration
+      second.duration firstSchedule.1 secondSchedule.1 firstSchedule
+      secondSchedule rfl rfl hfirstValid)
+
+/-- A positive-time refreshed skeleton iterated `n + 1` times is exactly the
+continuous-time transition over `n + 1` adjacent copies of that horizon. -/
+theorem TimedRefreshProcess.poissonHorizonKernel_pow_succ
+    (process : TimedRefreshProcess State) (hsemigroup : process.HasSemigroup)
+    (refreshRate : NNReal) (horizon : PositiveHorizon) (n : ℕ) :
+    (process.poissonHorizonKernel refreshRate horizon) ^ (n + 1) =
+      process.poissonHorizonKernel refreshRate (horizon.repeatSucc n) := by
+  induction n with
+  | zero => simp
+  | succ n ih =>
+      rw [pow_succ, ih]
+      exact (process.poissonHorizonKernel_add hsemigroup refreshRate horizon
+        (horizon.repeatSucc n)).symm
 
 end Mcmc.PDMP

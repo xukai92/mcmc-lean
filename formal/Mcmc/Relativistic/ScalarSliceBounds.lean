@@ -246,4 +246,17 @@ theorem scalarGRMomentumCallbackUnit_lipschitz_position
   exact (scalarGRMomentumCallback_lipschitz_fst scale (p Unit.unit) L hscale).dist_le_mul
     (q Unit.unit) (r Unit.unit)
 
+/-- At a fixed scalar position, a bound on the metric scale controls the
+momentum sensitivity of the function-space velocity callback. -/
+theorem scalarGRMomentumCallbackUnit_lipschitz_momentum
+    (scale : ℝ → ℝ) (q : Position Unit) (B : NNReal)
+    (hscale : |scale (q Unit.unit)| ≤ B) :
+    LipschitzWith (B ^ 2) (fun p : Momentum Unit =>
+      scalarGRMomentumCallbackUnit scale (q, p)) := by
+  apply LipschitzWith.of_dist_le_mul
+  intro p r
+  rw [dist_eq_norm, norm_pi_unit, dist_eq_norm, norm_pi_unit]
+  exact (scalarGRMomentumCallback_lipschitz_snd scale (q Unit.unit) B hscale).dist_le_mul
+    (p Unit.unit) (r Unit.unit)
+
 end Mcmc.Relativistic

@@ -149,8 +149,13 @@ The following follow-on work remains outside the completed theorem surface:
 - target-specific drift certificates beyond the standard Gaussian and
   regularized-logistic families;
 - full floating-point refinement and reproduction of every reported paper
-  experiment. The generated Julia coupling already implements shared-event
-  HMC/RWMH mixture steps, checks exact-meeting faithfulness, and now exposes a
-  reproducible finite-horizon meeting-time diagnostic; and
+  experiment. The generated Julia coupling implements shared-event HMC/RWMH
+  mixture steps and checks exact-meeting faithfulness. Its public replicated
+  meeting-time diagnostic now reports seeded, explicitly censored observations,
+  meeting fraction, observed mean, and horizon-restricted mean; a command-line
+  Gaussian and finite-data regularized-logistic experiments reproduce that
+  diagnostic. These use stable `softplus` and logistic-gradient evaluations
+  but remain ordinary Float64 programs. This is not yet a
+  reproduction of every paper experiment; and
 - an unconditional exponent-two optimal-transport contraction theorem in a
   parameter regime not ruled out by the formalized obstruction.

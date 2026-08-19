@@ -198,12 +198,85 @@ theorem scalarPositionProfile_lipschitz :
         all_goals exact abs_scalarVelocityProfile_le_one x
       _ = 3 := by norm_num
 
+/-- A coarse growth bound for the scalar position profile. -/
+theorem abs_scalarPositionProfile_le_sq (x : ℝ) :
+    |scalarPositionProfile x| ≤ x ^ 2 := by
+  have hroot : 1 ≤ scalarRelativisticProfile x := by
+    unfold scalarRelativisticProfile
+    have hsquare := Real.sq_sqrt (show 0 ≤ 1 + x ^ 2 by positivity)
+    have hnonneg := Real.sqrt_nonneg (1 + x ^ 2)
+    nlinarith [sq_nonneg x]
+  unfold scalarPositionProfile
+  rw [abs_div, abs_of_nonneg (sq_nonneg x),
+    abs_of_pos (scalarRelativisticProfile_pos x)]
+  exact div_le_self (sq_nonneg x) hroot
+
 theorem boundedScalarScale_lipschitz :
     LipschitzWith 1 (fun x : ℝ => 2 + Real.sin x) := by
   apply LipschitzWith.of_dist_le_mul
   intro x y
   have h := Real.lipschitzWith_sin.dist_le_mul x y
   simpa [Real.dist_eq] using h
+
+/-- With position fixed, the complete bounded-scalar Hamiltonian is globally
+three-Lipschitz in momentum. This explicit constant is suitable for numerical
+state-error transport. -/
+theorem boundedScalarHamiltonian_lipschitz_momentum (q : Position Unit) :
+    LipschitzWith 3 (fun p : Momentum Unit =>
+      boundedScalarHamiltonian (q, p)) := by
+  apply LipschitzWith.of_dist_le_mul
+  intro p r
+  rw [Real.dist_eq, dist_eq_norm, norm_pi_unit]
+  change |scalarRelativisticProfile
+      (boundedScalarScale q * p Unit.unit) -
+    scalarRelativisticProfile (boundedScalarScale q * r Unit.unit)| ≤
+      3 * |p Unit.unit - r Unit.unit|
+  have hprofile := scalarRelativisticProfile_lipschitz.dist_le_mul
+    (boundedScalarScale q * p Unit.unit)
+    (boundedScalarScale q * r Unit.unit)
+  have hspos := boundedScalarScale_pos q
+  calc
+    _ ≤ |boundedScalarScale q * p Unit.unit -
+        boundedScalarScale q * r Unit.unit| := by
+      simpa [Real.dist_eq] using hprofile
+    _ = boundedScalarScale q * |p Unit.unit - r Unit.unit| := by
+      rw [← mul_sub, abs_mul, abs_of_pos hspos]
+    _ ≤ 3 * |p Unit.unit - r Unit.unit| := by
+      gcongr
+      exact boundedScalarScale_le_three q
+
+/-- Explicit momentum-dependent Lipschitz constant for position transport of
+the complete bounded-scalar Hamiltonian. -/
+noncomputable def boundedScalarHamiltonianPositionRate
+    (p : Momentum Unit) : NNReal :=
+  ⟨|p Unit.unit|, abs_nonneg _⟩
+
+theorem boundedScalarHamiltonian_lipschitz_position (p : Momentum Unit) :
+    LipschitzWith (boundedScalarHamiltonianPositionRate p)
+      (fun q : Position Unit => boundedScalarHamiltonian (q, p)) := by
+  apply LipschitzWith.of_dist_le_mul
+  intro q r
+  rw [Real.dist_eq, dist_eq_norm, norm_pi_unit]
+  change |scalarRelativisticProfile
+      (boundedScalarScale q * p Unit.unit) -
+    scalarRelativisticProfile (boundedScalarScale r * p Unit.unit)| ≤
+      |p Unit.unit| * |q Unit.unit - r Unit.unit|
+  have hprofile := scalarRelativisticProfile_lipschitz.dist_le_mul
+    (boundedScalarScale q * p Unit.unit)
+    (boundedScalarScale r * p Unit.unit)
+  have hscale := boundedScalarScale_lipschitz.dist_le_mul
+    (q Unit.unit) (r Unit.unit)
+  calc
+    _ ≤ |boundedScalarScale q * p Unit.unit -
+        boundedScalarScale r * p Unit.unit| := by
+      simpa [Real.dist_eq] using hprofile
+    _ = |p Unit.unit| *
+        |boundedScalarScale q - boundedScalarScale r| := by
+      rw [← sub_mul, abs_mul, mul_comm]
+    _ ≤ |p Unit.unit| * |q Unit.unit - r Unit.unit| := by
+      apply mul_le_mul_of_nonneg_left _ (abs_nonneg _)
+      simpa only [boundedScalarScale, add_sub_add_left_eq_sub,
+        Real.dist_eq, NNReal.coe_one, one_mul] using hscale
 
 theorem differentiable_scalarVelocityProfile :
     Differentiable ℝ scalarVelocityProfile :=
@@ -366,6 +439,62 @@ theorem differentiable_boundedScalarLogDerivativeReal :
       have := Real.neg_one_le_sin q
       linarith)
 
+/-- The logarithmic scale derivative `cos(q)/(2+sin(q))` is globally
+two-Lipschitz. -/
+theorem boundedScalarLogDerivativeReal_lipschitz :
+    LipschitzWith 2 boundedScalarLogDerivativeReal := by
+  apply LipschitzWith.of_dist_le_mul
+  intro q r
+  rw [Real.dist_eq]
+  have hsq : 1 ≤ 2 + Real.sin q := by
+    linarith [Real.neg_one_le_sin q]
+  have hsr : 1 ≤ 2 + Real.sin r := by
+    linarith [Real.neg_one_le_sin r]
+  have hsqpos : 0 < 2 + Real.sin q := zero_lt_one.trans_le hsq
+  have hsrpos : 0 < 2 + Real.sin r := zero_lt_one.trans_le hsr
+  have hsin : |Real.sin q - Real.sin r| ≤ |q - r| := by
+    simpa [Real.dist_eq] using Real.lipschitzWith_sin.dist_le_mul q r
+  have hcos : |Real.cos q - Real.cos r| ≤ |q - r| := by
+    simpa [Real.dist_eq] using Real.lipschitzWith_cos.dist_le_mul q r
+  unfold boundedScalarLogDerivativeReal
+  rw [show Real.cos q / (2 + Real.sin q) - Real.cos r / (2 + Real.sin r) =
+      (Real.cos q - Real.cos r) / (2 + Real.sin q) +
+        Real.cos r * ((2 + Real.sin q)⁻¹ - (2 + Real.sin r)⁻¹) by
+    field_simp [hsqpos.ne', hsrpos.ne']
+    ring]
+  calc
+    _ ≤ |(Real.cos q - Real.cos r) / (2 + Real.sin q)| +
+        |Real.cos r * ((2 + Real.sin q)⁻¹ -
+          (2 + Real.sin r)⁻¹)| := abs_add_le _ _
+    _ ≤ |q - r| + |q - r| := by
+      apply add_le_add
+      · rw [abs_div, abs_of_pos hsqpos]
+        exact (div_le_self (abs_nonneg _) hsq).trans hcos
+      · rw [abs_mul]
+        calc
+          |Real.cos r| * |(2 + Real.sin q)⁻¹ -
+              (2 + Real.sin r)⁻¹| ≤
+              1 * |(2 + Real.sin q)⁻¹ -
+                (2 + Real.sin r)⁻¹| := by
+            gcongr
+            exact Real.abs_cos_le_one r
+          _ = |Real.sin r - Real.sin q| /
+              ((2 + Real.sin q) * (2 + Real.sin r)) := by
+            rw [show (2 + Real.sin q)⁻¹ - (2 + Real.sin r)⁻¹ =
+                ((2 + Real.sin r) - (2 + Real.sin q)) /
+                  ((2 + Real.sin q) * (2 + Real.sin r)) by
+              field_simp [hsqpos.ne', hsrpos.ne'],
+              one_mul, abs_div, abs_mul, abs_of_pos hsqpos,
+              abs_of_pos hsrpos]
+            congr 2
+            ring
+          _ ≤ |Real.sin r - Real.sin q| := by
+            apply div_le_self (abs_nonneg _)
+            nlinarith [mul_nonneg (sub_nonneg.mpr hsq) (sub_nonneg.mpr hsr)]
+          _ = |Real.sin q - Real.sin r| := abs_sub_comm _ _
+          _ ≤ |q - r| := hsin
+    _ = 2 * |q - r| := by ring
+
 /-- Scalar-coordinate form of the momentum callback. -/
 noncomputable def boundedScalarMomentumDerivativeReal (z : ℝ × ℝ) : ℝ :=
   scaledVelocityProfile z.2 (2 + Real.sin z.1)
@@ -384,6 +513,113 @@ theorem differentiable_boundedScalarPositionDerivativeReal :
       (((differentiable_const (c := (2 : ℝ))).add
         (Real.differentiable_sin.comp differentiable_fst)).mul
           differentiable_snd))
+
+/-- Explicit position-slice Lipschitz rate for the bounded scalar force. -/
+noncomputable def boundedScalarPositionDerivativePositionRate (p : ℝ) : NNReal :=
+  ⟨18 * p ^ 2 + 3 * |p|, by positivity⟩
+
+/-- At fixed momentum, the bounded scalar position callback has an explicit
+global position-Lipschitz bound. -/
+theorem boundedScalarPositionDerivativeReal_lipschitz_fst (p : ℝ) :
+    LipschitzWith (boundedScalarPositionDerivativePositionRate p)
+      (fun q => boundedScalarPositionDerivativeReal (q, p)) := by
+  apply LipschitzWith.of_dist_le_mul
+  intro q r
+  rw [Real.dist_eq]
+  let aq := boundedScalarLogDerivativeReal q
+  let ar := boundedScalarLogDerivativeReal r
+  let sq := 2 + Real.sin q
+  let sr := 2 + Real.sin r
+  have ha := boundedScalarLogDerivativeReal_lipschitz.dist_le_mul q r
+  rw [Real.dist_eq] at ha
+  have har : |ar| ≤ 1 := by
+    dsimp only [ar, boundedScalarLogDerivativeReal]
+    rw [abs_div, abs_of_pos (by
+      linarith [Real.neg_one_le_sin r] : 0 < 2 + Real.sin r)]
+    exact (div_le_self (abs_nonneg _) (by
+      linarith [Real.neg_one_le_sin r] : 1 ≤ 2 + Real.sin r)).trans
+        (Real.abs_cos_le_one r)
+  have hsq : |sq| ≤ 3 := by
+    rw [abs_of_pos (by
+      dsimp only [sq]
+      linarith [Real.neg_one_le_sin q])]
+    dsimp only [sq]
+    linarith [Real.sin_le_one q]
+  have hprofile : |scalarPositionProfile (sq * p)| ≤ 9 * p ^ 2 := by
+    calc
+      _ ≤ (sq * p) ^ 2 := abs_scalarPositionProfile_le_sq _
+      _ = |sq| ^ 2 * p ^ 2 := by rw [sq_abs]; ring
+      _ ≤ 3 ^ 2 * p ^ 2 := by
+        gcongr
+      _ = 9 * p ^ 2 := by ring
+  have hs := boundedScalarScale_lipschitz.dist_le_mul q r
+  rw [Real.dist_eq] at hs
+  have hprofileDiff := scalarPositionProfile_lipschitz.dist_le_mul (sq * p) (sr * p)
+  rw [Real.dist_eq] at hprofileDiff
+  change |aq * scalarPositionProfile (sq * p) -
+      ar * scalarPositionProfile (sr * p)| ≤
+    (boundedScalarPositionDerivativePositionRate p : ℝ) * |q - r|
+  calc
+    _ ≤ |(aq - ar) * scalarPositionProfile (sq * p)| +
+        |ar * (scalarPositionProfile (sq * p) -
+          scalarPositionProfile (sr * p))| := by
+      rw [show aq * scalarPositionProfile (sq * p) -
+          ar * scalarPositionProfile (sr * p) =
+        (aq - ar) * scalarPositionProfile (sq * p) +
+          ar * (scalarPositionProfile (sq * p) -
+            scalarPositionProfile (sr * p)) by ring]
+      exact abs_add_le _ _
+    _ ≤ 2 * |q - r| * (9 * p ^ 2) +
+        1 * (3 * (|p| * |q - r|)) := by
+      rw [abs_mul, abs_mul]
+      apply add_le_add
+      · exact mul_le_mul ha hprofile (abs_nonneg _) (by positivity)
+      · apply mul_le_mul har _ (abs_nonneg _) (by norm_num)
+        calc
+          _ ≤ 3 * |sq * p - sr * p| := by
+            simpa [Real.dist_eq] using hprofileDiff
+          _ = 3 * (|p| * |sq - sr|) := by
+            rw [← sub_mul, abs_mul]
+            ring
+          _ ≤ 3 * (|p| * |q - r|) := by
+            apply mul_le_mul_of_nonneg_left _ (by norm_num)
+            apply mul_le_mul_of_nonneg_left _ (abs_nonneg p)
+            simpa [sq, sr, Real.dist_eq] using hs
+    _ = (boundedScalarPositionDerivativePositionRate p : ℝ) * |q - r| := by
+      change _ = (18 * p ^ 2 + 3 * |p|) * |q - r|
+      ring
+
+/-- Scalar-coordinate form of the global momentum-slice force bound. -/
+theorem boundedScalarPositionDerivativeReal_lipschitz_snd (q : ℝ) :
+    LipschitzWith 3 (fun p => boundedScalarPositionDerivativeReal (q, p)) := by
+  apply LipschitzWith.of_dist_le_mul
+  intro p r
+  rw [Real.dist_eq]
+  have hspos : 0 < 2 + Real.sin q := by
+    linarith [Real.neg_one_le_sin q]
+  have hprofile := scalarPositionProfile_lipschitz.dist_le_mul
+    ((2 + Real.sin q) * p) ((2 + Real.sin q) * r)
+  rw [Real.dist_eq] at hprofile
+  change |Real.cos q / (2 + Real.sin q) *
+        scalarPositionProfile ((2 + Real.sin q) * p) -
+      Real.cos q / (2 + Real.sin q) *
+        scalarPositionProfile ((2 + Real.sin q) * r)| ≤ 3 * |p - r|
+  calc
+    _ = |Real.cos q / (2 + Real.sin q)| *
+        |scalarPositionProfile ((2 + Real.sin q) * p) -
+          scalarPositionProfile ((2 + Real.sin q) * r)| := by
+      rw [← abs_mul]
+      congr 1
+      ring
+    _ ≤ |Real.cos q / (2 + Real.sin q)| *
+        (3 * |(2 + Real.sin q) * p - (2 + Real.sin q) * r|) := by
+      apply mul_le_mul_of_nonneg_left _ (abs_nonneg _)
+      simpa [Real.dist_eq] using hprofile
+    _ = 3 * |Real.cos q| * |p - r| := by
+      rw [abs_div, abs_of_pos hspos, ← mul_sub, abs_mul, abs_of_pos hspos]
+      field_simp [hspos.ne']
+    _ ≤ 3 * 1 * |p - r| := by gcongr; exact Real.abs_cos_le_one q
+    _ = _ := by ring
 
 theorem differentiable_boundedScalarMomentumDerivativeReal :
     Differentiable ℝ boundedScalarMomentumDerivativeReal := by
@@ -658,6 +894,52 @@ theorem boundedScalarMomentumDerivative_lipschitz_position
     _ ≤ 2 * |q Unit.unit - r Unit.unit| := by
       apply mul_le_mul_of_nonneg_left _ (by norm_num)
       simpa [boundedScalarScale, Real.dist_eq] using hs
+
+/-- The bounded velocity callback is uniformly nine-Lipschitz in momentum.
+The square arises because the scalar metric factor occurs both outside and
+inside the relativistic velocity profile. -/
+theorem boundedScalarMomentumDerivative_lipschitz_momentum
+    (q : Position Unit) :
+    LipschitzWith 9 (fun p : Momentum Unit =>
+      boundedScalarMomentumDerivative (q, p)) := by
+  apply LipschitzWith.of_dist_le_mul
+  intro p r
+  rw [dist_eq_norm, norm_pi_unit, dist_eq_norm, norm_pi_unit]
+  change |scaledVelocityProfile (p Unit.unit) (boundedScalarScale q) -
+      scaledVelocityProfile (r Unit.unit) (boundedScalarScale q)| ≤
+    9 * |p Unit.unit - r Unit.unit|
+  have hv := scalarVelocityProfile_lipschitz.dist_le_mul
+    (boundedScalarScale q * p Unit.unit)
+    (boundedScalarScale q * r Unit.unit)
+  have hspos := boundedScalarScale_pos q
+  have hsle := boundedScalarScale_le_three q
+  unfold scaledVelocityProfile
+  calc
+    _ = boundedScalarScale q *
+        |scalarVelocityProfile (boundedScalarScale q * p Unit.unit) -
+          scalarVelocityProfile (boundedScalarScale q * r Unit.unit)| := by
+      rw [← mul_sub, abs_mul, abs_of_pos hspos]
+    _ ≤ boundedScalarScale q *
+        |boundedScalarScale q * p Unit.unit -
+          boundedScalarScale q * r Unit.unit| := by
+      exact mul_le_mul_of_nonneg_left (by simpa [Real.dist_eq] using hv) hspos.le
+    _ = boundedScalarScale q ^ 2 * |p Unit.unit - r Unit.unit| := by
+      rw [← mul_sub, abs_mul, abs_of_pos hspos]
+      ring
+    _ ≤ 3 ^ 2 * |p Unit.unit - r Unit.unit| := by
+      gcongr
+    _ = _ := by norm_num
+
+/-- Scalar-coordinate form of the preceding momentum sensitivity bound. -/
+theorem boundedScalarMomentumDerivativeReal_lipschitz_snd (q : ℝ) :
+    LipschitzWith 9 (fun p => boundedScalarMomentumDerivativeReal (q, p)) := by
+  apply LipschitzWith.of_dist_le_mul
+  intro p r
+  have h := (boundedScalarMomentumDerivative_lipschitz_momentum
+    (fun _ => q)).dist_le_mul (fun _ => p) (fun _ => r)
+  rw [dist_eq_norm, norm_pi_unit, dist_eq_norm, norm_pi_unit] at h
+  simpa [boundedScalarMomentumDerivative, boundedScalarMomentumDerivativeReal,
+    boundedScalarScale, Real.dist_eq] using h
 
 noncomputable def boundedScalarHalfRate (ε : ℝ) : NNReal :=
   ⟨|ε / 2| * 3, mul_nonneg (abs_nonneg _) (by norm_num)⟩

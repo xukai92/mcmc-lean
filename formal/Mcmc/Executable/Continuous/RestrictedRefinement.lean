@@ -188,6 +188,84 @@ noncomputable def RestrictedPrimitiveBackend.toRestrictedBackend
   cos_transport_bound computed _ideal _error hinput :=
     (backend.cos_local_bound computed).trans (cos_approximates hinput)
 
+/-- Exact-real primitive backend for generated restricted expressions. This is
+the proof-side reference semantics: all local errors are zero. It deliberately
+does not model IEEE arithmetic or platform transcendental functions. -/
+noncomputable def exactRestrictedPrimitiveBackend : RestrictedPrimitiveBackend where
+  rational numerator denominator := (numerator : ℝ) / (denominator : ℝ)
+  add := (· + ·)
+  mul := (· * ·)
+  neg := (-·)
+  exp := Real.exp
+  sin := Real.sin
+  cos := Real.cos
+  rationalError _ _ := 0
+  addError _ _ := 0
+  mulError _ _ := 0
+  negError _ := 0
+  expLocalError _ := 0
+  sinLocalError _ := 0
+  cosLocalError _ := 0
+  rational_bound _ _ := Approximates.refl _
+  add_bound _ _ := Approximates.refl _
+  mul_bound _ _ := Approximates.refl _
+  neg_bound _ := Approximates.refl _
+  exp_local_bound _ := Approximates.refl _
+  sin_local_bound _ := Approximates.refl _
+  cos_local_bound _ := Approximates.refl _
+
+/-- Exact restricted-expression backend with analytic transport of a possibly
+inexact input. Its operations are ideal real operations; only input error can
+propagate. -/
+noncomputable def exactRestrictedBackend : RestrictedBackend where
+  rational numerator denominator := (numerator : ℝ) / (denominator : ℝ)
+  add := (· + ·)
+  mul := (· * ·)
+  neg := (-·)
+  exp := Real.exp
+  sin := Real.sin
+  cos := Real.cos
+  rationalError _ _ := 0
+  addError _ _ := 0
+  mulError _ _ := 0
+  negError _ := 0
+  expTransportError computed ideal error :=
+    Real.exp (max computed ideal) * error
+  sinTransportError _ _ error := error
+  cosTransportError _ _ error := error
+  rational_bound _ _ := Approximates.refl _
+  add_bound _ _ := Approximates.refl _
+  mul_bound _ _ := Approximates.refl _
+  neg_bound _ := Approximates.refl _
+  exp_transport_bound computed ideal _error hinput :=
+    exp_approximates_exp_of_le hinput
+      (le_max_left computed ideal) (le_max_right computed ideal)
+  sin_transport_bound _ _ _ hinput := sin_approximates hinput
+  cos_transport_bound _ _ _ hinput := cos_approximates hinput
+
+@[simp] theorem exactRestrictedBackend_rational (numerator : Int)
+    (denominator : Nat) :
+    exactRestrictedBackend.rational numerator denominator =
+      (numerator : ℝ) / (denominator : ℝ) := rfl
+
+@[simp] theorem exactRestrictedBackend_add (left right : ℝ) :
+    exactRestrictedBackend.add left right = left + right := rfl
+
+@[simp] theorem exactRestrictedBackend_mul (left right : ℝ) :
+    exactRestrictedBackend.mul left right = left * right := rfl
+
+@[simp] theorem exactRestrictedBackend_neg (value : ℝ) :
+    exactRestrictedBackend.neg value = -value := rfl
+
+@[simp] theorem exactRestrictedBackend_exp (value : ℝ) :
+    exactRestrictedBackend.exp value = Real.exp value := rfl
+
+@[simp] theorem exactRestrictedBackend_sin (value : ℝ) :
+    exactRestrictedBackend.sin value = Real.sin value := rfl
+
+@[simp] theorem exactRestrictedBackend_cos (value : ℝ) :
+    exactRestrictedBackend.cos value = Real.cos value := rfl
+
 /-- Numeric interpretation supplied by a certified backend. -/
 def RestrictedArtifactExpr.backendEval (backend : RestrictedBackend) :
     RestrictedArtifactExpr → ℝ → ℝ
@@ -262,6 +340,42 @@ theorem RestrictedArtifactExpr.backendEval_approximates
   | cos value hvalue =>
     exact backend.cos_transport_bound _ _ _ hvalue
 
+/-- The exact reference backend evaluates every generated artifact exactly as
+its verified ideal-real compilation. -/
+theorem RestrictedArtifactExpr.exactRestrictedBackend_eval
+    (expression : RestrictedArtifactExpr) (input : ℝ) :
+    expression.backendEval exactRestrictedBackend input =
+      expression.compile.eval input := by
+  induction expression <;>
+    simp only [RestrictedArtifactExpr.backendEval,
+      RestrictedArtifactExpr.compile, RestrictedExpr.eval,
+      exactRestrictedBackend_rational, exactRestrictedBackend_add,
+      exactRestrictedBackend_mul, exactRestrictedBackend_neg,
+      exactRestrictedBackend_exp, exactRestrictedBackend_sin,
+      exactRestrictedBackend_cos, *]
+
+/-- Every generated target artifact therefore has a zero-error value and
+symbolic-gradient certificate at an exactly represented input. -/
+noncomputable def RestrictedArtifactExpr.exactTargetCertificate
+    (expression : RestrictedArtifactExpr) (input : ℝ) :
+    RestrictedTargetCertificate expression.compile where
+  idealInput := input
+  computedInput := input
+  computedValue := expression.backendEval exactRestrictedBackend input
+  computedDerivative :=
+    expression.derivative.backendEval exactRestrictedBackend input
+  inputError := 0
+  valueError := 0
+  derivativeError := 0
+  input_bound := Approximates.refl input
+  value_bound := by
+    rw [expression.exactRestrictedBackend_eval]
+    exact Approximates.refl _
+  derivative_bound := by
+    rw [expression.derivative.exactRestrictedBackend_eval,
+      expression.compile_derivative]
+    exact Approximates.refl _
+
 /-- Turn operation-level backend evidence into the value/gradient certificate
 consumed by the bounded sampler layers. Both expressions are evaluated by the
 same backend and the derivative tree is generated in Lean. -/
@@ -283,5 +397,105 @@ noncomputable def RestrictedArtifactExpr.targetCertificate
   derivative_bound := by
     rw [← expression.compile_derivative]
     exact expression.derivative.backendEval_approximates backend hinput
+
+/-- Assumption-free ex-post enclosure for one sine/cosine pair on `[-1,1]`.
+The checker uses mathlib's proved cubic sine and quadratic cosine remainders;
+all submitted values and radii are rational. -/
+structure SinCosRationalIntervalCertificate where
+  input : ℚ
+  computedSin : ℚ
+  sinError : ℚ
+  computedCos : ℚ
+  cosError : ℚ
+deriving DecidableEq, Repr
+
+namespace SinCosRationalIntervalCertificate
+
+def sinCenter (certificate : SinCosRationalIntervalCertificate) : ℚ :=
+  certificate.input - certificate.input ^ 3 / 6
+
+def sinRemainder (certificate : SinCosRationalIntervalCertificate) : ℚ :=
+  |certificate.input| ^ 5 / 100
+
+def cosCenter (certificate : SinCosRationalIntervalCertificate) : ℚ :=
+  1 - certificate.input ^ 2 / 2
+
+def cosRemainder (certificate : SinCosRationalIntervalCertificate) : ℚ :=
+  |certificate.input| ^ 4 * (5 / 96)
+
+def Valid (certificate : SinCosRationalIntervalCertificate) : Prop :=
+  |certificate.input| ≤ 1 ∧ 0 ≤ certificate.sinError ∧
+    |certificate.computedSin - certificate.sinCenter| +
+      certificate.sinRemainder ≤ certificate.sinError ∧
+    0 ≤ certificate.cosError ∧
+    |certificate.computedCos - certificate.cosCenter| +
+      certificate.cosRemainder ≤ certificate.cosError
+
+instance (certificate : SinCosRationalIntervalCertificate) :
+    Decidable certificate.Valid := by
+  unfold Valid
+  infer_instance
+
+def check (certificate : SinCosRationalIntervalCertificate) : Bool :=
+  decide certificate.Valid
+
+@[simp] theorem check_eq_true_iff
+    (certificate : SinCosRationalIntervalCertificate) :
+    certificate.check = true ↔ certificate.Valid := by
+  simp [check]
+
+theorem sin_approximates (certificate : SinCosRationalIntervalCertificate)
+    (hvalid : certificate.Valid) :
+    Approximates (certificate.computedSin : ℝ)
+      (Real.sin certificate.input) certificate.sinError := by
+  have hx : |(certificate.input : ℝ)| ≤ 1 := by
+    exact_mod_cast hvalid.1
+  have hremainder := Real.sin_bound hx
+  have hbudget :
+      |(certificate.computedSin : ℝ) - certificate.sinCenter| +
+        certificate.sinRemainder ≤ certificate.sinError := by
+    exact_mod_cast hvalid.2.2.1
+  unfold Approximates
+  calc
+    |(certificate.computedSin : ℝ) - Real.sin certificate.input| ≤
+        |(certificate.computedSin : ℝ) - certificate.sinCenter| +
+          |(certificate.sinCenter : ℝ) - Real.sin certificate.input| := by
+      rw [show (certificate.computedSin : ℝ) - Real.sin certificate.input =
+          (certificate.computedSin - certificate.sinCenter) +
+            (certificate.sinCenter - Real.sin certificate.input) by ring]
+      exact abs_add_le _ _
+    _ ≤ |(certificate.computedSin : ℝ) - certificate.sinCenter| +
+        certificate.sinRemainder := by
+      exact add_le_add (le_refl _)
+        (by simpa [sinCenter, sinRemainder, abs_sub_comm] using hremainder)
+    _ ≤ certificate.sinError := hbudget
+
+theorem cos_approximates (certificate : SinCosRationalIntervalCertificate)
+    (hvalid : certificate.Valid) :
+    Approximates (certificate.computedCos : ℝ)
+      (Real.cos certificate.input) certificate.cosError := by
+  have hx : |(certificate.input : ℝ)| ≤ 1 := by
+    exact_mod_cast hvalid.1
+  have hremainder := Real.cos_bound hx
+  have hbudget :
+      |(certificate.computedCos : ℝ) - certificate.cosCenter| +
+        certificate.cosRemainder ≤ certificate.cosError := by
+    exact_mod_cast hvalid.2.2.2.2
+  unfold Approximates
+  calc
+    |(certificate.computedCos : ℝ) - Real.cos certificate.input| ≤
+        |(certificate.computedCos : ℝ) - certificate.cosCenter| +
+          |(certificate.cosCenter : ℝ) - Real.cos certificate.input| := by
+      rw [show (certificate.computedCos : ℝ) - Real.cos certificate.input =
+          (certificate.computedCos - certificate.cosCenter) +
+            (certificate.cosCenter - Real.cos certificate.input) by ring]
+      exact abs_add_le _ _
+    _ ≤ |(certificate.computedCos : ℝ) - certificate.cosCenter| +
+        certificate.cosRemainder := by
+      exact add_le_add (le_refl _)
+        (by simpa [cosCenter, cosRemainder, abs_sub_comm] using hremainder)
+    _ ≤ certificate.cosError := hbudget
+
+end SinCosRationalIntervalCertificate
 
 end Mcmc.Executable.Continuous

@@ -102,6 +102,63 @@ theorem unitHazardMeasure_Ioi (elapsed : NNReal) :
   congr 1
   ring
 
+/-- Integral form of the canonical hazard law on real coordinates.  Keeping
+the density as mathlib's `exponentialPDF` makes this bridge usable before any
+target-specific simplification of the rate-one density. -/
+theorem integral_unitHazardMeasure_eq_real
+    (f : NNReal → ℝ) (hf : StronglyMeasurable f) :
+    (∫ mark, f mark ∂unitHazardMeasure) =
+      ∫ value : ℝ, (exponentialPDF (1 : ℝ) value).toReal *
+        f (Real.toNNReal value) := by
+  unfold unitHazardMeasure HomogeneousClock.waitMeasure expMeasure gammaMeasure
+  rw [integral_map measurable_real_toNNReal.aemeasurable
+    hf.aestronglyMeasurable]
+  rw [integral_withDensity_eq_integral_toReal_smul]
+  · simp only [smul_eq_mul]
+    rfl
+  · exact (measurable_gammaPDFReal 1 1).ennreal_ofReal
+  · filter_upwards [] with value
+    exact ENNReal.ofReal_lt_top
+
+/-- The real density appearing in `integral_unitHazardMeasure_eq_real` is the
+usual rate-one exponential density on the nonnegative half-line. -/
+theorem unitHazard_exponentialPDF_toReal (value : ℝ) :
+    (exponentialPDF (1 : ℝ) value).toReal =
+      if 0 ≤ value then Real.exp (-value) else 0 := by
+  by_cases hvalue : 0 ≤ value
+  · rw [exponentialPDF_eq, if_pos hvalue, one_mul, one_mul,
+      ENNReal.toReal_ofReal (Real.exp_pos _).le, if_pos hvalue]
+  · simp [exponentialPDF_eq, hvalue]
+
+/-- Restricting a unit hazard mark to `[0,bound]` gives the ordinary
+rate-one exponential density on the corresponding real interval. -/
+theorem integral_unitHazardMeasure_Iic_eq_interval
+    (bound : NNReal) (f : NNReal → ℝ) (hf : StronglyMeasurable f) :
+    (∫ mark in Set.Iic bound, f mark ∂unitHazardMeasure) =
+      ∫ value in Set.Icc (0 : ℝ) (bound : ℝ),
+        Real.exp (-value) * f (Real.toNNReal value) := by
+  rw [← integral_indicator measurableSet_Iic]
+  rw [integral_unitHazardMeasure_eq_real _
+    (hf.indicator measurableSet_Iic)]
+  rw [← integral_indicator measurableSet_Icc]
+  apply integral_congr_ae
+  filter_upwards [] with value
+  rw [unitHazard_exponentialPDF_toReal]
+  by_cases hnonneg : 0 ≤ value
+  · rw [if_pos hnonneg]
+    by_cases hupper : value ≤ (bound : ℝ)
+    · have hmark : Real.toNNReal value ≤ bound := by
+        rw [Real.toNNReal_le_iff_le_coe]
+        exact hupper
+      simp [Set.indicator_of_mem, hmark, hnonneg, hupper]
+    · have hmark : ¬Real.toNNReal value ≤ bound := by
+        rw [Real.toNNReal_le_iff_le_coe]
+        exact hupper
+      have hout : value ∉ Set.Icc (0 : ℝ) (bound : ℝ) := fun h => hupper h.2
+      simp [Set.indicator_of_notMem, hmark, hout]
+  · have hout : value ∉ Set.Icc (0 : ℝ) (bound : ℝ) := fun h => hnonneg h.1
+    simp [hnonneg, Set.indicator_of_notMem, hout]
+
 /-- Unnormalized memorylessness: condition by restriction to marks larger than
 `elapsed`, subtract `elapsed`, and recover the original unit-hazard law scaled
 by the survival probability. -/
@@ -225,6 +282,16 @@ theorem unitHazardMeasure_singleton (hazard : NNReal) :
 instance unitHazardMeasure.instNullSingletonClass :
     NullSingletonClass unitHazardMeasure :=
   ⟨unitHazardMeasure_singleton⟩
+
+/-- A unit-exponential hazard mark avoids every fixed value almost surely. -/
+theorem unitHazardMeasure_ne_const_ae (mark : NNReal) :
+    ∀ᵐ sampled ∂unitHazardMeasure, sampled ≠ mark := by
+  rw [ae_iff]
+  have hset : {sampled : NNReal | ¬sampled ≠ mark} = {mark} := by
+    ext sampled
+    simp
+  rw [hset]
+  exact unitHazardMeasure_singleton mark
 
 theorem unitHazardMeasure_positive_ae :
     ∀ᵐ hazard ∂unitHazardMeasure, 0 < hazard := by
@@ -441,6 +508,18 @@ theorem PartialInverseHazardClock.cappedStepUpdate_of_no_event
     clock.cappedStepUpdate jump ((remaining, state), hazard) =
       (0, clock.semiflow.flow remaining state) := by
   simp [PartialInverseHazardClock.cappedStepUpdate, hnoevent]
+
+/-- A capped inverse-hazard step never increases the remaining horizon. -/
+theorem PartialInverseHazardClock.cappedStepUpdate_fst_le
+    (clock : PartialInverseHazardClock State) (jump : State → State)
+    (remainingState : NNReal × State) (hazard : NNReal) :
+    (clock.cappedStepUpdate jump (remainingState, hazard)).1 ≤
+      remainingState.1 := by
+  unfold PartialInverseHazardClock.cappedStepUpdate
+  dsimp only [Prod.fst, Prod.snd]
+  split_ifs
+  · exact tsub_le_self
+  · exact bot_le
 
 /-- Deterministic replay of a supplied finite hazard prefix on remaining-time
 state. This is the pathwise object whose almost-sure eventual stabilization is
@@ -704,6 +783,40 @@ theorem unitHazardSequence_coordinate_pos_ae (count : ℕ) :
     exact unitHazardMeasure_positive_ae
   exact (ae_map_iff (measurable_pi_apply count).aemeasurable
     measurableSet_Ioi).mp hpositive
+
+/-- Exact probability that the first two iid unit-exponential hazard marks
+both lie below a common bound.  This elementary cylinder calculation is the
+probabilistic core of the two-or-more-bounce small-time estimate. -/
+theorem unitHazardSequenceMeasure_first_two_le (bound : NNReal) :
+    unitHazardSequenceMeasure
+        {hazards : ℕ → NNReal | hazards 0 ≤ bound ∧ hazards 1 ≤ bound} =
+      ENNReal.ofReal (1 - Real.exp (-(bound : ℝ))) ^ 2 := by
+  have hset : {hazards : ℕ → NNReal |
+      hazards 0 ≤ bound ∧ hazards 1 ≤ bound} =
+      Set.pi ({0, 1} : Finset ℕ) (fun _ => Set.Iic bound) := by
+    ext hazards
+    simp
+  rw [hset]
+  unfold unitHazardSequenceMeasure
+  rw [Measure.infinitePi_pi]
+  · simp [unitHazardMeasure_Iic, pow_two]
+  · intro index hindex
+    exact measurableSet_Iic
+
+/-- The same two-coordinate cylinder has the simple quadratic upper bound
+`bound²`. -/
+theorem unitHazardSequenceMeasure_first_two_le_le_sq (bound : NNReal) :
+    unitHazardSequenceMeasure
+        {hazards : ℕ → NNReal | hazards 0 ≤ bound ∧ hazards 1 ≤ bound} ≤
+      ENNReal.ofReal ((bound : ℝ) ^ 2) := by
+  rw [unitHazardSequenceMeasure_first_two_le]
+  have hnonneg : 0 ≤ 1 - Real.exp (-(bound : ℝ)) :=
+    sub_nonneg.mpr (Real.exp_le_one_iff.mpr (neg_nonpos.mpr bound.coe_nonneg))
+  have hlinear : 1 - Real.exp (-(bound : ℝ)) ≤ (bound : ℝ) := by
+    have hexp := Real.add_one_le_exp (-(bound : ℝ))
+    linarith
+  rw [← ENNReal.ofReal_pow hnonneg]
+  exact ENNReal.ofReal_le_ofReal (pow_le_pow_left₀ hnonneg hlinear 2)
 
 /-- Removing the first coordinate from an iid unit-hazard stream leaves the
 same infinite-product law. -/
@@ -1192,6 +1305,43 @@ instance unitHazardPrefixMeasure.instIsProbabilityMeasure (count : ℕ) :
   unfold unitHazardPrefixMeasure
   infer_instance
 
+/-- A one-mark finite prefix is exactly one unit-exponential hazard.  This is
+the coordinate bridge used to turn the executor's count-two completion
+stratum (one accepted event plus its terminal candidate) into a scalar
+first-event integral. -/
+theorem unitHazardPrefixMeasure_one_map_eval :
+    Measure.map (fun marks : Fin 1 → NNReal => marks 0)
+        (unitHazardPrefixMeasure 1) =
+      unitHazardMeasure := by
+  unfold unitHazardPrefixMeasure
+  simpa using
+    (Measure.infinitePi_map_eval
+      (μ := fun _ : Fin 1 => unitHazardMeasure) (0 : Fin 1))
+
+/-- Integrating over a one-mark prefix is the same as integrating over its
+single scalar unit-exponential mark. -/
+theorem integral_unitHazardPrefixMeasure_one
+    (f : (Fin 1 → NNReal) → ℝ) (hf : StronglyMeasurable f) :
+    (∫ marks, f marks ∂unitHazardPrefixMeasure 1) =
+      ∫ mark, f (fun _ => mark) ∂unitHazardMeasure := by
+  calc
+    (∫ marks, f marks ∂unitHazardPrefixMeasure 1) =
+        ∫ marks, f (fun _ => marks 0) ∂unitHazardPrefixMeasure 1 := by
+      apply integral_congr_ae
+      filter_upwards [] with marks
+      congr 1
+      funext index
+      rw [Subsingleton.elim index 0]
+    _ = ∫ mark, f (fun _ => mark)
+          ∂Measure.map (fun marks : Fin 1 → NNReal => marks 0)
+            (unitHazardPrefixMeasure 1) := by
+      exact (integral_map (μ := unitHazardPrefixMeasure 1)
+        (measurable_pi_apply 0).aemeasurable
+        (hf.comp_measurable (measurable_pi_iff.2 fun _ => measurable_id)
+          |>.aestronglyMeasurable)).symm
+    _ = ∫ mark, f (fun _ => mark) ∂unitHazardMeasure := by
+      rw [unitHazardPrefixMeasure_one_map_eval]
+
 /-- Split a stream after a deterministic finite prefix. -/
 def unitHazardPrefixTail (count : ℕ) (hazards : ℕ → NNReal) :
     (Fin count → NNReal) × (ℕ → NNReal) :=
@@ -1518,6 +1668,17 @@ theorem PartialInverseHazardClock.measurable_replayPrefix
   | succ count ih =>
       exact clock.measurable_cappedStepUpdate hjump |>.comp
         (ih.prodMk (measurable_pi_apply count |>.comp measurable_snd))
+
+/-- Every finite replay prefix has at most its initial remaining horizon. -/
+theorem PartialInverseHazardClock.replayPrefix_fst_le
+    (clock : PartialInverseHazardClock State) (jump : State → State)
+    (count : ℕ) (input : (NNReal × State) × (ℕ → NNReal)) :
+    (clock.replayPrefix jump count input).1 ≤ input.1.1 := by
+  induction count with
+  | zero => exact le_rfl
+  | succ count ih =>
+      exact (clock.cappedStepUpdate_fst_le jump
+        (clock.replayPrefix jump count input) (input.2 count)).trans ih
 
 theorem PartialInverseHazardClock.replayPrefix_eq_executeHazards
     (clock : PartialInverseHazardClock State) (jump : State → State)

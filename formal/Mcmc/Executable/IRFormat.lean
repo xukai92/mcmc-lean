@@ -20,7 +20,7 @@ namespace Mcmc.Executable.IRFormat
 
 open Finite.CompilerIR
 
-def version : Nat := 18
+def version : Nat := 19
 
 private def quote (value : String) : String :=
   let escapedBackslash := value.replace "\\" "\\\\"
@@ -229,6 +229,10 @@ private def dynamicTreeTracePolicyRender :
     DynamicTreeIR.TracePolicy → String
   | .fairDirectionBits => "fair-direction-bits"
 
+private def dynamicTreeRootEncodingRender :
+    DynamicTreeIR.RootEncoding → String
+  | .lsbFirstGrowRightZero => "lsb-first-grow-right-zero"
+
 private def dynamicTreeStopRuleRender :
     DynamicTreeIR.StopRule → String
   | .endpointUTurn => "endpoint-uturn"
@@ -250,6 +254,7 @@ private def dynamicTreeDescriptorRender
   list ["dynamic-tree", quote descriptor.name,
     dynamicTreeBuilderRender descriptor.builder,
     dynamicTreeTracePolicyRender descriptor.tracePolicy,
+    dynamicTreeRootEncodingRender descriptor.rootEncoding,
     dynamicTreeStopRuleRender descriptor.stopRule,
     dynamicTreeSubtreePolicyRender descriptor.subtreePolicy,
     dynamicTreeSelectionPolicyRender descriptor.selectionPolicy,
@@ -273,6 +278,8 @@ def render : String :=
       Mcmc.Executable.Continuous.restrictedGaussianArtifact,
     restrictedTargetRender "restricted-sinusoidal-potential"
       Mcmc.Executable.Continuous.restrictedSinusoidalPotentialArtifact,
+    restrictedTargetRender "restricted-quartic-potential"
+      Mcmc.Executable.Continuous.restrictedQuarticPotentialArtifact,
     scheduleDescriptorRender ComposableIR.gePgHmcSchedule,
     transformDescriptorRender ConstrainedTransformIR.positiveLog,
     transformDescriptorRender ConstrainedTransformIR.openUnitArtanh] ++

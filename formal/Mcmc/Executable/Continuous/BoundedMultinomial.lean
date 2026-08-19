@@ -260,6 +260,162 @@ noncomputable def stabilizedMultinomialSelectionCertificate
       (stabilizedTotalWeight_approximates computedEnergy idealEnergy
         computedWeight energyError expError henergy hexp)
 
+/-- Actual rounded cumulative sums and their final total. This inserts the
+arithmetic performed by a concrete backend between certified weights and the
+selection comparison instead of silently treating prefix summation as exact. -/
+structure MultinomialCumulativeArithmeticCertificate
+    {n : ℕ} (computedWeight : Fin n → ℝ) where
+  computedBoundary : Fin n → ℝ
+  computedTotal : ℝ
+  boundaryError : ℝ
+  totalError : ℝ
+  boundaryError_nonneg : 0 ≤ boundaryError
+  totalError_nonneg : 0 ≤ totalError
+  boundary_bound : ∀ i, Approximates (computedBoundary i)
+    (cumulativeWeight computedWeight i) boundaryError
+  total_bound : Approximates computedTotal (totalWeight computedWeight)
+    totalError
+
+/-- One exact-rational record for a rounded cumulative sum. `weight` is the
+next exact Float64 weight, while `computedBoundary` is the runtime prefix. -/
+structure RoundedCumulativeRationalStep where
+  weight : ℚ
+  computedBoundary : ℚ
+  error : ℚ
+deriving DecidableEq, Repr
+
+/-- Validate every submitted boundary against the exact rational prefix, not
+against the preceding rounded boundary. Thus each stored radius is already a
+complete prefix-summation error. -/
+def RoundedCumulativeRationalCertificate.ValidFrom :
+    ℚ → List RoundedCumulativeRationalStep → Prop
+  | _, [] => True
+  | accumulated, step :: rest =>
+      0 ≤ step.error ∧
+        |step.computedBoundary - (accumulated + step.weight)| ≤ step.error ∧
+        ValidFrom (accumulated + step.weight) rest
+
+instance roundedCumulativeRationalCertificateDecidableValidFrom
+    (accumulated : ℚ) (steps : List RoundedCumulativeRationalStep) :
+    Decidable (RoundedCumulativeRationalCertificate.ValidFrom accumulated steps) := by
+  induction steps generalizing accumulated with
+  | nil => exact isTrue trivial
+  | cons step rest ih =>
+      simp only [RoundedCumulativeRationalCertificate.ValidFrom]
+      infer_instance
+
+structure RoundedCumulativeRationalCertificate where
+  steps : List RoundedCumulativeRationalStep
+deriving DecidableEq, Repr
+
+def RoundedCumulativeRationalCertificate.Valid
+    (certificate : RoundedCumulativeRationalCertificate) : Prop :=
+  certificate.steps ≠ [] ∧
+    RoundedCumulativeRationalCertificate.ValidFrom 0 certificate.steps
+
+instance roundedCumulativeRationalCertificateDecidableValid
+    (certificate : RoundedCumulativeRationalCertificate) :
+    Decidable certificate.Valid := by
+  unfold RoundedCumulativeRationalCertificate.Valid
+  infer_instance
+
+def RoundedCumulativeRationalCertificate.check
+    (certificate : RoundedCumulativeRationalCertificate) : Bool :=
+  decide certificate.Valid
+
+theorem RoundedCumulativeRationalCertificate.head_approximates
+    (accumulated : ℚ) (step : RoundedCumulativeRationalStep)
+    (rest : List RoundedCumulativeRationalStep)
+    (hvalid : RoundedCumulativeRationalCertificate.ValidFrom accumulated
+      (step :: rest)) :
+    Approximates (step.computedBoundary : ℝ)
+      ((accumulated : ℝ) + step.weight) (step.error : ℝ) := by
+  rw [Approximates]
+  exact_mod_cast hvalid.2.1
+
+/-- Exact-rational residual for the runtime multiplication `uniform * total`
+used by cumulative multinomial selection. -/
+structure ScaledDrawRationalCertificate where
+  uniform : ℚ
+  total : ℚ
+  computed : ℚ
+  error : ℚ
+deriving DecidableEq, Repr
+
+def ScaledDrawRationalCertificate.Valid
+    (certificate : ScaledDrawRationalCertificate) : Prop :=
+  0 ≤ certificate.uniform ∧ certificate.uniform < 1 ∧
+    0 ≤ certificate.total ∧ 0 ≤ certificate.error ∧
+    |certificate.computed - certificate.uniform * certificate.total| ≤
+      certificate.error
+
+instance scaledDrawRationalCertificateDecidableValid
+    (certificate : ScaledDrawRationalCertificate) :
+    Decidable certificate.Valid := by
+  unfold ScaledDrawRationalCertificate.Valid
+  infer_instance
+
+def ScaledDrawRationalCertificate.check
+    (certificate : ScaledDrawRationalCertificate) : Bool :=
+  decide certificate.Valid
+
+theorem ScaledDrawRationalCertificate.approximates
+    (certificate : ScaledDrawRationalCertificate)
+    (hvalid : certificate.Valid) :
+    Approximates (certificate.computed : ℝ)
+      ((certificate.uniform : ℝ) * certificate.total)
+      (certificate.error : ℝ) := by
+  rw [Approximates]
+  exact_mod_cast hvalid.2.2.2.2
+
+/-- Full stabilized selection certificate with rounded prefix sums, rounded
+total, scaled-draw multiplication, and RNG transport all explicit. -/
+noncomputable def stabilizedMultinomialSelectionCertificateWithArithmetic
+    {n : ℕ} [Nonempty (Fin n)]
+    (computedEnergy idealEnergy computedWeight : Fin n → ℝ)
+    (arithmetic : MultinomialCumulativeArithmeticCertificate computedWeight)
+    (computedDraw computedUnit idealUnit : ℝ)
+    (energyError expError multiplicationError unitError : ℝ)
+    (henergyNonneg : 0 ≤ energyError) (hexpNonneg : 0 ≤ expError)
+    (henergy : ∀ i, Approximates (computedEnergy i) (idealEnergy i)
+      energyError)
+    (hexp : ∀ i, Approximates (computedWeight i)
+      (stabilizedBoltzmannWeight computedEnergy i) expError)
+    (hmul : Approximates computedDraw
+      (computedUnit * arithmetic.computedTotal) multiplicationError)
+    (hunit : Approximates computedUnit idealUnit unitError) :
+    MultinomialSelectionCertificate where
+  computedBoundaries := List.ofFn arithmetic.computedBoundary
+  idealBoundaries := List.ofFn
+    (cumulativeWeight (stabilizedBoltzmannWeight idealEnergy))
+  computedUniform := computedDraw
+  idealUniform := idealUnit *
+    totalWeight (stabilizedBoltzmannWeight idealEnergy)
+  boundaryError := arithmetic.boundaryError +
+    n * (expError + (energyError + energyError))
+  uniformError := multiplicationError +
+    (unitError * |arithmetic.computedTotal| + |idealUnit| *
+      (arithmetic.totalError +
+        n * (expError + (energyError + energyError))))
+  lengths_eq := by simp
+  boundary_bound := by
+    intro i hc hi
+    simp only [List.getElem_ofFn]
+    let j : Fin n := ⟨i, by simpa using hc⟩
+    exact (arithmetic.boundary_bound j).compose
+      (stabilizedCumulativeWeight_approximates_uniform
+        computedEnergy idealEnergy computedWeight energyError expError
+        henergyNonneg hexpNonneg henergy hexp j)
+  uniform_bound := by
+    have htotal : Approximates arithmetic.computedTotal
+        (totalWeight (stabilizedBoltzmannWeight idealEnergy))
+        (arithmetic.totalError +
+          n * (expError + (energyError + energyError))) :=
+      arithmetic.total_bound.compose
+        (stabilizedTotalWeight_approximates computedEnergy idealEnergy
+          computedWeight energyError expError henergy hexp)
+    exact scaledMultinomialDraw_approximates hmul hunit htotal
+
 /-- Stability means that no ideal cumulative boundary intersects the combined
 uniform/boundary uncertainty band. -/
 def MultinomialSelectionCertificate.DecisionStable
@@ -327,5 +483,68 @@ theorem MultinomialSelectionCertificate.exists_boundary_of_selection_ne
   have := not_exists.mp h i
   have := not_exists.mp this hi
   exact lt_of_not_ge this
+
+/-- Exact-rational witness that an ideal scaled draw is separated from every
+cumulative boundary by more than the complete selection uncertainty. This is
+an execution-specific decision certificate, not a claim about the RNG law. -/
+structure MultinomialDecisionRationalCertificate where
+  computedDraw : ℚ
+  computedBoundaries : List ℚ
+  uniformError : ℚ
+  boundaryError : ℚ
+deriving DecidableEq, Repr
+
+def MultinomialDecisionRationalCertificate.Valid
+    (certificate : MultinomialDecisionRationalCertificate) : Prop :=
+  0 ≤ certificate.uniformError ∧
+    0 ≤ certificate.boundaryError ∧
+    ∀ boundary ∈ certificate.computedBoundaries,
+      certificate.uniformError + certificate.boundaryError <
+        |certificate.computedDraw - boundary|
+
+instance multinomialDecisionRationalCertificateDecidableValid
+    (certificate : MultinomialDecisionRationalCertificate) :
+    Decidable certificate.Valid := by
+  unfold MultinomialDecisionRationalCertificate.Valid
+  infer_instance
+
+def MultinomialDecisionRationalCertificate.check
+    (certificate : MultinomialDecisionRationalCertificate) : Bool :=
+  decide certificate.Valid
+
+/-- Oracle-checked separation around the actual computed values proves
+equality of the runtime and ideal selected indices. Using the computed margin
+avoids pretending that transcendental ideal Boltzmann weights are rational. -/
+theorem MultinomialSelectionCertificate.selection_eq_of_rational_margin
+    (certificate : MultinomialSelectionCertificate)
+    (margin : MultinomialDecisionRationalCertificate)
+    (hvalid : margin.Valid)
+    (hdraw : certificate.computedUniform = (margin.computedDraw : ℝ))
+    (hboundaries : certificate.computedBoundaries =
+      List.map (fun value : ℚ => (value : ℝ)) margin.computedBoundaries)
+    (huniformError : certificate.uniformError ≤ (margin.uniformError : ℝ))
+    (hboundaryError : certificate.boundaryError ≤ (margin.boundaryError : ℝ)) :
+    selectCumulative certificate.computedUniform certificate.computedBoundaries =
+      selectCumulative certificate.idealUniform certificate.idealBoundaries := by
+  apply selectCumulative_eq_of_comparisons _ certificate.lengths_eq
+  intro i hc hi
+  have hc' : i < margin.computedBoundaries.length := by
+    simpa [hboundaries] using hc
+  have hmember : margin.computedBoundaries[i] ∈ margin.computedBoundaries :=
+    List.getElem_mem _
+  have hmargin := hvalid.2.2 margin.computedBoundaries[i] hmember
+  have hboundary : certificate.computedBoundaries[i] =
+      (margin.computedBoundaries[i] : ℝ) := by
+    simp [hboundaries]
+  have hmarginReal : certificate.uniformError + certificate.boundaryError <
+      |certificate.computedUniform - certificate.computedBoundaries[i]| := by
+    have hmarginCast : (margin.uniformError : ℝ) + margin.boundaryError <
+        |(margin.computedDraw : ℝ) - margin.computedBoundaries[i]| := by
+      exact_mod_cast hmargin
+    rw [hdraw, hboundary]
+    exact (add_le_add huniformError hboundaryError).trans_lt hmarginCast
+  exact (comparison_eq_of_approximates
+    (Approximates.symm certificate.uniform_bound)
+    (Approximates.symm (certificate.boundary_bound i hc hi)) hmarginReal).symm
 
 end Mcmc.Executable.Continuous

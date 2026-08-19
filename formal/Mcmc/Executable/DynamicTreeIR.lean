@@ -31,6 +31,28 @@ inductive TracePolicy where
   | fairDirectionBits
 deriving DecidableEq, Repr
 
+/-- Concrete interpretation of a direction trace as the initial leaf's
+zero-based position in a completed tree. This convention is proved against
+`doublingRootEquiv` in `Mcmc.Finite.RootedTrace`. -/
+inductive RootEncoding where
+  | lsbFirstGrowRightZero
+deriving DecidableEq, Repr
+
+/-- Exact decoder denoted by the generated root-encoding tag. -/
+def RootEncoding.decode (encoding : RootEncoding) (depth : ℕ)
+    (trace : Fin depth → Bool) : ℕ :=
+  match encoding with
+  | .lsbFirstGrowRightZero =>
+      Mcmc.Finite.MarkovKernel.directionTraceRootValue depth trace
+
+/-- The generated encoding recovers the zero-based root offset from the
+canonical reconstruction trace. -/
+@[simp] theorem RootEncoding.decode_directionTraceForRoot
+    (depth : ℕ) (root : Fin (2 ^ depth)) :
+    RootEncoding.lsbFirstGrowRightZero.decode depth
+        (Mcmc.Finite.MarkovKernel.directionTraceForRoot depth root) = root.val :=
+  Mcmc.Finite.MarkovKernel.directionTraceRootValue_directionTraceForRoot depth root
+
 /-- Endpoint selection performed by recursive eligible-count merges. This is
 the discrete selection rule whose law is proved by `WeightedRepresentative`;
 continuous eligibility and phase construction remain external inputs. -/
@@ -72,6 +94,7 @@ structure Descriptor where
   name : String
   builder : Builder
   tracePolicy : TracePolicy
+  rootEncoding : RootEncoding
   stopRule : StopRule
   subtreePolicy : SubtreePolicy
   selectionPolicy : SelectionPolicy
@@ -84,6 +107,7 @@ def checkedRecursiveDoubling : Descriptor where
   name := "checked-recursive-doubling"
   builder := .recursiveDoubling
   tracePolicy := .fairDirectionBits
+  rootEncoding := .lsbFirstGrowRightZero
   stopRule := .endpointUTurn
   subtreePolicy := .recursiveExclusion
   selectionPolicy := .eligibleCountStreaming
@@ -109,6 +133,18 @@ noncomputable def CheckedRecursiveDoublingProgram.interpret
   CertifiedDynamicTree.randomizedCheckedOrIdentityKernel
     (uniformDirectionTraceLaw depth) target program.candidates htarget
 
+/-- Productive safe semantics obtained by replacing every raw row with its
+canonical coherent subrow. This mode requires only structural root retention;
+it never adds a state excluded by the recursive builder. -/
+noncomputable def CheckedRecursiveDoublingProgram.interpretCoherent
+    {State : Type*} [Fintype State] [DecidableEq State] {depth : ℕ}
+    (program : CheckedRecursiveDoublingProgram State depth)
+    (target : Distribution State) (htarget : ∀ state, 0 < target.mass state)
+    (hroot : ∀ trace root, root ∈ program.candidates trace root) :
+    Mcmc.Finite.MarkovKernel State :=
+  CertifiedDynamicTree.randomizedCoherentKernel
+    (uniformDirectionTraceLaw depth) target program.candidates hroot htarget
+
 /-- The interpretation is literally the finite auxiliary mixture over every
 fair direction trace. This is the refinement target for the Julia recursion's
 direction draws and global candidate-row checker. -/
@@ -133,6 +169,17 @@ theorem CheckedRecursiveDoublingProgram.stationary
     (program.interpret target htarget).Stationary target :=
   CertifiedDynamicTree.randomizedCheckedOrIdentityKernel_stationary
     (uniformDirectionTraceLaw depth) target program.candidates htarget
+
+/-- Coherent-subrow recursive execution is stationary without discarding an
+entire direction trace merely because some raw rows disagree. -/
+theorem CheckedRecursiveDoublingProgram.interpretCoherent_stationary
+    {State : Type*} [Fintype State] [DecidableEq State] {depth : ℕ}
+    (program : CheckedRecursiveDoublingProgram State depth)
+    (target : Distribution State) (htarget : ∀ state, 0 < target.mass state)
+    (hroot : ∀ trace root, root ∈ program.candidates trace root) :
+    (program.interpretCoherent target htarget hroot).Stationary target :=
+  CertifiedDynamicTree.randomizedCoherentKernel_stationary
+    (uniformDirectionTraceLaw depth) target program.candidates hroot htarget
 
 /-- Candidate-row equality lifts through the entire generated semantics:
 the fair direction-trace mixture, global reroot check, checked selection, and

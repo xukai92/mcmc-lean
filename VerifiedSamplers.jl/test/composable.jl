@@ -44,6 +44,32 @@
     @test_throws ArgumentError generated_schedule("ge-pg-hmc", Dict())
 end
 
+@testset "generated PG-HMC Gaussian-mixture diagnostic" begin
+    particle_gibbs = function (rng, state)
+        probability_true = 1 / (1 + exp(-2 * state.continuous))
+        merge(state, (latent=rand(rng) < probability_true,))
+    end
+    hamiltonian_monte_carlo = function (rng, state)
+        location = state.latent ? 1.0 : -1.0
+        conditional = ScalarHMC(
+            x -> -(x - location)^2 / 2,
+            x -> x - location, 0.2, 8)
+        merge(state, (continuous=step(rng, conditional, state.continuous),))
+    end
+    sampler = generated_schedule("ge-pg-hmc", Dict(
+        "particle-gibbs" => particle_gibbs,
+        "hamiltonian-monte-carlo" => hamiltonian_monte_carlo))
+    initial = (latent=false, continuous=0.0)
+    first = sample(MersenneTwister(0x6e18), sampler, initial, 12_000)
+    second = sample(MersenneTwister(0x6e18), sampler, initial, 12_000)
+    @test first == second
+    retained = @view first[2001:end]
+    @test abs(mean(state.latent for state in retained) - 0.5) < 0.03
+    continuous = [state.continuous for state in retained]
+    @test abs(mean(continuous)) < 0.10
+    @test abs(var(continuous) - 2) < 0.15
+end
+
 @testset "explicit observation suspend/resume" begin
     factors = [state -> state + 1, state -> 2 * state, _ -> 0.5]
     initial = observation_cursor(3, factors)

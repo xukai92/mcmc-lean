@@ -73,6 +73,7 @@ import Mcmc.Executable.Continuous.BoundedSlice
 import Mcmc.Executable.Continuous.BoundedHMC
 import Mcmc.Executable.Continuous.BackendCertificates
 import Mcmc.Executable.Continuous.DynamicTreeRefinement
+import Mcmc.Executable.Continuous.DyadicLeapfrogCertificate
 import Mcmc.Executable.Continuous.RestrictedTarget
 import Mcmc.Executable.Continuous.RestrictedRefinement
 import Mcmc.Executable.Continuous.SoftAbsRefinement
@@ -127,6 +128,7 @@ import Mcmc.Kernel.Slice
 import Mcmc.Kernel.PracticalSlice
 import Mcmc.Examples.BoundedUniformSlice
 import Mcmc.Examples.IndefiniteAdaptiveBool
+import Mcmc.Examples.IndefiniteContinuousRefresh
 import Mcmc.Examples.ContinuousWarmupAdaptation
 import Mcmc.Examples.UniformRefreshSMC
 import Mcmc.PDMP.Generator

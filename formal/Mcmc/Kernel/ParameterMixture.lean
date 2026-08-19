@@ -32,6 +32,54 @@ instance independentParameterMixture.instIsMarkovKernel
   unfold independentParameterMixture
   infer_instance
 
+/-- Integrating an observable against an independent parameter mixture is
+iterated integration over the parameter law and the selected kernel row. -/
+theorem lintegral_independentParameterMixture
+    (family : Kernel (State × Parameter) State) [IsMarkovKernel family]
+    (parameterLaw : Measure Parameter) [IsProbabilityMeasure parameterLaw]
+    (state : State) {f : State → ENNReal} (hf : Measurable f) :
+    ∫⁻ next, f next ∂independentParameterMixture family parameterLaw state =
+      ∫⁻ parameter, (∫⁻ next, f next ∂family (state, parameter))
+        ∂parameterLaw := by
+  unfold independentParameterMixture
+  rw [Kernel.lintegral_comp _ _ _ hf]
+  simp only [Kernel.prod_apply, Kernel.id_apply, Kernel.const_apply,
+    Measure.dirac_prod]
+  exact MeasureTheory.lintegral_map'
+    hf.lintegral_kernel.aemeasurable
+    (measurable_const.prodMk measurable_id).aemeasurable
+
+/-- If almost every parameter section assigns positive mass to an event, so
+does the independently mixed row. -/
+theorem independentParameterMixture_pos_of_ae
+    (family : Kernel (State × Parameter) State)
+    (parameterLaw : Measure Parameter) [IsProbabilityMeasure parameterLaw]
+    (state : State) (event : Set State) (hevent : MeasurableSet event)
+    (hpos : ∀ᵐ parameter ∂parameterLaw,
+      0 < family (state, parameter) event) :
+    0 < independentParameterMixture family parameterLaw state event := by
+  unfold independentParameterMixture
+  rw [Kernel.comp_apply]
+  simp only [Kernel.prod_apply, Kernel.id_apply, Kernel.const_apply,
+    Measure.dirac_prod]
+  rw [Measure.bind_apply hevent family.aemeasurable]
+  rw [MeasureTheory.lintegral_map
+    (Kernel.measurable_coe family hevent)
+    (by fun_prop : Measurable (Prod.mk state))]
+  rw [lintegral_pos_iff_support
+    (show Measurable (fun parameter => family (state, parameter) event) from
+      (Kernel.measurable_coe family hevent).comp
+        (measurable_const.prodMk measurable_id))]
+  have hsupport : parameterLaw (Function.support (fun parameter =>
+      family (state, parameter) event)) = parameterLaw Set.univ := by
+    apply measure_congr
+    filter_upwards [hpos] with parameter hparameter
+    apply propext
+    change family (state, parameter) event ≠ 0 ↔ True
+    exact iff_true_intro hparameter.ne'
+  rw [hsupport, measure_univ]
+  exact zero_lt_one
+
 /-- Independent integration preserves a target when every fixed-parameter
 section preserves it. -/
 theorem independentParameterMixture_invariant

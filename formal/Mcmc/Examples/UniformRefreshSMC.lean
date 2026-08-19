@@ -541,6 +541,23 @@ noncomputable def partialRefreshPopulationMSEByExtra
               (partialRefreshStep refreshProbability hprob0 hprob1 law)))
           score) ^ 2)
 
+/-- The empirical mean-square error is nonnegative at every count and time. -/
+theorem partialRefreshPopulationMSEByExtra_nonneg
+    (refreshProbability : ℝ)
+    (hprob0 : 0 ≤ refreshProbability) (hprob1 : refreshProbability ≤ 1)
+    (initial law : Distribution Sample) (score : Sample → ℝ)
+    (extra time : ℕ) :
+    0 ≤ partialRefreshPopulationMSEByExtra refreshProbability hprob0 hprob1
+      initial law score extra time := by
+  unfold partialRefreshPopulationMSEByExtra finiteExpectation
+  apply Finset.sum_nonneg
+  intro particles _
+  exact mul_nonneg
+    ((bootstrapPopulationLaw (Particle := Fin (extra + 1)) initial
+      (List.replicate time
+        (partialRefreshStep refreshProbability hprob0 hprob1 law))).nonneg particles)
+    (sq_nonneg _)
+
 /-- A positive partial-refresh probability makes the inherited squared-error
 rate strictly contractive. -/
 theorem partialRefresh_sq_rate_lt_one
@@ -608,5 +625,236 @@ theorem partialRefreshPopulationMSEByExtra_le_uniform
     simpa [error, prior, step, partialRefreshPopulationMSEByExtra] using h
   exact sequential_error_le_uniform_inverse_count error hrate0 hrate1
     hinitial0 hnoise0 hinitial hstep extra time
+
+/-- Uniform-in-time consistency for the concrete dependent partial-refresh
+bootstrap filter. The time horizon may vary arbitrarily; only the particle
+count schedule must tend to infinity. -/
+theorem partialRefreshPopulationMSEByExtra_tendsto_zero_varying_time_of_count_tendsto
+    [Nonempty Sample]
+    (refreshProbability : ℝ)
+    (hprob0 : 0 < refreshProbability) (hprob1 : refreshProbability ≤ 1)
+    (initial law : Distribution Sample) (score : Sample → ℝ)
+    (extra time : ℕ → ℕ)
+    (hextra : Filter.Tendsto extra Filter.atTop Filter.atTop) :
+    Filter.Tendsto (fun index =>
+      partialRefreshPopulationMSEByExtra refreshProbability hprob0.le hprob1
+        initial law score (extra index) (time index))
+      Filter.atTop (nhds 0) := by
+  exact tendsto_zero_varying_horizon_of_uniform_inverse_count
+    (fun count horizon =>
+      partialRefreshPopulationMSEByExtra refreshProbability hprob0.le hprob1
+        initial law score count horizon)
+    (finiteVariance initial score +
+      (8 * finiteFunctionAbsMaximum score ^ 2) /
+        (1 - (1 - refreshProbability) ^ 2))
+    (partialRefreshPopulationMSEByExtra_nonneg
+      refreshProbability hprob0.le hprob1 initial law score)
+    (partialRefreshPopulationMSEByExtra_le_uniform
+      refreshProbability hprob0 hprob1 initial law score)
+    extra time hextra
+
+/-- An explicit finite-count, uniform-in-time probability bound for the
+dependent partial-refresh bootstrap filter. -/
+theorem partialRefreshPopulationDeviationProbability_le_uniform
+    [Nonempty Sample]
+    (refreshProbability : ℝ)
+    (hprob0 : 0 < refreshProbability) (hprob1 : refreshProbability ≤ 1)
+    (initial law : Distribution Sample) (score : Sample → ℝ)
+    (extra time : ℕ) {tolerance : ℝ} (htolerance : 0 < tolerance) :
+    bootstrapPopulationDeviationProbability initial
+        (List.replicate time
+          (partialRefreshStep refreshProbability hprob0.le hprob1 law))
+        score extra tolerance ≤
+      ((finiteVariance initial score +
+          (8 * finiteFunctionAbsMaximum score ^ 2) /
+            (1 - (1 - refreshProbability) ^ 2)) /
+        ((extra : ℝ) + 1)) / tolerance ^ 2 := by
+  calc
+    _ ≤ partialRefreshPopulationMSEByExtra refreshProbability hprob0.le hprob1
+          initial law score extra time / tolerance ^ 2 := by
+      simpa [partialRefreshPopulationMSEByExtra,
+        bootstrapPopulationMSEByExtra] using
+        bootstrapPopulationDeviationProbability_le_mse initial
+          (List.replicate time
+            (partialRefreshStep refreshProbability hprob0.le hprob1 law))
+          score extra htolerance
+    _ ≤ _ := div_le_div_of_nonneg_right
+      (partialRefreshPopulationMSEByExtra_le_uniform
+        refreshProbability hprob0 hprob1 initial law score extra time)
+      (sq_nonneg tolerance)
+
+/-- Uniform-in-time convergence in probability for the concrete dependent
+partial-refresh bootstrap filter. The horizon schedule is arbitrary and the
+particle-count schedule tends to infinity. -/
+theorem partialRefreshPopulationDeviationProbability_tendsto_zero_varying_time_of_count_tendsto
+    [Nonempty Sample]
+    (refreshProbability : ℝ)
+    (hprob0 : 0 < refreshProbability) (hprob1 : refreshProbability ≤ 1)
+    (initial law : Distribution Sample) (score : Sample → ℝ)
+    {tolerance : ℝ} (htolerance : 0 < tolerance)
+    (extra time : ℕ → ℕ)
+    (hextra : Filter.Tendsto extra Filter.atTop Filter.atTop) :
+    Filter.Tendsto (fun index =>
+      bootstrapPopulationDeviationProbability initial
+        (List.replicate (time index)
+          (partialRefreshStep refreshProbability hprob0.le hprob1 law))
+        score (extra index) tolerance)
+      Filter.atTop (nhds 0) := by
+  apply squeeze_zero
+    (g := fun index =>
+      partialRefreshPopulationMSEByExtra refreshProbability hprob0.le hprob1
+        initial law score (extra index) (time index) / tolerance ^ 2)
+  · intro index
+    exact bootstrapPopulationDeviationProbability_nonneg initial _ score _ _
+  · intro index
+    simpa [partialRefreshPopulationMSEByExtra,
+      bootstrapPopulationMSEByExtra] using
+      bootstrapPopulationDeviationProbability_le_mse initial
+        (List.replicate (time index)
+          (partialRefreshStep refreshProbability hprob0.le hprob1 law))
+        score (extra index) htolerance
+  · simpa using
+      (partialRefreshPopulationMSEByExtra_tendsto_zero_varying_time_of_count_tendsto
+        refreshProbability hprob0 hprob1 initial law score extra time hextra).div_const
+          (tolerance ^ 2)
+
+/-! ### Time-inhomogeneous partial refresh -/
+
+/-- A genuinely time-varying finite Feynman--Kac schedule. Stage `n` refreshes
+with probability `refreshProbability n`; constant potentials isolate the
+effect of the inhomogeneous mutation kernels. -/
+def varyingPartialRefreshSteps (refreshProbability : ℕ → ℝ)
+    (hprob0 : ∀ n, 0 ≤ refreshProbability n)
+    (hprob1 : ∀ n, refreshProbability n ≤ 1)
+    (law : Distribution Sample) : ℕ → List (FeynmanKacStep Sample)
+  | 0 => []
+  | n + 1 => varyingPartialRefreshSteps refreshProbability hprob0 hprob1 law n ++
+      [partialRefreshStep (refreshProbability n) (hprob0 n) (hprob1 n) law]
+
+/-- Actual dependent-population MSE for the inhomogeneous schedule. -/
+noncomputable def varyingPartialRefreshPopulationMSEByExtra
+    (refreshProbability : ℕ → ℝ)
+    (hprob0 : ∀ n, 0 ≤ refreshProbability n)
+    (hprob1 : ∀ n, refreshProbability n ≤ 1)
+    (initial law : Distribution Sample) (score : Sample → ℝ)
+    (extra time : ℕ) : ℝ :=
+  finiteExpectation
+    (bootstrapPopulationLaw (Particle := Fin (extra + 1)) initial
+      (varyingPartialRefreshSteps refreshProbability hprob0 hprob1 law time))
+    (fun particles =>
+      (particleAverage score particles -
+        finiteExpectation
+          (bootstrapTargetLaw initial
+            (varyingPartialRefreshSteps refreshProbability hprob0 hprob1 law time))
+          score) ^ 2)
+
+theorem varyingPartialRefreshPopulationMSEByExtra_nonneg
+    (refreshProbability : ℕ → ℝ)
+    (hprob0 : ∀ n, 0 ≤ refreshProbability n)
+    (hprob1 : ∀ n, refreshProbability n ≤ 1)
+    (initial law : Distribution Sample) (score : Sample → ℝ)
+    (extra time : ℕ) :
+    0 ≤ varyingPartialRefreshPopulationMSEByExtra refreshProbability hprob0 hprob1
+      initial law score extra time := by
+  unfold varyingPartialRefreshPopulationMSEByExtra finiteExpectation
+  apply Finset.sum_nonneg
+  intro particles _
+  exact mul_nonneg
+    ((bootstrapPopulationLaw (Particle := Fin (extra + 1)) initial
+      (varyingPartialRefreshSteps refreshProbability hprob0 hprob1 law time)).nonneg
+        particles)
+    (sq_nonneg _)
+
+/-- Uniform `C/N` control for arbitrary time-inhomogeneous refresh schedules
+whose refresh probabilities share one positive lower bound. -/
+theorem varyingPartialRefreshPopulationMSEByExtra_le_uniform
+    [Nonempty Sample]
+    (refreshProbability : ℕ → ℝ) (minimumRefresh : ℝ)
+    (hminimum0 : 0 < minimumRefresh)
+    (hprobLower : ∀ n, minimumRefresh ≤ refreshProbability n)
+    (hprob1 : ∀ n, refreshProbability n ≤ 1)
+    (initial law : Distribution Sample) (score : Sample → ℝ)
+    (extra time : ℕ) :
+    varyingPartialRefreshPopulationMSEByExtra refreshProbability
+        (fun n => (hminimum0.le.trans (hprobLower n))) hprob1
+        initial law score extra time ≤
+      (finiteVariance initial score +
+          (8 * finiteFunctionAbsMaximum score ^ 2) /
+            (1 - (1 - minimumRefresh) ^ 2)) /
+        ((extra : ℝ) + 1) := by
+  let hprob0 : ∀ n, 0 ≤ refreshProbability n :=
+    fun n => hminimum0.le.trans (hprobLower n)
+  let error : ℕ → ℕ → ℝ := fun extra time =>
+    varyingPartialRefreshPopulationMSEByExtra refreshProbability hprob0 hprob1
+      initial law score extra time
+  let rate : ℕ → ℝ := fun n => (1 - refreshProbability n) ^ 2
+  let noise : ℕ → ℝ := fun _ => 8 * finiteFunctionAbsMaximum score ^ 2
+  have hminimum1 : minimumRefresh ≤ 1 :=
+    (hprobLower 0).trans (hprob1 0)
+  have hrateUpper : ∀ n, rate n ≤ (1 - minimumRefresh) ^ 2 := by
+    intro n
+    dsimp [rate]
+    have hleft : 0 ≤ 1 - refreshProbability n := by linarith [hprob1 n]
+    have hright : 1 - refreshProbability n ≤ 1 - minimumRefresh := by
+      linarith [hprobLower n]
+    nlinarith [sq_nonneg ((1 - minimumRefresh) -
+      (1 - refreshProbability n))]
+  have hrateUpperOne : (1 - minimumRefresh) ^ 2 < 1 :=
+    partialRefresh_sq_rate_lt_one minimumRefresh hminimum0 hminimum1
+  have hinitial : ∀ count,
+      error count 0 ≤ finiteVariance initial score / ((count : ℝ) + 1) := by
+    intro count
+    unfold error varyingPartialRefreshPopulationMSEByExtra
+    change (∑ samples : Fin (count + 1) → Sample,
+      (iidPopulation initial).mass samples *
+        (particleAverage score samples - finiteExpectation initial score) ^ 2) ≤ _
+    rw [iidPopulation_particleAverage_mse]
+    simp
+  have hstep : ∀ count n,
+      error count (n + 1) ≤ rate n * error count n +
+        noise n / ((count : ℝ) + 1) := by
+    intro count n
+    let prior := varyingPartialRefreshSteps refreshProbability hprob0 hprob1 law n
+    let step := partialRefreshStep (refreshProbability n) (hprob0 n) (hprob1 n) law
+    change varyingPartialRefreshPopulationMSEByExtra refreshProbability hprob0 hprob1
+      initial law score count (n + 1) ≤ _
+    unfold varyingPartialRefreshPopulationMSEByExtra
+    rw [varyingPartialRefreshSteps, bootstrapPopulationLaw_append_singleton,
+      bootstrapTargetLaw_append_singleton]
+    have h := bootstrapPopulationUpdate_partialRefresh_mse_le
+      (Particle := Fin (count + 1)) (refreshProbability n) (hprob0 n) (hprob1 n)
+      (bootstrapPopulationLaw initial prior) (bootstrapTargetLaw initial prior)
+      law score
+    simpa [error, rate, noise, prior, step,
+      varyingPartialRefreshPopulationMSEByExtra] using h
+  exact sequential_error_le_uniform_inverse_count_of_varying error rate noise
+    hrateUpper (sq_nonneg _) hrateUpperOne (fun _ => le_rfl)
+    (finiteVariance_nonneg _ _)
+    (mul_nonneg (by norm_num) (sq_nonneg _))
+    (varyingPartialRefreshPopulationMSEByExtra_nonneg refreshProbability hprob0
+      hprob1 initial law score) hinitial hstep extra time
+
+/-- Particle consistency holds along arbitrary horizon schedules even when the
+refresh probability changes at every stage, provided its positive lower bound
+is uniform and the particle count tends to infinity. -/
+theorem varyingPartialRefreshPopulationMSEByExtra_tendsto_zero
+    [Nonempty Sample]
+    (refreshProbability : ℕ → ℝ) (minimumRefresh : ℝ)
+    (hminimum0 : 0 < minimumRefresh)
+    (hprobLower : ∀ n, minimumRefresh ≤ refreshProbability n)
+    (hprob1 : ∀ n, refreshProbability n ≤ 1)
+    (initial law : Distribution Sample) (score : Sample → ℝ)
+    (extra time : ℕ → ℕ)
+    (hextra : Filter.Tendsto extra Filter.atTop Filter.atTop) :
+    Filter.Tendsto (fun index =>
+      varyingPartialRefreshPopulationMSEByExtra refreshProbability
+        (fun n => hminimum0.le.trans (hprobLower n)) hprob1 initial law score
+        (extra index) (time index)) Filter.atTop (nhds 0) := by
+  exact tendsto_zero_varying_horizon_of_uniform_inverse_count _ _
+    (varyingPartialRefreshPopulationMSEByExtra_nonneg refreshProbability
+      (fun n => hminimum0.le.trans (hprobLower n)) hprob1 initial law score)
+    (varyingPartialRefreshPopulationMSEByExtra_le_uniform refreshProbability
+      minimumRefresh hminimum0 hprobLower hprob1 initial law score)
+    extra time hextra
 
 end Mcmc.Examples.UniformRefreshSMC

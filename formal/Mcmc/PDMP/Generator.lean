@@ -1,6 +1,7 @@
 import Mcmc.Kernel.AuxiliaryGibbs
 import Mcmc.Finite.MarkovKernel
 import Mathlib.MeasureTheory.Integral.Bochner.Basic
+import Mathlib.Analysis.ODE.Gronwall
 import Mathlib.Tactic
 
 /-!
@@ -26,6 +27,106 @@ namespace Mcmc.PDMP
 open ProbabilityTheory
 
 variable {State : Type*} [MeasurableSpace State]
+
+/-- Differential form of the Dynkin--Gronwall estimate.  If the expected
+Lyapunov value has derivative at most `-rate * value + allowance`, then its
+positive-time value is bounded by the exact exponentially decaying affine
+envelope.  Concrete PDMP clients only need to establish the expectation
+derivative identity; the analytic comparison is handled here. -/
+theorem expectation_le_exp_decay_add_of_hasDerivAt
+    (expectation derivative : ℝ → ℝ) (rate allowance horizon : ℝ)
+    (hrate : 0 < rate) (hhorizon : 0 ≤ horizon)
+    (hcontinuous : ContinuousOn expectation (Set.Icc 0 horizon))
+    (hderiv : ∀ time ∈ Set.Ico (0 : ℝ) horizon,
+      HasDerivWithinAt expectation (derivative time) (Set.Ici time) time)
+    (hbound : ∀ time ∈ Set.Ico (0 : ℝ) horizon,
+      derivative time ≤ -rate * expectation time + allowance) :
+    expectation horizon ≤
+      Real.exp (-rate * horizon) * expectation 0 +
+        allowance / rate * (1 - Real.exp (-rate * horizon)) := by
+  have hcomparison := le_gronwallBound_of_liminf_deriv_right_le
+    (a := 0) (b := horizon) (f := expectation) (f' := derivative)
+    hcontinuous
+    (fun time htime r hr => (hderiv time htime).liminf_right_slope_le hr)
+    (le_refl (expectation 0))
+    hbound
+    horizon ⟨hhorizon, le_rfl⟩
+  rw [gronwallBound_of_K_ne_0 (neg_ne_zero.mpr hrate.ne')]
+    at hcomparison
+  simp only [sub_zero] at hcomparison
+  calc
+    expectation horizon ≤
+        expectation 0 * Real.exp (-rate * horizon) +
+          allowance / (-rate) * (Real.exp (-rate * horizon) - 1) := hcomparison
+    _ = Real.exp (-rate * horizon) * expectation 0 +
+          allowance / rate * (1 - Real.exp (-rate * horizon)) := by
+      field_simp
+      ring
+
+/-- Kernel-facing Dynkin--Gronwall transfer.  A pointwise affine generator
+drift inequality becomes an exact positive-time expectation bound once the
+kernel family supplies the Dynkin derivative identity and the required
+integrability.  This theorem deliberately does not infer Dynkin's formula from
+a symbolic generator. -/
+theorem kernel_expectation_le_exp_decay_add_of_dynkin
+    (semigroup : ℝ → Kernel State State)
+    (observable generatorValue : State → ℝ)
+    (rate allowance horizon : ℝ)
+    (hmarkov : ∀ time : ℝ, IsMarkovKernel (semigroup time))
+    (hrate : 0 < rate) (hhorizon : 0 ≤ horizon)
+    (hobservable : ∀ time : ℝ, ∀ state : State,
+      Integrable observable (semigroup time state))
+    (hgenerator : ∀ time : ℝ, ∀ state : State,
+      Integrable generatorValue (semigroup time state))
+    (hzero : ∀ state : State,
+      (∫ next, observable next ∂semigroup 0 state) = observable state)
+    (hcontinuous : ∀ state : State,
+      ContinuousOn
+        (fun elapsed => ∫ next, observable next ∂semigroup elapsed state)
+        (Set.Icc 0 horizon))
+    (hdynkin : ∀ state : State, ∀ time ∈ Set.Ico (0 : ℝ) horizon,
+      HasDerivWithinAt
+        (fun elapsed => ∫ next, observable next ∂semigroup elapsed state)
+        (∫ next, generatorValue next ∂semigroup time state)
+        (Set.Ici time) time)
+    (hdrift : ∀ state : State,
+      generatorValue state ≤ -rate * observable state + allowance)
+    (state : State) :
+    (∫ next, observable next ∂semigroup horizon state) ≤
+      Real.exp (-rate * horizon) * observable state +
+        allowance / rate * (1 - Real.exp (-rate * horizon)) := by
+  let expectation : ℝ → ℝ := fun time =>
+    ∫ next, observable next ∂semigroup time state
+  let derivative : ℝ → ℝ := fun time =>
+    ∫ next, generatorValue next ∂semigroup time state
+  have hderivative : ∀ time ∈ Set.Ico (0 : ℝ) horizon,
+      HasDerivWithinAt expectation (derivative time) (Set.Ici time) time :=
+    fun time htime => hdynkin state time htime
+  have hbound : ∀ time ∈ Set.Ico (0 : ℝ) horizon,
+      derivative time ≤ -rate * expectation time + allowance := by
+    intro time _
+    letI : IsMarkovKernel (semigroup time) := hmarkov time
+    have hright : Integrable
+        (fun next => -rate * observable next + allowance)
+        (semigroup time state) :=
+      (hobservable time state).const_mul (-rate) |>.add (integrable_const _)
+    have hintegral := integral_mono (hgenerator time state) hright
+      hdrift
+    dsimp [derivative, expectation]
+    calc
+      (∫ next, generatorValue next ∂semigroup time state) ≤
+          ∫ next, -rate * observable next + allowance
+            ∂semigroup time state := hintegral
+      _ = -rate * (∫ next, observable next ∂semigroup time state) +
+          allowance := by
+        rw [integral_add, integral_const_mul, integral_const]
+        · simp
+        · exact (hobservable time state).const_mul (-rate)
+        · exact integrable_const _
+  have hcomparison := expectation_le_exp_decay_add_of_hasDerivAt
+    expectation derivative rate allowance horizon hrate hhorizon
+    (hcontinuous state) hderivative hbound
+  simpa [expectation, hzero state] using hcomparison
 
 /-- Infinitesimal invariance of a generator on a declared class of test
 functions. Integrability is part of the certificate. -/
@@ -54,6 +155,58 @@ theorem GeneratorInvariant.add
   refine ⟨hfi.add hsi, ?_⟩
   change (∫ x, first f x + second f x ∂target) = 0
   rw [integral_add hfi hsi, hfb, hsb, add_zero]
+
+/-- Generator contribution of an independent constant-rate Markov refresh.
+At a refresh event the state is replaced according to `refresh x`; the
+holding-rate factor is kept real because this is a signed generator term. -/
+noncomputable def constantRateKernelGenerator
+    (rate : ℝ) (refresh : Kernel State State)
+    (f : State → ℝ) (x : State) : ℝ :=
+  rate * ((∫ y, f y ∂refresh x) - f x)
+
+/-- Integrability of the refreshed expectation and the observable implies
+integrability of the constant-rate refresh generator. -/
+theorem integrable_constantRateKernelGenerator
+    (rate : ℝ) (refresh : Kernel State State) (f : State → ℝ)
+    (target : Measure State)
+    (hpost : Integrable (fun x ↦ ∫ y, f y ∂refresh x) target)
+    (hf : Integrable f target) :
+    Integrable (constantRateKernelGenerator rate refresh f) target := by
+  exact (hpost.sub hf).const_mul rate
+
+/-- A refresh component has zero target mean whenever its post-refresh
+expectation has the same target mean as the original observable.  This lemma
+deliberately exposes the Fubini/invariance equality needed by a concrete
+kernel rather than silently inferring it from a pointwise statement. -/
+theorem integral_constantRateKernelGenerator_eq_zero
+    (rate : ℝ) (refresh : Kernel State State) (f : State → ℝ)
+    (target : Measure State)
+    (hpost : Integrable (fun x ↦ ∫ y, f y ∂refresh x) target)
+    (hf : Integrable f target)
+    (hmean : (∫ x, ∫ y, f y ∂refresh x ∂target) =
+      ∫ x, f x ∂target) :
+    (∫ x, constantRateKernelGenerator rate refresh f x ∂target) = 0 := by
+  unfold constantRateKernelGenerator
+  rw [integral_const_mul, integral_sub hpost hf, hmean, sub_self, mul_zero]
+
+/-- A family of observables whose refresh expectations are integrable and
+target-balanced gives a generator-invariant constant-rate refresh component. -/
+theorem generatorInvariant_constantRateKernel
+    (rate : ℝ) (refresh : Kernel State State) (target : Measure State)
+    (Test : Set (State → ℝ))
+    (hpost : ∀ f ∈ Test,
+      Integrable (fun x ↦ ∫ y, f y ∂refresh x) target)
+    (hf : ∀ f ∈ Test, Integrable f target)
+    (hmean : ∀ f ∈ Test,
+      (∫ x, ∫ y, f y ∂refresh x ∂target) =
+        ∫ x, f x ∂target) :
+    GeneratorInvariant target
+      (constantRateKernelGenerator rate refresh) Test := by
+  intro f hftest
+  exact ⟨integrable_constantRateKernelGenerator rate refresh f target
+      (hpost f hftest) (hf f hftest),
+    integral_constantRateKernelGenerator_eq_zero rate refresh f target
+      (hpost f hftest) (hf f hftest) (hmean f hftest)⟩
 
 /-- State-dependent event rate and post-event Markov kernel. -/
 structure JumpMechanism (State : Type*) [MeasurableSpace State] where

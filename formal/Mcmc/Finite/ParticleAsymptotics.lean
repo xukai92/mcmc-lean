@@ -2405,14 +2405,16 @@ theorem bootstrapPopulationDeviationProbability_nonneg
   · simp
 
 omit [DecidableEq Sample] in
-theorem bootstrapPopulationDeviationProbability_le
-    [Nonempty Sample]
+/-- The direct finite Chebyshev inequality for the bootstrap population. This
+form keeps the actual MSE on the right, so a model-specific uniform stability
+bound can be applied without reverting to the generic horizon-dependent
+budget. -/
+theorem bootstrapPopulationDeviationProbability_le_mse
     (initial : Distribution Sample) (steps : List (FeynmanKacStep Sample))
     (score : Sample → ℝ) (extra : ℕ) {tolerance : ℝ}
     (htolerance : 0 < tolerance) :
     bootstrapPopulationDeviationProbability initial steps score extra tolerance ≤
-      bootstrapMSEBudgetFrom (finiteVariance initial) steps score /
-        ((extra : ℝ) + 1) / tolerance ^ 2 := by
+      bootstrapPopulationMSEByExtra initial steps score extra / tolerance ^ 2 := by
   unfold bootstrapPopulationDeviationProbability
   calc
     _ ≤ ∑ particles : Fin (extra + 1) → Sample,
@@ -2448,6 +2450,21 @@ theorem bootstrapPopulationDeviationProbability_le
         tolerance ^ 2 := by
       unfold bootstrapPopulationMSEByExtra finiteExpectation
       rw [Finset.sum_div]
+
+omit [DecidableEq Sample] in
+theorem bootstrapPopulationDeviationProbability_le
+    [Nonempty Sample]
+    (initial : Distribution Sample) (steps : List (FeynmanKacStep Sample))
+    (score : Sample → ℝ) (extra : ℕ) {tolerance : ℝ}
+    (htolerance : 0 < tolerance) :
+    bootstrapPopulationDeviationProbability initial steps score extra tolerance ≤
+      bootstrapMSEBudgetFrom (finiteVariance initial) steps score /
+        ((extra : ℝ) + 1) / tolerance ^ 2 := by
+  calc
+    _ ≤ bootstrapPopulationMSEByExtra initial steps score extra /
+        tolerance ^ 2 :=
+      bootstrapPopulationDeviationProbability_le_mse
+        initial steps score extra htolerance
     _ ≤ _ := div_le_div_of_nonneg_right
       (bootstrapPopulationMSEByExtra_le initial steps score extra)
       (sq_nonneg _)
@@ -2660,6 +2677,130 @@ theorem sequential_error_le_uniform_inverse_count
         (noiseCoefficient / ((extra : ℝ) + 1)) / (1 - rate) := hbound
     _ = (initialCoefficient + noiseCoefficient / (1 - rate)) /
         ((extra : ℝ) + 1) := by field_simp
+
+/-- Time-inhomogeneous version of the uniform inverse-count theorem. Every
+stage may have its own contraction and fresh-noise coefficient; a common
+strict upper contraction and common noise ceiling are sufficient. The error's
+nonnegativity is needed to compare a stage rate with the common upper bound. -/
+theorem sequential_error_le_uniform_inverse_count_of_varying
+    (error : ℕ → ℕ → ℝ) (rate noiseCoefficient : ℕ → ℝ)
+    {rateUpper initialCoefficient noiseUpper : ℝ}
+    (hrateUpper : ∀ n, rate n ≤ rateUpper)
+    (hrateUpper0 : 0 ≤ rateUpper) (hrateUpperOne : rateUpper < 1)
+    (hnoiseUpper : ∀ n, noiseCoefficient n ≤ noiseUpper)
+    (hinitial0 : 0 ≤ initialCoefficient) (hnoiseUpper0 : 0 ≤ noiseUpper)
+    (herror0 : ∀ extra n, 0 ≤ error extra n)
+    (hinitial : ∀ extra,
+      error extra 0 ≤ initialCoefficient / ((extra : ℝ) + 1))
+    (hstep : ∀ extra n,
+      error extra (n + 1) ≤ rate n * error extra n +
+        noiseCoefficient n / ((extra : ℝ) + 1)) :
+    ∀ extra n, error extra n ≤
+      (initialCoefficient + noiseUpper / (1 - rateUpper)) /
+        ((extra : ℝ) + 1) := by
+  apply sequential_error_le_uniform_inverse_count error hrateUpper0
+    hrateUpperOne hinitial0 hnoiseUpper0 hinitial
+  intro extra n
+  have hdenom : (0 : ℝ) < (extra : ℝ) + 1 := by positivity
+  calc
+    error extra (n + 1) ≤ rate n * error extra n +
+        noiseCoefficient n / ((extra : ℝ) + 1) := hstep extra n
+    _ ≤ rateUpper * error extra n +
+        noiseUpper / ((extra : ℝ) + 1) := by
+      exact add_le_add
+        (mul_le_mul_of_nonneg_right (hrateUpper n) (herror0 extra n))
+        (div_le_div_of_nonneg_right (hnoiseUpper n) hdenom.le)
+
+/-- Uniform consistency along arbitrary horizon schedules for the preceding
+time-inhomogeneous stability interface. -/
+theorem sequential_error_tendsto_zero_varying_horizon_of_varying
+    (error : ℕ → ℕ → ℝ) (rate noiseCoefficient : ℕ → ℝ)
+    {rateUpper initialCoefficient noiseUpper : ℝ}
+    (hrateUpper : ∀ n, rate n ≤ rateUpper)
+    (hrateUpper0 : 0 ≤ rateUpper) (hrateUpperOne : rateUpper < 1)
+    (hnoiseUpper : ∀ n, noiseCoefficient n ≤ noiseUpper)
+    (hinitial0 : 0 ≤ initialCoefficient) (hnoiseUpper0 : 0 ≤ noiseUpper)
+    (herror0 : ∀ extra n, 0 ≤ error extra n)
+    (hinitial : ∀ extra,
+      error extra 0 ≤ initialCoefficient / ((extra : ℝ) + 1))
+    (hstep : ∀ extra n,
+      error extra (n + 1) ≤ rate n * error extra n +
+        noiseCoefficient n / ((extra : ℝ) + 1))
+    (count horizon : ℕ → ℕ)
+    (hcount : Filter.Tendsto count Filter.atTop Filter.atTop) :
+    Filter.Tendsto (fun index => error (count index) (horizon index))
+      Filter.atTop (nhds 0) := by
+  let coefficient := initialCoefficient + noiseUpper / (1 - rateUpper)
+  have hdenominator : Filter.Tendsto
+      (fun index => ((count index : ℝ) + 1))
+      Filter.atTop Filter.atTop :=
+    Filter.tendsto_atTop_add_const_right Filter.atTop 1
+      (tendsto_natCast_atTop_atTop.comp hcount)
+  apply squeeze_zero
+    (g := fun index => coefficient / ((count index : ℝ) + 1))
+  · exact fun index => herror0 (count index) (horizon index)
+  · exact fun index => sequential_error_le_uniform_inverse_count_of_varying
+      error rate noiseCoefficient hrateUpper hrateUpper0 hrateUpperOne
+      hnoiseUpper hinitial0 hnoiseUpper0 herror0 hinitial hstep
+      (count index) (horizon index)
+  · exact tendsto_const_nhds.div_atTop hdenominator
+
+/-- A uniform inverse-count bound gives consistency along arbitrary time
+schedules. The horizon need not converge or be bounded; only the particle
+count is required to tend to infinity. -/
+theorem sequential_error_tendsto_zero_varying_horizon
+    (error : ℕ → ℕ → ℝ) {rate initialCoefficient noiseCoefficient : ℝ}
+    (hrate : 0 ≤ rate) (hrateOne : rate < 1)
+    (hinitial0 : 0 ≤ initialCoefficient) (hnoise0 : 0 ≤ noiseCoefficient)
+    (hnonneg : ∀ extra n, 0 ≤ error extra n)
+    (hinitial : ∀ extra,
+      error extra 0 ≤ initialCoefficient / ((extra : ℝ) + 1))
+    (hstep : ∀ extra n,
+      error extra (n + 1) ≤ rate * error extra n +
+        noiseCoefficient / ((extra : ℝ) + 1))
+    (count horizon : ℕ → ℕ)
+    (hcount : Filter.Tendsto count Filter.atTop Filter.atTop) :
+    Filter.Tendsto (fun index => error (count index) (horizon index))
+      Filter.atTop (nhds 0) := by
+  let coefficient := initialCoefficient + noiseCoefficient / (1 - rate)
+  have hdenominator : Filter.Tendsto
+      (fun index => ((count index : ℝ) + 1))
+      Filter.atTop Filter.atTop :=
+    Filter.tendsto_atTop_add_const_right Filter.atTop 1
+      (tendsto_natCast_atTop_atTop.comp hcount)
+  have hupper : Filter.Tendsto
+      (fun index => coefficient / ((count index : ℝ) + 1))
+      Filter.atTop (nhds 0) :=
+    tendsto_const_nhds.div_atTop hdenominator
+  apply squeeze_zero
+    (g := fun index => coefficient / ((count index : ℝ) + 1))
+  · exact fun index => hnonneg (count index) (horizon index)
+  · exact fun index => sequential_error_le_uniform_inverse_count error
+      hrate hrateOne hinitial0 hnoise0 hinitial hstep
+      (count index) (horizon index)
+  · exact hupper
+
+/-- Direct schedule form of a uniform `C/N` estimate. This is useful when a
+model-specific theorem has already packaged the recurrence into one bound. -/
+theorem tendsto_zero_varying_horizon_of_uniform_inverse_count
+    (error : ℕ → ℕ → ℝ) (coefficient : ℝ)
+    (hnonneg : ∀ extra n, 0 ≤ error extra n)
+    (hbound : ∀ extra n,
+      error extra n ≤ coefficient / ((extra : ℝ) + 1))
+    (count horizon : ℕ → ℕ)
+    (hcount : Filter.Tendsto count Filter.atTop Filter.atTop) :
+    Filter.Tendsto (fun index => error (count index) (horizon index))
+      Filter.atTop (nhds 0) := by
+  have hdenominator : Filter.Tendsto
+      (fun index => ((count index : ℝ) + 1))
+      Filter.atTop Filter.atTop :=
+    Filter.tendsto_atTop_add_const_right Filter.atTop 1
+      (tendsto_natCast_atTop_atTop.comp hcount)
+  apply squeeze_zero
+    (g := fun index => coefficient / ((count index : ℝ) + 1))
+  · exact fun index => hnonneg (count index) (horizon index)
+  · exact fun index => hbound (count index) (horizon index)
+  · exact tendsto_const_nhds.div_atTop hdenominator
 
 end SequentialErrorRecursion
 

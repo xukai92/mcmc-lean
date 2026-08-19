@@ -2414,6 +2414,107 @@ theorem scheduledPotentialParticleGibbs_uniform_count_rate_tendsto_zero
   · linarith
   · linarith
 
+/-- Uniform-in-count formulation of the fixed-horizon mixing result: for each
+positive tolerance, one PG iteration threshold controls every certified
+particle count simultaneously. -/
+theorem scheduledPotentialParticleGibbs_eventually_forall_count_totalVariation_le
+    {initial : Distribution Sample} {steps : List (FeynmanKacStep Sample)}
+    {hnormalizer : 0 < normalizingConstant initial steps}
+    {penalties : List ℝ}
+    (certificates : ∀ extra : ℕ,
+      ScheduledPotentialParticleGibbsMinorization
+        initial steps hnormalizer (extra + 1))
+    (hpenalties : ∀ extra, (certificates extra).penalties = penalties)
+    (initialLaw : Distribution (Trajectory steps))
+    {ε : ℝ} (hε : 0 < ε) :
+    ∀ᶠ iterations in Filter.atTop, ∀ extra : ℕ,
+      Nonhomogeneous.distributionTotalVariation
+        (Nonhomogeneous.iterateLaw initialLaw
+          (countedTrajectoryParticleGibbsKernel initial steps hnormalizer
+            (extra + 1)) iterations)
+        (countedTrajectoryTarget initial steps hnormalizer (extra + 1)) ≤ ε := by
+  have hpenaltiesPos : ∀ penalty ∈ penalties, 0 < penalty := by
+    intro penalty hpenalty
+    apply (certificates 0).penalties_pos penalty
+    simpa only [hpenalties 0] using hpenalty
+  have hnonempty : penalties ≠ [] := by
+    intro hempty
+    have hlength := (certificates 0).penalties_length
+    rw [hpenalties 0, hempty] at hlength
+    simp at hlength
+  have hrate := scheduledPotentialParticleGibbs_uniform_count_rate_tendsto_zero
+    hnonempty hpenaltiesPos
+  have heventually : ∀ᶠ iterations in Filter.atTop,
+      (1 - particleGibbsScheduleCoefficient 1 penalties) ^ iterations < ε :=
+    (tendsto_order.1 hrate).2 ε hε
+  filter_upwards [heventually] with iterations hiterations
+  intro extra
+  exact (scheduledPotentialParticleGibbs_totalVariation_le_uniform_count
+    certificates hpenalties initialLaw extra iterations).trans hiterations.le
+
+/-- At a fixed Feynman--Kac horizon, the actual PG law converges along any
+particle-count schedule and any diverging PG-iteration schedule. This uses the
+count-uniform geometric rate and makes no claim uniform in the model horizon. -/
+theorem scheduledPotentialParticleGibbs_totalVariation_tendsto_zero_varying_count_of_iterations_tendsto
+    {initial : Distribution Sample} {steps : List (FeynmanKacStep Sample)}
+    {hnormalizer : 0 < normalizingConstant initial steps}
+    {penalties : List ℝ}
+    (certificates : ∀ extra : ℕ,
+      ScheduledPotentialParticleGibbsMinorization
+        initial steps hnormalizer (extra + 1))
+    (hpenalties : ∀ extra, (certificates extra).penalties = penalties)
+    (initialLaw : Distribution (Trajectory steps))
+    (extra iterations : ℕ → ℕ)
+    (hiterations : Filter.Tendsto iterations Filter.atTop Filter.atTop) :
+    Filter.Tendsto (fun index =>
+      Nonhomogeneous.distributionTotalVariation
+        (Nonhomogeneous.iterateLaw initialLaw
+          (countedTrajectoryParticleGibbsKernel initial steps hnormalizer
+            (extra index + 1)) (iterations index))
+        (countedTrajectoryTarget initial steps hnormalizer
+          (extra index + 1)))
+      Filter.atTop (nhds 0) := by
+  have hpenaltiesPos : ∀ penalty ∈ penalties, 0 < penalty := by
+    intro penalty hpenalty
+    apply (certificates 0).penalties_pos penalty
+    simpa only [hpenalties 0] using hpenalty
+  have hnonempty : penalties ≠ [] := by
+    intro hempty
+    have hlength := (certificates 0).penalties_length
+    rw [hpenalties 0, hempty] at hlength
+    simp at hlength
+  apply squeeze_zero'
+    (Filter.Eventually.of_forall fun index =>
+      Nonhomogeneous.distributionTotalVariation_nonneg _ _)
+    (Filter.Eventually.of_forall fun index =>
+      scheduledPotentialParticleGibbs_totalVariation_le_uniform_count
+        certificates hpenalties initialLaw (extra index) (iterations index))
+    ((scheduledPotentialParticleGibbs_uniform_count_rate_tendsto_zero
+      hnonempty hpenaltiesPos).comp hiterations)
+
+/-- Specialization of the two-schedule theorem to one PG iteration per outer
+index. The particle count may still grow, shrink, or oscillate arbitrarily. -/
+theorem scheduledPotentialParticleGibbs_totalVariation_tendsto_zero_iterations_varying_count
+    {initial : Distribution Sample} {steps : List (FeynmanKacStep Sample)}
+    {hnormalizer : 0 < normalizingConstant initial steps}
+    {penalties : List ℝ}
+    (certificates : ∀ extra : ℕ,
+      ScheduledPotentialParticleGibbsMinorization
+        initial steps hnormalizer (extra + 1))
+    (hpenalties : ∀ extra, (certificates extra).penalties = penalties)
+    (initialLaw : Distribution (Trajectory steps))
+    (extra : ℕ → ℕ) :
+    Filter.Tendsto (fun iterations =>
+      Nonhomogeneous.distributionTotalVariation
+        (Nonhomogeneous.iterateLaw initialLaw
+          (countedTrajectoryParticleGibbsKernel initial steps hnormalizer
+            (extra iterations + 1)) iterations)
+        (countedTrajectoryTarget initial steps hnormalizer
+          (extra iterations + 1)))
+      Filter.atTop (nhds 0) :=
+  scheduledPotentialParticleGibbs_totalVariation_tendsto_zero_varying_count_of_iterations_tendsto
+    certificates hpenalties initialLaw extra id Filter.tendsto_id
+
 /-- For every fixed positive iteration count, the actual PG output law under
 primitive full-support assumptions approaches its exact trajectory target as
 the particle count tends to infinity. -/
@@ -2486,6 +2587,90 @@ theorem backwardPotentialParticleGibbs_uniform_count_rate_tendsto_zero
     simp at hlength
   · exact feynmanKacBackwardOscillationPenalties_pos steps
 
+/-- Primitive full support supplies the uniform-in-particle-count eventual TV
+bound at each fixed model horizon. -/
+theorem backwardPotentialParticleGibbs_eventually_forall_count_totalVariation_le
+    [Nonempty Sample]
+    (initial : Distribution Sample) (hinitial : ∀ x, 0 < initial.mass x)
+    (steps : List (FeynmanKacStep Sample))
+    (hsupport : FeynmanKacFullSupport steps)
+    (hnormalizer : 0 < normalizingConstant initial steps)
+    (initialLaw : Distribution (Trajectory steps))
+    {ε : ℝ} (hε : 0 < ε) :
+    ∀ᶠ iterations in Filter.atTop, ∀ extra : ℕ,
+      Nonhomogeneous.distributionTotalVariation
+        (Nonhomogeneous.iterateLaw initialLaw
+          (countedTrajectoryParticleGibbsKernel initial steps hnormalizer
+            (extra + 1)) iterations)
+        (countedTrajectoryTarget initial steps hnormalizer (extra + 1)) ≤ ε := by
+  let certificates : ∀ count : ℕ,
+      ScheduledPotentialParticleGibbsMinorization
+        initial steps hnormalizer (count + 1) := fun count =>
+    backwardPotentialScheduledParticleGibbsMinorization
+      initial hinitial steps hsupport hnormalizer (count + 1) (by omega)
+  exact scheduledPotentialParticleGibbs_eventually_forall_count_totalVariation_le
+    certificates (penalties := feynmanKacBackwardOscillationPenalties steps)
+    (fun _ => rfl) initialLaw hε
+
+/-- Primitive full support instantiates fixed-horizon PG convergence for every
+iteration-indexed particle-count schedule. In particular the count may grow,
+shrink, or oscillate; the theorem relies only on the common fixed-horizon
+geometric bound. -/
+theorem backwardPotentialParticleGibbs_totalVariation_tendsto_zero_iterations_varying_count
+    [Nonempty Sample]
+    (initial : Distribution Sample) (hinitial : ∀ x, 0 < initial.mass x)
+    (steps : List (FeynmanKacStep Sample))
+    (hsupport : FeynmanKacFullSupport steps)
+    (hnormalizer : 0 < normalizingConstant initial steps)
+    (initialLaw : Distribution (Trajectory steps))
+    (extra : ℕ → ℕ) :
+    Filter.Tendsto (fun iterations =>
+      Nonhomogeneous.distributionTotalVariation
+        (Nonhomogeneous.iterateLaw initialLaw
+          (countedTrajectoryParticleGibbsKernel initial steps hnormalizer
+            (extra iterations + 1)) iterations)
+        (countedTrajectoryTarget initial steps hnormalizer
+          (extra iterations + 1)))
+      Filter.atTop (nhds 0) := by
+  let certificates : ∀ count : ℕ,
+      ScheduledPotentialParticleGibbsMinorization
+        initial steps hnormalizer (count + 1) := fun count =>
+    backwardPotentialScheduledParticleGibbsMinorization
+      initial hinitial steps hsupport hnormalizer (count + 1) (by omega)
+  exact
+    scheduledPotentialParticleGibbs_totalVariation_tendsto_zero_iterations_varying_count
+      certificates (penalties := feynmanKacBackwardOscillationPenalties steps)
+      (fun _ => rfl) initialLaw extra
+
+/-- Primitive full support also instantiates the fully scheduled version: the
+count is arbitrary and the number of PG iterations need only tend to infinity. -/
+theorem backwardPotentialParticleGibbs_totalVariation_tendsto_zero_varying_count_of_iterations_tendsto
+    [Nonempty Sample]
+    (initial : Distribution Sample) (hinitial : ∀ x, 0 < initial.mass x)
+    (steps : List (FeynmanKacStep Sample))
+    (hsupport : FeynmanKacFullSupport steps)
+    (hnormalizer : 0 < normalizingConstant initial steps)
+    (initialLaw : Distribution (Trajectory steps))
+    (extra iterations : ℕ → ℕ)
+    (hiterations : Filter.Tendsto iterations Filter.atTop Filter.atTop) :
+    Filter.Tendsto (fun index =>
+      Nonhomogeneous.distributionTotalVariation
+        (Nonhomogeneous.iterateLaw initialLaw
+          (countedTrajectoryParticleGibbsKernel initial steps hnormalizer
+            (extra index + 1)) (iterations index))
+        (countedTrajectoryTarget initial steps hnormalizer
+          (extra index + 1)))
+      Filter.atTop (nhds 0) := by
+  let certificates : ∀ count : ℕ,
+      ScheduledPotentialParticleGibbsMinorization
+        initial steps hnormalizer (count + 1) := fun count =>
+    backwardPotentialScheduledParticleGibbsMinorization
+      initial hinitial steps hsupport hnormalizer (count + 1) (by omega)
+  exact
+    scheduledPotentialParticleGibbs_totalVariation_tendsto_zero_varying_count_of_iterations_tendsto
+      certificates (penalties := feynmanKacBackwardOscillationPenalties steps)
+      (fun _ => rfl) initialLaw extra iterations hiterations
+
 /-- Full-support model ingredients construct a conservative positive refresh
 certificate directly at the `extra + 1` particle interface. This certificate
 does not claim the sharper bounded-potential coefficient above; it uses the
@@ -2557,5 +2742,57 @@ theorem countedFullSupportParticleGibbs_totalVariation_tendsto_zero
   exact particleGibbs_totalVariation_tendsto_zero_of_fullSupport
     (Particle := Fin (extra + 1)) initial hinitial steps hsupport hnormalizer
       initialLaw
+
+/-! ### Jointly varying model horizons -/
+
+/-- Scalar closure theorem for a horizon-indexed family of particle-Gibbs
+problems. The state space and trajectory type may vary with the index; clients
+package each actual total-variation distance into `error`. If its certified
+geometric rate tends to zero, so does the actual error. -/
+theorem particleGibbsError_tendsto_zero_of_geometric_rate
+    (error rate : ℕ → ℝ) (iterations : ℕ → ℕ)
+    (herror0 : ∀ index, 0 ≤ error index)
+    (hbound : ∀ index, error index ≤ (1 - rate index) ^ iterations index)
+    (hrate : Filter.Tendsto
+      (fun index => (1 - rate index) ^ iterations index)
+      Filter.atTop (nhds 0)) :
+    Filter.Tendsto error Filter.atTop (nhds 0) := by
+  exact squeeze_zero' (Filter.Eventually.of_forall herror0)
+    (Filter.Eventually.of_forall hbound) hrate
+
+/-- A single positive minorization floor across a horizon-indexed family is a
+concrete sufficient condition for joint growing-horizon convergence. Particle
+count, horizon, target, and initial law may all vary inside `error`; only the
+displayed uniform coefficient floor and a diverging PG-iteration schedule are
+used. This theorem does not assert that arbitrary Feynman--Kac models possess
+such a horizon-uniform floor. -/
+theorem particleGibbsError_tendsto_zero_of_uniform_coefficient
+    (error coefficient : ℕ → ℝ) (iterations : ℕ → ℕ) {coefficientFloor : ℝ}
+    (hfloor0 : 0 < coefficientFloor) (hfloor1 : coefficientFloor < 1)
+    (hcoefficientLower : ∀ index, coefficientFloor ≤ coefficient index)
+    (hcoefficientUpper : ∀ index, coefficient index ≤ 1)
+    (herror0 : ∀ index, 0 ≤ error index)
+    (hbound : ∀ index,
+      error index ≤ (1 - coefficient index) ^ iterations index)
+    (hiterations : Filter.Tendsto iterations Filter.atTop Filter.atTop) :
+    Filter.Tendsto error Filter.atTop (nhds 0) := by
+  have hfloorRate : Filter.Tendsto
+      (fun n : ℕ => (1 - coefficientFloor) ^ n)
+      Filter.atTop (nhds 0) := by
+    apply tendsto_pow_atTop_nhds_zero_of_lt_one
+    · linarith
+    · linarith
+  have hrate : Filter.Tendsto
+      (fun index => (1 - coefficientFloor) ^ iterations index)
+      Filter.atTop (nhds 0) := hfloorRate.comp hiterations
+  apply particleGibbsError_tendsto_zero_of_geometric_rate error
+    (fun _ => coefficientFloor) iterations herror0
+  · intro index
+    calc
+      error index ≤ (1 - coefficient index) ^ iterations index := hbound index
+      _ ≤ (1 - coefficientFloor) ^ iterations index := by
+        exact pow_le_pow_left₀ (sub_nonneg.mpr (hcoefficientUpper index))
+          (by linarith [hcoefficientLower index]) _
+  · exact hrate
 
 end Mcmc.Finite.MarkovKernel

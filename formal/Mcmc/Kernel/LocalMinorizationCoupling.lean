@@ -1,4 +1,5 @@
 import Mcmc.Kernel.GeneralConvergence
+import Mcmc.Kernel.ParameterMixture
 
 /-!
 # Couplings from local minorization
@@ -45,10 +46,115 @@ open ProbabilityTheory
 
 variable {α : Type*} [MeasurableSpace α]
 
+/-- Postcomposition by a nonnegative kernel is monotone in its input measure.
+This elementary fact is useful when propagating a local submeasure through
+the remaining stages of a sampler. -/
+theorem measure_comp_mono {source target : Type*}
+    [MeasurableSpace source] [MeasurableSpace target]
+    (transition : Kernel source target)
+    {first second : Measure source} [SFinite first] [SFinite second]
+    (hmeasure : first ≤ second) :
+    transition ∘ₘ first ≤ transition ∘ₘ second := by
+  apply Measure.le_iff.mpr
+  intro event hevent
+  rw [Measure.bind_apply hevent transition.aemeasurable,
+    Measure.bind_apply hevent transition.aemeasurable]
+  exact lintegral_mono' hmeasure le_rfl
+
 /-- A transition locally minorizes `reference` on `D`. -/
 def LocallyMinorizes (transition : Kernel α α) (D : Set α)
     (ε : ENNReal) (reference : Measure α) : Prop :=
   ∀ x ∈ D, ∀ s, MeasurableSet s → ε * reference s ≤ transition x s
+
+/-- A pointwise minorization on a measurable parameter region survives
+independent parameter averaging. Its coefficient is multiplied by the mass
+of that region. This is the generic bridge from a uniform fixed-schedule
+bound to a continuously randomized schedule kernel. -/
+theorem independentParameterMixture_locallyMinorizes_on
+    {Parameter : Type*} [MeasurableSpace Parameter]
+    (family : Kernel (α × Parameter) α)
+    (parameterLaw : Measure Parameter) [SFinite parameterLaw]
+    (D : Set α) (A : Set Parameter) (hA : MeasurableSet A)
+    (floor : ENNReal) (reference : Measure α)
+    (hminor : ∀ x ∈ D, ∀ parameter ∈ A, ∀ event,
+      MeasurableSet event →
+        floor * reference event ≤ family (x, parameter) event) :
+    LocallyMinorizes
+      (independentParameterMixture family parameterLaw) D
+      (parameterLaw A * floor) reference := by
+  intro x hx event hevent
+  unfold independentParameterMixture
+  rw [Kernel.comp_apply]
+  rw [Kernel.prod_apply, Kernel.id_apply, Kernel.const_apply,
+    Measure.dirac_prod]
+  rw [Measure.bind_apply hevent family.aemeasurable]
+  rw [MeasureTheory.lintegral_map
+    (Kernel.measurable_coe family hevent)
+    (by fun_prop : Measurable (Prod.mk x))]
+  calc
+    (parameterLaw A * floor) * reference event =
+        ∫⁻ _parameter in A, floor * reference event ∂parameterLaw := by
+      rw [setLIntegral_const]
+      ring
+    _ ≤ ∫⁻ parameter in A, family (x, parameter) event ∂parameterLaw := by
+      apply setLIntegral_mono' hA
+      intro parameter hparameter
+      exact hminor x hx parameter hparameter event hevent
+    _ ≤ ∫⁻ parameter, family (x, parameter) event ∂parameterLaw := by
+      exact lintegral_mono' (Measure.restrict_le_self) le_rfl
+
+/-- A pointwise lower bound on a transition density over `D × C` gives a
+local minorization by the reference measure restricted to `C`. -/
+theorem locallyMinorizes_restrict_of_density_lower_bound
+    (transition : Kernel α α) (reference : Measure α)
+    (density : α → α → ENNReal)
+    (D C : Set α) (hC : MeasurableSet C) (floor : ENNReal)
+    (happly : ∀ x event, MeasurableSet event →
+      transition x event = ∫⁻ y in event, density x y ∂reference)
+    (hlower : ∀ x ∈ D, ∀ y ∈ C, floor ≤ density x y) :
+    LocallyMinorizes transition D floor (reference.restrict C) := by
+  intro x hx event hevent
+  rw [Measure.restrict_apply hevent, happly x event hevent]
+  calc
+    floor * reference (event ∩ C) =
+        ∫⁻ _y in event ∩ C, floor ∂reference := by
+      rw [setLIntegral_const]
+    _ ≤ ∫⁻ y in event ∩ C, density x y ∂reference := by
+      apply setLIntegral_mono' (hevent.inter hC)
+      intro y hy
+      exact hlower x hx y hy.2
+    _ ≤ ∫⁻ y in event, density x y ∂reference := by
+      apply lintegral_mono'
+      · exact Measure.restrict_mono Set.inter_subset_left le_rfl
+      · exact le_rfl
+
+/-- A jointly continuous density that is positive on a nonempty compact
+rectangle supplies a strictly positive local-minorization coefficient. -/
+theorem exists_pos_locallyMinorizes_restrict_of_continuous_density
+    [TopologicalSpace α]
+    (transition : Kernel α α) (reference : Measure α)
+    (density : α → α → ENNReal)
+    (D C : Set α) (hDcompact : IsCompact D) (hCcompact : IsCompact C)
+    (hDnonempty : D.Nonempty) (hCnonempty : C.Nonempty)
+    (hC : MeasurableSet C)
+    (hdensity : Continuous (fun pair : α × α => density pair.1 pair.2))
+    (hpositive : ∀ x ∈ D, ∀ y ∈ C, 0 < density x y)
+    (happly : ∀ x event, MeasurableSet event →
+      transition x event = ∫⁻ y in event, density x y ∂reference) :
+    ∃ floor : ENNReal, 0 < floor ∧
+      LocallyMinorizes transition D floor (reference.restrict C) := by
+  have hcompact : IsCompact (D ×ˢ C) := hDcompact.prod hCcompact
+  have hnonempty : (D ×ˢ C).Nonempty := hDnonempty.prod hCnonempty
+  obtain ⟨floor, hfloor, hlower⟩ := exists_pos_le_on_compact
+    hcompact hnonempty hdensity (by
+      intro pair hpair
+      exact hpositive pair.1 hpair.1 pair.2 hpair.2)
+  refine ⟨floor, hfloor, ?_⟩
+  apply locallyMinorizes_restrict_of_density_lower_bound
+    transition reference density D C hC floor
+  · exact happly
+  · intro x hx y hy
+    exact hlower (x, y) ⟨hx, hy⟩
 
 /-- Uniform finite-step accessibility between two regions for an arbitrary
 single-state kernel. -/

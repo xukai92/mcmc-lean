@@ -69,12 +69,60 @@ end
     @test first_chain == second_chain
     @test size(first_chain) == (2, 8)
     @test all(isfinite, first_chain)
+    diagnostic_sampler = GaussianSoftAbsGRHMC(2, 0.2, 10)
+    diagnostic = sample(MersenneTwister(0x6a55), diagnostic_sampler,
+        [0.0, 0.0], 12_000)[:, 2001:end]
+    @test maximum(abs, vec(mean(diagnostic; dims=2))) < 0.08
+    @test maximum(abs.(vec(var(diagnostic; dims=2)) .- 1)) < 0.10
     @test_throws DimensionMismatch step(MersenneTwister(1), sampler, [0.0])
     @test_throws ArgumentError GaussianSoftAbsGRHMC(0, 0.1)
     @test_throws ArgumentError GaussianSoftAbsGRHMC(2, 0.1; smoothing=0.0)
 end
 
 @testset "guarded SoftAbs metric evaluation" begin
+    exact_unit_zero = certify_unit_zero_softabs_float64()
+    @test exact_unit_zero.evaluation ==
+        SoftAbsMetricFloat64Evaluation(0.0, 1.0, 1.0, 1.0, 0.0)
+    if isfile(ORACLE)
+        arguments = unit_zero_softabs_certificate_arguments(exact_unit_zero)
+        @test readchomp(`$ORACLE unit_zero_softabs $arguments`) == "ok"
+        tampered = copy(arguments)
+        tampered[end] = "1/1"
+        @test readchomp(`$ORACLE unit_zero_softabs $tampered`) ==
+            "error invalidUnitZeroSoftAbs"
+
+        sqrt_certificate = Certificates.certify_sqrt_interval(0.5)
+        sqrt_arguments =
+            Certificates.sqrt_interval_certificate_arguments(sqrt_certificate)
+        @test readchomp(`$ORACLE sqrt_interval $sqrt_arguments`) == "ok"
+        tampered_sqrt = copy(sqrt_arguments)
+        tampered_sqrt[end] = "0/1"
+        @test readchomp(`$ORACLE sqrt_interval $tampered_sqrt`) ==
+            "error invalidSqrtInterval"
+
+        reciprocal_certificate = Certificates.certify_reciprocal_residual(
+            sqrt_certificate.computed)
+        reciprocal_arguments = Certificates.reciprocal_residual_certificate_arguments(
+            reciprocal_certificate)
+        @test readchomp(`$ORACLE reciprocal_residual $reciprocal_arguments`) == "ok"
+        tampered_reciprocal = copy(reciprocal_arguments)
+        tampered_reciprocal[end] = "0/1"
+        @test readchomp(`$ORACLE reciprocal_residual $tampered_reciprocal`) ==
+            "error invalidReciprocalResidual"
+
+        composed_arguments = Certificates.sqrt_reciprocal_certificate_arguments(
+            sqrt_certificate, reciprocal_certificate)
+        @test readchomp(`$ORACLE sqrt_reciprocal $composed_arguments`) == "ok"
+        tampered_composed = copy(composed_arguments)
+        tampered_composed[end] = "0/1"
+        @test readchomp(`$ORACLE sqrt_reciprocal $tampered_composed`) ==
+            "error invalidSqrtReciprocal"
+    end
+    @test Certificates.certify_sqrt_interval(0.0).error == 0
+    @test_throws DomainError Certificates.certify_sqrt_interval(-1.0)
+    @test_throws DomainError Certificates.certify_sqrt_interval(Inf)
+    @test_throws DomainError Certificates.certify_reciprocal_residual(0.0)
+    @test_throws DomainError Certificates.certify_reciprocal_residual(Inf)
     zero_entry = evaluate_softabs_metric_float64(0.0; smoothing=2.0)
     @test zero_entry.eigenvalue == 0.5
     @test zero_entry.factor == inv(sqrt(0.5))
@@ -84,6 +132,284 @@ end
     @test entry.eigenvalue == 1 / tanh(1.0)
     @test entry.sqrt_eigenvalue^2 ≈ entry.eigenvalue
     @test entry.factor * entry.sqrt_eigenvalue ≈ 1.0
+    log_certificate = Certificates.certify_log_interval(entry.eigenvalue)
+    @test log_certificate.computed == entry.logdet
+    @test log_certificate.error > 0
+    if isfile(ORACLE)
+        log_arguments =
+            Certificates.log_interval_certificate_arguments(log_certificate)
+        @test readchomp(`$ORACLE log_interval $log_arguments`) == "ok"
+        tampered_log = copy(log_arguments)
+        tampered_log[end] = "0/1"
+        @test readchomp(`$ORACLE log_interval $tampered_log`) ==
+            "error invalidLogInterval"
+    end
+    @test Certificates.certify_log_interval(1.0).error == 0
+    @test_throws DomainError Certificates.certify_log_interval(0.0)
+    @test_throws DomainError Certificates.certify_log_interval(Inf)
+    exp_certificate = Certificates.certify_exp_nonpositive(-0.1)
+    @test exp_certificate.computed == exp(-0.1)
+    @test exp_certificate.error > 0
+    @test Certificates.certify_exp_nonpositive(0.0).error == 0
+    if isfile(ORACLE)
+        exp_arguments = Certificates.exp_nonpositive_certificate_arguments(
+            exp_certificate)
+        @test readchomp(`$ORACLE exp_nonpositive $exp_arguments`) == "ok"
+        tampered_exp = copy(exp_arguments)
+        tampered_exp[end] = "0/1"
+        @test readchomp(`$ORACLE exp_nonpositive $tampered_exp`) ==
+            "error invalidExpNonpositive"
+    end
+    transported_exp = Certificates.certify_exp_nonpositive_transport(
+        -0.1, -BigInt(1) // BigInt(10))
+    @test transported_exp.input_error > 0
+    if isfile(ORACLE)
+        transported_arguments =
+            Certificates.exp_nonpositive_transport_certificate_arguments(
+                transported_exp)
+        @test readchomp(`$ORACLE exp_nonpositive_transport $transported_arguments`) ==
+            "ok"
+        tampered_transport = copy(transported_arguments)
+        tampered_transport[end] = "0/1"
+        @test readchomp(`$ORACLE exp_nonpositive_transport $tampered_transport`) ==
+            "error invalidExpNonpositiveTransport"
+    end
+    @test_throws DomainError Certificates.certify_exp_nonpositive(0.1)
+    @test_throws DomainError Certificates.certify_exp_nonpositive(-Inf)
+    softabs_certificate = Certificates.certify_positive_softabs(1.0, 1.0)
+    @test softabs_certificate.computed_tanh == tanh(1.0)
+    @test softabs_certificate.computed_eigenvalue == entry.eigenvalue
+    @test softabs_certificate.tanh_error > 0
+    if isfile(ORACLE)
+        softabs_arguments = Certificates.positive_softabs_certificate_arguments(
+            softabs_certificate)
+        @test readchomp(`$ORACLE positive_softabs $softabs_arguments`) == "ok"
+        tampered_softabs = copy(softabs_arguments)
+        tampered_softabs[6] = "0/1"
+        @test readchomp(`$ORACLE positive_softabs $tampered_softabs`) ==
+            "error invalidPositiveSoftAbs"
+    end
+    metric_certificate = Certificates.certify_positive_softabs_metric(1.0, 1.0)
+    @test metric_certificate.eigenvalue.computed_eigenvalue == entry.eigenvalue
+    @test metric_certificate.sqrt.computed == entry.sqrt_eigenvalue
+    @test metric_certificate.factor.computed == entry.factor
+    @test metric_certificate.logdet.computed == entry.logdet
+    if isfile(ORACLE)
+        metric_arguments =
+            Certificates.positive_softabs_metric_certificate_arguments(
+                metric_certificate)
+        @test readchomp(`$ORACLE positive_softabs_metric $metric_arguments`) == "ok"
+        tampered_metric = copy(metric_arguments)
+        tampered_metric[6] = "0/1"
+        @test readchomp(`$ORACLE positive_softabs_metric $tampered_metric`) ==
+            "error invalidPositiveSoftAbsMetric"
+    end
+    small_entry = evaluate_softabs_metric_float64(0.1)
+    small_metric_certificate =
+        Certificates.certify_positive_softabs_metric(1.0, 0.1)
+    @test small_metric_certificate.eigenvalue.computed_eigenvalue ==
+        small_entry.eigenvalue
+    @test small_metric_certificate.sqrt.computed == small_entry.sqrt_eigenvalue
+    @test small_metric_certificate.factor.computed == small_entry.factor
+    @test small_metric_certificate.logdet.computed == small_entry.logdet
+    if isfile(ORACLE)
+        small_arguments =
+            Certificates.positive_softabs_metric_certificate_arguments(
+                small_metric_certificate)
+        @test readchomp(`$ORACLE positive_softabs_metric $small_arguments`) == "ok"
+    end
+    rounded_argument_entry = evaluate_softabs_metric_float64(0.1;
+        smoothing=0.1)
+    rounded_argument_certificate =
+        Certificates.certify_positive_softabs_metric(0.1, 0.1)
+    @test rounded_argument_certificate.eigenvalue.argument_error > 0
+    @test rounded_argument_certificate.eigenvalue.computed_eigenvalue ==
+        rounded_argument_entry.eigenvalue
+    @test rounded_argument_certificate.sqrt.computed ==
+        rounded_argument_entry.sqrt_eigenvalue
+    @test rounded_argument_certificate.factor.computed ==
+        rounded_argument_entry.factor
+    @test rounded_argument_certificate.logdet.computed ==
+        rounded_argument_entry.logdet
+    if isfile(ORACLE)
+        rounded_arguments =
+            Certificates.positive_softabs_metric_certificate_arguments(
+                rounded_argument_certificate)
+        @test readchomp(`$ORACLE positive_softabs_metric $rounded_arguments`) == "ok"
+        tampered_argument = copy(rounded_arguments)
+        tampered_argument[4] = "0/1"
+        @test readchomp(`$ORACLE positive_softabs_metric $tampered_argument`) ==
+            "error invalidPositiveSoftAbsMetric"
+    end
+    hamiltonian_evaluation = evaluate_softabs_scalar_hamiltonian_float64(
+        0.5, 0.1, 0.25; smoothing=0.1)
+    hamiltonian_certificate =
+        Certificates.certify_positive_softabs_hamiltonian(
+            0.1, 0.1, 0.5, 0.25)
+    metric_error_upper =
+        Certificates.certify_positive_softabs_metric_error_upper(
+            hamiltonian_certificate.metric)
+    @test metric_error_upper.factor_error > 0
+    @test metric_error_upper.logdet_error > 0
+    hamiltonian_error_upper =
+        Certificates.certify_positive_softabs_hamiltonian_error_upper(
+            hamiltonian_certificate)
+    endpoint_solver_budget = Certificates.certify_rounded_contraction_pair(
+        0, 0, 1 // big(10)^12, 0)
+    endpoint_state_transport =
+        Certificates.certify_positive_softabs_endpoint_state_transport(
+            hamiltonian_error_upper, endpoint_solver_budget, 3 // 1)
+    @test hamiltonian_error_upper.energy_error > 0
+    @test endpoint_state_transport.total_energy_error ==
+        hamiltonian_error_upper.energy_error + 3 // big(10)^12
+    @test hamiltonian_certificate.kinetic.computed ==
+        hamiltonian_evaluation.kinetic
+    @test hamiltonian_certificate.computed_energy ==
+        hamiltonian_evaluation.energy
+    @test hamiltonian_certificate.kinetic_input_error > 0
+    if isfile(ORACLE)
+        hamiltonian_arguments =
+            Certificates.positive_softabs_hamiltonian_certificate_arguments(
+                hamiltonian_certificate)
+        @test readchomp(`$ORACLE positive_softabs_hamiltonian $hamiltonian_arguments`) ==
+            "ok"
+        tampered_hamiltonian = copy(hamiltonian_arguments)
+        tampered_hamiltonian[20] = "0/1"
+        @test readchomp(`$ORACLE positive_softabs_hamiltonian $tampered_hamiltonian`) ==
+            "error invalidPositiveSoftAbsHamiltonian"
+        metric_upper_arguments =
+            Certificates.positive_softabs_metric_error_upper_certificate_arguments(
+                metric_error_upper)
+        @test readchomp(`$ORACLE positive_softabs_metric_upper $metric_upper_arguments`) ==
+            "ok"
+        tampered_metric_upper = copy(metric_upper_arguments)
+        tampered_metric_upper[end] = "0/1"
+        @test readchomp(`$ORACLE positive_softabs_metric_upper $tampered_metric_upper`) ==
+            "error invalidPositiveSoftAbsMetricUpper"
+        hamiltonian_upper_arguments =
+            Certificates.positive_softabs_hamiltonian_error_upper_certificate_arguments(
+                hamiltonian_error_upper)
+        @test readchomp(`$ORACLE positive_softabs_hamiltonian_upper $hamiltonian_upper_arguments`) ==
+            "ok"
+        tampered_hamiltonian_upper = copy(hamiltonian_upper_arguments)
+        tampered_hamiltonian_upper[end] = "0/1"
+        @test readchomp(`$ORACLE positive_softabs_hamiltonian_upper $tampered_hamiltonian_upper`) ==
+            "error invalidPositiveSoftAbsHamiltonianUpper"
+        state_transport_arguments =
+            Certificates.positive_softabs_endpoint_state_transport_certificate_arguments(
+                endpoint_state_transport)
+        @test readchomp(`$ORACLE positive_softabs_endpoint_state_transport $state_transport_arguments`) ==
+            "ok"
+        tampered_state_transport = copy(state_transport_arguments)
+        tampered_state_transport[end] = "0/1"
+        @test readchomp(`$ORACLE positive_softabs_endpoint_state_transport $tampered_state_transport`) ==
+            "error invalidPositiveSoftAbsEndpointStateTransport"
+    end
+    @test_throws DomainError Certificates.certify_positive_softabs_endpoint_state_transport(
+        hamiltonian_error_upper, -1, 3)
+    hamiltonian_trajectory =
+        Certificates.certify_positive_softabs_hamiltonian_trajectory(
+            0.1, [0.1, 0.2, 0.3], [0.5, 10.6, 100.7], [0.25, -0.5, 0.75])
+    @test length(hamiltonian_trajectory.endpoints) == 3
+    @test all(isfinite, [endpoint.computed_energy
+        for endpoint in hamiltonian_trajectory.endpoints])
+    trajectory_error_uppers =
+        Certificates.certify_positive_softabs_hamiltonian_error_upper.(
+            hamiltonian_trajectory.endpoints)
+    @test all(upper -> upper.energy_error > 0, trajectory_error_uppers)
+    if isfile(ORACLE)
+        trajectory_arguments =
+            Certificates.positive_softabs_hamiltonian_trajectory_certificate_arguments(
+                hamiltonian_trajectory)
+        @test readchomp(`$ORACLE positive_softabs_hamiltonian_trajectory $trajectory_arguments`) ==
+            "ok"
+        tampered_trajectory = copy(trajectory_arguments)
+        tampered_trajectory[21] = "0/1"
+        @test readchomp(`$ORACLE positive_softabs_hamiltonian_trajectory $tampered_trajectory`) ==
+            "error invalidPositiveSoftAbsHamiltonianTrajectory"
+        truncated_trajectory = trajectory_arguments[1:end-1]
+        @test readchomp(`$ORACLE positive_softabs_hamiltonian_trajectory $truncated_trajectory`) ==
+            "error invalidPositiveSoftAbsHamiltonianTrajectoryFieldCount"
+    end
+    stabilized_weights =
+        Certificates.certify_positive_softabs_stabilized_weights(
+            hamiltonian_trajectory)
+    @test length(stabilized_weights.weights) == 3
+    @test all(weight -> 0 < weight.local_certificate.computed <= 1,
+        stabilized_weights.weights)
+    @test any(weight.input_error > 0 for weight in stabilized_weights.weights)
+    if isfile(ORACLE)
+        weight_arguments =
+            Certificates.positive_softabs_stabilized_weight_certificate_arguments(
+                stabilized_weights)
+        @test readchomp(`$ORACLE exp_nonpositive_transport_trajectory $weight_arguments`) ==
+            "ok"
+        tampered_weights = copy(weight_arguments)
+        nonzero_index = findfirst(weight -> weight.input_error > 0,
+            stabilized_weights.weights)
+        @test nonzero_index !== nothing
+        tampered_weights[5 * nonzero_index + 1] = "0/1"
+        @test readchomp(`$ORACLE exp_nonpositive_transport_trajectory $tampered_weights`) ==
+            "error invalidExpNonpositiveTransportTrajectory"
+        truncated_weights = weight_arguments[1:end-1]
+        @test readchomp(`$ORACLE exp_nonpositive_transport_trajectory $truncated_weights`) ==
+            "error invalidExpNonpositiveTransportTrajectoryFieldCount"
+    end
+    cumulative_weights = Certificates.certify_rounded_cumulative(
+        [weight.local_certificate.computed for weight in stabilized_weights.weights])
+    @test isfinite(cumulative_weights.boundaries[end])
+    @test any(>(0), cumulative_weights.errors)
+    if isfile(ORACLE)
+        cumulative_arguments =
+            Certificates.rounded_cumulative_certificate_arguments(cumulative_weights)
+        @test readchomp(`$ORACLE rounded_cumulative $cumulative_arguments`) == "ok"
+        tampered_cumulative = copy(cumulative_arguments)
+        nonzero_cumulative = findfirst(>(0), cumulative_weights.errors)
+        @test nonzero_cumulative !== nothing
+        tampered_cumulative[3 * nonzero_cumulative + 1] = "0/1"
+        @test readchomp(`$ORACLE rounded_cumulative $tampered_cumulative`) ==
+            "error invalidRoundedCumulative"
+        truncated_cumulative = cumulative_arguments[1:end-1]
+        @test readchomp(`$ORACLE rounded_cumulative $truncated_cumulative`) ==
+            "error invalidRoundedCumulativeFieldCount"
+    end
+    scaled_draw = Certificates.certify_scaled_draw(
+        0.37, cumulative_weights.boundaries[end])
+    @test scaled_draw.computed == 0.37 * cumulative_weights.boundaries[end]
+    @test scaled_draw.error > 0
+    if isfile(ORACLE)
+        draw_arguments = Certificates.scaled_draw_certificate_arguments(scaled_draw)
+        @test readchomp(`$ORACLE scaled_draw $draw_arguments`) == "ok"
+        tampered_draw = copy(draw_arguments)
+        tampered_draw[end] = "0/1"
+        @test readchomp(`$ORACLE scaled_draw $tampered_draw`) ==
+            "error invalidScaledDraw"
+    end
+    selection_error_upper =
+        Certificates.certify_positive_softabs_selection_error_upper(
+            trajectory_error_uppers, stabilized_weights, cumulative_weights,
+            scaled_draw)
+    @test selection_error_upper.common_energy_error ==
+        maximum(upper.energy_error for upper in trajectory_error_uppers)
+    @test selection_error_upper.boundary_error > 0
+    @test selection_error_upper.uniform_error > 0
+    decision_margin = selection_error_upper.decision
+    @test decision_margin.computed_draw == scaled_draw.computed
+    if isfile(ORACLE)
+        decision_arguments =
+            Certificates.multinomial_decision_certificate_arguments(decision_margin)
+        @test readchomp(`$ORACLE multinomial_decision $decision_arguments`) == "ok"
+        touching_decision = copy(decision_arguments)
+        touching_decision[5] = touching_decision[1]
+        @test readchomp(`$ORACLE multinomial_decision $touching_decision`) ==
+            "error invalidMultinomialDecision"
+        truncated_decision = decision_arguments[1:end-1]
+        @test readchomp(`$ORACLE multinomial_decision $truncated_decision`) ==
+            "error invalidMultinomialDecisionFieldCount"
+    end
+    @test_throws ArgumentError Certificates.certify_multinomial_decision(
+        scaled_draw.computed, [scaled_draw.computed], 0, 0)
+    @test_throws DomainError Certificates.certify_positive_softabs(1.0, 0.0)
     @test_throws DomainError evaluate_softabs_metric_float64(Inf)
     @test_throws DomainError evaluate_softabs_metric_float64(1.0; smoothing=0.0)
 
@@ -126,6 +452,78 @@ end
         @test hessian ≈ 1 + sin(x)
         metric = evaluate_softabs_metric_float64(hessian)
         @test metric.eigenvalue > 0
+    end
+
+    quartic_exact = certify_restricted_quartic_float64(0.5)
+    @test quartic_exact.ideal_value == 9 // 64
+    @test quartic_exact.ideal_derivative == 5 // 8
+    @test quartic_exact.ideal_second_derivative == 7 // 4
+    @test all(iszero, (quartic_exact.value_error,
+        quartic_exact.derivative_error,
+        quartic_exact.second_derivative_error))
+
+    quartic_rounded = certify_restricted_quartic_float64(0.1)
+    quartic_arguments =
+        restricted_quartic_certificate_arguments(quartic_rounded)
+    @test length(quartic_arguments) == 7
+    if isfile(ORACLE)
+        @test readchomp(`$ORACLE quartic_certificate $quartic_arguments`) == "ok"
+        invalid = copy(quartic_arguments)
+        invalid[end] = "0/1"
+        if quartic_arguments[end] == "0/1"
+            invalid[end] = "1/1"
+        end
+        @test readchomp(`$ORACLE quartic_certificate $invalid`) ==
+            "error invalidCertificate"
+    end
+    @test_throws ArgumentError certify_restricted_quartic_float64(Inf)
+
+    for x in (-2.0, -0.25, 0.0, 1.75)
+        value, derivative, hessian = restricted_value_gradient_hessian(
+            restricted_quartic_potential, x)
+        @test value == x^4 / 4 + x^2 / 2
+        @test derivative == x^3 + x
+        @test hessian == 3x^2 + 1
+        @test hessian >= 1
+        metric = evaluate_softabs_metric_float64(hessian)
+        @test metric.eigenvalue > 0
+    end
+
+    quartic_sampler = restricted_potential_rwmh(
+        restricted_quartic_potential, 0.8)
+    quartic_first = sample(MersenneTwister(0x71a4), quartic_sampler, 0.0, 100)
+    quartic_second = sample(MersenneTwister(0x71a4), quartic_sampler, 0.0, 100)
+    @test quartic_first == quartic_second
+    @test all(isfinite, quartic_first)
+    @test any(!iszero, quartic_first)
+
+    quartic_hmc = restricted_potential_hmc(
+        restricted_quartic_potential, 0.15, 6)
+    quartic_hmc_first = sample(
+        MersenneTwister(0x71a5), quartic_hmc, 0.0, 100)
+    quartic_hmc_second = sample(
+        MersenneTwister(0x71a5), quartic_hmc, 0.0, 100)
+    @test quartic_hmc_first == quartic_hmc_second
+    @test all(isfinite, quartic_hmc_first)
+    @test any(!iszero, quartic_hmc_first)
+
+    # Every generated restricted target, rather than only the quartic
+    # certificate client, is wired through both maintained sampler adapters.
+    for (offset, potential) in enumerate((restricted_gaussian_potential,
+            restricted_sinusoidal_potential))
+        rwmh = restricted_potential_rwmh(potential, 0.7)
+        rwmh_first = sample(MersenneTwister(0x71b0 + offset), rwmh, 0.0, 100)
+        rwmh_second = sample(MersenneTwister(0x71b0 + offset), rwmh, 0.0, 100)
+        @test rwmh_first == rwmh_second
+        @test all(isfinite, rwmh_first)
+        @test any(!iszero, rwmh_first)
+
+        hmc = restricted_potential_hmc(potential, 0.12, 5)
+        hmc_first = sample(MersenneTwister(0x71c0 + offset), hmc, 0.0, 100)
+        hmc_second = sample(MersenneTwister(0x71c0 + offset), hmc, 0.0, 100)
+        @test hmc_first == hmc_second
+        @test all(isfinite, hmc_first)
+        @test any(!iszero, hmc_first)
     end
 
     exact = certify_restricted_gaussian_float64(0.5)
@@ -197,11 +595,32 @@ end
     reference = Reference.fixed_point_generalized_leapfrog(
         position_derivative, momentum_derivative, q, p, ε;
         max_iterations=200, atol=1e-13, rtol=1e-13)
+    traced = Reference.fixed_point_generalized_leapfrog_trace(
+        position_derivative, momentum_derivative, q, p, ε;
+        max_iterations=200, atol=1e-13, rtol=1e-13)
     optimized = Optimized.fixed_point_generalized_leapfrog(
         position_derivative, momentum_derivative, q, p, ε;
         max_iterations=200, atol=1e-13, rtol=1e-13)
     @test reference[1] ≈ optimized[1] atol=1e-14 rtol=0
     @test reference[2] ≈ optimized[2] atol=1e-14 rtol=0
+    @test traced[1] == reference[1]
+    @test traced[2] == reference[2]
+    @test traced[3].half_momentum_residual.computed ==
+        reference[3].half_momentum_residual.computed
+    @test traced[3].position_residual.computed ==
+        reference[3].position_residual.computed
+    @test norm(traced[4].half_momentum - traced[4].half_update) ==
+        reference[3].half_momentum_residual.computed
+    @test traced[4].half_callback ==
+        Float64.(position_derivative(q, traced[4].half_momentum))
+    @test norm(traced[4].next_position - traced[4].position_update) ==
+        reference[3].position_residual.computed
+    @test traced[4].position_callback ==
+        Float64.(momentum_derivative(q, traced[4].half_momentum)) +
+        Float64.(momentum_derivative(
+            traced[4].next_position, traced[4].half_momentum))
+    @test 1 <= traced[4].half_iterations <= 200
+    @test 1 <= traced[4].position_iterations <= 200
     @test reference[3].half_momentum_residual.computed < 1e-12
     @test reference[3].position_residual.computed < 1e-12
     @test !Certificates.certifies_exact_solver(reference[3])
@@ -210,8 +629,71 @@ end
     @test half_error.distance_bound ==
         (abs(BigFloat(reference[3].half_momentum_residual.computed)) +
           half_error.residual_error) / (1 - half_error.rate)
+    rational_half_error = Certificates.certify_contraction_aposteriori(
+        Rational{BigInt}(reference[3].half_momentum_residual.computed) +
+            1 // big(10)^15,
+        1 // 5)
+    @test rational_half_error.distance_upper ==
+        rational_half_error.residual_upper / (1 - rational_half_error.rate)
+    if isfile(ORACLE)
+        arguments = Certificates.contraction_aposteriori_certificate_arguments(
+            rational_half_error)
+        @test readchomp(`$ORACLE contraction_aposteriori $arguments`) == "ok"
+        tampered = copy(arguments)
+        tampered[end] = "0/1"
+        @test readchomp(`$ORACLE contraction_aposteriori $tampered`) ==
+            "error invalidContractionAposteriori"
+    end
+    half_affine = Certificates.certify_rounded_affine_update(
+        p[1], -(ε / 2), traced[4].half_callback[1], 1 // big(10)^15,
+        traced[4].half_update[1])
+    position_affine = Certificates.certify_rounded_affine_update(
+        q[1], ε / 2, traced[4].position_callback[1], 2 // big(10)^15,
+        traced[4].position_update[1])
+    @test half_affine.update_error == half_affine.arithmetic_error +
+        abs(half_affine.scale) * half_affine.callback_error
+    @test position_affine.update_error == position_affine.arithmetic_error +
+        abs(position_affine.scale) * position_affine.callback_error
+    rounded_pair = Certificates.certify_rounded_contraction_pair(
+        traced[4].half_momentum[1], traced[4].half_update[1],
+        half_affine.update_error, 1 // 5)
+    @test rounded_pair.contraction.residual_upper ==
+        rounded_pair.residual.residual_upper
+    @test rounded_pair.residual.residual_upper ==
+        abs(rounded_pair.residual.iterate -
+            rounded_pair.residual.computed_update) +
+            rounded_pair.residual.update_error
+    if isfile(ORACLE)
+        affine_arguments =
+            Certificates.rounded_affine_update_certificate_arguments(half_affine)
+        @test readchomp(`$ORACLE rounded_affine_update $affine_arguments`) == "ok"
+        tampered_affine = copy(affine_arguments)
+        tampered_affine[end] = "0/1"
+        @test readchomp(`$ORACLE rounded_affine_update $tampered_affine`) ==
+            "error invalidRoundedAffineUpdate"
+        position_affine_arguments =
+            Certificates.rounded_affine_update_certificate_arguments(
+                position_affine)
+        @test readchomp(`$ORACLE rounded_affine_update $position_affine_arguments`) ==
+            "ok"
+        arguments = Certificates.rounded_contraction_pair_certificate_arguments(
+            rounded_pair)
+        @test readchomp(`$ORACLE rounded_contraction_pair $arguments`) == "ok"
+        tampered = copy(arguments)
+        tampered[4] = "0/1"
+        @test readchomp(`$ORACLE rounded_contraction_pair $tampered`) ==
+            "error invalidRoundedContractionPair"
+    end
     @test_throws DomainError Certificates.contraction_error_bound(1e-8, 0, 1)
     @test_throws DomainError Certificates.contraction_error_bound(1e-8, -1, 0.2)
+    @test_throws DomainError Certificates.certify_contraction_aposteriori(
+        -1 // 10, 1 // 5)
+    @test_throws DomainError Certificates.certify_contraction_aposteriori(
+        1 // 10, 1)
+    @test_throws DomainError Certificates.certify_rounded_contraction_residual(
+        0, 0, -1 // 10)
+    @test_throws DomainError Certificates.certify_rounded_affine_update(
+        0, 1, 0, -1 // 10, 0)
 
     public_result = fixed_point_generalized_leapfrog(
         position_derivative, momentum_derivative, q, p, ε)
@@ -260,7 +742,42 @@ end
         [s^2 * p[1] / sqrt(1 + (s * p[1])^2)]
     end
     qb, pb, εb = [0.25], [-0.35], 0.15
-    bounded_reference = Reference.fixed_point_generalized_leapfrog(
+    bounded_sincos = Certificates.certify_sincos_interval(qb[1])
+    @test bounded_sincos.sin_error > 0
+    @test bounded_sincos.cos_error > 0
+    if isfile(ORACLE)
+        arguments = Certificates.sincos_interval_certificate_arguments(
+            bounded_sincos)
+        @test readchomp(`$ORACLE sincos_interval $arguments`) == "ok"
+        tampered = copy(arguments)
+        tampered[3] = "0/1"
+        @test readchomp(`$ORACLE sincos_interval $tampered`) ==
+            "error invalidSinCosInterval"
+    end
+    @test_throws DomainError Certificates.certify_sincos_interval(1.1)
+    bounded_callbacks = Certificates.certify_bounded_scalar_callbacks(
+        qb[1], pb[1])
+    @test bounded_callbacks.computed_momentum_callback ≈
+        bounded_momentum_derivative(qb, pb)[1] rtol=2eps() atol=0
+    @test bounded_callbacks.computed_position_callback ≈
+        bounded_position_derivative(qb, pb)[1] rtol=2eps() atol=0
+    @test bounded_callbacks.computed_sqrt_lower > 1
+    if isfile(ORACLE)
+        arguments = Certificates.bounded_scalar_callback_certificate_arguments(
+            bounded_callbacks)
+        @test readchomp(`$ORACLE bounded_scalar_callbacks $arguments`) == "ok"
+        tampered_radicand = copy(arguments)
+        tampered_radicand[8] = "0/1"
+        @test readchomp(`$ORACLE bounded_scalar_callbacks $tampered_radicand`) ==
+            "error invalidBoundedScalarCallbacks"
+        tampered_callback = copy(arguments)
+        tampered_callback[17] = "0/1"
+        @test readchomp(`$ORACLE bounded_scalar_callbacks $tampered_callback`) ==
+            "error invalidBoundedScalarCallbacks"
+    end
+    @test_throws DomainError Certificates.certify_bounded_scalar_callbacks(
+        qb[1], Inf)
+    bounded_reference = Reference.fixed_point_generalized_leapfrog_trace(
         bounded_position_derivative, bounded_momentum_derivative,
         qb, -pb, εb; max_iterations=300, atol=1e-14, rtol=1e-14)
     bounded_optimized = Optimized.fixed_point_generalized_leapfrog(
@@ -275,6 +792,263 @@ end
     @test -bounded_reference[2] ≈ bounded_backward[2] atol=2e-13 rtol=0
     @test bounded_reference[3].half_momentum_residual.computed < 1e-13
     @test bounded_reference[3].position_residual.computed < 1e-13
+    bounded_trace_certificate =
+        Certificates.certify_bounded_scalar_callback_trace(bounded_reference[4])
+    @test length(bounded_trace_certificate.certificates) ==
+        bounded_reference[4].half_iterations +
+        bounded_reference[4].position_iterations + 4
+    @test count(==(:position), bounded_trace_certificate.kinds) ==
+        bounded_reference[4].half_iterations + 2
+    @test count(==(:momentum), bounded_trace_certificate.kinds) ==
+        bounded_reference[4].position_iterations + 2
+    if isfile(ORACLE)
+        arguments =
+            Certificates.bounded_scalar_callback_trace_certificate_arguments(
+                bounded_trace_certificate)
+        @test readchomp(`$ORACLE bounded_scalar_callback_trace $arguments`) == "ok"
+        tampered_count = copy(arguments)
+        tampered_count[1] = string(parse(Int, tampered_count[1]) + 1)
+        @test readchomp(`$ORACLE bounded_scalar_callback_trace $tampered_count`) ==
+            "error invalidBoundedScalarCallbackTraceCount"
+        tampered_entry = copy(arguments)
+        tampered_entry[12] = "0/1"
+        @test readchomp(`$ORACLE bounded_scalar_callback_trace $tampered_entry`) ==
+            "error invalidBoundedScalarCallbackTrace"
+        tampered_order = copy(arguments)
+        tampered_order[4] = "momentum"
+        @test readchomp(`$ORACLE bounded_scalar_callback_trace $tampered_order`) ==
+            "error invalidBoundedScalarCallbackTrace"
+    end
+    bounded_affine_certificate =
+        Certificates.certify_bounded_scalar_affine_trace(
+            bounded_reference[4], bounded_trace_certificate)
+    bounded_second_reference = Reference.fixed_point_generalized_leapfrog_trace(
+        bounded_position_derivative, bounded_momentum_derivative,
+        bounded_reference[1], bounded_reference[2], εb;
+        max_iterations=300, atol=1e-14, rtol=1e-14)
+    bounded_second_trace_certificate =
+        Certificates.certify_bounded_scalar_callback_trace(
+            bounded_second_reference[4])
+    bounded_second_affine_certificate =
+        Certificates.certify_bounded_scalar_affine_trace(
+            bounded_second_reference[4], bounded_second_trace_certificate)
+    bounded_linked_trajectory =
+        Certificates.certify_bounded_scalar_linked_solver_trajectory(
+            qb[1], -pb[1], [bounded_reference[4], bounded_second_reference[4]],
+            [bounded_trace_certificate, bounded_second_trace_certificate],
+            [bounded_affine_certificate, bounded_second_affine_certificate], εb)
+    @test length(bounded_linked_trajectory.steps) == 2
+    bounded_half_region = maximum(
+        abs(Rational{BigInt}(trace.half_momentum[1])) +
+          step.phase.solver.half.contraction.distance_upper
+        for (trace, step) in zip(
+            [bounded_reference[4], bounded_second_reference[4]],
+            bounded_linked_trajectory.steps))
+    bounded_regional = Certificates.certify_bounded_scalar_step_regional(
+        εb, bounded_half_region)
+    @test bounded_regional.lipschitz_upper >=
+        bounded_regional.position_coefficient
+    @test bounded_regional.lipschitz_upper >=
+        bounded_regional.momentum_coefficient
+    @test_throws ArgumentError Certificates.certify_bounded_scalar_linked_solver_trajectory(
+            qb[1] + 1, -pb[1],
+            [bounded_reference[4], bounded_second_reference[4]],
+            [bounded_trace_certificate, bounded_second_trace_certificate],
+            [bounded_affine_certificate, bounded_second_affine_certificate], εb)
+    @test length(bounded_affine_certificate.updates) ==
+        bounded_reference[4].half_iterations +
+        bounded_reference[4].position_iterations + 3
+    @test count(==(:half_momentum), bounded_affine_certificate.kinds) ==
+        bounded_reference[4].half_iterations + 1
+    @test count(==(:position), bounded_affine_certificate.kinds) ==
+        bounded_reference[4].position_iterations + 1
+    @test bounded_affine_certificate.kinds[end] == :final_momentum
+    @test all(update -> update.callback_error > 0,
+        bounded_affine_certificate.updates)
+    @test any(!iszero,
+        bounded_affine_certificate.callback_arithmetic_errors)
+    bounded_solver_contraction =
+        Certificates.certify_bounded_scalar_solver_contraction_trace(
+            bounded_reference[4], bounded_affine_certificate, εb)
+    @test bounded_solver_contraction.half.contraction.rate ==
+        abs(Rational{BigInt}(εb) / 2) * 3
+    @test bounded_solver_contraction.position.contraction.rate ==
+        abs(Rational{BigInt}(εb) / 2) * 2
+    @test bounded_solver_contraction.half.contraction.distance_upper > 0
+    @test bounded_solver_contraction.position.contraction.distance_upper > 0
+    bounded_solver_phase =
+        Certificates.certify_bounded_scalar_solver_phase_trace(
+            bounded_reference[4], bounded_trace_certificate,
+            bounded_affine_certificate, εb)
+    @test bounded_solver_phase.position_error >
+        bounded_solver_contraction.position.contraction.distance_upper
+    bounded_solver_endpoint =
+        Certificates.certify_bounded_scalar_solver_endpoint_trace(
+            bounded_reference[4], bounded_trace_certificate,
+            bounded_affine_certificate, εb)
+    @test bounded_solver_endpoint.final_momentum_error >
+        bounded_affine_certificate.updates[end].update_error
+    @test bounded_solver_endpoint.phase_error == max(
+        bounded_solver_phase.position_error,
+        bounded_solver_endpoint.final_momentum_error)
+    bounded_endpoint_energy =
+        Certificates.certify_bounded_scalar_endpoint_energy_trace(
+            bounded_reference[4], bounded_trace_certificate,
+            bounded_affine_certificate, εb)
+    @test bounded_endpoint_energy.evaluation.sqrt_certificate.computed ≈
+        sqrt(1 + ((2 + sin(bounded_reference[1][1])) *
+          bounded_reference[2][1])^2) rtol=0 atol=0
+    @test bounded_endpoint_energy.total_energy_error >
+        bounded_endpoint_energy.evaluation.sqrt_certificate.error
+    bounded_two_endpoint_energy =
+        Certificates.certify_bounded_scalar_two_endpoint_energy_trace(
+            bounded_reference[4], bounded_trace_certificate,
+            bounded_affine_certificate, εb)
+    @test bounded_two_endpoint_energy.initial.sincos.input == qb[1]
+    @test bounded_two_endpoint_energy.initial.momentum == -pb[1]
+    @test bounded_two_endpoint_energy.common_error == max(
+        Certificates._bounded_scalar_sqrt_error(
+            bounded_two_endpoint_energy.initial),
+        bounded_endpoint_energy.total_energy_error)
+    bounded_two_endpoint_selection =
+        Certificates.certify_bounded_scalar_two_endpoint_selection(
+            bounded_two_endpoint_energy, 0.37)
+    @test length(bounded_two_endpoint_selection.weights.weights) == 2
+    @test bounded_two_endpoint_selection.boundary_error > 0
+    @test bounded_two_endpoint_selection.uniform_error > 0
+    @test Certificates.is_stable(
+        bounded_two_endpoint_selection.decision)
+    if isfile(ORACLE)
+        for index in eachindex(bounded_affine_certificate.updates)
+            arguments =
+                Certificates.bounded_scalar_affine_update_certificate_arguments(
+                    bounded_trace_certificate, bounded_affine_certificate, index)
+            @test readchomp(`$ORACLE bounded_scalar_affine_update $arguments`) ==
+                "ok"
+        end
+        tampered_update =
+            Certificates.bounded_scalar_affine_update_certificate_arguments(
+                bounded_trace_certificate, bounded_affine_certificate, 1)
+        tampered_update[end - 3] = "0/1"
+        @test readchomp(`$ORACLE bounded_scalar_affine_update $tampered_update`) ==
+            "error invalidBoundedScalarAffineUpdate"
+        for kind in (:half_momentum, :position)
+            arguments = Certificates.
+                bounded_scalar_solver_contraction_certificate_arguments(
+                    bounded_trace_certificate, bounded_affine_certificate,
+                    bounded_solver_contraction, kind)
+            @test readchomp(
+                `$ORACLE bounded_scalar_solver_contraction $arguments`) == "ok"
+            tampered_rate = copy(arguments)
+            tampered_rate[end - 1] = "0/1"
+            @test readchomp(
+                `$ORACLE bounded_scalar_solver_contraction $tampered_rate`) ==
+                "error invalidBoundedScalarSolverContraction"
+        end
+        phase_arguments = Certificates.
+            bounded_scalar_solver_phase_certificate_arguments(
+                bounded_trace_certificate, bounded_affine_certificate,
+                bounded_solver_phase)
+        @test readchomp(`$ORACLE bounded_scalar_solver_phase $phase_arguments`) ==
+            "ok"
+        tampered_phase_error = copy(phase_arguments)
+        tampered_phase_error[end] = "0/1"
+        @test readchomp(
+            `$ORACLE bounded_scalar_solver_phase $tampered_phase_error`) ==
+            "error invalidBoundedScalarSolverPhase"
+        endpoint_arguments = Certificates.
+            bounded_scalar_solver_endpoint_certificate_arguments(
+                bounded_trace_certificate, bounded_affine_certificate,
+                bounded_solver_endpoint)
+        @test readchomp(
+            `$ORACLE bounded_scalar_solver_endpoint $endpoint_arguments`) == "ok"
+        tampered_endpoint_error = copy(endpoint_arguments)
+        tampered_endpoint_error[end - 1] = "0/1"
+        @test readchomp(
+            `$ORACLE bounded_scalar_solver_endpoint $tampered_endpoint_error`) ==
+            "error invalidBoundedScalarSolverEndpoint"
+        linked_arguments = Certificates.
+            bounded_scalar_linked_solver_trajectory_certificate_arguments(
+                [bounded_trace_certificate, bounded_second_trace_certificate],
+                [bounded_affine_certificate,
+                    bounded_second_affine_certificate],
+                bounded_linked_trajectory)
+        @test readchomp(
+            `$ORACLE bounded_scalar_linked_solver_trajectory $linked_arguments`) ==
+            "ok"
+        tampered_linked_initial = copy(linked_arguments)
+        tampered_linked_initial[2] = "0/1"
+        @test readchomp(
+            `$ORACLE bounded_scalar_linked_solver_trajectory $tampered_linked_initial`) ==
+            "error invalidBoundedScalarLinkedSolverTrajectory"
+        truncated_linked = linked_arguments[1:end-1]
+        @test readchomp(
+            `$ORACLE bounded_scalar_linked_solver_trajectory $truncated_linked`) ==
+            "error invalidBoundedScalarLinkedSolverTrajectoryFieldCount"
+        regional_arguments = Certificates.
+            bounded_scalar_step_regional_certificate_arguments(bounded_regional)
+        @test readchomp(
+            `$ORACLE bounded_scalar_step_regional $regional_arguments`) == "ok"
+        tampered_regional = copy(regional_arguments)
+        tampered_regional[end] = "0/1"
+        @test readchomp(
+            `$ORACLE bounded_scalar_step_regional $tampered_regional`) ==
+            "error invalidBoundedScalarStepRegional"
+        energy_arguments = Certificates.
+            bounded_scalar_endpoint_energy_certificate_arguments(
+                bounded_trace_certificate, bounded_affine_certificate,
+                bounded_endpoint_energy)
+        @test readchomp(
+            `$ORACLE bounded_scalar_endpoint_energy $energy_arguments`) == "ok"
+        tampered_energy_error = copy(energy_arguments)
+        tampered_energy_error[end] = "0/1"
+        @test readchomp(
+            `$ORACLE bounded_scalar_endpoint_energy $tampered_energy_error`) ==
+            "error invalidBoundedScalarEndpointEnergy"
+        two_endpoint_arguments = Certificates.
+            bounded_scalar_two_endpoint_energy_certificate_arguments(
+                bounded_trace_certificate, bounded_affine_certificate,
+                bounded_two_endpoint_energy)
+        @test readchomp(
+            `$ORACLE bounded_scalar_two_endpoint_energy $two_endpoint_arguments`) ==
+            "ok"
+        tampered_initial_momentum = copy(two_endpoint_arguments)
+        tampered_initial_momentum[6] = "0/1"
+        @test readchomp(
+            `$ORACLE bounded_scalar_two_endpoint_energy $tampered_initial_momentum`) ==
+            "error invalidBoundedScalarTwoEndpointEnergy"
+        tampered_common_error = copy(two_endpoint_arguments)
+        tampered_common_error[end] = "0/1"
+        @test readchomp(
+            `$ORACLE bounded_scalar_two_endpoint_energy $tampered_common_error`) ==
+            "error invalidBoundedScalarTwoEndpointEnergy"
+        weight_arguments = Certificates.
+            bounded_scalar_two_endpoint_weight_certificate_arguments(
+                bounded_trace_certificate, bounded_affine_certificate,
+                bounded_two_endpoint_selection.weights)
+        @test readchomp(
+            `$ORACLE bounded_scalar_two_endpoint_weight $weight_arguments`) ==
+            "ok"
+        tampered_weight_link = copy(weight_arguments)
+        energy_length = parse(Int, tampered_weight_link[1])
+        tampered_weight_link[energy_length + 6] = "-1/1"
+        @test readchomp(
+            `$ORACLE bounded_scalar_two_endpoint_weight $tampered_weight_link`) ==
+            "error invalidBoundedScalarTwoEndpointWeight"
+        bounded_cumulative_arguments = Certificates.
+            rounded_cumulative_certificate_arguments(
+                bounded_two_endpoint_selection.cumulative)
+        @test readchomp(
+            `$ORACLE rounded_cumulative $bounded_cumulative_arguments`) == "ok"
+        bounded_draw_arguments = Certificates.scaled_draw_certificate_arguments(
+            bounded_two_endpoint_selection.draw)
+        @test readchomp(`$ORACLE scaled_draw $bounded_draw_arguments`) == "ok"
+        bounded_decision_arguments = Certificates.
+            multinomial_decision_certificate_arguments(
+                bounded_two_endpoint_selection.decision)
+        @test readchomp(
+            `$ORACLE multinomial_decision $bounded_decision_arguments`) == "ok"
+    end
 end
 
 @testset "executable multinomial HMC" begin
@@ -690,6 +1464,20 @@ end
         @test adaptive_first == adaptive_second
         @test abs(mean(adaptive_first[end-9_999:end]) - 0.5) < 0.025
         @test_throws ArgumentError sample(MersenneTwister(1), adaptive, false, -1)
+
+        continuous_adaptive = IndefiniteAdaptiveContinuousRefresh(randn)
+        continuous_first = sample(MersenneTwister(0xc017),
+            continuous_adaptive, 4.0, 40_000)
+        continuous_second = sample(MersenneTwister(0xc017),
+            continuous_adaptive, 4.0, 40_000)
+        @test continuous_first == continuous_second
+        continuous_tail = @view continuous_first[end-9_999:end]
+        @test abs(mean(continuous_tail)) < 0.05
+        @test abs(var(continuous_tail) - 1) < 0.08
+        @test_throws ArgumentError sample(MersenneTwister(1),
+            continuous_adaptive, Inf, 1)
+        @test_throws DomainError sample(MersenneTwister(1),
+            IndefiniteAdaptiveContinuousRefresh(_ -> Inf), 0.0, 2)
     end
     @testset "positive constrained transform" begin
         sampler = PositiveTransformedRWMH(x -> -x, 0.8)

@@ -439,6 +439,30 @@ nonexplosion, and target stationarity transfer from the formally identified
 Gaussian Zig-Zag construction. General dimension, refreshment-driven
 ergodicity, and convergence remain separate milestones.
 
+[Deligiannidis, Bouchard-Côté, and Doucet
+(2019)](https://doi.org/10.1214/18-AOS1714) prove exponential ergodicity under
+tail/curvature conditions using a Lyapunov function involving the reverse
+bounce intensity. Their quantitative proof restricts velocity to the unit
+sphere, whereas this repository's exact refreshed client uses an unbounded
+standard-Gaussian velocity law. The published Lyapunov estimate therefore
+cannot be imported verbatim. The reusable next step is the combined
+flow/bounce plus refresh generator, followed by a Gaussian-velocity-specific
+drift calculation or an explicitly proved comparison theorem.
+
+[Durmus, Guillin, and Monmarché
+(2020)](https://arxiv.org/abs/1807.05401) supply the directly relevant
+unbounded-velocity result that the earlier audit omitted. Their Theorem 4
+allows velocity laws with a Gaussian moment and proves geometric ergodicity
+using a nonlinear carrier of the form
+`exp(κ Ū(x)) φ(scaled radial velocity) + exp(H(‖v‖))`; the bounded monotone
+profile `φ` separates inward transport, outward bounce decrease, and refresh
+averaging. For a Gaussian target this is the appropriate architecture, not a
+bare quadratic generator drift. The repository now defines its smooth radial
+specialization, proves measurability/finiteness, exact sign reversal of the
+normalized radial velocity, the complete bounce-change identity, and outward
+bounce decrease. Quantitative profile construction, refresh integration, and
+the generator drift inequality remain to instantiate.
+
 ### Bierkens, Fearnhead, and Roberts (2019): Zig-Zag -- P2
 
 [Bierkens, Fearnhead, and Roberts](https://doi.org/10.1214/18-AOS1715) define a

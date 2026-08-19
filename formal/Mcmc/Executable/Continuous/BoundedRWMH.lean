@@ -25,6 +25,12 @@ theorem Approximates.nonneg {computed ideal error : ℝ}
 theorem Approximates.refl (value : ℝ) : Approximates value value 0 := by
   simp [Approximates]
 
+theorem Approximates.symm {computed ideal error : ℝ}
+    (h : Approximates computed ideal error) :
+    Approximates ideal computed error := by
+  unfold Approximates at h ⊢
+  rwa [abs_sub_comm]
+
 theorem Approximates.mono {computed ideal error larger : ℝ}
     (h : Approximates computed ideal error) (hle : error ≤ larger) :
     Approximates computed ideal larger := h.trans hle

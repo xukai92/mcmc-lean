@@ -63,6 +63,64 @@ end
         -0.1, 1.0, 0.01, 1e-4, 2e-4)
     @test_throws ArgumentError Certificates.leapfrog_error_schedule(
         leapfrog_parameters, -1)
+    dyadic_q, dyadic_p = 0.0, 1.0
+    for iteration in 1:8
+        dyadic = Certificates.certify_gaussian_dyadic_leapfrog_step(
+            0.5, dyadic_q, dyadic_p)
+        optimized_q, optimized_p = Optimized.leapfrog(
+            identity, 0.5, dyadic_q, dyadic_p)
+        @test (dyadic.next_position, dyadic.next_momentum) ==
+            (optimized_q, optimized_p)
+        if isfile(ORACLE)
+            arguments = Certificates.gaussian_dyadic_leapfrog_certificate_arguments(
+                dyadic)
+            @test readchomp(`$ORACLE gaussian_dyadic_leapfrog $arguments`) == "ok"
+            if iteration == 1
+                tampered = copy(arguments)
+                tampered[end] = "0/1"
+                @test readchomp(`$ORACLE gaussian_dyadic_leapfrog $tampered`) ==
+                    "error invalidGaussianDyadicLeapfrog"
+            end
+        end
+        dyadic_q, dyadic_p = dyadic.next_position, dyadic.next_momentum
+    end
+    @test_throws InexactError Certificates.certify_gaussian_dyadic_leapfrog_step(
+        0.1, 0.0, 1.0)
+    rounded = Certificates.certify_gaussian_rounded_leapfrog_step(0.1, 0.0, 1.0)
+    rounded_q, rounded_p = Optimized.leapfrog(identity, 0.1, 0.0, 1.0)
+    @test (rounded.next_position, rounded.next_momentum) ==
+        (rounded_q, rounded_p)
+    @test rounded.next_momentum_error > 0
+    if isfile(ORACLE)
+        arguments = Certificates.gaussian_rounded_leapfrog_certificate_arguments(
+            rounded)
+        @test readchomp(`$ORACLE gaussian_rounded_leapfrog $arguments`) == "ok"
+        tampered = copy(arguments)
+        tampered[end] = "0/1"
+        @test readchomp(`$ORACLE gaussian_rounded_leapfrog $tampered`) ==
+            "error invalidGaussianRoundedLeapfrog"
+    end
+    quartic_gradient(x) = restricted_value_gradient_hessian(
+        restricted_quartic_potential, x)[2]
+    quartic_step = Certificates.certify_rounded_leapfrog_step(
+        0.15, 0.2, 0.7, quartic_gradient)
+    quartic_q, quartic_p = Optimized.leapfrog(
+        quartic_gradient, 0.15, 0.2, 0.7)
+    @test (quartic_step.next_position, quartic_step.next_momentum) ==
+        (quartic_q, quartic_p)
+    current_quartic = certify_restricted_quartic_float64(quartic_step.position)
+    next_quartic = certify_restricted_quartic_float64(quartic_step.next_position)
+    @test current_quartic.computed_derivative == quartic_step.current_gradient
+    @test next_quartic.computed_derivative == quartic_step.next_gradient
+    if isfile(ORACLE)
+        arithmetic_arguments =
+            Certificates.rounded_leapfrog_certificate_arguments(quartic_step)
+        current_arguments = restricted_quartic_certificate_arguments(current_quartic)
+        next_arguments = restricted_quartic_certificate_arguments(next_quartic)
+        @test readchomp(`$ORACLE rounded_leapfrog $arithmetic_arguments`) == "ok"
+        @test readchomp(`$ORACLE quartic_certificate $current_arguments`) == "ok"
+        @test readchomp(`$ORACLE quartic_certificate $next_arguments`) == "ok"
+    end
     coordinate_step = Certificates.certify_leapfrog_coordinate_step(
         leapfrog_parameters;
         signed_step=0.1,
@@ -96,6 +154,15 @@ end
         [0.0, 0.0], BigFloat[0, 0], [1.0, 2.0], BigFloat[1, 2],
         [vector_step])
     @test length(linked_trajectory.steps) == 1
+    recursive_uturn = Certificates.certify_recursive_doubling_uturn_matrix(
+        linked_trajectory)
+    @test recursive_uturn.count == 2
+    @test length(recursive_uturn.pairs) == 2
+    @test Certificates.is_stable(recursive_uturn)
+    @test Certificates.certified_uturn_decisions(recursive_uturn) ==
+        Dict((1, 2) => false, (2, 1) => true)
+    @test_throws ArgumentError Certificates.certify_recursive_doubling_uturn_matrix(
+        linked_trajectory; initial_position_error=-1)
     @test_throws ArgumentError Certificates.certify_linked_leapfrog_vector_trajectory(
             [1.0, 0.0], BigFloat[0, 0], [1.0, 2.0], BigFloat[1, 2],
             [vector_step])
@@ -268,7 +335,7 @@ end
 end
 
 @testset "versioned reference IR" begin
-    @test Reference.IR_FORMAT_VERSION == 18
+    @test Reference.IR_FORMAT_VERSION == 19
     @test sort!(collect(keys(Reference.PROGRAMS))) ==
         ["categorical_index!", "certified_relativistic_multinomial_hmc_step!",
         "coupled_gaussian_rwmh_step!",
@@ -297,6 +364,7 @@ end
     dynamic = Reference.DYNAMIC_TREES["checked-recursive-doubling"]
     @test dynamic.builder == "recursive-doubling"
     @test dynamic.trace_policy == "fair-direction-bits"
+    @test dynamic.root_encoding == "lsb-first-grow-right-zero"
     @test dynamic.stop_rule == "endpoint-uturn"
     @test dynamic.subtree_policy == "recursive-exclusion"
     @test dynamic.selection_policy == "eligible-count-streaming"

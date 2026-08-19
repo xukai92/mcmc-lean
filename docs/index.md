@@ -19,15 +19,17 @@ arguments, and explicit audits of the targeted papers.
 - [Executable architecture](executable-architecture.md) explains the Lean IR,
   Julia reference interpreter, and optimized implementation.
 - [Executable roadmap](executable-roadmap.md) records completed vertical
-  slices, including the Xu et al. coupling, and the prioritized path to
-  Riemannian execution.
+  slices, including the Xu et al. coupling and Riemannian execution, while
+  separating parked platform refinements.
 - [Testing strategy](testing.md) separates proved properties from executable,
   differential, and statistical tests.
-- [Phase I core release audit](core-release-audit.md) maps each completed
+- [Progress matrix](progress.md) summarizes method-by-property and paper-target
+  coverage without hiding conditional or parked boundaries.
+- [Core release audit](core-release-audit.md) maps each completed
   milestone to its formal or executable evidence and records its exact scope.
 - [Project completion status](project-status.md) reconciles the expanded
-  cross-paper goal into one evidence-backed matrix and orders the genuinely
-  remaining work.
+  cross-paper goal into one evidence-backed matrix, defines the core release
+  boundary, and separates parked research extensions.
 - [Development log](development-log.md) records current completed work and
   remaining obligations; its [archive](development-log-archive.md) preserves
   older milestone detail.

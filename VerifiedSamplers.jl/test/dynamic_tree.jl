@@ -108,6 +108,16 @@
         [0.0, 1.0, 1.5, 1.25, 0.5], [1.0, 0.8, 0.2, -0.5, -0.8])
     @test !rejected_first_stop.valid
     @test all(root in rejected_first_stop.candidates[root] for root in 1:5)
+    repaired_first_stop = coherent_dynamic_tree(rejected_first_stop.candidates)
+    @test repaired_first_stop.valid
+    @test all(Set(repaired_first_stop.candidates[root]) ⊆
+        Set(rejected_first_stop.candidates[root]) for root in 1:5)
+    @test all(root in repaired_first_stop.candidates[root] for root in 1:5)
+
+    already_partitioned = [[1, 2], [2, 1], [3]]
+    @test coherent_dynamic_tree(already_partitioned).candidates ==
+        certify_dynamic_tree(already_partitioned).candidates
+    @test_throws ArgumentError coherent_dynamic_tree([[2], [2]])
     @test_throws DimensionMismatch first_stop_endpoint_uturn_candidates(
         [[0.0]], [[1.0], [2.0]])
     @test_throws ArgumentError first_stop_endpoint_uturn_candidates(
@@ -274,6 +284,156 @@ end
         flat_logdensity, zero_gradient, 0.0, 2)
     @test_throws ArgumentError CheckedFirstStopDynamicHMC(
         flat_logdensity, zero_gradient, 0.5, 0)
+end
+
+@testset "completed-tree C.4 dynamic HMC" begin
+    # An actual optimized-compatible exact-dyadic Gaussian trajectory reaches
+    # the productive C.4 path with zero arithmetic discrepancy.
+    dyadic_positions = [[0.0]]
+    dyadic_momenta = [[1.0]]
+    dyadic_q, dyadic_p = 0.0, 1.0
+    for _ in 1:3
+        step_certificate =
+            Certificates.certify_gaussian_dyadic_leapfrog_step(
+                0.5, dyadic_q, dyadic_p)
+        dyadic_q, dyadic_p = step_certificate.next_position,
+            step_certificate.next_momentum
+        push!(dyadic_positions, [dyadic_q])
+        push!(dyadic_momenta, [dyadic_p])
+    end
+    for left in 1:4, right in 1:4
+        left == right && continue
+        uturn_certificate = Certificates.certify_vector_uturn_decision(
+            dyadic_positions[left], dyadic_positions[left], [0.0],
+            dyadic_positions[right], dyadic_positions[right], [0.0],
+            dyadic_momenta[left], dyadic_momenta[left], [0.0],
+            dyadic_momenta[right], dyadic_momenta[right], [0.0])
+        @test Certificates.is_stable(uturn_certificate)
+    end
+    dyadic_tree = completed_tree_c4_candidates(
+        dyadic_positions, dyadic_momenta)
+    @test dyadic_tree.valid
+    @test dyadic_tree.candidates == [collect(1:4) for _ in 1:4]
+
+    # A genuinely rounded `ε = 0.1` Gaussian orbit is checked step by step,
+    # linked into four phase leaves, and clears every off-diagonal U-turn
+    # margin under the same `10^-14` budget proved in Lean.
+    rounded_steps = Certificates.GaussianRoundedLeapfrogStepCertificate[]
+    rounded_positions = [[0.0]]
+    rounded_momenta = [[1.0]]
+    rounded_q, rounded_p = 0.0, 1.0
+    for _ in 1:3
+        certificate = Certificates.certify_gaussian_rounded_leapfrog_step(
+            0.1, rounded_q, rounded_p)
+        push!(rounded_steps, certificate)
+        rounded_q, rounded_p = certificate.next_position,
+            certificate.next_momentum
+        push!(rounded_positions, [rounded_q])
+        push!(rounded_momenta, [rounded_p])
+        if isfile(ORACLE)
+            arguments = Certificates.gaussian_rounded_leapfrog_certificate_arguments(
+                certificate)
+            @test readchomp(`$ORACLE gaussian_rounded_leapfrog $arguments`) == "ok"
+        end
+    end
+    rounded_arguments =
+        Certificates.gaussian_rounded_four_leaf_certificate_arguments(rounded_steps)
+    if isfile(ORACLE)
+        @test readchomp(`$ORACLE rounded_gaussian_four_leaf $rounded_arguments`) == "ok"
+        tampered = copy(rounded_arguments)
+        tampered[end] = "0/1"
+        @test readchomp(`$ORACLE rounded_gaussian_four_leaf $tampered`) ==
+            "error invalidRoundedGaussianFourLeaf"
+    end
+    ideal_positions = [[BigFloat(0)], [BigFloat(1) / 10],
+        [BigFloat(199) / 1000], [BigFloat(29601) / 100000]]
+    ideal_momenta = [[BigFloat(1)], [BigFloat(199) / 200],
+        [BigFloat(19601) / 20000], [BigFloat(1910599) / 2000000]]
+    rounded_bounds = [fill(big"1e-14", 1) for _ in 1:4]
+    for left in 1:4, right in 1:4
+        left == right && continue
+        certificate = Certificates.certify_vector_uturn_decision(
+            rounded_positions[left], ideal_positions[left], rounded_bounds[left],
+            rounded_positions[right], ideal_positions[right], rounded_bounds[right],
+            rounded_momenta[left], ideal_momenta[left], rounded_bounds[left],
+            rounded_momenta[right], ideal_momenta[right], rounded_bounds[right])
+        @test Certificates.is_stable(certificate)
+        @test Certificates.certified_uturn_decision(certificate) == (right < left)
+    end
+
+    # Mirrors Lean's `tenthErrorFourLeafTrajectory`: every distinct endpoint
+    # clears a nonzero 0.1 coordinate-error budget. Self-pairs have zero dot
+    # product and are handled structurally, not by an impossible strict margin.
+    positions = [[Float64(index)] for index in 0:3]
+    momenta = [[1.0] for _ in 1:4]
+    bounds = [[0.1] for _ in 1:4]
+    for left in 1:4, right in 1:4
+        certificate = Certificates.certify_vector_uturn_decision(
+            positions[left], positions[left], bounds[left],
+            positions[right], positions[right], bounds[right],
+            momenta[left], momenta[left], bounds[left],
+            momenta[right], momenta[right], bounds[right])
+        if left == right
+            @test !Certificates.is_stable(certificate)
+        else
+            @test Certificates.is_stable(certificate)
+            @test Certificates.certified_uturn_decision(certificate) ==
+                (right < left)
+        end
+    end
+
+    for depth in 0:8, root in 1:(1 << depth)
+        directions = completed_tree_direction_trace(root, depth)
+        @test length(directions) == depth
+        decoded = 0
+        for (level, grow_right) in enumerate(directions)
+            !grow_right && (decoded += 1 << (level - 1))
+        end
+        @test decoded == root - 1
+    end
+    @test completed_tree_direction_trace(1, 0) == Bool[]
+    @test_throws BoundsError completed_tree_direction_trace(0, 2)
+    @test_throws BoundsError completed_tree_direction_trace(5, 2)
+    @test_throws ArgumentError completed_tree_direction_trace(1, -1)
+
+    monotone = completed_tree_c4_candidates(collect(0.0:7.0), ones(8))
+    @test monotone.valid
+    @test monotone.candidates == [collect(1:8) for _ in 1:8]
+    @test_throws ArgumentError completed_tree_c4_candidates(
+        collect(0.0:5.0), ones(6))
+
+    flat_logdensity(q) = 0.0
+    zero_gradient(q) = zero(q)
+    sampler = CompletedTreeC4DynamicHMC(
+        flat_logdensity, zero_gradient, 0.5, 2)
+    events = Runtime.FloatTraceEvent[
+        Runtime.NormalEvent(1.0), Runtime.IndexEvent(0),
+        Runtime.UniformEvent(0.6)]
+    reference_source = Runtime.FloatTraceSource(copy(events))
+    optimized_source = Runtime.FloatTraceSource(copy(events))
+    reference = VerifiedSamplers._completed_tree_c4_dynamic_hmc_step!(
+        reference_source, Reference.dynamic_select_float!, sampler, [0.0])
+    optimized = VerifiedSamplers._completed_tree_c4_dynamic_hmc_step!(
+        optimized_source, Optimized.dynamic_select_float!, sampler, [0.0])
+    @test reference == optimized
+    @test reference != [0.0]
+    @test Runtime.remaining(reference_source) == 0
+    @test Runtime.remaining(optimized_source) == 0
+
+    normal_logdensity(q) = -sum(abs2, q) / 2
+    normal_gradient(q) = q
+    normal_sampler = CompletedTreeC4DynamicHMC(
+        normal_logdensity, normal_gradient, 0.12, 3)
+    first_chain = sample(MersenneTwister(0xc4), normal_sampler, [0.0, 0.0], 100)
+    second_chain = sample(MersenneTwister(0xc4), normal_sampler, [0.0, 0.0], 100)
+    @test first_chain == second_chain
+    @test size(first_chain) == (2, 100)
+    @test all(isfinite, first_chain)
+    @test any(!iszero, first_chain)
+    @test_throws ArgumentError CompletedTreeC4DynamicHMC(
+        normal_logdensity, normal_gradient, 0.0, 3)
+    @test_throws ArgumentError CompletedTreeC4DynamicHMC(
+        normal_logdensity, normal_gradient, 0.1, -1)
 end
 
 @testset "checked randomized recursive dynamic HMC" begin

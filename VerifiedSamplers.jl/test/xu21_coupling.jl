@@ -28,6 +28,27 @@
     @test_throws ArgumentError coupled_meeting_time(MersenneTwister(1), sampler,
         ([0.0], [1.0]), -1)
 
+    diagnostic = coupled_meeting_diagnostic(MersenneTwister(2021), sampler,
+        ([0.0, 0.0], [1.0, -1.0]), 12, 500)
+    repeated = coupled_meeting_diagnostic(MersenneTwister(2021), sampler,
+        ([0.0, 0.0], [1.0, -1.0]), 12, 500)
+    @test diagnostic == repeated
+    @test diagnostic.met + diagnostic.censored == 12
+    @test diagnostic.meeting_fraction == diagnostic.met / 12
+    @test 0 <= diagnostic.restricted_mean <= 500
+    @test all(time -> time === nothing || 0 <= time <= 500,
+        diagnostic.meeting_times)
+
+    already_met = coupled_meeting_diagnostic(MersenneTwister(3), sampler,
+        ([0.25, -0.5], [0.25, -0.5]), 4, 0)
+    @test already_met.meeting_times == Union{Nothing,Int}[0, 0, 0, 0]
+    @test already_met.observed_mean == 0
+    @test already_met.restricted_mean == 0
+    @test_throws ArgumentError coupled_meeting_diagnostic(MersenneTwister(1),
+        sampler, ([0.0], [1.0]), 0, 10)
+    @test_throws ArgumentError coupled_meeting_diagnostic(MersenneTwister(1),
+        sampler, ([0.0], [1.0]), 1, -1)
+
     @test_throws DimensionMismatch step(MersenneTwister(1), sampler,
         ([0.0], [0.0, 1.0]))
 end

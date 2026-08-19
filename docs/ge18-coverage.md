@@ -87,8 +87,8 @@ equivalence and transports invariance from the pushed target measure back to
 the constrained target. The standard positive-real log/exp equivalence is
 instantiated. Any Jacobian belongs in the density identification of that pushed
 measure; the theorem does not permit silently reusing the untransformed density.
-Generated Julia transforms and their floating-point refinement remain runtime
-work. A public `PositiveTransformedRWMH` runtime client now implements the
+Generated Julia transforms and public runtime clients are implemented; generic
+floating-point refinement is parked. A public `PositiveTransformedRWMH` client implements the
 standard log transform, including the required `+y` log-Jacobian, validates
 the positive domain, and has reproducible exponential-target diagnostics.
 Connecting its `Float64` `log`/`exp` calls to the exact conjugation theorem
@@ -97,7 +97,7 @@ bound away from zero, the Jacobian error composes additively, and `exp` has an
 explicit upper-domain transport bound. Platform-local libm errors remain the
 numerical boundary.
 The same positive-log convention was introduced in IR 14 and remains in the
-current version 16 artifact, including transform direction and inverse-
+current version 19 artifact, including transform direction and inverse-
 Jacobian metadata.
 IR 16 adds the open-unit artanh-affine equivalence and its full inverse-
 Jacobian convention. `OpenUnitTransformedRWMH` consumes that convention and

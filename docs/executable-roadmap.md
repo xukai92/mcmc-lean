@@ -22,7 +22,7 @@ the existing continuous HMC clients.
 
 ## Completed vertical slices
 
-The current version-14 artifact and Julia package provide:
+The current version-19 artifact and Julia package provide:
 
 | Slice | Exact Lean result | Julia evidence |
 |---|---|---|
@@ -70,10 +70,10 @@ order while retaining independent trajectory construction.
 
 Reference rejects nonfinite states, non-real or nonfinite log densities,
 wrong-size gradients, and nonfinite gradients. Tests cover these failures.
-Restricted callback expressions, adaptation, and performance benchmarking
-remain future work.
+Restricted callback expressions, scoped adaptation clients, and performance
+diagnostics are now implemented. Broader target coverage remains optional.
 
-## Prioritized next steps
+## Completed implementation tracks and parked refinements
 
 ### Completed: executable coupled samplers for Xu et al. (2021)
 
@@ -168,7 +168,7 @@ an exact rational certificate; the compiled Lean oracle checks that artifact,
 and checker soundness yields value, derivative, and second-derivative
 approximation facts. The Hessian certificate reaches the input consumed by
 the diagonal SoftAbs metric.
-The remaining platform work is instantiating primitive operation premises for
+Optional platform work would instantiate primitive operation premises for
 transcendental operations (`exp`, `sin`, and `cos`), extending the checked path
 from target/force evaluation through the genuinely position-dependent SoftAbs
 metric and solver, and benchmarking against
@@ -178,8 +178,9 @@ a separate specification.
 
 ## Assurance boundary
 
-The immediate execution goal is restricted Riemannian refinement rather than
-construction of the sampler. Cross-language semantic preservation, arbitrary
-callback correctness, universal floating-point refinement, convergence rates,
-and adaptation are distinct obligations and must not be inferred from target
-invariance or statistical tests.
+The sampler construction and restricted refinement interfaces are complete at
+their documented exact/guarded boundaries. Universal cross-language semantic
+preservation, arbitrary callback correctness, and generic floating-point
+refinement are parked research extensions. Convergence and adaptation remain
+distinct properties and must not be inferred from target invariance or
+statistical tests.

@@ -40,4 +40,13 @@ def RestrictedArtifactExpr.derivative :
 def restrictedSinusoidalPotentialArtifact : RestrictedArtifactExpr :=
   .add restrictedGaussianArtifact (.neg (.sin .input))
 
+/-- Generated strongly convex polynomial potential `x⁴/4 + x²/2`. Its
+nonconstant Hessian gives a position-dependent metric client without target
+callback transcendental operations. -/
+def restrictedQuarticPotentialArtifact : RestrictedArtifactExpr :=
+  .add
+    (.mul (.rational 1 4)
+      (.mul (.mul .input .input) (.mul .input .input)))
+    restrictedGaussianArtifact
+
 end Mcmc.Executable.Continuous

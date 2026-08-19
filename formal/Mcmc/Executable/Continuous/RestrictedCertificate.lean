@@ -1,12 +1,13 @@
 import Mcmc.Executable.Continuous.RestrictedRefinement
 
 /-!
-# Exact-rational restricted Gaussian execution certificates
+# Exact-rational restricted polynomial execution certificates
 
 Finite IEEE values are dyadic rationals. A foreign runtime can therefore
 serialize its input, value, derivative, and observed errors exactly as `ℚ`.
-This module checks that record against the generated Gaussian target's proved
-ideal-real semantics and turns successful checks into `Approximates` theorems.
+This module checks such records against the generated Gaussian and strongly
+convex quartic targets' proved ideal-real semantics and turns successful checks
+into `Approximates` theorems.
 -/
 
 namespace Mcmc.Executable.Continuous
@@ -84,6 +85,77 @@ theorem RestrictedGaussianRationalCertificate.secondDerivative_approximates
       (certificate.secondDerivativeError : ℝ) := by
   rw [restrictedGaussianPotential_secondDerivative_eval]
   rw [Approximates]
+  norm_cast
+  rw [hvalid.2.2]
+
+/-- Exact-rational execution record for the generated strongly convex quartic
+target `x⁴/4+x²/2`. -/
+structure RestrictedQuarticRationalCertificate where
+  input : ℚ
+  computedValue : ℚ
+  computedDerivative : ℚ
+  computedSecondDerivative : ℚ
+  valueError : ℚ
+  derivativeError : ℚ
+  secondDerivativeError : ℚ
+  deriving DecidableEq, Repr
+
+def RestrictedQuarticRationalCertificate.Valid
+    (certificate : RestrictedQuarticRationalCertificate) : Prop :=
+  certificate.valueError =
+      |certificate.computedValue -
+        (certificate.input ^ 4 / 4 + certificate.input ^ 2 / 2)| ∧
+    certificate.derivativeError =
+      |certificate.computedDerivative -
+        (certificate.input ^ 3 + certificate.input)| ∧
+    certificate.secondDerivativeError =
+      |certificate.computedSecondDerivative -
+        (3 * certificate.input ^ 2 + 1)|
+
+instance (certificate : RestrictedQuarticRationalCertificate) :
+    Decidable certificate.Valid := by
+  unfold RestrictedQuarticRationalCertificate.Valid
+  infer_instance
+
+def RestrictedQuarticRationalCertificate.check
+    (certificate : RestrictedQuarticRationalCertificate) : Bool :=
+  decide certificate.Valid
+
+theorem RestrictedQuarticRationalCertificate.valid_of_check
+    {certificate : RestrictedQuarticRationalCertificate}
+    (hcheck : certificate.check = true) : certificate.Valid := by
+  exact of_decide_eq_true hcheck
+
+theorem RestrictedQuarticRationalCertificate.value_approximates
+    (certificate : RestrictedQuarticRationalCertificate)
+    (hvalid : certificate.Valid) :
+    Approximates (certificate.computedValue : ℝ)
+      (restrictedQuarticPotentialArtifact.compile.eval
+        (certificate.input : ℝ))
+      (certificate.valueError : ℝ) := by
+  rw [restrictedQuarticPotentialArtifact_eval, Approximates]
+  norm_cast
+  rw [hvalid.1]
+
+theorem RestrictedQuarticRationalCertificate.derivative_approximates
+    (certificate : RestrictedQuarticRationalCertificate)
+    (hvalid : certificate.Valid) :
+    Approximates (certificate.computedDerivative : ℝ)
+      (restrictedQuarticPotentialArtifact.derivative.compile.eval
+        (certificate.input : ℝ))
+      (certificate.derivativeError : ℝ) := by
+  rw [restrictedQuarticPotentialArtifact_derivative_eval, Approximates]
+  norm_cast
+  rw [hvalid.2.1]
+
+theorem RestrictedQuarticRationalCertificate.secondDerivative_approximates
+    (certificate : RestrictedQuarticRationalCertificate)
+    (hvalid : certificate.Valid) :
+    Approximates (certificate.computedSecondDerivative : ℝ)
+      (restrictedQuarticPotentialArtifact.derivative.derivative.compile.eval
+        (certificate.input : ℝ))
+      (certificate.secondDerivativeError : ℝ) := by
+  rw [restrictedQuarticPotentialArtifact_secondDerivative_eval, Approximates]
   norm_cast
   rw [hvalid.2.2]
 

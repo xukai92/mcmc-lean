@@ -149,6 +149,73 @@ theorem CertifiedDynamicTree.checkedOrIdentityKernel_stationary
   · rw [checkedOrIdentityKernel, dif_neg hcheck]
     exact identity_stationary target
 
+/-! ### Canonical coherent subrow repair -/
+
+/-- Retain from a raw rooted row exactly those leaves whose complete raw row
+agrees with the root's. This never adds a candidate rejected by the builder. -/
+def CertifiedDynamicTree.coherentSubrow
+    (candidates : State → Finset State) (root : State) : Finset State :=
+  (candidates root).filter fun leaf => candidates leaf = candidates root
+
+omit [Fintype State] in
+theorem CertifiedDynamicTree.coherentSubrow_subset
+    (candidates : State → Finset State) (root : State) :
+    coherentSubrow candidates root ⊆ candidates root := by
+  intro leaf hleaf
+  exact (Finset.mem_filter.mp hleaf).1
+
+/-- Raw root retention is sufficient for the coherent subrows to form a
+certified partition. Unlike the global checked-or-identity wrapper, this
+canonical repair can retain movement inside every group of roots that emits
+the same row while reducing incoherent roots to smaller safe components. -/
+def CertifiedDynamicTree.coherentTree
+    (candidates : State → Finset State)
+    (hroot : ∀ root, root ∈ candidates root) : CertifiedDynamicTree State where
+  candidates := coherentSubrow candidates
+  root_mem root := by simp [coherentSubrow, hroot root]
+  reroot_eq := by
+    intro root leaf hleaf
+    have hagree : candidates leaf = candidates root :=
+      (Finset.mem_filter.mp hleaf).2
+    simp only [coherentSubrow, hagree]
+
+@[simp] theorem CertifiedDynamicTree.check_coherentSubrow
+    (candidates : State → Finset State)
+    (hroot : ∀ root, root ∈ candidates root) :
+    check (coherentSubrow candidates) = true := by
+  rw [check_eq_true_iff]
+  exact ⟨(coherentTree candidates hroot).root_mem,
+    fun root leaf hleaf => (coherentTree candidates hroot).reroot_eq hleaf⟩
+
+/-- Target-weighted selection from canonical coherent subrows. -/
+noncomputable def CertifiedDynamicTree.coherentKernel
+    (target : Distribution State) (candidates : State → Finset State)
+    (hroot : ∀ root, root ∈ candidates root)
+    (htarget : ∀ state, 0 < target.mass state) : MarkovKernel State :=
+  dynamicCandidateKernel target
+    ((coherentTree candidates hroot).toCandidateSet target) htarget
+
+theorem CertifiedDynamicTree.coherentKernel_stationary
+    (target : Distribution State) (candidates : State → Finset State)
+    (hroot : ∀ root, root ∈ candidates root)
+    (htarget : ∀ state, 0 < target.mass state) :
+    (coherentKernel target candidates hroot htarget).Stationary target :=
+  (coherentTree candidates hroot).kernel_stationary target htarget
+
+omit [Fintype State] in
+/-- A raw family that already passes reroot certification is unchanged by
+the coherent repair. -/
+theorem CertifiedDynamicTree.coherentSubrow_eq_of_checks
+    (candidates : State → Finset State) (hchecks : Checks candidates) :
+    coherentSubrow candidates = candidates := by
+  funext root
+  ext leaf
+  constructor
+  · intro hleaf
+    exact coherentSubrow_subset candidates root hleaf
+  · intro hleaf
+    simp [coherentSubrow, hleaf, hchecks.2 root leaf hleaf]
+
 /-- State-independent randomization over completed dynamic-tree traces. Each
 trace is checked separately; invalid traces contribute an identity kernel. -/
 noncomputable def CertifiedDynamicTree.randomizedCheckedOrIdentityKernel
@@ -174,6 +241,32 @@ theorem CertifiedDynamicTree.randomizedCheckedOrIdentityKernel_stationary
   apply candidateMixture_stationary
   intro trace
   exact checkedOrIdentityKernel_stationary target (candidates trace) htarget
+
+/-- Randomization over canonical coherent subrows. Raw builders need only
+retain their root; every trace then contributes a certified, potentially
+moving kernel rather than a whole-trace identity fallback. -/
+noncomputable def CertifiedDynamicTree.randomizedCoherentKernel
+    {Trace : Type*} [Fintype Trace]
+    (traceLaw : Distribution Trace)
+    (target : Distribution State)
+    (candidates : Trace → State → Finset State)
+    (hroot : ∀ trace root, root ∈ candidates trace root)
+    (htarget : ∀ state, 0 < target.mass state) : MarkovKernel State :=
+  candidateMixture traceLaw fun trace =>
+    coherentKernel target (candidates trace) (hroot trace) htarget
+
+theorem CertifiedDynamicTree.randomizedCoherentKernel_stationary
+    {Trace : Type*} [Fintype Trace]
+    (traceLaw : Distribution Trace)
+    (target : Distribution State)
+    (candidates : Trace → State → Finset State)
+    (hroot : ∀ trace root, root ∈ candidates trace root)
+    (htarget : ∀ state, 0 < target.mass state) :
+    (randomizedCoherentKernel traceLaw target candidates hroot htarget).Stationary
+      target := by
+  apply candidateMixture_stationary
+  intro trace
+  exact coherentKernel_stationary target (candidates trace) (hroot trace) htarget
 
 /-- A leaf of a stopped doubling tree. `depth` may vary between tree
 components, while a completed component contains `2^depth` leaf offsets. -/

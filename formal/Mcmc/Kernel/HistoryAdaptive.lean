@@ -333,6 +333,82 @@ theorem HistoryAdaptiveFamily.stateKernel_succ_of_next_eq
   simp only [homogeneousNext, ProbabilityTheory.Kernel.comap_apply,
     terminalHistory]
 
+/-- Uniform eventwise control of every history-conditioned next-step law
+passes unchanged to the actual marginalized adaptive law. This supplies the
+one-step integration principle needed by genuinely history-dependent clients:
+the selected transition need not reduce to a state-only kernel. -/
+theorem HistoryAdaptiveFamily.stateKernel_succ_eventwiseWithin
+    (adaptive : HistoryAdaptiveFamily (State := State) (Parameter := Parameter))
+    (initial : State) (target : Measure State) [IsProbabilityMeasure target]
+    (error : ENNReal) (n : ℕ)
+    (hnext : ∀ history,
+      EventwiseWithin (adaptive.next n history) target error) :
+    EventwiseWithin (adaptive.stateKernel (n + 1) initial) target error := by
+  intro event hevent
+  let historyLaw : Measure ((i : Finset.Iic n) → State) :=
+    (ProbabilityTheory.Kernel.partialTraj (X := fun _ => State)
+      adaptive.next 0 n) (initialHistory initial)
+  haveI : IsProbabilityMeasure historyLaw := by
+    dsimp [historyLaw]
+    infer_instance
+  have hrepresentation :
+      adaptive.stateKernel (n + 1) initial event =
+        ∫⁻ history, adaptive.next n history event ∂historyLaw := by
+    letI : ∀ k, IsMarkovKernel (adaptive.next k) := fun k =>
+      HistoryAdaptiveFamily.next.instIsMarkovKernel adaptive k
+    rw [HistoryAdaptiveFamily.stateKernel,
+      ProbabilityTheory.Kernel.partialTraj_succ_eq_comp (Nat.zero_le n),
+      ProbabilityTheory.Kernel.map_comp]
+    change
+      ((((ProbabilityTheory.Kernel.partialTraj (X := fun _ => State)
+        adaptive.next n (n + 1)).map
+          (fun x => x ⟨n + 1, Finset.mem_Iic.mpr le_rfl⟩) ∘ₖ
+        ProbabilityTheory.Kernel.partialTraj (X := fun _ => State)
+          adaptive.next 0 n).comap
+          (initialHistory (α := State)) measurable_initialHistory)
+            initial event) = _
+    rw [ProbabilityTheory.Kernel.comap_apply,
+      ProbabilityTheory.Kernel.comp_apply' _ _ _ hevent,
+      ProbabilityTheory.Kernel.map_partialTraj_succ_self]
+  rw [hrepresentation]
+  constructor
+  · calc
+      (∫⁻ history, adaptive.next n history event ∂historyLaw) ≤
+          ∫⁻ _history, target event + error ∂historyLaw := by
+        apply MeasureTheory.lintegral_mono
+        intro history
+        exact (hnext history event hevent).1
+      _ = target event + error := by simp
+  · rw [← tsub_le_iff_right]
+    calc
+      target event - error =
+          ∫⁻ _history, target event - error ∂historyLaw := by simp
+      _ ≤ ∫⁻ history, adaptive.next n history event ∂historyLaw := by
+        apply MeasureTheory.lintegral_mono
+        intro history
+        rw [tsub_le_iff_right]
+        exact (hnext history event hevent).2
+
+/-- A history-dependent adaptive process converges setwise whenever every
+selected next-step law is uniformly close to the target and that uniform
+error vanishes. Unlike the predetermined Doeblin theorem, the selection may
+inspect the complete history and need not preserve the target at finite time. -/
+theorem HistoryAdaptiveFamily.stateKernel_succ_apply_tendsto_of_next_eventwise
+    (adaptive : HistoryAdaptiveFamily (State := State) (Parameter := Parameter))
+    (initial : State) (target : Measure State) [IsProbabilityMeasure target]
+    (error : ℕ → ENNReal)
+    (herror : Filter.Tendsto error Filter.atTop (nhds 0))
+    (hnext : ∀ n history,
+      EventwiseWithin (adaptive.next n history) target (error n))
+    {event : Set State} (hevent : MeasurableSet event) :
+    Filter.Tendsto
+      (fun n ↦ adaptive.stateKernel (n + 1) initial event)
+      Filter.atTop (nhds (target event)) := by
+  exact tendsto_apply_of_eventwiseWithin_tendsto_zero
+    (fun n ↦ adaptive.stateKernel (n + 1) initial) target error herror
+    (fun n ↦ adaptive.stateKernel_succ_eventwiseWithin initial target
+      (error n) n (hnext n)) hevent
+
 /-- If every selected transition is a predetermined state-only kernel, the
 actual history-adaptive marginal is exactly the corresponding nonhomogeneous
 scheduled law. The schedule may still change at every time. -/

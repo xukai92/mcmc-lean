@@ -1,5 +1,343 @@
 # Development log
 
+## 2026-08-19: documentation consolidation and progress matrix
+
+Reduced the root README from a theorem ledger to a concise project entry point
+covering layout, scope, build gates, executable examples, claim discipline, and
+links to canonical detail. Added `docs/progress.md` as the method-by-property
+matrix for exact laws, invariance, convergence, Julia coverage, and execution
+refinement, plus a separate paper-target table. Reconciled the active roadmap
+and project-status wording with the completed core audit, corrected the stale
+multi-step regional-certificate description, and retained hard numerical and
+analysis endpoints as explicitly parked research. The README examples execute,
+and generated-doc, Documenter, link, and formatting checks are release gates
+for this pass.
+
+## 2026-08-18: recalibrated core completion boundary
+
+Reframed the active repository goal around release consolidation. Core
+completion now requires exact sampler semantics and proved properties at their
+stated boundaries, maintained generated/reference/optimized Julia paths,
+reproducible examples, diagnostics, and consistent documentation. Generic
+IEEE/platform-libm/RNG refinement and completion of the experimental
+per-execution certificate stack are parked. The same non-blocking research
+classification applies to production-recursive NUTS equivalence,
+multidimensional BPS uniqueness/ergodicity, realistic never-freezing
+adaptation, and fully general growing-horizon particle stability. Existing
+proofs and certificate code remain built and available; no theorem claim was
+strengthened by this scope change.
+
+The resulting release audit found three Julia integration defects in the
+retained certificate layer: a split `@test_throws` invocation that failed to
+parse, a missing `is_stable` method for exact-rational multinomial decisions,
+and a tuple-valued regional-certificate serializer that prevented mutation in
+tamper tests. The serializer now returns the same mutable `Vector{String}`
+shape as the other oracle serializers, rational decision stability is computed
+from its complete uncertainty band, and the tamper case changes a field whose
+invalidity is deterministic. The full `make test` gate, generated IR/docs
+checks, Documenter build, whitespace audit, and proof-placeholder scan pass.
+
+- Added sound multi-step state threading for the bounded implicit solver.
+  `BoundedScalarLinkedSolverTrajectoryRationalCertificate` requires a common
+  step size and exact Float64-as-rational equality between each rounded output
+  and the following solver input; Julia emits a maintained two-step record and
+  the oracle rejects changed initial state or truncated payloads. Lean proves
+  that each local endpoint radius is measured against the existing exact
+  `boundedScalarStepReal`, then proves the sequential recurrence
+  `eₙ₊₁ = localₙ + K·eₙ` against one exact iterate. Supplying an explicit
+  Lipschitz constant on the maintained bounded trajectory region remains; the
+  exact nonlinear step is not mislabeled globally Lipschitz.
+  The analytic reduction toward that certificate is also machine checked:
+  separate lemmas bound sensitivity of the half-momentum fixed point to both
+  input coordinates, sensitivity of the position fixed point to its initial
+  position and half momentum, and the final kick. Their composition gives an
+  explicit exact-step distance bound in terms of the second half momentum;
+  a checked regional rational certificate now supplies the corresponding
+  pairwise step bound. Composing it through a complete long-trajectory
+  selection certificate is parked with the optional numerical-refinement
+  layer.
+
+- Closed a fully selected one-step bounded GR-HMC trajectory. The new linked
+  two-endpoint certificate identifies the initial Hamiltonian with the exact
+  represented solver input and the final Hamiltonian with the exact endpoint
+  constructed by the solver record. Lean derives their common radius, checks
+  both maximum-stabilized exponential arguments, and composes the result with
+  rounded prefix-sum and scaled-draw multinomial selection. Julia emits the
+  complete observed decision record, while the oracle rejects altered initial
+  momentum, common energy radius, or stabilized-weight linkage. Multi-step
+  endpoint-to-input error propagation remains explicit rather than treating
+  independently rounded steps as one exact trajectory.
+
+- Closed the maintained bounded solver's complete endpoint and Hamiltonian
+  transport. Lean now proves explicit global position-slice bounds for the
+  bounded force, propagates the two implicit-coordinate errors through the
+  final momentum kick, and constructs the exact generalized-leapfrog endpoint
+  with a checked product-metric radius. A fresh callback certificate evaluates
+  `sqrt(1+((2+sin(q))*p)^2)` at the rounded endpoint; the final energy theorem
+  transports that value to the exact endpoint using the proved momentum and
+  position Hamiltonian bounds. Julia emits both linked records, and the oracle
+  rejects altered endpoint or energy radii.
+
+- Linked the two bounded implicit solves rather than treating their individual
+  fixed points as an exact phase endpoint. Lean now proves that the bounded
+  velocity callback is globally nine-Lipschitz in momentum and derives the
+  exact fixed-position sensitivity to half-momentum error. The checked
+  `BoundedScalarSolverPhaseRationalCertificate` combines both final contraction
+  records, verifies that the position loop consumes the returned half momentum,
+  and constructs exact half-momentum/position fixed points with explicit
+  coordinate bounds. Julia emits the combined rational budget for the
+  maintained solve; the oracle accepts it and rejects a changed position
+  radius. The endpoint and energy composition described above now closes the
+  final explicit momentum kick as well.
+
+- Closed the maintained bounded solver's final residual-to-fixed-point link.
+  Julia now selects the two final residual recomputations from the 28-update
+  trace and emits exact-rational residual and contraction records. A single
+  Lean certificate checks their callback provenance, affine arithmetic,
+  residual arithmetic, global step-size condition, phase-specific contraction
+  rate, and linkage to the returned iterate. Its two soundness theorems bound
+  the runtime half momentum and position by the unique exact fixed points of
+  the actual bounded `2+sin(q)` implicit maps. Both records pass the oracle;
+  changing either rate fails closed.
+
+- Certified every rounded affine update in the maintained bounded solver
+  trace. Reference now records each loop candidate and the three final
+  recomputations together with its base, scale, consumed callback vector(s),
+  and observed result. Lean's linked certificate requires the affine callback
+  center and radius to equal those derived from either one checked derivative
+  or the sum of the two checked position velocities, then proves the complete
+  update error bound. Julia constructs 28 linked records for the maintained
+  solve. Seven two-velocity sums have nonzero Float64 addition residuals; the
+  linked certificate records those explicitly instead of equating a rounded
+  sum with exact addition. The oracle validates every update while rejecting a
+  mutated callback radius. This closes callback and arithmetic coverage for
+  the finite solver trace; the linked final contraction record described above
+  now carries its two returned iterates to their exact fixed points.
+
+- Extended the bounded callback certificate from one evaluation to every call
+  made by an actual reference fixed-point solve. The trace records callback
+  kind, position, momentum, and observed value for every half-momentum
+  iteration, the initial and iterated position velocities, both residual
+  updates, and the final momentum kick. Lean checks the expected phase order,
+  proves the entry count `halfIterations + positionIterations + 4`, and gives
+  an approximation theorem for every member. The maintained run has 29
+  entries (12 half iterations and 13 position iterations); Julia serializes
+  the complete ordered certificate and the oracle rejects altered counts,
+  kinds, and arithmetic radii.
+
+- Closed the maintained bounded solver's callback-level rational certificate.
+  `BoundedScalarPrimitiveRationalCertificate` links the checked sine value to
+  the observed rounded transformed momentum and radicand, then composes an
+  ex-post square-root enclosure and reciprocal residual using checked positive
+  lower bounds. `BoundedScalarCallbackRationalCertificate` adds the final
+  arithmetic residuals and Lean proves that its reported values approximate
+  the actual `boundedScalarMomentumDerivativeReal` and
+  `boundedScalarPositionDerivativeReal` callbacks. Julia constructs the full
+  record at `(q,p)=(0.25,-0.35)`; the Lean oracle accepts it and rejects
+  independently tampered radicand and callback residuals. This discharges the
+  maintained callback execution, not a uniform theorem about arbitrary
+  Float64 programs, libm implementations, or inputs outside `[-1,1]`.
+
+- Removed the trusted `sin`/`cos` premise for the maintained bounded solver
+  input range. `SinCosRationalIntervalCertificate` checks exact rational
+  enclosures against mathlib's proved cubic-sine and quadratic-cosine
+  remainders on `[-1,1]`. Lean proves the observed Float64 values approximate
+  the real transcendental functions, then composes them into the client's
+  `2+sin(q)` scale and the scale-times-cosine factor used by its position
+  callback with a purely rational upper radius. Julia constructs the record at
+  the maintained `q=0.25`; the oracle accepts it and rejects a zeroed sine
+  radius. This is execution-specific and range-guarded, not a platform-wide
+  libm theorem.
+
+- Bound the actual rounded fixed-point updates rather than only their reported
+  residual norms. `RoundedAffineUpdateRationalCertificate` records
+  `base + scale*callback`, the observed Float64 result, its exact rational
+  multiply/add residual, and an explicit callback-error radius. Lean proves
+  that `arithmeticError + |scale|*callbackError` bounds the exact update and
+  composes it directly with the residual/contraction fixed-point theorem. The
+  reference trace now retains the callback values used by both final
+  half-momentum and position updates. Julia constructs records from those
+  executed values; the Lean oracle accepts both and rejects a mutated update
+  budget. The supplied callback-error radii themselves remain the precise
+  target/libm obligation.
+
+- Supplied explicit Hamiltonian transport constants for the nonconstant
+  bounded metric solver. For
+  `H(q,p)=sqrt(1+((2+sin q)p)^2)`, Lean proves that `p ↦ H(q,p)` is globally
+  three-Lipschitz and `q ↦ H(q,p)` is globally `|p|`-Lipschitz. The proof uses
+  the one-Lipschitz relativistic profile, `1 < 2+sin q ≤ 3`, and the global
+  one-Lipschitz sine bound. These constructive constants can instantiate the
+  endpoint state-transport certificate without choosing a noncomputable
+  maximum derivative on a compact set. The client is the bounded nonconstant
+  GR solver model; the generated quartic diagonal-SoftAbs client still needs
+  its own callback bounds.
+
+- Composed certified implicit-state error into the SoftAbs endpoint-energy
+  budget. `PositiveSoftAbsEndpointStateTransportCertificate` records a
+  rational solver-state radius, local Hamiltonian Lipschitz bound, and their
+  exact additive contribution to the already checked endpoint error. Lean
+  proves the generic region-restricted transport theorem and a direct scalar
+  theorem from a rounded update plus contraction certificate all the way to
+  energy at the exact fixed point. Julia accepts the linked contraction record
+  directly; the oracle checks the complete arithmetic and rejects a mutated
+  total. A practical target must still prove a numeric Lipschitz bound on the
+  visited region and certify its rounded callback update error.
+
+- Connected the reference fixed-point solver's executed final iterates to the
+  exact contraction budget. `fixed_point_generalized_leapfrog_trace` now
+  returns the final half-momentum and position iterates, the corresponding
+  one-more-update values, and both iteration counts without changing the
+  existing sampler API. `RoundedContractionResidualRationalCertificate`
+  checks `|iterate-computedUpdate|+updateError` exactly; Lean proves that a
+  sound update-error premise makes this an upper bound on the exact residual
+  and composes it with the contraction theorem to bound distance to the unique
+  fixed point. Julia serializes the linked pair and the oracle rejects a
+  mutated residual. Certifying the target-specific callback/arithmetic value
+  placed in `updateError`, then transporting the state distance into the
+  endpoint-energy budget, remains explicit.
+
+- Added an exact-rational a posteriori contraction certificate for the two
+  implicit generalized-leapfrog loops. Lean checks `0 ≤ K < 1` and the exact
+  formula `residual/(1-K)`, then proves that it bounds distance to the unique
+  fixed point whenever the submitted residual upper bound and contraction
+  theorem are valid. Julia constructs the same record from the fixed-point
+  solver's observed residual, and the compiled oracle accepts the genuine
+  record and rejects a mutated distance. This does not yet certify the
+  rounded callback evaluation used to obtain that residual; that explicit
+  premise is the next link to the SoftAbs endpoint certificate.
+
+- Closed the maintained SoftAbs endpoint-to-selection error budget with
+  rational, oracle-checkable upper certificates. For every positive metric
+  entry, Lean derives upper bounds for the eigenvalue, square root, inverse
+  factor, and log determinant from checked positive lower bounds. A linked
+  Hamiltonian certificate propagates those quantities through transformed
+  momentum, the relativistic radicand, kinetic square root, and final energy;
+  the finite constructor then takes the maximum endpoint and exponential
+  errors and derives the actual cumulative-boundary and scaled-draw budgets.
+  The maintained three-endpoint run has a strictly positive certified margin,
+  so Lean proves its computed and ideal selected indices agree. This is a
+  complete per-run decision certificate for the submitted endpoint sequence,
+  not yet a certificate that a generic six-iteration Float64 implicit solver
+  produced those endpoints or that the RNG has the ideal distribution.
+
+- Tightened `LogRationalIntervalCertificate` from the coarse algebraic
+  enclosure to a 32-term rational artanh series. For
+  `z = (x - 1) / (x + 1)`, the checker uses
+  `2 * sum (z^(2i+1)/(2i+1))` and the proved rational remainder
+  `2*|z|^65/(1-z^2)`. It remains assumption-free and valid for every positive
+  rational input while making the nontrivial SoftAbs selection margin useful.
+
+- Added an oracle-checkable final multinomial decision certificate. It records
+  the actual scaled draw, actual cumulative boundaries, and the two complete
+  rational upper error budgets, then fails unless every computed margin is
+  strictly larger than their sum. Lean proves this computed-value condition
+  implies equality of runtime and ideal selected indices; it does not require
+  transcendental ideal Boltzmann weights to be rational. Julia exercises the
+  maintained SoftAbs trajectory and rejects a touching boundary and a
+  truncated record. RNG distributional semantics remain separate.
+
+- Made stabilized multinomial selection aware of concrete cumulative
+  arithmetic. A new constructor composes actual rounded prefix boundaries and
+  total with endpoint/weight errors, then transports the total error through
+  the final scaled uniform multiplication. Exact-rational prefix records check
+  every Julia boundary directly against the complete ideal prefix; the
+  maintained three-weight run has two nonzero errors. A scaled-draw record
+  checks the nonzero residual of `0.37*total`. Oracle mutations and truncations
+  fail closed. RNG semantics and construction of complete per-run selection
+  budgets remain.
+
+- Composed transported exponentials over a complete finite SoftAbs energy
+  trajectory. Lean links every exact rational ideal input to the corresponding
+  maximum-stabilized computed endpoint energy, takes the finite maximum of all
+  exponential and argument errors, and constructs the multinomial selection
+  certificate with no separate libm premise. Julia derives the stabilized
+  rational arguments from three checked endpoint energies and records actual
+  Float64 subtraction residuals; the oracle rejects both a zeroed nonzero
+  residual and truncated payload. Total/draw arithmetic, RNG, and boundary
+  separation remain the concrete runtime boundary.
+
+- Added an assumption-free ex-post certificate for stabilized nonpositive
+  exponentials. Lean proves
+  `max(0,1+x) ≤ exp(x) ≤ 1/(1-x)` from positivity and `1+y≤exp(y)`, checks a
+  rational interval around the observed result, and uses nonpositive-domain
+  one-Lipschitz transport for a separately rounded argument. The latter has a
+  direct adapter to `stabilizedBoltzmannWeight`. Julia/oracle accept the actual
+  `exp(-0.1)` call and its transport to exact `-1/10`, and reject falsely zero
+  result or argument radii. This is per execution, not a platform-wide libm
+  theorem.
+
+- Removed the hand-supplied common-error premise from finite SoftAbs energy
+  families. For every nonempty endpoint family, Lean defines the common budget
+  as the finite maximum of the complete derived endpoint errors, proves its
+  nonnegativity and every endpoint bound, and constructs the trajectory
+  certificate automatically. A direct exact-real specialization then supplies
+  stabilized exponentials, summation, multiplication, and the uniform input
+  with zero backend-local errors. Thus the formal endpoint-to-selection chain
+  is complete; concrete `exp`, arithmetic, RNG, and decision-margin evidence
+  remains the honest runtime boundary.
+
+- Lifted linked SoftAbs endpoint energies to finite multinomial trajectories.
+  `PositiveSoftAbsHamiltonianTrajectoryCertificate` supplies one explicit
+  common error budget, proves every endpoint energy lies within it, and feeds
+  those results directly to the established maximum-stabilized weight,
+  cumulative-boundary, scaled-uniform, and selection certificate. Julia emits
+  a three-endpoint rounded trajectory; the oracle checks all 66 rational
+  endpoint fields, rejects a tampered residual, and rejects a truncated
+  count/payload mismatch. Exponential, RNG, and decision-margin witnesses
+  remain explicit for a concrete selected trajectory.
+
+- Composed the positive SoftAbs metric witness into an actual scalar
+  relativistic Hamiltonian endpoint. The new rational certificate links the
+  metric factor, potential and momentum, rounded transformed-momentum
+  radicand, kinetic square root, log determinant, and final energy addition.
+  Lean proves the complete endpoint-energy approximation and Julia constructs
+  the witness for `(α,h,U,p)=(0.1,0.1,0.5,0.25)`, where both radicand and
+  energy arithmetic residuals are nonzero. The oracle accepts the genuine
+  record and rejects a zeroed radicand residual. This is an endpoint building
+  block for trajectory weights, not a claim that six finite fixed-point
+  iterations are exact.
+
+- Removed the exact-product restriction from the positive SoftAbs runtime
+  adapter. Lean proves global one-Lipschitz transport for `tanh`; the rational
+  certificate now records the observed Float64 `α*h` result and its exact
+  multiplication residual, adds that transport error to the analytic `tanh`
+  enclosure, and propagates the result through division, square root,
+  reciprocal, and logarithm. Julia and the compiled oracle exercise the
+  genuinely rounded `(α,h)=(0.1,0.1)` product and reject a falsely zero
+  argument residual. This closes one per-execution arithmetic boundary but
+  does not claim platform-wide libm or IEEE semantics.
+
+- Added an assumption-free ex-post certificate for nonnegative square-root
+  executions. A foreign runtime supplies exact rational representations of
+  the input, computed result, and radius; Lean checks nonnegativity and both
+  squared interval endpoints, then proves the corresponding `Approximates`
+  theorem against `Real.sqrt`. Julia constructs a conservative radius using
+  exact rational arithmetic. The compiled oracle accepts the maintained
+  `sqrt(0.5)` execution and rejects a zero-radius mutation. A parallel
+  exact-rational residual record proves the observed reciprocal call against
+  real inversion and rejects a falsely zero residual. Lean composes the two
+  records into a bound on the inverse square root of the original input, and a
+  combined oracle command checks their shared intermediate. The algebraic
+  logarithm certificate now provides a third assumption-free route: Lean
+  checks a rational interval around an observed positive-input `log` call and
+  transports it to an approximate ideal input. Julia exercises a nontrivial
+  SoftAbs eigenvalue and rejects a falsely zero radius. The algebraic
+  unit-smoothing/zero-Hessian SoftAbs entry is also checked end to end,
+  including its exact square root, reciprocal, and logarithm. These are
+  per-execution results, not a uniform platform-libm theorem.
+
+- Closed one practical nonzero SoftAbs metric entry without a trusted `tanh`
+  premise. Lean proves `x/(1+x) ≤ tanh x` by transporting through `artanh` and
+  the global logarithm bound, proves `tanh x ≤ x` by derivative monotonicity,
+  combines both with `tanh x < 1`, and checks a
+  rational interval that retains a strictly positive denominator. An exact
+  rational division residual then yields the positive SoftAbs eigenvalue
+  bound. A linked certificate composes this with the square-root, reciprocal,
+  and logarithm records into the complete `SoftAbsMetricEntryCertificate`.
+  Julia and the compiled oracle exercise `(α,h)=(1,1)` and the small-argument
+  case `(1,0.1)`, and reject a zero tanh radius. The enclosure is conservative
+  and per-execution; uniform libm semantics remain separate.
+
 - Exposed every completed partial-inverse-hazard transition as a kernel
   jointly measurable in initial state and elapsed time, and proved that each
   fixed-time section is exactly the existing horizon kernel. A generic
@@ -5206,3 +5544,500 @@ not receive an arbitrary-start ergodicity claim in multiple dimensions.
 Future convergence work needs a continuous-time refresh mechanism or an
 explicit invariant-component formulation; this obstruction does not negate
 the still-open full-target stationarity theorem.
+
+## 2026-08-18: multidimensional BPS endpoint parked
+
+The remaining multidimensional Bouncy Particle Sampler stationarity and
+refreshed-convergence endpoint is optional breadth and is deliberately parked
+behind release-oriented refinement, target instantiation, generated-artifact,
+and test work. The checked inverse-hazard clock, finite-horizon semigroup,
+smooth generator core, and angular-momentum obstruction remain the stable
+boundary. No unconditional multidimensional BPS stationarity or convergence
+claim is added by this scheduling decision.
+
+## 2026-08-18: reproducible Xu meeting-time experiment
+
+The Julia Xu et al. coupling client now exposes
+`coupled_meeting_diagnostic`, which runs a positive number of seeded
+replicates and reports every observed meeting time, the explicitly censored
+count, meeting fraction, observed mean, and finite-horizon restricted mean.
+The checked edge cases include an already-met pair at horizon zero and invalid
+replicate/horizon arguments. `make experiment-xu21` runs the documented
+Gaussian command-line experiment, and `make experiment-xu21-logistic` runs a
+finite-data `L²`-regularized logistic instance using stable Float64 callback
+formulas. These outputs are empirical implementation diagnostics; the ideal
+marginal identities and geometric meeting tails remain the separate Lean
+results.
+
+## 2026-08-18: exact generated-expression refinement instance
+
+The restricted target-expression refinement layer now has concrete exact-real
+primitive and recursive backends. Every rational, arithmetic, exponential,
+sine, and cosine primitive carries a zero local-error proof; analytic
+transport still propagates any declared input error. Lean proves by structural
+induction that exact backend evaluation of every generated artifact equals its
+compiled ideal semantics, and constructs a zero-error value and generated
+symbolic-gradient certificate at an exact input. This is the proof-side oracle,
+not a claim that Julia `Float64` or platform transcendental functions are exact.
+
+## 2026-08-18: generated strongly convex quartic target
+
+The restricted target artifact now includes `U(x)=x⁴/4+x²/2`. Lean proves
+the generated ideal value, symbolic force `x³+x`, Hessian `3x²+1`, and strict
+global Hessian positivity. The artifact generator emits this target alongside
+the Gaussian and sinusoidal clients; Julia independently parses the generated
+tree and tests its value, force, Hessian, and positive diagonal SoftAbs metric
+entry at several inputs. This adds a nonconstant position-dependent polynomial
+metric client without target-callback `libm` calls, while SoftAbs square root,
+inverse, and logarithm remain explicitly bounded backend operations.
+
+The quartic callback now also reaches the exact-rational cross-language
+checker. Julia converts each finite Float64 input, value, force, and Hessian
+to its exact dyadic rational, computes the exact errors against the three
+ideal polynomial formulas, and serializes the record. The compiled Lean oracle
+accepts exactly matching records; Lean proves that every valid record yields
+real-valued approximation theorems for the generated value, derivative, and
+second derivative. A deliberately corrupted error record is rejected in the
+Julia suite. This certifies submitted callback artifacts, not the serializer,
+SoftAbs transcendental primitives, or RNG implementation.
+
+The checked quartic Hessian is now consumed directly by the guarded SoftAbs
+layer. A generic generated-expression constructor propagates any restricted
+backend's quartic Hessian error into a metric-entry certificate, while
+`RestrictedQuarticRationalCertificate.softAbsMetricEntryCertificate` starts
+from the compiled-oracle-validated dyadic record. The callback Hessian
+obligation is therefore discharged artifact by artifact; positivity and error
+bounds for SoftAbs, square root, reciprocal, and logarithm remain the precise
+platform-specific premises.
+
+The guarded metric layer now proves exact analytic transport bounds for the
+three derived positive-domain primitives. Reciprocal transport uses the
+algebraic denominator `|computed|·|ideal|`; square-root transport uses the
+positive secant denominator `sqrt(computed)+sqrt(ideal)`; and a mean-value
+argument bounds logarithm transport by `1/min(computed,ideal)`. Composition
+lemmas add each backend's local rounding error. Thus backend contracts no
+longer need to re-prove these analytic input-error effects; local primitive
+error, SoftAbs-transform transport, solver arithmetic, and RNG semantics remain.
+
+`SoftAbsLocalPrimitiveBackend` now exposes that reduced implementation
+contract structurally. It asks for local positive-domain bounds for square
+root, reciprocal, and logarithm, plus the complete SoftAbs-transform bound.
+`toSoftAbsPrimitiveBackend` fills the full transport-aware errors and proofs
+automatically. This prevents each platform client from restating the same
+analysis and makes the remaining backend boundary mechanically visible.
+
+## 2026-08-18: generated restricted-potential RWMH adapter
+
+The public `restricted_potential_rwmh` constructor now turns a generated
+restricted potential into the sign-correct log-density callback for the
+maintained Gaussian random-walk MH runtime. `restricted_potential_hmc` also
+supplies the generated symbolic derivative to scalar HMC, and
+`restricted_potential_slice` supplies the sign-correct callback to practical
+stepping-out slice sampling. The generated quartic target has seeded replay
+regressions checking finite, nontrivial execution. This closes the
+handwritten-callback gap for restricted artifacts across all three runtimes
+while retaining the explicit Float64 arithmetic and RNG refinement boundary.
+
+`make experiment-restricted-quartic` exposes the generated artifact as a
+standalone seeded comparison across RWMH, scalar HMC, and practical slice
+sampling. It reports each configuration, movement, and low empirical moments
+after burn-in and accepts explicit seed, run length, burn-in, and RWMH-scale
+controls. The output is diagnostic only: exact artifact semantics,
+finite-precision refinement, asymptotic convergence, and cross-algorithm
+efficiency remain distinct claims.
+
+## 2026-08-18: standalone reversible-jump transport diagnostic
+
+`make experiment-reversible-jump` now exercises both maintained nonlinear
+birth/death clients under explicit seeds: the cubic planar shear and the
+three-dimensional product transport. It reports empty-model occupancy plus
+canonical-coordinate mean and variance errors, applying the explicit unshear
+before summarizing the planar client. These checks cover runtime geometry and
+replay behavior; Lean's pushforward-density and invariance theorems remain the
+correctness argument.
+
+## 2026-08-18: standalone warmup-only adaptation diagnostic
+
+`make experiment-warmup-rwmh` now exposes the bounded Robbins--Monro scale
+warmup under an explicit seed, followed by retained draws from the frozen
+ordinary RWMH kernel. It reports the frozen scale, warmup acceptance frequency,
+and retained normal moments. Warmup states are not included in those moments;
+the diagnostic therefore preserves the formal distinction between a finite
+adaptation phase and stationary sampling with the frozen kernel.
+
+## 2026-08-18: standalone constrained-transform diagnostic
+
+`make experiment-constrained-transforms` now runs the positive-log and
+open-unit artanh-affine RWMH clients with explicit seeds. It reports support
+violations and retained errors against the exponential and uniform target
+moments. This activates a reproducible runtime view of both exact Lean
+conjugation results without claiming that platform transcendental functions or
+RNG draws have thereby been refined to exact reals.
+
+## 2026-08-18: concrete generated PG--HMC experiment
+
+`make experiment-ge-pg-hmc` now binds the Lean-generated Ge operator schedule
+to a binary-latent Gaussian-mixture client. The first callback performs the
+exact latent Gibbs update and the second performs scalar HMC for the selected
+Gaussian conditional. Seeded output reports the latent frequency and
+continuous marginal moments, whose ideal values are `1/2`, `0`, and `2`.
+This exercises generated ordering and scoped callback binding; it does not
+replace the formal common-target invariance premises or Float64 refinement.
+The client is also an active regression with exact seeded replay and retained
+tolerances for all three known marginal summaries.
+
+## 2026-08-18: standalone Gaussian SoftAbs GR--HMC diagnostic
+
+`make experiment-gaussian-softabs` now runs the maintained constant-Hessian
+diagonal SoftAbs specialization under explicit seed, dimension, burn-in, and
+draw-count controls. It reports movement plus maximum coordinate mean and
+variance errors. This complements the exact invariance and one-dimensional
+bare-chain convergence theorems without claiming a general-dimensional
+Float64 convergence result.
+The two-dimensional default tuning is also registered as a seeded moment
+regression, complementing the existing replay and validation checks.
+
+## 2026-08-18: explicit aggregate experiment target
+
+The root `make experiments` target now runs every standalone seeded empirical
+harness. It remains separate from `make test` and ordinary builds, preserving
+the policy that reference generation and longer empirical reproduction require
+explicit user actions.
+The documented default aggregate run completes successfully. In particular it
+makes the checked-recursive dynamic-HMC identity fallback visible with zero
+movement while the other harnesses report their ordinary diagnostics; the
+aggregate command imposes no hidden pass threshold on empirical summaries.
+
+## 2026-08-18: fixed-horizon PG with varying particle count
+
+The count-uniform positive-horizon PG rate now feeds an actual law-level limit
+for arbitrary iteration-indexed particle-count schedules. Lean proves that at
+one fixed Feynman--Kac horizon, total variation tends to zero as PG iterations
+grow even if the count simultaneously grows, shrinks, or oscillates. Primitive
+finite full support constructs the required certificate family automatically.
+This is stronger than separate fixed-count mixing but does not assert a rate
+uniform over growing model horizons or a joint growing-horizon/count theorem.
+The result is now stated at its natural two-schedule strength: particle count
+is arbitrary, while the number of PG iterations may be any separate sequence
+tending to infinity. The earlier one-iteration-per-index statement is retained
+as a direct specialization.
+Lean now also states the underlying uniform convergence directly: for every
+positive TV tolerance, eventually every PG iteration count beyond one common
+threshold satisfies the tolerance for every particle count simultaneously.
+Primitive full support instantiates this quantified theorem without an
+external certificate family.
+
+The Julia practical-slice certificate documentation now names the three Lean
+comparison theorems that actually exist (`lt_threshold_eq`,
+`le_threshold_eq`, and `ge_threshold_eq`) instead of a nonexistent aggregate
+trace theorem. It also records the remaining runtime obligation: comparison
+order and comparison kind must be linked before pointwise margins certify a
+complete Float64 execution trace.
+
+That order/kind linkage is now formalized. `SliceComparisonKind` distinguishes
+strict-below, non-strict stop, and accept-above branches, and Lean's new
+`decisionTrace_eq` theorem proves equality of the entire computed and ideal
+Boolean traces for any finite supplied schedule. Julia's matching
+`SliceDecisionTraceCertificate` stores the schedule, computed and ideal bits,
+and exposes the common trace only when every margin is stable.
+`trace_stepping_out_slice` now instruments the maintained Reference sampler
+directly, recording the computed threshold and every ordered comparison before
+returning the ordinary result. `certify_stepping_out_slice_trace` attaches the
+ideal values and bounds to that observed record. Tests cover deterministic
+observer order, seeded replay, stable lifting, and ambiguous fail-closed
+behavior. Platform callback, threshold/logarithm, arithmetic, and RNG bounds
+remain explicit inputs rather than inferred from self-reported values.
+
+The sampled log-height now has its own compositional certificate.
+`SliceThresholdCertificate.threshold_bound` proves that current-state callback
+error, `log(u)` error, and final addition rounding add to the complete
+threshold error. Julia's `certify_slice_threshold` checks the same three
+operation-local witnesses, and the observed-trace overload rejects a
+certificate whose computed threshold differs from the recorded execution.
+This removes repeated threshold arithmetic from backend clients; obtaining
+sound platform/libm and RNG bounds remains deliberately external.
+
+Practical-slice traces now retain the current-state callback result, computed
+`log(u)`, comparison positions, and comparison values. This enables the first
+target-specific executable client: `certify_restricted_quartic_slice_trace`
+checks the base and every comparison against the generated quartic's exact
+rational value certificates, computes the rounded threshold-addition error
+exactly as a dyadic rational, and feeds all of those bounds into the ordered
+decision certificate. Tests reject a trace with a mismatched callback base.
+The full suite also submits the base and every comparison callback record to
+the compiled Lean oracle, closing the artifact-checking loop for that observed
+trace rather than relying only on Julia's rational reconstruction.
+For this polynomial client, only the ideal interpretation/error of platform
+`log(u)` and the RNG draw remain external to the assembled certificate.
+
+The raw unit-uniform draw is now retained alongside its computed logarithm.
+Lean's `SliceLogUniformCertificate.log_bound` reuses the positive-domain
+mean-value theorem to transport an RNG-input error through `log`, adding the
+backend's local logarithm error with factor `1/lower`. Julia checks the same
+uniform witness, local-log witness, and positive lower guard before feeding
+the transported bound into the quartic slice certificate. Exact-real
+logarithm oracle values and a sound RNG bound remain premises; no BigFloat or
+`libm` computation is silently promoted to a proof.
+
+Lean now joins these two layers with
+`SliceThresholdCertificate.ofLogUniform`. The constructor fixes the threshold's
+ideal logarithm and transported error directly from the guarded uniform
+certificate, callback bound, and final addition bound. Its companion theorem
+exposes the complete error expression, preventing a backend client from
+silently substituting an unrelated intermediate log-error claim.
+Julia's matching `certify_slice_threshold` overload consumes the guarded
+log-uniform record directly; regression tests confirm that it produces the
+same ideal threshold and bound as the fully assembled quartic trace client.
+
+`SliceComparisonCertificate.ofThreshold` now carries that assembled threshold
+into the callback-comparison layer with its exact error sum fixed by
+construction. Julia's decision-trace overload likewise consumes the complete
+threshold record directly. Thus the callback/log/RNG/addition error cannot be
+silently changed between threshold certification and branch certification.
+
+## 2026-08-18: standalone particle-Gibbs count experiment
+
+The fixed-horizon finite-HMM particle-count diagnostic is now available as
+`make experiment-particle-gibbs-count`, with configurable seed, repetitions,
+and positive count grid. It reports the empirical one-step total-variation
+distance from the exactly uniform four-path target for each particle count.
+The registered test retains the deterministic regression thresholds. This
+experiment illustrates the formal fixed-iteration count regime; it does not
+assert empirical monotonicity as a theorem or cover joint growing horizon and
+particle count.
+
+## 2026-08-18: standalone checked dynamic-HMC comparison
+
+`make experiment-dynamic-hmc` now runs the conservative spanning certificate,
+checked first-stop, and checked randomized recursive-doubling interfaces on a
+seeded standard-Gaussian target. The CSV output records configuration plus the
+movement rate and maximum coordinate mean and variance errors after burn-in.
+The movement field makes identity fallback visible: the current recursive
+descriptor rejects all traces in this Gaussian configuration. This exposes
+the three maintained runtime policies under one reproducible harness without
+misrepresenting a fail-closed identity kernel as a mixing sampler. It remains
+an empirical implementation diagnostic: no equivalence to ordinary NUTS,
+convergence theorem, or efficiency ordering is inferred from these values.
+
+## 2026-08-18: varying-horizon partial-refresh consistency
+
+The particle-error recursion layer now packages two reusable schedule
+theorems: a strict affine contraction yields consistency along an arbitrary
+horizon schedule, and an already established uniform `C/N` estimate yields
+the same conclusion directly. The concrete dependent partial-refresh
+bootstrap-filter client instantiates the latter. Thus, for any time-index
+schedule, if the particle-count schedule tends to infinity, its empirical
+mean-square error tends to zero. A direct bootstrap-population Chebyshev lemma
+and the model's uniform MSE estimate give an explicit time-uniform
+`C/(N ε²)` deviation bound, hence convergence in probability along the same
+schedules. This is a checked stability interface and client; it is not a claim
+that every SMC model is horizon-uniform, nor a particle-MCMC theorem.
+
+## 2026-08-18: reproducible Gaussian algorithmic-performance harness
+
+`make experiment-gaussian-performance` now compares maintained scalar RWMH,
+public reference-path HMC, and optimized HMC on a seeded standard-Gaussian
+target. It emits movement rate, autocorrelation ESS, callback counts, and HMC
+ESS per gradient evaluation as CSV. The aggregate `make experiments` target
+includes it. The harness reports deterministic algorithmic-work metrics
+rather than unstable wall-clock thresholds; the registered Julia tests
+continue to enforce the associated ESS, differential replay, and exact
+callback-count regressions. The standalone command itself also fails unless
+the complete reference and optimized HMC chains agree under identical seeded
+draws.
+
+## 2026-08-18: all generated restricted targets reach sampler adapters
+
+The cross-language regression layer no longer exercises only the quartic
+artifact end to end. Generated Gaussian, sinusoidal, and quartic targets now
+all drive the public restricted RWMH, scalar-HMC, and practical-slice adapters.
+Seeded tests check deterministic replay, finite output, and nontrivial movement.
+This broadens runtime integration coverage; only the polynomial Gaussian and
+quartic clients carry exact-rational callback certificates, while sinusoidal
+libm refinement remains an explicit premise.
+
+## 2026-08-18: standalone indefinitely adaptive diagnostic
+
+`make experiment-indefinite-adaptation` now runs the proved never-freezing
+Boolean adaptive chain from both initial states and reports seeded tail true
+frequencies and their absolute error from one half. It is included in
+`make experiments`. Lean's common-Doeblin argument supplies the actual setwise
+convergence theorem; the empirical tail frequencies are implementation
+diagnostics only.
+
+## 2026-08-18: vanishing-error history-adaptive convergence
+
+`HistoryAdaptiveFamily.stateKernel_succ_eventwiseWithin` now proves that a
+uniform eventwise bound on every complete-history-conditioned next-step law
+passes unchanged through Ionescu--Tulcea marginalization. Its asymptotic
+corollary proves setwise convergence when those one-step errors vanish. The
+selected kernel may inspect the full history, need not reduce to a state-only
+transition, and need not preserve the target at finite time. This supplies the
+nonzero-error theorem needed by a never-freezing continuous client; a jointly
+measurable variable-weight refresh instantiation remains to be constructed.
+
+## 2026-08-18: continuous never-freezing adaptation client
+
+`Examples.IndefiniteContinuousRefresh` closes that client obligation. Its
+jointly measurable real-valued kernel retains the complete-history empirical
+mean with weight `1/(n+2)` and otherwise draws independently from an arbitrary
+probability target. Lean proves the selected parameter never freezes, every
+conditional row is eventwise within the nonzero anchor weight of the target,
+that weight tends to zero, and therefore the actual adaptive marginals
+converge setwise. Julia implements the same schedule with an explicit target
+draw callback; registered Gaussian moment/replay tests and
+`make experiment-indefinite-continuous-adaptation` are active. This client
+uses an exact target-refresh branch, so it does not claim that ordinary
+history-tuned MCMC automatically satisfies the same bound.
+
+## 2026-08-18: coherent dynamic-tree subrow foundation
+
+`CertifiedDynamicTree.coherentSubrow` retains only leaves whose complete raw
+candidate row equals the root's row. Lean proves it never adds candidates,
+always forms a certified partition when every raw row retains its root,
+preserves already-certified trees exactly, and yields stationary
+target-weighted kernels, including fair randomized mixtures. Julia's
+`coherent_dynamic_tree` implements the same canonicalization and has active
+structural tests.
+
+This is not recorded as production NUTS completion. For the current linear
+recursive builder, a globally shared direction trace produces one-sided rows;
+coherent subrows are therefore singletons. Productive correctness must use the
+existing `RootedTrace` endpoint-dependent trace reversal and completed-tree
+C.4 admissible-root semantics across paired fair directions, rather than
+requiring each direction trace to be stationary by itself.
+
+## 2026-08-18: executable completed-tree C.4 dynamic HMC
+
+Julia now exposes `completed_tree_c4_candidates` and
+`CompletedTreeC4DynamicHMC`. A completed orbit has power-of-two size. Each root
+uses its unique least-significant-bit-first direction sequence to reconstruct
+the common tree; roots whose recursive checks retain the full orbit form the
+C.4 component, while other roots are explicit singleton components. The
+resulting rows pass the reroot checker and target-weighted Reference/Optimized
+selection agrees on fixed traces. The seeded Gaussian experiment includes the
+new client and observes nonzero movement, unlike the intentionally retained
+per-direction checked-or-identity diagnostic.
+
+Lean already proves stationarity for the abstract completed-tree C.4 rooted
+sampler. `doublingRootEquiv` is now a canonical recursive equivalence rather
+than an arbitrary finite enumeration, and Lean proves that its value is exactly
+the zero-based least-significant-bit-first sum in which grow-right contributes
+zero and grow-left contributes `2^level`. It also proves that decoding
+`directionTraceForRoot` recovers the requested root offset. Julia exposes
+`completed_tree_direction_trace`, uses it in the C.4 builder, and exhaustively
+checks the identical decoding equation through depth eight, including depth
+zero and invalid roots. IR version 19 adds the
+`lsb-first-grow-right-zero` tag, assigns that tag the proved decoder semantics
+in Lean, and makes Julia's helper fail closed if the generated descriptor does
+not match. A theorem about compiled Julia source beyond this generated metadata
+and exhaustive regression boundary, floating-point callback bounds, and
+equivalence to ordinary production stopping semantics remain explicit
+refinement obligations.
+
+## 2026-08-18: non-vacuous dynamic-tree U-turn budgets
+
+The end-to-end recursive-row and checked-kernel refinement theorems formerly
+required strict endpoint-dot separation for every pair, including a leaf
+against itself. That premise is impossible: the self-displacement and both dot
+products are zero. The theorems now prove self-pair callback equality directly
+and require numerical separation only for distinct leaves.
+
+Lean instantiates the repaired interface twice. The exact unit-momentum line
+works at arbitrary finite count, and a four-leaf client carries positive
+`1/10` position and momentum error bounds. Finite case analysis proves every
+distinct pair clears the composed dot-product error budget, then the existing
+refinement theorem identifies the complete randomized checked recursion with
+its ideal-real kernel for every depth and positive finite target. Julia mirrors
+the four-leaf budget through `certify_vector_uturn_decision`: all twelve ordered
+distinct pairs certify, while the four self-pairs deliberately report an
+ambiguous margin and are handled structurally. The new
+`certify_recursive_doubling_uturn_matrix` adapter consumes a state-threaded
+`LinkedLeapfrogVectorTrajectoryCertificate`, reconstructs every later endpoint
+and recurrence budget, and certifies all ordered distinct endpoint pairs. Its
+active two-endpoint regression checks both directions. Supplying sound local
+operation bounds and ideal callback values for an actual sampled Float64
+trajectory remains the platform obligation.
+
+## 2026-08-18: time-inhomogeneous particle stability
+
+`ParticleAsymptotics` now proves a uniform inverse-count theorem for genuinely
+time-varying affine error recurrences. Each stage has its own contraction rate
+and Monte Carlo noise coefficient; a common rate ceiling strictly below one,
+a common noise ceiling, and nonnegative actual errors give one time-uniform
+`C/N` bound. The resulting consistency theorem permits an arbitrary horizon
+schedule while the particle count tends to infinity.
+
+`UniformRefreshSMC` instantiates this interface with a sequence of partial-
+refresh Feynman--Kac kernels whose refresh probability may change at every
+stage. If all probabilities lie above one fixed positive minimum, the exact
+dependent bootstrap-population MSE has the uniform bound
+`(Var₀ + 8‖f‖∞² / (1 - (1-p_min)²)) / N` and tends to zero along arbitrary
+horizon schedules. This extends the previous repeated single-kernel client;
+it does not claim stability for arbitrary potentials or joint growing-horizon
+particle-Gibbs limits.
+
+`ParticleGibbsCount` now also isolates the exact joint-horizon closure that is
+supportable without pretending that primitive full support is horizon-uniform.
+A horizon-indexed client may package its actual TV distances—even when its
+trajectory type changes with the horizon—into a scalar error sequence. A
+certified geometric bound whose minorization coefficients share one positive
+floor, together with any diverging PG-iteration schedule, implies that those
+errors tend to zero. A second theorem accepts any directly proved vanishing
+geometric-rate schedule. Establishing such a floor for a broad concrete model
+family is still a model-stability obligation.
+
+## 2026-08-18: exact-dyadic Float64 Gaussian leapfrog
+
+Added `GaussianDyadicLeapfrogStepCertificate`, an executable Lean checker for
+the exact rational kick--drift--kick equations of the scalar Gaussian target.
+The Julia constructor converts finite Float64 inputs and every observed
+intermediate to their exact binary rationals and succeeds only if all three
+equations hold without rational discrepancy. Its wire format is checked by the
+new `gaussian_dyadic_leapfrog` oracle command.
+
+The active regression advances the maintained optimized leapfrog for eight
+steps at dyadic step size `1/2`; each actual endpoint agrees with Julia's
+certificate and the compiled Lean oracle. A deliberately altered momentum is
+rejected by Lean, while a `0.1` execution is rejected by Julia because a rounded
+operation leaves the exact subset. Thus this is assumption-free evidence for a
+useful bounded platform fragment, while rounded IEEE arithmetic, libm, RNG
+laws, and arbitrary callbacks retain their explicit refinement premises.
+
+The same module now includes `GaussianRoundedLeapfrogStepCertificate`. Rather
+than rejecting every rounded execution, Julia records each Float64 intermediate
+as an exact rational and computes the exact rational residual of the half kick,
+drift, and final kick. Lean checks those residuals and proves their real
+embeddings are valid absolute-error bounds. The active `0.1`-step regression is
+accepted with a nonzero final-kick residual, and a falsified zero residual is
+rejected. This closes per-execution Gaussian arithmetic evidence; it is not an
+a priori uniform IEEE bound and does not cover libm or RNG laws.
+
+The residual checker is also target-independent now:
+`RoundedLeapfrogRationalCertificate` takes the two observed gradient values as
+explicit fields. `QuarticRoundedLeapfrogCertificate` formally composes that
+arithmetic record with generated quartic certificates at the current and next
+positions and enforces field linkage. Julia executes an optimized quartic
+leapfrog step, checks both generated callback records and the generic arithmetic
+record through Lean's oracle, and verifies the maintained optimized endpoint.
+This expands sound per-execution coverage beyond the Gaussian identity-gradient
+specialization without introducing transcendental assumptions.
+
+The first four certified dyadic endpoints are additionally instantiated as a
+Lean `CertifiedLeapfrogPhaseTrajectory`. Lean proves both endpoint dot products
+are separated for every ordered distinct pair and therefore identifies its
+complete checked recursive kernel with the ideal-real kernel at every tree
+depth. Julia rebuilds the same four actual endpoints, checks all off-diagonal
+U-turn certificates, and obtains one productive four-root C.4 component rather
+than the identity fallback. This closes the concrete trajectory-to-tree path
+for the exact-dyadic subset.
+
+The same path now has a genuinely rounded client. Julia runs three maintained
+Gaussian steps at `ε = 0.1`, checks every exact rational local residual, and
+serializes the four linked phase endpoints. Lean embeds those actual binary
+rationals, proves they lie within `10⁻¹⁴` of the exact rational Gaussian orbit,
+proves both endpoint-dot margins for all twelve ordered distinct pairs, and
+identifies the complete computed checked-recursion kernel with its ideal-real
+counterpart at every depth. The oracle checks the complete endpoint array and
+rejects a mutated coordinate. This is a concrete rounded trajectory theorem,
+not a platform-wide IEEE bound or an arbitrary production-NUTS equivalence.

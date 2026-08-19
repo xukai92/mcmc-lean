@@ -216,6 +216,38 @@ theorem restrictedSinusoidalPotentialArtifact_secondDerivative_eval (x : ℝ) :
     RestrictedExpr.eval]
   ring
 
+/-- Exact ideal value of the generated strongly convex quartic artifact. -/
+@[simp] theorem restrictedQuarticPotentialArtifact_eval (x : ℝ) :
+    restrictedQuarticPotentialArtifact.compile.eval x =
+      x ^ 4 / 4 + x ^ 2 / 2 := by
+  simp [restrictedQuarticPotentialArtifact, restrictedGaussianArtifact,
+    RestrictedArtifactExpr.compile, RestrictedExpr.eval]
+  ring
+
+/-- Its generated symbolic force is `x³+x`. -/
+@[simp] theorem restrictedQuarticPotentialArtifact_derivative_eval (x : ℝ) :
+    restrictedQuarticPotentialArtifact.derivative.compile.eval x =
+      x ^ 3 + x := by
+  rw [RestrictedArtifactExpr.compile_derivative]
+  simp [restrictedQuarticPotentialArtifact, restrictedGaussianArtifact,
+    RestrictedArtifactExpr.compile, RestrictedExpr.derivative,
+    RestrictedExpr.eval]
+  ring
+
+/-- Its generated Hessian is `3x²+1`, hence globally positive. -/
+@[simp] theorem restrictedQuarticPotentialArtifact_secondDerivative_eval (x : ℝ) :
+    restrictedQuarticPotentialArtifact.derivative.derivative.compile.eval x =
+      3 * x ^ 2 + 1 := by
+  simp [restrictedQuarticPotentialArtifact, restrictedGaussianArtifact,
+    RestrictedArtifactExpr.derivative, RestrictedArtifactExpr.compile,
+    RestrictedExpr.eval]
+  ring
+
+theorem restrictedQuarticPotentialArtifact_secondDerivative_pos (x : ℝ) :
+    0 < restrictedQuarticPotentialArtifact.derivative.derivative.compile.eval x := by
+  rw [restrictedQuarticPotentialArtifact_secondDerivative_eval]
+  positivity
+
 /-- The Gaussian restricted target obtains an end-to-end certificate directly
 from its input bound. It is the first concrete bridge from restricted syntax to
 the existing bounded RWMH/HMC callback contracts. -/

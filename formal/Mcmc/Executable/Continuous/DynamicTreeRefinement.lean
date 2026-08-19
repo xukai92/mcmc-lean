@@ -801,7 +801,7 @@ root. -/
 theorem CertifiedLeapfrogPhaseTrajectory.recursiveDoublingCandidateRow_eq_ideal
     {count dimension depth : ℕ}
     (trajectory : CertifiedLeapfrogPhaseTrajectory count dimension)
-    (leftSeparated : ∀ left right,
+    (leftSeparated : ∀ left right, left ≠ right →
       let leftEndpoint := trajectory.endpoint left
       let rightEndpoint := trajectory.endpoint right
       let computed := endpointDot leftEndpoint.computedPosition
@@ -812,7 +812,7 @@ theorem CertifiedLeapfrogPhaseTrajectory.recursiveDoublingCandidateRow_eq_ideal
         (fun _ => rightEndpoint.step.positionError)
         (fun _ => leftEndpoint.step.momentumError)
       computed < -error ∨ error < computed)
-    (rightSeparated : ∀ left right,
+    (rightSeparated : ∀ left right, left ≠ right →
       let leftEndpoint := trajectory.endpoint left
       let rightEndpoint := trajectory.endpoint right
       let computed := endpointDot leftEndpoint.computedPosition
@@ -834,9 +834,14 @@ theorem CertifiedLeapfrogPhaseTrajectory.recursiveDoublingCandidateRow_eq_ideal
         trace root := by
   apply Mcmc.Executable.DynamicTreeIR.recursiveDoublingCandidateRow_congr
   intro left right
-  exact ((trajectory.endpoint left).vectorUTurnCertificate
-    (trajectory.endpoint right) (leftSeparated left right)
-    (rightSeparated left right)).vectorAdjacentUTurn_eq
+  by_cases heq : left = right
+  · subst right
+    simp [vectorAdjacentUTurn,
+      CertifiedLeapfrogPhaseTrajectory.computedPhase,
+      CertifiedLeapfrogPhaseTrajectory.idealPhase]
+  · exact ((trajectory.endpoint left).vectorUTurnCertificate
+      (trajectory.endpoint right) (leftSeparated left right heq)
+      (rightSeparated left right heq)).vectorAdjacentUTurn_eq
 
 /-- The same strict endpoint margins identify the full computed randomized
 checked recursion with its ideal-real kernel. This includes fair direction
@@ -845,7 +850,7 @@ and the identity fallback on a failed check. -/
 theorem CertifiedLeapfrogPhaseTrajectory.recursiveDoublingKernel_eq_ideal
     {count dimension depth : ℕ}
     (trajectory : CertifiedLeapfrogPhaseTrajectory count dimension)
-    (leftSeparated : ∀ left right,
+    (leftSeparated : ∀ left right, left ≠ right →
       let leftEndpoint := trajectory.endpoint left
       let rightEndpoint := trajectory.endpoint right
       let computed := endpointDot leftEndpoint.computedPosition
@@ -856,7 +861,7 @@ theorem CertifiedLeapfrogPhaseTrajectory.recursiveDoublingKernel_eq_ideal
         (fun _ => rightEndpoint.step.positionError)
         (fun _ => leftEndpoint.step.momentumError)
       computed < -error ∨ error < computed)
-    (rightSeparated : ∀ left right,
+    (rightSeparated : ∀ left right, left ≠ right →
       let leftEndpoint := trajectory.endpoint left
       let rightEndpoint := trajectory.endpoint right
       let computed := endpointDot leftEndpoint.computedPosition
@@ -879,8 +884,303 @@ theorem CertifiedLeapfrogPhaseTrajectory.recursiveDoublingKernel_eq_ideal
         target htarget := by
   apply Mcmc.Executable.DynamicTreeIR.recursiveDoublingProgram_interpret_eq
   intro left right
-  exact ((trajectory.endpoint left).vectorUTurnCertificate
-    (trajectory.endpoint right) (leftSeparated left right)
-    (rightSeparated left right)).vectorAdjacentUTurn_eq
+  by_cases heq : left = right
+  · subst right
+    simp [vectorAdjacentUTurn,
+      CertifiedLeapfrogPhaseTrajectory.computedPhase,
+      CertifiedLeapfrogPhaseTrajectory.idealPhase]
+  · exact ((trajectory.endpoint left).vectorUTurnCertificate
+      (trajectory.endpoint right) (leftSeparated left right heq)
+      (rightSeparated left right heq)).vectorAdjacentUTurn_eq
+
+/-! ### Concrete exact-margin client -/
+
+/-- One-dimensional completed orbit with positions `0, …, count - 1` and
+unit momentum. It is an exact-arithmetic client of the same phase interface
+used by bounded Float64 trajectories. -/
+noncomputable def exactUnitMomentumLineTrajectory (count : ℕ) :
+    CertifiedLeapfrogPhaseTrajectory count 1 where
+  endpoint index := CertifiedLeapfrogPhaseEndpoint.exact
+    [(index.val : ℝ)] [1] (by simp) (by simp)
+
+/-- Every pair of distinct leaves in the exact unit-momentum line has a
+strictly separated U-turn dot product. The error budget is exactly zero. -/
+theorem exactUnitMomentumLineTrajectory_separated
+    (count : ℕ) (left right : Fin count) (hne : left ≠ right) :
+    let trajectory := exactUnitMomentumLineTrajectory count
+    let leftEndpoint := trajectory.endpoint left
+    let rightEndpoint := trajectory.endpoint right
+    let computed := endpointDot leftEndpoint.computedPosition
+      rightEndpoint.computedPosition leftEndpoint.computedMomentum
+    let error := endpointDotError leftEndpoint.idealPosition
+      rightEndpoint.idealPosition leftEndpoint.computedMomentum
+      (fun _ => leftEndpoint.step.positionError)
+      (fun _ => rightEndpoint.step.positionError)
+      (fun _ => leftEndpoint.step.momentumError)
+    computed < -error ∨ error < computed := by
+  simp [exactUnitMomentumLineTrajectory,
+    CertifiedLeapfrogPhaseEndpoint.exact,
+    CertifiedLeapfrogPhaseEndpoint.computedPosition,
+    CertifiedLeapfrogPhaseEndpoint.idealPosition,
+    CertifiedLeapfrogPhaseEndpoint.computedMomentum,
+    endpointDot, endpointDotError]
+  exact hne.symm
+
+/-- The exact line client discharges all numerical U-turn premises of the
+full randomized checked recursion. This is a non-vacuous positive-depth
+instantiation; finite-precision clients replace the zero errors by their
+certified recurrence budgets and prove the same strict margins. -/
+theorem exactUnitMomentumLine_recursiveDoublingKernel_eq_ideal
+    (count depth : ℕ) (target : Distribution (Fin count))
+    (htarget : ∀ state, 0 < target.mass state) :
+    (Mcmc.Executable.DynamicTreeIR.recursiveDoublingProgram count depth
+      (fun left right => vectorAdjacentUTurn
+        ((exactUnitMomentumLineTrajectory count).computedPhase left)
+        ((exactUnitMomentumLineTrajectory count).computedPhase right))).interpret
+          target htarget =
+      (Mcmc.Executable.DynamicTreeIR.recursiveDoublingProgram count depth
+        (fun left right => vectorAdjacentUTurn
+          ((exactUnitMomentumLineTrajectory count).idealPhase left)
+          ((exactUnitMomentumLineTrajectory count).idealPhase right))).interpret
+            target htarget := by
+  apply (exactUnitMomentumLineTrajectory count).recursiveDoublingKernel_eq_ideal
+  · exact exactUnitMomentumLineTrajectory_separated count
+  · exact exactUnitMomentumLineTrajectory_separated count
+
+/-- A four-leaf client with a deliberately nonzero `1/10` coordinate-error
+budget. Computed and ideal values coincide here so the example isolates the
+margin arithmetic: the theorem below verifies that this positive budget is
+still small enough for every distinct endpoint comparison. -/
+noncomputable def tenthErrorFourLeafTrajectory :
+    CertifiedLeapfrogPhaseTrajectory 4 1 where
+  endpoint index := {
+    step := {
+      computedPosition := [(index.val : ℝ)]
+      idealPosition := [(index.val : ℝ)]
+      computedMomentum := [1]
+      idealMomentum := [1]
+      positionError := 1 / 10
+      momentumError := 1 / 10
+      position_bound := (VectorApproximates.refl _).mono (by norm_num)
+      momentum_bound := (VectorApproximates.refl _).mono (by norm_num) }
+    positionLength := by simp
+    momentumLength := by simp }
+
+/-- The positive tenth-unit endpoint budgets remain strictly separated on
+all distinct leaves of the four-state orbit. -/
+theorem tenthErrorFourLeafTrajectory_separated
+    (left right : Fin 4) (hne : left ≠ right) :
+    let trajectory := tenthErrorFourLeafTrajectory
+    let leftEndpoint := trajectory.endpoint left
+    let rightEndpoint := trajectory.endpoint right
+    let computed := endpointDot leftEndpoint.computedPosition
+      rightEndpoint.computedPosition leftEndpoint.computedMomentum
+    let error := endpointDotError leftEndpoint.idealPosition
+      rightEndpoint.idealPosition leftEndpoint.computedMomentum
+      (fun _ => leftEndpoint.step.positionError)
+      (fun _ => rightEndpoint.step.positionError)
+      (fun _ => leftEndpoint.step.momentumError)
+    computed < -error ∨ error < computed := by
+  fin_cases left <;> fin_cases right <;>
+    simp_all [tenthErrorFourLeafTrajectory,
+      CertifiedLeapfrogPhaseEndpoint.computedPosition,
+      CertifiedLeapfrogPhaseEndpoint.idealPosition,
+      CertifiedLeapfrogPhaseEndpoint.computedMomentum,
+      endpointDot, endpointDotError] <;> norm_num
+
+/-- A concrete nonzero-error budget therefore refines the entire randomized
+checked recursive kernel, not just one scalar U-turn comparison. -/
+theorem tenthErrorFourLeaf_recursiveDoublingKernel_eq_ideal
+    (depth : ℕ) (target : Distribution (Fin 4))
+    (htarget : ∀ state, 0 < target.mass state) :
+    (Mcmc.Executable.DynamicTreeIR.recursiveDoublingProgram 4 depth
+      (fun left right => vectorAdjacentUTurn
+        (tenthErrorFourLeafTrajectory.computedPhase left)
+        (tenthErrorFourLeafTrajectory.computedPhase right))).interpret
+          target htarget =
+      (Mcmc.Executable.DynamicTreeIR.recursiveDoublingProgram 4 depth
+        (fun left right => vectorAdjacentUTurn
+          (tenthErrorFourLeafTrajectory.idealPhase left)
+          (tenthErrorFourLeafTrajectory.idealPhase right))).interpret
+            target htarget := by
+  apply tenthErrorFourLeafTrajectory.recursiveDoublingKernel_eq_ideal
+  · exact tenthErrorFourLeafTrajectory_separated
+  · exact tenthErrorFourLeafTrajectory_separated
+
+/-- The first four exact-dyadic Gaussian leapfrog endpoints used by the Julia
+platform regression (`ε = 1/2`, starting from `(q,p) = (0,1)`). -/
+noncomputable def exactGaussianDyadicFourLeafTrajectory :
+    CertifiedLeapfrogPhaseTrajectory 4 1 where
+  endpoint index :=
+    let position : Fin 4 → ℝ := ![0, 1 / 2, 7 / 8, 33 / 32]
+    let momentum : Fin 4 → ℝ := ![1, 7 / 8, 17 / 32, 7 / 128]
+    CertifiedLeapfrogPhaseEndpoint.exact [position index] [momentum index]
+      (by simp) (by simp)
+
+/-- Every distinct endpoint comparison in the concrete exact-dyadic Gaussian
+trajectory has a nonzero dot-product margin. -/
+theorem exactGaussianDyadicFourLeafTrajectory_separated
+    (left right : Fin 4) (hne : left ≠ right) :
+    let trajectory := exactGaussianDyadicFourLeafTrajectory
+    let leftEndpoint := trajectory.endpoint left
+    let rightEndpoint := trajectory.endpoint right
+    let computed := endpointDot leftEndpoint.computedPosition
+      rightEndpoint.computedPosition leftEndpoint.computedMomentum
+    let error := endpointDotError leftEndpoint.idealPosition
+      rightEndpoint.idealPosition leftEndpoint.computedMomentum
+      (fun _ => leftEndpoint.step.positionError)
+      (fun _ => rightEndpoint.step.positionError)
+      (fun _ => leftEndpoint.step.momentumError)
+    computed < -error ∨ error < computed := by
+  fin_cases left <;> fin_cases right <;>
+    simp_all [exactGaussianDyadicFourLeafTrajectory,
+      CertifiedLeapfrogPhaseEndpoint.exact,
+      CertifiedLeapfrogPhaseEndpoint.computedPosition,
+      CertifiedLeapfrogPhaseEndpoint.idealPosition,
+      CertifiedLeapfrogPhaseEndpoint.computedMomentum,
+      endpointDot, endpointDotError] <;> norm_num
+
+theorem exactGaussianDyadicFourLeafTrajectory_rightSeparated
+    (left right : Fin 4) (hne : left ≠ right) :
+    let trajectory := exactGaussianDyadicFourLeafTrajectory
+    let leftEndpoint := trajectory.endpoint left
+    let rightEndpoint := trajectory.endpoint right
+    let computed := endpointDot leftEndpoint.computedPosition
+      rightEndpoint.computedPosition rightEndpoint.computedMomentum
+    let error := endpointDotError leftEndpoint.idealPosition
+      rightEndpoint.idealPosition rightEndpoint.computedMomentum
+      (fun _ => leftEndpoint.step.positionError)
+      (fun _ => rightEndpoint.step.positionError)
+      (fun _ => rightEndpoint.step.momentumError)
+    computed < -error ∨ error < computed := by
+  fin_cases left <;> fin_cases right <;>
+    simp_all [exactGaussianDyadicFourLeafTrajectory,
+      CertifiedLeapfrogPhaseEndpoint.exact,
+      CertifiedLeapfrogPhaseEndpoint.computedPosition,
+      CertifiedLeapfrogPhaseEndpoint.idealPosition,
+      CertifiedLeapfrogPhaseEndpoint.computedMomentum,
+      endpointDot, endpointDotError] <;> norm_num
+
+/-- The concrete dyadic Gaussian phase array refines the full checked
+recursive kernel at every requested tree depth. Together with the exact-
+rational oracle records, this supplies a platform-backed nontrivial client of
+the generic numerical boundary. -/
+theorem exactGaussianDyadicFourLeaf_recursiveDoublingKernel_eq_ideal
+    (depth : ℕ) (target : Distribution (Fin 4))
+    (htarget : ∀ state, 0 < target.mass state) :
+    (Mcmc.Executable.DynamicTreeIR.recursiveDoublingProgram 4 depth
+      (fun left right => vectorAdjacentUTurn
+        (exactGaussianDyadicFourLeafTrajectory.computedPhase left)
+        (exactGaussianDyadicFourLeafTrajectory.computedPhase right))).interpret
+          target htarget =
+      (Mcmc.Executable.DynamicTreeIR.recursiveDoublingProgram 4 depth
+        (fun left right => vectorAdjacentUTurn
+          (exactGaussianDyadicFourLeafTrajectory.idealPhase left)
+          (exactGaussianDyadicFourLeafTrajectory.idealPhase right))).interpret
+            target htarget := by
+  apply exactGaussianDyadicFourLeafTrajectory.recursiveDoublingKernel_eq_ideal
+  · exact exactGaussianDyadicFourLeafTrajectory_separated
+  · exact exactGaussianDyadicFourLeafTrajectory_rightSeparated
+
+/-! ### Concrete rounded Float64 Gaussian client -/
+
+/-- The first four Gaussian leapfrog endpoints produced by Julia Float64 with
+`ε = 0.1`, starting from `(q,p) = (0,1)`, paired with the exact rational-real
+leapfrog orbit. The binary Float64 values are embedded as their exact dyadic
+rationals; `10⁻¹⁴` is a checked positive coordinate budget rather than an
+assumed equality. -/
+noncomputable def roundedGaussianTenthFourLeafTrajectory :
+    CertifiedLeapfrogPhaseTrajectory 4 1 where
+  endpoint index :=
+    let computedPosition : Fin 4 → ℝ := ![
+      0,
+      3602879701896397 / 36028797018963968,
+      3584865303386915 / 18014398509481984,
+      2666221051395881 / 9007199254740992]
+    let idealPosition : Fin 4 → ℝ := ![0, 1 / 10, 199 / 1000, 29601 / 100000]
+    let computedMomentum : Fin 4 → ℝ := ![
+      1,
+      8962163258467287 / 9007199254740992,
+      8827505629608909 / 9007199254740992,
+      4302286472227221 / 4503599627370496]
+    let idealMomentum : Fin 4 → ℝ := ![
+      1, 199 / 200, 19601 / 20000, 1910599 / 2000000]
+    { step := {
+        computedPosition := [computedPosition index]
+        idealPosition := [idealPosition index]
+        computedMomentum := [computedMomentum index]
+        idealMomentum := [idealMomentum index]
+        positionError := 1 / 100000000000000
+        momentumError := 1 / 100000000000000
+        position_bound := VectorApproximates.singleton (by
+          fin_cases index <;>
+            norm_num [Approximates, computedPosition, idealPosition])
+        momentum_bound := VectorApproximates.singleton (by
+          fin_cases index <;>
+            norm_num [Approximates, computedMomentum, idealMomentum]) }
+      positionLength := by simp
+      momentumLength := by simp }
+
+/-- Every distinct left-momentum U-turn comparison for the actual rounded
+four-leaf orbit remains outside its propagated uncertainty interval. -/
+theorem roundedGaussianTenthFourLeafTrajectory_leftSeparated
+    (left right : Fin 4) (hne : left ≠ right) :
+    let trajectory := roundedGaussianTenthFourLeafTrajectory
+    let leftEndpoint := trajectory.endpoint left
+    let rightEndpoint := trajectory.endpoint right
+    let computed := endpointDot leftEndpoint.computedPosition
+      rightEndpoint.computedPosition leftEndpoint.computedMomentum
+    let error := endpointDotError leftEndpoint.idealPosition
+      rightEndpoint.idealPosition leftEndpoint.computedMomentum
+      (fun _ => leftEndpoint.step.positionError)
+      (fun _ => rightEndpoint.step.positionError)
+      (fun _ => leftEndpoint.step.momentumError)
+    computed < -error ∨ error < computed := by
+  fin_cases left <;> fin_cases right <;>
+    simp_all [roundedGaussianTenthFourLeafTrajectory,
+      CertifiedLeapfrogPhaseEndpoint.computedPosition,
+      CertifiedLeapfrogPhaseEndpoint.idealPosition,
+      CertifiedLeapfrogPhaseEndpoint.computedMomentum,
+      endpointDot, endpointDotError] <;> norm_num
+
+/-- The corresponding right-momentum comparisons are separated as well. -/
+theorem roundedGaussianTenthFourLeafTrajectory_rightSeparated
+    (left right : Fin 4) (hne : left ≠ right) :
+    let trajectory := roundedGaussianTenthFourLeafTrajectory
+    let leftEndpoint := trajectory.endpoint left
+    let rightEndpoint := trajectory.endpoint right
+    let computed := endpointDot leftEndpoint.computedPosition
+      rightEndpoint.computedPosition rightEndpoint.computedMomentum
+    let error := endpointDotError leftEndpoint.idealPosition
+      rightEndpoint.idealPosition rightEndpoint.computedMomentum
+      (fun _ => leftEndpoint.step.positionError)
+      (fun _ => rightEndpoint.step.positionError)
+      (fun _ => rightEndpoint.step.momentumError)
+    computed < -error ∨ error < computed := by
+  fin_cases left <;> fin_cases right <;>
+    simp_all [roundedGaussianTenthFourLeafTrajectory,
+      CertifiedLeapfrogPhaseEndpoint.computedPosition,
+      CertifiedLeapfrogPhaseEndpoint.idealPosition,
+      CertifiedLeapfrogPhaseEndpoint.computedMomentum,
+      endpointDot, endpointDotError] <;> norm_num
+
+/-- A genuine rounded Float64 Gaussian phase array therefore refines the full
+randomized checked recursive kernel at every requested depth. -/
+theorem roundedGaussianTenthFourLeaf_recursiveDoublingKernel_eq_ideal
+    (depth : ℕ) (target : Distribution (Fin 4))
+    (htarget : ∀ state, 0 < target.mass state) :
+    (Mcmc.Executable.DynamicTreeIR.recursiveDoublingProgram 4 depth
+      (fun left right => vectorAdjacentUTurn
+        (roundedGaussianTenthFourLeafTrajectory.computedPhase left)
+        (roundedGaussianTenthFourLeafTrajectory.computedPhase right))).interpret
+          target htarget =
+      (Mcmc.Executable.DynamicTreeIR.recursiveDoublingProgram 4 depth
+        (fun left right => vectorAdjacentUTurn
+          (roundedGaussianTenthFourLeafTrajectory.idealPhase left)
+          (roundedGaussianTenthFourLeafTrajectory.idealPhase right))).interpret
+            target htarget := by
+  apply roundedGaussianTenthFourLeafTrajectory.recursiveDoublingKernel_eq_ideal
+  · exact roundedGaussianTenthFourLeafTrajectory_leftSeparated
+  · exact roundedGaussianTenthFourLeafTrajectory_rightSeparated
 
 end Mcmc.Executable.Continuous

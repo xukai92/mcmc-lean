@@ -2,6 +2,7 @@ import Mcmc.Hamiltonian.Leapfrog
 import Mcmc.Kernel.GaussianRandomWalk
 import Mathlib.Probability.Kernel.Composition.Lemmas
 import Mathlib.Probability.Kernel.Invariance
+import Mathlib.Probability.Distributions.Gaussian.Real
 
 /-!
 # Gaussian momentum refresh
@@ -103,6 +104,66 @@ instance standardMomentumMeasure.instNullSingletonClass [Nonempty ι] :
       (Mcmc.Kernel.measurable_isotropicGaussianPDF 1)]
     exact measure_mono_null Set.inter_subset_right (measure_singleton momentum)
 
+/-- The standard Gaussian law is absolutely continuous with respect to
+finite-dimensional Lebesgue volume. -/
+theorem standardMomentumMeasure_absolutelyContinuous_volume :
+    standardMomentumMeasure (ι := ι) ≪ volume := by
+  unfold standardMomentumMeasure Mcmc.Kernel.densityTarget
+  exact withDensity_absolutelyContinuous volume _
+
+/-- Conversely, the everywhere-positive standard Gaussian density makes
+Lebesgue volume absolutely continuous with respect to the Gaussian law. Thus
+the two measures have exactly the same null sets. -/
+theorem volume_absolutelyContinuous_standardMomentumMeasure :
+    (volume : Measure (Momentum ι)) ≪ standardMomentumMeasure := by
+  unfold standardMomentumMeasure Mcmc.Kernel.densityTarget
+  apply withDensity_absolutelyContinuous'
+    (Mcmc.Kernel.measurable_isotropicGaussianPDF (ι := ι) 1).aemeasurable
+  exact Filter.Eventually.of_forall fun momentum =>
+    (Mcmc.Kernel.isotropicGaussianPDF_pos 1 (by norm_num) momentum).ne'
+
+/-- Two independent standard Gaussian draws and product Lebesgue volume have
+the same null sets. -/
+theorem standardMomentumMeasure_prod_absolutelyContinuous_volume_prod :
+    (standardMomentumMeasure (ι := ι)).prod
+        (standardMomentumMeasure (ι := ι)) ≪
+      (volume : Measure (Momentum ι)).prod
+        (volume : Measure (Momentum ι)) :=
+  standardMomentumMeasure_absolutelyContinuous_volume.prod
+    standardMomentumMeasure_absolutelyContinuous_volume
+
+theorem volume_prod_absolutelyContinuous_standardMomentumMeasure_prod :
+    (volume : Measure (Momentum ι)).prod
+        (volume : Measure (Momentum ι)) ≪
+      (standardMomentumMeasure (ι := ι)).prod
+        (standardMomentumMeasure (ι := ι)) :=
+  volume_absolutelyContinuous_standardMomentumMeasure.prod
+    volume_absolutelyContinuous_standardMomentumMeasure
+
+/-- Gaussian and Lebesgue positivity agree on every measurable or
+nonmeasurable set because their completed null ideals coincide. -/
+theorem standardMomentumMeasure_pos_iff_volume_pos
+    (event : Set (Momentum ι)) :
+    0 < standardMomentumMeasure (ι := ι) event ↔
+      0 < (volume : Measure (Momentum ι)) event := by
+  rw [pos_iff_ne_zero, pos_iff_ne_zero]
+  exact not_congr ⟨
+    fun hzero => volume_absolutelyContinuous_standardMomentumMeasure hzero,
+    fun hzero => standardMomentumMeasure_absolutelyContinuous_volume hzero⟩
+
+theorem standardMomentumMeasure_prod_pos_iff_volume_prod_pos
+    (event : Set (Momentum ι × Momentum ι)) :
+    0 < ((standardMomentumMeasure (ι := ι)).prod
+        (standardMomentumMeasure (ι := ι))) event ↔
+      0 < ((volume : Measure (Momentum ι)).prod
+        (volume : Measure (Momentum ι))) event := by
+  rw [pos_iff_ne_zero, pos_iff_ne_zero]
+  exact not_congr ⟨
+    fun hzero =>
+      volume_prod_absolutelyContinuous_standardMomentumMeasure_prod hzero,
+    fun hzero =>
+      standardMomentumMeasure_prod_absolutelyContinuous_volume_prod hzero⟩
+
 /-- The standard finite-dimensional Gaussian momentum law has a finite first
 ambient-norm moment. -/
 theorem lintegral_norm_standardMomentumMeasure_ne_top :
@@ -122,6 +183,127 @@ theorem lintegral_norm_standardMomentumMeasure_ne_top :
   intro p
   exact mul_comm _ _
 
+/-- Every coordinate marginal of the finite-dimensional standard momentum
+law is the one-dimensional centered unit Gaussian. -/
+theorem standardMomentumMeasure_map_coordinate (i : ι) :
+    Measure.map (fun p : Momentum ι => p i) standardMomentumMeasure =
+      gaussianReal 0 1 := by
+  classical
+  rw [standardMomentumMeasure,
+    Mcmc.Kernel.densityTarget_isotropicGaussianPDF_eq_pi 1 (by norm_num),
+    MeasureTheory.Measure.pi_map_eval]
+  simp
+
+/-- Each standard momentum coordinate has mean zero. -/
+theorem integral_standardMomentumMeasure_coordinate (i : ι) :
+    (∫ p : Momentum ι, p i ∂standardMomentumMeasure) = 0 := by
+  calc
+    (∫ p : Momentum ι, p i ∂standardMomentumMeasure) =
+        ∫ x : ℝ, x ∂Measure.map (fun p : Momentum ι => p i)
+          standardMomentumMeasure := by
+      symm
+      exact integral_map (measurable_pi_apply i).aemeasurable
+        measurable_id.aestronglyMeasurable
+    _ = ∫ x : ℝ, x ∂gaussianReal 0 1 := by
+      rw [standardMomentumMeasure_map_coordinate]
+    _ = 0 := integral_id_gaussianReal
+
+/-- Each standard momentum coordinate is integrable. -/
+theorem integrable_standardMomentumMeasure_coordinate (i : ι) :
+    Integrable (fun p : Momentum ι => p i) standardMomentumMeasure := by
+  have hmap : Integrable id
+      (Measure.map (fun p : Momentum ι => p i) standardMomentumMeasure) := by
+    rw [standardMomentumMeasure_map_coordinate]
+    exact (memLp_id_gaussianReal (p := 1)).integrable le_rfl
+  have h := (integrable_map_measure
+    (f := fun p : Momentum ι => p i) (g := id)
+    (show AEStronglyMeasurable id
+        (Measure.map (fun p : Momentum ι => p i) standardMomentumMeasure) from
+      measurable_id.aestronglyMeasurable)
+    (measurable_pi_apply i).aemeasurable).mp hmap
+  simpa [Function.comp_def] using h
+
+/-- The square of each standard momentum coordinate is integrable. -/
+theorem integrable_standardMomentumMeasure_coordinate_sq (i : ι) :
+    Integrable (fun p : Momentum ι => (p i) ^ 2) standardMomentumMeasure := by
+  have hmap : Integrable (fun x : ℝ => x ^ 2)
+      (Measure.map (fun p : Momentum ι => p i) standardMomentumMeasure) := by
+    rw [standardMomentumMeasure_map_coordinate]
+    exact (memLp_id_gaussianReal (p := 2)).integrable_sq
+  have h := (integrable_map_measure
+    (f := fun p : Momentum ι => p i) (g := fun x : ℝ => x ^ 2)
+    (show AEStronglyMeasurable (fun x : ℝ => x ^ 2)
+        (Measure.map (fun p : Momentum ι => p i) standardMomentumMeasure) from
+      (measurable_id.pow_const 2).aestronglyMeasurable)
+    (measurable_pi_apply i).aemeasurable).mp hmap
+  simpa [Function.comp_def] using h
+
+/-- Each standard momentum coordinate has second moment one. -/
+theorem integral_standardMomentumMeasure_coordinate_sq (i : ι) :
+    (∫ p : Momentum ι, (p i) ^ 2 ∂standardMomentumMeasure) = 1 := by
+  have hvariance := variance_fun_id_gaussianReal (μ := 0) (v := 1)
+  change variance id (gaussianReal 0 1) = (1 : ℝ) at hvariance
+  rw [variance_eq_integral measurable_id.aemeasurable] at hvariance
+  have hsecond : (∫ x : ℝ, x ^ 2 ∂gaussianReal 0 1) = 1 := by
+    simpa only [integral_id_gaussianReal, id_eq, sub_zero] using hvariance
+  calc
+    (∫ p : Momentum ι, (p i) ^ 2 ∂standardMomentumMeasure) =
+        ∫ x : ℝ, x ^ 2 ∂Measure.map (fun p : Momentum ι => p i)
+          standardMomentumMeasure := by
+      symm
+      exact integral_map (measurable_pi_apply i).aemeasurable
+        (measurable_id.pow_const 2).aestronglyMeasurable
+    _ = ∫ x : ℝ, x ^ 2 ∂gaussianReal 0 1 := by
+      rw [standardMomentumMeasure_map_coordinate]
+    _ = 1 := hsecond
+
+/-- Standard Gaussian momentum has exact expected squared Euclidean norm
+equal to the finite coordinate dimension. -/
+theorem integral_squaredEuclideanNorm_standardMomentumMeasure :
+    (∫ p : Momentum ι, squaredEuclideanNorm p
+      ∂standardMomentumMeasure) = Fintype.card ι := by
+  unfold squaredEuclideanNorm euclideanInner
+  simp_rw [← pow_two]
+  rw [integral_finsetSum Finset.univ]
+  · simp only [integral_standardMomentumMeasure_coordinate_sq,
+      Finset.sum_const, Finset.card_univ, nsmul_eq_mul, mul_one]
+  · intro i _hi
+    exact integrable_standardMomentumMeasure_coordinate_sq (ι := ι) i
+
+/-- Squared Euclidean speed is integrable under standard Gaussian momentum. -/
+theorem integrable_squaredEuclideanNorm_standardMomentumMeasure :
+    Integrable (squaredEuclideanNorm : Momentum ι → ℝ)
+      standardMomentumMeasure := by
+  unfold squaredEuclideanNorm euclideanInner
+  simpa using integrable_finsetSum Finset.univ (fun i _hi => by
+    simpa [pow_two] using
+      integrable_standardMomentumMeasure_coordinate_sq (ι := ι) i)
+
+/-- The inner product with any fixed vector is integrable under standard
+Gaussian momentum. -/
+theorem integrable_euclideanInner_standardMomentumMeasure
+    (fixed : Position ι) :
+    Integrable (fun p : Momentum ι => euclideanInner fixed p)
+      standardMomentumMeasure := by
+  unfold euclideanInner
+  simpa using integrable_finsetSum Finset.univ (fun i _hi =>
+    (integrable_standardMomentumMeasure_coordinate (ι := ι) i).const_mul
+      (fixed i))
+
+/-- Centered standard Gaussian momentum has zero inner product in expectation
+with every fixed vector. -/
+theorem integral_euclideanInner_standardMomentumMeasure
+    (fixed : Position ι) :
+    (∫ p : Momentum ι, euclideanInner fixed p
+      ∂standardMomentumMeasure) = 0 := by
+  unfold euclideanInner
+  rw [integral_finsetSum Finset.univ]
+  · simp [integral_const_mul,
+      integral_standardMomentumMeasure_coordinate]
+  · intro i _hi
+    exact (integrable_standardMomentumMeasure_coordinate (ι := ι) i).const_mul
+      (fixed i)
+
 /-- Every nonempty open momentum ball has positive standard Gaussian mass. -/
 theorem standardMomentumMeasure_ball_pos (p : Momentum ι) {s : ℝ}
     (hs : 0 < s) :
@@ -137,6 +319,16 @@ theorem standardMomentumMeasure_ball_pos (p : Momentum ι) {s : ℝ}
     exact (Mcmc.Kernel.isotropicGaussianPDF_pos 1 (by norm_num) x).ne'
   rw [hsupp, Set.univ_inter]
   exact Metric.measure_ball_pos volume p hs
+
+/-- The finite-dimensional standard Gaussian gives positive mass to every
+nonempty open set. -/
+instance standardMomentumMeasure.instIsOpenPosMeasure :
+    Measure.IsOpenPosMeasure (standardMomentumMeasure (ι := ι)) where
+  open_pos U hU hUne := by
+    obtain ⟨p, hp⟩ := hUne
+    obtain ⟨radius, hradius, hball⟩ := Metric.isOpen_iff.mp hU p hp
+    exact (standardMomentumMeasure_ball_pos p hradius).trans_le
+      (measure_mono hball) |>.ne'
 
 /-- Kinetic energy is one half the squared coordinate Euclidean norm. -/
 theorem kineticEnergy_eq_half_euclideanNorm_sq (p : Momentum ι) :

@@ -1,5 +1,7 @@
 import Mcmc.Finite.MarkovKernel
 import Mathlib.Algebra.BigOperators.Field
+import Mathlib.Algebra.BigOperators.Fin
+import Mathlib.Logic.Equiv.Bool
 import Mathlib.Logic.Equiv.Fin.Basic
 import Mathlib.Tactic.FieldSimp
 import Mathlib.Tactic.Linarith
@@ -514,17 +516,57 @@ reversal, including the endpoint-dependent reversal required by NUTS. -/
 
 /-! ### Completed doubling trees and outer stopping -/
 
-/-- A height-`depth` sequence of left/right doubling choices is in bijection
-with the `2^depth` possible locations of the initial leaf in the completed
-tree. This is the finite combinatorial statement behind condition C.4 in the
-NUTS derivation. -/
+/-- A growth direction as the corresponding root-position bit. Growing right
+means that the old tree occupies the left half, hence root bit zero; growing
+left means root bit one. -/
+def growDirectionRootBitEquiv : Bool ≃ Fin 2 :=
+  Equiv.boolNot.trans finTwoEquiv.symm
+
+/-- A height-`depth` sequence of left/right doubling choices is in canonical
+bijection with the `2^depth` possible locations of the initial leaf. Direction
+index zero is the least-significant root bit, matching the executable builder:
+`true`/grow-right is bit zero and `false`/grow-left is bit one. This is the
+finite combinatorial statement behind condition C.4 in the NUTS derivation. -/
 noncomputable def doublingRootEquiv : (depth : ℕ) →
     (Fin depth → Bool) ≃ Fin (2 ^ depth)
   | 0 => Fintype.equivFinOfCardEq (by simp)
   | depth + 1 =>
-      (Fin.succFunEquiv Bool depth).trans
-        ((doublingRootEquiv depth).prodCongr finTwoEquiv.symm) |>.trans
-          finProdFinEquiv |>.trans (finCongr (by simp [pow_succ]))
+      (Fin.consEquiv (fun _ : Fin (depth + 1) => Bool)).symm |>.trans
+        (growDirectionRootBitEquiv.prodCongr (doublingRootEquiv depth)) |>.trans
+        (Equiv.prodComm _ _) |>.trans finProdFinEquiv |>.trans
+        (finCongr (by simp [pow_succ]))
+
+/-- Concrete binary value consumed by the runtime: direction zero is the
+least-significant bit and growing left (`false`) contributes bit one. -/
+def directionTraceRootValue (depth : ℕ) (trace : Fin depth → Bool) : ℕ :=
+  ∑ index, if trace index then 0 else 2 ^ index.val
+
+/-- The canonical completed-tree equivalence is exactly the executable binary
+encoding, not merely an arbitrary cardinality bijection. -/
+theorem doublingRootEquiv_val_eq_directionTraceRootValue
+    (depth : ℕ) (trace : Fin depth → Bool) :
+    (doublingRootEquiv depth trace).val = directionTraceRootValue depth trace := by
+  induction depth with
+  | zero => simp [doublingRootEquiv, directionTraceRootValue]
+  | succ depth ih =>
+      rw [directionTraceRootValue, Fin.sum_univ_succ]
+      simp only [doublingRootEquiv, Equiv.trans_apply,
+        Equiv.prodCongr_apply, Equiv.prodComm_apply, finProdFinEquiv_apply_val,
+        finCongr_apply, Fin.val_cast]
+      change
+        (growDirectionRootBitEquiv (trace 0)).val +
+            2 * (doublingRootEquiv depth (fun index : Fin depth => trace index.succ)).val =
+          (if trace 0 then 0 else 2 ^ (0 : ℕ)) +
+            ∑ index : Fin depth, if trace index.succ then 0 else 2 ^ index.succ.val
+      rw [ih]
+      simp only [directionTraceRootValue]
+      by_cases hhead : trace 0
+      · simp [hhead, growDirectionRootBitEquiv, finTwoEquiv, pow_succ]
+        rw [Finset.mul_sum]
+        simp [Nat.mul_comm]
+      · simp [hhead, growDirectionRootBitEquiv, finTwoEquiv, pow_succ]
+        rw [Finset.mul_sum]
+        simp [Nat.mul_comm]
 
 /-- The unique direction sequence that reconstructs a fixed completed
 height-`depth` tree when started from the specified leaf. -/
@@ -536,6 +578,14 @@ noncomputable def directionTraceForRoot (depth : ℕ)
     (depth : ℕ) (root : Fin (2 ^ depth)) :
     doublingRootEquiv depth (directionTraceForRoot depth root) = root :=
   (doublingRootEquiv depth).apply_symm_apply root
+
+/-- Decoding the canonical direction trace for a root reproduces exactly the
+zero-based root offset used by the executable completed-tree builder. -/
+@[simp] theorem directionTraceRootValue_directionTraceForRoot
+    (depth : ℕ) (root : Fin (2 ^ depth)) :
+    directionTraceRootValue depth (directionTraceForRoot depth root) = root.val := by
+  rw [← doublingRootEquiv_val_eq_directionTraceRootValue]
+  exact congrArg Fin.val (doublingRootEquiv_directionTraceForRoot depth root)
 
 /-- No second direction sequence reconstructs the same completed tree from a
 fixed root leaf. -/

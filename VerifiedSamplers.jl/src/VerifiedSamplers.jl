@@ -9,9 +9,11 @@ include("Certificates/Certificates.jl")
 include("Reference/Reference.jl")
 include("Optimized/Optimized.jl")
 
-export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, BoundedRejectionSlice, SteppingOutSlice, ShearedBirthDeathRJ, SpatialBirthDeathRJ, sheared_birth_unshear, TwoStateMH, GaussianRWMH, PositiveTransformedRWMH, OpenUnitTransformedRWMH,
-    WarmupGaussianRWMH, GaussianRWMHWarmupResult, IndefiniteAdaptiveBool, warmup,
+export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, BoundedRejectionSlice, SteppingOutSlice, SteppingOutSliceTrace, RestrictedQuarticSliceTraceCertificate, trace_stepping_out_slice, certify_stepping_out_slice_trace, certify_restricted_quartic_slice_trace, ShearedBirthDeathRJ, SpatialBirthDeathRJ, sheared_birth_unshear, TwoStateMH, GaussianRWMH, PositiveTransformedRWMH, OpenUnitTransformedRWMH,
+    WarmupGaussianRWMH, GaussianRWMHWarmupResult, IndefiniteAdaptiveBool,
+    IndefiniteAdaptiveContinuousRefresh, warmup,
     ScalarHMC, VectorHMC, MultinomialHMC, CertifiedDynamicHMC,
+    CompletedTreeC4DynamicHMC,
     CheckedFirstStopDynamicHMC, CheckedRecursiveDynamicHMC,
     streaming_eligible_select,
     MetricMultinomialHMC,
@@ -23,16 +25,24 @@ export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, Bounded
     RestrictedMul, RestrictedNeg, RestrictedExp, RestrictedSin, RestrictedCos,
     restricted_derivative, restricted_value_gradient,
     restricted_value_gradient_hessian, restricted_gaussian_potential,
+    restricted_quartic_potential, restricted_potential_rwmh,
+    restricted_potential_hmc, restricted_potential_slice,
     restricted_sinusoidal_potential, RestrictedGaussianFloat64Certificate,
     certify_restricted_gaussian_float64,
     restricted_gaussian_certificate_arguments,
+    RestrictedQuarticFloat64Certificate,
+    certify_restricted_quartic_float64,
+    restricted_quartic_certificate_arguments,
     SoftAbsMetricFloat64Evaluation, SoftAbsDiagonalFloat64Evaluation,
     SoftAbsScalarHamiltonianFloat64Evaluation,
+    UnitZeroSoftAbsFloat64Certificate, certify_unit_zero_softabs_float64,
+    unit_zero_softabs_certificate_arguments,
     evaluate_softabs_metric_float64, evaluate_softabs_diagonal_float64,
     evaluate_softabs_scalar_hamiltonian_float64,
-    Xu21CoupledSampler, coupled_meeting_time,
+    Xu21CoupledSampler, coupled_meeting_time, coupled_meeting_diagnostic,
     ScopedInferenceOperator, ComposableSampler, covers,
-    DynamicTreeCertificate, certify_dynamic_tree, certified_orbit_partition,
+    DynamicTreeCertificate, certify_dynamic_tree, coherent_dynamic_tree,
+    certified_orbit_partition,
     certified_dynamic_select!, certified_dynamic_select,
     safe_dynamic_select!, safe_dynamic_select,
     RecursiveBarrierTree, RecursiveBarrierLeaf, RecursiveBarrierNode,
@@ -42,6 +52,8 @@ export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, Bounded
     certified_spanning_uturn_partition,
     first_stop_endpoint_uturn_candidates,
     recursive_doubling_uturn_candidates,
+    completed_tree_direction_trace,
+    completed_tree_c4_candidates,
     generated_dynamic_tree,
     generated_schedule,
     generated_transform,
@@ -219,6 +231,11 @@ struct SoftAbsScalarHamiltonianFloat64Evaluation
     energy::Float64
 end
 
+"""Assumption-free exact record for SoftAbs smoothing one at Hessian zero."""
+struct UnitZeroSoftAbsFloat64Certificate
+    evaluation::SoftAbsMetricFloat64Evaluation
+end
+
 """Evaluate a scalar SoftAbs eigenvalue and its derived metric quantities."""
 function evaluate_softabs_metric_float64(hessian::Real; smoothing::Real=1.0)
     h = Float64(hessian)
@@ -236,6 +253,24 @@ function evaluate_softabs_metric_float64(hessian::Real; smoothing::Real=1.0)
         throw(DomainError(eigenvalue, "derived SoftAbs quantities must be finite"))
     SoftAbsMetricFloat64Evaluation(h, eigenvalue, sqrt_eigenvalue, factor, logdet)
 end
+
+function certify_unit_zero_softabs_float64()
+    evaluation = evaluate_softabs_metric_float64(0.0; smoothing=1.0)
+    values = (evaluation.hessian, evaluation.eigenvalue,
+        evaluation.sqrt_eigenvalue, evaluation.factor, evaluation.logdet)
+    values == (0.0, 1.0, 1.0, 1.0, 0.0) || error(
+        "unit/zero SoftAbs execution left the exact certified subset")
+    UnitZeroSoftAbsFloat64Certificate(evaluation)
+end
+
+unit_zero_softabs_certificate_arguments(
+        certificate::UnitZeroSoftAbsFloat64Certificate) = String[
+    _rational_wire(Rational{BigInt}(certificate.evaluation.hessian)),
+    _rational_wire(Rational{BigInt}(certificate.evaluation.eigenvalue)),
+    _rational_wire(Rational{BigInt}(certificate.evaluation.sqrt_eigenvalue)),
+    _rational_wire(Rational{BigInt}(certificate.evaluation.factor)),
+    _rational_wire(Rational{BigInt}(certificate.evaluation.logdet)),
+]
 
 
 """Evaluate every diagonal SoftAbs entry and its aggregate log determinant."""
@@ -353,6 +388,8 @@ const restricted_gaussian_potential = _restricted_from_ir(
     Reference.TARGETS["restricted-gaussian-potential"])
 const restricted_sinusoidal_potential = _restricted_from_ir(
     Reference.TARGETS["restricted-sinusoidal-potential"])
+const restricted_quartic_potential = _restricted_from_ir(
+    Reference.TARGETS["restricted-quartic-potential"])
 
 """Exact dyadic post-execution certificate for the generated Gaussian target.
 
@@ -403,6 +440,58 @@ _rational_wire(value::Rational{BigInt}) =
 """Serialize an exact Gaussian certificate for the compiled Lean checker."""
 function restricted_gaussian_certificate_arguments(
         certificate::RestrictedGaussianFloat64Certificate)
+    String[
+        _rational_wire(Rational{BigInt}(certificate.input)),
+        _rational_wire(Rational{BigInt}(certificate.computed_value)),
+        _rational_wire(Rational{BigInt}(certificate.computed_derivative)),
+        _rational_wire(Rational{BigInt}(certificate.computed_second_derivative)),
+        _rational_wire(certificate.value_error),
+        _rational_wire(certificate.derivative_error),
+        _rational_wire(certificate.second_derivative_error),
+    ]
+end
+
+"""Exact-rational record for one Float64 execution of the generated quartic.
+
+The callback uses only finite Float64 arithmetic. Each observed output and its
+ideal polynomial counterpart are converted to exact rationals, so the recorded
+errors contain no BigFloat or transcendental approximation.
+"""
+struct RestrictedQuarticFloat64Certificate
+    input::Float64
+    computed_value::Float64
+    computed_derivative::Float64
+    computed_second_derivative::Float64
+    ideal_value::Rational{BigInt}
+    ideal_derivative::Rational{BigInt}
+    ideal_second_derivative::Rational{BigInt}
+    value_error::Rational{BigInt}
+    derivative_error::Rational{BigInt}
+    second_derivative_error::Rational{BigInt}
+end
+
+function certify_restricted_quartic_float64(input::Real)
+    x = Float64(input)
+    isfinite(x) || throw(ArgumentError("input must be finite"))
+    value, derivative, second_derivative =
+        restricted_value_gradient_hessian(restricted_quartic_potential, x)
+    exact_input = Rational{BigInt}(x)
+    ideal_value = exact_input^4 / 4 + exact_input^2 / 2
+    ideal_derivative = exact_input^3 + exact_input
+    ideal_second_derivative = 3 * exact_input^2 + 1
+    computed_value = Rational{BigInt}(value)
+    computed_derivative = Rational{BigInt}(derivative)
+    computed_second_derivative = Rational{BigInt}(second_derivative)
+    RestrictedQuarticFloat64Certificate(x, value, derivative,
+        second_derivative, ideal_value, ideal_derivative,
+        ideal_second_derivative,
+        abs(computed_value - ideal_value),
+        abs(computed_derivative - ideal_derivative),
+        abs(computed_second_derivative - ideal_second_derivative))
+end
+
+function restricted_quartic_certificate_arguments(
+        certificate::RestrictedQuarticFloat64Certificate)
     String[
         _rational_wire(Rational{BigInt}(certificate.input)),
         _rational_wire(Rational{BigInt}(certificate.computed_value)),
@@ -707,6 +796,42 @@ end
 coupled_meeting_time(sampler::Xu21CoupledSampler, initial::Tuple,
     max_steps::Integer) =
     coupled_meeting_time(Random.default_rng(), sampler, initial, max_steps)
+
+"""Run a replicated, explicitly censored Xu et al. meeting-time diagnostic.
+
+`meeting_times` contains an integer meeting time or `nothing` for each
+replicate. `restricted_mean` replaces a censored time by `max_steps`; it is a
+finite-horizon empirical summary, not an estimate of an uncensored expectation
+and not a formal convergence certificate.
+"""
+function coupled_meeting_diagnostic(rng::AbstractRNG,
+        sampler::Xu21CoupledSampler,
+        initial::Tuple{<:AbstractVector{<:Real},<:AbstractVector{<:Real}},
+        replicates::Integer, max_steps::Integer)
+    replicates > 0 || throw(ArgumentError("replicate count must be positive"))
+    max_steps >= 0 || throw(ArgumentError("maximum meeting horizon must be nonnegative"))
+    times = Union{Nothing,Int}[
+        coupled_meeting_time(rng, sampler, initial, max_steps)
+        for _ in 1:replicates
+    ]
+    met = count(!isnothing, times)
+    observed_total = sum(time === nothing ? 0 : time for time in times)
+    restricted_total = sum(time === nothing ? max_steps : time for time in times)
+    (
+        meeting_times=times,
+        met=met,
+        censored=replicates - met,
+        meeting_fraction=met / replicates,
+        observed_mean=met == 0 ? nothing : observed_total / met,
+        restricted_mean=restricted_total / replicates,
+        horizon=Int(max_steps),
+    )
+end
+
+coupled_meeting_diagnostic(sampler::Xu21CoupledSampler, initial::Tuple,
+    replicates::Integer, max_steps::Integer) =
+    coupled_meeting_diagnostic(Random.default_rng(), sampler, initial,
+        replicates, max_steps)
 
 struct MultinomialHMC{F,G}
     logdensity::F
@@ -1082,6 +1207,20 @@ end
 sample(sampler::ScalarHMC, initial::Real, count::Integer) =
     sample(Random.default_rng(), sampler, initial, count)
 
+"""Build scalar HMC from a generated restricted potential and derivative.
+
+The expression evaluator supplies both the negative log-density value and its
+symbolic derivative. Lean checks the generated expression semantics; Float64
+leapfrog arithmetic, acceptance, and RNG behavior retain the documented
+runtime-refinement boundary.
+"""
+function restricted_potential_hmc(potential::RestrictedExpr,
+        step_size::Real, steps::Integer=10)
+    logdensity(x) = -first(restricted_value_gradient(potential, x))
+    gradient(x) = last(restricted_value_gradient(potential, x))
+    ScalarHMC(logdensity, gradient, step_size, steps)
+end
+
 struct GaussianRWMH{F}
     logdensity::F
     scale::Float64
@@ -1115,6 +1254,18 @@ end
 
 sample(sampler::GaussianRWMH, initial::Real, count::Integer) =
     sample(Random.default_rng(), sampler, initial, count)
+
+"""Build Gaussian random-walk MH from a generated restricted potential.
+
+The expression denotes negative log density, so the adapter negates its value.
+Lean checks the generated artifact and its exact-real interpretation; Float64
+evaluation, proposal arithmetic, and RNG behavior retain the documented
+runtime-refinement boundary.
+"""
+function restricted_potential_rwmh(potential::RestrictedExpr, scale::Real)
+    logdensity(x) = -first(restricted_value_gradient(potential, x))
+    GaussianRWMH(logdensity, scale)
+end
 
 """Gaussian RWMH on a positive real parameter through the log transform.
 
@@ -1323,6 +1474,42 @@ end
 sample(sampler::IndefiniteAdaptiveBool, initial::Bool, count::Integer) =
     sample(Random.default_rng(), sampler, initial, count)
 
+"""Executable client for the proved continuous never-freezing refresh rule.
+
+The complete-history empirical mean is retained with weight `1/(n+2)` at
+stage `n`; otherwise `target_draw(rng)` supplies an independent target draw.
+Lean proves setwise convergence for the ideal measurable kernel for every
+probability target. Callback equality and floating-point arithmetic remain
+runtime conformance obligations.
+"""
+struct IndefiniteAdaptiveContinuousRefresh{F}
+    target_draw::F
+end
+
+function sample(rng::AbstractRNG,
+        sampler::IndefiniteAdaptiveContinuousRefresh,
+        initial::Real, count::Integer)
+    count >= 0 || throw(ArgumentError("sample count must be nonnegative"))
+    current = Float64(initial)
+    isfinite(current) || throw(ArgumentError("initial state must be finite"))
+    states = Vector{Float64}(undef, count)
+    history_sum = current
+    for index in eachindex(states)
+        anchor = history_sum / index
+        weight = 1 / (index + 1)
+        current = rand(rng) < weight ? anchor : Float64(sampler.target_draw(rng))
+        isfinite(current) || throw(DomainError(current,
+            "target draw must be finite"))
+        states[index] = current
+        history_sum += current
+    end
+    states
+end
+
+sample(sampler::IndefiniteAdaptiveContinuousRefresh,
+        initial::Real, count::Integer) =
+    sample(Random.default_rng(), sampler, initial, count)
+
 struct FiniteWeights
     weights::Vector{BigInt}
     function FiniteWeights(weights::AbstractVector{<:Integer})
@@ -1452,6 +1639,144 @@ struct SteppingOutSlice{F}
     end
 end
 
+"""Build practical slice sampling from a generated restricted potential.
+
+The expression denotes negative log density, so the adapter negates its value.
+Its exact-real artifact semantics are proved in Lean; runtime trace refinement
+and finite-precision/RNG boundaries remain represented by the slice
+certificate API.
+"""
+function restricted_potential_slice(potential::RestrictedExpr, width::Real;
+        max_steps::Integer=100, max_shrink::Integer=10_000)
+    logdensity(x) = -first(restricted_value_gradient(potential, x))
+    SteppingOutSlice(logdensity, width; max_steps=max_steps,
+        max_shrink=max_shrink)
+end
+
+"""Observed comparison inputs from one Reference stepping-out update."""
+struct SteppingOutSliceTrace
+    result::Float64
+    current::Float64
+    base::Float64
+    uniform::Float64
+    log_uniform::Float64
+    threshold::Float64
+    kinds::Vector{Certificates.SliceComparisonKind}
+    positions::Vector{Float64}
+    values::Vector{Float64}
+end
+
+"""Execute and record every ordered stepping-out/shrinkage comparison.
+
+This records computed values only. Ideal values and justified error bounds are
+separate proof inputs supplied to `certify_stepping_out_slice_trace`.
+"""
+function trace_stepping_out_slice(rng::AbstractRNG, sampler::SteppingOutSlice,
+        current::Real)
+    kinds = Certificates.SliceComparisonKind[]
+    positions = Float64[]
+    values = Float64[]
+    base = Ref{Float64}()
+    uniform = Ref{Float64}()
+    log_uniform = Ref{Float64}()
+    threshold = Ref{Float64}()
+    function observe_threshold(observed_base, observed_uniform, observed_log,
+            observed_threshold)
+        base[] = observed_base
+        uniform[] = observed_uniform
+        log_uniform[] = observed_log
+        threshold[] = observed_threshold
+        nothing
+    end
+    function observe(kind, position, value, observed_threshold)
+        push!(kinds, kind === :stopBelow ? Certificates.StopBelow :
+            Certificates.AcceptAbove)
+        push!(positions, position)
+        push!(values, value)
+        threshold[] = observed_threshold
+        nothing
+    end
+    result = Reference.stepping_out_slice_step!(Runtime.RNGSource(rng),
+        sampler.logdensity, sampler.width, current, sampler.max_steps,
+        sampler.max_shrink; threshold_observer=observe_threshold,
+        comparison_observer=observe)
+    SteppingOutSliceTrace(result, Float64(current), base[], uniform[],
+        log_uniform[], threshold[], kinds, positions, values)
+end
+
+"""Attach ideal values and bounds to an observed practical-slice trace."""
+function certify_stepping_out_slice_trace(trace::SteppingOutSliceTrace,
+        ideal_threshold::Real, threshold_bound::Real,
+        ideal_values::AbstractVector{<:Real},
+        value_bounds::AbstractVector{<:Real}; precision::Integer=256)
+    Certificates.certify_slice_decision_trace(trace.kinds, trace.threshold,
+        ideal_threshold, threshold_bound, trace.values, ideal_values,
+        value_bounds; precision=precision)
+end
+
+"""Generated-quartic callback evidence for one observed slice execution.
+
+Polynomial callback outputs and the final threshold addition are checked as
+exact rationals. The ideal value and error for `log(u)` remain explicit inputs.
+"""
+struct RestrictedQuarticSliceTraceCertificate
+    trace::SteppingOutSliceTrace
+    current_callback::RestrictedQuarticFloat64Certificate
+    comparison_callbacks::Vector{RestrictedQuarticFloat64Certificate}
+    threshold::Certificates.SliceThresholdCertificate
+    decisions::Certificates.SliceDecisionTraceCertificate
+end
+
+function certify_restricted_quartic_slice_trace(trace::SteppingOutSliceTrace,
+        ideal_log_uniform::Real, log_uniform_bound::Real;
+        precision::Integer=256)
+    current_callback = certify_restricted_quartic_float64(trace.current)
+    trace.base == -current_callback.computed_value || throw(ArgumentError(
+        "runtime base does not match the generated quartic callback"))
+    callbacks = certify_restricted_quartic_float64.(trace.positions)
+    all(zip(trace.values, callbacks)) do (value, callback)
+        value == -callback.computed_value
+    end || throw(ArgumentError(
+        "runtime comparison does not match the generated quartic callback"))
+
+    exact_threshold = Rational{BigInt}(trace.threshold)
+    exact_operands = Rational{BigInt}(trace.base) +
+        Rational{BigInt}(trace.log_uniform)
+    addition_error = abs(exact_threshold - exact_operands)
+    threshold = Certificates.certify_slice_threshold(
+        trace.base, -current_callback.ideal_value,
+        current_callback.value_error,
+        trace.log_uniform, ideal_log_uniform, log_uniform_bound,
+        trace.threshold, addition_error; precision=precision)
+    ideal_values = [-callback.ideal_value for callback in callbacks]
+    value_bounds = [callback.value_error for callback in callbacks]
+    decisions = certify_stepping_out_slice_trace(trace, threshold,
+        ideal_values, value_bounds; precision=precision)
+    RestrictedQuarticSliceTraceCertificate(trace, current_callback,
+        callbacks, threshold, decisions)
+end
+
+function certify_restricted_quartic_slice_trace(trace::SteppingOutSliceTrace,
+        log_uniform::Certificates.SliceLogUniformCertificate;
+        precision::Integer=256)
+    trace.uniform == log_uniform.uniform.computed || throw(ArgumentError(
+        "log-uniform certificate does not describe this runtime draw"))
+    trace.log_uniform == log_uniform.log.computed || throw(ArgumentError(
+        "log-uniform certificate does not describe this runtime logarithm"))
+    certify_restricted_quartic_slice_trace(trace, log_uniform.log.ideal,
+        log_uniform.log.bound; precision=precision)
+end
+
+function certify_stepping_out_slice_trace(trace::SteppingOutSliceTrace,
+        threshold::Certificates.SliceThresholdCertificate,
+        ideal_values::AbstractVector{<:Real},
+        value_bounds::AbstractVector{<:Real}; precision::Integer=256)
+    trace.threshold == threshold.threshold.computed || throw(ArgumentError(
+        "threshold certificate does not describe this runtime trace"))
+    Certificates.certify_slice_decision_trace(trace.kinds, threshold,
+        trace.values, ideal_values, value_bounds; precision=precision)
+end
+
 function step(rng::AbstractRNG, sampler::SteppingOutSlice, current::Real)
     Reference.stepping_out_slice_step!(Runtime.RNGSource(rng), sampler.logdensity,
         sampler.width, current, sampler.max_steps, sampler.max_shrink)
@@ -1571,6 +1896,86 @@ function certify_dynamic_tree(rows::AbstractVector{<:AbstractVector{<:Integer}})
     end
     DynamicTreeCertificate(candidates, valid)
 end
+
+"""Canonical certified subpartition of arbitrary root-retaining rows.
+
+For each root, retain only leaves whose complete raw row equals the root's raw
+row. This never adds a candidate. Lean proves these coherent subrows always
+form a reroot-invariant partition and preserve an already certified family
+exactly. Missing roots remain an error because no safe nonempty subrow can be
+derived from such malformed builder output.
+"""
+function coherent_dynamic_tree(
+        rows::AbstractVector{<:AbstractVector{<:Integer}})
+    raw = certify_dynamic_tree(rows).candidates
+    for root in eachindex(raw)
+        root in raw[root] || throw(ArgumentError(
+            "dynamic-tree candidate row must retain its root"))
+    end
+    coherent = [[leaf for leaf in raw[root] if raw[leaf] == raw[root]]
+        for root in eachindex(raw)]
+    certificate = certify_dynamic_tree(coherent)
+    certificate.valid || error("internal coherent-subrow certificate failure")
+    certificate
+end
+
+"""Canonical direction trace for a root in a completed doubling tree.
+
+`root` is Julia's one-based leaf index and `depth` is the tree height. Direction
+index zero is returned first: `true` grows right (root bit zero), while `false`
+grows left (root bit one). Thus the returned vector is the executable form of
+Lean's `directionTraceForRoot` and uses the same least-significant-bit-first
+encoding.
+"""
+function completed_tree_direction_trace(root::Integer, depth::Integer)
+    descriptor = Reference.DYNAMIC_TREES["checked-recursive-doubling"]
+    descriptor.root_encoding == "lsb-first-grow-right-zero" || error(
+        "generated dynamic-tree root encoding does not match the runtime")
+    depth >= 0 || throw(ArgumentError("tree depth must be nonnegative"))
+    depth < 8 * sizeof(Int) - 1 || throw(ArgumentError(
+        "tree depth exceeds the bounded machine-index representation"))
+    count = 1 << depth
+    1 <= root <= count || throw(BoundsError(1:count, root))
+    offset = root - 1
+    Bool[(offset & (1 << level)) == 0 for level in 0:(depth - 1)]
+end
+
+"""C.4-admissible roots of one completed power-of-two recursive tree.
+
+Root `r` receives the unique least-significant-bit-first direction sequence
+that reconstructs the common completed tree from `r`. A root is C.4-admissible
+exactly when its recursive U-turn checks retain the entire orbit. Admissible
+roots share one component and every other root is an explicit singleton, so
+the returned rows always pass the reroot certificate. This mirrors Lean's
+`CompletedTreeStoppingData` construction.
+"""
+function completed_tree_c4_candidates(
+        positions::AbstractVector{<:AbstractVector{<:Real}},
+        momenta::AbstractVector{<:AbstractVector{<:Real}})
+    count = length(positions)
+    count == length(momenta) || throw(DimensionMismatch(
+        "position and momentum trajectories must match"))
+    count > 0 && ispow2(count) || throw(ArgumentError(
+        "a completed tree must have a positive power-of-two state count"))
+    depth = trailing_zeros(count)
+    admissible = Int[]
+    for root in 1:count
+        directions = completed_tree_direction_trace(root, depth)
+        rows = Reference.recursive_doubling_rows(
+            positions, momenta, directions)
+        length(rows[root]) == count && push!(admissible, root)
+    end
+    rows = [root in admissible ? copy(admissible) : [root]
+        for root in 1:count]
+    certificate = certify_dynamic_tree(rows)
+    certificate.valid || error("internal C.4 partition certificate failure")
+    certificate
+end
+
+completed_tree_c4_candidates(
+        positions::AbstractVector{<:Real}, momenta::AbstractVector{<:Real}) =
+    completed_tree_c4_candidates([[Float64(q)] for q in positions],
+        [[Float64(p)] for p in momenta])
 
 """Target-weighted selection from a checked completed dynamic tree.
 
@@ -2076,6 +2481,93 @@ function sample(rng::AbstractRNG, sampler::CheckedFirstStopDynamicHMC,
 end
 
 sample(sampler::CheckedFirstStopDynamicHMC,
+        initial::AbstractVector{<:Real}, count::Integer) =
+    sample(Random.default_rng(), sampler, initial, count)
+
+"""Completed-tree C.4 dynamic HMC.
+
+Each iteration builds one randomized-origin power-of-two leapfrog orbit,
+reruns the recursive endpoint-U-turn checks from every possible root using its
+unique reconstruction directions, and selects within the resulting C.4
+admissible component. Nonadmissible current roots make an explicit identity
+move. This is the executable shape of Lean's completed-tree rooted-trace
+theorem; floating-point callback refinement remains separate.
+"""
+struct CompletedTreeC4DynamicHMC{F,G}
+    logdensity::F
+    gradient::G
+    step_size::Float64
+    depth::Int
+    function CompletedTreeC4DynamicHMC(logdensity::F, gradient::G,
+            step_size::Real, depth::Integer=3) where {F,G}
+        converted = Float64(step_size)
+        isfinite(converted) && converted > 0 ||
+            throw(ArgumentError("step size must be finite and positive"))
+        0 <= depth < (8sizeof(Int) - 1) || throw(ArgumentError(
+            "tree depth must be nonnegative and fit the platform index"))
+        new{F,G}(logdensity, gradient, converted, Int(depth))
+    end
+end
+
+function _completed_tree_c4_dynamic_hmc_step!(
+        source::Runtime.AbstractRandomSource, selector,
+        sampler::CompletedTreeC4DynamicHMC,
+        current::AbstractVector{<:Real})
+    initial = Float64.(current)
+    isempty(initial) && throw(ArgumentError("position cannot be empty"))
+    all(isfinite, initial) || throw(ArgumentError("position must be finite"))
+    count = 1 << sampler.depth
+    q = copy(initial)
+    p = [Runtime.standard_normal!(source) for _ in eachindex(q)]
+    origin = Int(Runtime.draw_below!(source, count))
+    for _ in 1:origin
+        q, p = Optimized.vector_leapfrog(sampler.gradient,
+            -sampler.step_size, q, p)
+    end
+    positions = Vector{Vector{Float64}}(undef, count)
+    momenta = similar(positions)
+    positions[1], momenta[1] = copy(q), copy(p)
+    for index in 2:count
+        q, p = Optimized.vector_leapfrog(sampler.gradient,
+            sampler.step_size, q, p)
+        positions[index], momenta[index] = copy(q), copy(p)
+    end
+    certificate = completed_tree_c4_candidates(positions, momenta)
+    candidates = certificate.candidates[origin + 1]
+    length(candidates) == 1 && return initial
+    logweights = [begin
+        value = Float64(sampler.logdensity(positions[index])) -
+            sum(abs2, momenta[index]) / 2
+        isfinite(value) || throw(DomainError(value,
+            "dynamic trajectory log weight must be finite"))
+        value
+    end for index in candidates]
+    copy(positions[selector(source, candidates, logweights)])
+end
+
+function step(rng::AbstractRNG, sampler::CompletedTreeC4DynamicHMC,
+        current::AbstractVector{<:Real})
+    _completed_tree_c4_dynamic_hmc_step!(Runtime.RNGSource(rng),
+        Reference.dynamic_select_float!, sampler, current)
+end
+
+step(sampler::CompletedTreeC4DynamicHMC,
+        current::AbstractVector{<:Real}) =
+    step(Random.default_rng(), sampler, current)
+
+function sample(rng::AbstractRNG, sampler::CompletedTreeC4DynamicHMC,
+        initial::AbstractVector{<:Real}, count::Integer)
+    count >= 0 || throw(ArgumentError("sample count must be nonnegative"))
+    current = Float64.(initial)
+    samples = Matrix{Float64}(undef, length(current), count)
+    for index in axes(samples, 2)
+        current = step(rng, sampler, current)
+        samples[:, index] = current
+    end
+    samples
+end
+
+sample(sampler::CompletedTreeC4DynamicHMC,
         initial::AbstractVector{<:Real}, count::Integer) =
     sample(Random.default_rng(), sampler, initial, count)
 

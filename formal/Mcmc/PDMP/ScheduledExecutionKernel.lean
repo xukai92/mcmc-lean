@@ -398,6 +398,15 @@ theorem ThinnedFlowSimulator.executeScheduledRange_apply_fixed
 def scheduleElapsed (count : ℕ) (schedule : CandidateScheduleSample) : NNReal :=
   ∑ index ∈ Finset.range count, schedule.2 index
 
+/-- Every active nonnegative wait is bounded by the total elapsed time. -/
+theorem scheduleCoordinate_le_scheduleElapsed
+    (count : ℕ) (schedule : CandidateScheduleSample)
+    {index : ℕ} (hindex : index < count) :
+    schedule.2 index ≤ scheduleElapsed count schedule := by
+  unfold scheduleElapsed
+  exact Finset.single_le_sum (fun _ _ => bot_le)
+    (Finset.mem_range.mpr hindex)
+
 theorem measurable_scheduleElapsed (count : ℕ) :
     Measurable (scheduleElapsed count) := by
   unfold scheduleElapsed

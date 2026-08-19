@@ -20,6 +20,25 @@ The reusable surface combines mathlib composition with local invariant
 mixtures, product/lift/project machinery, coupling marginals, finite/infinite
 path semantics, and the completed elementary finite combinators.
 
+## Current maintenance priority
+
+The core release-consolidation milestone is complete: exact sampler semantics
+and correctness at their stated boundaries, maintained Julia implementations,
+generated-artifact consistency, examples, diagnostics, and documentation have
+passed the release audit. Ongoing core work is maintenance—new changes must
+preserve those gates and claim boundaries.
+Floating-point refinement/certification is no longer required for core
+completion. The existing certificate stack remains an experimental, tested
+research layer.
+
+The other theorem-heavy endpoints are parked as well: production-recursive
+NUTS equivalence, multidimensional BPS uniqueness/ergodicity, realistic
+never-freezing continuous adaptation, and fully general growing-horizon
+particle stability. Their completed foundations remain part of the library;
+parking them neither discards results nor silently upgrades partial results.
+See [project completion status](project-status.md#core-completion-boundary) for
+the precise boundary.
+
 ## Track A: reusable sampler foundations
 
 ### A1. Consolidate kernel combinators and add finite Gibbs — complete
@@ -72,7 +91,7 @@ verified single-chain kernels, and Julia exposes replay-level meeting events.
 ### B2. Executable Xu and Ge (2024) sampler — complete at the exact and guarded-runtime levels
 
 The corrected diagonal constant-metric program introduced in IR version 10 is
-retained in the current version 16 artifact, which contains a working
+retained in the current version 19 artifact, which contains a working
 relativistic multinomial specialization, with Reference/Optimized Julia replay
 tests. A position-dependent fixed-point solver now exists in Reference and
 Optimized Julia with residual reporting, while Lean constructs its exact
@@ -126,7 +145,11 @@ Julia platform is deliberately separate from this real-valued certificate.
 The polynomial Gaussian callback is now exception-free at this boundary:
 Julia emits exact dyadic value, gradient, and Hessian records, and Lean checks
 all three against `x^2/2`, `x`, and `1`. Nonconstant transcendental callbacks
-and SoftAbs `sqrt`/inverse/`log` remain backend premises.
+remain guarded in general. For the maintained bounded `2+sin(q)` client, a
+linked rational certificate now checks sine/cosine, rounded radicand,
+square-root, reciprocal, and both complete callbacks at the represented
+execution. SoftAbs `sqrt`/inverse/`log` outside the already instantiated
+ex-post records remain backend premises.
 For the paper-style nonconstant metric, in addition to the removable-zero sinusoidal client, Lean
 now has the nondegenerate target `U(q)=q²-sin(q)`, whose actual Hessian lies in
 `[1,3]`. Its potential, force/Hessian relationship, measurability, Equation
@@ -233,6 +256,11 @@ The pre-Xu dependency order is:
    oscillation of each full remaining backward potential, supplies the refresh
    decomposition and geometric TV estimate, and proves the actual fixed-
    iteration particle-count limit without a worst-case constant reduction.
+   The fixed-horizon count-uniform rate additionally proves convergence along
+   every iteration-indexed particle-count schedule, including growing or
+   oscillating counts, and every independent PG-iteration schedule tending to
+   infinity. The equivalent eventual statement uses one iteration threshold
+   for all counts simultaneously; the model horizon remains fixed.
 7. adaptive-MCMC boundary -- finite state-dependent kernel selection and a
    counterexample where two frozen target-invariant kernels combine into a
    non-invariant selected kernel are complete. Predetermined nonhomogeneous law
@@ -276,8 +304,14 @@ laws. Finite potential minima, observable sup norms, and stage-variance bounds
 construct an observable-indexed coefficient `C`, and Lean proves
 `MSE ≤ C/N` for every finite strictly-positive-potential schedule on a finite
 nonempty state space. Count-indexed laws then converge in mean square and in
-probability at every fixed horizon. Uniform-in-time consistency and a PG-chain
-mixing theorem uniform in particle count remain distinct stability problems.
+probability at every fixed horizon. For the concrete partial-refresh client,
+the strict-contraction estimate is uniform in time, so the reusable recursion
+layer and its concrete client prove mean-square and in-probability convergence
+along every arbitrarily varying time schedule whenever particle count tends
+to infinity. Extending
+that conclusion to general stable
+Feynman--Kac models remains separate from the particle-Gibbs mixing theorem
+uniform in particle count.
 The recursively normalized target is proved equal both to the conventional
 unnormalized Feynman--Kac ratio and to the selected terminal marginal of the
 existing particle-MCMC extended target, so this asymptotic layer introduces no
@@ -543,7 +577,14 @@ exact seeded trace semantics. Full solver convergence may refine a sequential
 trace; numerical tolerance and early stopping remain separate bias
 obligations.
 
-## Immediate plan
+## Historical detailed progress snapshot
+
+The material below preserves the dependency-level audit that led to the
+current results. It is not the active completion plan: several items described
+as “remaining” were subsequently completed, while the hard endpoints are now
+parked under the [core completion boundary](project-status.md#core-completion-boundary).
+The active plan is the release-consolidation priority stated at the top of this
+document.
 
 A1--A4, B1, and the exact/guarded B2 sampler construction are complete. The
 remaining work is ordered by the missing mathematical dependency rather than

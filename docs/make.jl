@@ -10,7 +10,8 @@ pages = [
     ],
     "Testing and roadmap" => [
         "Testing strategy" => "testing.md",
-        "Phase I release audit" => "core-release-audit.md",
+        "Progress matrix" => "progress.md",
+        "Core release audit" => "core-release-audit.md",
         "Project completion status" => "project-status.md",
         "Overall project roadmap" => "project-roadmap.md",
         "Executable roadmap" => "executable-roadmap.md",
@@ -40,7 +41,7 @@ pages = [
 published_files = [
     "index.md", "architecture.md", "generated/architecture-graphs.md",
     "executable-architecture.md", "continuous-executable-contract.md",
-    "testing.md", "core-release-audit.md", "project-status.md",
+    "testing.md", "progress.md", "core-release-audit.md", "project-status.md",
     "project-roadmap.md", "executable-roadmap.md",
     "finite-executable-roadmap.md",
     "development-log.md", "development-log-archive.md",
@@ -71,10 +72,12 @@ makedocs(
         repolink = "https://github.com/xukai92/mcmc-lean",
         # The theorem-level development log is intentionally detailed and its
         # rendered HTML includes Documenter's navigation metadata. Keep a
-        # modest headroom above the current page while older epochs continue
-        # to move to development-log-archive.md.
-        size_threshold_warn = 325 * 2^10,
-        size_threshold = 350 * 2^10,
+        # headroom above the current theorem ledger while older epochs continue
+        # to move to development-log-archive.md. This is a documentation-size
+        # guard, not a browser or theorem-correctness boundary.
+        size_threshold_warn = 490 * 2^10,
+        size_threshold = 520 * 2^10,
+        search_size_threshold_warn = 900 * 2^10,
         inventory_version = "dev",
     ),
     pages = pages,

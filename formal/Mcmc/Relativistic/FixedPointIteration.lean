@@ -204,6 +204,235 @@ theorem dist_finiteNextPosition_fixedPoint_le
   simpa only [finiteNextPosition] using
     hcontract.apriori_dist_iterate_fixedPoint_le q iterations
 
+/-- Exact-rational a posteriori budget for one contraction solve. The
+submitted residual must separately be proved to bound the distance between
+the returned iterate and one further exact fixed-point update. Keeping that
+obligation explicit prevents a rounded runtime residual from being treated as
+an exact mathematical residual. -/
+structure AposterioriContractionRationalCertificate where
+  residualUpper : ℚ
+  rate : ℚ
+  distanceUpper : ℚ
+deriving DecidableEq, Repr
+
+def AposterioriContractionRationalCertificate.Valid
+    (certificate : AposterioriContractionRationalCertificate) : Prop :=
+  0 ≤ certificate.residualUpper ∧
+    0 ≤ certificate.rate ∧ certificate.rate < 1 ∧
+    certificate.distanceUpper =
+      certificate.residualUpper / (1 - certificate.rate)
+
+instance (certificate : AposterioriContractionRationalCertificate) :
+    Decidable certificate.Valid := by
+  unfold AposterioriContractionRationalCertificate.Valid
+  infer_instance
+
+def AposterioriContractionRationalCertificate.check
+    (certificate : AposterioriContractionRationalCertificate) : Bool :=
+  decide certificate.Valid
+
+@[simp] theorem AposterioriContractionRationalCertificate.check_eq_true_iff
+    (certificate : AposterioriContractionRationalCertificate) :
+    certificate.check = true ↔ certificate.Valid := by
+  simp [AposterioriContractionRationalCertificate.check]
+
+/-- A valid rational record bounds the distance from a returned iterate to the
+unique fixed point, conditional on a proved contraction rate and a sound upper
+bound for the exact one-step residual. -/
+theorem AposterioriContractionRationalCertificate.dist_fixedPoint_le
+    {α : Type*} [MetricSpace α] [CompleteSpace α] [Nonempty α]
+    (certificate : AposterioriContractionRationalCertificate)
+    (hvalid : certificate.Valid) (f : α → α) (x : α) (K : NNReal)
+    (hcontract : ContractingWith K f)
+    (hrate : (K : ℝ) = (certificate.rate : ℝ))
+    (hresidual : dist x (f x) ≤ (certificate.residualUpper : ℝ)) :
+    dist x (hcontract.fixedPoint f) ≤ (certificate.distanceUpper : ℝ) := by
+  have hdenom : 0 < 1 - (K : ℝ) := by
+    rw [hrate]
+    exact sub_pos.mpr (by exact_mod_cast hvalid.2.2.1)
+  calc
+    dist x (hcontract.fixedPoint f) ≤ dist x (f x) / (1 - K) :=
+      hcontract.dist_fixedPoint_le x
+    _ ≤ (certificate.residualUpper : ℝ) / (1 - K) :=
+      (div_le_div_iff_of_pos_right hdenom).2 hresidual
+    _ = (certificate.distanceUpper : ℝ) := by
+      rw [hrate]
+      exact_mod_cast hvalid.2.2.2.symm
+
+/-- Exact-rational record turning a rounded fixed-point update into an upper
+bound for the residual of the corresponding exact update. `updateError` is
+the explicit callback/arithmetic boundary: the checker verifies only the
+rational residual arithmetic, while a client proves that this radius covers
+the rounded update's error. -/
+structure RoundedContractionResidualRationalCertificate where
+  iterate : ℚ
+  computedUpdate : ℚ
+  updateError : ℚ
+  residualUpper : ℚ
+deriving DecidableEq, Repr
+
+def RoundedContractionResidualRationalCertificate.Valid
+    (certificate : RoundedContractionResidualRationalCertificate) : Prop :=
+  0 ≤ certificate.updateError ∧
+    certificate.residualUpper =
+      |certificate.iterate - certificate.computedUpdate| +
+        certificate.updateError
+
+instance (certificate : RoundedContractionResidualRationalCertificate) :
+    Decidable certificate.Valid := by
+  unfold RoundedContractionResidualRationalCertificate.Valid
+  infer_instance
+
+def RoundedContractionResidualRationalCertificate.check
+    (certificate : RoundedContractionResidualRationalCertificate) : Bool :=
+  decide certificate.Valid
+
+@[simp] theorem RoundedContractionResidualRationalCertificate.check_eq_true_iff
+    (certificate : RoundedContractionResidualRationalCertificate) :
+    certificate.check = true ↔ certificate.Valid := by
+  simp [RoundedContractionResidualRationalCertificate.check]
+
+/-- Soundness of the rounded residual calculation. -/
+theorem RoundedContractionResidualRationalCertificate.exactResidual_le
+    (certificate : RoundedContractionResidualRationalCertificate)
+    (hvalid : certificate.Valid) (idealUpdate : ℝ)
+    (hupdate : |(certificate.computedUpdate : ℝ) - idealUpdate| ≤
+      (certificate.updateError : ℝ)) :
+    |(certificate.iterate : ℝ) - idealUpdate| ≤
+      (certificate.residualUpper : ℝ) := by
+  calc
+    |(certificate.iterate : ℝ) - idealUpdate| =
+        |((certificate.iterate : ℝ) - certificate.computedUpdate) +
+          (certificate.computedUpdate - idealUpdate)| := by
+      congr 1
+      ring
+    _ ≤ |(certificate.iterate : ℝ) - certificate.computedUpdate| +
+        |(certificate.computedUpdate : ℝ) - idealUpdate| := abs_add_le _ _
+    _ ≤ |(certificate.iterate : ℝ) - certificate.computedUpdate| +
+        certificate.updateError := add_le_add (le_refl _) hupdate
+    _ = certificate.residualUpper := by
+      exact_mod_cast hvalid.2.symm
+
+/-- Exact-rational error accounting for a rounded affine update
+`base + scale * callback`. A negative `scale` covers momentum kicks, while a
+callback containing a sum covers the implicit position update. -/
+structure RoundedAffineUpdateRationalCertificate where
+  base : ℚ
+  scale : ℚ
+  computedCallback : ℚ
+  callbackError : ℚ
+  computedUpdate : ℚ
+  arithmeticError : ℚ
+  updateError : ℚ
+deriving DecidableEq, Repr
+
+def RoundedAffineUpdateRationalCertificate.Valid
+    (certificate : RoundedAffineUpdateRationalCertificate) : Prop :=
+  0 ≤ certificate.callbackError ∧
+    certificate.arithmeticError =
+      |certificate.computedUpdate -
+        (certificate.base + certificate.scale * certificate.computedCallback)| ∧
+    certificate.updateError = certificate.arithmeticError +
+      |certificate.scale| * certificate.callbackError
+
+instance (certificate : RoundedAffineUpdateRationalCertificate) :
+    Decidable certificate.Valid := by
+  unfold RoundedAffineUpdateRationalCertificate.Valid
+  infer_instance
+
+def RoundedAffineUpdateRationalCertificate.check
+    (certificate : RoundedAffineUpdateRationalCertificate) : Bool :=
+  decide certificate.Valid
+
+@[simp] theorem RoundedAffineUpdateRationalCertificate.check_eq_true_iff
+    (certificate : RoundedAffineUpdateRationalCertificate) :
+    certificate.check = true ↔ certificate.Valid := by
+  simp [RoundedAffineUpdateRationalCertificate.check]
+
+/-- Callback error and the exact observed arithmetic residual bound the error
+of the complete affine update. -/
+theorem RoundedAffineUpdateRationalCertificate.exactUpdate_le
+    (certificate : RoundedAffineUpdateRationalCertificate)
+    (hvalid : certificate.Valid) (idealCallback : ℝ)
+    (hcallback : |(certificate.computedCallback : ℝ) - idealCallback| ≤
+      (certificate.callbackError : ℝ)) :
+    |(certificate.computedUpdate : ℝ) -
+      (certificate.base + certificate.scale * idealCallback)| ≤
+        (certificate.updateError : ℝ) := by
+  have harithmetic :
+      |(certificate.computedUpdate : ℝ) -
+        (certificate.base + certificate.scale * certificate.computedCallback)| =
+          (certificate.arithmeticError : ℝ) := by
+    exact_mod_cast hvalid.2.1.symm
+  calc
+    |(certificate.computedUpdate : ℝ) -
+        (certificate.base + certificate.scale * idealCallback)| =
+      |(certificate.computedUpdate -
+          (certificate.base + certificate.scale * certificate.computedCallback)) +
+        certificate.scale * (certificate.computedCallback - idealCallback)| := by
+          congr 1
+          ring
+    _ ≤ |(certificate.computedUpdate : ℝ) -
+          (certificate.base + certificate.scale * certificate.computedCallback)| +
+        |certificate.scale *
+          (certificate.computedCallback - idealCallback)| := abs_add_le _ _
+    _ = certificate.arithmeticError + |(certificate.scale : ℝ)| *
+        |(certificate.computedCallback : ℝ) - idealCallback| := by
+      rw [harithmetic, abs_mul]
+    _ ≤ certificate.arithmeticError + |(certificate.scale : ℝ)| *
+        certificate.callbackError := by
+      gcongr
+    _ = certificate.updateError := by
+      exact_mod_cast hvalid.2.2.symm
+
+/-- Complete scalar composition from one rounded update, through its exact
+residual and a genuine contraction theorem, to distance from the exact fixed
+point. -/
+theorem roundedContraction_dist_fixedPoint_le
+    (residual : RoundedContractionResidualRationalCertificate)
+    (hresidual : residual.Valid)
+    (contraction : AposterioriContractionRationalCertificate)
+    (hcontraction : contraction.Valid) (f : ℝ → ℝ) (K : NNReal)
+    (hcontract : ContractingWith K f)
+    (hrate : (K : ℝ) = (contraction.rate : ℝ))
+    (hupper : contraction.residualUpper = residual.residualUpper)
+    (hupdate : |(residual.computedUpdate : ℝ) - f residual.iterate| ≤
+      (residual.updateError : ℝ)) :
+    dist (residual.iterate : ℝ) (hcontract.fixedPoint f) ≤
+      (contraction.distanceUpper : ℝ) := by
+  apply contraction.dist_fixedPoint_le hcontraction f residual.iterate K
+    hcontract hrate
+  rw [Real.dist_eq]
+  rw [hupper]
+  exact residual.exactResidual_le hresidual (f residual.iterate) hupdate
+
+/-- The affine callback certificate discharges the update-error premise of
+the rounded contraction composition. -/
+theorem affineRoundedContraction_dist_fixedPoint_le
+    (affine : RoundedAffineUpdateRationalCertificate)
+    (haffine : affine.Valid)
+    (residual : RoundedContractionResidualRationalCertificate)
+    (hresidual : residual.Valid)
+    (contraction : AposterioriContractionRationalCertificate)
+    (hcontraction : contraction.Valid) (f : ℝ → ℝ) (K : NNReal)
+    (hcontract : ContractingWith K f)
+    (hrate : (K : ℝ) = (contraction.rate : ℝ))
+    (hresidualUpper : contraction.residualUpper = residual.residualUpper)
+    (hcomputed : residual.computedUpdate = affine.computedUpdate)
+    (herror : residual.updateError = affine.updateError)
+    (idealCallback : ℝ)
+    (hfunction : f residual.iterate =
+      affine.base + affine.scale * idealCallback)
+    (hcallback : |(affine.computedCallback : ℝ) - idealCallback| ≤
+      (affine.callbackError : ℝ)) :
+    dist (residual.iterate : ℝ) (hcontract.fixedPoint f) ≤
+      (contraction.distanceUpper : ℝ) := by
+  have hupdate := affine.exactUpdate_le haffine idealCallback hcallback
+  apply roundedContraction_dist_fixedPoint_le residual hresidual contraction
+    hcontraction f K hcontract hrate hresidualUpper
+  rw [hcomputed, herror, hfunction]
+  exact hupdate
+
 /-- Contraction certificates for both implicit equations at every incoming
 state and step size.  This is sufficient to construct an exact generalized
 leapfrog solution; measurability and volume preservation of the resulting

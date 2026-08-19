@@ -10,12 +10,14 @@ export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_ou
     finite_hmm_particle_gibbs_step!,
     relativistic_multinomial_hmc_step!,
     fixed_point_generalized_leapfrog,
+    fixed_point_generalized_leapfrog_trace,
+    FixedPointGeneralizedLeapfrogTrace,
     certified_relativistic_multinomial_hmc_step!,
     dynamic_select_float!, streaming_eligible_select!, recursive_doubling_rows,
     coupled_multinomial_hmc_step!, coupled_gaussian_rwmh_step!, xu21_coupled_step!,
     IR_FORMAT_VERSION
 
-const IR_FORMAT_VERSION = 18
+const IR_FORMAT_VERSION = 19
 
 """Stable target-weighted selection from a supplied candidate index set.
 
@@ -202,7 +204,9 @@ end
 
 """Reference stepping-out and shrinkage slice update on the real line."""
 function stepping_out_slice_step!(source::AbstractRandomSource, logdensity,
-        width::Real, current::Real, max_steps::Integer, max_shrink::Integer)
+        width::Real, current::Real, max_steps::Integer, max_shrink::Integer;
+        threshold_observer=(base, uniform, log_uniform, threshold) -> nothing,
+        comparison_observer=(kind, position, value, threshold) -> nothing)
     w, x = Float64(width), Float64(current)
     isfinite(w) && w > 0 || throw(ArgumentError("width must be finite and positive"))
     isfinite(x) || throw(ArgumentError("current state must be finite"))
@@ -210,7 +214,10 @@ function stepping_out_slice_step!(source::AbstractRandomSource, logdensity,
     max_shrink > 0 || throw(ArgumentError("max_shrink must be positive"))
     base = Float64(logdensity(x))
     isfinite(base) || throw(ArgumentError("current log density must be finite"))
-    threshold = base + log(uniform_unit!(source))
+    uniform = uniform_unit!(source)
+    log_uniform = log(uniform)
+    threshold = base + log_uniform
+    threshold_observer(base, uniform, log_uniform, threshold)
     left = x - w * uniform_unit!(source)
     right = left + w
     left_steps = Int(floor(uniform_unit!(source) * (max_steps + 1)))
@@ -219,6 +226,7 @@ function stepping_out_slice_step!(source::AbstractRandomSource, logdensity,
         value = Float64(logdensity(left))
         (isfinite(value) || value == -Inf) ||
             throw(ArgumentError("log density must be finite or -Inf"))
+        comparison_observer(:stopBelow, left, value, threshold)
         value <= threshold && break
         left -= w
         left_steps -= 1
@@ -227,6 +235,7 @@ function stepping_out_slice_step!(source::AbstractRandomSource, logdensity,
         value = Float64(logdensity(right))
         (isfinite(value) || value == -Inf) ||
             throw(ArgumentError("log density must be finite or -Inf"))
+        comparison_observer(:stopBelow, right, value, threshold)
         value <= threshold && break
         right += w
         right_steps -= 1
@@ -236,6 +245,7 @@ function stepping_out_slice_step!(source::AbstractRandomSource, logdensity,
         value = Float64(logdensity(proposal))
         (isfinite(value) || value == -Inf) ||
             throw(ArgumentError("log density must be finite or -Inf"))
+        comparison_observer(:acceptAbove, proposal, value, threshold)
         value >= threshold && return proposal
         proposal < x ? (left = proposal) : (right = proposal)
     end
@@ -442,6 +452,7 @@ struct DynamicTreeDescriptor
     name::String
     builder::String
     trace_policy::String
+    root_encoding::String
     stop_rule::String
     subtree_policy::String
     selection_policy::String
@@ -450,13 +461,15 @@ end
 
 function decode_dynamic_tree(node::SList)
     values = items(node)
-    length(values) == 8 && atom(values[1]) == "dynamic-tree" ||
+    length(values) == 9 && atom(values[1]) == "dynamic-tree" ||
         error("invalid dynamic-tree descriptor")
     descriptor = DynamicTreeDescriptor((atom(value) for value in values[2:end])...)
     descriptor.builder == "recursive-doubling" ||
         error("unsupported dynamic-tree builder: $(descriptor.builder)")
     descriptor.trace_policy == "fair-direction-bits" ||
         error("unsupported dynamic-tree trace policy: $(descriptor.trace_policy)")
+    descriptor.root_encoding == "lsb-first-grow-right-zero" ||
+        error("unsupported dynamic-tree root encoding: $(descriptor.root_encoding)")
     descriptor.stop_rule == "endpoint-uturn" ||
         error("unsupported dynamic-tree stop rule: $(descriptor.stop_rule)")
     descriptor.subtree_policy == "recursive-exclusion" ||
@@ -1237,14 +1250,40 @@ function _checked_certified_step(integrator, q, p, step_size)
     Float64.(next_q), Float64.(next_p)
 end
 
-"""Solve the two generalized-leapfrog implicit equations by fixed-point iteration.
+"""One concrete derivative callback invocation made by the reference solver."""
+struct FixedPointCallbackEvaluation
+    kind::Symbol
+    position::Vector{Float64}
+    momentum::Vector{Float64}
+    value::Vector{Float64}
+end
 
-The returned certificate reports the observed residuals. A positive tolerance
-is approximation data and is intentionally rejected by the exact certified
-sampler. Set the global witness flags only when they have been established for
-the complete solver family, not merely for this run.
-"""
-function fixed_point_generalized_leapfrog(position_derivative,
+"""One rounded `base + scale*callback` update, retaining every callback
+vector consumed by that arithmetic expression."""
+struct FixedPointAffineUpdateEvaluation
+    kind::Symbol
+    base::Vector{Float64}
+    scale::Float64
+    callbacks::Vector{Vector{Float64}}
+    computed_update::Vector{Float64}
+end
+
+"""Final iterates, updates, and every callback invoked by both implicit loops."""
+struct FixedPointGeneralizedLeapfrogTrace
+    half_momentum::Vector{Float64}
+    half_callback::Vector{Float64}
+    half_update::Vector{Float64}
+    next_position::Vector{Float64}
+    position_callback::Vector{Float64}
+    position_update::Vector{Float64}
+    callback_evaluations::Vector{FixedPointCallbackEvaluation}
+    affine_updates::Vector{FixedPointAffineUpdateEvaluation}
+    half_iterations::Int
+    position_iterations::Int
+end
+
+"""Execute the generalized-leapfrog loops and retain their final updates."""
+function _fixed_point_generalized_leapfrog_trace(position_derivative,
         momentum_derivative, position::AbstractVector{<:Real},
         momentum::AbstractVector{<:Real}, step_size::Real;
         max_iterations::Integer=100, atol::Real=1e-10, rtol::Real=1e-8,
@@ -1262,10 +1301,19 @@ function fixed_point_generalized_leapfrog(position_derivative,
     isempty(q) && throw(ArgumentError("state cannot be empty"))
     all(isfinite, q) && all(isfinite, p) ||
         throw(ArgumentError("state must be finite"))
+    callback_evaluations = FixedPointCallbackEvaluation[]
+    affine_updates = FixedPointAffineUpdateEvaluation[]
 
     p_half = copy(p)
-    for _ in 1:max_iterations
-        candidate = p .- (ε / 2) .* Float64.(position_derivative(q, p_half))
+    half_iterations = 0
+    for iteration in 1:max_iterations
+        half_iterations = iteration
+        derivative = Float64.(position_derivative(q, p_half))
+        push!(callback_evaluations, FixedPointCallbackEvaluation(:position,
+            copy(q), copy(p_half), copy(derivative)))
+        candidate = p .- (ε / 2) .* derivative
+        push!(affine_updates, FixedPointAffineUpdateEvaluation(:half_momentum,
+            copy(p), -(ε / 2), [copy(derivative)], copy(candidate)))
         length(candidate) == length(p) ||
             throw(DimensionMismatch("position derivative"))
         all(isfinite, candidate) || throw(DomainError(candidate, "half momentum"))
@@ -1275,31 +1323,78 @@ function fixed_point_generalized_leapfrog(position_derivative,
     end
 
     q_next = copy(q)
+    position_iterations = 0
     initial_velocity = Float64.(momentum_derivative(q, p_half))
+    push!(callback_evaluations, FixedPointCallbackEvaluation(:momentum,
+        copy(q), copy(p_half), copy(initial_velocity)))
     length(initial_velocity) == length(q) ||
         throw(DimensionMismatch("momentum derivative"))
-    for _ in 1:max_iterations
+    for iteration in 1:max_iterations
+        position_iterations = iteration
         terminal_velocity = Float64.(momentum_derivative(q_next, p_half))
+        push!(callback_evaluations, FixedPointCallbackEvaluation(:momentum,
+            copy(q_next), copy(p_half), copy(terminal_velocity)))
         length(terminal_velocity) == length(q) ||
             throw(DimensionMismatch("momentum derivative"))
         candidate = q .+ (ε / 2) .* (initial_velocity .+ terminal_velocity)
+        push!(affine_updates, FixedPointAffineUpdateEvaluation(:position,
+            copy(q), ε / 2, [copy(initial_velocity), copy(terminal_velocity)],
+            copy(candidate)))
         all(isfinite, candidate) || throw(DomainError(candidate, "next position"))
         residual = norm(candidate .- q_next)
         q_next = candidate
         residual <= absolute + relative * max(norm(q_next), 1.0) && break
     end
 
-    half_update = p .- (ε / 2) .* Float64.(position_derivative(q, p_half))
-    position_update = q .+ (ε / 2) .* (initial_velocity .+
-        Float64.(momentum_derivative(q_next, p_half)))
+    half_callback = Float64.(position_derivative(q, p_half))
+    push!(callback_evaluations, FixedPointCallbackEvaluation(:position,
+        copy(q), copy(p_half), copy(half_callback)))
+    half_update = p .- (ε / 2) .* half_callback
+    push!(affine_updates, FixedPointAffineUpdateEvaluation(:half_momentum,
+        copy(p), -(ε / 2), [copy(half_callback)], copy(half_update)))
+    final_velocity = Float64.(momentum_derivative(q_next, p_half))
+    push!(callback_evaluations, FixedPointCallbackEvaluation(:momentum,
+        copy(q_next), copy(p_half), copy(final_velocity)))
+    position_callback = initial_velocity .+ final_velocity
+    position_update = q .+ (ε / 2) .* position_callback
+    push!(affine_updates, FixedPointAffineUpdateEvaluation(:position,
+        copy(q), ε / 2, [copy(initial_velocity), copy(final_velocity)],
+        copy(position_update)))
     half_residual = norm(p_half .- half_update)
     position_residual = norm(q_next .- position_update)
-    p_next = p_half .- (ε / 2) .* Float64.(position_derivative(q_next, p_half))
+    final_position_derivative = Float64.(position_derivative(q_next, p_half))
+    push!(callback_evaluations, FixedPointCallbackEvaluation(:position,
+        copy(q_next), copy(p_half), copy(final_position_derivative)))
+    p_next = p_half .- (ε / 2) .* final_position_derivative
+    push!(affine_updates, FixedPointAffineUpdateEvaluation(:final_momentum,
+        copy(p_half), -(ε / 2), [copy(final_position_derivative)], copy(p_next)))
     certificate = certify_implicit_solve(half_residual, half_residual,
         position_residual, position_residual; unique=unique,
         reversible=reversible, volume_preserving=volume_preserving)
-    q_next, p_next, certificate
+    trace = FixedPointGeneralizedLeapfrogTrace(copy(p_half),
+        copy(half_callback), copy(half_update), copy(q_next),
+        copy(position_callback), copy(position_update), callback_evaluations,
+        affine_updates, half_iterations, position_iterations)
+    q_next, p_next, certificate, trace
 end
+
+"""Solve the two generalized-leapfrog implicit equations by fixed-point iteration.
+
+The returned certificate reports the observed residuals. A positive tolerance
+is approximation data and is intentionally rejected by the exact certified
+sampler. Set the global witness flags only when they have been established for
+the complete solver family, not merely for this run.
+"""
+function fixed_point_generalized_leapfrog(args...; kwargs...)
+    q, p, certificate, _ = _fixed_point_generalized_leapfrog_trace(
+        args...; kwargs...)
+    q, p, certificate
+end
+
+
+"""Run the reference solver while returning its auditable final-update trace."""
+fixed_point_generalized_leapfrog_trace(args...; kwargs...) =
+    _fixed_point_generalized_leapfrog_trace(args...; kwargs...)
 
 function _certified_relativistic_multinomial_hmc_step!(source::AbstractRandomSource,
         hamiltonian, metric_factor, integrator, step_size::Float64, steps::Integer,

@@ -17,6 +17,48 @@ namespace Mcmc
 
 variable {α : Type*} [MeasurableSpace α]
 
+namespace Kernel
+
+/-- A general-state transition is topologically irreducible when every row
+charges every nonempty open set. This deliberately says nothing about a
+common irreducibility measure, recurrence, or convergence. -/
+def TopologicallyIrreducible [TopologicalSpace α]
+    (transition : ProbabilityTheory.Kernel α α) : Prop :=
+  ∀ state event, IsOpen event → event.Nonempty →
+    0 < transition state event
+
+/-- Pointwise open-set positivity packages as topological irreducibility. -/
+theorem topologicallyIrreducible_of_open_pos [TopologicalSpace α]
+    (transition : ProbabilityTheory.Kernel α α)
+    (hpos : ∀ state event, IsOpen event → event.Nonempty →
+      0 < transition state event) :
+    TopologicallyIrreducible transition :=
+  hpos
+
+/-- Irreducibility with respect to a concrete sigma-finite reference measure:
+every row charges each measurable set of positive reference mass. This is the
+measure-theoretic notion needed by Harris recurrence arguments. -/
+def ReferenceMeasureIrreducible
+    (transition : ProbabilityTheory.Kernel α α)
+    (reference : Measure α) : Prop :=
+  ∀ state event, MeasurableSet event → 0 < reference event →
+    0 < transition state event
+
+/-- Reference-measure irreducibility implies open-set irreducibility whenever
+the reference measure has full topological support. The converse is not
+asserted. -/
+theorem ReferenceMeasureIrreducible.topologicallyIrreducible
+    [TopologicalSpace α] [OpensMeasurableSpace α]
+    (transition : ProbabilityTheory.Kernel α α)
+    (reference : Measure α) [reference.IsOpenPosMeasure]
+    (hirreducible : ReferenceMeasureIrreducible transition reference) :
+    TopologicallyIrreducible transition := by
+  intro state event hevent heventNonempty
+  exact hirreducible state event hevent.measurableSet
+    (hevent.measure_pos reference heventNonempty)
+
+end Kernel
+
 namespace IsMeasureCoupling
 
 /-- The probability assigned differently by two marginal laws on any event
@@ -446,6 +488,57 @@ theorem HasGeometricDrift.lawAtTime_apply_tendsto_of_invariant
     hfaithful hinvariant C rate hC hrate (s := s)
   · intro n
     simpa only [C, mul_comm] using htail n
+  · exact hs
+
+/-- Drift toward an arbitrary measurable exact-meeting set implies setwise
+convergence once the usual inside/outside Lyapunov and scalar contraction
+bounds are supplied.  Unlike
+`HasGeometricDrift.lawAtTime_apply_tendsto_of_invariant`, this theorem does
+not require the algorithm-specific meeting set to be definitionally a
+Lyapunov sublevel. -/
+theorem HasGeometricDrift.lawAtTime_apply_tendsto_of_invariant_of_bounds
+    [MeasurableEq α]
+    (initialCoupling : Measure (α × α))
+    [IsProbabilityMeasure initialCoupling]
+    (leftInitial target : Measure α) [IsProbabilityMeasure target]
+    (transition : Kernel α α) [IsMarkovKernel transition]
+    (coupled : Kernel (α × α) (α × α)) [IsMarkovKernel coupled]
+    (hinitial : IsMeasureCoupling initialCoupling leftInitial target)
+    (hcoupled : IsCoupling coupled transition transition)
+    (hfaithful : IsFaithful coupled) (hinvariant : transition.Invariant target)
+    {V : (α × α) → ENNReal} {C : Set (α × α)}
+    {driftRate allowance meetingBound scale contractionRate
+      lowerBound upperBound : ENNReal}
+    (hdrift : HasGeometricDrift coupled V C driftRate allowance)
+    (hmeeting : IsExactMeetingSmallSet coupled C meetingBound)
+    (hrates : driftRate ≤ contractionRate)
+    (hlower : ∀ x ∉ C, lowerBound ≤ V x)
+    (hupper : ∀ x ∈ C, V x ≤ upperBound)
+    (houtsideBudget :
+      1 + scale * (driftRate * lowerBound) ≤
+        contractionRate * (1 + scale * lowerBound))
+    (hinsideBudget :
+      (1 - meetingBound) +
+          scale * (driftRate * upperBound + allowance) ≤ contractionRate)
+    (hcontractionRate : contractionRate < 1)
+    (hscaleTop : scale ≠ ∞)
+    (hVmoment : (∫⁻ x, V x ∂initialCoupling) ≠ ∞)
+    {s : Set α} (hs : MeasurableSet s) :
+    Filter.Tendsto (fun n => lawAtTime leftInitial transition n s)
+      Filter.atTop (nhds (target s)) := by
+  let mass := weightedOffDiagonalMassAtTime
+    initialCoupling coupled V scale 0
+  have hmass : mass ≠ ∞ :=
+    weightedOffDiagonalMassAtTime_zero_ne_top_of_lintegral_ne_top
+      initialCoupling coupled hdrift.1 scale hscaleTop hVmoment
+  apply lawAtTime_apply_tendsto_of_invariant_geometricMeeting
+    initialCoupling leftInitial target transition coupled hinitial hcoupled
+    hfaithful hinvariant mass contractionRate hmass hcontractionRate (s := s)
+  · intro n
+    have htail := hdrift.exactMeetingTail_pathLaw_le_weighted_of_bounds
+      initialCoupling coupled hmeeting hfaithful hrates hlower hupper
+        houtsideBudget hinsideBudget n
+    simpa only [mass, mul_comm] using htail
   · exact hs
 
 /-- A kernel uniformly minorizes a measure with coefficient `ε`. -/

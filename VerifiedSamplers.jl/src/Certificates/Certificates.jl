@@ -4,8 +4,49 @@ export BoundWitness, DecisionCertificate, certify_bound, certify_decision,
     SamplerDecisionCertificate, certify_rwmh_decision, certify_hmc_decision,
     MultinomialSelectionCertificate, certify_multinomial_selection,
     SliceComparisonCertificate, certify_slice_comparisons,
+    SliceComparisonKind, SliceDecisionTraceCertificate,
+    certify_slice_decision_trace, certified_slice_decisions,
+    SliceThresholdCertificate, certify_slice_threshold,
+    SliceLogUniformCertificate, certify_slice_log_uniform,
     ImplicitSolveCertificate, certify_implicit_solve, certifies_exact_solver,
     ContractionErrorBound, contraction_error_bound,
+    AposterioriContractionRationalCertificate,
+    certify_contraction_aposteriori,
+    contraction_aposteriori_certificate_arguments,
+    RoundedContractionResidualRationalCertificate,
+    certify_rounded_contraction_residual,
+    rounded_contraction_residual_certificate_arguments,
+    RoundedAffineUpdateRationalCertificate,
+    certify_rounded_affine_update,
+    rounded_affine_update_certificate_arguments,
+    RoundedContractionPairCertificate, certify_rounded_contraction_pair,
+    rounded_contraction_pair_certificate_arguments,
+    BoundedScalarSolverContractionTraceCertificate,
+    certify_bounded_scalar_solver_contraction_trace,
+    bounded_scalar_solver_contraction_certificate_arguments,
+    BoundedScalarSolverPhaseTraceCertificate,
+    certify_bounded_scalar_solver_phase_trace,
+    bounded_scalar_solver_phase_certificate_arguments,
+    BoundedScalarSolverEndpointTraceCertificate,
+    certify_bounded_scalar_solver_endpoint_trace,
+    bounded_scalar_solver_endpoint_certificate_arguments,
+    BoundedScalarLinkedSolverTrajectoryTraceCertificate,
+    certify_bounded_scalar_linked_solver_trajectory,
+    bounded_scalar_linked_solver_trajectory_certificate_arguments,
+    BoundedScalarStepRegionalRationalCertificate,
+    certify_bounded_scalar_step_regional,
+    bounded_scalar_step_regional_certificate_arguments,
+    BoundedScalarEndpointEnergyTraceCertificate,
+    certify_bounded_scalar_endpoint_energy_trace,
+    bounded_scalar_endpoint_energy_certificate_arguments,
+    BoundedScalarTwoEndpointEnergyTraceCertificate,
+    certify_bounded_scalar_two_endpoint_energy_trace,
+    bounded_scalar_two_endpoint_energy_certificate_arguments,
+    BoundedScalarTwoEndpointWeightTraceCertificate,
+    certify_bounded_scalar_two_endpoint_weights,
+    bounded_scalar_two_endpoint_weight_certificate_arguments,
+    BoundedScalarTwoEndpointSelectionTraceCertificate,
+    certify_bounded_scalar_two_endpoint_selection,
     SeparatedZeroDecisionCertificate, certify_zero_decision,
     SeparatedComparisonCertificate, certify_comparison,
     UTurnDecisionCertificate, certify_uturn_decision,
@@ -13,6 +54,72 @@ export BoundWitness, DecisionCertificate, certify_bound, certify_decision,
     certified_uturn_decision,
     VectorUTurnTrajectoryCertificate, certify_vector_uturn_trajectory,
     certified_uturn_decisions,
+    RecursiveDoublingUTurnCertificate,
+    certify_recursive_doubling_uturn_matrix,
+    GaussianDyadicLeapfrogStepCertificate,
+    certify_gaussian_dyadic_leapfrog_step,
+    gaussian_dyadic_leapfrog_certificate_arguments,
+    GaussianRoundedLeapfrogStepCertificate,
+    certify_gaussian_rounded_leapfrog_step,
+    gaussian_rounded_leapfrog_certificate_arguments,
+    gaussian_rounded_four_leaf_certificate_arguments,
+    RoundedLeapfrogRationalCertificate,
+    certify_rounded_leapfrog_step,
+    rounded_leapfrog_certificate_arguments,
+    SinCosRationalIntervalCertificate, certify_sincos_interval,
+    sincos_interval_certificate_arguments,
+    SqrtRationalIntervalCertificate, certify_sqrt_interval,
+    sqrt_interval_certificate_arguments,
+    ReciprocalRationalResidualCertificate, certify_reciprocal_residual,
+    reciprocal_residual_certificate_arguments,
+    sqrt_reciprocal_certificate_arguments,
+    BoundedScalarCallbackRationalCertificate,
+    certify_bounded_scalar_callbacks,
+    bounded_scalar_callback_certificate_arguments,
+    BoundedScalarCallbackTraceRationalCertificate,
+    certify_bounded_scalar_callback_trace,
+    bounded_scalar_callback_trace_certificate_arguments,
+    BoundedScalarAffineTraceRationalCertificate,
+    certify_bounded_scalar_affine_trace,
+    bounded_scalar_affine_update_certificate_arguments,
+    LogRationalIntervalCertificate, certify_log_interval,
+    log_interval_certificate_arguments,
+    ExpNonpositiveRationalIntervalCertificate, certify_exp_nonpositive,
+    exp_nonpositive_certificate_arguments,
+    ExpNonpositiveTransportRationalCertificate,
+    certify_exp_nonpositive_transport,
+    exp_nonpositive_transport_certificate_arguments,
+    PositiveSoftAbsRationalCertificate, certify_positive_softabs,
+    positive_softabs_certificate_arguments,
+    PositiveSoftAbsMetricRationalCertificate,
+    certify_positive_softabs_metric,
+    positive_softabs_metric_certificate_arguments,
+    PositiveSoftAbsMetricErrorUpperCertificate,
+    certify_positive_softabs_metric_error_upper,
+    positive_softabs_metric_error_upper_certificate_arguments,
+    PositiveSoftAbsHamiltonianRationalCertificate,
+    certify_positive_softabs_hamiltonian,
+    positive_softabs_hamiltonian_certificate_arguments,
+    PositiveSoftAbsHamiltonianErrorUpperCertificate,
+    certify_positive_softabs_hamiltonian_error_upper,
+    positive_softabs_hamiltonian_error_upper_certificate_arguments,
+    PositiveSoftAbsEndpointStateTransportCertificate,
+    certify_positive_softabs_endpoint_state_transport,
+    positive_softabs_endpoint_state_transport_certificate_arguments,
+    PositiveSoftAbsHamiltonianTrajectoryRationalCertificate,
+    certify_positive_softabs_hamiltonian_trajectory,
+    positive_softabs_hamiltonian_trajectory_certificate_arguments,
+    PositiveSoftAbsStabilizedWeightTrajectoryRationalCertificate,
+    certify_positive_softabs_stabilized_weights,
+    positive_softabs_stabilized_weight_certificate_arguments,
+    RoundedCumulativeRationalCertificate, certify_rounded_cumulative,
+    rounded_cumulative_certificate_arguments,
+    ScaledDrawRationalCertificate, certify_scaled_draw,
+    scaled_draw_certificate_arguments,
+    MultinomialDecisionRationalCertificate, certify_multinomial_decision,
+    multinomial_decision_certificate_arguments,
+    PositiveSoftAbsSelectionErrorUpperCertificate,
+    certify_positive_softabs_selection_error_upper,
     NUTSCompletedTreeCertificate, certified_nuts_completed_tree,
     EuclideanLeapfrogErrorParameters, leapfrog_error_schedule,
     LeapfrogCoordinateCertificate, certify_leapfrog_coordinate_step,
@@ -23,6 +130,870 @@ export BoundWitness, DecisionCertificate, certify_bound, certify_decision,
     NUTSLeafEnergyCertificate, certify_nuts_leaf_energy,
     certified_nuts_leaf_decisions,
     is_stable, uncertainty_band
+
+"""Assumption-free rational sine/cosine enclosure for an input in `[-1,1]`."""
+struct SinCosRationalIntervalCertificate
+    input::Float64
+    computed_sin::Float64
+    sin_error::Rational{BigInt}
+    computed_cos::Float64
+    cos_error::Rational{BigInt}
+end
+
+
+function certify_sincos_interval(input::Real)
+    x = Float64(input)
+    isfinite(x) && abs(x) <= 1 || throw(DomainError(input,
+        "sine/cosine rational enclosure requires an input in [-1,1]"))
+    computed_sin, computed_cos = sin(x), cos(x)
+    exact_x = Rational{BigInt}(x)
+    exact_sin = Rational{BigInt}(computed_sin)
+    exact_cos = Rational{BigInt}(computed_cos)
+    sin_center = exact_x - exact_x^3 / 6
+    sin_remainder = abs(exact_x)^5 / 100
+    cos_center = 1 - exact_x^2 / 2
+    cos_remainder = abs(exact_x)^4 * (5 // big(96))
+    SinCosRationalIntervalCertificate(x, computed_sin,
+        abs(exact_sin - sin_center) + sin_remainder, computed_cos,
+        abs(exact_cos - cos_center) + cos_remainder)
+end
+
+
+sincos_interval_certificate_arguments(
+        certificate::SinCosRationalIntervalCertificate) = String[
+    _exact_rational_wire(certificate.input),
+    _exact_rational_wire(certificate.computed_sin),
+    _exact_rational_wire(certificate.sin_error),
+    _exact_rational_wire(certificate.computed_cos),
+    _exact_rational_wire(certificate.cos_error),
+]
+
+"""Exact rational enclosure of a Float64 square-root execution.
+
+The radius is computed from exact rational representations of the input and
+output. Lean independently checks that the squared interval endpoints enclose
+the input, which proves proximity to the mathematical real square root without
+assuming a platform `sqrt` error model.
+"""
+struct SqrtRationalIntervalCertificate
+    input::Float64
+    computed::Float64
+    error::Rational{BigInt}
+end
+
+function certify_sqrt_interval(input::Real)
+    x = Float64(input)
+    isfinite(x) && x >= 0 || throw(DomainError(input,
+        "square-root input must be finite and nonnegative"))
+    computed = sqrt(x)
+    isfinite(computed) || throw(DomainError(computed,
+        "square-root output must be finite"))
+    exact_x = Rational{BigInt}(x)
+    exact_computed = Rational{BigInt}(computed)
+    error = iszero(exact_computed) ? zero(exact_computed) :
+        abs(exact_computed^2 - exact_x) / exact_computed
+    SqrtRationalIntervalCertificate(x, computed, error)
+end
+
+sqrt_interval_certificate_arguments(
+        certificate::SqrtRationalIntervalCertificate) = String[
+    _exact_rational_wire(certificate.input),
+    _exact_rational_wire(certificate.computed),
+    string(numerator(certificate.error), "/", denominator(certificate.error)),
+]
+
+"""Exact rational residual of one finite, nonzero reciprocal execution."""
+struct ReciprocalRationalResidualCertificate
+    input::Float64
+    computed::Float64
+    error::Rational{BigInt}
+end
+
+function certify_reciprocal_residual(input::Real)
+    x = Float64(input)
+    isfinite(x) && !iszero(x) || throw(DomainError(input,
+        "reciprocal input must be finite and nonzero"))
+    computed = inv(x)
+    isfinite(computed) || throw(DomainError(computed,
+        "reciprocal output must be finite"))
+    exact_x = Rational{BigInt}(x)
+    exact_computed = Rational{BigInt}(computed)
+    error = abs(exact_computed - inv(exact_x))
+    ReciprocalRationalResidualCertificate(x, computed, error)
+end
+
+
+reciprocal_residual_certificate_arguments(
+        certificate::ReciprocalRationalResidualCertificate) = String[
+    _exact_rational_wire(certificate.input),
+    _exact_rational_wire(certificate.computed),
+    string(numerator(certificate.error), "/", denominator(certificate.error)),
+]
+
+function sqrt_reciprocal_certificate_arguments(
+        sqrt_certificate::SqrtRationalIntervalCertificate,
+        reciprocal_certificate::ReciprocalRationalResidualCertificate)
+    reciprocal_certificate.input == sqrt_certificate.computed ||
+        throw(ArgumentError("reciprocal input must equal the computed square root"))
+    String[
+        _exact_rational_wire(sqrt_certificate.input),
+        _exact_rational_wire(sqrt_certificate.computed),
+        string(numerator(sqrt_certificate.error), "/",
+            denominator(sqrt_certificate.error)),
+        _exact_rational_wire(reciprocal_certificate.computed),
+        string(numerator(reciprocal_certificate.error), "/",
+            denominator(reciprocal_certificate.error)),
+    ]
+end
+
+"""Checked primitive and final-arithmetic record for both callbacks of the
+bounded nonconstant `2 + sin(q)` generalized-leapfrog client."""
+struct BoundedScalarCallbackRationalCertificate
+    sincos::SinCosRationalIntervalCertificate
+    momentum::Float64
+    computed_radicand::Float64
+    radicand_arithmetic_error::Rational{BigInt}
+    sqrt_certificate::SqrtRationalIntervalCertificate
+    reciprocal_certificate::ReciprocalRationalResidualCertificate
+    computed_sqrt_lower::Rational{BigInt}
+    computed_momentum_callback::Float64
+    momentum_arithmetic_error::Rational{BigInt}
+    computed_position_callback::Float64
+    position_arithmetic_error::Rational{BigInt}
+end
+
+function certify_bounded_scalar_callbacks(position::Real, momentum::Real;
+        computed_momentum_callback=nothing, computed_position_callback=nothing)
+    q = Float64(position)
+    p = Float64(momentum)
+    isfinite(p) || throw(DomainError(momentum, "momentum must be finite"))
+    sincos = certify_sincos_interval(q)
+    scale = 2.0 + sincos.computed_sin
+    transformed = scale * p
+    computed_radicand = 1.0 + transformed^2
+    isfinite(computed_radicand) || throw(DomainError(computed_radicand,
+        "bounded scalar radicand must be finite"))
+    exact_scale = 2 + Rational{BigInt}(sincos.computed_sin)
+    exact_p = Rational{BigInt}(p)
+    exact_transformed = exact_scale * exact_p
+    exact_radicand = Rational{BigInt}(computed_radicand)
+    radicand_arithmetic_error = abs(exact_radicand -
+        (1 + exact_transformed^2))
+    sqrt_certificate = certify_sqrt_interval(computed_radicand)
+    reciprocal_certificate = certify_reciprocal_residual(
+        sqrt_certificate.computed)
+    computed_sqrt_lower = Rational{BigInt}(sqrt_certificate.computed) -
+        sqrt_certificate.error
+    computed_sqrt_lower > 0 || throw(DomainError(computed_sqrt_lower,
+        "certified square-root lower endpoint must be positive"))
+
+    computed_momentum_callback = computed_momentum_callback === nothing ?
+        scale * transformed * reciprocal_certificate.computed :
+        Float64(computed_momentum_callback)
+    isfinite(computed_momentum_callback) ||
+        throw(DomainError(computed_momentum_callback,
+            "momentum callback must be finite"))
+    exact_inverse = Rational{BigInt}(reciprocal_certificate.computed)
+    momentum_arithmetic_error = abs(
+        Rational{BigInt}(computed_momentum_callback) -
+          exact_scale * exact_transformed * exact_inverse)
+
+    computed_position_callback = computed_position_callback === nothing ?
+        scale * sincos.computed_cos * p^2 * reciprocal_certificate.computed :
+        Float64(computed_position_callback)
+    isfinite(computed_position_callback) ||
+        throw(DomainError(computed_position_callback,
+            "position callback must be finite"))
+    position_arithmetic_error = abs(
+        Rational{BigInt}(computed_position_callback) -
+          exact_scale * Rational{BigInt}(sincos.computed_cos) * exact_p^2 *
+            exact_inverse)
+
+    BoundedScalarCallbackRationalCertificate(sincos, p,
+        computed_radicand, radicand_arithmetic_error, sqrt_certificate,
+        reciprocal_certificate, computed_sqrt_lower,
+        computed_momentum_callback, momentum_arithmetic_error,
+        computed_position_callback, position_arithmetic_error)
+end
+
+function bounded_scalar_callback_certificate_arguments(
+        certificate::BoundedScalarCallbackRationalCertificate)
+    vcat(sincos_interval_certificate_arguments(certificate.sincos), String[
+        _exact_rational_wire(certificate.momentum),
+        _exact_rational_wire(certificate.computed_radicand),
+        _exact_rational_wire(certificate.radicand_arithmetic_error),
+        _exact_rational_wire(certificate.sqrt_certificate.input),
+        _exact_rational_wire(certificate.sqrt_certificate.computed),
+        _exact_rational_wire(certificate.sqrt_certificate.error),
+        _exact_rational_wire(certificate.reciprocal_certificate.input),
+        _exact_rational_wire(certificate.reciprocal_certificate.computed),
+        _exact_rational_wire(certificate.reciprocal_certificate.error),
+        _exact_rational_wire(certificate.computed_sqrt_lower),
+        _exact_rational_wire(certificate.computed_momentum_callback),
+        _exact_rational_wire(certificate.momentum_arithmetic_error),
+        _exact_rational_wire(certificate.computed_position_callback),
+        _exact_rational_wire(certificate.position_arithmetic_error),
+    ])
+end
+
+"""A complete ordered certificate list for every callback in one scalar
+reference fixed-point trace."""
+struct BoundedScalarCallbackTraceRationalCertificate
+    half_iterations::Int
+    position_iterations::Int
+    kinds::Vector{Symbol}
+    certificates::Vector{BoundedScalarCallbackRationalCertificate}
+end
+
+function certify_bounded_scalar_callback_trace(trace)
+    kinds = Symbol[]
+    certificates = BoundedScalarCallbackRationalCertificate[]
+    for evaluation in trace.callback_evaluations
+        length(evaluation.position) == 1 && length(evaluation.momentum) == 1 &&
+            length(evaluation.value) == 1 || throw(DimensionMismatch(
+                "bounded scalar trace evaluations must be one-dimensional"))
+        evaluation.kind in (:position, :momentum) || throw(ArgumentError(
+            "unknown fixed-point callback kind: $(evaluation.kind)"))
+        q, p, observed = evaluation.position[1], evaluation.momentum[1],
+            evaluation.value[1]
+        certificate = evaluation.kind === :position ?
+            certify_bounded_scalar_callbacks(q, p;
+                computed_position_callback=observed) :
+            certify_bounded_scalar_callbacks(q, p;
+                computed_momentum_callback=observed)
+        push!(kinds, evaluation.kind)
+        push!(certificates, certificate)
+    end
+    BoundedScalarCallbackTraceRationalCertificate(trace.half_iterations,
+        trace.position_iterations, kinds, certificates)
+end
+
+function bounded_scalar_callback_trace_certificate_arguments(
+        trace::BoundedScalarCallbackTraceRationalCertificate)
+    length(trace.kinds) == length(trace.certificates) ||
+        throw(ArgumentError("callback trace kind/certificate length mismatch"))
+    arguments = String[string(length(trace.kinds)),
+        string(trace.half_iterations), string(trace.position_iterations)]
+    for (kind, certificate) in zip(trace.kinds, trace.certificates)
+        push!(arguments, kind === :position ? "position" :
+            kind === :momentum ? "momentum" :
+            throw(ArgumentError("unknown callback kind: $kind")))
+        append!(arguments,
+            bounded_scalar_callback_certificate_arguments(certificate))
+    end
+    arguments
+end
+
+"""Rational analytic enclosure of one positive Float64 logarithm call.
+
+The radius uses 32 terms of the globally convergent expansion with
+`z=(x-1)/(x+1)` and a checked geometric remainder. Lean verifies the same
+rational expression, so this does not assume a platform libm bound.
+"""
+struct LogRationalIntervalCertificate
+    input::Float64
+    computed::Float64
+    error::Rational{BigInt}
+end
+
+function certify_log_interval(input::Real)
+    x = Float64(input)
+    isfinite(x) && x > 0 || throw(DomainError(input,
+        "logarithm input must be finite and positive"))
+    computed = log(x)
+    isfinite(computed) || throw(DomainError(computed,
+        "logarithm output must be finite"))
+    exact_x = Rational{BigInt}(x)
+    exact_computed = Rational{BigInt}(computed)
+    z = (exact_x - 1) / (exact_x + 1)
+    terms = 32
+    center = 2 * sum(z^(2 * i + 1) / (2 * i + 1) for i in 0:terms-1)
+    remainder = 2 * abs(z)^(2 * terms + 1) / (1 - z^2)
+    error = abs(exact_computed - center) + remainder
+    LogRationalIntervalCertificate(x, computed, error)
+end
+
+log_interval_certificate_arguments(
+        certificate::LogRationalIntervalCertificate) = String[
+    _exact_rational_wire(certificate.input),
+    _exact_rational_wire(certificate.computed),
+    string(numerator(certificate.error), "/", denominator(certificate.error)),
+]
+
+"""Assumption-free rational enclosure of `exp(x)` for an observed `x ≤ 0`."""
+struct ExpNonpositiveRationalIntervalCertificate
+    input::Float64
+    computed::Float64
+    error::Rational{BigInt}
+end
+
+function certify_exp_nonpositive(input::Real)
+    x = Float64(input)
+    isfinite(x) && x <= 0 || throw(DomainError(input,
+        "exponential certificate input must be finite and nonpositive"))
+    computed = exp(x)
+    isfinite(computed) || throw(DomainError(computed,
+        "exponential result must be finite"))
+    exact_x = Rational{BigInt}(x)
+    exact_computed = Rational{BigInt}(computed)
+    lower = max(zero(exact_x), one(exact_x) + exact_x)
+    upper = one(exact_x) / (one(exact_x) - exact_x)
+    error = max(zero(exact_x), exact_computed - lower,
+        upper - exact_computed)
+    ExpNonpositiveRationalIntervalCertificate(x, computed, error)
+end
+
+exp_nonpositive_certificate_arguments(
+        certificate::ExpNonpositiveRationalIntervalCertificate) = String[
+    _exact_rational_wire(certificate.input),
+    _exact_rational_wire(certificate.computed),
+    string(numerator(certificate.error), "/", denominator(certificate.error)),
+]
+
+"""Transport a checked nonpositive exponential to an exact rational input."""
+struct ExpNonpositiveTransportRationalCertificate
+    local_certificate::ExpNonpositiveRationalIntervalCertificate
+    ideal_input::Rational{BigInt}
+    input_error::Rational{BigInt}
+end
+
+function certify_exp_nonpositive_transport(computed_input::Real,
+        ideal_input::Rational)
+    ideal = Rational{BigInt}(ideal_input)
+    ideal <= 0 || throw(DomainError(ideal_input,
+        "ideal exponential input must be nonpositive"))
+    local_certificate = certify_exp_nonpositive(computed_input)
+    input_error = abs(Rational{BigInt}(local_certificate.input) - ideal)
+    ExpNonpositiveTransportRationalCertificate(
+        local_certificate, ideal, input_error)
+end
+
+
+function exp_nonpositive_transport_certificate_arguments(
+        certificate::ExpNonpositiveTransportRationalCertificate)
+    vcat(exp_nonpositive_certificate_arguments(certificate.local_certificate),
+        String[
+            string(numerator(certificate.ideal_input), "/",
+                denominator(certificate.ideal_input)),
+            string(numerator(certificate.input_error), "/",
+                denominator(certificate.input_error)),
+        ])
+end
+
+"""Exact-rational certificate for one positive-branch SoftAbs evaluation."""
+struct PositiveSoftAbsRationalCertificate
+    smoothing::Float64
+    hessian::Float64
+    computed_argument::Float64
+    argument_error::Rational{BigInt}
+    computed_tanh::Float64
+    tanh_error::Rational{BigInt}
+    computed_eigenvalue::Float64
+    division_error::Rational{BigInt}
+end
+
+function certify_positive_softabs(smoothing::Real, hessian::Real)
+    α, h = Float64(smoothing), Float64(hessian)
+    all(isfinite, (α, h)) && α > 0 && h > 0 || throw(DomainError(
+        (smoothing, hessian), "SoftAbs smoothing and Hessian must be finite and positive"))
+    exact_α, exact_h = Rational{BigInt}.((α, h))
+    computed_argument = α * h
+    exact_argument = exact_α * exact_h
+    exact_computed_argument = Rational{BigInt}(computed_argument)
+    argument_error = abs(exact_computed_argument - exact_argument)
+    computed_tanh = tanh(computed_argument)
+    isfinite(computed_tanh) && computed_tanh > 0 || throw(DomainError(
+        computed_tanh, "positive SoftAbs tanh must be finite and positive"))
+    exact_tanh = Rational{BigInt}(computed_tanh)
+    lower = exact_computed_argument / (1 + exact_computed_argument)
+    upper = min(exact_computed_argument, one(exact_computed_argument))
+    tanh_error = max(zero(exact_computed_argument), exact_tanh - lower,
+        upper - exact_tanh)
+    exact_tanh - tanh_error > 0 || throw(ArgumentError(
+        "analytic tanh enclosure does not retain a positive denominator"))
+    computed_eigenvalue = h / computed_tanh
+    isfinite(computed_eigenvalue) && computed_eigenvalue > 0 ||
+        throw(DomainError(computed_eigenvalue,
+            "positive SoftAbs eigenvalue must be finite and positive"))
+    division_error = abs(Rational{BigInt}(computed_eigenvalue) -
+        exact_h / exact_tanh)
+    PositiveSoftAbsRationalCertificate(α, h, computed_argument, argument_error,
+        computed_tanh, tanh_error, computed_eigenvalue, division_error)
+end
+
+positive_softabs_certificate_arguments(
+        certificate::PositiveSoftAbsRationalCertificate) = String[
+    _exact_rational_wire(certificate.smoothing),
+    _exact_rational_wire(certificate.hessian),
+    _exact_rational_wire(certificate.computed_argument),
+    string(numerator(certificate.argument_error), "/",
+        denominator(certificate.argument_error)),
+    _exact_rational_wire(certificate.computed_tanh),
+    string(numerator(certificate.tanh_error), "/",
+        denominator(certificate.tanh_error)),
+    _exact_rational_wire(certificate.computed_eigenvalue),
+    string(numerator(certificate.division_error), "/",
+        denominator(certificate.division_error)),
+]
+
+"""Linked certificates for a complete positive-branch SoftAbs metric entry."""
+struct PositiveSoftAbsMetricRationalCertificate
+    eigenvalue::PositiveSoftAbsRationalCertificate
+    sqrt::SqrtRationalIntervalCertificate
+    factor::ReciprocalRationalResidualCertificate
+    logdet::LogRationalIntervalCertificate
+end
+
+function certify_positive_softabs_metric(smoothing::Real, hessian::Real)
+    eigenvalue = certify_positive_softabs(smoothing, hessian)
+    sqrt_certificate = certify_sqrt_interval(eigenvalue.computed_eigenvalue)
+    factor = certify_reciprocal_residual(sqrt_certificate.computed)
+    logdet = certify_log_interval(eigenvalue.computed_eigenvalue)
+    PositiveSoftAbsMetricRationalCertificate(
+        eigenvalue, sqrt_certificate, factor, logdet)
+end
+
+function positive_softabs_metric_certificate_arguments(
+        certificate::PositiveSoftAbsMetricRationalCertificate)
+    vcat(positive_softabs_certificate_arguments(certificate.eigenvalue), String[
+        _exact_rational_wire(certificate.sqrt.computed),
+        string(numerator(certificate.sqrt.error), "/",
+            denominator(certificate.sqrt.error)),
+        _exact_rational_wire(certificate.factor.computed),
+        string(numerator(certificate.factor.error), "/",
+            denominator(certificate.factor.error)),
+        _exact_rational_wire(certificate.logdet.computed),
+        string(numerator(certificate.logdet.error), "/",
+            denominator(certificate.logdet.error)),
+    ])
+end
+
+"""Checked rational denominator bounds for transported SoftAbs metric errors."""
+struct PositiveSoftAbsMetricErrorUpperCertificate
+    metric::PositiveSoftAbsMetricRationalCertificate
+    ideal_tanh_lower::Rational{BigInt}
+    computed_sqrt_lower::Rational{BigInt}
+    ideal_sqrt_lower::Rational{BigInt}
+    eigenvalue_error::Rational{BigInt}
+    sqrt_error::Rational{BigInt}
+    factor_error::Rational{BigInt}
+    logdet_error::Rational{BigInt}
+end
+
+function certify_positive_softabs_metric_error_upper(
+        metric::PositiveSoftAbsMetricRationalCertificate)
+    eigen = metric.eigenvalue
+    tanh_transport_error = eigen.tanh_error + eigen.argument_error
+    ideal_tanh_lower = Rational{BigInt}(eigen.computed_tanh) -
+        tanh_transport_error
+    ideal_tanh_lower > 0 || throw(ArgumentError(
+        "SoftAbs ideal tanh lower bound must be positive"))
+    computed_sqrt_lower = Rational{BigInt}(metric.sqrt.computed) -
+        metric.sqrt.error
+    computed_sqrt_lower > 0 || throw(ArgumentError(
+        "SoftAbs computed square-root lower bound must be positive"))
+    eigenvalue_error = eigen.division_error +
+        abs(Rational{BigInt}(eigen.hessian)) * tanh_transport_error /
+        (abs(Rational{BigInt}(eigen.computed_tanh)) * ideal_tanh_lower)
+    eigenvalue_lower = Rational{BigInt}(eigen.computed_eigenvalue) -
+        eigenvalue_error
+    eigenvalue_lower > 0 || throw(ArgumentError(
+        "SoftAbs ideal eigenvalue lower bound must be positive"))
+    ideal_sqrt = certify_sqrt_interval(eigenvalue_lower)
+    ideal_sqrt_lower = Rational{BigInt}(ideal_sqrt.computed) - ideal_sqrt.error
+    ideal_sqrt_lower > 0 || throw(ArgumentError(
+        "SoftAbs ideal square-root lower bound must be positive"))
+    sqrt_error = metric.sqrt.error + eigenvalue_error /
+        (computed_sqrt_lower + ideal_sqrt_lower)
+    factor_error = metric.factor.error + sqrt_error /
+        (abs(Rational{BigInt}(metric.sqrt.computed)) * ideal_sqrt_lower)
+    logdet_error = metric.logdet.error + eigenvalue_error /
+        min(Rational{BigInt}(eigen.computed_eigenvalue), ideal_sqrt_lower^2)
+    PositiveSoftAbsMetricErrorUpperCertificate(metric, ideal_tanh_lower,
+        computed_sqrt_lower, ideal_sqrt_lower, eigenvalue_error, sqrt_error,
+        factor_error, logdet_error)
+end
+
+function positive_softabs_metric_error_upper_certificate_arguments(
+        certificate::PositiveSoftAbsMetricErrorUpperCertificate)
+    vcat(positive_softabs_metric_certificate_arguments(certificate.metric), String[
+        _exact_rational_wire(certificate.ideal_tanh_lower),
+        _exact_rational_wire(certificate.computed_sqrt_lower),
+        _exact_rational_wire(certificate.ideal_sqrt_lower),
+        _exact_rational_wire(certificate.eigenvalue_error),
+        _exact_rational_wire(certificate.sqrt_error),
+        _exact_rational_wire(certificate.factor_error),
+        _exact_rational_wire(certificate.logdet_error),
+    ])
+end
+
+"""Linked rational certificate for one scalar SoftAbs GR-HMC energy."""
+struct PositiveSoftAbsHamiltonianRationalCertificate
+    metric::PositiveSoftAbsMetricRationalCertificate
+    potential::Float64
+    momentum::Float64
+    kinetic::SqrtRationalIntervalCertificate
+    kinetic_input_error::Rational{BigInt}
+    computed_energy::Float64
+    energy_arithmetic_error::Rational{BigInt}
+end
+
+function certify_positive_softabs_hamiltonian(smoothing::Real, hessian::Real,
+        potential::Real, momentum::Real)
+    u, p = Float64(potential), Float64(momentum)
+    all(isfinite, (u, p)) || throw(DomainError((potential, momentum),
+        "potential and momentum must be finite"))
+    metric = certify_positive_softabs_metric(smoothing, hessian)
+    transformed = metric.factor.computed * p
+    radicand = transformed^2 + 1.0
+    isfinite(radicand) && radicand > 0 || throw(DomainError(radicand,
+        "relativistic kinetic radicand must be finite and positive"))
+    kinetic = certify_sqrt_interval(radicand)
+    exact_factor = Rational{BigInt}(metric.factor.computed)
+    exact_momentum = Rational{BigInt}(p)
+    ideal_observed_radicand = (exact_factor * exact_momentum)^2 + 1
+    kinetic_input_error = abs(Rational{BigInt}(radicand) -
+        ideal_observed_radicand)
+    computed_energy = u + kinetic.computed + 0.5 * metric.logdet.computed
+    isfinite(computed_energy) || throw(DomainError(computed_energy,
+        "SoftAbs Hamiltonian must be finite"))
+    exact_energy_expression = Rational{BigInt}(u) +
+        Rational{BigInt}(kinetic.computed) +
+        Rational{BigInt}(1, 2) * Rational{BigInt}(metric.logdet.computed)
+    energy_arithmetic_error = abs(Rational{BigInt}(computed_energy) -
+        exact_energy_expression)
+    PositiveSoftAbsHamiltonianRationalCertificate(metric, u, p, kinetic,
+        kinetic_input_error, computed_energy, energy_arithmetic_error)
+end
+
+function positive_softabs_hamiltonian_certificate_arguments(
+        certificate::PositiveSoftAbsHamiltonianRationalCertificate)
+    vcat(positive_softabs_metric_certificate_arguments(certificate.metric), String[
+        _exact_rational_wire(certificate.potential),
+        _exact_rational_wire(certificate.momentum),
+        _exact_rational_wire(certificate.kinetic.input),
+        _exact_rational_wire(certificate.kinetic.computed),
+        string(numerator(certificate.kinetic.error), "/",
+            denominator(certificate.kinetic.error)),
+        string(numerator(certificate.kinetic_input_error), "/",
+            denominator(certificate.kinetic_input_error)),
+        _exact_rational_wire(certificate.computed_energy),
+        string(numerator(certificate.energy_arithmetic_error), "/",
+            denominator(certificate.energy_arithmetic_error)),
+    ])
+end
+
+"""A complete rational upper error radius for one checked SoftAbs endpoint."""
+struct PositiveSoftAbsHamiltonianErrorUpperCertificate
+    endpoint::PositiveSoftAbsHamiltonianRationalCertificate
+    metric_upper::PositiveSoftAbsMetricErrorUpperCertificate
+    kinetic_sqrt_lower::Rational{BigInt}
+    energy_error::Rational{BigInt}
+end
+
+function certify_positive_softabs_hamiltonian_error_upper(
+        endpoint::PositiveSoftAbsHamiltonianRationalCertificate)
+    metric_upper = certify_positive_softabs_metric_error_upper(endpoint.metric)
+    kinetic_sqrt_lower = Rational{BigInt}(endpoint.kinetic.computed) -
+        endpoint.kinetic.error
+    kinetic_sqrt_lower > 0 || throw(ArgumentError(
+        "kinetic square-root lower bound must be positive"))
+    transformed_error = metric_upper.factor_error *
+        abs(Rational{BigInt}(endpoint.momentum))
+    computed_transformed = Rational{BigInt}(endpoint.metric.factor.computed) *
+        Rational{BigInt}(endpoint.momentum)
+    ideal_transformed_abs_upper =
+        (abs(Rational{BigInt}(endpoint.metric.factor.computed)) +
+            metric_upper.factor_error) *
+        abs(Rational{BigInt}(endpoint.momentum))
+    radicand_error = endpoint.kinetic_input_error +
+        transformed_error * abs(computed_transformed) +
+        ideal_transformed_abs_upper * transformed_error
+    kinetic_error = endpoint.kinetic.error + radicand_error /
+        (kinetic_sqrt_lower + 1)
+    energy_error = endpoint.energy_arithmetic_error + kinetic_error +
+        Rational{BigInt}(1, 2) * metric_upper.logdet_error
+    PositiveSoftAbsHamiltonianErrorUpperCertificate(endpoint, metric_upper,
+        kinetic_sqrt_lower, energy_error)
+end
+
+function positive_softabs_hamiltonian_error_upper_certificate_arguments(
+        certificate::PositiveSoftAbsHamiltonianErrorUpperCertificate)
+    vcat(positive_softabs_hamiltonian_certificate_arguments(certificate.endpoint),
+        String[
+            _exact_rational_wire(certificate.metric_upper.ideal_tanh_lower),
+            _exact_rational_wire(certificate.metric_upper.computed_sqrt_lower),
+            _exact_rational_wire(certificate.metric_upper.ideal_sqrt_lower),
+            _exact_rational_wire(certificate.kinetic_sqrt_lower),
+            _exact_rational_wire(certificate.energy_error),
+        ])
+end
+
+"""Rational transport of a checked endpoint to the exact implicit state."""
+struct PositiveSoftAbsEndpointStateTransportCertificate
+    endpoint::PositiveSoftAbsHamiltonianErrorUpperCertificate
+    solver_state_error::Rational{BigInt}
+    energy_lipschitz::Rational{BigInt}
+    total_energy_error::Rational{BigInt}
+end
+
+function certify_positive_softabs_endpoint_state_transport(
+        endpoint::PositiveSoftAbsHamiltonianErrorUpperCertificate,
+        solver_state_error::Real, energy_lipschitz::Real)
+    state_error = Rational{BigInt}(solver_state_error)
+    lipschitz = Rational{BigInt}(energy_lipschitz)
+    state_error >= 0 || throw(DomainError(solver_state_error,
+        "solver-state error must be nonnegative"))
+    lipschitz >= 0 || throw(DomainError(energy_lipschitz,
+        "energy Lipschitz bound must be nonnegative"))
+    total = endpoint.energy_error + lipschitz * state_error
+    PositiveSoftAbsEndpointStateTransportCertificate(endpoint, state_error,
+        lipschitz, total)
+end
+
+function positive_softabs_endpoint_state_transport_certificate_arguments(
+        certificate::PositiveSoftAbsEndpointStateTransportCertificate)
+    vcat(positive_softabs_hamiltonian_error_upper_certificate_arguments(
+            certificate.endpoint), String[
+        _exact_rational_wire(certificate.solver_state_error),
+        _exact_rational_wire(certificate.energy_lipschitz),
+        _exact_rational_wire(certificate.total_energy_error),
+    ])
+end
+
+"""A finite sequence of independently checked SoftAbs endpoint energies."""
+struct PositiveSoftAbsHamiltonianTrajectoryRationalCertificate
+    endpoints::Vector{PositiveSoftAbsHamiltonianRationalCertificate}
+end
+
+
+function certify_positive_softabs_hamiltonian_trajectory(smoothing::Real,
+        hessians::AbstractVector{<:Real}, potentials::AbstractVector{<:Real},
+        momenta::AbstractVector{<:Real})
+    count = length(hessians)
+    count > 0 || throw(ArgumentError("Hamiltonian trajectory cannot be empty"))
+    length(potentials) == count && length(momenta) == count ||
+        throw(DimensionMismatch("Hamiltonian trajectory fields"))
+    PositiveSoftAbsHamiltonianTrajectoryRationalCertificate([
+        certify_positive_softabs_hamiltonian(smoothing, hessians[i],
+            potentials[i], momenta[i]) for i in eachindex(hessians)])
+end
+
+function positive_softabs_hamiltonian_trajectory_certificate_arguments(
+        certificate::PositiveSoftAbsHamiltonianTrajectoryRationalCertificate)
+    fields = String[string(length(certificate.endpoints))]
+    for endpoint in certificate.endpoints
+        append!(fields, positive_softabs_hamiltonian_certificate_arguments(endpoint))
+    end
+    fields
+end
+
+"""Transported nonpositive exponentials for every SoftAbs trajectory weight."""
+struct PositiveSoftAbsStabilizedWeightTrajectoryRationalCertificate
+    energy::PositiveSoftAbsHamiltonianTrajectoryRationalCertificate
+    weights::Vector{ExpNonpositiveTransportRationalCertificate}
+end
+
+
+function certify_positive_softabs_stabilized_weights(
+        energy::PositiveSoftAbsHamiltonianTrajectoryRationalCertificate)
+    isempty(energy.endpoints) && throw(ArgumentError(
+        "Hamiltonian trajectory cannot be empty"))
+    exact_energies = Rational{BigInt}[
+        Rational{BigInt}(endpoint.computed_energy) for endpoint in energy.endpoints]
+    exact_logweights = .-exact_energies
+    exact_maximum = maximum(exact_logweights)
+    ideal_arguments = exact_logweights .- exact_maximum
+    computed_logweights = .-[endpoint.computed_energy for endpoint in energy.endpoints]
+    computed_maximum = maximum(computed_logweights)
+    computed_arguments = computed_logweights .- computed_maximum
+    weights = [certify_exp_nonpositive_transport(computed_arguments[i],
+        ideal_arguments[i]) for i in eachindex(computed_arguments)]
+    PositiveSoftAbsStabilizedWeightTrajectoryRationalCertificate(energy, weights)
+end
+
+
+function positive_softabs_stabilized_weight_certificate_arguments(
+        certificate::PositiveSoftAbsStabilizedWeightTrajectoryRationalCertificate)
+    fields = String[string(length(certificate.weights))]
+    for weight in certificate.weights
+        append!(fields, exp_nonpositive_transport_certificate_arguments(weight))
+    end
+    fields
+end
+
+"""Exact-rational residuals for each actual Float64 cumulative boundary."""
+struct RoundedCumulativeRationalCertificate
+    weights::Vector{Float64}
+    boundaries::Vector{Float64}
+    errors::Vector{Rational{BigInt}}
+end
+
+
+function certify_rounded_cumulative(weights::AbstractVector{<:Real})
+    isempty(weights) && throw(ArgumentError("weight vector cannot be empty"))
+    values = Float64.(weights)
+    all(isfinite, values) || throw(DomainError(weights,
+        "weights must be finite"))
+    boundaries = Vector{Float64}(undef, length(values))
+    running = 0.0
+    for i in eachindex(values)
+        running += values[i]
+        boundaries[i] = running
+    end
+    exact_running = zero(Rational{BigInt})
+    errors = Rational{BigInt}[]
+    for i in eachindex(values)
+        exact_running += Rational{BigInt}(values[i])
+        push!(errors, abs(Rational{BigInt}(boundaries[i]) - exact_running))
+    end
+    RoundedCumulativeRationalCertificate(values, boundaries, errors)
+end
+
+
+function rounded_cumulative_certificate_arguments(
+        certificate::RoundedCumulativeRationalCertificate)
+    fields = String[string(length(certificate.weights))]
+    for i in eachindex(certificate.weights)
+        append!(fields, String[
+            _exact_rational_wire(certificate.weights[i]),
+            _exact_rational_wire(certificate.boundaries[i]),
+            string(numerator(certificate.errors[i]), "/",
+                denominator(certificate.errors[i])),
+        ])
+    end
+    fields
+end
+
+"""Exact-rational residual for the final Float64 `uniform * total` draw."""
+struct ScaledDrawRationalCertificate
+    uniform::Float64
+    total::Float64
+    computed::Float64
+    error::Rational{BigInt}
+end
+
+
+function certify_scaled_draw(uniform::Real, total::Real)
+    u, t = Float64(uniform), Float64(total)
+    isfinite(u) && 0 <= u < 1 || throw(DomainError(uniform,
+        "uniform draw must be finite and lie in [0,1)"))
+    isfinite(t) && t >= 0 || throw(DomainError(total,
+        "total weight must be finite and nonnegative"))
+    computed = u * t
+    isfinite(computed) || throw(DomainError(computed,
+        "scaled draw must be finite"))
+    error = abs(Rational{BigInt}(computed) -
+        Rational{BigInt}(u) * Rational{BigInt}(t))
+    ScaledDrawRationalCertificate(u, t, computed, error)
+end
+
+
+scaled_draw_certificate_arguments(certificate::ScaledDrawRationalCertificate) =
+    String[
+        _exact_rational_wire(certificate.uniform),
+        _exact_rational_wire(certificate.total),
+        _exact_rational_wire(certificate.computed),
+        string(numerator(certificate.error), "/", denominator(certificate.error)),
+    ]
+
+"""Exact-rational separation of one computed scaled draw from all computed
+cumulative boundaries. The supplied errors must be the complete bounds used
+by the corresponding Lean selection certificate; this record checks the
+discontinuous decision margin, not the RNG's distributional semantics."""
+struct MultinomialDecisionRationalCertificate
+    computed_draw::Float64
+    computed_boundaries::Vector{Float64}
+    uniform_error::Rational{BigInt}
+    boundary_error::Rational{BigInt}
+end
+
+uncertainty_band(certificate::MultinomialDecisionRationalCertificate) =
+    certificate.uniform_error + certificate.boundary_error
+
+is_stable(certificate::MultinomialDecisionRationalCertificate) =
+    all(abs(Rational{BigInt}(certificate.computed_draw) -
+            Rational{BigInt}(boundary)) > uncertainty_band(certificate)
+        for boundary in certificate.computed_boundaries)
+
+
+function certify_multinomial_decision(computed_draw::Real,
+        computed_boundaries::AbstractVector{<:Real}, uniform_error::Real,
+        boundary_error::Real)
+    draw = Float64(computed_draw)
+    boundaries = Float64.(computed_boundaries)
+    isfinite(draw) || throw(DomainError(computed_draw,
+        "computed draw must be finite"))
+    !isempty(boundaries) && all(isfinite, boundaries) ||
+        throw(DomainError(computed_boundaries,
+            "computed boundaries must be nonempty and finite"))
+    uerror = Rational{BigInt}(uniform_error)
+    berror = Rational{BigInt}(boundary_error)
+    uerror >= 0 || throw(DomainError(uniform_error,
+        "uniform error must be nonnegative"))
+    berror >= 0 || throw(DomainError(boundary_error,
+        "boundary error must be nonnegative"))
+    radius = uerror + berror
+    all(abs(Rational{BigInt}(draw) - Rational{BigInt}(boundary)) > radius
+        for boundary in boundaries) || throw(ArgumentError(
+            "computed draw is not separated from every boundary"))
+    MultinomialDecisionRationalCertificate(draw, boundaries, uerror, berror)
+end
+
+
+function multinomial_decision_certificate_arguments(
+        certificate::MultinomialDecisionRationalCertificate)
+    fields = String[
+        _exact_rational_wire(certificate.computed_draw),
+        string(length(certificate.computed_boundaries)),
+        string(numerator(certificate.uniform_error), "/",
+            denominator(certificate.uniform_error)),
+        string(numerator(certificate.boundary_error), "/",
+            denominator(certificate.boundary_error)),
+    ]
+    append!(fields, _exact_rational_wire.(certificate.computed_boundaries))
+    fields
+end
+
+"""Complete rational error budget and stable decision for one maintained
+SoftAbs multinomial selection. RNG distributional correctness remains a
+separate contract; the observed Float64 uniform is interpreted exactly."""
+struct PositiveSoftAbsSelectionErrorUpperCertificate
+    endpoint_uppers::Vector{PositiveSoftAbsHamiltonianErrorUpperCertificate}
+    common_energy_error::Rational{BigInt}
+    common_weight_error::Rational{BigInt}
+    boundary_error::Rational{BigInt}
+    uniform_error::Rational{BigInt}
+    decision::MultinomialDecisionRationalCertificate
+end
+
+function certify_positive_softabs_selection_error_upper(
+        endpoint_uppers::AbstractVector{<:PositiveSoftAbsHamiltonianErrorUpperCertificate},
+        weights::PositiveSoftAbsStabilizedWeightTrajectoryRationalCertificate,
+        cumulative::RoundedCumulativeRationalCertificate,
+        draw::ScaledDrawRationalCertificate)
+    count = length(endpoint_uppers)
+    count > 0 || throw(ArgumentError("SoftAbs trajectory cannot be empty"))
+    length(weights.weights) == count && length(cumulative.weights) == count ||
+        throw(DimensionMismatch("SoftAbs selection certificate lengths"))
+    expected_weights = [weight.local_certificate.computed for weight in weights.weights]
+    cumulative.weights == expected_weights || throw(ArgumentError(
+        "cumulative inputs do not match the stabilized weights"))
+    draw.total == cumulative.boundaries[end] || throw(ArgumentError(
+        "scaled-draw total does not match the final cumulative boundary"))
+    common_energy_error = maximum(upper.energy_error for upper in endpoint_uppers)
+    common_weight_error = maximum(weight.local_certificate.error +
+        weight.input_error for weight in weights.weights)
+    propagated = count * (common_weight_error + 2 * common_energy_error)
+    boundary_error = maximum(cumulative.errors) + propagated
+    uniform_error = draw.error + abs(Rational{BigInt}(draw.uniform)) *
+        (cumulative.errors[end] + propagated)
+    decision = certify_multinomial_decision(draw.computed,
+        cumulative.boundaries, uniform_error, boundary_error)
+    PositiveSoftAbsSelectionErrorUpperCertificate(collect(endpoint_uppers),
+        common_energy_error, common_weight_error, boundary_error,
+        uniform_error, decision)
+end
 
 """A checked, execution-specific absolute-error claim.
 
@@ -37,6 +1008,191 @@ struct BoundWitness
     bound::BigFloat
     observed_error::BigFloat
 end
+
+"""Exact-dyadic record for one Float64 Gaussian leapfrog step.
+
+Construction succeeds only when the observed binary floating-point values,
+viewed as exact rationals, satisfy all three Gaussian kick--drift--kick
+equations exactly. This deliberately certifies a restricted no-rounding subset
+instead of assuming a general IEEE error model.
+"""
+struct GaussianDyadicLeapfrogStepCertificate
+    step_size::Float64
+    position::Float64
+    momentum::Float64
+    half_momentum::Float64
+    next_position::Float64
+    next_momentum::Float64
+end
+
+function certify_gaussian_dyadic_leapfrog_step(
+        step_size::Real, position::Real, momentum::Real)
+    epsilon, q, p = Float64(step_size), Float64(position), Float64(momentum)
+    all(isfinite, (epsilon, q, p)) || throw(ArgumentError(
+        "Gaussian dyadic leapfrog inputs must be finite"))
+    half = p - epsilon / 2 * q
+    next_q = q + epsilon * half
+    next_p = half - epsilon / 2 * next_q
+    all(isfinite, (half, next_q, next_p)) || throw(OverflowError(
+        "Gaussian dyadic leapfrog endpoint is not finite"))
+    exact_epsilon = Rational{BigInt}(epsilon)
+    exact_q = Rational{BigInt}(q)
+    exact_p = Rational{BigInt}(p)
+    Rational{BigInt}(half) ==
+        exact_p - exact_epsilon / 2 * exact_q || throw(InexactError(
+            :certify_gaussian_dyadic_leapfrog_step, Float64, half))
+    Rational{BigInt}(next_q) ==
+        exact_q + exact_epsilon * Rational{BigInt}(half) || throw(InexactError(
+            :certify_gaussian_dyadic_leapfrog_step, Float64, next_q))
+    Rational{BigInt}(next_p) ==
+        Rational{BigInt}(half) - exact_epsilon / 2 * Rational{BigInt}(next_q) ||
+        throw(InexactError(:certify_gaussian_dyadic_leapfrog_step,
+            Float64, next_p))
+    GaussianDyadicLeapfrogStepCertificate(
+        epsilon, q, p, half, next_q, next_p)
+end
+
+_exact_rational_wire(value::Real) = begin
+    rational = Rational{BigInt}(value)
+    string(numerator(rational), "/", denominator(rational))
+end
+
+"""Arguments accepted by Lean's `gaussian_dyadic_leapfrog` oracle command."""
+gaussian_dyadic_leapfrog_certificate_arguments(
+        certificate::GaussianDyadicLeapfrogStepCertificate) = String[
+    _exact_rational_wire(certificate.step_size),
+    _exact_rational_wire(certificate.position),
+    _exact_rational_wire(certificate.momentum),
+    _exact_rational_wire(certificate.half_momentum),
+    _exact_rational_wire(certificate.next_position),
+    _exact_rational_wire(certificate.next_momentum),
+]
+
+"""Exact rational residuals of one possibly rounded Float64 Gaussian step."""
+struct GaussianRoundedLeapfrogStepCertificate
+    step_size::Float64
+    position::Float64
+    momentum::Float64
+    half_momentum::Float64
+    next_position::Float64
+    next_momentum::Float64
+    half_momentum_error::Rational{BigInt}
+    next_position_error::Rational{BigInt}
+    next_momentum_error::Rational{BigInt}
+end
+
+function certify_gaussian_rounded_leapfrog_step(
+        step_size::Real, position::Real, momentum::Real)
+    epsilon, q, p = Float64(step_size), Float64(position), Float64(momentum)
+    all(isfinite, (epsilon, q, p)) || throw(ArgumentError(
+        "Gaussian rounded leapfrog inputs must be finite"))
+    half = p - epsilon / 2 * q
+    next_q = q + epsilon * half
+    next_p = half - epsilon / 2 * next_q
+    all(isfinite, (half, next_q, next_p)) || throw(OverflowError(
+        "Gaussian rounded leapfrog endpoint is not finite"))
+    e, x, r = Rational{BigInt}.((epsilon, q, p))
+    half_r, next_q_r, next_p_r = Rational{BigInt}.((half, next_q, next_p))
+    GaussianRoundedLeapfrogStepCertificate(epsilon, q, p, half, next_q, next_p,
+        abs(half_r - (r - e / 2 * x)),
+        abs(next_q_r - (x + e * half_r)),
+        abs(next_p_r - (half_r - e / 2 * next_q_r)))
+end
+
+gaussian_rounded_leapfrog_certificate_arguments(
+        certificate::GaussianRoundedLeapfrogStepCertificate) = String[
+    _exact_rational_wire(certificate.step_size),
+    _exact_rational_wire(certificate.position),
+    _exact_rational_wire(certificate.momentum),
+    _exact_rational_wire(certificate.half_momentum),
+    _exact_rational_wire(certificate.next_position),
+    _exact_rational_wire(certificate.next_momentum),
+    string(numerator(certificate.half_momentum_error), "/",
+        denominator(certificate.half_momentum_error)),
+    string(numerator(certificate.next_position_error), "/",
+        denominator(certificate.next_position_error)),
+    string(numerator(certificate.next_momentum_error), "/",
+        denominator(certificate.next_momentum_error)),
+]
+
+"""Serialize one linked three-step Gaussian trajectory as four phase leaves."""
+function gaussian_rounded_four_leaf_certificate_arguments(
+        certificates::AbstractVector{GaussianRoundedLeapfrogStepCertificate})
+    length(certificates) == 3 || throw(ArgumentError(
+        "a four-leaf trajectory requires exactly three leapfrog steps"))
+    for index in 2:3
+        certificates[index].position == certificates[index - 1].next_position &&
+            certificates[index].momentum == certificates[index - 1].next_momentum ||
+            throw(ArgumentError("rounded Gaussian steps are not linked"))
+        certificates[index].step_size == certificates[1].step_size ||
+            throw(ArgumentError("rounded Gaussian steps use different step sizes"))
+    end
+    arguments = String[
+        _exact_rational_wire(certificates[1].position),
+        _exact_rational_wire(certificates[1].momentum),
+    ]
+    for certificate in certificates
+        push!(arguments, _exact_rational_wire(certificate.next_position))
+        push!(arguments, _exact_rational_wire(certificate.next_momentum))
+    end
+    arguments
+end
+
+"""Target-independent exact rational residuals for a rounded Float64 step."""
+struct RoundedLeapfrogRationalCertificate
+    step_size::Float64
+    position::Float64
+    momentum::Float64
+    current_gradient::Float64
+    half_momentum::Float64
+    next_position::Float64
+    next_gradient::Float64
+    next_momentum::Float64
+    half_momentum_error::Rational{BigInt}
+    next_position_error::Rational{BigInt}
+    next_momentum_error::Rational{BigInt}
+end
+
+function certify_rounded_leapfrog_step(step_size::Real, position::Real,
+        momentum::Real, gradient)
+    epsilon, q, p = Float64(step_size), Float64(position), Float64(momentum)
+    all(isfinite, (epsilon, q, p)) || throw(ArgumentError(
+        "rounded leapfrog inputs must be finite"))
+    current_gradient = Float64(gradient(q))
+    isfinite(current_gradient) || throw(DomainError(current_gradient,
+        "rounded leapfrog gradient must be finite"))
+    half = p - epsilon / 2 * current_gradient
+    next_q = q + epsilon * half
+    next_gradient = Float64(gradient(next_q))
+    next_p = half - epsilon / 2 * next_gradient
+    all(isfinite, (half, next_q, next_gradient, next_p)) || throw(OverflowError(
+        "rounded leapfrog endpoint is not finite"))
+    e, x, r, g, half_r, next_x, next_g, next_r = Rational{BigInt}.(
+        (epsilon, q, p, current_gradient, half, next_q, next_gradient, next_p))
+    RoundedLeapfrogRationalCertificate(epsilon, q, p, current_gradient, half,
+        next_q, next_gradient, next_p,
+        abs(half_r - (r - e / 2 * g)),
+        abs(next_x - (x + e * half_r)),
+        abs(next_r - (half_r - e / 2 * next_g)))
+end
+
+rounded_leapfrog_certificate_arguments(
+        certificate::RoundedLeapfrogRationalCertificate) = String[
+    _exact_rational_wire(certificate.step_size),
+    _exact_rational_wire(certificate.position),
+    _exact_rational_wire(certificate.momentum),
+    _exact_rational_wire(certificate.current_gradient),
+    _exact_rational_wire(certificate.half_momentum),
+    _exact_rational_wire(certificate.next_position),
+    _exact_rational_wire(certificate.next_gradient),
+    _exact_rational_wire(certificate.next_momentum),
+    string(numerator(certificate.half_momentum_error), "/",
+        denominator(certificate.half_momentum_error)),
+    string(numerator(certificate.next_position_error), "/",
+        denominator(certificate.next_position_error)),
+    string(numerator(certificate.next_momentum_error), "/",
+        denominator(certificate.next_momentum_error)),
+]
 
 """Nonnegative constants for the Lean Euclidean leapfrog error recurrence."""
 struct EuclideanLeapfrogErrorParameters
@@ -541,6 +1697,111 @@ function certify_vector_uturn_trajectory(
     VectorUTurnTrajectoryCertificate(edges)
 end
 
+"""All distinct endpoint U-turn certificates for one linked trajectory.
+
+The diagonal is intentionally omitted: a self-displacement has dot product
+zero and cannot satisfy strict separation. Lean's recursive-row refinement
+handles those pairs structurally and consumes exactly the off-diagonal
+certificates represented here.
+"""
+struct RecursiveDoublingUTurnCertificate
+    count::Int
+    pairs::Dict{Tuple{Int,Int},VectorUTurnDecisionCertificate}
+end
+
+is_stable(certificate::RecursiveDoublingUTurnCertificate) =
+    length(certificate.pairs) == certificate.count * (certificate.count - 1) &&
+    all(is_stable, values(certificate.pairs))
+uncertainty_band(certificate::RecursiveDoublingUTurnCertificate) =
+    maximum(uncertainty_band, values(certificate.pairs); init=big"0")
+
+function certified_uturn_decisions(
+        certificate::RecursiveDoublingUTurnCertificate)
+    is_stable(certificate) || return nothing
+    Dict(pair => certified_uturn_decision(decision)::Bool
+        for (pair, decision) in certificate.pairs)
+end
+
+"""Compose a linked leapfrog trajectory into every recursive U-turn margin.
+
+Primitive step records determine all later computed/ideal endpoints and their
+proved recurrence budgets. The caller supplies only the initial endpoint
+budgets and optional final dot-reduction bounds. This is the executable adapter
+for Lean's `recursiveDoublingKernel_eq_ideal` theorem; supplied ideal values and
+primitive operation bounds remain the explicit trust boundary.
+"""
+function certify_recursive_doubling_uturn_matrix(
+        trajectory::LinkedLeapfrogVectorTrajectoryCertificate;
+        initial_position_error::Real=0,
+        initial_momentum_error::Real=0,
+        left_rounding_bound::Real=0,
+        right_rounding_bound::Real=0,
+        precision::Integer=256)
+    position_error = BigFloat(initial_position_error)
+    momentum_error = BigFloat(initial_momentum_error)
+    position_error >= 0 && momentum_error >= 0 || throw(ArgumentError(
+        "initial trajectory errors must be nonnegative"))
+    left_rounding_bound >= 0 && right_rounding_bound >= 0 ||
+        throw(ArgumentError("dot-product rounding bounds must be nonnegative"))
+
+    computed_positions = Vector{Vector{Float64}}()
+    ideal_positions = Vector{Vector{BigFloat}}()
+    position_bounds = Vector{Vector{BigFloat}}()
+    computed_momenta = Vector{Vector{Float64}}()
+    ideal_momenta = Vector{Vector{BigFloat}}()
+    momentum_bounds = Vector{Vector{BigFloat}}()
+    dimension = length(trajectory.initial_computed_position)
+
+    function push_endpoint!(computed_position, ideal_position, ep,
+            computed_momentum, ideal_momentum, em)
+        for coordinate in eachindex(computed_position)
+            certify_bound(computed_position[coordinate], ideal_position[coordinate],
+                ep; precision=precision)
+            certify_bound(computed_momentum[coordinate], ideal_momentum[coordinate],
+                em; precision=precision)
+        end
+        push!(computed_positions, Float64.(computed_position))
+        push!(ideal_positions, BigFloat.(ideal_position))
+        push!(position_bounds, fill(BigFloat(ep), dimension))
+        push!(computed_momenta, Float64.(computed_momentum))
+        push!(ideal_momenta, BigFloat.(ideal_momentum))
+        push!(momentum_bounds, fill(BigFloat(em), dimension))
+    end
+
+    push_endpoint!(trajectory.initial_computed_position,
+        trajectory.initial_ideal_position, position_error,
+        trajectory.initial_computed_momentum,
+        trajectory.initial_ideal_momentum, momentum_error)
+    for step in trajectory.steps
+        computed_position = [coordinate.drift_rounding.computed
+            for coordinate in step.coordinates]
+        ideal_position = [_ideal_next_position(coordinate)
+            for coordinate in step.coordinates]
+        computed_momentum = [coordinate.final_kick_rounding.computed
+            for coordinate in step.coordinates]
+        ideal_momentum = [_ideal_next_momentum(coordinate)
+            for coordinate in step.coordinates]
+        push_endpoint!(computed_position, ideal_position,
+            step.next_position_error, computed_momentum, ideal_momentum,
+            step.next_momentum_error)
+    end
+
+    count = length(computed_positions)
+    pairs = Dict{Tuple{Int,Int},VectorUTurnDecisionCertificate}()
+    for left in 1:count, right in 1:count
+        left == right && continue
+        pairs[(left, right)] = certify_vector_uturn_decision(
+            computed_positions[left], ideal_positions[left], position_bounds[left],
+            computed_positions[right], ideal_positions[right], position_bounds[right],
+            computed_momenta[left], ideal_momenta[left], momentum_bounds[left],
+            computed_momenta[right], ideal_momenta[right], momentum_bounds[right];
+            left_rounding_bound=left_rounding_bound,
+            right_rounding_bound=right_rounding_bound,
+            precision=precision)
+    end
+    RecursiveDoublingUTurnCertificate(count, pairs)
+end
+
 """All primitive comparison certificates visited by one completed tree.
 
 The recursive topology and ordering are supplied by the caller. Stability
@@ -583,8 +1844,11 @@ uncertainty_band(certificate::CompletedTreeDecisionCertificate) = max(
 """Checked comparison margins for one finite stepping-out/shrinkage trace.
 
 The supplied ideals and bounds remain proof inputs. When `is_stable` holds,
-Lean's `SliceComparisonCertificate.decisionTrace_eq` theorem proves that every
-endpoint-stop and proposal-accept comparison agrees with ideal-real execution.
+Lean's `SliceComparisonCertificate.lt_threshold_eq`, `le_threshold_eq`, and
+`ge_threshold_eq` theorems prove the corresponding strict, endpoint-stop, and
+proposal-accept comparisons agree with ideal-real execution. Joining those
+pointwise results to a concrete runtime trace still requires matching its
+comparison order and kind.
 """
 struct SliceComparisonCertificate
     threshold::BoundWitness
@@ -620,6 +1884,153 @@ function certify_slice_comparisons(computed_threshold::Real,
             maximum_uncertainty)
     end
 end
+
+@enum SliceComparisonKind begin
+    StrictBelow
+    StopBelow
+    AcceptAbove
+end
+
+"""Ordered practical-slice decisions paired with their margin certificate.
+
+The kind vector has exactly one entry per observed callback comparison. It is
+the runtime counterpart of Lean's `SliceComparisonKind` schedule in
+`SliceComparisonCertificate.decisionTrace_eq`.
+"""
+struct SliceDecisionTraceCertificate
+    comparisons::SliceComparisonCertificate
+    kinds::Vector{SliceComparisonKind}
+    computed_decisions::Vector{Bool}
+    ideal_decisions::Vector{Bool}
+end
+
+"""Checked decomposition of `logdensity(current) + log(u)`.
+
+The callback, logarithm, and final rounded addition are checked separately.
+The `threshold` witness uses their summed bound, matching Lean's
+`SliceThresholdCertificate.threshold_bound` theorem.
+"""
+struct SliceThresholdCertificate
+    base::BoundWitness
+    log_uniform::BoundWitness
+    addition::BoundWitness
+    threshold::BoundWitness
+end
+
+"""Guarded transport of one observed unit-uniform draw through `log`.
+
+`log_of_computed_uniform` and `log_of_ideal_uniform` are exact-real oracle
+inputs. Construction checks the RNG-input and local-log bounds and applies the
+proved `local + input/lower` transport factor; it does not claim platform
+`BigFloat` or `libm` is itself such an oracle.
+"""
+struct SliceLogUniformCertificate
+    uniform::BoundWitness
+    local_log::BoundWitness
+    log::BoundWitness
+    lower::BigFloat
+end
+
+function certify_slice_log_uniform(computed_uniform::Real,
+        ideal_uniform::Real, uniform_bound::Real, computed_log::Real,
+        log_of_computed_uniform::Real, local_log_bound::Real,
+        log_of_ideal_uniform::Real, lower::Real; precision::Integer=256)
+    uniform = certify_bound(computed_uniform, ideal_uniform, uniform_bound;
+        precision=precision)
+    local_log = certify_bound(computed_log, log_of_computed_uniform,
+        local_log_bound; precision=precision)
+    setprecision(BigFloat, precision) do
+        guarded_lower = BigFloat(lower)
+        isfinite(guarded_lower) && guarded_lower > 0 || throw(ArgumentError(
+            "slice logarithm lower bound must be finite and positive"))
+        guarded_lower <= BigFloat(uniform.computed) &&
+            guarded_lower <= uniform.ideal || throw(ArgumentError(
+            "slice uniform values must satisfy the positive lower bound"))
+        transported_bound = local_log.bound + uniform.bound / guarded_lower
+        log_witness = certify_bound(computed_log, log_of_ideal_uniform,
+            transported_bound; precision=precision)
+        SliceLogUniformCertificate(uniform, local_log, log_witness,
+            guarded_lower)
+    end
+end
+
+function certify_slice_threshold(computed_base::Real, ideal_base::Real,
+        base_bound::Real, computed_log::Real, ideal_log::Real,
+        log_bound::Real, computed_threshold::Real, addition_bound::Real;
+        precision::Integer=256)
+    base = certify_bound(computed_base, ideal_base, base_bound;
+        precision=precision)
+    log_uniform = certify_bound(computed_log, ideal_log, log_bound;
+        precision=precision)
+    addition_ideal = setprecision(BigFloat, precision) do
+        BigFloat(base.computed) + BigFloat(log_uniform.computed)
+    end
+    addition = certify_bound(computed_threshold, addition_ideal,
+        addition_bound; precision=precision)
+    setprecision(BigFloat, precision) do
+        ideal_threshold = base.ideal + log_uniform.ideal
+        total_bound = addition.bound + base.bound + log_uniform.bound
+        threshold = certify_bound(computed_threshold, ideal_threshold,
+            total_bound; precision=precision)
+        SliceThresholdCertificate(base, log_uniform, addition, threshold)
+    end
+end
+
+function certify_slice_threshold(computed_base::Real, ideal_base::Real,
+        base_bound::Real, log_uniform::SliceLogUniformCertificate,
+        computed_threshold::Real, addition_bound::Real;
+        precision::Integer=256)
+    certify_slice_threshold(computed_base, ideal_base, base_bound,
+        log_uniform.log.computed, log_uniform.log.ideal,
+        log_uniform.log.bound, computed_threshold, addition_bound;
+        precision=precision)
+end
+
+function _slice_decision(kind::SliceComparisonKind, value, threshold)
+    kind == StrictBelow && return value < threshold
+    kind == StopBelow && return value <= threshold
+    threshold <= value
+end
+
+function certify_slice_decision_trace(kinds::AbstractVector{SliceComparisonKind},
+        computed_threshold::Real, ideal_threshold::Real, threshold_bound::Real,
+        computed_values::AbstractVector{<:Real},
+        ideal_values::AbstractVector{<:Real},
+        value_bounds::AbstractVector{<:Real}; precision::Integer=256)
+    length(kinds) == length(computed_values) || throw(DimensionMismatch(
+        "comparison kinds and values must have equal length"))
+    comparisons = certify_slice_comparisons(computed_threshold,
+        ideal_threshold, threshold_bound, computed_values, ideal_values,
+        value_bounds; precision=precision)
+    ordered_kinds = collect(kinds)
+    computed = [_slice_decision(kind, witness.computed,
+        comparisons.threshold.computed)
+        for (kind, witness) in zip(ordered_kinds, comparisons.values)]
+    ideal = [_slice_decision(kind, witness.ideal,
+        comparisons.threshold.ideal)
+        for (kind, witness) in zip(ordered_kinds, comparisons.values)]
+    SliceDecisionTraceCertificate(comparisons, ordered_kinds, computed, ideal)
+end
+
+function certify_slice_decision_trace(kinds::AbstractVector{SliceComparisonKind},
+        threshold::SliceThresholdCertificate,
+        computed_values::AbstractVector{<:Real},
+        ideal_values::AbstractVector{<:Real},
+        value_bounds::AbstractVector{<:Real}; precision::Integer=256)
+    certify_slice_decision_trace(kinds, threshold.threshold.computed,
+        threshold.threshold.ideal, threshold.threshold.bound,
+        computed_values, ideal_values, value_bounds; precision=precision)
+end
+
+is_stable(certificate::SliceDecisionTraceCertificate) =
+    is_stable(certificate.comparisons) &&
+    certificate.computed_decisions == certificate.ideal_decisions
+uncertainty_band(certificate::SliceDecisionTraceCertificate) =
+    uncertainty_band(certificate.comparisons)
+
+"""Return the common checked decision trace, or fail closed at a boundary."""
+certified_slice_decisions(certificate::SliceDecisionTraceCertificate) =
+    is_stable(certificate) ? copy(certificate.computed_decisions) : nothing
 
 """Checked residual information for one implicit generalized-leapfrog solve.
 
@@ -669,6 +2080,658 @@ struct ContractionErrorBound
     rate::BigFloat
     distance_bound::BigFloat
 end
+
+"""Exact-rational a posteriori budget for a contraction solve.
+
+The record proves the arithmetic formula `distance = residual/(1-rate)` and
+the rate guard. A Lean client must still prove that `residual_upper` bounds the
+exact one-step residual and that the update really contracts at `rate`.
+"""
+struct AposterioriContractionRationalCertificate
+    residual_upper::Rational{BigInt}
+    rate::Rational{BigInt}
+    distance_upper::Rational{BigInt}
+end
+
+function certify_contraction_aposteriori(residual_upper::Real, rate::Real)
+    residual = Rational{BigInt}(residual_upper)
+    contraction_rate = Rational{BigInt}(rate)
+    residual >= 0 || throw(DomainError(residual_upper,
+        "residual upper bound must be nonnegative"))
+    0 <= contraction_rate < 1 || throw(DomainError(rate,
+        "contraction rate must lie in [0, 1)"))
+    AposterioriContractionRationalCertificate(residual, contraction_rate,
+        residual / (1 - contraction_rate))
+end
+
+contraction_aposteriori_certificate_arguments(
+        certificate::AposterioriContractionRationalCertificate) = [
+    string(numerator(value), "/", denominator(value))
+    for value in (certificate.residual_upper, certificate.rate,
+        certificate.distance_upper)
+]
+
+"""Exact rational residual budget for one rounded scalar fixed-point update."""
+struct RoundedContractionResidualRationalCertificate
+    iterate::Rational{BigInt}
+    computed_update::Rational{BigInt}
+    update_error::Rational{BigInt}
+    residual_upper::Rational{BigInt}
+end
+
+"""Exact arithmetic and explicit callback error for `base + scale*callback`."""
+struct RoundedAffineUpdateRationalCertificate
+    base::Rational{BigInt}
+    scale::Rational{BigInt}
+    computed_callback::Rational{BigInt}
+    callback_error::Rational{BigInt}
+    computed_update::Rational{BigInt}
+    arithmetic_error::Rational{BigInt}
+    update_error::Rational{BigInt}
+end
+
+
+function certify_rounded_affine_update(base::Real, scale::Real,
+        computed_callback::Real, callback_error::Real, computed_update::Real)
+    exact_base = Rational{BigInt}(base)
+    exact_scale = Rational{BigInt}(scale)
+    exact_callback = Rational{BigInt}(computed_callback)
+    error = Rational{BigInt}(callback_error)
+    exact_update = Rational{BigInt}(computed_update)
+    error >= 0 || throw(DomainError(callback_error,
+        "callback error must be nonnegative"))
+    arithmetic_error = abs(exact_update -
+        (exact_base + exact_scale * exact_callback))
+    update_error = arithmetic_error + abs(exact_scale) * error
+    RoundedAffineUpdateRationalCertificate(exact_base, exact_scale,
+        exact_callback, error, exact_update, arithmetic_error, update_error)
+end
+
+
+rounded_affine_update_certificate_arguments(
+        certificate::RoundedAffineUpdateRationalCertificate) = [
+    string(numerator(value), "/", denominator(value))
+    for value in (certificate.base, certificate.scale,
+        certificate.computed_callback, certificate.callback_error,
+        certificate.computed_update, certificate.arithmetic_error,
+        certificate.update_error)
+]
+
+"""All rounded affine updates made by one bounded-scalar fixed-point trace,
+with one-based indices into its ordered callback certificate list."""
+struct BoundedScalarAffineTraceRationalCertificate
+    kinds::Vector{Symbol}
+    callback_indices::Vector{Vector{Int}}
+    callback_arithmetic_errors::Vector{Rational{BigInt}}
+    updates::Vector{RoundedAffineUpdateRationalCertificate}
+end
+
+function _bounded_scalar_callback_error(
+        certificate::BoundedScalarCallbackRationalCertificate, kind::Symbol)
+    sincos = certificate.sincos
+    p = Rational{BigInt}(certificate.momentum)
+    transformed = (2 + Rational{BigInt}(sincos.computed_sin)) * p
+    transformed_error = sincos.sin_error * abs(p)
+    radicand_error = certificate.radicand_arithmetic_error +
+        transformed_error * (2 * abs(transformed) + transformed_error)
+    sqrt_error = _bounded_scalar_sqrt_error(certificate)
+    reciprocal_error = certificate.reciprocal_certificate.error +
+        sqrt_error / certificate.computed_sqrt_lower
+    inverse_hat = Rational{BigInt}(certificate.reciprocal_certificate.computed)
+    if kind === :momentum
+        scale_momentum_error = sincos.sin_error * abs(transformed) +
+            3 * transformed_error
+        semantic_error = scale_momentum_error * abs(inverse_hat) +
+            3(abs(transformed) + transformed_error) * reciprocal_error
+        certificate.momentum_arithmetic_error + semantic_error
+    elseif kind === :position
+        scale_cos_error = sincos.sin_error *
+            abs(Rational{BigInt}(sincos.computed_cos)) + 3 * sincos.cos_error
+        semantic_error = scale_cos_error * abs(p^2) * abs(inverse_hat) +
+            3 * abs(p^2) * reciprocal_error
+        certificate.position_arithmetic_error + semantic_error
+    else
+        throw(ArgumentError("unknown bounded scalar callback kind: $kind"))
+    end
+end
+
+function _bounded_scalar_sqrt_error(
+        certificate::BoundedScalarCallbackRationalCertificate)
+    sincos = certificate.sincos
+    p = Rational{BigInt}(certificate.momentum)
+    transformed = (2 + Rational{BigInt}(sincos.computed_sin)) * p
+    transformed_error = sincos.sin_error * abs(p)
+    radicand_error = certificate.radicand_arithmetic_error +
+        transformed_error * (2 * abs(transformed) + transformed_error)
+    certificate.sqrt_certificate.error + radicand_error / 2
+end
+
+function certify_bounded_scalar_affine_trace(trace,
+        callbacks::BoundedScalarCallbackTraceRationalCertificate)
+    half = callbacks.half_iterations
+    position = callbacks.position_iterations
+    length(callbacks.certificates) == half + position + 4 ||
+        throw(ArgumentError("callback certificate count does not match iterations"))
+    expected_updates = half + position + 3
+    length(trace.affine_updates) == expected_updates ||
+        throw(ArgumentError("affine update count does not match iterations"))
+    initial_velocity = half + 1
+    final_half = half + position + 2
+    final_velocity = half + position + 3
+    final_position = half + position + 4
+    kinds = Symbol[]
+    callback_indices = Vector{Int}[]
+    callback_arithmetic_errors = Rational{BigInt}[]
+    updates = RoundedAffineUpdateRationalCertificate[]
+    for (update_index, evaluation) in enumerate(trace.affine_updates)
+        indices = if update_index <= half
+            [update_index]
+        elseif update_index <= half + position
+            [initial_velocity, half + 1 + (update_index - half)]
+        elseif update_index == half + position + 1
+            [final_half]
+        elseif update_index == half + position + 2
+            [initial_velocity, final_velocity]
+        else
+            [final_position]
+        end
+        expected_kind = update_index <= half ? :half_momentum :
+            update_index <= half + position ? :position :
+            update_index == half + position + 1 ? :half_momentum :
+            update_index == half + position + 2 ? :position : :final_momentum
+        evaluation.kind === expected_kind || throw(ArgumentError(
+            "affine update kind does not match fixed-point phase"))
+        length(evaluation.base) == 1 && length(evaluation.computed_update) == 1 ||
+            throw(DimensionMismatch("bounded scalar affine updates must be scalar"))
+        length(evaluation.callbacks) == length(indices) || throw(ArgumentError(
+            "affine callback arity does not match fixed-point phase"))
+        computed_callback = sum(callback[1] for callback in evaluation.callbacks)
+        source_error = sum(_bounded_scalar_callback_error(
+            callbacks.certificates[index], callbacks.kinds[index])
+            for index in indices)
+        source_center = sum(callbacks.kinds[index] === :position ?
+            Rational{BigInt}(callbacks.certificates[index].computed_position_callback) :
+            Rational{BigInt}(callbacks.certificates[index].computed_momentum_callback)
+            for index in indices)
+        callback_arithmetic_error = abs(Rational{BigInt}(computed_callback) -
+            source_center)
+        callback_error = callback_arithmetic_error + source_error
+        for (callback, index) in zip(evaluation.callbacks, indices)
+            observed = callbacks.kinds[index] === :position ?
+                callbacks.certificates[index].computed_position_callback :
+                callbacks.certificates[index].computed_momentum_callback
+            callback[1] == observed || throw(ArgumentError(
+                "affine update callback does not match its callback certificate"))
+        end
+        push!(kinds, evaluation.kind)
+        push!(callback_indices, indices)
+        push!(callback_arithmetic_errors, callback_arithmetic_error)
+        push!(updates, certify_rounded_affine_update(evaluation.base[1],
+            evaluation.scale, computed_callback, callback_error,
+            evaluation.computed_update[1]))
+    end
+    BoundedScalarAffineTraceRationalCertificate(kinds, callback_indices,
+        callback_arithmetic_errors, updates)
+end
+
+function bounded_scalar_affine_update_certificate_arguments(
+        callbacks::BoundedScalarCallbackTraceRationalCertificate,
+        affine::BoundedScalarAffineTraceRationalCertificate, index::Integer)
+    checkbounds(affine.updates, index)
+    indices = affine.callback_indices[index]
+    length(indices) in (1, 2) || throw(ArgumentError(
+        "bounded scalar affine updates require one or two callback sources"))
+    arguments = String[string(length(indices))]
+    for callback_index in indices
+        push!(arguments, callbacks.kinds[callback_index] === :position ?
+            "position" : "momentum")
+        append!(arguments, bounded_scalar_callback_certificate_arguments(
+            callbacks.certificates[callback_index]))
+    end
+    push!(arguments, _exact_rational_wire(
+        affine.callback_arithmetic_errors[index]))
+    append!(arguments,
+        rounded_affine_update_certificate_arguments(affine.updates[index]))
+    arguments
+end
+
+function certify_rounded_contraction_residual(iterate::Real,
+        computed_update::Real, update_error::Real)
+    exact_iterate = Rational{BigInt}(iterate)
+    exact_update = Rational{BigInt}(computed_update)
+    error = Rational{BigInt}(update_error)
+    error >= 0 || throw(DomainError(update_error,
+        "rounded update error must be nonnegative"))
+    RoundedContractionResidualRationalCertificate(exact_iterate, exact_update,
+        error, abs(exact_iterate - exact_update) + error)
+end
+
+rounded_contraction_residual_certificate_arguments(
+        certificate::RoundedContractionResidualRationalCertificate) = [
+    string(numerator(value), "/", denominator(value))
+    for value in (certificate.iterate, certificate.computed_update,
+        certificate.update_error, certificate.residual_upper)
+]
+
+"""Linked rounded residual and a posteriori contraction-distance budget."""
+struct RoundedContractionPairCertificate
+    residual::RoundedContractionResidualRationalCertificate
+    contraction::AposterioriContractionRationalCertificate
+end
+
+function certify_rounded_contraction_pair(iterate::Real,
+        computed_update::Real, update_error::Real, rate::Real)
+    residual = certify_rounded_contraction_residual(iterate, computed_update,
+        update_error)
+    contraction = certify_contraction_aposteriori(residual.residual_upper, rate)
+    RoundedContractionPairCertificate(residual, contraction)
+end
+
+function rounded_contraction_pair_certificate_arguments(
+        certificate::RoundedContractionPairCertificate)
+    vcat(rounded_contraction_residual_certificate_arguments(certificate.residual),
+        [string(numerator(value), "/", denominator(value))
+         for value in (certificate.contraction.rate,
+             certificate.contraction.distance_upper)])
+end
+
+"""Final residual-to-fixed-point records for both bounded scalar implicit
+loops, linked to the corresponding fully certified affine updates."""
+struct BoundedScalarSolverContractionTraceCertificate
+    epsilon::Float64
+    half_update_index::Int
+    position_update_index::Int
+    half::RoundedContractionPairCertificate
+    position::RoundedContractionPairCertificate
+end
+
+function certify_bounded_scalar_solver_contraction_trace(trace,
+        affine::BoundedScalarAffineTraceRationalCertificate, step_size::Real)
+    epsilon = Float64(step_size)
+    isfinite(epsilon) || throw(DomainError(step_size, "step size must be finite"))
+    exact_epsilon = Rational{BigInt}(epsilon)
+    half_rate = abs(exact_epsilon / 2) * 3
+    position_rate = abs(exact_epsilon / 2) * 2
+    half_rate < 1 && position_rate < 1 || throw(DomainError(step_size,
+        "bounded scalar fixed-point rates must be below one"))
+    half_index = trace.half_iterations + trace.position_iterations + 1
+    position_index = half_index + 1
+    affine.kinds[half_index] === :half_momentum || throw(ArgumentError(
+        "final half residual update is not in the expected trace slot"))
+    affine.kinds[position_index] === :position || throw(ArgumentError(
+        "final position residual update is not in the expected trace slot"))
+    half = certify_rounded_contraction_pair(trace.half_momentum[1],
+        trace.half_update[1], affine.updates[half_index].update_error, half_rate)
+    position = certify_rounded_contraction_pair(trace.next_position[1],
+        trace.position_update[1], affine.updates[position_index].update_error,
+        position_rate)
+    BoundedScalarSolverContractionTraceCertificate(epsilon, half_index,
+        position_index, half, position)
+end
+
+function bounded_scalar_solver_contraction_certificate_arguments(
+        callbacks::BoundedScalarCallbackTraceRationalCertificate,
+        affine::BoundedScalarAffineTraceRationalCertificate,
+        solver::BoundedScalarSolverContractionTraceCertificate, kind::Symbol)
+    index, pair, tag = kind === :half_momentum ?
+        (solver.half_update_index, solver.half, "half") :
+        kind === :position ?
+        (solver.position_update_index, solver.position, "position") :
+        throw(ArgumentError("unknown bounded scalar contraction kind: $kind"))
+    vcat(String[tag, _exact_rational_wire(solver.epsilon)],
+        bounded_scalar_affine_update_certificate_arguments(
+            callbacks, affine, index),
+        rounded_contraction_pair_certificate_arguments(pair))
+end
+
+"""Linked half-momentum and position fixed-point budgets for one bounded
+scalar solver trace. `position_error` includes propagation of half-momentum
+error through the exact implicit-position fixed point."""
+struct BoundedScalarSolverPhaseTraceCertificate
+    solver::BoundedScalarSolverContractionTraceCertificate
+    position_error::Rational{BigInt}
+end
+
+function certify_bounded_scalar_solver_phase_trace(trace,
+        callbacks::BoundedScalarCallbackTraceRationalCertificate,
+        affine::BoundedScalarAffineTraceRationalCertificate, step_size::Real)
+    solver = certify_bounded_scalar_solver_contraction_trace(trace, affine,
+        step_size)
+    half_sources = affine.callback_indices[solver.half_update_index]
+    position_sources = affine.callback_indices[solver.position_update_index]
+    length(half_sources) == 1 || throw(ArgumentError(
+        "half residual must have one callback source"))
+    length(position_sources) == 2 || throw(ArgumentError(
+        "position residual must have two callback sources"))
+    half_entry = callbacks.certificates[only(half_sources)]
+    first_position_entry = callbacks.certificates[first(position_sources)]
+    affine.updates[solver.position_update_index].base ==
+        half_entry.sincos.input || throw(ArgumentError(
+            "implicit phases do not share the same initial position"))
+    first_position_entry.momentum == solver.half.residual.iterate ||
+        throw(ArgumentError(
+            "position phase does not consume the returned half momentum"))
+    epsilon = Rational{BigInt}(solver.epsilon)
+    position_rate = abs(epsilon / 2) * 2
+    sensitivity = (2 * abs(epsilon / 2) * 9 *
+        solver.half.contraction.distance_upper) / (1 - position_rate)
+    BoundedScalarSolverPhaseTraceCertificate(solver,
+        solver.position.contraction.distance_upper + sensitivity)
+end
+
+function bounded_scalar_solver_phase_certificate_arguments(
+        callbacks::BoundedScalarCallbackTraceRationalCertificate,
+        affine::BoundedScalarAffineTraceRationalCertificate,
+        certificate::BoundedScalarSolverPhaseTraceCertificate)
+    half = bounded_scalar_solver_contraction_certificate_arguments(callbacks,
+        affine, certificate.solver, :half_momentum)
+    position = bounded_scalar_solver_contraction_certificate_arguments(callbacks,
+        affine, certificate.solver, :position)
+    vcat(String[string(length(half))], half,
+        String[string(length(position))], position,
+        String[_exact_rational_wire(certificate.position_error)])
+end
+
+"""Complete bounded scalar endpoint error, including the final explicit
+momentum kick and the product-metric phase radius."""
+struct BoundedScalarSolverEndpointTraceCertificate
+    phase::BoundedScalarSolverPhaseTraceCertificate
+    final_update_index::Int
+    final_momentum_error::Rational{BigInt}
+    phase_error::Rational{BigInt}
+end
+
+function certify_bounded_scalar_solver_endpoint_trace(trace,
+        callbacks::BoundedScalarCallbackTraceRationalCertificate,
+        affine::BoundedScalarAffineTraceRationalCertificate, step_size::Real)
+    phase = certify_bounded_scalar_solver_phase_trace(trace, callbacks, affine,
+        step_size)
+    final_index = phase.solver.position_update_index + 1
+    affine.kinds[final_index] === :final_momentum || throw(ArgumentError(
+        "final momentum update is not in the expected trace slot"))
+    sources = affine.callback_indices[final_index]
+    length(sources) == 1 || throw(ArgumentError(
+        "final momentum update must have one callback source"))
+    final_callback = callbacks.certificates[only(sources)]
+    final_callback.sincos.input == phase.solver.position.residual.iterate ||
+        throw(ArgumentError(
+            "final kick position does not match the returned position"))
+    final_callback.momentum == phase.solver.half.residual.iterate ||
+        throw(ArgumentError(
+            "final kick momentum does not match the returned half momentum"))
+    update = affine.updates[final_index]
+    update.base == phase.solver.half.residual.iterate || throw(ArgumentError(
+        "final kick base does not match the returned half momentum"))
+    epsilon = Rational{BigInt}(phase.solver.epsilon)
+    update.scale == -(epsilon / 2) || throw(ArgumentError(
+        "final kick scale does not match the solver step size"))
+    half_error = phase.solver.half.contraction.distance_upper
+    rounded_half = phase.solver.half.residual.iterate
+    position_rate = 18 * (abs(rounded_half) + half_error)^2 +
+        3 * (abs(rounded_half) + half_error)
+    final_error = update.update_error +
+        (1 + abs(epsilon / 2) * 3) * half_error +
+        abs(epsilon / 2) * position_rate * phase.position_error
+    BoundedScalarSolverEndpointTraceCertificate(phase, final_index,
+        final_error, max(phase.position_error, final_error))
+end
+
+function bounded_scalar_solver_endpoint_certificate_arguments(
+        callbacks::BoundedScalarCallbackTraceRationalCertificate,
+        affine::BoundedScalarAffineTraceRationalCertificate,
+        certificate::BoundedScalarSolverEndpointTraceCertificate)
+    phase = bounded_scalar_solver_phase_certificate_arguments(callbacks,
+        affine, certificate.phase)
+    final_update = bounded_scalar_affine_update_certificate_arguments(callbacks,
+        affine, certificate.final_update_index)
+    vcat(String[string(length(phase))], phase,
+        String[string(length(final_update))], final_update,
+        String[_exact_rational_wire(certificate.final_momentum_error),
+            _exact_rational_wire(certificate.phase_error)])
+end
+
+"""A nonempty sequence of bounded implicit-solver records with exact
+Float64-as-rational state threading between consecutive rounded steps."""
+struct BoundedScalarLinkedSolverTrajectoryTraceCertificate
+    epsilon::Rational{BigInt}
+    initial_position::Rational{BigInt}
+    initial_momentum::Rational{BigInt}
+    steps::Vector{BoundedScalarSolverEndpointTraceCertificate}
+end
+
+function certify_bounded_scalar_linked_solver_trajectory(
+        initial_position::Real, initial_momentum::Real,
+        traces::AbstractVector,
+        callbacks::AbstractVector{<:BoundedScalarCallbackTraceRationalCertificate},
+        affine::AbstractVector{<:BoundedScalarAffineTraceRationalCertificate},
+        step_size::Real)
+    count = length(traces)
+    count > 0 || throw(ArgumentError("bounded solver trajectory cannot be empty"))
+    length(callbacks) == count && length(affine) == count ||
+        throw(DimensionMismatch("bounded solver trajectory records"))
+    position = Rational{BigInt}(initial_position)
+    momentum = Rational{BigInt}(initial_momentum)
+    steps = BoundedScalarSolverEndpointTraceCertificate[]
+    for index in eachindex(traces)
+        endpoint = certify_bounded_scalar_solver_endpoint_trace(traces[index],
+            callbacks[index], affine[index], step_size)
+        half_sources = affine[index].callback_indices[
+            endpoint.phase.solver.half_update_index]
+        length(half_sources) == 1 || throw(ArgumentError(
+            "half-momentum residual must have one callback source"))
+        entry = callbacks[index].certificates[only(half_sources)]
+        entry.sincos.input == position || throw(ArgumentError(
+            "bounded solver step does not consume the preceding position"))
+        affine[index].updates[endpoint.phase.solver.half_update_index].base ==
+            momentum || throw(ArgumentError(
+            "bounded solver step does not consume the preceding momentum"))
+        push!(steps, endpoint)
+        position = endpoint.phase.solver.position.residual.iterate
+        momentum = affine[index].updates[endpoint.final_update_index].computed_update
+    end
+    BoundedScalarLinkedSolverTrajectoryTraceCertificate(
+        Rational{BigInt}(step_size), Rational{BigInt}(initial_position),
+        Rational{BigInt}(initial_momentum), steps)
+end
+
+function bounded_scalar_linked_solver_trajectory_certificate_arguments(
+        callbacks::AbstractVector{<:BoundedScalarCallbackTraceRationalCertificate},
+        affine::AbstractVector{<:BoundedScalarAffineTraceRationalCertificate},
+        certificate::BoundedScalarLinkedSolverTrajectoryTraceCertificate)
+    count = length(certificate.steps)
+    length(callbacks) == count && length(affine) == count ||
+        throw(DimensionMismatch("bounded solver trajectory records"))
+    fields = String[_exact_rational_wire(certificate.epsilon),
+        _exact_rational_wire(certificate.initial_position),
+        _exact_rational_wire(certificate.initial_momentum), string(count)]
+    for index in eachindex(certificate.steps)
+        step = bounded_scalar_solver_endpoint_certificate_arguments(
+            callbacks[index], affine[index], certificate.steps[index])
+        push!(fields, string(length(step)))
+        append!(fields, step)
+    end
+    fields
+end
+
+"""Rational regional sensitivity coefficients for the exact bounded GR step."""
+struct BoundedScalarStepRegionalRationalCertificate
+    epsilon::Rational{BigInt}
+    half_momentum_bound::Rational{BigInt}
+    force_position_rate::Rational{BigInt}
+    half_coefficient::Rational{BigInt}
+    position_coefficient::Rational{BigInt}
+    momentum_coefficient::Rational{BigInt}
+    lipschitz_upper::Rational{BigInt}
+end
+
+function certify_bounded_scalar_step_regional(step_size::Real,
+        half_momentum_bound::Real)
+    epsilon = Rational{BigInt}(step_size)
+    bound = Rational{BigInt}(half_momentum_bound)
+    bound >= 0 || throw(DomainError(half_momentum_bound,
+        "half-momentum bound must be nonnegative"))
+    a = abs(epsilon / 2)
+    3a < 1 || throw(DomainError(step_size,
+        "bounded scalar half-momentum contraction rate must be below one"))
+    force_rate = 18bound^2 + 3bound
+    half = (1 + a * force_rate) / (1 - 3a)
+    position = ((1 + 2a) + 2a * 9half) / (1 - 2a)
+    momentum = (1 + 3a) * half + a * force_rate * position
+    BoundedScalarStepRegionalRationalCertificate(epsilon, bound, force_rate,
+        half, position, momentum, max(position, momentum))
+end
+
+bounded_scalar_step_regional_certificate_arguments(
+        certificate::BoundedScalarStepRegionalRationalCertificate) =
+    String[_exact_rational_wire(value) for value in (certificate.epsilon,
+        certificate.half_momentum_bound, certificate.force_position_rate,
+        certificate.half_coefficient, certificate.position_coefficient,
+        certificate.momentum_coefficient, certificate.lipschitz_upper)]
+
+"""Bounded Hamiltonian evaluation transported from the rounded solver endpoint
+to the exact endpoint constructed by the linked solver certificate."""
+struct BoundedScalarEndpointEnergyTraceCertificate
+    solver::BoundedScalarSolverEndpointTraceCertificate
+    evaluation::BoundedScalarCallbackRationalCertificate
+    total_energy_error::Rational{BigInt}
+end
+
+function certify_bounded_scalar_endpoint_energy_trace(trace,
+        callbacks::BoundedScalarCallbackTraceRationalCertificate,
+        affine::BoundedScalarAffineTraceRationalCertificate, step_size::Real)
+    solver = certify_bounded_scalar_solver_endpoint_trace(trace, callbacks,
+        affine, step_size)
+    q = solver.phase.solver.position.residual.iterate
+    p = affine.updates[solver.final_update_index].computed_update
+    evaluation = certify_bounded_scalar_callbacks(q, p)
+    sqrt_error = _bounded_scalar_sqrt_error(evaluation)
+    final_error = solver.final_momentum_error
+    position_error = solver.phase.position_error
+    total = sqrt_error + 3 * final_error +
+        (abs(p) + final_error) * position_error
+    BoundedScalarEndpointEnergyTraceCertificate(solver, evaluation, total)
+end
+
+"""The linked initial and final energies of one bounded generalized-leapfrog
+step, with the common radius consumed by stabilized multinomial selection."""
+struct BoundedScalarTwoEndpointEnergyTraceCertificate
+    initial::BoundedScalarCallbackRationalCertificate
+    final::BoundedScalarEndpointEnergyTraceCertificate
+    common_error::Rational{BigInt}
+end
+
+function certify_bounded_scalar_two_endpoint_energy_trace(trace,
+        callbacks::BoundedScalarCallbackTraceRationalCertificate,
+        affine::BoundedScalarAffineTraceRationalCertificate, step_size::Real)
+    final = certify_bounded_scalar_endpoint_energy_trace(trace, callbacks,
+        affine, step_size)
+    half_index = final.solver.phase.solver.half_update_index
+    sources = affine.callback_indices[half_index]
+    length(sources) == 1 || throw(ArgumentError(
+        "initial half-momentum update must have one callback source"))
+    source = callbacks.certificates[only(sources)]
+    initial_position = source.sincos.input
+    initial_momentum = affine.updates[half_index].base
+    initial = certify_bounded_scalar_callbacks(initial_position,
+        initial_momentum)
+    common = max(_bounded_scalar_sqrt_error(initial),
+        final.total_energy_error)
+    BoundedScalarTwoEndpointEnergyTraceCertificate(initial, final, common)
+end
+
+function bounded_scalar_two_endpoint_energy_certificate_arguments(
+        callbacks::BoundedScalarCallbackTraceRationalCertificate,
+        affine::BoundedScalarAffineTraceRationalCertificate,
+        certificate::BoundedScalarTwoEndpointEnergyTraceCertificate)
+    initial = bounded_scalar_callback_certificate_arguments(certificate.initial)
+    final = bounded_scalar_endpoint_energy_certificate_arguments(callbacks,
+        affine, certificate.final)
+    vcat(initial, final, String[_exact_rational_wire(certificate.common_error)])
+end
+
+"""Checked maximum-stabilized exponentials for the two linked energies."""
+struct BoundedScalarTwoEndpointWeightTraceCertificate
+    energy::BoundedScalarTwoEndpointEnergyTraceCertificate
+    weights::Vector{ExpNonpositiveTransportRationalCertificate}
+end
+
+function certify_bounded_scalar_two_endpoint_weights(
+        energy::BoundedScalarTwoEndpointEnergyTraceCertificate)
+    computed = Float64[energy.initial.sqrt_certificate.computed,
+        energy.final.evaluation.sqrt_certificate.computed]
+    exact = Rational{BigInt}.(computed)
+    exact_arguments = .-exact .- maximum(.-exact)
+    computed_arguments = .-computed .- maximum(.-computed)
+    weights = [certify_exp_nonpositive_transport(computed_arguments[i],
+        exact_arguments[i]) for i in eachindex(computed)]
+    BoundedScalarTwoEndpointWeightTraceCertificate(energy, weights)
+end
+
+function bounded_scalar_two_endpoint_weight_certificate_arguments(
+        callbacks::BoundedScalarCallbackTraceRationalCertificate,
+        affine::BoundedScalarAffineTraceRationalCertificate,
+        certificate::BoundedScalarTwoEndpointWeightTraceCertificate)
+    length(certificate.weights) == 2 || throw(ArgumentError(
+        "bounded two-endpoint weight certificate must contain two weights"))
+    energy = bounded_scalar_two_endpoint_energy_certificate_arguments(
+        callbacks, affine, certificate.energy)
+    fields = String[string(length(energy))]
+    append!(fields, energy)
+    for weight in certificate.weights
+        append!(fields, exp_nonpositive_transport_certificate_arguments(weight))
+    end
+    fields
+end
+
+"""The complete observed Float64 arithmetic and stable decision for one
+linked two-endpoint bounded multinomial trajectory."""
+struct BoundedScalarTwoEndpointSelectionTraceCertificate
+    weights::BoundedScalarTwoEndpointWeightTraceCertificate
+    cumulative::RoundedCumulativeRationalCertificate
+    draw::ScaledDrawRationalCertificate
+    common_weight_error::Rational{BigInt}
+    boundary_error::Rational{BigInt}
+    uniform_error::Rational{BigInt}
+    decision::MultinomialDecisionRationalCertificate
+end
+
+function certify_bounded_scalar_two_endpoint_selection(
+        energy::BoundedScalarTwoEndpointEnergyTraceCertificate,
+        uniform::Real)
+    weights = certify_bounded_scalar_two_endpoint_weights(energy)
+    computed_weights =
+        [weight.local_certificate.computed for weight in weights.weights]
+    cumulative = certify_rounded_cumulative(computed_weights)
+    draw = certify_scaled_draw(uniform, cumulative.boundaries[end])
+    common_weight_error = maximum(weight.local_certificate.error +
+        weight.input_error for weight in weights.weights)
+    propagated = 2 * (common_weight_error + 2 * energy.common_error)
+    boundary_error = maximum(cumulative.errors) + propagated
+    uniform_error = draw.error + abs(Rational{BigInt}(draw.uniform)) *
+        (cumulative.errors[end] + propagated)
+    decision = certify_multinomial_decision(draw.computed,
+        cumulative.boundaries, uniform_error, boundary_error)
+    BoundedScalarTwoEndpointSelectionTraceCertificate(weights, cumulative,
+        draw, common_weight_error, boundary_error, uniform_error, decision)
+end
+
+function bounded_scalar_endpoint_energy_certificate_arguments(
+        callbacks::BoundedScalarCallbackTraceRationalCertificate,
+        affine::BoundedScalarAffineTraceRationalCertificate,
+        certificate::BoundedScalarEndpointEnergyTraceCertificate)
+    solver = bounded_scalar_solver_endpoint_certificate_arguments(callbacks,
+        affine, certificate.solver)
+    evaluation = bounded_scalar_callback_certificate_arguments(
+        certificate.evaluation)
+    vcat(String[string(length(solver))], solver, evaluation,
+        String[_exact_rational_wire(certificate.total_energy_error)])
+end
+
+certify_positive_softabs_endpoint_state_transport(
+        endpoint::PositiveSoftAbsHamiltonianErrorUpperCertificate,
+        solver::RoundedContractionPairCertificate, energy_lipschitz::Real) =
+    certify_positive_softabs_endpoint_state_transport(endpoint,
+        solver.contraction.distance_upper, energy_lipschitz)
 
 function contraction_error_bound(computed_residual::Real,
         residual_error::Real, rate::Real; precision::Integer=256)
