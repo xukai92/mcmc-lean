@@ -326,8 +326,8 @@ of the proof.
 
 ## Current directions
 
-The project is prioritizing two directions rather than committing to a long
-queue of narrowly specified milestones:
+The project is prioritizing four connected directions without expanding the
+sampler family:
 
 1. **Consolidation.** Keep one canonical artifact, one maintained Julia
    reference interpreter, and a small public architecture. Historical
@@ -339,6 +339,16 @@ queue of narrowly specified milestones:
    maintained consumer warrants it. Appropriate techniques include independent
    parsing and typed validation, shared deterministic traces, abstract
    interpreter correspondence, and compact execution witnesses.
+3. **Backend-neutral execution.** Treat optimized Julia, parallel CPU, CUDA,
+   and later accelerators as sibling consumers of one Reference contract.
+   Backend work must make event/RNG scheduling, reductions, callback behavior,
+   and supported IR primitives explicit. It should not duplicate the sampler's
+   mathematical correctness proof.
+4. **Controlled optimization search.** Provide a small agentic loop that may
+   propose Julia or IR changes, but accepts them only after compilation,
+   deterministic conformance, applicable certificates, statistical diagnostics,
+   and benchmark improvement. One measured exact transformation should precede
+   any general transformation framework.
 
 `Mcmc.Executable.IRParser` now validates the complete artifact envelope and
 version, independently decodes the two registered exact finite programs, and
@@ -346,10 +356,43 @@ checks their canonical typed renderings. This removes serializer-format trust
 for those declarations. It does not yet prove the Julia parser or interpreter
 equivalent to Lean.
 
-Continuous floating-point certification, new sampler families, and a custom
-optimizer are not part of these directions. A future benchmark-motivated
-transformation may use an established Julia rewriting library, but only after
-the specific semantic obligation is clear.
+Continuous floating-point certification and new sampler families are not
+required by these directions. Existing certificates remain an optional,
+backend-neutral evidence path. A future benchmark-motivated transformation may
+use an established Julia rewriting library, but only after the specific
+semantic obligation is clear.
+
+### Backend family and parallelism
+
+The Reference interpreter is the operational comparison point for every
+maintained backend:
+
+```text
+Lean theorem → typed IR → Julia Reference
+                           ├─ Julia Optimized
+                           ├─ parallel CPU
+                           └─ CUDA / other accelerator
+```
+
+This is a shared-contract fan-out, not a compilation claim that all backends
+are already proved equivalent. Exact finite programs can use exhaustive or
+trace equality. Continuous programs normally combine shared event traces,
+bounded numerical checks where useful, and explicitly empirical statistical
+tests. A backend capability record should reject unsupported primitives rather
+than silently fall back to different semantics.
+
+Parallel development should proceed in two levels:
+
+1. run independent chains concurrently with an explicit seed list and require
+   each chain to reproduce its sequential backend result; then
+2. parallelize within a chain only for algorithms whose recurrence has an
+   associative scan or another proved decomposition.
+
+Accelerators follow the same split. Batched independent chains and vectorized
+fixed-step transitions are the first useful target. Device-specific floating
+point, reductions, callbacks, and RNG streams remain backend obligations; the
+existing numerical certificates may check selected executions without becoming
+a mandatory layer between IR and execution.
 
 ### Feedback from search into verification
 

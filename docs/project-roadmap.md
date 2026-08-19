@@ -31,13 +31,14 @@ Floating-point refinement/certification is no longer required for core
 completion. The existing certificate stack remains an experimental, tested
 research layer.
 
-The next trust-reduction slice is deliberately finite and exact: Lean parses
-the artifact S-expression syntax, decodes categorical and generic finite-MH
-programs back into typed IR, and proves byte-for-byte re-rendering. Broader
-optimization remains demand-driven; the maintained Julia optimized layer is
-already sufficient, and established Julia transformation libraries will be
-used only for concrete measured passes. See the
-[execution and optimization note](verified-execution-and-optimization.md).
+The finite exact trust-reduction slice is complete: Lean parses the artifact
+S-expression syntax, decodes categorical and generic finite-MH programs back
+into typed IR, and proves byte-for-byte re-rendering. The next work consolidates
+that result into a backend-neutral execution contract shared by Julia
+Reference, optimized Julia, parallel CPU execution, and accelerators. Broader
+optimization remains demand-driven, and established Julia transformation
+libraries will be used only for concrete measured passes. See the [execution
+and optimization note](verified-execution-and-optimization.md).
 
 The other theorem-heavy endpoints are parked as well: production-recursive
 NUTS equivalence, multidimensional BPS uniqueness/ergodicity, realistic
@@ -46,6 +47,46 @@ particle stability. Their completed foundations remain part of the library;
 parking them neither discards results nor silently upgrades partial results.
 See [project completion status](project-status.md#core-completion-boundary) for
 the precise boundary.
+
+## Next engineering milestones — no sampler expansion
+
+These milestones improve the research-to-runtime system around the samplers
+already present. They do not add a new major theorem or sampler family.
+
+The 2026-08-19 audit found five concrete system gaps:
+
+- formal sampler mathematics is broad and deep, but executable-refinement
+  theorem shapes are not yet uniform across the maintained methods;
+- the finite command IR has typed Lean parsing and exact replay, while
+  continuous support is split among several specialized descriptors and Julia
+  interpreter correspondence remains test-supported;
+- the checked NUTS Reference takes its safe identity fallback on every current
+  benchmark fixture, so making already-verified rows productive is more urgent
+  than adding another sampler;
+- the Julia package works but concentrates public orchestration and certificate
+  code in two large files, with no shared parallel/accelerator capability
+  protocol; and
+- the optimization-agent loop, parallel execution, and accelerator backend are
+  designed in documentation but not yet packaged as maintained tools.
+
+| Phase | Main layer | Deliverable | Effort |
+|---|---|---|---|
+| 1. Assurance and backend contract | Lean docs + Julia runtime | Extend the machine-generated assurance vocabulary beyond the two golden paths; define backend capabilities, evidence classes, explicit event/RNG ownership, and fail-closed unsupported operations | Medium |
+| 2. Productive Reference and cross-backend conformance | Bridge / IR | Diagnose the checked NUTS all-identity benchmark behavior; obtain a productive checked row family without weakening fallback safety, and build one reusable replay/witness harness for Julia Reference and every alternative backend | Medium–high |
+| 3. Optimization acceptance loop | Testing / transformation | A machine-readable loop that proposes one change, runs exact/trace/property/statistical gates, benchmarks it, and records acceptance or rejection with its assurance class | Medium |
+| 4. Julia modularization | Julia package | Move sampler-specific engines out of the large public module, preserve the public API, and expose Reference/Optimized/backend capability registries without parallel handwritten dispatch surfaces | Medium |
+| 5. Parallel execution | Julia backend | Deterministic independent-chain execution from an explicit seed list, sequential equivalence per chain, scaling benchmarks, then only proved-associative within-chain scans | Medium, then high |
+| 6. Accelerator backend | Julia/CUDA or another array backend | Batched fixed-step transitions using the same Reference contract and conformance suite; device reductions, callbacks, and RNG behavior remain explicit backend assumptions | High |
+| 7. Optional numerical evidence | Lean certificates + backends | Reuse existing error/margin certificates across CPU, parallel, and accelerator executions when a concrete decision or benchmark warrants them; no universal IEEE/libm project | High and demand-driven |
+| Continuous documentation | All layers | Generate assurance matrices and architecture graphs from Lean/registries, keep executable examples current, and make benchmark evidence classes visible in reports | Low recurring |
+
+The order matters. Phase 1 prevents “verified” from becoming a single vague
+badge. Phase 2 gives every later backend the same correctness interface. Phase
+3 makes agentic optimization useful without granting it authority to weaken
+tests or claims. Independent-chain parallelism precedes accelerator work
+because it settles seed scheduling and result aggregation with fewer numerical
+variables. Numeric certificates remain available in parallel rather than
+blocking ordinary backend development.
 
 ## Track A: reusable sampler foundations
 

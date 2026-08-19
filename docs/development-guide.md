@@ -96,6 +96,12 @@ General recursion, data-dependent unbounded loops, automatic differentiation,
 GPU execution, and arbitrary Julia callbacks are not implicit capabilities of
 the current IR. Add support only with an explicit semantic contract.
 
+Execution hardware is not part of the mathematical sampler definition. A CPU
+optimized path, parallel evaluator, CUDA kernel, or later accelerator should
+implement the same backend-neutral replay/refinement contract. Adding one
+normally requires backend conformance evidence and numerical/reduction
+assumptions, not a duplicate invariance theorem for the sampler.
+
 ## 3. Prove the lowering or refinement
 
 Connect the executable presentation back to the mathematical definition. The
@@ -135,6 +141,11 @@ These tests audit the runtime; they do not replace Lean proofs. Add a separate
 `Optimized` implementation only when usability or measurements justify it.
 Prefer established Julia transformation libraries over building a general
 optimizer, while keeping semantic preservation as a separate obligation.
+Parallel and accelerator implementations should enter through the same path:
+explicit seed/event scheduling, shared deterministic traces where applicable,
+backend capability checks, statistical diagnostics, and comparative
+benchmarks. Independent chains are the preferred first parallel primitive;
+within-chain scans require an additional associative-recurrence argument.
 
 ## 5. Integrate and validate
 

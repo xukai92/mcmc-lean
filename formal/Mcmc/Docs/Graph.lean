@@ -113,6 +113,8 @@ def executableGraph : Graph where
     ⟨"serialized", "Versioned serialized IR"⟩,
     ⟨"reference", "Julia Reference interpreter"⟩,
     ⟨"optimized", "Julia Optimized implementation"⟩,
+    ⟨"parallel", "Parallel execution backend"⟩,
+    ⟨"accelerator", "Accelerator execution backend"⟩,
     ⟨"bounds", "Backend-independent error and margin certificates"⟩,
     ⟨"float", "Floating-point execution"⟩]
   edges := [
@@ -121,10 +123,12 @@ def executableGraph : Graph where
     ⟨"typed", "serialized", some "Lean generator", false⟩,
     ⟨"serialized", "reference", some "direct interpretation", false⟩,
     ⟨"reference", "optimized", some "differential tests", false⟩,
+    ⟨"reference", "parallel", some "shared replay contract", true⟩,
+    ⟨"reference", "accelerator", some "shared replay contract", true⟩,
     ⟨"ideal", "bounds", some "proved bounded refinement", false⟩,
     ⟨"bounds", "float", some "platform-local operation bounds", true⟩,
     ⟨"optimized", "float", some "executes as", false⟩]
-  note := "Solid arrows are implemented generation, proved refinement, or tested conformance links as labeled. The exact Lean interpreter satisfies its refinement contract. The dashed arrow isolates the remaining platform-specific libm, rounding, and RNG evidence needed to instantiate the proved bounded certificates for Float64."
+  note := "Solid arrows are implemented generation, proved refinement, or tested conformance links as labeled. Dashed backend arrows are roadmap contracts: parallel and accelerator implementations should refine or test against the same Julia Reference semantics rather than introduce new sampler theorems. The dashed numerical arrow isolates platform-specific libm, rounding, reduction, and RNG evidence needed to instantiate the proved bounded certificates."
 
 /-- Complete generated Markdown page for the documentation site. -/
 def renderGraphs : String :=

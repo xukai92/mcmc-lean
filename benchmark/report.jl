@@ -193,6 +193,13 @@ function write_doc(rows, timings, quality, metadata)
             row.implementation == "verified-reference", rows)
         if has_verified_nuts
             println(io, "VerifiedSamplers `NUTS` is labelled `verified-reference`: it is the checked Lean-IR-driven sampler connected to the exact-real invariance theorem. The independent handwritten `Optimized.NUTS` is labelled `verified-optimized`; that label identifies the project's optimized implementation, for which conformance and statistical tests are empirical evidence rather than a formal transition-equivalence proof.\n")
+            reference_nuts_quality = filter(row -> row.algorithm == "nuts" &&
+                row.implementation == "verified-reference", quality)
+            if !isempty(reference_nuts_quality) && all(row ->
+                    parse(Float64, row.movement) == 0.0,
+                    reference_nuts_quality)
+                println(io, "!!! warning \"Checked NUTS Reference used identity fallback\"\n    On every fixture in this run, the checked `verified-reference` NUTS path reported zero movement: its global row check selected the proved identity fallback. Its throughput is execution throughput for that safe fallback, not useful sampling throughput. The exact invariance theorem remains valid, but productive checked rows are an open implementation milestone.\n")
+            end
         else
             println(io, "The historical NUTS measurements are AdvancedHMC-only. They predate the repository's separately labelled production-shaped NUTS runtime and are not retroactively supplemented.\n")
         end

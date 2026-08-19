@@ -21,6 +21,9 @@ Preconditioned endpoint and multinomial rows include VerifiedSamplers' Reference
 
 VerifiedSamplers `NUTS` is labelled `verified-reference`: it is the checked Lean-IR-driven sampler connected to the exact-real invariance theorem. The independent handwritten `Optimized.NUTS` is labelled `verified-optimized`; that label identifies the project's optimized implementation, for which conformance and statistical tests are empirical evidence rather than a formal transition-equivalence proof.
 
+!!! warning "Checked NUTS Reference used identity fallback"
+    On every fixture in this run, the checked `verified-reference` NUTS path reported zero movement: its global row check selected the proved identity fallback. Its throughput is execution throughput for that safe fallback, not useful sampling throughput. The exact invariance theorem remains valid, but productive checked rows are an open implementation milestone.
+
 ## Configuration
 
 - Commit: `fc55556`

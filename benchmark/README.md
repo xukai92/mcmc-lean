@@ -40,6 +40,9 @@ NUTS rows use the same three implementation labels as the rest of the report.
 whose conformance and sampling-quality evidence is empirical rather than a
 formal transition-equivalence proof; and `advancedhmc` is the external
 comparison. Mean leapfrog work is reported because NUTS work is dynamic.
+The report must also call out zero-movement checked Reference rows: an identity
+fallback is mathematically safe but its throughput is not useful sampling
+performance.
 
 The full runner records ten complete chains per case using the explicit fixed
 seed list `4109:4118` by default. The report shows every chain timing together
