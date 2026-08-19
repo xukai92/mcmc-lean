@@ -110,6 +110,8 @@ import Mcmc.Hamiltonian.LogisticRegressionXu
 import Mcmc.Hamiltonian.CoupledMixture
 import Mcmc.Hamiltonian.HMC
 import Mcmc.Hamiltonian.Invariance
+import Mcmc.Hamiltonian.DynamicMultinomial
+import Mcmc.Hamiltonian.DynamicInvariance
 import Mcmc.Hamiltonian.MomentumRefresh
 import Mcmc.Hamiltonian.Multinomial
 import Mcmc.Hamiltonian.QuadraticGaussian

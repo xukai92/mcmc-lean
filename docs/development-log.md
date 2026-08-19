@@ -1,5 +1,21 @@
 # Development log
 
+## 2026-08-19: continuous checked-row invariance bridge
+
+Added the general-state theorem needed by checked multinomial NUTS selection.
+Lean now constructs a measurable Markov kernel from a finite, phase-dependent
+candidate mask and proves detailed balance and invariance of the phase-space
+Boltzmann measure when the mask retains its root, is reroot invariant at every
+admitted candidate, and has symmetric pair membership. A proof-bearing
+`CertifiedTrajectoryCandidateRows` interface derives those algebraic
+conditions from globally checked finite rows plus Hamiltonian-orbit covariance.
+
+This closes the previously missing measure-level theorem; it does not yet
+prove that the concrete recursive NUTS interpreter emits an orbit-covariant,
+measurable row family. That interpreter-to-certificate theorem and migration
+of the public Julia sampler remain required before changing its
+`verified-runtime` label.
+
 ## 2026-08-19: Lean-owned checked NUTS subtree IR foundation
 
 Added the first typed executable NUTS tree program in Lean. Its interpreter
@@ -23,9 +39,10 @@ mark. Lean proves the completed outer depth is bounded by the supplied trace.
 Julia now also interprets every rooted row, applies the exact executable
 root-retention/reroot-equality check, and consumes no selection mark on the
 identity branch; conformance tests compare this result with the pre-existing
-certificate API. The continuous Hamiltonian-orbit lift and public sampler
-migration remain the next correspondence layers. Accordingly the benchmark
-remains labelled `verified-runtime`.
+certificate API. The general continuous checked-row invariance theorem is now
+available in the next layer, while the concrete recursive interpreter's
+orbit-covariance proof and public sampler migration remain. Accordingly the
+benchmark remains labelled `verified-runtime`.
 
 ## 2026-08-19: completed implemented-sampler benchmark rows
 

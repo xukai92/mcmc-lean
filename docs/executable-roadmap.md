@@ -10,7 +10,10 @@ Root-independent endpoint and all-scales barriers construct certified orbit
 partitions directly. `first_stop_endpoint_uturn_candidates` instead builds
 root-dependent first-stop rows and runs the reroot checker; its result is
 theorem-backed only when `certificate.valid` is true. Equivalence with a
-specific recursive production NUTS tree builder remains open. A checked Lean
+specific recursive production NUTS tree builder remains open. Lean now proves
+measure-level detailed balance for measurable, orbit-covariant checked rows;
+the remaining gap is proving that the concrete bounded recursive interpreter
+constructs such rows. A checked Lean
 two-leaf counterexample now proves why this cannot follow from root retention
 or first stopping alone: asymmetric rows fail reroot equality and the safe
 wrapper becomes identity. The conservative
