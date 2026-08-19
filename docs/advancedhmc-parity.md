@@ -109,6 +109,9 @@ occurrences, preserving order and multiplicity. The generic consumer theorem
 then covers weighting and selection under any fixed random trace. Existing
 bounded leaf-energy and U-turn certificates now refine the entire online
 summary—continuation, visit count, and candidates—to its ideal-real counterpart.
-These theorems do not yet identify Julia's concrete recursive call trace with
-the formal precomputed tree, or the resulting complete transition with a
-verified invariant kernel.
+For balanced power-of-two intervals, the fuel-bounded index recursion used by
+the generated descriptor is also proved equal to the structural U-turn fold;
+a successful leaf-valid subtree emits exactly its consecutive index range.
+These theorems do not yet identify Julia's concrete call trace with that Lean
+index recursion, combine index recursion with every leaf-failure branch, or
+identify the resulting complete transition with a verified invariant kernel.

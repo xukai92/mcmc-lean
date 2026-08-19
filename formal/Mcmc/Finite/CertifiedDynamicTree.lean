@@ -696,6 +696,61 @@ def balancedPhaseTree {Phase : Type*} :
       .node (balancedPhaseTree depth (balancedPhaseLeftHalf phases))
         (balancedPhaseTree depth (balancedPhaseRightHalf phases))
 
+/-- Canonical balanced tree for the consecutive natural-number interval
+`[start, start + 2 ^ depth)`. This is convenient for relating structural trees
+to an index-based runtime recursion. -/
+def balancedIntervalPhaseTree : (depth start : ℕ) → RecursivePhaseTree ℕ
+  | 0, start => .leaf start
+  | depth + 1, start =>
+      .node (balancedIntervalPhaseTree depth start)
+        (balancedIntervalPhaseTree depth (start + 2 ^ depth))
+
+@[simp] theorem balancedIntervalPhaseTree_leftmost (depth start : ℕ) :
+    (balancedIntervalPhaseTree depth start).leftmost = start := by
+  induction depth generalizing start with
+  | zero => rfl
+  | succ depth ih =>
+      simp [balancedIntervalPhaseTree, RecursivePhaseTree.leftmost, ih]
+
+@[simp] theorem balancedIntervalPhaseTree_rightmost (depth start : ℕ) :
+    (balancedIntervalPhaseTree depth start).rightmost =
+      start + 2 ^ depth - 1 := by
+  induction depth generalizing start with
+  | zero => simp [balancedIntervalPhaseTree, RecursivePhaseTree.rightmost]
+  | succ depth ih =>
+      simp only [balancedIntervalPhaseTree, RecursivePhaseTree.rightmost, ih]
+      rw [pow_succ]
+      have hpos : 0 < 2 ^ depth := pow_pos (by omega) _
+      omega
+
+/-- The structural interval tree enumerates exactly its consecutive runtime
+indices, from left to right. -/
+@[simp] theorem balancedIntervalPhaseTree_leaves (depth start : ℕ) :
+    (balancedIntervalPhaseTree depth start).leaves =
+      (List.range (2 ^ depth)).map (start + ·) := by
+  induction depth generalizing start with
+  | zero => simp [balancedIntervalPhaseTree, RecursivePhaseTree.leaves]
+  | succ depth ih =>
+      simp only [balancedIntervalPhaseTree, RecursivePhaseTree.leaves,
+        ih, pow_succ]
+      rw [show 2 ^ depth * 2 = 2 ^ depth + 2 ^ depth by omega,
+        List.range_add, List.map_append]
+      congr 1
+      simp only [List.map_map]
+      apply List.map_congr_left
+      intro value hvalue
+      simp [Nat.add_assoc]
+
+/-- Whether any completed internal join in a structural phase tree turns. -/
+def RecursivePhaseTree.anyEndpointTurns {Phase : Type*}
+    (endpointTurns : Phase → Phase → Bool) :
+    RecursivePhaseTree Phase → Bool
+  | .leaf _ => false
+  | .node left right =>
+      endpointTurns left.leftmost right.rightmost ||
+        left.anyEndpointTurns endpointTurns ||
+        right.anyEndpointTurns endpointTurns
+
 @[simp] theorem balancedPhaseTree_zero {Phase : Type*}
     (phases : Fin (2 ^ 0) → Phase) :
     balancedPhaseTree 0 phases = .leaf (phases ⟨0, by simp⟩) := rfl
@@ -898,6 +953,21 @@ theorem RecursivePhaseTree.onlineBuildSummary_candidateConsumer_eq
       consume tree.leaves := by
   rw [tree.onlineBuildSummary_candidates_eq_leaves leafContinues endpointTurns
     hcontinues]
+
+/-- When every numerical leaf is locally valid, online recursion continues
+exactly when no completed structural endpoint join turns. -/
+theorem RecursivePhaseTree.onlineBuildSummary_continues_allLeaves
+    {Phase : Type*} (endpointTurns : Phase → Phase → Bool)
+    (tree : RecursivePhaseTree Phase) :
+    (tree.onlineBuildSummary (fun _ => true) endpointTurns).continues =
+      !tree.anyEndpointTurns endpointTurns := by
+  induction tree with
+  | leaf phase => rfl
+  | node left right ihLeft ihRight =>
+      rw [RecursivePhaseTree.onlineBuildSummary]
+      simp only [ihLeft, ihRight]
+      split <;> simp_all [RecursivePhaseTree.anyEndpointTurns]
+      split <;> simp_all
 
 /-- Concrete finite-dimensional NUTS flag tree using the already formalized
 Euclidean endpoint U-turn predicate. -/

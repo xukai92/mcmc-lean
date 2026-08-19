@@ -221,6 +221,124 @@ def recursiveSubtreeTurns (turns : ℕ → ℕ → Bool) : ℕ → ℕ → ℕ �
           recursiveSubtreeTurns turns fuel (middle + 1) right
       else false
 
+/-- Structural turn aggregation for a balanced interval of `2 ^ depth`
+consecutive phase indices beginning at `start`. This is the power-of-two
+specialization of `recursiveSubtreeTurns`, stated without midpoint division. -/
+def balancedSubtreeTurns (turns : ℕ → ℕ → Bool) : ℕ → ℕ → Bool
+  | 0, _ => false
+  | depth + 1, start =>
+      let half := 2 ^ depth
+      turns start (start + 2 * half - 1) ||
+        balancedSubtreeTurns turns depth start ||
+        balancedSubtreeTurns turns depth (start + half)
+
+private theorem balancedInterval_midpoint (start half : ℕ) (hhalf : 0 < half) :
+    (start + (start + 2 * half - 1)) / 2 = start + half - 1 := by
+  omega
+
+/-- With enough recursion fuel, the concrete index-based subtree checker is
+exactly balanced structural aggregation on a power-of-two interval. -/
+theorem recursiveSubtreeTurns_eq_balancedSubtreeTurns
+    (turns : ℕ → ℕ → Bool) (depth start fuel : ℕ)
+    (hfuel : depth < fuel) :
+    recursiveSubtreeTurns turns fuel start (start + 2 ^ depth - 1) =
+      balancedSubtreeTurns turns depth start := by
+  induction depth generalizing start fuel with
+  | zero =>
+      cases fuel with
+      | zero => omega
+      | succ fuel => simp [recursiveSubtreeTurns, balancedSubtreeTurns]
+  | succ depth ih =>
+      cases fuel with
+      | zero => omega
+      | succ fuel =>
+          have hfuel' : depth < fuel := by omega
+          have hhalf : 0 < 2 ^ depth := pow_pos (by omega) _
+          have hleftRight :
+              start < start + 2 ^ (depth + 1) - 1 := by
+            rw [pow_succ]
+            omega
+          rw [recursiveSubtreeTurns]
+          simp only [hleftRight, if_true]
+          have hmidpoint :
+              (start + (start + 2 ^ (depth + 1) - 1)) / 2 =
+                start + 2 ^ depth - 1 := by
+            rw [pow_succ]
+            simpa [Nat.mul_comm] using
+              balancedInterval_midpoint start (2 ^ depth) hhalf
+          rw [hmidpoint]
+          rw [ih start fuel hfuel']
+          have hnext : start + 2 ^ depth - 1 + 1 =
+              start + 2 ^ depth := by omega
+          rw [hnext]
+          have hright :
+              start + 2 ^ (depth + 1) - 1 =
+                (start + 2 ^ depth) + 2 ^ depth - 1 := by
+            rw [pow_succ]
+            omega
+          rw [hright, ih (start + 2 ^ depth) fuel hfuel']
+          have hend : start + 2 ^ depth + 2 ^ depth - 1 =
+              start + 2 * 2 ^ depth - 1 := by omega
+          simp [balancedSubtreeTurns, hend]
+
+/-- Structural aggregation on the consecutive-index phase tree is the same
+balanced Boolean computation. -/
+theorem balancedIntervalPhaseTree_anyEndpointTurns
+    (turns : ℕ → ℕ → Bool) (depth start : ℕ) :
+    (balancedIntervalPhaseTree depth start).anyEndpointTurns turns =
+      balancedSubtreeTurns turns depth start := by
+  induction depth generalizing start with
+  | zero => rfl
+  | succ depth ih =>
+      have hend : start + 2 ^ depth + 2 ^ depth - 1 =
+          start + 2 * 2 ^ depth - 1 := by omega
+      simp [balancedIntervalPhaseTree, RecursivePhaseTree.anyEndpointTurns,
+        balancedSubtreeTurns, ih, hend]
+
+/-- Therefore the actual fuel-bounded midpoint recursion agrees with the
+structural phase-tree turn fold on every complete balanced interval. -/
+theorem recursiveSubtreeTurns_eq_balancedIntervalPhaseTree
+    (turns : ℕ → ℕ → Bool) (depth start fuel : ℕ)
+    (hfuel : depth < fuel) :
+    recursiveSubtreeTurns turns fuel start (start + 2 ^ depth - 1) =
+      (balancedIntervalPhaseTree depth start).anyEndpointTurns turns := by
+  rw [recursiveSubtreeTurns_eq_balancedSubtreeTurns turns depth start fuel hfuel,
+    balancedIntervalPhaseTree_anyEndpointTurns]
+
+/-- Equivalently, when leaves themselves are valid, the structural online
+builder continues exactly when the concrete index recursion reports no turn. -/
+theorem onlineBuildSummary_continues_eq_not_recursiveSubtreeTurns
+    (turns : ℕ → ℕ → Bool) (depth start fuel : ℕ)
+    (hfuel : depth < fuel) :
+    ((balancedIntervalPhaseTree depth start).onlineBuildSummary
+        (fun _ => true) turns).continues =
+      !(recursiveSubtreeTurns turns fuel start
+        (start + 2 ^ depth - 1)) := by
+  rw [RecursivePhaseTree.onlineBuildSummary_continues_allLeaves,
+    recursiveSubtreeTurns_eq_balancedIntervalPhaseTree turns depth start fuel
+      hfuel]
+
+/-- If the concrete subtree checker reports no turn, the online builder emits
+exactly the consecutive balanced-interval candidate occurrences. -/
+theorem onlineBuildSummary_candidates_eq_range
+    (turns : ℕ → ℕ → Bool) (depth start fuel : ℕ)
+    (hfuel : depth < fuel)
+    (hnoTurn : recursiveSubtreeTurns turns fuel start
+      (start + 2 ^ depth - 1) = false) :
+    ((balancedIntervalPhaseTree depth start).onlineBuildSummary
+        (fun _ => true) turns).candidates =
+      (List.range (2 ^ depth)).map (start + ·) := by
+  have hcontinues :
+      ((balancedIntervalPhaseTree depth start).onlineBuildSummary
+          (fun _ => true) turns).continues = true := by
+    rw [onlineBuildSummary_continues_eq_not_recursiveSubtreeTurns
+      turns depth start fuel hfuel, hnoTurn]
+    rfl
+  rw [RecursivePhaseTree.onlineBuildSummary_candidates_eq_leaves
+    (fun _ : ℕ => true) turns (balancedIntervalPhaseTree depth start)
+      hcontinues]
+  exact balancedIntervalPhaseTree_leaves depth start
+
 /-- Execute one depth-indexed left/right expansion. Out-of-range expansions
 and U-turns both stop the row permanently at its preceding interval. -/
 def advanceRecursiveDoubling

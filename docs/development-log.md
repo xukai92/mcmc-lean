@@ -20,9 +20,13 @@ completed tree's ordered leaf sequence, including multiplicity. A generic
 consumer congruence theorem covers weighting and selection under a fixed random
 trace. The bounded numerical refinement now lifts tree-local leaf-energy and
 U-turn certificates through that full online summary, including visited count
-and candidate order. Connecting Julia's concrete recursive call trace to the
-formal precomputed tree, and then the complete Julia transition to a verified
-invariant kernel, remain explicit obligations.
+and candidate order. The generated descriptor's fuel-bounded midpoint checker
+is now proved equal to structural U-turn aggregation on every balanced
+power-of-two interval. If it reports no turn, Lean identifies the online
+candidate occurrences with the exact consecutive index range. Connecting
+Julia's concrete call trace to this Lean recursion, integrating every
+leaf-failure branch, and then relating the complete Julia transition to a
+verified invariant kernel remain explicit obligations.
 
 ## 2026-08-19: typed finite artifact parsing and lightweight optimization plan
 

@@ -27,4 +27,17 @@ example :
         Finset.univ.filter (fun state : Fin 7 => state.val ≤ 3) := by
   native_decide
 
+/-- The concrete midpoint recursion checks all joins of a balanced four-leaf
+subtree and reports no turn when every endpoint predicate is false. -/
+example :
+    Mcmc.Executable.DynamicTreeIR.recursiveSubtreeTurns
+      (fun _ _ => false) 5 3 6 = false := by
+  native_decide
+
+/-- The same recursion observes the outer `[3,6]` join. -/
+example :
+    Mcmc.Executable.DynamicTreeIR.recursiveSubtreeTurns
+      (fun left right => decide (left = 3 ∧ right = 6)) 5 3 6 = true := by
+  native_decide
+
 end Mcmc.Executable.Finite.CompilerIR.Tests
