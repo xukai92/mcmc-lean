@@ -19,6 +19,13 @@ decoded `checked-nuts-reference` program interpreter. It is also exported as
 `VerifiedNUTS`. The existing public `NUTS` type remains the independently
 handwritten production-shaped comparator and is not relabelled.
 
+`Program.rawOrbitCandidateRows` now identifies the concrete
+`recursiveDoublingCandidateRow` interpreter with the continuous checked-row
+interface for each fixed direction trace. Pointwise orbit stability of the
+endpoint-turn callback proves covariance of every emitted row, after which the
+global checker, identity fallback, detailed-balance theorem, and invariance
+theorem compose in `Program.checkedOrbitKernel_invariant`.
+
 This closes the previously missing measure-level theorem and migrates the
 conservative checked Reference sampler. It does not yet prove that Julia's
 floating row callbacks refine a measurable exact-real orbit-row family, nor

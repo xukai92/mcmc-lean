@@ -1,4 +1,5 @@
 import Mcmc.Executable.Continuous.DynamicTreeRefinement
+import Mcmc.Hamiltonian.DynamicInvariance
 
 /-!
 # Typed executable IR for checked NUTS tree construction
@@ -402,5 +403,61 @@ theorem Program.checkedCandidateProgram_stationary
     ((program.checkedCandidateProgram count turns).interpret target htarget).Stationary
       target :=
   (program.checkedCandidateProgram count turns).stationary target htarget
+
+/-! ### Continuous orbit-row interpretation -/
+
+/-- Interpret the same recursive-doubling row builder on every exact
+Hamiltonian orbit base point. A fixed direction trace is an auxiliary
+state-independent draw; endpoint decisions are allowed to depend on the
+physical orbit but must address it in stable indexed coordinates. -/
+def Program.rawOrbitCandidateRows
+    {ι : Type*} [Fintype ι]
+    (program : Program) (gradient : Mcmc.Hamiltonian.Position ι →
+      Mcmc.Hamiltonian.Position ι) (ε : ℝ) (L : ℕ)
+    (trace : Fin program.maxDepth → Bool)
+    (turns : Mcmc.Hamiltonian.PhaseSpace ι →
+      Fin (L + 1) → Fin (L + 1) → Bool)
+    (horbit : ∀ (z : Mcmc.Hamiltonian.PhaseSpace ι)
+      (origin selected left right : Fin (L + 1)),
+      turns (Mcmc.Hamiltonian.offsetLeapfrogTrajectory gradient ε origin z selected)
+          left right = turns z left right) :
+    Mcmc.Hamiltonian.RawTrajectoryCandidateRows gradient ε L where
+  rows z root :=
+    Mcmc.Executable.DynamicTreeIR.recursiveDoublingCandidateRow
+      (L + 1) program.maxDepth (turns z) trace root
+  orbitCovariant := by
+    intro z origin selected root
+    exact Mcmc.Executable.DynamicTreeIR.recursiveDoublingCandidateRow_congr
+      (L + 1) program.maxDepth
+      (turns (Mcmc.Hamiltonian.offsetLeapfrogTrajectory gradient ε origin z selected))
+      (turns z) (horbit z origin selected) trace root
+
+/-- The exact recursive NUTS row interpreter, global checker, identity
+fallback, and multinomial selection preserve the phase-space Boltzmann target.
+The remaining backend obligation is measurability/refinement of the concrete
+endpoint callback used to instantiate `turns`. -/
+theorem Program.checkedOrbitKernel_invariant
+    {ι : Type*} [Fintype ι]
+    (program : Program)
+    {potential : Mcmc.Hamiltonian.Position ι → ℝ}
+    {gradient : Mcmc.Hamiltonian.Position ι → Mcmc.Hamiltonian.Position ι}
+    (hpotential : Measurable potential)
+    (hgradient : Measurable gradient)
+    (ε : ℝ) (L : ℕ) (trace : Fin program.maxDepth → Bool)
+    (turns : Mcmc.Hamiltonian.PhaseSpace ι →
+      Fin (L + 1) → Fin (L + 1) → Bool)
+    (horbit : ∀ (z : Mcmc.Hamiltonian.PhaseSpace ι)
+      (origin selected left right : Fin (L + 1)),
+      turns (Mcmc.Hamiltonian.offsetLeapfrogTrajectory gradient ε origin z selected)
+          left right = turns z left right)
+    (hmask : Mcmc.Hamiltonian.MeasurableTrajectoryCandidateMask
+      ((program.rawOrbitCandidateRows gradient ε L trace turns horbit).toCertified.mask)) :
+    (Mcmc.Hamiltonian.randomizedDynamicMultinomialKernel potential gradient ε
+      (program.rawOrbitCandidateRows gradient ε L trace turns horbit).toCertified.mask
+      (program.rawOrbitCandidateRows gradient ε L trace turns horbit).toCertified.mask_root
+      hpotential hgradient hmask).Invariant
+        (Mcmc.Hamiltonian.phaseBoltzmannTarget potential) :=
+  (program.rawOrbitCandidateRows gradient ε L trace turns horbit).toCertified
+    |>.randomizedKernel_invariant hpotential hgradient ε hmask
 
 end Mcmc.Executable.Continuous.NUTSIR
