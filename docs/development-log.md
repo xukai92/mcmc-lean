@@ -16,8 +16,11 @@ failure, and root-turn tests. Lean now also owns typed directional phase-tree
 construction from a one-step dynamics callback, proves the resulting leaf
 count, and composes it with the structural interpreter; Julia interprets the
 same forward/backward construction and checks candidate ordering. This is not
-yet a complete NUTS transition: weighted selection, outer direction-trace
-execution, checked row assembly, and the continuous orbit lift remain the next
+yet a complete NUTS transition. Lean and Julia now also consume the bounded
+outer direction trace, stop before admitting a failed expansion, preserve
+left-to-right occurrence order, and consume one explicit multinomial selection
+mark. Lean proves the completed outer depth is bounded by the supplied trace.
+Checked all-root row assembly and the continuous orbit lift remain the next
 correspondence layers. Accordingly the benchmark remains labelled
 `verified-runtime`.
 

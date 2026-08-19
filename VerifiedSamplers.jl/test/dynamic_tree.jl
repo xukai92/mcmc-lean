@@ -507,4 +507,36 @@ end
     @test forward.visited_leaves == backward.visited_leaves == 4
     @test_throws ArgumentError Reference.build_nuts_phase_tree(
         program, 0, true, 11, (_, phase) -> phase + 1)
+
+    outer = Reference.interpret_nuts_outer_trace(program, 0,
+        Bool[true, false], (right, phase) -> phase + (right ? 1 : -1),
+        _ -> true, (_, _) -> false)
+    @test outer.left == -2
+    @test outer.right == 1
+    @test outer.candidates == [-2, -1, 0, 1]
+    @test outer.completed_depth == 2
+    @test outer.continues
+
+    stopped = Reference.interpret_nuts_outer_trace(program, 0,
+        Bool[true, true], (_, phase) -> phase + 1, _ -> true,
+        (left, right) -> left == 0 && right == 3)
+    @test stopped.candidates == [0, 1]
+    @test stopped.completed_depth == 1
+    @test !stopped.continues
+    @test_throws ArgumentError Reference.interpret_nuts_outer_trace(
+        program, 0, fill(true, 11), (_, phase) -> phase + 1,
+        _ -> true, (_, _) -> false)
+
+    transition = Reference.interpret_nuts_transition(program, 0,
+        Bool[true, false], 0.5, (right, phase) -> phase + (right ? 1 : -1),
+        _ -> true, (_, _) -> false,
+        phase -> phase == -1 ? log(2.0) : 0.0)
+    @test transition.tree.candidates == [-2, -1, 0, 1]
+    @test transition.selected == -1
+    @test Reference.select_nuts_candidate(
+        program, [:left, :right], x -> x === :left ? -Inf : 0.0, 0.0) === :right
+    @test_throws ArgumentError Reference.select_nuts_candidate(
+        program, [0], _ -> 0.0, 1.0)
+    @test_throws DomainError Reference.select_nuts_candidate(
+        program, [0], _ -> -Inf, 0.5)
 end

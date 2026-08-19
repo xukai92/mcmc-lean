@@ -17,7 +17,8 @@ export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_ou
     certified_relativistic_multinomial_hmc_step!,
     dynamic_select_float!, streaming_eligible_select!, recursive_doubling_rows,
     NUTSTreeLeaf, NUTSTreeNode, NUTSSubtreeResult, build_nuts_phase_tree,
-    interpret_nuts_subtree, interpret_nuts_directional_subtree,
+    NUTSOuterResult, interpret_nuts_subtree, interpret_nuts_directional_subtree,
+    interpret_nuts_outer_trace, select_nuts_candidate, interpret_nuts_transition,
     coupled_multinomial_hmc_step!, coupled_gaussian_rwmh_step!, xu21_coupled_step!,
     IR_FORMAT_VERSION
 
@@ -522,6 +523,15 @@ struct NUTSSubtreeResult{P}
     continues::Bool
 end
 
+"""Result of the bounded outer direction-trace interpreter."""
+struct NUTSOuterResult{P}
+    left::P
+    right::P
+    candidates::Vector{P}
+    completed_depth::Int
+    continues::Bool
+end
+
 _tree_leftmost(tree::NUTSTreeLeaf) = tree.phase
 _tree_leftmost(tree::NUTSTreeNode) = _tree_leftmost(tree.left)
 _tree_rightmost(tree::NUTSTreeLeaf) = tree.phase
@@ -552,6 +562,83 @@ function interpret_nuts_subtree(program::NUTSTreeProgramDescriptor,
     continues = Bool(leaf_continues(tree.phase))
     candidates = continues ? [tree.phase] : typeof(tree.phase)[]
     NUTSSubtreeResult(1, candidates, continues)
+end
+
+"""Interpret Lean's checked bounded outer-doubling trace.
+
+Failed subtrees and completed outer U-turns stop before admitting the proposed
+subtree. This is the checked Reference policy, not an assertion that ordinary
+production NUTS is reroot invariant.
+"""
+function interpret_nuts_outer_trace(program::NUTSTreeProgramDescriptor,
+        initial, directions::AbstractVector{Bool}, advance,
+        leaf_continues, endpoint_turns)
+    length(directions) <= program.max_depth || throw(ArgumentError(
+        "direction trace exceeds maximum depth $(program.max_depth)"))
+    state = NUTSOuterResult(initial, initial, [initial], 0, true)
+    for (depth, grow_right) in enumerate(directions)
+        state.continues || break
+        start = grow_right ? state.right : state.left
+        tree = build_nuts_phase_tree(
+            program, start, grow_right, depth - 1, advance)
+        subtree = interpret_nuts_subtree(
+            program, tree, leaf_continues, endpoint_turns)
+        if !subtree.continues
+            state = NUTSOuterResult(state.left, state.right,
+                state.candidates, state.completed_depth, false)
+            break
+        end
+        new_left = grow_right ? state.left : _tree_leftmost(tree)
+        new_right = grow_right ? _tree_rightmost(tree) : state.right
+        if Bool(endpoint_turns(new_left, new_right))
+            state = NUTSOuterResult(state.left, state.right,
+                state.candidates, state.completed_depth, false)
+            break
+        end
+        candidates = grow_right ?
+            vcat(state.candidates, subtree.candidates) :
+            vcat(subtree.candidates, state.candidates)
+        state = NUTSOuterResult(new_left, new_right, candidates,
+            state.completed_depth + 1, true)
+    end
+    state
+end
+
+"""Consume one unit mark using ordered multinomial candidate occurrences."""
+function select_nuts_candidate(program::NUTSTreeProgramDescriptor,
+        candidates::AbstractVector, logweight, unit::Real)
+    program.selection == "multinomial" || throw(ArgumentError(
+        "the first checked NUTS Reference supports multinomial selection"))
+    isempty(candidates) && throw(ArgumentError("NUTS candidates cannot be empty"))
+    u = Float64(unit)
+    isfinite(u) && 0 <= u < 1 || throw(ArgumentError(
+        "NUTS selection mark must lie in [0, 1)"))
+    logs = Float64[logweight(candidate) for candidate in candidates]
+    all(value -> isfinite(value) || value == -Inf, logs) ||
+        throw(DomainError(logs, "NUTS log weights must be finite or -Inf"))
+    top = maximum(logs)
+    isfinite(top) || throw(DomainError(logs,
+        "at least one NUTS candidate must have positive weight"))
+    weights = exp.(logs .- top)
+    threshold = u * sum(weights)
+    fallback = candidates[findlast(>(0), weights)]
+    for (candidate, weight) in zip(candidates, weights)
+        weight > 0 || continue
+        threshold < weight && return candidate
+        threshold -= weight
+    end
+    fallback
+end
+
+"""Interpret the complete deterministic checked-NUTS transition skeleton."""
+function interpret_nuts_transition(program::NUTSTreeProgramDescriptor,
+        initial, directions::AbstractVector{Bool}, selection_unit::Real,
+        advance, leaf_continues, endpoint_turns, logweight)
+    tree = interpret_nuts_outer_trace(program, initial, directions,
+        advance, leaf_continues, endpoint_turns)
+    selected = select_nuts_candidate(
+        program, tree.candidates, logweight, selection_unit)
+    (; tree, selected)
 end
 
 """Build and interpret one typed directional NUTS subtree declaration."""

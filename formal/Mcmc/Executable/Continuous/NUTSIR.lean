@@ -209,6 +209,163 @@ theorem executeDirectionalSubtree_candidates_length
     RecursivePhaseTree.length_leaves,
     buildPhaseTree_leafCount]
 
+/-- State of the bounded outer doubling loop.  Only a subtree which passes its
+internal checks and the completed outer endpoint check is admitted. -/
+structure OuterResult (Phase : Type*) where
+  left : Phase
+  right : Phase
+  candidates : List Phase
+  completedDepth : ℕ
+  continues : Bool
+deriving Repr
+
+/-- One outer doubling iteration at the supplied depth.  A failed subtree or
+outer U-turn stops before admitting that subtree, matching the checked-row
+semantics rather than silently assuming production NUTS reroot invariance. -/
+def executeOuterStep (dynamics : Dynamics Phase)
+    (inputs : SubtreeInputs Phase) (depth : ℕ)
+    (state : OuterResult Phase) (growRight : Bool) : OuterResult Phase :=
+  if !state.continues then state
+  else
+    let start := if growRight then state.right else state.left
+    let subtree := executeDirectionalSubtree dynamics inputs growRight depth start
+    if !subtree.continues then { state with continues := false }
+    else
+      let newLeft := if growRight then state.left
+        else (buildPhaseTree dynamics growRight depth start).leftmost
+      let newRight := if growRight then
+          (buildPhaseTree dynamics growRight depth start).rightmost
+        else state.right
+      if inputs.endpointTurns newLeft newRight then
+        { state with continues := false }
+      else
+        { left := newLeft
+          right := newRight
+          candidates := if growRight then
+            state.candidates ++ subtree.candidates
+          else subtree.candidates ++ state.candidates
+          completedDepth := state.completedDepth + 1
+          continues := true }
+
+/-- Consume the state-independent outer direction trace.  The depth index is
+explicit and later bits are ignored after the first failed checked expansion. -/
+def executeOuterTraceAux (dynamics : Dynamics Phase)
+    (inputs : SubtreeInputs Phase) :
+    ℕ → OuterResult Phase → List Bool → OuterResult Phase
+  | _, state, [] => state
+  | depth, state, direction :: rest =>
+      let next := executeOuterStep dynamics inputs depth state direction
+      if !next.continues then next
+      else executeOuterTraceAux dynamics inputs (depth + 1) next rest
+
+/-- Complete deterministic replay skeleton for one bounded checked NUTS tree
+transition, beginning with the refreshed initial phase as a candidate. -/
+def Program.executeOuterTrace (program : Program)
+    (dynamics : Dynamics Phase) (inputs : SubtreeInputs Phase)
+    (trace : DirectionTrace program) (initial : Phase) : OuterResult Phase :=
+  executeOuterTraceAux dynamics inputs 0
+    { left := initial, right := initial, candidates := [initial]
+      completedDepth := 0, continues := true }
+    (List.ofFn trace.growRight)
+
+/-- One outer step either preserves the completed depth or increments it once. -/
+theorem executeOuterStep_completedDepth_le
+    (dynamics : Dynamics Phase) (inputs : SubtreeInputs Phase)
+    (depth : ℕ) (state : OuterResult Phase) (direction : Bool) :
+    (executeOuterStep dynamics inputs depth state direction).completedDepth ≤
+      state.completedDepth + 1 := by
+  cases direction <;> simp only [executeOuterStep] <;>
+    split <;> simp_all <;> split <;> simp_all <;> split <;> simp_all
+
+/-- A bounded program cannot complete more outer expansions than its supplied
+direction-trace length. -/
+theorem executeOuterTraceAux_completedDepth_le
+    (dynamics : Dynamics Phase) (inputs : SubtreeInputs Phase)
+    (depth : ℕ) (state : OuterResult Phase) (directions : List Bool) :
+    (executeOuterTraceAux dynamics inputs depth state directions).completedDepth ≤
+      state.completedDepth + directions.length := by
+  induction directions generalizing depth state with
+  | nil => simp [executeOuterTraceAux]
+  | cons direction rest ih =>
+      rw [executeOuterTraceAux]
+      simp only [List.length_cons]
+      let next := executeOuterStep dynamics inputs depth state direction
+      have hstep : next.completedDepth ≤ state.completedDepth + 1 :=
+        executeOuterStep_completedDepth_le dynamics inputs depth state direction
+      change (if !next.continues then next
+        else executeOuterTraceAux dynamics inputs (depth + 1) next rest).completedDepth ≤
+          state.completedDepth + (rest.length + 1)
+      split
+      · omega
+      · have htail := ih (depth + 1) next
+        omega
+
+theorem Program.executeOuterTrace_completedDepth_le (program : Program)
+    (dynamics : Dynamics Phase) (inputs : SubtreeInputs Phase)
+    (trace : DirectionTrace program) (initial : Phase) :
+    (program.executeOuterTrace dynamics inputs trace initial).completedDepth ≤
+      program.maxDepth := by
+  rw [Program.executeOuterTrace]
+  simpa using executeOuterTraceAux_completedDepth_le dynamics inputs 0
+    ({ left := initial, right := initial, candidates := [initial]
+       completedDepth := 0, continues := true } : OuterResult Phase)
+    (List.ofFn trace.growRight)
+
+/-- Exact-real candidate weights supplied to the selection interpreter.  The
+nonnegativity witness is part of the typed boundary rather than an unchecked
+runtime convention. -/
+structure SelectionInputs (Phase : Type*) where
+  weight : Phase → ℝ
+  nonnegative : ∀ phase, 0 ≤ weight phase
+
+/-- One state-independent unit selection mark.  Backends validate the same
+half-open interval before interpreting it. -/
+structure SelectionMark where
+  unit : ℝ
+  nonnegative : 0 ≤ unit
+  lt_one : unit < 1
+
+def candidateTotalWeight (inputs : SelectionInputs Phase) : List Phase → ℝ
+  | [] => 0
+  | phase :: rest => inputs.weight phase + candidateTotalWeight inputs rest
+
+/-- Inverse-CDF consumption of an ordered candidate-occurrence list.  The
+fallback is used only for zero total weight or an exhausted interval caused by
+an invalid premise; the public transition passes its initial phase. -/
+noncomputable def selectWeightedAux (inputs : SelectionInputs Phase) :
+    ℝ → Phase → List Phase → Phase
+  | _, fallback, [] => fallback
+  | threshold, fallback, phase :: rest =>
+      if threshold < inputs.weight phase then phase
+      else selectWeightedAux inputs (threshold - inputs.weight phase) fallback rest
+
+noncomputable def selectWeighted (inputs : SelectionInputs Phase) (mark : SelectionMark)
+    (fallback : Phase) (candidates : List Phase) : Phase :=
+  let total := candidateTotalWeight inputs candidates
+  if total ≤ 0 then fallback
+  else selectWeightedAux inputs (mark.unit * total) fallback candidates
+
+/-- Full deterministic trace carried by the first checked NUTS Reference
+program: bounded direction bits followed by one weighted-selection mark. -/
+structure TransitionTrace (program : Program) extends DirectionTrace program where
+  selection : SelectionMark
+
+structure TransitionResult (Phase : Type*) where
+  tree : OuterResult Phase
+  selected : Phase
+deriving Repr
+
+/-- Complete deterministic interpreter skeleton.  Momentum refresh and the
+numeric one-step dynamics remain typed primitives outside this trace, exactly
+as for the existing HMC compiler IR. -/
+noncomputable def Program.executeTransition (program : Program)
+    (dynamics : Dynamics Phase) (subtree : SubtreeInputs Phase)
+    (selection : SelectionInputs Phase) (trace : TransitionTrace program)
+    (initial : Phase) : TransitionResult Phase :=
+  let tree := program.executeOuterTrace dynamics subtree trace.toDirectionTrace initial
+  { tree := tree
+    selected := selectWeighted selection trace.selection initial tree.candidates }
+
 /-- A bounded checked-row program reuses the generated deterministic
 recursive-doubling semantics.  This is the finite structural interpretation
 that already carries a stationary checked-or-identity kernel theorem. -/
