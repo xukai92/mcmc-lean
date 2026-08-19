@@ -16,7 +16,8 @@ export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_ou
     FixedPointGeneralizedLeapfrogTrace,
     certified_relativistic_multinomial_hmc_step!,
     dynamic_select_float!, streaming_eligible_select!, recursive_doubling_rows,
-    NUTSTreeLeaf, NUTSTreeNode, NUTSSubtreeResult, interpret_nuts_subtree,
+    NUTSTreeLeaf, NUTSTreeNode, NUTSSubtreeResult, build_nuts_phase_tree,
+    interpret_nuts_subtree, interpret_nuts_directional_subtree,
     coupled_multinomial_hmc_step!, coupled_gaussian_rwmh_step!, xu21_coupled_step!,
     IR_FORMAT_VERSION
 
@@ -526,6 +527,20 @@ _tree_leftmost(tree::NUTSTreeNode) = _tree_leftmost(tree.left)
 _tree_rightmost(tree::NUTSTreeLeaf) = tree.phase
 _tree_rightmost(tree::NUTSTreeNode) = _tree_rightmost(tree.right)
 
+"""Build the directional phase tree defined by Lean's NUTS tree program."""
+function build_nuts_phase_tree(program::NUTSTreeProgramDescriptor,
+        start, grow_right::Bool, depth::Integer, advance)
+    0 <= depth <= program.max_depth || throw(ArgumentError(
+        "NUTS subtree depth must lie in 0:$(program.max_depth)"))
+    depth == 0 && return NUTSTreeLeaf(advance(grow_right, start))
+    first = build_nuts_phase_tree(
+        program, start, grow_right, depth - 1, advance)
+    second_start = grow_right ? _tree_rightmost(first) : _tree_leftmost(first)
+    second = build_nuts_phase_tree(
+        program, second_start, grow_right, depth - 1, advance)
+    grow_right ? NUTSTreeNode(first, second) : NUTSTreeNode(second, first)
+end
+
 """Interpret Lean's versioned online-early-exit NUTS subtree semantics.
 
 The callbacks supply phase-local numerical decisions. Their agreement with
@@ -537,6 +552,15 @@ function interpret_nuts_subtree(program::NUTSTreeProgramDescriptor,
     continues = Bool(leaf_continues(tree.phase))
     candidates = continues ? [tree.phase] : typeof(tree.phase)[]
     NUTSSubtreeResult(1, candidates, continues)
+end
+
+"""Build and interpret one typed directional NUTS subtree declaration."""
+function interpret_nuts_directional_subtree(
+        program::NUTSTreeProgramDescriptor, start, grow_right::Bool,
+        depth::Integer, advance, leaf_continues, endpoint_turns)
+    tree = build_nuts_phase_tree(
+        program, start, grow_right, depth, advance)
+    interpret_nuts_subtree(program, tree, leaf_continues, endpoint_turns)
 end
 
 function interpret_nuts_subtree(program::NUTSTreeProgramDescriptor,

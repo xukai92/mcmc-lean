@@ -64,6 +64,49 @@ prevents trace exhaustion from being confused with a mathematical stop. -/
 structure DirectionTrace (program : Program) where
   growRight : Fin program.maxDepth → Bool
 
+/-- Typed phase value carried by the NUTS execution program.  Position and
+momentum representations are parameters so exact reals and backend numeric
+vectors can share the same control-flow syntax. -/
+structure PhaseValue (Position Momentum : Type*) where
+  position : Position
+  momentum : Momentum
+  logWeight : ℝ
+  energy : ℝ
+
+/-- One-step directional dynamics supplied to the tree interpreter.  For the
+ideal semantics this is exact leapfrog; the Julia backend supplies its checked
+numeric primitive and retains the existing refinement obligation. -/
+structure Dynamics (Phase : Type*) where
+  advance : Bool → Phase → Phase
+
+/-- Construct the complete directional phase tree denoted by one recursive
+`BuildTree` call.  `growRight = false` reverses node order so leaves always
+remain in left-to-right trajectory order. -/
+def buildPhaseTree (dynamics : Dynamics Phase) (growRight : Bool) :
+    ℕ → Phase → RecursivePhaseTree Phase
+  | 0, start => .leaf (dynamics.advance growRight start)
+  | depth + 1, start =>
+      let first := buildPhaseTree dynamics growRight depth start
+      let secondStart := if growRight then first.rightmost else first.leftmost
+      let second := buildPhaseTree dynamics growRight depth secondStart
+      if growRight then .node first second else .node second first
+
+@[simp] theorem buildPhaseTree_zero (dynamics : Dynamics Phase)
+    (growRight : Bool) (start : Phase) :
+    buildPhaseTree dynamics growRight 0 start =
+      .leaf (dynamics.advance growRight start) := rfl
+
+/-- Every depth-`d` directional call denotes exactly `2^d` integrated phase
+leaves. -/
+theorem buildPhaseTree_leafCount (dynamics : Dynamics Phase)
+    (growRight : Bool) (depth : ℕ) (start : Phase) :
+    (buildPhaseTree dynamics growRight depth start).leafCount = 2 ^ depth := by
+  induction depth generalizing start with
+  | zero => rfl
+  | succ depth ih =>
+      rw [buildPhaseTree]
+      split <;> simp [RecursivePhaseTree.leafCount, ih, pow_succ] <;> omega
+
 /-- Typed callback environment for the structural subtree interpreter.
 `leafContinues` includes eligibility/divergence checks. -/
 structure SubtreeInputs (Phase : Type*) where
@@ -143,6 +186,28 @@ theorem executeSubtree_candidates_eq_leaves (inputs : SubtreeInputs Phase)
     inputs.leafContinues inputs.endpointTurns hsummary
   rw [← executeSubtree_toOnlineSummary inputs tree] at hcandidates
   exact hcandidates
+
+/-- Execute one directional recursive call from its typed dynamics.  Tree
+construction and structural execution are now both Lean-owned definitions. -/
+def executeDirectionalSubtree (dynamics : Dynamics Phase)
+    (inputs : SubtreeInputs Phase) (growRight : Bool)
+    (depth : ℕ) (start : Phase) : SubtreeResult Phase :=
+  executeSubtree inputs (buildPhaseTree dynamics growRight depth start)
+
+/-- A successful directional execution returns exactly `2^depth` ordered
+candidate occurrences. -/
+theorem executeDirectionalSubtree_candidates_length
+    (dynamics : Dynamics Phase) (inputs : SubtreeInputs Phase)
+    (growRight : Bool) (depth : ℕ) (start : Phase)
+    (hcontinues :
+      (executeDirectionalSubtree dynamics inputs growRight depth start).continues =
+        true) :
+    (executeDirectionalSubtree dynamics inputs growRight depth start).candidates.length =
+      2 ^ depth := by
+  rw [executeDirectionalSubtree,
+    executeSubtree_candidates_eq_leaves inputs _ hcontinues,
+    RecursivePhaseTree.length_leaves,
+    buildPhaseTree_leafCount]
 
 /-- A bounded checked-row program reuses the generated deterministic
 recursive-doubling semantics.  This is the finite structural interpretation

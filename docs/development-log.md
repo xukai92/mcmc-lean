@@ -12,10 +12,14 @@ invariance claim.
 Artifact format version 20 now carries the concrete
 `checked-nuts-reference` tree program. Julia strictly decodes that program and
 uses a small generic tree interpreter with deterministic success, early-left-
-failure, and root-turn tests. This is not yet a complete NUTS transition: phase
-integration, weighted selection, outer direction-trace execution, and the
-continuous orbit lift remain the next correspondence layers. Accordingly the
-benchmark remains labelled `verified-runtime`.
+failure, and root-turn tests. Lean now also owns typed directional phase-tree
+construction from a one-step dynamics callback, proves the resulting leaf
+count, and composes it with the structural interpreter; Julia interprets the
+same forward/backward construction and checks candidate ordering. This is not
+yet a complete NUTS transition: weighted selection, outer direction-trace
+execution, checked row assembly, and the continuous orbit lift remain the next
+correspondence layers. Accordingly the benchmark remains labelled
+`verified-runtime`.
 
 ## 2026-08-19: completed implemented-sampler benchmark rows
 

@@ -497,4 +497,14 @@ end
     @test joins == [(0, 1), (2, 3), (0, 3)]
     @test root_turn.candidates == [0, 1, 2, 3]
     @test !root_turn.continues
+
+    forward = Reference.interpret_nuts_directional_subtree(program, 0, true, 2,
+        (_, phase) -> phase + 1, _ -> true, (_, _) -> false)
+    backward = Reference.interpret_nuts_directional_subtree(program, 0, false, 2,
+        (_, phase) -> phase - 1, _ -> true, (_, _) -> false)
+    @test forward.candidates == [1, 2, 3, 4]
+    @test backward.candidates == [-4, -3, -2, -1]
+    @test forward.visited_leaves == backward.visited_leaves == 4
+    @test_throws ArgumentError Reference.build_nuts_phase_tree(
+        program, 0, true, 11, (_, phase) -> phase + 1)
 end
