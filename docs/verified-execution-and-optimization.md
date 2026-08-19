@@ -120,6 +120,62 @@ meanings differ materially. Lean uses exact `ℝ`; Julia uses `Float64`, platfor
 transcendentals, array operations, callbacks, and concrete RNGs. Direct
 equality is generally the wrong statement for this boundary.
 
+## Worked path: continuous Gaussian RWMH
+
+Scalar Gaussian random-walk Metropolis--Hastings illustrates every maintained
+layer without hiding the exact-real/`Float64` boundary:
+
+```text
+mathlib Measure + Kernel
+          │
+          ▼
+verified Gaussian RWMH kernel and invariance
+          │
+          ▼
+typed continuous command IR ──► ideal-real Lean trace interpreter
+          │                                  │
+          ▼                                  └── trace-refinement theorem
+canonical S-expression artifact
+          │
+          ▼
+Julia Reference parser/interpreter ──► public GaussianRWMH API
+          │
+          └── differential tests ──► handwritten Optimized step
+```
+
+The concrete source trail is:
+
+| Layer | Definition or evidence | What is established |
+|---|---|---|
+| General-state mathematics | [`gaussianRandomWalkMetropolisHastings`](https://github.com/xukai92/mcmc-lean/blob/main/formal/Mcmc/Kernel/RandomWalkMetropolisHastings.lean#L271) | A mathlib `Kernel ℝ ℝ` built from Gaussian translation proposals and MH acceptance. Its nearby theorems prove the Markov, reversible, and invariant properties. |
+| Executable kernel denotation | [`gaussianRwmhKernel` and `gaussianRwmhProgramKernel`](https://github.com/xukai92/mcmc-lean/blob/main/formal/Mcmc/Executable/Continuous/RWMH.lean#L129) | The verified kernel and the exact kernel meaning assigned to the command program. |
+| Main refinement theorem | [`gaussianRwmhProgramKernel_refines`](https://github.com/xukai92/mcmc-lean/blob/main/formal/Mcmc/Executable/Continuous/RWMH.lean#L155) | The exact program denotation equals the verified Gaussian RWMH kernel. [`gaussianRwmhKernel_invariant`](https://github.com/xukai92/mcmc-lean/blob/main/formal/Mcmc/Executable/Continuous/RWMH.lean#L171) then gives target invariance. This is not a generic convergence theorem. |
+| Typed IR | [`gaussianRwmhProgram`](https://github.com/xukai92/mcmc-lean/blob/main/formal/Mcmc/Executable/Continuous/CompilerIR.lean#L92) | Proposal, log-density evaluation, acceptance threshold, uniform draw, and accept/retain control flow as backend-neutral data. |
+| Executable Lean semantics | [`runGaussianRwmh`](https://github.com/xukai92/mcmc-lean/blob/main/formal/Mcmc/Executable/Continuous/CompilerIR.lean#L370) and [`runGaussianRwmh_refines`](https://github.com/xukai92/mcmc-lean/blob/main/formal/Mcmc/Executable/Continuous/CompilerIR.lean#L386) | On an explicit ideal-real noise/uniform trace, the interpreter returns exactly the stated proposal-or-current result and the correct unused trace. |
+| Serialization | [`IRFormat.render`](https://github.com/xukai92/mcmc-lean/blob/main/formal/Mcmc/Executable/IRFormat.lean#L264) | Inserts the typed RWMH program into the versioned canonical artifact. |
+| Emitted IR data | [`Samplers.ir`](https://github.com/xukai92/mcmc-lean/blob/main/VerifiedSamplers.jl/src/Reference/Samplers.ir#L1) | Contains the serialized `gaussian_rwmh_step!` declaration consumed by Julia. Despite its location, this is backend-neutral IR data, not handwritten Julia code. |
+| Julia reference execution | [`Reference.gaussian_rwmh_step!`](https://github.com/xukai92/mcmc-lean/blob/main/VerifiedSamplers.jl/src/Reference/Reference.jl#L951) | Validates inputs and invokes the generic artifact interpreter. Control flow follows the artifact, while arithmetic, `exp`, callbacks, and randomness use Julia `Float64` runtime semantics. |
+| Public Julia API | [`GaussianRWMH`, `step`, and `sample`](https://github.com/xukai92/mcmc-lean/blob/main/VerifiedSamplers.jl/src/VerifiedSamplers.jl#L1224) | Wraps an `AbstractRNG` as a runtime source and repeatedly calls the Reference implementation. |
+| Independent optimized implementation | [`Optimized.gaussian_rwmh_step!`](https://github.com/xukai92/mcmc-lean/blob/main/VerifiedSamplers.jl/src/Optimized/Optimized.jl#L544) | A direct handwritten step used as an independently maintained comparison path; it does not inherit the Lean theorem automatically. |
+| Cross-path evidence | [continuous RWMH tests](https://github.com/xukai92/mcmc-lean/blob/main/VerifiedSamplers.jl/test/continuous.jl#L1166) | Fixed-trace accept/reject cases, Reference/Optimized differential tests, validation checks, and seeded diagnostics. These are tests, not a proof of Julia semantics. |
+
+A user invokes the public path as ordinary Julia code:
+
+```julia
+using Random
+using VerifiedSamplers
+
+rng = MersenneTwister(42)
+target_logdensity(x) = -x^2 / 2
+sampler = GaussianRWMH(target_logdensity, 0.8)
+draws = sample(rng, sampler, 0.0, 2_000)
+```
+
+The machine-checked statement is about the exact kernel and ideal-real command
+semantics. The generated artifact and differential tests make the Julia path
+auditable, but the remaining `Float64`, callback, Julia-interpreter, and RNG
+assumptions are intentionally visible rather than folded into the theorem.
+
 ## Numerical certification is a parallel path
 
 Numerical certification is not a layer through which the ideal sampler is
@@ -268,25 +324,32 @@ needs it. At that point Lean should still state or check the semantic
 equivalence; the Julia library is an implementation mechanism, not the source
 of the proof.
 
-## Revised near-term milestones
+## Current directions
 
-1. Parse the serialized S-expression syntax in Lean and decode the exact finite
-   programs back into typed finite IR.
-2. Prove byte-for-byte parse/decode/re-render round trips for categorical
-   sampling and generic finite MH, including escaped strings and rejection of
-   ill-typed input.
-3. Extend the decoder toward the full top-level artifact only when another
-   declaration class needs a checked consumer.
-4. Keep the existing Julia `Optimized` implementations and comparative tests;
-   do not create a separate optimizer project.
-5. If profiling identifies a reusable IR transformation, implement the pass
-   with an established Julia rewriting library where helpful and add the
-   corresponding Lean semantic theorem or checked witness.
+The project is prioritizing two directions rather than committing to a long
+queue of narrowly specified milestones:
 
-Milestones 1--2 are now implemented in `Mcmc.Executable.IRParser`. The parser
-foundation is intentionally narrower than a proof about the Julia parser or
-interpreter: it removes one serializer-format trust gap without claiming a
-formal semantics for Julia.
+1. **Consolidation.** Keep one canonical artifact, one maintained Julia
+   reference interpreter, and a small public architecture. Historical
+   execution experiments remain useful evidence but should not become parallel
+   public APIs. Optimization work stays in the existing Julia `Optimized`
+   layer and is driven by measured needs.
+2. **Execution trust.** Reduce assumptions at the Lean--artifact--Julia
+   boundary, starting with exact finite programs and extending only where a
+   maintained consumer warrants it. Appropriate techniques include independent
+   parsing and typed validation, shared deterministic traces, abstract
+   interpreter correspondence, and compact execution witnesses.
+
+`Mcmc.Executable.IRParser` now validates the complete artifact envelope and
+version, independently decodes the two registered exact finite programs, and
+checks their canonical typed renderings. This removes serializer-format trust
+for those declarations. It does not yet prove the Julia parser or interpreter
+equivalent to Lean.
+
+Continuous floating-point certification, new sampler families, and a custom
+optimizer are not part of these directions. A future benchmark-motivated
+transformation may use an established Julia rewriting library, but only after
+the specific semantic obligation is clear.
 
 ### Feedback from search into verification
 

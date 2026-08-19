@@ -2,12 +2,10 @@
 
 ## Purpose
 
-This document defines the architecture for connecting the mathematical `Mcmc`
-library to executable reference samplers. The first implementation target is
-the exact finite Metropolis--Hastings slice specified in the
-[finite executable roadmap](finite-executable-roadmap.md), but the boundaries
-are chosen so continuous and coupled samplers can be added later without
-changing what existing correctness claims mean.
+This document defines the architecture connecting the mathematical `Mcmc`
+library to executable reference samplers. Finite, continuous, coupled, and
+composable clients now share these boundaries; historical implementation
+sequencing lives in the roadmaps rather than in this architectural contract.
 
 The central rule is that mathematical semantics, deterministic replay,
 artifact serialization, and Julia execution are separate layers with explicit

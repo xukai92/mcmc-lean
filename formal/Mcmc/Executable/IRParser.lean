@@ -86,6 +86,18 @@ def textRoundTrips (source : String) : Bool :=
   | .ok expression => expression.render = source
   | .error _ => false
 
+/-- Check the versioned envelope shared by every backend consumer. Individual
+declaration decoders remain responsible for their typed payloads. -/
+def validatesArtifactEnvelope (source : String) : Bool :=
+  match parse source with
+  | .ok (.list (.atom "verified-samplers-ir" :: .atom encodedVersion :: declarations)) =>
+      encodedVersion.toNat? == some IRFormat.version &&
+        !declarations.isEmpty && declarations.all fun declaration =>
+          match declaration with
+          | .list _ => true
+          | _ => false
+  | _ => false
+
 open Mcmc.Executable.Finite.CompilerIR
 
 private def atomValue : SExpr → Except String String
@@ -256,6 +268,30 @@ def decodeFiniteProgram : SExpr → Except String Program
     pure ⟨name, ← inputs.mapM decodeInput, ← body.mapM decodeStmt⟩
   | _ => throw "invalid finite artifact program"
 
+/-- Decode the two registered exact finite programs from the leading slots of
+the complete artifact. Later declarations may evolve independently. -/
+def decodeRegisteredFinitePrograms (source : String) :
+    Except String (Program × Program) := do
+  match ← parse source with
+  | .list (.atom "verified-samplers-ir" :: .atom encodedVersion ::
+      categorical :: metropolisHastings :: _) =>
+      if encodedVersion.toNat? != some IRFormat.version then
+        throw "unsupported artifact version"
+      pure (← decodeFiniteProgram categorical,
+        ← decodeFiniteProgram metropolisHastings)
+  | _ => throw "invalid sampler artifact envelope"
+
+/-- Whether the complete artifact contains the two canonical, typed finite
+programs in their registered slots. -/
+def registeredFiniteProgramsRoundTrip (source : String) : Bool :=
+  match decodeRegisteredFinitePrograms source with
+  | .error _ => false
+  | .ok (categorical, metropolisHastings) =>
+      IRFormat.finiteProgramRender categorical =
+          IRFormat.finiteProgramRender categoricalProgram &&
+        IRFormat.finiteProgramRender metropolisHastings =
+          IRFormat.finiteProgramRender metropolisHastingsProgram
+
 /-- Whether text parses, decodes to the typed finite IR, and re-renders
 byte-for-byte. -/
 def typedFiniteProgramRoundTrips (source : String) : Bool :=
@@ -306,6 +342,17 @@ the enclosing return statement. -/
 theorem illTypedReturn_rejected :
     typedFiniteProgramRoundTrips
       "(program \"bad\" (inputs) (body (return (var bool \"x\"))))" = false := by
+  native_decide
+
+/-- The generated complete artifact has the current versioned envelope. -/
+theorem renderedArtifact_validatesEnvelope :
+    validatesArtifactEnvelope IRFormat.render := by
+  native_decide
+
+/-- The complete generated artifact independently parses and type-checks its
+two registered exact finite programs. -/
+theorem renderedArtifact_registeredFiniteProgramsRoundTrip :
+    registeredFiniteProgramsRoundTrip IRFormat.render := by
   native_decide
 
 end Mcmc.Executable.IRParser
