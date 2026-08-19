@@ -95,6 +95,7 @@ import Mcmc.Executable.Continuous.CoupledXu21
 import Mcmc.Executable.Continuous.RelativisticCompilerIR
 import Mcmc.Executable.Continuous.RelativisticCertificates
 import Mcmc.Docs.Graph
+import Mcmc.Docs.Assurance
 import Mcmc.Hamiltonian.Leapfrog
 import Mcmc.Hamiltonian.Discontinuous
 import Mcmc.Hamiltonian.DiscontinuousMetropolis

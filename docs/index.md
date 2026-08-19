@@ -25,6 +25,8 @@ arguments, and explicit audits of the targeted papers.
   obligation ledger for theorem, execution, optimization, and diagnostics.
 - [Gaussian RWMH development record](rwmh-development-record.md) fills that
   ledger for the repository's maintained end-to-end example.
+- [Fixed-step HMC development record](hmc-development-record.md) applies the
+  same ledger and exposes its existing command-to-kernel composition gap.
 - [Non-adaptive AdvancedHMC parity](advancedhmc-parity.md) records the current
   fixed-parameter HMC/NUTS runtime-coverage goal and its exclusions.
 - [Verified execution and optimization](verified-execution-and-optimization.md)

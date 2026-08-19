@@ -168,3 +168,6 @@ For a complete worked example, follow continuous Gaussian RWMH through the
 [verified execution and optimization](verified-execution-and-optimization.md#worked-path-continuous-gaussian-rwmh)
 page. Its [completed development record](rwmh-development-record.md) shows how
 to fill the obligation template without overstating the execution boundary.
+The [fixed-step HMC record](hmc-development-record.md) demonstrates the same
+process when the existing formal and executable pieces do not yet have one
+end-to-end kernel-equality theorem.

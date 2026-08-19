@@ -5,7 +5,9 @@ an algorithm. It is an obligation ledger, not a requirement to force the
 mathematics through the current executable IR.
 
 See the [Gaussian RWMH development record](rwmh-development-record.md) for a
-completed end-to-end example.
+completed end-to-end example. The [fixed-step HMC record](hmc-development-record.md)
+shows how to preserve a real composition gap rather than marking the entire
+path verified.
 
 ## 1. Mathematical identity
 

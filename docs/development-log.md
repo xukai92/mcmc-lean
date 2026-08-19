@@ -1,5 +1,16 @@
 # Development log
 
+## 2026-08-19: generated assurance registry and HMC golden-path audit
+
+Added a Lean-maintained, generated assurance registry for the existing scalar
+Gaussian RWMH and fixed-step endpoint-HMC golden paths. Evidence is recorded by
+independent facet rather than a single maturity badge, so proved exact-real
+results do not upgrade test-supported Julia behavior. The accompanying HMC
+development record identifies the existing checked kernel invariance,
+integrator correspondence, and deterministic replay results, while preserving
+the absence of one full command-kernel equality theorem as an explicit
+composition gap. No sampler or mathematical claim was added.
+
 ## 2026-08-19: calibrated RWMH quality regression
 
 Reused the existing seeded scalar Gaussian RWMH chain to exercise the shared

@@ -7,6 +7,7 @@ pages = [
         "Adding a sampler" => "development-guide.md",
         "Sampler development record" => "sampler-development-template.md",
         "Gaussian RWMH record" => "rwmh-development-record.md",
+        "Fixed-step HMC record" => "hmc-development-record.md",
         "AdvancedHMC parity" => "advancedhmc-parity.md",
         "Lean-generated graphs" => "generated/architecture-graphs.md",
         "Executable system" => "executable-architecture.md",
@@ -48,6 +49,7 @@ pages = [
 published_files = [
     "index.md", "architecture.md", "development-guide.md",
     "sampler-development-template.md", "rwmh-development-record.md",
+    "hmc-development-record.md",
     "advancedhmc-parity.md",
     "generated/architecture-graphs.md",
     "executable-architecture.md", "verified-execution-and-optimization.md",
