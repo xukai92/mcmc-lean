@@ -20,9 +20,12 @@ yet a complete NUTS transition. Lean and Julia now also consume the bounded
 outer direction trace, stop before admitting a failed expansion, preserve
 left-to-right occurrence order, and consume one explicit multinomial selection
 mark. Lean proves the completed outer depth is bounded by the supplied trace.
-Checked all-root row assembly and the continuous orbit lift remain the next
-correspondence layers. Accordingly the benchmark remains labelled
-`verified-runtime`.
+Julia now also interprets every rooted row, applies the exact executable
+root-retention/reroot-equality check, and consumes no selection mark on the
+identity branch; conformance tests compare this result with the pre-existing
+certificate API. The continuous Hamiltonian-orbit lift and public sampler
+migration remain the next correspondence layers. Accordingly the benchmark
+remains labelled `verified-runtime`.
 
 ## 2026-08-19: completed implemented-sampler benchmark rows
 

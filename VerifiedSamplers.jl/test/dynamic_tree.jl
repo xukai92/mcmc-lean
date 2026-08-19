@@ -539,4 +539,29 @@ end
         program, [0], _ -> 0.0, 1.0)
     @test_throws DomainError Reference.select_nuts_candidate(
         program, [0], _ -> -Inf, 0.5)
+
+    positions = [[x] for x in 0.0:6.0]
+    momenta = [ones(1) for _ in positions]
+    checked_rows = Reference.interpret_checked_nuts_rows(
+        program, positions, momenta, Bool[true, false])
+    legacy_certificate = certify_dynamic_tree(
+        Reference.recursive_doubling_rows(
+            positions, momenta, Bool[true, false]))
+    @test checked_rows.rows == legacy_certificate.candidates
+    @test checked_rows.valid == legacy_certificate.valid
+    @test !checked_rows.valid
+    @test_throws ArgumentError Reference.interpret_checked_nuts_rows(
+        program, positions, momenta, fill(true, 11))
+
+    rejected_source = Runtime.FloatTraceSource([Runtime.UniformEvent(0.5)])
+    rejected = Reference.checked_nuts_or_identity_select!(rejected_source,
+        program, positions, momenta, Bool[true, false], 3, (_, _) -> 0.0)
+    @test rejected == 3
+    @test Runtime.remaining(rejected_source) == 1
+
+    singleton_source = Runtime.FloatTraceSource([Runtime.UniformEvent(0.5)])
+    singleton = Reference.checked_nuts_or_identity_select!(singleton_source,
+        program, positions, momenta, Bool[], 3, (_, _) -> 0.0)
+    @test singleton == 3
+    @test Runtime.remaining(singleton_source) == 0
 end

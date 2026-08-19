@@ -19,6 +19,7 @@ export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_ou
     NUTSTreeLeaf, NUTSTreeNode, NUTSSubtreeResult, build_nuts_phase_tree,
     NUTSOuterResult, interpret_nuts_subtree, interpret_nuts_directional_subtree,
     interpret_nuts_outer_trace, select_nuts_candidate, interpret_nuts_transition,
+    interpret_checked_nuts_rows, checked_nuts_or_identity_select!,
     coupled_multinomial_hmc_step!, coupled_gaussian_rwmh_step!, xu21_coupled_step!,
     IR_FORMAT_VERSION
 
@@ -639,6 +640,46 @@ function interpret_nuts_transition(program::NUTSTreeProgramDescriptor,
     selected = select_nuts_candidate(
         program, tree.candidates, logweight, selection_unit)
     (; tree, selected)
+end
+
+"""Interpret and globally check every rooted row of one completed orbit.
+
+The Boolean is exactly the executable root-retention/reroot-equality predicate
+used by Lean's checked-or-identity semantics. No row is selected when it is
+false.
+"""
+function interpret_checked_nuts_rows(program::NUTSTreeProgramDescriptor,
+        positions::AbstractVector{<:AbstractVector{<:Real}},
+        momenta::AbstractVector{<:AbstractVector{<:Real}},
+        directions::AbstractVector{Bool})
+    length(directions) <= program.max_depth || throw(ArgumentError(
+        "direction trace exceeds maximum depth $(program.max_depth)"))
+    rows = recursive_doubling_rows(positions, momenta, directions)
+    root_retained = all(root -> root in rows[root], eachindex(rows))
+    reroot_equal = root_retained && all(eachindex(rows)) do root
+        all(leaf -> rows[leaf] == rows[root], rows[root])
+    end
+    (; rows, valid=root_retained && reroot_equal)
+end
+
+"""Execute checked target-weighted selection, or return the current root.
+
+The selection mark is consumed only for a globally valid row family. This
+matches the Lean identity branch and makes trace behavior observable.
+"""
+function checked_nuts_or_identity_select!(source::AbstractRandomSource,
+        program::NUTSTreeProgramDescriptor,
+        positions::AbstractVector{<:AbstractVector{<:Real}},
+        momenta::AbstractVector{<:AbstractVector{<:Real}},
+        directions::AbstractVector{Bool}, current::Integer, logweight)
+    checked = interpret_checked_nuts_rows(
+        program, positions, momenta, directions)
+    1 <= current <= length(checked.rows) || throw(BoundsError(checked.rows, current))
+    checked.valid || return Int(current)
+    candidates = checked.rows[current]
+    select_nuts_candidate(program, candidates,
+        index -> logweight(positions[index], momenta[index]),
+        uniform_unit!(source))
 end
 
 """Build and interpret one typed directional NUTS subtree declaration."""
