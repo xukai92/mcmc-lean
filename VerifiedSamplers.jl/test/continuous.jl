@@ -1649,3 +1649,40 @@ end
         @test optimized_logdensity_calls[] == 20 * 2
     end
 end
+@testset "optimized core numeric type propagation" begin
+    for T in (Float32, Float64, BigFloat)
+        logdensity = q -> -sum(abs2, q) / T(2)
+        gradient = q -> q
+        initial = T[0.1, -0.2]
+        metric = Optimized.prepare_metric(T[1, 2])
+
+        endpoint_events = Runtime.FloatTraceEvent[
+            Runtime.NormalEvent(0.2), Runtime.NormalEvent(-0.3),
+            Runtime.UniformEvent(0.4)]
+        endpoint = Optimized.metric_hmc_step!(
+            Runtime.FloatTraceSource(endpoint_events), logdensity, gradient,
+            T(0.1), 2, initial, metric)
+        @test eltype(endpoint) === T
+
+        multinomial_events = Runtime.FloatTraceEvent[
+            Runtime.NormalEvent(0.2), Runtime.NormalEvent(-0.3),
+            Runtime.IndexEvent(big(1)), Runtime.UniformEvent(0.4)]
+        multinomial = Optimized.metric_multinomial_hmc_step!(
+            Runtime.FloatTraceSource(multinomial_events), logdensity, gradient,
+            T(0.1), 2, initial, metric)
+        @test eltype(multinomial) === T
+
+        relativistic = Optimized.relativistic_multinomial_hmc_step!(
+            Runtime.RNGSource(MersenneTwister(0x72656c)), logdensity,
+            gradient, T(0.1), 2, initial, T[1, 1], one(T))
+        @test eltype(relativistic) === T
+
+        position_derivative = (q, p) -> q
+        momentum_derivative = (q, p) -> p
+        q, p, _ = Optimized.fixed_point_generalized_leapfrog(
+            position_derivative, momentum_derivative, initial, T[0.2, 0.3],
+            T(0.01); max_iterations=2)
+        @test eltype(q) === T
+        @test eltype(p) === T
+    end
+end

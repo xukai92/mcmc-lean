@@ -4,6 +4,43 @@ types have been defined. It contains production-shaped, fixed-parameter HMC
 variants whose semantics reuse those established transition implementations.
 =#
 
+_check_metric_eltype(::Nothing, ::Type{T}) where {T<:AbstractFloat} = nothing
+function _check_metric_eltype(metric, ::Type{T}) where {T<:AbstractFloat}
+    eltype(metric.mass) === T || throw(ArgumentError(
+        "sampler and metric element types must match"))
+    nothing
+end
+
+struct _FixedOptimizedHMC{F,G,M,T<:AbstractFloat}
+    logdensity::F
+    gradient::G
+    metric::M
+    step_size::T
+    steps::Int
+end
+
+function step(rng::AbstractRNG, sampler::_FixedOptimizedHMC{F,G,M,T},
+        current::AbstractVector{T}) where {F,G,M,T}
+    source = Runtime.RNGSource(rng)
+    sampler.metric === nothing ?
+        Optimized.vector_hmc_step!(source, sampler.logdensity,
+            sampler.gradient, sampler.step_size, sampler.steps, current) :
+        Optimized.metric_hmc_step!(source, sampler.logdensity,
+            sampler.gradient, sampler.step_size, sampler.steps, current,
+            Optimized.prepare_metric(metric_mass(sampler.metric)))
+end
+
+function sample(rng::AbstractRNG, sampler::_FixedOptimizedHMC,
+        initial::AbstractVector{T}, count::Integer) where {T<:AbstractFloat}
+    current = collect(initial)
+    samples = Matrix{T}(undef, length(initial), count)
+    for index in axes(samples, 2)
+        current = step(rng, sampler, current)
+        samples[:, index] = current
+    end
+    samples
+end
+
 """Endpoint HMC terminated by a fixed integration time.
 
 The number of leapfrog updates is `floor(integration_time / step_size)`,
@@ -11,14 +48,14 @@ with a minimum of one, matching AdvancedHMC's fixed-integration-time
 termination rule. This is a fixed-parameter sampler; it performs no step-size
 or metric adaptation.
 """
-struct FixedIntegrationTimeHMC{S}
+struct FixedIntegrationTimeHMC{S,T<:AbstractFloat}
     sampler::S
-    integration_time::Float64
+    integration_time::T
     steps::Int
 end
 
-function _fixed_integration_steps(step_size::Real, integration_time::Real)
-    ε, λ = Float64(step_size), Float64(integration_time)
+function _fixed_integration_steps(step_size::T, integration_time::T) where {T<:AbstractFloat}
+    ε, λ = step_size, integration_time
     isfinite(ε) && ε > 0 ||
         throw(ArgumentError("step size must be finite and positive"))
     isfinite(λ) && λ > 0 ||
@@ -28,9 +65,9 @@ function _fixed_integration_steps(step_size::Real, integration_time::Real)
 end
 
 function FixedIntegrationTimeHMC(logdensity::F, gradient::G,
-        step_size::Real, integration_time::Real;
-        integrator::Symbol=:leapfrog, jitter::Real=0.1,
-        temperature::Real=1.0) where {F,G}
+        step_size::T, integration_time::T;
+        integrator::Symbol=:leapfrog, jitter::T=T(0.1),
+        temperature::T=one(T)) where {F,G,T<:AbstractFloat}
     ε, λ, steps = _fixed_integration_steps(step_size, integration_time)
     kind, amount, tempering =
         _hmc_integrator_parameters(integrator, jitter, temperature)
@@ -39,16 +76,17 @@ function FixedIntegrationTimeHMC(logdensity::F, gradient::G,
     elseif kind === :tempered
         TemperedHMC(logdensity, gradient, ε, steps; temperature=tempering)
     else
-        VectorHMC(logdensity, gradient, ε, steps)
+        _FixedOptimizedHMC{F,G,Nothing,T}(
+            logdensity, gradient, nothing, ε, steps)
     end
-    FixedIntegrationTimeHMC(fixed, λ, steps)
+    FixedIntegrationTimeHMC{typeof(fixed),T}(fixed, λ, steps)
 end
 
 function FixedIntegrationTimeHMC(logdensity::F, gradient::G,
-        metric::M, step_size::Real, integration_time::Real;
-        integrator::Symbol=:leapfrog, jitter::Real=0.1,
-        temperature::Real=1.0) where
-        {F,G,M<:Union{DiagonalMetric,DenseMetric,RankUpdateMetric}}
+        metric::M, step_size::T, integration_time::T;
+        integrator::Symbol=:leapfrog, jitter::T=T(0.1),
+        temperature::T=one(T)) where
+        {F,G,T<:AbstractFloat,M<:Union{DiagonalMetric,DenseMetric,RankUpdateMetric}}
     ε, λ, steps = _fixed_integration_steps(step_size, integration_time)
     kind, amount, tempering =
         _hmc_integrator_parameters(integrator, jitter, temperature)
@@ -58,9 +96,10 @@ function FixedIntegrationTimeHMC(logdensity::F, gradient::G,
         TemperedHMC(logdensity, gradient, metric, ε, steps;
             temperature=tempering)
     else
-        MetricHMC(logdensity, gradient, metric, ε, steps)
+        _FixedOptimizedHMC{F,G,M,T}(
+            logdensity, gradient, metric, ε, steps)
     end
-    FixedIntegrationTimeHMC(fixed, λ, steps)
+    FixedIntegrationTimeHMC{typeof(fixed),T}(fixed, λ, steps)
 end
 
 step(rng::AbstractRNG, sampler::FixedIntegrationTimeHMC, current) =
@@ -82,58 +121,60 @@ For `u ∈ [0,1)`, the trajectory step size is
 parameters remain fixed. `jitter` must lie in `[0,1)` so every realized step
 size is positive.
 """
-struct JitteredHMC{F,G,M}
+struct JitteredHMC{F,G,M,T<:AbstractFloat}
     logdensity::F
     gradient::G
     metric::M
-    nominal_step_size::Float64
-    jitter::Float64
+    nominal_step_size::T
+    jitter::T
     steps::Int
 end
 
-function JitteredHMC(logdensity::F, gradient::G, step_size::Real,
-        steps::Integer=10; jitter::Real=0.1) where {F,G}
+function JitteredHMC(logdensity::F, gradient::G, step_size::T,
+        steps::Integer=10; jitter::T=T(0.1)) where {F,G,T<:AbstractFloat}
     JitteredHMC(logdensity, gradient, nothing, step_size, steps; jitter)
 end
 
 function JitteredHMC(logdensity::F, gradient::G, metric::M,
-        step_size::Real, steps::Integer=10; jitter::Real=0.1) where
-        {F,G,M<:Union{Nothing,DiagonalMetric,DenseMetric,RankUpdateMetric}}
-    ε, amount = Float64(step_size), Float64(jitter)
+        step_size::T, steps::Integer=10; jitter::T=T(0.1)) where
+        {F,G,T<:AbstractFloat,M<:Union{Nothing,DiagonalMetric,DenseMetric,RankUpdateMetric}}
+    ε, amount = step_size, jitter
+    _check_metric_eltype(metric, T)
     isfinite(ε) && ε > 0 ||
         throw(ArgumentError("step size must be finite and positive"))
     isfinite(amount) && 0 <= amount < 1 ||
         throw(ArgumentError("jitter must lie in [0, 1)"))
     steps > 0 || throw(ArgumentError("leapfrog steps must be positive"))
-    JitteredHMC{F,G,M}(
+    JitteredHMC{F,G,M,T}(
         logdensity, gradient, metric, ε, amount, Int(steps))
 end
 
 function _jittered_hmc_step!(source::Runtime.AbstractRandomSource,
-        sampler::JitteredHMC, current::AbstractVector{<:Real})
-    uniform = Runtime.uniform_unit!(source)
-    ε = sampler.nominal_step_size * (1 + sampler.jitter * (2uniform - 1))
+        sampler::JitteredHMC{F,G,M,T}, current::AbstractVector{T}) where {F,G,M,T}
+    uniform = T(Runtime.uniform_unit!(source))
+    ε = sampler.nominal_step_size * (one(T) + sampler.jitter * (T(2)*uniform - one(T)))
     if sampler.metric === nothing
-        Reference.vector_hmc_step!(source, sampler.logdensity, sampler.gradient,
+        Optimized.vector_hmc_step!(source, sampler.logdensity, sampler.gradient,
             ε, sampler.steps, current)
     else
-        Reference.metric_hmc_step!(source, sampler.logdensity, sampler.gradient,
-            ε, sampler.steps, current, metric_mass(sampler.metric))
+        Optimized.metric_hmc_step!(source, sampler.logdensity, sampler.gradient,
+            ε, sampler.steps, current,
+            Optimized.prepare_metric(metric_mass(sampler.metric)))
     end
 end
 
 step(rng::AbstractRNG, sampler::JitteredHMC,
-        current::AbstractVector{<:Real}) =
+        current::AbstractVector{T}) where {T<:AbstractFloat} =
     _jittered_hmc_step!(Runtime.RNGSource(rng), sampler, current)
 
-step(sampler::JitteredHMC, current::AbstractVector{<:Real}) =
+step(sampler::JitteredHMC, current::AbstractVector{T}) where {T<:AbstractFloat} =
     step(Random.default_rng(), sampler, current)
 
 function sample(rng::AbstractRNG, sampler::JitteredHMC,
-        initial::AbstractVector{<:Real}, count::Integer)
+        initial::AbstractVector{T}, count::Integer) where {T<:AbstractFloat}
     count >= 0 || throw(ArgumentError("sample count must be nonnegative"))
-    current = Float64.(initial)
-    samples = Matrix{Float64}(undef, length(current), count)
+    current = collect(initial)
+    samples = Matrix{T}(undef, length(current), count)
     for index in axes(samples, 2)
         current = step(rng, sampler, current)
         samples[:, index] = current
@@ -141,12 +182,12 @@ function sample(rng::AbstractRNG, sampler::JitteredHMC,
     samples
 end
 
-sample(sampler::JitteredHMC, initial::AbstractVector{<:Real}, count::Integer) =
+sample(sampler::JitteredHMC, initial::AbstractVector{T}, count::Integer) where {T<:AbstractFloat} =
     sample(Random.default_rng(), sampler, initial, count)
 
 function _fixed_metric_dynamics(source::Runtime.AbstractRandomSource,
-        metric, dimension::Int)
-    noise = [Runtime.standard_normal!(source) for _ in 1:dimension]
+        metric, dimension::Int, ::Type{T}) where {T<:AbstractFloat}
+    noise = T[Runtime.standard_normal!(source) for _ in 1:dimension]
     if metric === nothing
         return noise, identity
     elseif metric isa DiagonalMetric
@@ -171,39 +212,40 @@ The first half of the `2 * steps` momentum-tempering operations multiply by
 `sqrt(temperature)` and the second half divide by the same factor. Parameters
 are fixed for the whole chain; this type performs no adaptation.
 """
-struct TemperedHMC{F,G,M}
+struct TemperedHMC{F,G,M,T<:AbstractFloat}
     logdensity::F
     gradient::G
     metric::M
-    step_size::Float64
+    step_size::T
     steps::Int
-    temperature::Float64
+    temperature::T
 end
 
-function TemperedHMC(logdensity::F, gradient::G, step_size::Real,
-        steps::Integer=10; temperature::Real=1.0) where {F,G}
+function TemperedHMC(logdensity::F, gradient::G, step_size::T,
+        steps::Integer=10; temperature::T=one(T)) where {F,G,T<:AbstractFloat}
     TemperedHMC(logdensity, gradient, nothing, step_size, steps; temperature)
 end
 
 function TemperedHMC(logdensity::F, gradient::G, metric::M,
-        step_size::Real, steps::Integer=10; temperature::Real=1.0) where
-        {F,G,M<:Union{Nothing,DiagonalMetric,DenseMetric,RankUpdateMetric}}
-    ε, α = Float64(step_size), Float64(temperature)
+        step_size::T, steps::Integer=10; temperature::T=one(T)) where
+        {F,G,T<:AbstractFloat,M<:Union{Nothing,DiagonalMetric,DenseMetric,RankUpdateMetric}}
+    ε, α = step_size, temperature
+    _check_metric_eltype(metric, T)
     isfinite(ε) && ε > 0 ||
         throw(ArgumentError("step size must be finite and positive"))
     isfinite(α) && α > 0 ||
         throw(ArgumentError("temperature must be finite and positive"))
     steps > 0 || throw(ArgumentError("leapfrog steps must be positive"))
-    TemperedHMC{F,G,M}(logdensity, gradient, metric, ε, Int(steps), α)
+    TemperedHMC{F,G,M,T}(logdensity, gradient, metric, ε, Int(steps), α)
 end
 
 function _tempered_hmc_step!(source::Runtime.AbstractRandomSource,
-        sampler::TemperedHMC, current::AbstractVector{<:Real})
-    initial = Float64.(current)
+        sampler::TemperedHMC{F,G,M,T}, current::AbstractVector{T}) where {F,G,M,T}
+    initial = collect(current)
     isempty(initial) && throw(ArgumentError("position cannot be empty"))
     all(isfinite, initial) || throw(ArgumentError("position must be finite"))
     momentum, velocity = _fixed_metric_dynamics(
-        source, sampler.metric, length(initial))
+        source, sampler.metric, length(initial), T)
     initial_momentum = copy(momentum)
     position = copy(initial)
     scale = sqrt(sampler.temperature)
@@ -211,13 +253,13 @@ function _tempered_hmc_step!(source::Runtime.AbstractRandomSource,
         first_counter = 2(index - 1) + 1
         momentum = first_counter <= sampler.steps ?
             momentum .* scale : momentum ./ scale
-        force = Float64.(sampler.gradient(position))
+        force = T.(sampler.gradient(position))
         length(force) == length(position) ||
             throw(DimensionMismatch("gradient dimension"))
         all(isfinite, force) || throw(DomainError(force, "gradient must be finite"))
         momentum .-= (sampler.step_size / 2) .* force
         position .+= sampler.step_size .* velocity(momentum)
-        force = Float64.(sampler.gradient(position))
+        force = T.(sampler.gradient(position))
         length(force) == length(position) ||
             throw(DimensionMismatch("gradient dimension"))
         all(isfinite, force) || throw(DomainError(force, "gradient must be finite"))
@@ -226,30 +268,30 @@ function _tempered_hmc_step!(source::Runtime.AbstractRandomSource,
         momentum = second_counter <= sampler.steps ?
             momentum .* scale : momentum ./ scale
     end
-    current_logdensity = Float64(sampler.logdensity(initial))
-    next_logdensity = Float64(sampler.logdensity(position))
+    current_logdensity = T(sampler.logdensity(initial))
+    next_logdensity = T(sampler.logdensity(position))
     current_logweight = current_logdensity -
         dot(initial_momentum, velocity(initial_momentum)) / 2
     next_logweight = next_logdensity - dot(momentum, velocity(momentum)) / 2
     all(isfinite, (current_logweight, next_logweight)) ||
         throw(DomainError((current_logweight, next_logweight),
             "Hamiltonian energy must be finite"))
-    log(Runtime.uniform_unit!(source)) < min(0.0, next_logweight - current_logweight) ?
+    log(T(Runtime.uniform_unit!(source))) < min(zero(T), next_logweight - current_logweight) ?
         position : initial
 end
 
 step(rng::AbstractRNG, sampler::TemperedHMC,
-        current::AbstractVector{<:Real}) =
+        current::AbstractVector{T}) where {T<:AbstractFloat} =
     _tempered_hmc_step!(Runtime.RNGSource(rng), sampler, current)
 
-step(sampler::TemperedHMC, current::AbstractVector{<:Real}) =
+step(sampler::TemperedHMC, current::AbstractVector{T}) where {T<:AbstractFloat} =
     step(Random.default_rng(), sampler, current)
 
 function sample(rng::AbstractRNG, sampler::TemperedHMC,
-        initial::AbstractVector{<:Real}, count::Integer)
+        initial::AbstractVector{T}, count::Integer) where {T<:AbstractFloat}
     count >= 0 || throw(ArgumentError("sample count must be nonnegative"))
-    current = Float64.(initial)
-    samples = Matrix{Float64}(undef, length(current), count)
+    current = collect(initial)
+    samples = Matrix{T}(undef, length(current), count)
     for index in axes(samples, 2)
         current = step(rng, sampler, current)
         samples[:, index] = current
@@ -257,17 +299,17 @@ function sample(rng::AbstractRNG, sampler::TemperedHMC,
     samples
 end
 
-sample(sampler::TemperedHMC, initial::AbstractVector{<:Real}, count::Integer) =
+sample(sampler::TemperedHMC, initial::AbstractVector{T}, count::Integer) where {T<:AbstractFloat} =
     sample(Random.default_rng(), sampler, initial, count)
 
 """Structured information from one fixed-parameter HMC transition."""
-struct HMCTransition{T}
-    position::T
+struct HMCTransition{P,T<:AbstractFloat}
+    position::P
     moved::Bool
-    acceptance_rate::Float64
-    hamiltonian_energy::Float64
-    hamiltonian_energy_error::Float64
-    max_hamiltonian_energy_error::Float64
+    acceptance_rate::T
+    hamiltonian_energy::T
+    hamiltonian_energy_error::T
+    max_hamiltonian_energy_error::T
     leapfrog_steps::Int
     tree_depth::Int
     divergent::Bool
@@ -276,23 +318,23 @@ struct HMCTransition{T}
     selection::Symbol
 end
 
-struct _NUTSPhase
-    position::Vector{Float64}
-    momentum::Vector{Float64}
-    logweight::Float64
-    energy::Float64
+struct _NUTSPhase{T<:AbstractFloat}
+    position::Vector{T}
+    momentum::Vector{T}
+    logweight::T
+    energy::T
 end
 
-struct _NUTSTree
-    left::_NUTSPhase
-    right::_NUTSPhase
-    candidate::_NUTSPhase
-    momentum_sum::Vector{Float64}
-    logweight::Float64
+struct _NUTSTree{T<:AbstractFloat}
+    left::_NUTSPhase{T}
+    right::_NUTSPhase{T}
+    candidate::_NUTSPhase{T}
+    momentum_sum::Vector{T}
+    logweight::T
     eligible::Int
-    acceptance_sum::Float64
+    acceptance_sum::T
     leapfrog_steps::Int
-    max_energy_error::Float64
+    max_energy_error::T
     stopped::Bool
     divergent::Bool
 end
@@ -307,28 +349,29 @@ dynamic-tree leaf in the symmetric half-temper schedule. The nominal step size,
 metric, maximum depth, and divergence threshold are fixed. No warmup or
 adaptation is performed.
 """
-struct OptimizedNUTS{F,G,M}
+struct OptimizedNUTS{F,G,M,T<:AbstractFloat}
     logdensity::F
     gradient::G
     metric::M
-    step_size::Float64
+    step_size::T
     max_depth::Int
-    max_energy_error::Float64
+    max_energy_error::T
     termination::Symbol
     selection::Symbol
     integrator::Symbol
-    jitter::Float64
-    temperature::Float64
+    jitter::T
+    temperature::T
 end
 
-function OptimizedNUTS(logdensity::F, gradient::G, step_size::Real;
-        metric=nothing, max_depth::Integer=10, max_energy_error::Real=1000.0,
+function OptimizedNUTS(logdensity::F, gradient::G, step_size::T;
+        metric=nothing, max_depth::Integer=10, max_energy_error::T=T(1000),
         termination::Symbol=:generalized,
         selection::Symbol=:multinomial, integrator::Symbol=:leapfrog,
-        jitter::Real=0.1, temperature::Real=1.0) where {F,G}
+        jitter::T=T(0.1), temperature::T=one(T)) where {F,G,T<:AbstractFloat}
     metric isa Union{Nothing,DiagonalMetric,DenseMetric,RankUpdateMetric} ||
         throw(ArgumentError("unsupported fixed metric"))
-    ε, Δmax = Float64(step_size), Float64(max_energy_error)
+    _check_metric_eltype(metric, T)
+    ε, Δmax = step_size, max_energy_error
     kind, jitter_amount, tempering =
         _hmc_integrator_parameters(integrator, jitter, temperature)
     isfinite(ε) && ε > 0 ||
@@ -342,44 +385,44 @@ function OptimizedNUTS(logdensity::F, gradient::G, step_size::Real;
             ":strict_generalized"))
     selection in (:multinomial, :slice) || throw(ArgumentError(
         "selection must be :multinomial or :slice"))
-    OptimizedNUTS{F,G,typeof(metric)}(logdensity, gradient, metric, ε,
+    OptimizedNUTS{F,G,typeof(metric),T}(logdensity, gradient, metric, ε,
         Int(max_depth), Δmax, termination, selection, kind,
         jitter_amount, tempering)
 end
 
-function _nuts_step_size!(source::Runtime.AbstractRandomSource, sampler::OptimizedNUTS)
+function _nuts_step_size!(source::Runtime.AbstractRandomSource, sampler::OptimizedNUTS{F,G,M,T}) where {F,G,M,T}
     sampler.integrator === :jittered || return sampler.step_size
-    uniform = Runtime.uniform_unit!(source)
-    sampler.step_size * (1 + sampler.jitter * (2uniform - 1))
+    uniform = T(Runtime.uniform_unit!(source))
+    sampler.step_size * (one(T) + sampler.jitter * (T(2)*uniform - one(T)))
 end
 
-function _nuts_phase(sampler::OptimizedNUTS,
-        position::Vector{Float64}, momentum::Vector{Float64}, velocity)
-    logdensity = Float64(sampler.logdensity(position))
+function _nuts_phase(sampler::OptimizedNUTS{F,G,M,T},
+        position::Vector{T}, momentum::Vector{T}, velocity) where {F,G,M,T}
+    logdensity = T(sampler.logdensity(position))
     isfinite(logdensity) || throw(DomainError(logdensity,
         "log density must be finite"))
     energy = -logdensity + dot(momentum, velocity(momentum)) / 2
     _NUTSPhase(position, momentum, -energy, energy)
 end
 
-function _nuts_phase(sampler::OptimizedNUTS, position, momentum, velocity)
-    q, p = Float64.(position), Float64.(momentum)
+function _nuts_phase(sampler::OptimizedNUTS{F,G,M,T}, position, momentum, velocity) where {F,G,M,T}
+    q, p = T.(position), T.(momentum)
     _nuts_phase(sampler, q, p, velocity)
 end
 
-function _nuts_leapfrog(sampler::OptimizedNUTS, phase::_NUTSPhase,
-        direction::Int, velocity, realized_step_size::Float64=sampler.step_size)
+function _nuts_leapfrog(sampler::OptimizedNUTS{F,G,M,T}, phase::_NUTSPhase{T},
+        direction::Int, velocity, realized_step_size::T=sampler.step_size) where {F,G,M,T}
     ε = direction * realized_step_size
     momentum = phase.momentum
     scale = sqrt(sampler.temperature)
     sampler.integrator === :tempered && (momentum = momentum .* scale)
-    force = Float64.(sampler.gradient(phase.position))
+    force = T.(sampler.gradient(phase.position))
     length(force) == length(phase.position) ||
         throw(DimensionMismatch("gradient dimension"))
     all(isfinite, force) || throw(DomainError(force, "gradient must be finite"))
     half = momentum .- (ε / 2) .* force
     position = phase.position .+ ε .* velocity(half)
-    force = Float64.(sampler.gradient(position))
+    force = T.(sampler.gradient(position))
     length(force) == length(position) ||
         throw(DimensionMismatch("gradient dimension"))
     all(isfinite, force) || throw(DomainError(force, "gradient must be finite"))
@@ -388,24 +431,24 @@ function _nuts_leapfrog(sampler::OptimizedNUTS, phase::_NUTSPhase,
     _nuts_phase(sampler, position, momentum, velocity)
 end
 
-function _logaddexp(left::Float64, right::Float64)
+function _logaddexp(left::T, right::T) where {T<:AbstractFloat}
     left == -Inf && return right
     right == -Inf && return left
     top = max(left, right)
     top + log(exp(left - top) + exp(right - top))
 end
 
-_maxabs(left::Float64, right::Float64) =
+_maxabs(left::T, right::T) where {T<:AbstractFloat} =
     abs(left) > abs(right) ? left : right
 
-function _nuts_uturn_generalized(left::_NUTSPhase, right::_NUTSPhase,
-        momentum_sum::AbstractVector{<:Real}, velocity)
+function _nuts_uturn_generalized(left::_NUTSPhase{T}, right::_NUTSPhase{T},
+        momentum_sum::AbstractVector{T}, velocity) where {T<:AbstractFloat}
     dot(momentum_sum, velocity(left.momentum)) <= 0 ||
         dot(momentum_sum, velocity(right.momentum)) <= 0
 end
 
-function _nuts_uturn(sampler::OptimizedNUTS, left::_NUTSPhase, right::_NUTSPhase,
-        momentum_sum::AbstractVector{<:Real}, velocity)
+function _nuts_uturn(sampler::OptimizedNUTS, left::_NUTSPhase{T}, right::_NUTSPhase{T},
+        momentum_sum::AbstractVector{T}, velocity) where {T<:AbstractFloat}
     if sampler.termination === :classic
         displacement = right.position .- left.position
         dot(displacement, velocity(left.momentum)) <= 0 ||
@@ -476,9 +519,9 @@ function _choose_outer_candidate!(source::Runtime.AbstractRandomSource,
 end
 
 function _build_nuts_tree!(source::Runtime.AbstractRandomSource,
-        sampler::OptimizedNUTS, start::_NUTSPhase, direction::Int, depth::Int,
-        initial_energy::Float64, log_slice::Float64, velocity,
-        realized_step_size::Float64=sampler.step_size)
+        sampler::OptimizedNUTS{F,G,M,T}, start::_NUTSPhase{T}, direction::Int, depth::Int,
+        initial_energy::T, log_slice::T, velocity,
+        realized_step_size::T=sampler.step_size) where {F,G,M,T}
     if depth == 0
         next = _nuts_leapfrog(
             sampler, start, direction, velocity, realized_step_size)
@@ -491,9 +534,9 @@ function _build_nuts_tree!(source::Runtime.AbstractRandomSource,
         eligible = sampler.selection === :slice ?
             Int(!divergent && next.logweight >= log_slice) : Int(!divergent)
         logweight = sampler.selection === :multinomial && !divergent ?
-            next.logweight : -Inf
+            next.logweight : T(-Inf)
         _NUTSTree(next, next, next, copy(next.momentum), logweight, eligible,
-            exp(min(0.0, -error)), 1, error, divergent, divergent)
+            exp(min(zero(T), -error)), 1, error, divergent, divergent)
     else
         first = _build_nuts_tree!(source, sampler, start, direction, depth - 1,
             initial_energy, log_slice, velocity, realized_step_size)
@@ -507,21 +550,21 @@ function _build_nuts_tree!(source::Runtime.AbstractRandomSource,
     end
 end
 
-function transition(rng::AbstractRNG, sampler::OptimizedNUTS,
-        current::AbstractVector{<:Real})
+function transition(rng::AbstractRNG, sampler::OptimizedNUTS{F,G,M,T},
+        current::AbstractVector{T}) where {F,G,M,T}
     source = Runtime.RNGSource(rng)
-    initial = Float64.(current)
+    initial = collect(current)
     isempty(initial) && throw(ArgumentError("position cannot be empty"))
     all(isfinite, initial) || throw(ArgumentError("position must be finite"))
     realized_step_size = _nuts_step_size!(source, sampler)
     momentum, velocity = _fixed_metric_dynamics(
-        source, sampler.metric, length(initial))
+        source, sampler.metric, length(initial), T)
     initial_phase = _nuts_phase(sampler, initial, momentum, velocity)
     log_slice = sampler.selection === :slice ?
-        initial_phase.logweight + log(Runtime.uniform_unit!(source)) : -Inf
+        initial_phase.logweight + log(T(Runtime.uniform_unit!(source))) : T(-Inf)
     tree = _NUTSTree(initial_phase, initial_phase, initial_phase,
         copy(initial_phase.momentum), initial_phase.logweight, 1,
-        0.0, 0, 0.0, false, false)
+        zero(T), 0, zero(T), false, false)
     depth = 0
     while !tree.stopped && depth < sampler.max_depth
         direction = Runtime.draw_below!(source, 2) == 0 ? -1 : 1
@@ -550,7 +593,7 @@ function transition(rng::AbstractRNG, sampler::OptimizedNUTS,
         end
     end
     selected = tree.candidate
-    acceptance_rate = tree.leapfrog_steps == 0 ? 1.0 :
+    acceptance_rate = tree.leapfrog_steps == 0 ? one(T) :
         tree.acceptance_sum / tree.leapfrog_steps
     selected_error = selected.energy - initial_phase.energy
     HMCTransition(copy(selected.position), selected.position != initial,
@@ -560,20 +603,20 @@ function transition(rng::AbstractRNG, sampler::OptimizedNUTS,
         sampler.termination, sampler.selection)
 end
 
-transition(sampler::OptimizedNUTS, current::AbstractVector{<:Real}) =
+transition(sampler::OptimizedNUTS, current::AbstractVector{T}) where {T<:AbstractFloat} =
     transition(Random.default_rng(), sampler, current)
 
-step(rng::AbstractRNG, sampler::OptimizedNUTS, current::AbstractVector{<:Real}) =
+step(rng::AbstractRNG, sampler::OptimizedNUTS, current::AbstractVector{T}) where {T<:AbstractFloat} =
     transition(rng, sampler, current).position
 
-step(sampler::OptimizedNUTS, current::AbstractVector{<:Real}) =
+step(sampler::OptimizedNUTS, current::AbstractVector{T}) where {T<:AbstractFloat} =
     step(Random.default_rng(), sampler, current)
 
 function sample(rng::AbstractRNG, sampler::OptimizedNUTS,
-        initial::AbstractVector{<:Real}, count::Integer)
+        initial::AbstractVector{T}, count::Integer) where {T<:AbstractFloat}
     count >= 0 || throw(ArgumentError("sample count must be nonnegative"))
-    current = Float64.(initial)
-    samples = Matrix{Float64}(undef, length(current), count)
+    current = collect(initial)
+    samples = Matrix{T}(undef, length(current), count)
     for index in axes(samples, 2)
         current = step(rng, sampler, current)
         samples[:, index] = current
@@ -581,15 +624,15 @@ function sample(rng::AbstractRNG, sampler::OptimizedNUTS,
     samples
 end
 
-sample(sampler::OptimizedNUTS, initial::AbstractVector{<:Real}, count::Integer) =
+sample(sampler::OptimizedNUTS, initial::AbstractVector{T}, count::Integer) where {T<:AbstractFloat} =
     sample(Random.default_rng(), sampler, initial, count)
 
 function sample_with_diagnostics(rng::AbstractRNG, sampler::OptimizedNUTS,
-        initial::AbstractVector{<:Real}, count::Integer)
+        initial::AbstractVector{T}, count::Integer) where {T<:AbstractFloat}
     count >= 0 || throw(ArgumentError("sample count must be nonnegative"))
-    current = Float64.(initial)
-    samples = Matrix{Float64}(undef, length(current), count)
-    diagnostics = Vector{HMCTransition{Vector{Float64}}}(undef, count)
+    current = collect(initial)
+    samples = Matrix{T}(undef, length(current), count)
+    diagnostics = Vector{HMCTransition{Vector{T},T}}(undef, count)
     for index in axes(samples, 2)
         result = transition(rng, sampler, current)
         current = result.position
@@ -600,19 +643,19 @@ function sample_with_diagnostics(rng::AbstractRNG, sampler::OptimizedNUTS,
 end
 
 sample_with_diagnostics(sampler::OptimizedNUTS,
-        initial::AbstractVector{<:Real}, count::Integer) =
+        initial::AbstractVector{T}, count::Integer) where {T<:AbstractFloat} =
     sample_with_diagnostics(Random.default_rng(), sampler, initial, count)
 
 """Position and retained momentum for generalized HMC refreshment."""
-struct HMCPhaseState
-    position::Vector{Float64}
-    momentum::Vector{Float64}
+struct HMCPhaseState{T<:AbstractFloat}
+    position::Vector{T}
+    momentum::Vector{T}
 end
 
 """A partial-momentum transition and its endpoint-HMC diagnostics."""
-struct PartialMomentumTransition
-    state::HMCPhaseState
-    diagnostics::HMCTransition{Vector{Float64}}
+struct PartialMomentumTransition{T<:AbstractFloat}
+    state::HMCPhaseState{T}
+    diagnostics::HMCTransition{Vector{T},T}
 end
 
 """Fixed-step endpoint HMC with persistent, partially refreshed momentum.
@@ -622,67 +665,68 @@ Before each trajectory, `p` is replaced by
 Gaussian momentum law. After accept/reject, momentum is negated to preserve
 the reversible generalized-HMC convention.
 """
-struct PartialMomentumHMC{F,G,M}
+struct PartialMomentumHMC{F,G,M,T<:AbstractFloat}
     logdensity::F
     gradient::G
     metric::M
-    step_size::Float64
+    step_size::T
     steps::Int
-    refresh::Float64
+    refresh::T
 end
 
-function PartialMomentumHMC(logdensity::F, gradient::G, step_size::Real,
-        steps::Integer=10; refresh::Real=0.9, metric=nothing) where {F,G}
+function PartialMomentumHMC(logdensity::F, gradient::G, step_size::T,
+        steps::Integer=10; refresh::T=T(0.9), metric=nothing) where {F,G,T<:AbstractFloat}
     metric isa Union{Nothing,DiagonalMetric,DenseMetric,RankUpdateMetric} ||
         throw(ArgumentError("unsupported fixed metric"))
-    ε, α = Float64(step_size), Float64(refresh)
+    _check_metric_eltype(metric, T)
+    ε, α = step_size, refresh
     isfinite(ε) && ε > 0 ||
         throw(ArgumentError("step size must be finite and positive"))
     isfinite(α) && 0 <= α <= 1 ||
         throw(ArgumentError("momentum refresh rate must lie in [0, 1]"))
     steps > 0 || throw(ArgumentError("leapfrog steps must be positive"))
-    PartialMomentumHMC{F,G,typeof(metric)}(
+    PartialMomentumHMC{F,G,typeof(metric),T}(
         logdensity, gradient, metric, ε, Int(steps), α)
 end
 
-function initialize_phase(rng::AbstractRNG, sampler::PartialMomentumHMC,
-        position::AbstractVector{<:Real})
-    q = Float64.(position)
+function initialize_phase(rng::AbstractRNG, sampler::PartialMomentumHMC{F,G,M,T},
+        position::AbstractVector{T}) where {F,G,M,T}
+    q = collect(position)
     isempty(q) && throw(ArgumentError("position cannot be empty"))
     all(isfinite, q) || throw(ArgumentError("position must be finite"))
     momentum, _ = _fixed_metric_dynamics(
-        Runtime.RNGSource(rng), sampler.metric, length(q))
+        Runtime.RNGSource(rng), sampler.metric, length(q), T)
     HMCPhaseState(q, momentum)
 end
 
 initialize_phase(sampler::PartialMomentumHMC,
-        position::AbstractVector{<:Real}) =
+        position::AbstractVector{T}) where {T<:AbstractFloat} =
     initialize_phase(Random.default_rng(), sampler, position)
 
 function _partial_momentum_transition!(source::Runtime.AbstractRandomSource,
-        sampler::PartialMomentumHMC, state::HMCPhaseState)
+        sampler::PartialMomentumHMC{F,G,M,T}, state::HMCPhaseState{T}) where {F,G,M,T}
     q0, retained = copy(state.position), copy(state.momentum)
     length(q0) == length(retained) || throw(DimensionMismatch("phase state"))
-    fresh, velocity = _fixed_metric_dynamics(source, sampler.metric, length(q0))
+    fresh, velocity = _fixed_metric_dynamics(source, sampler.metric, length(q0), T)
     p0 = sampler.refresh .* retained .+
-        sqrt(1 - sampler.refresh^2) .* fresh
+        sqrt(one(T) - sampler.refresh^2) .* fresh
     q, p = copy(q0), copy(p0)
     for _ in 1:sampler.steps
-        force = Float64.(sampler.gradient(q))
+        force = T.(sampler.gradient(q))
         length(force) == length(q) || throw(DimensionMismatch("gradient dimension"))
         all(isfinite, force) || throw(DomainError(force, "gradient must be finite"))
         half = p .- (sampler.step_size / 2) .* force
         q = q .+ sampler.step_size .* velocity(half)
-        force = Float64.(sampler.gradient(q))
+        force = T.(sampler.gradient(q))
         length(force) == length(q) || throw(DimensionMismatch("gradient dimension"))
         all(isfinite, force) || throw(DomainError(force, "gradient must be finite"))
         p = half .- (sampler.step_size / 2) .* force
     end
-    initial_energy = -Float64(sampler.logdensity(q0)) + dot(p0, velocity(p0)) / 2
-    proposed_energy = -Float64(sampler.logdensity(q)) + dot(p, velocity(p)) / 2
+    initial_energy = -T(sampler.logdensity(q0)) + dot(p0, velocity(p0)) / 2
+    proposed_energy = -T(sampler.logdensity(q)) + dot(p, velocity(p)) / 2
     error = proposed_energy - initial_energy
-    acceptance = exp(min(0.0, -error))
-    accepted = Runtime.uniform_unit!(source) < acceptance
+    acceptance = exp(min(zero(T), -error))
+    accepted = T(Runtime.uniform_unit!(source)) < acceptance
     next_position = accepted ? q : q0
     next_momentum = -(accepted ? p : p0)
     selected_energy = accepted ? proposed_energy : initial_energy
@@ -708,10 +752,10 @@ step(sampler::PartialMomentumHMC, state::HMCPhaseState) =
     step(Random.default_rng(), sampler, state)
 
 function sample(rng::AbstractRNG, sampler::PartialMomentumHMC,
-        initial::AbstractVector{<:Real}, count::Integer)
+        initial::AbstractVector{T}, count::Integer) where {T<:AbstractFloat}
     count >= 0 || throw(ArgumentError("sample count must be nonnegative"))
     state = initialize_phase(rng, sampler, initial)
-    samples = Matrix{Float64}(undef, length(state.position), count)
+    samples = Matrix{T}(undef, length(state.position), count)
     for index in axes(samples, 2)
         state = step(rng, sampler, state)
         samples[:, index] = state.position
@@ -720,5 +764,5 @@ function sample(rng::AbstractRNG, sampler::PartialMomentumHMC,
 end
 
 sample(sampler::PartialMomentumHMC,
-        initial::AbstractVector{<:Real}, count::Integer) =
+        initial::AbstractVector{T}, count::Integer) where {T<:AbstractFloat} =
     sample(Random.default_rng(), sampler, initial, count)

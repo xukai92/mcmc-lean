@@ -797,10 +797,10 @@ coupled_meeting_diagnostic(sampler::Xu21CoupledSampler, initial::Tuple,
         replicates, max_steps)
 
 function _hmc_integrator_parameters(integrator::Symbol,
-        jitter::Real, temperature::Real)
+        jitter::T, temperature::T) where {T<:AbstractFloat}
     integrator in (:leapfrog, :jittered, :tempered) || throw(ArgumentError(
         "integrator must be :leapfrog, :jittered, or :tempered"))
-    jitter_amount, tempering = Float64(jitter), Float64(temperature)
+    jitter_amount, tempering = jitter, temperature
     isfinite(jitter_amount) && 0 <= jitter_amount < 1 || throw(ArgumentError(
         "jitter must lie in [0, 1)"))
     isfinite(tempering) && tempering > 0 || throw(ArgumentError(
@@ -864,26 +864,26 @@ end
 sample(sampler::MultinomialHMC, initial::AbstractVector{<:Real}, count::Integer) =
     sample(Random.default_rng(), sampler, initial, count)
 
-struct DiagonalMetric
-    mass::Vector{Float64}
-    function DiagonalMetric(mass::AbstractVector{<:Real})
-        converted = Float64.(mass)
+struct DiagonalMetric{T<:AbstractFloat}
+    mass::Vector{T}
+    function DiagonalMetric(mass::AbstractVector{T}) where {T<:AbstractFloat}
+        converted = collect(mass)
         isempty(converted) && throw(ArgumentError("mass cannot be empty"))
         all(x -> isfinite(x) && x > 0, converted) ||
             throw(ArgumentError("diagonal mass must be finite and positive"))
-        new(converted)
+        new{T}(converted)
     end
 end
 
-struct DenseMetric
-    mass::Matrix{Float64}
-    function DenseMetric(mass::AbstractMatrix{<:Real})
-        converted = Matrix{Float64}(mass)
+struct DenseMetric{T<:AbstractFloat}
+    mass::Matrix{T}
+    function DenseMetric(mass::AbstractMatrix{T}) where {T<:AbstractFloat}
+        converted = Matrix(mass)
         size(converted, 1) == size(converted, 2) ||
             throw(DimensionMismatch("mass matrix must be square"))
         issymmetric(converted) || throw(ArgumentError("mass matrix must be symmetric"))
         isposdef(converted) || throw(ArgumentError("mass matrix must be positive definite"))
-        new(converted)
+        new{T}(converted)
     end
 end
 
@@ -894,16 +894,16 @@ Reference backend materializes the corresponding dense mass matrix; the
 factorized `O(nk)` execution optimization is deliberately separate from the
 metric's semantics.
 """
-struct RankUpdateMetric
-    diagonal::Vector{Float64}
-    basis::Matrix{Float64}
-    update::Matrix{Float64}
-    inverse_mass::Matrix{Float64}
-    mass::Matrix{Float64}
-    function RankUpdateMetric(diagonal::AbstractVector{<:Real},
-            basis::AbstractMatrix{<:Real}, update::AbstractMatrix{<:Real})
-        a = Float64.(diagonal)
-        b, d = Matrix{Float64}(basis), Matrix{Float64}(update)
+struct RankUpdateMetric{T<:AbstractFloat}
+    diagonal::Vector{T}
+    basis::Matrix{T}
+    update::Matrix{T}
+    inverse_mass::Matrix{T}
+    mass::Matrix{T}
+    function RankUpdateMetric(diagonal::AbstractVector{T},
+            basis::AbstractMatrix{T}, update::AbstractMatrix{T}) where {T<:AbstractFloat}
+        a = collect(diagonal)
+        b, d = Matrix(basis), Matrix(update)
         isempty(a) && throw(ArgumentError("metric dimension must be positive"))
         all(x -> isfinite(x) && x > 0, a) || throw(ArgumentError(
             "rank-update diagonal must be finite and positive"))
@@ -918,7 +918,7 @@ struct RankUpdateMetric
         isposdef(precision) ||
             throw(ArgumentError("rank-update inverse mass must be positive definite"))
         mass = Matrix(inv(Symmetric(precision)))
-        new(a, b, d, precision, mass)
+        new{T}(a, b, d, precision, mass)
     end
 end
 

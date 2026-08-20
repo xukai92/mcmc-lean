@@ -1,5 +1,17 @@
 # Development log
 
+## 2026-08-20: generic optimized floating-point implementations
+
+The optimized continuous stack now propagates a single
+`T<:AbstractFloat` through sampler parameters, state, prepared and public
+metrics, workspaces, trajectories, NUTS trees, and transition diagnostics.
+Random draws are converted to `T` only at the runtime-source boundary. The
+coverage includes fixed, metric, multinomial, relativistic, generalized,
+jittered, tempered, partial-momentum, slice, DHMC, and dynamic-NUTS paths.
+Float32, Float64, and BigFloat type-preservation tests accompany the existing
+behavioral suite. The 67-case Float64 development benchmark showed no material
+regression relative to the pre-refactor measurements.
+
 ## 2026-08-20: shared NUTS benchmark depth budget
 
 The `nuts-complete` and `nuts-dynamic` benchmark groups no longer give

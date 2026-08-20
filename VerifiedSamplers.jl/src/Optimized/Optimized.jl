@@ -111,25 +111,24 @@ end
 """Low-allocation counterpart of reference dynamic target-weighted selection."""
 function dynamic_select_float!(source::AbstractRandomSource,
         candidates::AbstractVector{<:Integer},
-        logweights::AbstractVector{<:Real})
+        logweights::AbstractVector{T}) where {T<:AbstractFloat}
     isempty(candidates) && throw(ArgumentError("candidate set cannot be empty"))
     length(candidates) == length(logweights) ||
         throw(DimensionMismatch("candidate indices and weights must match"))
-    offset = -Inf
+    offset = T(-Inf)
     for value in logweights
-        converted = Float64(value)
-        isfinite(converted) || throw(DomainError(logweights,
+        isfinite(value) || throw(DomainError(logweights,
             "dynamic target log weights must be finite"))
-        offset = max(offset, converted)
+        offset = max(offset, value)
     end
-    total = 0.0
+    total = zero(T)
     for value in logweights
-        total += exp(Float64(value) - offset)
+        total += exp(value - offset)
     end
-    target = uniform_unit!(source) * total
-    cumulative = 0.0
+    target = T(uniform_unit!(source)) * total
+    cumulative = zero(T)
     for index in eachindex(logweights)
-        cumulative += exp(Float64(logweights[index]) - offset)
+        cumulative += exp(logweights[index] - offset)
         target < cumulative && return Int(candidates[index])
     end
     Int(last(candidates))
@@ -158,8 +157,8 @@ end
 
 """Allocation-free categorical DHMC update, independent of the reference path."""
 function categorical_dhmc_step!(source::AbstractRandomSource,
-        probabilities::AbstractVector{<:Real}, steps::Integer,
-        current::Integer)
+        probabilities::AbstractVector{T}, steps::Integer,
+        current::Integer) where {T<:AbstractFloat}
     category_count = length(probabilities)
     category_count >= 2 || throw(ArgumentError("DHMC needs at least two categories"))
     for probability in probabilities
@@ -170,13 +169,12 @@ function categorical_dhmc_step!(source::AbstractRandomSource,
     1 <= current <= category_count ||
         throw(ArgumentError("current category is out of range"))
 
-    direction = uniform_unit!(source) < 0.5 ? 1 : -1
-    kinetic = -log1p(-uniform_unit!(source))
+    direction = T(uniform_unit!(source)) < T(0.5) ? 1 : -1
+    kinetic = -log1p(-T(uniform_unit!(source)))
     state = Int(current)
     for _ in 1:steps
         candidate = mod1(state + direction, category_count)
-        jump = log(Float64(probabilities[state]) /
-            Float64(probabilities[candidate]))
+        jump = log(probabilities[state] / probabilities[candidate])
         if jump < kinetic
             state = candidate
             kinetic -= jump
@@ -210,22 +208,20 @@ end
 
 """Low-allocation bounded rejection slice update."""
 function bounded_slice_step!(source::AbstractRandomSource, logdensity,
-        lower::Real, upper::Real, current::Real, max_attempts::Integer)
-    lo = Float64(lower)
-    width = Float64(upper) - lo
-    x = Float64(current)
+        lower::T, upper::T, current::T, max_attempts::Integer) where {T<:AbstractFloat}
+    lo, width, x = lower, upper - lower, current
     isfinite(lo) && isfinite(width) && width > 0 ||
         throw(ArgumentError("slice bounds must be finite and ordered"))
     lo <= x <= lo + width ||
         throw(ArgumentError("current state is outside slice bounds"))
     max_attempts > 0 || throw(ArgumentError("max_attempts must be positive"))
-    base = Float64(logdensity(x))
+    base = T(logdensity(x))
     isfinite(base) || throw(ArgumentError("current log density must be finite"))
-    threshold = base + log(uniform_unit!(source))
+    threshold = base + log(T(uniform_unit!(source)))
     attempts = 0
     while attempts < max_attempts
-        candidate = muladd(width, uniform_unit!(source), lo)
-        value = Float64(logdensity(candidate))
+        candidate = muladd(width, T(uniform_unit!(source)), lo)
+        value = T(logdensity(candidate))
         (isfinite(value) || value == -Inf) ||
             throw(ArgumentError("log density must be finite or -Inf"))
         value >= threshold && return candidate
@@ -237,21 +233,21 @@ end
 
 """Low-allocation stepping-out and shrinkage slice update."""
 function stepping_out_slice_step!(source::AbstractRandomSource, logdensity,
-        width::Real, current::Real, max_steps::Integer, max_shrink::Integer)
-    w, x = Float64(width), Float64(current)
+        width::T, current::T, max_steps::Integer, max_shrink::Integer) where {T<:AbstractFloat}
+    w, x = width, current
     isfinite(w) && w > 0 || throw(ArgumentError("width must be finite and positive"))
     isfinite(x) || throw(ArgumentError("current state must be finite"))
     max_steps >= 0 || throw(ArgumentError("max_steps must be nonnegative"))
     max_shrink > 0 || throw(ArgumentError("max_shrink must be positive"))
-    base = Float64(logdensity(x))
+    base = T(logdensity(x))
     isfinite(base) || throw(ArgumentError("current log density must be finite"))
-    threshold = base + log(uniform_unit!(source))
-    left = x - w * uniform_unit!(source)
+    threshold = base + log(T(uniform_unit!(source)))
+    left = x - w * T(uniform_unit!(source))
     right = left + w
-    left_steps = Int(floor(uniform_unit!(source) * (max_steps + 1)))
+    left_steps = Int(floor(T(uniform_unit!(source)) * (max_steps + 1)))
     right_steps = max_steps - left_steps
     while left_steps > 0
-        value = Float64(logdensity(left))
+        value = T(logdensity(left))
         (isfinite(value) || value == -Inf) ||
             throw(ArgumentError("log density must be finite or -Inf"))
         value <= threshold && break
@@ -259,7 +255,7 @@ function stepping_out_slice_step!(source::AbstractRandomSource, logdensity,
         left_steps -= 1
     end
     while right_steps > 0
-        value = Float64(logdensity(right))
+        value = T(logdensity(right))
         (isfinite(value) || value == -Inf) ||
             throw(ArgumentError("log density must be finite or -Inf"))
         value <= threshold && break
@@ -268,8 +264,8 @@ function stepping_out_slice_step!(source::AbstractRandomSource, logdensity,
     end
     attempts = 0
     while attempts < max_shrink
-        proposal = muladd(right - left, uniform_unit!(source), left)
-        value = Float64(logdensity(proposal))
+        proposal = muladd(right - left, T(uniform_unit!(source)), left)
+        value = T(logdensity(proposal))
         (isfinite(value) || value == -Inf) ||
             throw(ArgumentError("log density must be finite or -Inf"))
         value >= threshold && return proposal
@@ -286,7 +282,7 @@ end
 
 """Low-allocation nonlinear reversible-jump birth/death update."""
 function sheared_birth_death_step!(source::AbstractRandomSource, current)
-    current === nothing || current isa Tuple{<:Real,<:Real} ||
+    current === nothing || current isa Tuple{<:AbstractFloat,<:AbstractFloat} ||
         throw(ArgumentError("RJ state must be nothing or a pair of reals"))
     current === nothing || return nothing
     u1 = muladd(2.0, uniform_unit!(source), -1.0)
@@ -297,7 +293,8 @@ end
 """Low-allocation three-dimensional product-scaled birth/death update."""
 function spatial_birth_death_step!(source::AbstractRandomSource, current)
     current === nothing ||
-        (current isa Tuple && length(current) == 3 && all(x -> x isa Real, current)) ||
+        (current isa Tuple && length(current) == 3 &&
+            all(x -> x isa AbstractFloat, current)) ||
         throw(ArgumentError("spatial RJ state must be nothing or three reals"))
     current === nothing || return nothing
     ntuple(_ -> muladd(4.0, uniform_unit!(source), -2.0), 3)
@@ -309,19 +306,19 @@ Residual certificates remain approximate unless both residuals are exactly
 zero and the caller supplies independently justified global witnesses.
 """
 function fixed_point_generalized_leapfrog(position_derivative,
-        momentum_derivative, position::AbstractVector{<:Real},
-        momentum::AbstractVector{<:Real}, step_size::Real;
-        max_iterations::Integer=100, atol::Real=1e-10, rtol::Real=1e-8,
+        momentum_derivative, position::AbstractVector{T},
+        momentum::AbstractVector{T}, step_size::T;
+        max_iterations::Integer=100, atol::T=T(1e-10), rtol::T=T(1e-8),
         unique::Bool=false, reversible::Bool=false,
-        volume_preserving::Bool=false)
+        volume_preserving::Bool=false) where {T<:AbstractFloat}
     max_iterations > 0 || throw(ArgumentError("max_iterations must be positive"))
-    ε, absolute, relative = Float64(step_size), Float64(atol), Float64(rtol)
+    ε, absolute, relative = step_size, atol, rtol
     isfinite(ε) || throw(ArgumentError("step size must be finite"))
     isfinite(absolute) && absolute >= 0 ||
         throw(ArgumentError("atol must be finite and nonnegative"))
     isfinite(relative) && relative >= 0 ||
         throw(ArgumentError("rtol must be finite and nonnegative"))
-    q, p = Float64.(position), Float64.(momentum)
+    q, p = collect(position), collect(momentum)
     length(q) == length(p) || throw(DimensionMismatch("position and momentum"))
     isempty(q) && throw(ArgumentError("state cannot be empty"))
     all(isfinite, q) && all(isfinite, p) ||
@@ -341,7 +338,7 @@ function fixed_point_generalized_leapfrog(position_derivative,
 
     q_next = copy(q)
     candidate_q = similar(q_next)
-    initial_velocity = Float64.(momentum_derivative(q, p_half))
+    initial_velocity = T.(momentum_derivative(q, p_half))
     length(initial_velocity) == length(q) || throw(DimensionMismatch("momentum derivative"))
     for _ in 1:max_iterations
         terminal_velocity = momentum_derivative(q_next, p_half)
@@ -362,7 +359,7 @@ function fixed_point_generalized_leapfrog(position_derivative,
     certificate = certify_implicit_solve(half_residual, half_residual,
         position_residual, position_residual; unique=unique,
         reversible=reversible, volume_preserving=volume_preserving)
-    q_next, Float64.(p_next), certificate
+    q_next, T.(p_next), certificate
 end
 
 """One scalar velocity-Verlet/leapfrog step with unit mass."""
@@ -531,31 +528,32 @@ function metric_multinomial_hmc_step!(source::AbstractRandomSource, logdensity,
 end
 
 function _relativistic_radius!(source::AbstractRandomSource, dimension::Int,
-        relativistic_mass::Float64)
+        relativistic_mass::T) where {T<:AbstractFloat}
     while true
-        radius = sum((-log1p(-uniform_unit!(source)) for _ in 1:dimension); init=0.0)
-        log(uniform_unit!(source)) < radius - sqrt(radius^2 + relativistic_mass^2) &&
+        radius = sum((-log1p(-T(uniform_unit!(source))) for _ in 1:dimension);
+            init=zero(T))
+        log(T(uniform_unit!(source))) < radius - sqrt(radius^2 + relativistic_mass^2) &&
             return radius
     end
 end
 
 function relativistic_multinomial_hmc_step!(source::AbstractRandomSource,
-        logdensity, gradient, step_size::Real, steps::Integer,
-        current::AbstractVector{<:Real}, mass::AbstractVector{<:Real},
-        relativistic_mass::Real)
-    ε, m = Float64(step_size), Float64(relativistic_mass)
+        logdensity, gradient, step_size::T, steps::Integer,
+        current::AbstractVector{T}, mass::AbstractVector{T},
+        relativistic_mass::T) where {T<:AbstractFloat}
+    ε, m = step_size, relativistic_mass
     steps > 0 || throw(ArgumentError("trajectory length must be positive"))
     isfinite(ε) && ε > 0 || throw(ArgumentError("step size must be finite and positive"))
-    q0 = Float64.(current)
+    q0 = collect(current)
     isempty(q0) && throw(ArgumentError("position cannot be empty"))
-    converted_mass = Float64.(mass)
+    converted_mass = collect(mass)
     length(converted_mass) == length(q0) || throw(DimensionMismatch("mass dimension"))
     all(x -> isfinite(x) && x > 0, converted_mass) ||
         throw(ArgumentError("diagonal metric must be finite and positive"))
     isfinite(m) && m > 0 ||
         throw(ArgumentError("relativistic mass must be finite and positive"))
     radius = _relativistic_radius!(source, length(q0), m)
-    direction = [standard_normal!(source) for _ in eachindex(q0)]
+    direction = T[standard_normal!(source) for _ in eachindex(q0)]
     direction_norm = norm(direction)
     isfinite(direction_norm) && direction_norm > 0 ||
         throw(DomainError(direction, "spherical direction draw must be nonzero"))
@@ -571,7 +569,7 @@ function relativistic_multinomial_hmc_step!(source::AbstractRandomSource,
         next_q, next_p
     end
     origin = Int(draw_below!(source, steps + 1))
-    trajectory = Vector{Tuple{Vector{Float64},Vector{Float64}}}(undef, steps + 1)
+    trajectory = Vector{Tuple{Vector{T},Vector{T}}}(undef, steps + 1)
     for index in 0:steps
         q, p = copy(q0), copy(p0)
         signed_step = index >= origin ? ε : -ε
@@ -593,16 +591,16 @@ function relativistic_multinomial_hmc_step!(source::AbstractRandomSource,
 end
 
 function certified_relativistic_multinomial_hmc_step!(source::AbstractRandomSource,
-        hamiltonian, metric_factor, integrator, step_size::Real, steps::Integer,
-        current::AbstractVector{<:Real}, relativistic_mass::Real)
-    ε, m = Float64(step_size), Float64(relativistic_mass)
+        hamiltonian, metric_factor, integrator, step_size::T, steps::Integer,
+        current::AbstractVector{T}, relativistic_mass::T) where {T<:AbstractFloat}
+    ε, m = step_size, relativistic_mass
     steps > 0 || throw(ArgumentError("trajectory length must be positive"))
-    q0 = Float64.(current)
-    factor = Matrix{Float64}(metric_factor(q0))
+    q0 = collect(current)
+    factor = Matrix{T}(metric_factor(q0))
     size(factor) == (length(q0), length(q0)) ||
         throw(DimensionMismatch("metric factor dimension"))
     radius = _relativistic_radius!(source, length(q0), m)
-    direction = [standard_normal!(source) for _ in eachindex(q0)]
+    direction = T[standard_normal!(source) for _ in eachindex(q0)]
     direction_norm = norm(direction)
     direction_norm > 0 || throw(DomainError(direction, "zero spherical direction"))
     p0 = factor \ ((radius / direction_norm) .* direction)
@@ -613,10 +611,10 @@ function certified_relativistic_multinomial_hmc_step!(source::AbstractRandomSour
         next_q, next_p, certificate = result
         certificate isa ImplicitSolveCertificate && certifies_exact_solver(certificate) ||
             throw(ArgumentError("implicit solve is not exactly certified"))
-        Float64.(next_q), Float64.(next_p)
+        T.(next_q), T.(next_p)
     end
     origin = Int(draw_below!(source, steps + 1))
-    trajectory = Vector{Tuple{Vector{Float64},Vector{Float64}}}(undef, steps + 1)
+    trajectory = Vector{Tuple{Vector{T},Vector{T}}}(undef, steps + 1)
     for index in 0:steps
         q, p = copy(q0), copy(p0)
         signed_step = index >= origin ? ε : -ε
@@ -625,7 +623,7 @@ function certified_relativistic_multinomial_hmc_step!(source::AbstractRandomSour
         end
         trajectory[index + 1] = (q, p)
     end
-    logweights = [-Float64(hamiltonian(q, p)) for (q, p) in trajectory]
+    logweights = [-T(hamiltonian(q, p)) for (q, p) in trajectory]
     weights = exp.(logweights .- maximum(logweights))
     draw = uniform_unit!(source) * sum(weights)
     cumulative = 0.0

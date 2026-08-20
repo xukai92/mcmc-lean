@@ -238,3 +238,37 @@ end
     @test_throws ArgumentError PartialMomentumHMC(
         logdensity, gradient, 0.2, 3; refresh=1.1)
 end
+@testset "optimized numeric type propagation" begin
+    for T in (Float32, Float64, BigFloat)
+        logdensity = q -> -sum(abs2, q) / T(2)
+        gradient = q -> q
+        initial = T[0.1, -0.2]
+        rng = MersenneTwister(0x74797065)
+
+        fixed_time = FixedIntegrationTimeHMC(logdensity, gradient,
+            DiagonalMetric(T[1, 2]), T(0.1), T(0.2))
+        @test eltype(step(rng, fixed_time, initial)) === T
+
+        jittered = JitteredHMC(logdensity, gradient, T(0.1), 2;
+            jitter=T(0.1))
+        @test eltype(step(rng, jittered, initial)) === T
+
+        tempered = TemperedHMC(logdensity, gradient, T(0.1), 2;
+            temperature=T(1.1))
+        @test eltype(step(rng, tempered, initial)) === T
+
+        partial = PartialMomentumHMC(logdensity, gradient, T(0.1), 2;
+            refresh=T(0.9))
+        phase = initialize_phase(rng, partial, initial)
+        @test eltype(step(rng, partial, phase).position) === T
+
+        nuts = Optimized.NUTS(logdensity, gradient, T(0.1); max_depth=2)
+        run = sample_with_diagnostics(rng, nuts, initial, 2)
+        @test eltype(run.samples) === T
+        @test eltype(run.diagnostics[1].position) === T
+        @test run.diagnostics[1].acceptance_rate isa T
+    end
+
+    @test_throws ArgumentError Optimized.NUTS(q -> -sum(abs2, q) / 2,
+        q -> q, Float32(0.1); metric=DiagonalMetric(Float64[1, 2]))
+end
