@@ -56,10 +56,10 @@ implementation; they have the same target and integration budget, but their
 trajectory construction and selection mechanics are not claimed to be
 identical.
 
-The `completed-tree` rows compare the Lean-proved completed-tree C.4 Reference
+The `nuts-complete` rows compare the Lean-proved completed-tree C.4 Reference
 against Optimized and AdvancedHMC fixed-length multinomial trajectories using
 the same `2^d` leapfrog budget. They are work-matched, not claimed to implement
-the same transition. The separate `dynamic-nuts` rows compare the independent
+the same transition. The separate `nuts-dynamic` rows compare the independent
 production-shaped `Optimized.NUTS` against AdvancedHMC using the same maximum
 depth and generalized U-turn termination. There is no Reference row in that
 group until early-stopping dynamic NUTS has a verified Reference

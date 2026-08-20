@@ -141,7 +141,7 @@ function run_verified_nuts(target, seed::Int, draws::Int)
     chain = VerifiedSamplers.sample(
         MersenneTwister(seed), sampler, zeros(DIMENSION), draws)
     # A completed depth-d tree has 2^d phase points. The randomized origin
-    # changes construction order, not the reported completed-tree work.
+    # changes construction order, not the reported nuts-complete work.
     average_steps = 1 << NUTS_MAX_DEPTH
     (; chain, acceptance=NaN, divergences=0, average_steps,
         gradients_per_step=2)
@@ -293,18 +293,18 @@ function benchmark_target(target)
     multinomial_advanced = measure_case(target, "multinomial", "advancedhmc",
         seed -> run_advanced(
         components.hamiltonian, components.multinomial, seed, DRAWS))
-    nuts_advanced = measure_case(target, "dynamic-nuts", "advancedhmc",
+    nuts_advanced = measure_case(target, "nuts-dynamic", "advancedhmc",
         seed -> run_advanced(
             components.hamiltonian, components.nuts, seed, DRAWS))
-    nuts_reference = measure_case(target, "completed-tree", "verified-reference",
+    nuts_reference = measure_case(target, "nuts-complete", "verified-reference",
         seed -> run_verified_nuts(target, seed, DRAWS))
-    nuts_optimized = measure_case(target, "dynamic-nuts", "verified-optimized",
+    nuts_optimized = measure_case(target, "nuts-dynamic", "verified-optimized",
         seed -> run_optimized_nuts(target, seed, DRAWS))
-    completed_optimized = measure_case(target, "completed-tree",
+    completed_optimized = measure_case(target, "nuts-complete",
         "verified-optimized", seed -> run_verified(
             Optimized.multinomial_hmc_step!, target, seed, DRAWS;
             steps=COMPLETED_TREE_STEPS))
-    completed_advanced = measure_case(target, "completed-tree", "advancedhmc",
+    completed_advanced = measure_case(target, "nuts-complete", "advancedhmc",
         seed -> run_advanced(components.hamiltonian,
             components.completed_tree, seed, DRAWS))
 
@@ -315,11 +315,11 @@ function benchmark_target(target)
         ("multinomial", "verified-reference", multinomial_reference),
         ("multinomial", "verified-optimized", multinomial_optimized),
         ("multinomial", "advancedhmc", multinomial_advanced),
-        ("completed-tree", "verified-reference", nuts_reference),
-        ("completed-tree", "verified-optimized", completed_optimized),
-        ("completed-tree", "advancedhmc", completed_advanced),
-        ("dynamic-nuts", "verified-optimized", nuts_optimized),
-        ("dynamic-nuts", "advancedhmc", nuts_advanced)]
+        ("nuts-complete", "verified-reference", nuts_reference),
+        ("nuts-complete", "verified-optimized", completed_optimized),
+        ("nuts-complete", "advancedhmc", completed_advanced),
+        ("nuts-dynamic", "verified-optimized", nuts_optimized),
+        ("nuts-dynamic", "advancedhmc", nuts_advanced)]
     for (algorithm, implementation, trial) in measured
         quality_summary(target, algorithm, implementation, trial.outputs,
             sum(trial.times) / 1e9)
@@ -341,15 +341,15 @@ function benchmark_target(target)
             average_steps(multinomial_optimized)),
         result(target, "multinomial", "advancedhmc", multinomial_advanced,
             average_steps(multinomial_advanced)),
-        result(target, "completed-tree", "verified-reference", nuts_reference,
+        result(target, "nuts-complete", "verified-reference", nuts_reference,
             average_steps(nuts_reference)),
-        result(target, "completed-tree", "verified-optimized", completed_optimized,
+        result(target, "nuts-complete", "verified-optimized", completed_optimized,
             average_steps(completed_optimized)),
-        result(target, "completed-tree", "advancedhmc", completed_advanced,
+        result(target, "nuts-complete", "advancedhmc", completed_advanced,
             average_steps(completed_advanced)),
-        result(target, "dynamic-nuts", "verified-optimized", nuts_optimized,
+        result(target, "nuts-dynamic", "verified-optimized", nuts_optimized,
             average_steps(nuts_optimized)),
-        result(target, "dynamic-nuts", "advancedhmc", nuts_advanced,
+        result(target, "nuts-dynamic", "advancedhmc", nuts_advanced,
             average_steps(nuts_advanced)),
     ]
     if target.metric_mass !== nothing
