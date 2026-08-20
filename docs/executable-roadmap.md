@@ -36,7 +36,7 @@ the existing continuous HMC clients.
 
 ## Completed vertical slices
 
-The current version-20 artifact and Julia package provide:
+The current version-21 artifact and Julia package provide:
 
 | Slice | Exact Lean result | Julia evidence |
 |---|---|---|
@@ -46,6 +46,7 @@ The current version-20 artifact and Julia package provide:
 | Diagonal and dense constant-metric HMC | Time reversal, volume and Boltzmann invariance, and Gaussian-factor transport | Generated Reference programs, Optimized comparison, and correlated-Gaussian tests |
 | Randomized-origin multinomial HMC | Exact choice PMF, verified kernel row, and position invariance | Generated Reference program, independent Optimized trajectory, and moment tests |
 | Constant-metric multinomial HMC | Orbit-kernel phase and refreshed-position invariance, including Cholesky refresh | Typed diagonal/dense programs, differential tests, and correlated-Gaussian moments |
+| Classical Gaussian RMHMC | Position-dependent Gaussian transport, Hamiltonian density, endpoint reversibility, phase invariance, and projected position invariance | Generated Reference command, independent Optimized transition, exact-certificate rejection boundary, differential replay, and Gaussian moments |
 | Xu et al. coupled HMC/RWMH | Each ideal coupled command has the verified single-chain kernel on both marginals | Version-9 Reference interpreter, shared-randomness replay, meeting flags, and faithfulness tests |
 | Corrected relativistic/Riemannian HMC | Corrected momentum law, inverse-factor transport, guarded generalized leapfrog, and a bounded nonconstant exact solver with phase-volume preservation | Version-10 Reference/Optimized implementations, residual certificates, differential replay, and position-dependent reversal tests |
 | Gaussian diagonal-SoftAbs GR-HMC | Actual Gaussian Hessian, non-identity SoftAbs metric, explicit valid generalized leapfrog, endpoint and multinomial position invariance | Public `GaussianSoftAbsGRHMC`, deterministic seeded replay, validation, and finite-output tests |

@@ -164,14 +164,15 @@ Classical RMHMC instantiates it with `p | q ~ N(0,G(q))`: Lean proves the
 inverse-factor transport and determinant identity, the Hamiltonian density,
 phase reversibility and invariance, and refreshed projected-position
 invariance. The identity-metric client closes all obligations with explicit
-leapfrog. A maintained arbitrary-metric Julia sampler and guarded numerical
-binding remain executable work; see the
+leapfrog. Artifact version 21 and public `ClassicalRMHMC` now provide
+certificate-gated Reference and Optimized execution; general finite-tolerance
+solver refinement remains explicit work. See the
 [classical RMHMC audit](classical-rmhmc-coverage.md).
 
 ### B3. Executable Xu and Ge (2024) sampler — complete at the exact and guarded-runtime levels
 
 The corrected diagonal constant-metric program introduced in IR version 10 is
-retained in the current version 20 artifact, which contains a working
+retained in the current version 21 artifact, which contains a working
 relativistic multinomial specialization, with Reference/Optimized Julia replay
 tests. A position-dependent fixed-point solver now exists in Reference and
 Optimized Julia with residual reporting, while Lean constructs its exact

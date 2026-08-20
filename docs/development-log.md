@@ -1,5 +1,17 @@
 # Development log
 
+## 2026-08-20: executable classical RMHMC
+
+Artifact format version 21 adds the Lean-emitted `classical_rmhmc_step!`
+descriptor. The Reference interpreter refreshes `N(0,G(q))` momentum by
+inverse-factor transport, requires an exact generalized-leapfrog certificate
+at every step, and applies endpoint Metropolis correction. An independently
+maintained, generically typed Optimized transition follows the same callback
+contract. Public `ClassicalRMHMC` defaults to Reference and permits an explicit
+`:optimized` selection. Deterministic replay, nonidentity constant-factor
+differential tests, Gaussian moments, invalid-factor checks, and rejection of
+approximate implicit solves cover the executable boundary.
+
 ## 2026-08-20: classical Gaussian-momentum RMHMC foundation
 
 Classical RMHMC now precedes the Xu--Ge relativistic specialization in the

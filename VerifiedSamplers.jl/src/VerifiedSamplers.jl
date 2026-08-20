@@ -25,7 +25,7 @@ export GaussianRWMH, PositiveTransformedRWMH, OpenUnitTransformedRWMH,
 export ScalarHMC, VectorHMC, FixedIntegrationTimeHMC, JitteredHMC, TemperedHMC,
     MultinomialHMC, MetricMultinomialHMC, MetricHMC,
     RelativisticMultinomialHMC, CertifiedRelativisticMultinomialHMC,
-    GaussianSoftAbsGRHMC, fixed_point_generalized_leapfrog
+    GaussianSoftAbsGRHMC, ClassicalRMHMC, fixed_point_generalized_leapfrog
 export DiagonalMetric, DenseMetric, RankUpdateMetric
 export NUTS, VerifiedNUTS, CertifiedDynamicHMC, CompletedTreeC4DynamicHMC,
     CheckedFirstStopDynamicHMC, CheckedRecursiveDynamicHMC,
@@ -69,6 +69,7 @@ export GaussianZigZag, GaussianZigZagResult, gaussian_zigzag_waiting_time
 fixed_point_generalized_leapfrog(args...; kwargs...) =
     Reference.fixed_point_generalized_leapfrog(args...; kwargs...)
 include("Public/CategoricalDHMC.jl")
+include("Public/ClassicalRMHMC.jl")
 include("Public/ObservationCursor.jl")
 
 """Restricted scalar target syntax shared with Lean's verified evaluator."""

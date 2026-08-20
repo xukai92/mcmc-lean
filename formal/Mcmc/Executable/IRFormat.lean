@@ -4,6 +4,7 @@ import Mcmc.Executable.Continuous.MetricCompilerIR
 import Mcmc.Executable.Continuous.MultinomialCompilerIR
 import Mcmc.Executable.Continuous.CoupledXu21
 import Mcmc.Executable.Continuous.RelativisticCompilerIR
+import Mcmc.Executable.Continuous.RiemannianCompilerIR
 import Mcmc.Executable.Continuous.RestrictedArtifact
 import Mcmc.Executable.ComposableIR
 import Mcmc.Executable.ConstrainedTransformIR
@@ -21,7 +22,7 @@ namespace Mcmc.Executable.IRFormat
 
 open Finite.CompilerIR
 
-def version : Nat := 20
+def version : Nat := 21
 
 private def quote (value : String) : String :=
   let escapedBackslash := value.replace "\\" "\\\\"
@@ -303,6 +304,7 @@ def render : String :=
     Continuous.MetricCompilerIR.diagonalMultinomialHmcProgram.render,
     Continuous.MetricCompilerIR.denseMultinomialHmcProgram.render,
     Continuous.MultinomialCompilerIR.program.render,
+    Continuous.RiemannianCompilerIR.program.render,
     Continuous.RelativisticCompilerIR.program.render,
     Continuous.RelativisticCompilerIR.certifiedPositionDependentProgram.render,
     restrictedTargetRender "restricted-gaussian-potential"

@@ -343,11 +343,11 @@ end
 end
 
 @testset "versioned reference IR" begin
-    @test Reference.IR_FORMAT_VERSION == 20
+    @test Reference.IR_FORMAT_VERSION == 21
     facets = Reference.artifact_facets()
     @test facets.programs ==
         ["categorical_index!", "certified_relativistic_multinomial_hmc_step!",
-        "coupled_gaussian_rwmh_step!",
+        "classical_rmhmc_step!", "coupled_gaussian_rwmh_step!",
         "coupled_multinomial_hmc_step!", "dense_hmc_step!", "dense_multinomial_hmc_step!",
         "diagonal_hmc_step!", "diagonal_multinomial_hmc_step!",
         "finite_mh_step!", "gaussian_rwmh_step!", "multinomial_hmc_step!",

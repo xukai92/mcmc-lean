@@ -46,11 +46,39 @@ aperiodicity/period handling, and recurrence assumptions. The repository
 therefore claims target invariance for classical RMHMC. It does not claim a
 paper-wide convergence theorem.
 
+## Julia execution
+
+Artifact format version 21 registers `classical_rmhmc_step!`. The generated
+Reference interpreter and independent Optimized implementation both use the
+formal inverse-factor convention, require an exact implicit-solver
+certificate at every generalized-leapfrog step, and apply endpoint Metropolis
+correction. The public `ClassicalRMHMC` sampler selects either implementation;
+Reference is the default.
+
+```julia
+using LinearAlgebra, Random, VerifiedSamplers
+
+certificate = Certificates.certify_implicit_solve(0, 0, 0, 0;
+    unique=true, reversible=true, volume_preserving=true)
+factor(q) = Matrix{Float64}(I, length(q), length(q))
+hamiltonian(q, p) = (sum(abs2, q) + sum(abs2, p)) / 2
+integrator(q, p, step_size) = begin
+    half = p .- (step_size / 2) .* q
+    next_q = q .+ step_size .* half
+    next_p = half .- (step_size / 2) .* next_q
+    (next_q, next_p, certificate)
+end
+
+sampler = ClassicalRMHMC(hamiltonian, factor, integrator, 0.15, 8)
+draws = sample(MersenneTwister(42), sampler, zeros(2), 2_000)
+```
+
+The example certificate is justified because the displayed integrator is the
+explicit separable leapfrog. Users must not set its global witness flags for
+an arbitrary finite-tolerance fixed-point loop.
+
 ## Remaining implementation work
 
-- expose a maintained Julia sampler for arbitrary classical Gaussian RMHMC;
-- bind metric, derivative, and implicit-solver callbacks to the formal
-  certificate interface;
-- add classical RMHMC evaluation targets; and
+- add classical RMHMC to the full comparative benchmark matrix; and
 - treat finite-precision fixed-point solves through an explicit guarded
   refinement layer rather than identifying them with exact solutions.

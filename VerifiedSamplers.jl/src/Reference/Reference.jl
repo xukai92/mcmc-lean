@@ -15,6 +15,7 @@ export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_ou
     fixed_point_generalized_leapfrog_trace,
     FixedPointGeneralizedLeapfrogTrace,
     vector_leapfrog_step,
+    classical_rmhmc_step!,
     certified_relativistic_multinomial_hmc_step!,
     dynamic_select_float!, streaming_eligible_select!, recursive_doubling_rows,
     NUTSTreeLeaf, NUTSTreeNode, NUTSSubtreeResult, build_nuts_phase_tree,
@@ -24,7 +25,7 @@ export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_ou
     coupled_multinomial_hmc_step!, coupled_gaussian_rwmh_step!, xu21_coupled_step!,
     IR_FORMAT_VERSION, artifact_facets
 
-const IR_FORMAT_VERSION = 20
+const IR_FORMAT_VERSION = 21
 
 """Execute one instance of the Lean IR `vector-leapfrog` primitive."""
 function vector_leapfrog_step(gradient, step_size::Real,
@@ -448,6 +449,14 @@ function eval_expr(raw, env::Dict{String,Any})
         return _certified_relativistic_multinomial_hmc_step!(source,
             env["hamiltonian"], env["metric_factor"], env["integrator"],
             step_size, steps, current, relativistic_mass)
+    end
+    if tag == "classical-rmhmc"
+        source = eval_expr(node[2], env)
+        step_size = Float64(eval_expr(node[3], env))
+        steps = Int(eval_expr(node[4], env))
+        current = eval_expr(node[5], env)
+        return _classical_rmhmc_step!(source, env["hamiltonian"],
+            env["metric_factor"], env["integrator"], step_size, steps, current)
     end
     if tag == "coupled-multinomial-hmc" || tag == "coupled-gaussian-rwmh" ||
             tag == "xu21-coupled-mixture"
@@ -1029,6 +1038,54 @@ function _checked_certified_step(integrator, q, p, step_size)
     certifies_exact_solver(certificate) ||
         throw(ArgumentError("implicit solve is approximate or lacks global validity witnesses"))
     Float64.(next_q), Float64.(next_p)
+end
+
+"""One certificate-gated endpoint transition for classical Gaussian RMHMC.
+
+`metric_factor(q)` returns `A(q)` in the Lean convention
+`A(q)'A(q) = G(q)⁻¹`. Momentum is therefore refreshed as `A(q)⁻¹z` for a
+standard Gaussian `z`. Each generalized-leapfrog step must return an exact
+global implicit-solver certificate.
+"""
+function _classical_rmhmc_step!(source::AbstractRandomSource, hamiltonian,
+        metric_factor, integrator, step_size::Real, steps::Integer,
+        current::AbstractVector{<:Real})
+    ε = Float64(step_size)
+    isfinite(ε) && ε > 0 || throw(ArgumentError(
+        "step size must be finite and positive"))
+    steps > 0 || throw(ArgumentError("trajectory length must be positive"))
+    q0 = Float64.(current)
+    isempty(q0) && throw(ArgumentError("position cannot be empty"))
+    all(isfinite, q0) || throw(ArgumentError("position must be finite"))
+    factor = Matrix{Float64}(metric_factor(q0))
+    size(factor) == (length(q0), length(q0)) ||
+        throw(DimensionMismatch("metric factor dimension"))
+    all(isfinite, factor) || throw(ArgumentError("metric factor must be finite"))
+    abs(det(factor)) > 0 || throw(ArgumentError("metric factor must be invertible"))
+    p0 = factor \ [standard_normal!(source) for _ in eachindex(q0)]
+    all(isfinite, p0) || throw(DomainError(p0, "refreshed momentum"))
+    q, p = copy(q0), p0
+    for _ in 1:steps
+        q, p = _checked_certified_step(integrator, q, p, ε)
+        length(q) == length(q0) && length(p) == length(q0) ||
+            throw(DimensionMismatch("integrator state dimension"))
+        all(isfinite, q) && all(isfinite, p) ||
+            throw(DomainError((q, p), "integrator state"))
+    end
+    current_energy = Float64(hamiltonian(q0, p0))
+    proposed_energy = Float64(hamiltonian(q, p))
+    isfinite(current_energy) && isfinite(proposed_energy) ||
+        throw(DomainError((current_energy, proposed_energy),
+            "Hamiltonian must be finite"))
+    threshold = exp(min(0.0, current_energy - proposed_energy))
+    uniform_unit!(source) < threshold ? q : q0
+end
+
+function classical_rmhmc_step!(source::AbstractRandomSource, hamiltonian,
+        metric_factor, integrator, step_size::Real, steps::Integer,
+        current::AbstractVector{<:Real})
+    Float64.(run_program("classical_rmhmc_step!", source, hamiltonian,
+        metric_factor, integrator, Float64(step_size), steps, current))
 end
 
 """One concrete derivative callback invocation made by the reference solver."""

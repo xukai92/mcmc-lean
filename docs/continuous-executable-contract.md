@@ -61,7 +61,7 @@ input or probabilistic assumption.
 
 ## Julia layer
 
-The current version-20 artifact contains scalar and vector-valued multi-step endpoint
+The current version-21 artifact contains scalar and vector-valued multi-step endpoint
 HMC (introduced in version 5), constant-metric programs (version 6), and the
 randomized-origin multinomial-HMC command.
 Its explicit callbacks are the target log density and the gradient of the
@@ -174,6 +174,14 @@ commands. Their ideal semantics has exact phase and refreshed-position
 invariance, including the Cholesky momentum specialization.
 
 ## Position-dependent implicit solver
+
+Artifact version 21 adds the generated `classical_rmhmc_step!` command and
+the public `ClassicalRMHMC` wrapper. It refreshes Gaussian momentum through
+`A(q)⁻¹z` under the convention `A(q)ᵀA(q)=G(q)⁻¹`, executes a
+certificate-gated generalized leapfrog, and applies endpoint Metropolis
+correction. Reference and Optimized paths have deterministic differential and
+Gaussian moment tests. An integrator with nonzero residuals or missing global
+uniqueness, reversal, or volume witnesses is rejected.
 
 The public `fixed_point_generalized_leapfrog` function now performs both
 implicit generalized-leapfrog loops for user-supplied position and momentum

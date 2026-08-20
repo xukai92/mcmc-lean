@@ -587,6 +587,54 @@ end
         0.1, 2, [0.25, -0.5], 1.0)
 end
 
+@testset "classical Gaussian-momentum RMHMC" begin
+    exact_certificate = Certificates.certify_implicit_solve(0, 0, 0, 0;
+        unique=true, reversible=true, volume_preserving=true)
+    factor(_q) = [0.5 0.0; 0.0 2.0]
+    inverse_metric = factor(zeros(2))' * factor(zeros(2))
+    hamiltonian(q, p) = sum(abs2, q) / 2 + dot(p, inverse_metric * p) / 2
+    integrator(q, p, ε) = begin
+        half = p .- (ε / 2) .* q
+        next_q = q .+ ε .* (inverse_metric * half)
+        next_p = half .- (ε / 2) .* next_q
+        (next_q, next_p, exact_certificate)
+    end
+    events = Runtime.FloatTraceEvent[
+        Runtime.NormalEvent(0.4), Runtime.NormalEvent(-0.7),
+        Runtime.UniformEvent(0.35)]
+    reference = Reference.classical_rmhmc_step!(
+        Runtime.FloatTraceSource(copy(events)), hamiltonian, factor, integrator,
+        0.1, 3, [0.25, -0.5])
+    optimized = Optimized.classical_rmhmc_step!(
+        Runtime.FloatTraceSource(copy(events)), hamiltonian, factor, integrator,
+        0.1, 3, [0.25, -0.5])
+    @test reference ≈ optimized atol=1e-14 rtol=0
+
+    reference_sampler = ClassicalRMHMC(hamiltonian, factor, integrator, 0.15, 5)
+    optimized_sampler = ClassicalRMHMC(hamiltonian, factor, integrator, 0.15, 5;
+        implementation=:optimized)
+    reference_draws = sample(MersenneTwister(0x6a11), reference_sampler,
+        zeros(2), 4_000)
+    optimized_draws = sample(MersenneTwister(0x6a11), optimized_sampler,
+        zeros(2), 4_000)
+    @test reference_draws ≈ optimized_draws atol=1e-13 rtol=0
+    @test maximum(abs.(vec(mean(reference_draws; dims=2)))) < 0.12
+    @test maximum(abs.(vec(var(reference_draws; dims=2)) .- 1)) < 0.18
+
+    approximate = Certificates.certify_implicit_solve(1e-10, 1e-10, 0, 0;
+        unique=true, reversible=true, volume_preserving=true)
+    approximate_integrator(q, p, _ε) = (q, p, approximate)
+    rejected = ClassicalRMHMC(hamiltonian, factor, approximate_integrator, 0.1)
+    @test_throws ArgumentError step(MersenneTwister(4), rejected, zeros(2))
+    @test_throws ArgumentError ClassicalRMHMC(
+        hamiltonian, factor, integrator, 0.0)
+    @test_throws ArgumentError ClassicalRMHMC(
+        hamiltonian, factor, integrator, 0.1; implementation=:unknown)
+    singular_factor(_q) = zeros(2, 2)
+    singular = ClassicalRMHMC(hamiltonian, singular_factor, integrator, 0.1)
+    @test_throws ArgumentError step(MersenneTwister(4), singular, zeros(2))
+end
+
 @testset "position-dependent fixed-point generalized leapfrog" begin
     coefficient = 0.2
     position_derivative(q, p) = (coefficient / 2) .* p.^2
