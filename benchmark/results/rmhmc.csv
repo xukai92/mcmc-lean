@@ -1,0 +1,4 @@
+target,dimension,algorithm,implementation,step_size,configured_steps,average_steps,draws,median_seconds,q25_seconds,q75_seconds,draws_per_second,memory_bytes,allocations
+position-dependent-gaussian,5,rmhmc-dense,verified-reference,0.1,10,10.0,1000,0.490268491,0.48958255549999996,0.5070465295,2039.6986923640582,1119993296,n/a
+position-dependent-gaussian,5,rmhmc-dense,verified-optimized,0.1,10,10.0,1000,0.499190129,0.4937957465,0.501859503,2003.2447396410757,870459312,n/a
+position-dependent-gaussian,5,rmhmc-dense,advancedhmc,0.1,10,10.0,1000,0.45670892,0.4547902835,0.4570285085,2189.578429954904,852959168,n/a

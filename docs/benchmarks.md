@@ -35,9 +35,12 @@ The `nuts-complete` group gives all three implementations the same fixed `2^d` l
 - Fixed trajectory length: `10` leapfrog steps
 - Shared NUTS depth budget: `4`
 - Completed-tree trajectory length: `16` leapfrog steps
+
+The `rmhmc-dense` rows use a separate position-dependent workload: dimension `5`, `1000` draws per chain, `10` generalized-leapfrog steps, step size `0.1`, `10` fixed-point iterations, and checked residual tolerance `1.0e-8`. They have `3` seeded timing/quality chains. AdvancedHMC's pinned Riemannian source is loaded explicitly because version 0.8 does not load its metric implementation into the public module.
+
 - Gradients: analytic callbacks for both packages; AD time excluded
 
-- Fixed timed/quality seeds per case: `4109, 4110, 4111, 4112, 4113, 4114, 4115, 4116, 4117, 4118`
+- Fixed timed/quality seeds per main-suite case: `4109, 4110, 4111, 4112, 4113, 4114, 4115, 4116, 4117, 4118`
 - Retained timed chains per case: `10`
 
 ## Results
@@ -107,6 +110,12 @@ The `nuts-complete` group gives all three implementations the same fixed `2^d` l
 | Target | verified-reference | verified-optimized | advancedhmc |
 |---|---:|---:|---:|
 | Ill-conditioned Gaussian | 5843 | 97091 | 15100 |
+
+#### Dense RMHMC
+
+| Target | verified-reference | verified-optimized | advancedhmc |
+|---|---:|---:|---:|
+| Gaussian with G(q)=diag(2+sin(qᵢ)) | 2040 | 2003 | 2190 |
 
 ### Complete summary
 
@@ -179,6 +188,9 @@ The `nuts-complete` group gives all three implementations the same fixed `2^d` l
 | Regularized logistic | nuts-complete | advancedhmc | 1314.6 ms | 1309.3–1322.2 ms | 7607 | 16.0 | n/a |
 | Regularized logistic | nuts-dynamic | verified-optimized | 1091.1 ms | 1085.9–1098.7 ms | 9165 | 15.0 | n/a |
 | Regularized logistic | nuts-dynamic | advancedhmc | 1312.8 ms | 1298.4–1322.9 ms | 7617 | 15.0 | n/a |
+| Gaussian with G(q)=diag(2+sin(qᵢ)) | rmhmc-dense | verified-reference | 490.3 ms | 489.6–507.0 ms | 2040 | 10.0 | n/a |
+| Gaussian with G(q)=diag(2+sin(qᵢ)) | rmhmc-dense | verified-optimized | 499.2 ms | 493.8–501.9 ms | 2003 | 10.0 | n/a |
+| Gaussian with G(q)=diag(2+sin(qᵢ)) | rmhmc-dense | advancedhmc | 456.7 ms | 454.8–457.0 ms | 2190 | 10.0 | n/a |
 
 ## Sampling quality
 
@@ -253,6 +265,9 @@ The same independently seeded full chains supply timing and quality evidence. Fu
 | Regularized logistic | nuts-complete | advancedhmc | 1.002 | 9759.9 | 17582.0 | 0.0061 | 0.0086 | — | 0.0239 | 742.6 | 0.009 | 0.012 | 0.941 | 0.996 | 0 | 16.0 |
 | Regularized logistic | nuts-dynamic | verified-optimized | 1.001 | 15585.4 | 29600.1 | 0.0052 | 0.0068 | — | 0.0166 | 1369.7 | 0.007 | 0.007 | 1.000 | 0.996 | 0 | 15.0 |
 | Regularized logistic | nuts-dynamic | advancedhmc | 1.001 | 15993.2 | 29018.0 | 0.0107 | 0.0068 | — | 0.0151 | 1254.6 | 0.008 | 0.008 | 1.000 | 0.996 | 0 | 15.0 |
+| Gaussian with G(q)=diag(2+sin(qᵢ)) | rmhmc-dense | verified-reference | ⚠ 1.021 | 318.4 | 651.0 | — | 0.0534 | 0.1215 | 0.1324 | 200.1 | 0.066 | 0.072 | 0.997 | — | 0 | 10.0 |
+| Gaussian with G(q)=diag(2+sin(qᵢ)) | rmhmc-dense | verified-optimized | ⚠ 1.021 | 318.4 | 651.0 | — | 0.0534 | 0.1215 | 0.1324 | 201.5 | 0.066 | 0.072 | 0.997 | — | 0 | 10.0 |
+| Gaussian with G(q)=diag(2+sin(qᵢ)) | rmhmc-dense | advancedhmc | ⚠ 1.017 | 333.5 | 642.4 | — | 0.0553 | 0.0620 | 0.0553 | 198.4 | 0.030 | 0.049 | 1.000 | 0.998 | 0 | 10.0 |
 
 ## Interpretation
 
@@ -279,10 +294,13 @@ The benchmark now runs independently seeded quality chains and reports split ran
 - **Ill-conditioned Gaussian:** diagonal covariance ranging from `10⁻²` to `10²`; it also activates matched constant-metric algorithms.
 - **Regularized logistic:** a symmetric product logistic posterior with paired labels and a standard-normal prior.
 
+- **Position-dependent Gaussian:** standard-normal target with `G(q)=diag(2+sin(qᵢ))`; this activates generic dense RMHMC metric derivatives and implicit solves.
+
 ## Reproduce
 
 ```sh
 make benchmark-hmc
+make benchmark-rmhmc
 make benchmark-report
 ```
 

@@ -52,6 +52,11 @@ control the workload.
 The script reports median allocated bytes as well as throughput and simple
 Gaussian moment errors. These remain machine-specific diagnostics rather than
 formal correctness or convergence evidence.
+It writes `rmhmc.csv`, `rmhmc-timings.csv`, `rmhmc-quality.csv`, and
+`rmhmc-metadata.csv` under `benchmark/results/`. Production
+`make benchmark-report` appends those rows to the shared tables, static chart,
+and interactive website explorer while displaying their separate workload
+configuration.
 
 To make a fail-closed acceptance decision, first record the pre-change median,
 then run the complete release gate and candidate measurement together:

@@ -1,0 +1,10 @@
+target,dimension,algorithm,implementation,repetition,seed,seconds,draws_per_second
+position-dependent-gaussian,5,rmhmc-dense,verified-reference,1,7101,0.48889662,2045.4221998916662
+position-dependent-gaussian,5,rmhmc-dense,verified-reference,2,7102,0.490268491,2039.6986923640582
+position-dependent-gaussian,5,rmhmc-dense,verified-reference,3,7103,0.523824568,1909.0360801862962
+position-dependent-gaussian,5,rmhmc-dense,verified-optimized,1,7101,0.499190129,2003.2447396410757
+position-dependent-gaussian,5,rmhmc-dense,verified-optimized,2,7102,0.504528877,1982.047104907337
+position-dependent-gaussian,5,rmhmc-dense,verified-optimized,3,7103,0.488401364,2047.4963292690559
+position-dependent-gaussian,5,rmhmc-dense,advancedhmc,1,7101,0.452871647,2208.131170552172
+position-dependent-gaussian,5,rmhmc-dense,advancedhmc,2,7102,0.45670892,2189.578429954904
+position-dependent-gaussian,5,rmhmc-dense,advancedhmc,3,7103,0.457348097,2186.518335944885

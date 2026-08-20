@@ -134,7 +134,7 @@ function write_svg(rows, timings)
             if index > 1 && groups[index - 1][1] != target
                 println(io, "<line x1=\"20\" y1=\"$(center - row_height / 2)\" x2=\"$(width - 20)\" y2=\"$(center - row_height / 2)\" stroke=\"#8c959f\" stroke-width=\"2\"/>")
             end
-            label = "$(display_name(target)) · $(uppercasefirst(algorithm))"
+            label = "$(display_name(target)) · $(algorithm_name(algorithm))"
             println(io, "<text x=\"$(left - 14)\" y=\"$(center + 5)\" text-anchor=\"end\" font-family=\"sans-serif\" font-size=\"14\" fill=\"#24292f\">$(escape_xml(label))</text>")
             for implementation in implementations
                 selected = filter(row -> row.target == target &&
@@ -171,6 +171,9 @@ function display_name(value)
         "position-dependent-gaussian" =>
             "Gaussian with G(q)=diag(2+sin(qᵢ))"), value, value)
 end
+
+algorithm_name(value) = value == "rmhmc-dense" ? "Dense RMHMC" :
+    uppercasefirst(value)
 
 function write_doc(rows, timings, quality, metadata)
     combined_protocol = !isempty(quality) && hasproperty(first(quality), :chains)
@@ -232,7 +235,8 @@ function write_doc(rows, timings, quality, metadata)
         end
         println(io, "- Gradients: analytic callbacks for both packages; AD time excluded\n")
         if combined_protocol
-            println(io, "- Fixed timed/quality seeds per case: `$(join(unique(row.seed for row in timings), ", "))`")
+            main_timings = filter(row -> row.algorithm != "rmhmc-dense", timings)
+            println(io, "- Fixed timed/quality seeds per main-suite case: `$(join(unique(row.seed for row in main_timings), ", "))`")
             println(io, "- Retained timed chains per case: `$(first(quality).chains)`\n")
         end
         println(io, "## Results\n")
@@ -242,7 +246,7 @@ function write_doc(rows, timings, quality, metadata)
             algorithm_rows = filter(row -> row.algorithm == algorithm, rows)
             available = [implementation for implementation in implementations if
                 any(row -> row.implementation == implementation, algorithm_rows)]
-            println(io, "#### $(uppercasefirst(algorithm))\n")
+            println(io, "#### $(algorithm_name(algorithm))\n")
             println(io, "| Target | $(join(available, " | ")) |")
             println(io, "|---|$(join(fill("---:", length(available)), "|"))|")
             for target in unique(row.target for row in algorithm_rows)

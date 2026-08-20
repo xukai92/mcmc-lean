@@ -1,5 +1,15 @@
 # Development log
 
+## 2026-08-20: RMHMC website benchmark integration
+
+The focused nonconstant classical-RMHMC runner now emits the same aggregate,
+per-seed timing, sampling-quality, and provenance schemas as the main HMC
+suite. The production report appends its three implementation rows to the
+shared tables, SVG, and interactive explorer while displaying the separate
+five-dimensional, three-chain workload and AdvancedHMC internal-source caveat.
+The committed measurements were produced from benchmark harness commit
+`6258cc9`.
+
 ## 2026-08-20: focused classical RMHMC benchmark
 
 Added artifact version 22 and public generic `DenseRiemannianRMHMC`, which
