@@ -1,5 +1,23 @@
 # Development log
 
+## 2026-08-20: classical Gaussian-momentum RMHMC foundation
+
+Classical RMHMC now precedes the Xu--Ge relativistic specialization in the
+formal dependency order. `Mcmc.Hamiltonian.GeneralizedHMC` extracts the
+momentum-law-independent generalized-leapfrog endpoint theorem: exact
+measurability, reversal, phase-volume preservation, Metropolis reversibility,
+phase invariance, and lift/evolve/project position invariance.
+
+`Mcmc.Riemannian.Classical` instantiates that foundation with
+`p | q ~ N(0,G(q))`. Lean proves the inverse-factor Gaussian transport density,
+including the determinant term; identifies the normalized phase weight with
+the paper Hamiltonian up to one global Gaussian prefactor; and proves that the
+certified endpoint transition preserves the intended position Boltzmann
+measure. The identity-metric client discharges every obligation with the
+explicit separable generalized leapfrog. Arbitrary nonconstant metrics still
+require measurable factor data and an exact valid implicit-solver certificate;
+finite-tolerance fixed-point iteration is not silently treated as exact.
+
 ## 2026-08-20: consolidation roadmap and executable registries
 
 The canonical roadmap now treats assurance declarations, deterministic replay,

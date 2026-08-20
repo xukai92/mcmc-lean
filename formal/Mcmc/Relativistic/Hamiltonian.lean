@@ -1,4 +1,5 @@
 import Mcmc.Relativistic.Riemannian
+import Mcmc.Riemannian.Metric
 import Mathlib.Probability.Kernel.Composition.Lemmas
 
 /-!
@@ -23,27 +24,8 @@ open ProbabilityTheory
 
 variable {ι : Type*} [Fintype ι]
 
-/-- Position-dependent factored metric data.  In matrix notation the intended
-relationship is `factor(q)ᵀ factor(q) = inverseMetric(q) = G(q)⁻¹`, while
-`logDet(q) = log det G(q)`.  Those identities are supplied as explicit
-hypotheses by the matrix realization rather than built into this raw data
-container. -/
-structure FactoredRiemannianMetric (ι : Type*) [Fintype ι] where
-  factor : Position ι → Momentum ι ≃L[ℝ] Momentum ι
-  inverseMetric : Position ι → Momentum ι →ₗ[ℝ] Momentum ι
-  logDet : Position ι → ℝ
-
-/-- Exact Jacobian compatibility required of the factor convention
-`A(q)ᵀ A(q) = G(q)⁻¹`.  It says that transporting Lebesgue measure by
-`A(q)⁻¹` contributes `exp(-log det G(q)/2)`, equivalently `|det A(q)|`.
-This measure identity is the property actually consumed by the momentum-law
-and target-factorization proofs. -/
-def FactoredRiemannianMetric.HasCompatibleFactorVolume
-    (metric : FactoredRiemannianMetric ι) : Prop :=
-  ∀ q, Measure.map (metric.factor q).symm
-      (volume : Measure (Momentum ι)) =
-    ENNReal.ofReal (Real.exp (-(1 / 2 : ℝ) * metric.logDet q)) •
-      (volume : Measure (Momentum ι))
+/-- Backwards-compatible name for the neutral factored metric contract. -/
+abbrev FactoredRiemannianMetric := Mcmc.Riemannian.FactoredMetric
 
 /-- Relativistic kinetic term at a position, including the metric
 normalization term from Xu and Ge's Equation (8). -/

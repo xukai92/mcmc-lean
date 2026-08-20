@@ -121,6 +121,7 @@ import Mcmc.Hamiltonian.TrajectoryWeightBounds
 import Mcmc.Hamiltonian.MultinomialHMC
 import Mcmc.Hamiltonian.RandomizedTrajectory
 import Mcmc.Hamiltonian.VolumePreservation
+import Mcmc.Hamiltonian.GeneralizedHMC
 import Mcmc.Kernel.Coupling
 import Mcmc.Kernel.AuxiliaryGibbs
 import Mcmc.Kernel.ComposableInference
@@ -179,6 +180,9 @@ import Mcmc.Kernel.ParameterizedDensityCoupling
 import Mcmc.Kernel.RandomWalkMetropolisHastings
 import Mcmc.Kernel.ReversibleJump
 import Mcmc.Kernel.UnbiasedEstimator
+import Mcmc.Riemannian.Metric
+import Mcmc.Riemannian.Classical
+import Mcmc.Riemannian.ClassicalIdentity
 import Mcmc.Relativistic.Kinetic
 import Mcmc.Relativistic.Momentum
 import Mcmc.Relativistic.Riemannian

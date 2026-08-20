@@ -223,6 +223,25 @@ Condition 1 and a separate obstruction to the broad unconditional
 exponent-two route. The canonical statements, repairs, implications, and Lean
 artifacts are recorded in the [2021 coverage audit](xu21-coverage.md).
 
+### Riemann manifold Hamiltonian Monte Carlo
+
+Girolami and Calderhead introduce classical RMHMC with the conditional
+Gaussian momentum law `p | q ~ N(0, G(q))`, the corresponding nonseparable
+Hamiltonian, and an implicit generalized-leapfrog proposal. Their correctness
+argument depends on solving that integrator exactly enough to retain
+reversibility and volume preservation, followed by Metropolis correction.
+
+- Mark Girolami and Ben Calderhead,
+  [Riemann manifold Langevin and Hamiltonian Monte Carlo methods](https://doi.org/10.1111/j.1467-9868.2010.00765.x),
+  JRSS B, 2011.
+
+The machine-checked core establishes the Gaussian transport/determinant
+identity, phase reversibility and invariance, and projected position
+invariance. The paper's general use of “ergodic” and “convergence” requires
+additional irreducibility and recurrence assumptions; these do not follow
+from detailed balance alone. The exact claims and implementation boundary are
+recorded in the [classical RMHMC coverage audit](classical-rmhmc-coverage.md).
+
 ### Practical Hamiltonian Monte Carlo on Riemannian manifolds
 
 Xu and Ge introduce general-relativistic HMC (GR-HMC), combining a

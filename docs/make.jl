@@ -35,6 +35,7 @@ pages = [
         ],
     ],
     "Paper coverage" => [
+        "Girolami--Calderhead RMHMC audit" => "classical-rmhmc-coverage.md",
         "Ge et al. 2018 audit" => "ge18-coverage.md",
         "Xu et al. 2021 audit" => "xu21-coverage.md",
         "Xu et al. 2021 roadmap" => "xu21-roadmap.md",
@@ -68,7 +69,7 @@ published_files = [
     "finite-executable-roadmap.md",
     "development-log.md", "development-log-archive.md",
     "development-log-archive-2.md", "development-log-archive-3.md",
-    "ge18-coverage.md", "xu21-coverage.md", "xu21-roadmap.md", "xu24-coverage.md",
+    "classical-rmhmc-coverage.md", "ge18-coverage.md", "xu21-coverage.md", "xu21-roadmap.md", "xu24-coverage.md",
     "xu24-roadmap.md", "related-work.md", "algorithm-scope-review.md",
     "betancourt17-coverage.md",
     "neal12-coverage.md",

@@ -1,4 +1,5 @@
 import Mcmc.Relativistic.GeneralizedLeapfrog
+import Mcmc.Relativistic.Hamiltonian
 
 /-!
 # Constant identity-metric specialization

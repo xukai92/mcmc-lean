@@ -1,5 +1,6 @@
 import Mcmc.Relativistic.FixedPointIteration
 import Mathlib.Analysis.Calculus.MeanValue
+import Mathlib.Analysis.SpecialFunctions.Sqrt
 
 /-!
 # A concrete momentum-even position-dependent implicit solver

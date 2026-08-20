@@ -34,7 +34,8 @@ rewrite committed artifacts.
 The core release includes:
 
 - general-state and finite Metropolis--Hastings foundations;
-- RWMH, HMC, multinomial HMC, coupling, and meeting-time results;
+- RWMH, HMC, multinomial HMC, classical Gaussian-momentum RMHMC, coupling,
+  and meeting-time results;
 - corrected theorem coverage for Xu et al. (2021) and Xu and Ge (2024);
 - composable PG--HMC semantics inspired by Ge et al. (2018);
 - finite SMC, pseudo-marginal methods, PMMH, and particle Gibbs;

@@ -1,4 +1,5 @@
 import Mcmc.Relativistic.GeneralizedLeapfrog
+import Mcmc.Relativistic.Hamiltonian
 import Mcmc.Kernel.DeterministicMetropolis
 import Mcmc.Kernel.LiftEvolveProject
 import Mcmc.Hamiltonian.HMC

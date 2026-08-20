@@ -157,7 +157,18 @@ Version-9 shared-randomness commands cover coupled multinomial HMC, sticky
 Gaussian RWMH, and their mixture. Lean proves both ideal marginals equal the
 verified single-chain kernels, and Julia exposes replay-level meeting events.
 
-### B2. Executable Xu and Ge (2024) sampler — complete at the exact and guarded-runtime levels
+### B2. Classical Gaussian-momentum RMHMC — formal core complete
+
+The generalized-HMC correction layer is now independent of its momentum law.
+Classical RMHMC instantiates it with `p | q ~ N(0,G(q))`: Lean proves the
+inverse-factor transport and determinant identity, the Hamiltonian density,
+phase reversibility and invariance, and refreshed projected-position
+invariance. The identity-metric client closes all obligations with explicit
+leapfrog. A maintained arbitrary-metric Julia sampler and guarded numerical
+binding remain executable work; see the
+[classical RMHMC audit](classical-rmhmc-coverage.md).
+
+### B3. Executable Xu and Ge (2024) sampler — complete at the exact and guarded-runtime levels
 
 The corrected diagonal constant-metric program introduced in IR version 10 is
 retained in the current version 20 artifact, which contains a working

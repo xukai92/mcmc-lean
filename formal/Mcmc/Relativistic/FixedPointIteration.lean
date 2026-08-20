@@ -1,4 +1,5 @@
 import Mcmc.Relativistic.GeneralizedLeapfrog
+import Mathlib.Analysis.Calculus.InverseFunctionTheorem.FDeriv
 import Mathlib.Topology.MetricSpace.Contracting
 
 /-!

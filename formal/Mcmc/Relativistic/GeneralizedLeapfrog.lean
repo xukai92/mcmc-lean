@@ -1,4 +1,3 @@
-import Mcmc.Relativistic.Hamiltonian
 import Mcmc.Hamiltonian.VolumePreservation
 
 /-!
