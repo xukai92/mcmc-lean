@@ -11,13 +11,13 @@ integrates its left and right branches from the original phase point in exactly
 `L` total steps instead of retracing the left branch, stores only positions and
 log weights, and preserves the random-event schedule.
 
-The complete development benchmark passed. On its 100-dimensional correlated
-Gaussian fixture, Optimized preconditioned endpoint reached about 26.4k
-transitions/s versus AdvancedHMC's 13.3k, and Optimized preconditioned
-multinomial reached about 17.4k/s versus 12.0k. On the diagonal
-ill-conditioned fixture the corresponding rates were about 315k versus 25.7k
-and 160k versus 21.6k. These are short development measurements, not formal
-claims or replacements for the next full benchmark run.
+The complete ten-chain benchmark passed. On its 100-dimensional correlated
+Gaussian fixture, Optimized preconditioned endpoint reached about 18.8k
+transitions/s versus AdvancedHMC's 10.4k, and Optimized preconditioned
+multinomial reached about 15.7k/s versus 9.4k. On the diagonal
+ill-conditioned fixture the corresponding rates were about 159k versus 18.3k
+and 96.4k versus 14.8k. These are empirical measurements on the recorded
+benchmark host, not formal performance claims.
 
 ## 2026-08-19: backend contracts, replay, and independent chains
 
