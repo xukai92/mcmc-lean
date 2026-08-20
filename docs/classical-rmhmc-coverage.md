@@ -48,7 +48,8 @@ paper-wide convergence theorem.
 
 ## Julia execution
 
-Artifact format version 21 registers `classical_rmhmc_step!`. The generated
+Artifact format version 22 registers `classical_rmhmc_step!` and
+`approximate_classical_rmhmc_step!`. The generated
 Reference interpreter and independent Optimized implementation both use the
 formal inverse-factor convention, require an exact implicit-solver
 certificate at every generalized-leapfrog step, and apply endpoint Metropolis
@@ -77,8 +78,54 @@ The example certificate is justified because the displayed integrator is the
 explicit separable leapfrog. Users must not set its global witness flags for
 an arbitrary finite-tolerance fixed-point loop.
 
+For a generic dense position-dependent metric, use the explicitly numerical
+bounded-residual interface:
+
+```julia
+potential(q) = sum(abs2, q) / 2
+potential_gradient(q) = q
+metric(q) = Matrix(Diagonal(2 .+ sin.(q)))
+metric_derivative(q) = begin
+    result = zeros(eltype(q), length(q), length(q), length(q))
+    for i in eachindex(q)
+        result[i, i, i] = cos(q[i])
+    end
+    result
+end
+
+sampler = DenseRiemannianRMHMC(potential, potential_gradient, metric,
+    metric_derivative, 0.1, 10; solver_iterations=10,
+    residual_tolerance=1e-8, implementation=:optimized)
+draws = sample(MersenneTwister(42), sampler, zeros(5), 1_000)
+```
+
+`DenseRiemannianRMHMC` preserves the concrete `AbstractFloat` type selected by
+its step size. The Optimized path remains generic; generated Reference performs
+an explicitly local Float64 conversion at its artifact boundary.
+
+## Focused benchmark
+
+`make benchmark-rmhmc` compares generated Reference, independent Optimized,
+and AdvancedHMC's pinned internal Riemannian implementation. It deliberately
+uses the genuinely position-dependent diagonal metric
+`G(q)=diag(2+sin(qᵢ))`, the same fixed-point iteration count, trajectory
+length, step size, target, and initial state for every implementation. The
+bounded-residual Reference/Optimized rows are numerical-refinement evidence,
+not invocations of the exact-solver theorem. The pinned AdvancedHMC 0.8
+package exports `GeneralizedLeapfrog` but does not load its Riemannian metric
+implementation into the public module; the benchmark therefore loads that
+upstream source explicitly. The result uses the ordinary `advancedhmc` label;
+this paragraph records that the compared code is not currently loaded by the
+package's public module.
+
+This focused comparison measures runtime overhead and basic Gaussian moments.
+It does not turn finite residuals into exact stationarity or establish a
+platform-independent performance ordering. Allocated bytes are reported
+alongside throughput.
+
 ## Remaining implementation work
 
-- add classical RMHMC to the full comparative benchmark matrix; and
+- derive stronger transition-level error bounds from the per-step residual
+  contract for broader nonconstant targets; and
 - treat finite-precision fixed-point solves through an explicit guarded
   refinement layer rather than identifying them with exact solutions.

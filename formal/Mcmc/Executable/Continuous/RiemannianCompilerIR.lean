@@ -14,6 +14,9 @@ structure Program where
 def program : Program where
   name := "classical_rmhmc_step!"
 
+def approximateProgram : Program where
+  name := "approximate_classical_rmhmc_step!"
+
 private def quote (value : String) : String := "\"" ++ value ++ "\""
 
 def Program.render (program : Program) : String :=
@@ -25,5 +28,15 @@ def Program.render (program : Program) : String :=
   " (body (return (classical-rmhmc (var source \"source\")" ++
   " (var real \"step_size\") (var nat \"steps\")" ++
   " (var real-vector \"current\")))))"
+
+def renderApproximate : String :=
+  "(program " ++ quote approximateProgram.name ++
+  " (inputs (input source \"source\") (input hamiltonian \"hamiltonian\")" ++
+  " (input metric-factor \"metric_factor\") (input integrator \"integrator\")" ++
+  " (input real \"step_size\") (input nat \"steps\")" ++
+  " (input real-vector \"current\") (input real \"residual_tolerance\"))" ++
+  " (body (return (approximate-classical-rmhmc (var source \"source\")" ++
+  " (var real \"step_size\") (var nat \"steps\")" ++
+  " (var real-vector \"current\") (var real \"residual_tolerance\")))))"
 
 end Mcmc.Executable.Continuous.RiemannianCompilerIR

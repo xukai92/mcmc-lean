@@ -172,7 +172,7 @@ solver refinement remains explicit work. See the
 ### B3. Executable Xu and Ge (2024) sampler — complete at the exact and guarded-runtime levels
 
 The corrected diagonal constant-metric program introduced in IR version 10 is
-retained in the current version 21 artifact, which contains a working
+retained in the current version 22 artifact, which contains a working
 relativistic multinomial specialization, with Reference/Optimized Julia replay
 tests. A position-dependent fixed-point solver now exists in Reference and
 Optimized Julia with residual reporting, while Lean constructs its exact

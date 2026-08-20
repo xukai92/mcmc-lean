@@ -36,7 +36,7 @@ the existing continuous HMC clients.
 
 ## Completed vertical slices
 
-The current version-21 artifact and Julia package provide:
+The current version-22 artifact and Julia package provide:
 
 | Slice | Exact Lean result | Julia evidence |
 |---|---|---|

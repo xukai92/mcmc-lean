@@ -107,6 +107,21 @@ unless they alter commands, module names, or generated documentation inputs.
 - Preserve the distinction between the proposal kernel, the MH transition
   kernel, accepted flow, acceptance probability, and stationary target.
 
+For maintained Julia implementations, preserve concrete generic numeric types:
+
+- Parameterize numerical APIs and state with `T<:AbstractFloat`; do not use
+  abstractly typed `Real` fields, containers, or hot-path values.
+- Do not hardcode `Float64` in public or Optimized sampler state and arithmetic
+  when the algorithm can preserve the caller's concrete floating-point type.
+- Convert scalar configuration once to the sampler's `T`, and keep callbacks,
+  matrices, work buffers, random draws, and returned samples in that type.
+- An explicitly documented serialization, generated-Reference, external-library,
+  or oracle boundary may remain `Float64`; keep that conversion local to the
+  boundary and test the generic maintained path with at least one other
+  `AbstractFloat` type.
+- Generic typing must not weaken validation or introduce dynamic dispatch in
+  performance-sensitive loops.
+
 For finite MH, the symmetric accepted-flow identity
 
 ```text

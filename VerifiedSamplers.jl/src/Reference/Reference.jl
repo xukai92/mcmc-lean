@@ -16,6 +16,7 @@ export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_ou
     FixedPointGeneralizedLeapfrogTrace,
     vector_leapfrog_step,
     classical_rmhmc_step!,
+    approximate_classical_rmhmc_step!,
     certified_relativistic_multinomial_hmc_step!,
     dynamic_select_float!, streaming_eligible_select!, recursive_doubling_rows,
     NUTSTreeLeaf, NUTSTreeNode, NUTSSubtreeResult, build_nuts_phase_tree,
@@ -25,7 +26,7 @@ export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_ou
     coupled_multinomial_hmc_step!, coupled_gaussian_rwmh_step!, xu21_coupled_step!,
     IR_FORMAT_VERSION, artifact_facets
 
-const IR_FORMAT_VERSION = 21
+const IR_FORMAT_VERSION = 22
 
 """Execute one instance of the Lean IR `vector-leapfrog` primitive."""
 function vector_leapfrog_step(gradient, step_size::Real,
@@ -457,6 +458,16 @@ function eval_expr(raw, env::Dict{String,Any})
         current = eval_expr(node[5], env)
         return _classical_rmhmc_step!(source, env["hamiltonian"],
             env["metric_factor"], env["integrator"], step_size, steps, current)
+    end
+    if tag == "approximate-classical-rmhmc"
+        source = eval_expr(node[2], env)
+        step_size = Float64(eval_expr(node[3], env))
+        steps = Int(eval_expr(node[4], env))
+        current = eval_expr(node[5], env)
+        residual_tolerance = Float64(eval_expr(node[6], env))
+        return _classical_rmhmc_step!(source, env["hamiltonian"],
+            env["metric_factor"], env["integrator"], step_size, steps,
+            current; residual_tolerance)
     end
     if tag == "coupled-multinomial-hmc" || tag == "coupled-gaussian-rwmh" ||
             tag == "xu21-coupled-mixture"
@@ -1049,7 +1060,7 @@ global implicit-solver certificate.
 """
 function _classical_rmhmc_step!(source::AbstractRandomSource, hamiltonian,
         metric_factor, integrator, step_size::Real, steps::Integer,
-        current::AbstractVector{<:Real})
+        current::AbstractVector{<:Real}; residual_tolerance=nothing)
     ε = Float64(step_size)
     isfinite(ε) && ε > 0 || throw(ArgumentError(
         "step size must be finite and positive"))
@@ -1066,7 +1077,24 @@ function _classical_rmhmc_step!(source::AbstractRandomSource, hamiltonian,
     all(isfinite, p0) || throw(DomainError(p0, "refreshed momentum"))
     q, p = copy(q0), p0
     for _ in 1:steps
-        q, p = _checked_certified_step(integrator, q, p, ε)
+        result = integrator(q, p, ε)
+        result isa Tuple && length(result) == 3 || throw(ArgumentError(
+            "integrator must return (position, momentum, certificate)"))
+        next_q, next_p, certificate = result
+        certificate isa ImplicitSolveCertificate || throw(ArgumentError(
+            "integrator did not return an implicit-solver certificate"))
+        if residual_tolerance === nothing
+            certifies_exact_solver(certificate) || throw(ArgumentError(
+                "implicit solve is not exactly certified"))
+        else
+            tolerance = BigFloat(residual_tolerance)
+            tolerance >= 0 || throw(ArgumentError(
+                "residual tolerance must be nonnegative"))
+            certificate.half_momentum_residual.bound <= tolerance &&
+                certificate.position_residual.bound <= tolerance ||
+                throw(ArgumentError("implicit solve exceeds residual tolerance"))
+        end
+        q, p = Float64.(next_q), Float64.(next_p)
         length(q) == length(q0) && length(p) == length(q0) ||
             throw(DimensionMismatch("integrator state dimension"))
         all(isfinite, q) && all(isfinite, p) ||
@@ -1086,6 +1114,20 @@ function classical_rmhmc_step!(source::AbstractRandomSource, hamiltonian,
         current::AbstractVector{<:Real})
     Float64.(run_program("classical_rmhmc_step!", source, hamiltonian,
         metric_factor, integrator, Float64(step_size), steps, current))
+end
+
+"""Bounded-residual classical RMHMC execution.
+
+This is a numerical approximation contract, not an exact solver certificate.
+It checks every observed implicit residual against `residual_tolerance` but
+does not claim exact reversibility, volume preservation, or stationarity.
+"""
+function approximate_classical_rmhmc_step!(source::AbstractRandomSource,
+        hamiltonian, metric_factor, integrator, step_size::Real, steps::Integer,
+        current::AbstractVector{<:Real}, residual_tolerance::Real)
+    Float64.(run_program("approximate_classical_rmhmc_step!", source,
+        hamiltonian, metric_factor, integrator, Float64(step_size), steps,
+        current, Float64(residual_tolerance)))
 end
 
 """One concrete derivative callback invocation made by the reference solver."""

@@ -1,5 +1,21 @@
 # Development log
 
+## 2026-08-20: focused classical RMHMC benchmark
+
+Added artifact version 22 and public generic `DenseRiemannianRMHMC`, which
+compose arbitrary dense positive metrics, their derivative tensors, classical
+Gaussian Hamiltonian derivatives, and fixed-point generalized leapfrog.
+Finite solves must meet a declared residual tolerance and remain explicitly
+approximate; `ClassicalRMHMC` still requires an exact solver certificate.
+Public and Optimized sampler arithmetic now preserve a concrete
+`T<:AbstractFloat`, with Float64 conversion confined to generated Reference.
+
+`make benchmark-rmhmc` compares generated Reference, independent Optimized,
+and the pinned AdvancedHMC Riemannian path on `G(q)=diag(2+sin(qᵢ))` with a
+shared iteration and trajectory budget. It reports median throughput,
+allocations, and Gaussian mean/variance errors without claiming that residual
+acceptance proves exact stationarity.
+
 ## 2026-08-20: executable classical RMHMC
 
 Artifact format version 21 adds the Lean-emitted `classical_rmhmc_step!`

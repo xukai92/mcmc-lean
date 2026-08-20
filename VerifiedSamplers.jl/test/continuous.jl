@@ -635,6 +635,46 @@ end
     @test_throws ArgumentError step(MersenneTwister(4), singular, zeros(2))
 end
 
+@testset "dense position-dependent classical RMHMC" begin
+    metric(q) = Matrix(Diagonal(2 .+ sin.(q)))
+    metric_derivative(q) = begin
+        derivative = zeros(eltype(q), length(q), length(q), length(q))
+        for coordinate in eachindex(q)
+            derivative[coordinate, coordinate, coordinate] = cos(q[coordinate])
+        end
+        derivative
+    end
+    potential(q) = sum(abs2, q) / 2
+    potential_gradient(q) = q
+    reference = DenseRiemannianRMHMC(potential, potential_gradient, metric,
+        metric_derivative, 0.04, 4; solver_iterations=12,
+        residual_tolerance=1e-9)
+    optimized = DenseRiemannianRMHMC(potential, potential_gradient, metric,
+        metric_derivative, 0.04, 4; solver_iterations=12,
+        residual_tolerance=1e-9, implementation=:optimized)
+    reference_draws = sample(MersenneTwister(0x7211), reference, zeros(2), 600)
+    optimized_draws = sample(MersenneTwister(0x7211), optimized, zeros(2), 600)
+    @test reference_draws ≈ optimized_draws atol=1e-12 rtol=0
+    @test all(isfinite, reference_draws)
+    @test maximum(abs.(vec(mean(reference_draws; dims=2)))) < 0.5
+    @test maximum(abs.(vec(var(reference_draws; dims=2)) .- 1)) < 0.8
+
+    under_solved = DenseRiemannianRMHMC(potential, potential_gradient, metric,
+        metric_derivative, 0.2, 1; solver_iterations=1,
+        residual_tolerance=0.0)
+    @test_throws ArgumentError step(MersenneTwister(1), under_solved, [0.2, -0.1])
+    @test_throws ArgumentError DenseRiemannianRMHMC(potential,
+        potential_gradient, metric, metric_derivative, 0.1;
+        solver_iterations=0)
+    float32_sampler = DenseRiemannianRMHMC(potential, potential_gradient,
+        metric, metric_derivative, 0.04f0, 2; solver_iterations=12,
+        residual_tolerance=1f-6, implementation=:optimized)
+    float32_draws = sample(MersenneTwister(7), float32_sampler,
+        zeros(Float32, 2), 4)
+    @test eltype(float32_draws) === Float32
+    @test all(isfinite, float32_draws)
+end
+
 @testset "position-dependent fixed-point generalized leapfrog" begin
     coefficient = 0.2
     position_derivative(q, p) = (coefficient / 2) .* p.^2

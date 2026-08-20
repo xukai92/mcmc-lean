@@ -61,7 +61,7 @@ input or probabilistic assumption.
 
 ## Julia layer
 
-The current version-21 artifact contains scalar and vector-valued multi-step endpoint
+The current version-22 artifact contains scalar and vector-valued multi-step endpoint
 HMC (introduced in version 5), constant-metric programs (version 6), and the
 randomized-origin multinomial-HMC command.
 Its explicit callbacks are the target log density and the gradient of the

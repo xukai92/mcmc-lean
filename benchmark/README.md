@@ -28,6 +28,31 @@ This focused run prints its transformation name, assurance class, per-chain
 times, median, and throughput. It complements rather than replaces the full
 cross-implementation benchmark and correctness gates.
 
+The focused classical-RMHMC comparison is:
+
+```sh
+make benchmark-rmhmc
+```
+
+It compares generated Reference, independent Optimized, and the pinned
+AdvancedHMC generalized-leapfrog implementation on the nonconstant metric
+`G(q)=diag(2+sin(qᵢ))`. All rows use the same target, step size, trajectory
+length, fixed-point iteration count, and initial state. The VerifiedSamplers
+rows check a declared residual tolerance but do not relabel the resulting
+finite solve as exactly reversible, volume preserving, or stationary.
+AdvancedHMC 0.8 does not
+load its Riemannian metric implementation into its public module, so the script
+loads that pinned internal source explicitly and labels the result
+`advancedhmc`; this implementation-status caveat belongs here rather than in
+the plot label. Environment variables `RMHMC_DIMENSION`,
+`RMHMC_DRAWS`, `RMHMC_STEPS`, `RMHMC_STEP_SIZE`,
+`RMHMC_SOLVER_ITERATIONS`, `RMHMC_RESIDUAL_TOLERANCE`, and `RMHMC_SEEDS`
+control the workload.
+
+The script reports median allocated bytes as well as throughput and simple
+Gaussian moment errors. These remain machine-specific diagnostics rather than
+formal correctness or convergence evidence.
+
 To make a fail-closed acceptance decision, first record the pre-change median,
 then run the complete release gate and candidate measurement together:
 

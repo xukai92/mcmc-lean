@@ -15,6 +15,7 @@ export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_ou
     relativistic_multinomial_hmc_step!,
     fixed_point_generalized_leapfrog,
     classical_rmhmc_step!,
+    approximate_classical_rmhmc_step!,
     certified_relativistic_multinomial_hmc_step!,
     dynamic_select_float!, streaming_eligible_select!,
     categorical_dhmc_step!, leapfrog, vector_leapfrog,
@@ -660,6 +661,46 @@ function classical_rmhmc_step!(source::AbstractRandomSource, hamiltonian,
         next_q, next_p, certificate = result
         certificate isa ImplicitSolveCertificate && certifies_exact_solver(certificate) ||
             throw(ArgumentError("implicit solve is not exactly certified"))
+        q, p = T.(next_q), T.(next_p)
+        length(q) == length(q0) && length(p) == length(q0) ||
+            throw(DimensionMismatch("integrator state dimension"))
+        all(isfinite, q) && all(isfinite, p) ||
+            throw(DomainError((q, p), "integrator state"))
+    end
+    current_energy = T(hamiltonian(q0, p0))
+    proposed_energy = T(hamiltonian(q, p))
+    isfinite(current_energy) && isfinite(proposed_energy) ||
+        throw(DomainError((current_energy, proposed_energy),
+            "Hamiltonian must be finite"))
+    threshold = exp(min(zero(T), current_energy - proposed_energy))
+    T(uniform_unit!(source)) < threshold ? q : q0
+end
+
+"""Independent bounded-residual position-dependent classical RMHMC path."""
+function approximate_classical_rmhmc_step!(source::AbstractRandomSource,
+        hamiltonian, metric_factor, integrator, step_size::T, steps::Integer,
+        current::AbstractVector{T}, residual_tolerance::T) where {T<:AbstractFloat}
+    isfinite(residual_tolerance) && residual_tolerance >= 0 ||
+        throw(ArgumentError("residual tolerance must be finite and nonnegative"))
+    isfinite(step_size) && step_size > 0 || throw(ArgumentError(
+        "step size must be finite and positive"))
+    steps > 0 || throw(ArgumentError("trajectory length must be positive"))
+    q0 = collect(current)
+    isempty(q0) && throw(ArgumentError("position cannot be empty"))
+    factor = Matrix{T}(metric_factor(q0))
+    size(factor) == (length(q0), length(q0)) ||
+        throw(DimensionMismatch("metric factor dimension"))
+    all(isfinite, factor) || throw(ArgumentError("metric factor must be finite"))
+    abs(det(factor)) > 0 || throw(ArgumentError("metric factor must be invertible"))
+    p0 = factor \ T[standard_normal!(source) for _ in eachindex(q0)]
+    q, p = copy(q0), p0
+    for _ in 1:steps
+        next_q, next_p, certificate = integrator(q, p, step_size)
+        certificate isa ImplicitSolveCertificate || throw(ArgumentError(
+            "integrator did not return an implicit-solver certificate"))
+        certificate.half_momentum_residual.bound <= residual_tolerance &&
+            certificate.position_residual.bound <= residual_tolerance ||
+            throw(ArgumentError("implicit solve exceeds residual tolerance"))
         q, p = T.(next_q), T.(next_p)
         length(q) == length(q0) && length(p) == length(q0) ||
             throw(DimensionMismatch("integrator state dimension"))
