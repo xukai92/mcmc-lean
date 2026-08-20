@@ -178,6 +178,7 @@ function write_doc(rows, timings, quality, metadata)
         println(io, "</div>")
         println(io, "```\n")
         println(io, "The interactive chart supports metric, target, algorithm, implementation, and grouping controls. Hover over a point for its chain seed and repetition or its aggregate quality diagnostics.\n")
+        println(io, "Use the **Full width** control in the documentation navbar for a wider chart and table layout; the choice persists across pages.\n")
         println(io, "??? note \"Static chart fallback\"")
         println(io, "    The committed SVG remains available for non-JavaScript readers and portable rendering.\n")
         println(io, "    ![HMC transition-throughput distributions](assets/benchmarks/hmc-throughput.svg)\n")
@@ -189,19 +190,19 @@ function write_doc(rows, timings, quality, metadata)
         else
             println(io, "These historical preconditioned endpoint and multinomial rows are AdvancedHMC-only; they predate the implemented VerifiedSamplers benchmark cases and are not retroactively supplemented.\n")
         end
-        has_verified_nuts = any(row -> row.algorithm == "nuts" &&
+        has_verified_nuts = any(row -> row.algorithm == "completed-tree" &&
             row.implementation == "verified-reference", rows)
         if has_verified_nuts
-            println(io, "VerifiedSamplers `NUTS` is labelled `verified-reference`: it uses the completed-tree C.4 rerooting construction proved in Lean. The independent handwritten `Optimized.NUTS` is labelled `verified-optimized`; that label identifies the project's optimized implementation, for which conformance and statistical tests are empirical evidence rather than a formal transition-equivalence proof.\n")
-            reference_nuts_quality = filter(row -> row.algorithm == "nuts" &&
+            println(io, "The `completed-tree` group gives all three implementations the same fixed `2^d` leapfrog budget. Its `verified-reference` row uses the completed-tree C.4 rerooting construction proved in Lean; the Optimized and AdvancedHMC rows use their fixed-length multinomial implementations and are work-matched rather than transition-equivalent. The separate `dynamic-nuts` group compares Optimized against AdvancedHMC under the same maximum depth and generalized U-turn termination.\n")
+            reference_nuts_quality = filter(row -> row.algorithm == "completed-tree" &&
                 row.implementation == "verified-reference", quality)
             if !isempty(reference_nuts_quality) && all(row ->
                     parse(Float64, row.movement) == 0.0,
                     reference_nuts_quality)
-                println(io, "!!! warning \"NUTS Reference reported zero movement\"\n    On every fixture in this run, `verified-reference` NUTS reported zero movement. Its throughput is not useful sampling throughput; investigate the completed-tree admissibility path before interpreting this row.\n")
+                println(io, "!!! warning \"Completed-tree Reference reported zero movement\"\n    On every fixture in this run, the `verified-reference` completed-tree sampler reported zero movement. Its throughput is not useful sampling throughput; investigate the admissibility path before interpreting this row.\n")
             end
         else
-            println(io, "The historical NUTS measurements are AdvancedHMC-only. They predate the repository's separately labelled production-shaped NUTS runtime and are not retroactively supplemented.\n")
+            println(io, "These historical measurements predate the split between fixed-work `completed-tree` and `dynamic-nuts` comparisons and are not retroactively relabelled.\n")
         end
         println(io, "## Configuration\n")
         first_row = first(rows)
@@ -214,6 +215,10 @@ function write_doc(rows, timings, quality, metadata)
         println(io, "- Complete-chain timing repetitions per case: `$repetitions`")
         println(io, "- Step size: `$(first_row.step_size)`")
         println(io, "- Fixed trajectory length: `$(first_row.configured_steps)` leapfrog steps")
+        if haskey(metadata, "nuts_max_depth")
+            println(io, "- Shared NUTS depth budget: `$(metadata["nuts_max_depth"])`")
+            println(io, "- Completed-tree trajectory length: `$(metadata["completed_tree_steps"])` leapfrog steps")
+        end
         println(io, "- Gradients: analytic callbacks for both packages; AD time excluded\n")
         if combined_protocol
             println(io, "- Fixed timed/quality seeds per case: `$(join(unique(row.seed for row in timings), ", "))`")
@@ -274,7 +279,7 @@ function write_doc(rows, timings, quality, metadata)
             println(io, "| $(display_name(row.target)) | $(row.algorithm) | $(row.implementation) | $rhat | $bulk | $tail | $per_gradient | $mean_mcse | $covariance_error | $median_error | $(@sprintf("%.1f", parse(Float64, row.ess_per_second))) | $(@sprintf("%.3f", parse(Float64, row.standardized_mean_rmse))) | $(@sprintf("%.3f", parse(Float64, row.relative_variance_rmse))) | $(@sprintf("%.3f", parse(Float64, row.movement))) | $acceptance | $(row.divergences) | $(@sprintf("%.1f", parse(Float64, row.average_steps))) |")
         end
         println(io, "\n## Interpretation\n")
-        println(io, "Endpoint rows are directly matched fixed-step proposals. Multinomial rows share the target and integration budget, but the packages use different trajectory construction and selection mechanics. NUTS uses variable work per transition, so its draws/s should be read together with its mean leapfrog count and not compared directly with fixed ten-step HMC.\n")
+        println(io, "Endpoint rows are directly matched fixed-step proposals. Multinomial rows share the target and integration budget, but the packages use different trajectory construction and selection mechanics. Completed-tree rows have the same fixed depth-derived work budget but are not transition-equivalent. Dynamic-NUTS rows use variable work up to that shared budget, so their draws/s should be read together with mean leapfrog count.\n")
         println(io, "The timing distribution describes repeated execution on one machine and is not a cross-machine confidence interval. The quality table reports acceptance, divergences, autocorrelation ESS, and—on new runs—split rank-normalized R-hat plus bulk/tail ESS. The ESS/gradient column is explicitly a work proxy: it divides bulk ESS by recorded leapfrog work, using two gradient callbacks per maintained direct leapfrog step and one per AdvancedHMC-reported step. It is not an instrumented hardware counter. These are diagnostics rather than proofs that a chain has converged.\n")
         println(io, "## Quality-check roadmap\n")
         println(io, "Lightweight, reproducible checks belong in the integrated Julia tests: retain the target gradient contracts and known-moment regressions, add full covariance checks for correlated Gaussian targets, and add a small set of analytically known marginal quantiles. Their tolerances must account for autocorrelation and remain stable in routine CI.\n")

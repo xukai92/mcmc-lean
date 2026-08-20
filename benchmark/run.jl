@@ -18,9 +18,8 @@ const CONFIGURED_SEEDS = parse.(Int,
     split(get(ENV, "HMC_SEEDS", DEFAULT_SEEDS), ','))
 const BENCHMARK_SEEDS = DEV_MODE ?
     CONFIGURED_SEEDS[1:min(3, length(CONFIGURED_SEEDS))] : CONFIGURED_SEEDS
-const NUTS_MAX_DEPTH = parse(Int, get(ENV, "HMC_NUTS_MAX_DEPTH", "10"))
-const NUTS_REFERENCE_DEPTH = parse(Int,
-    get(ENV, "HMC_NUTS_REFERENCE_DEPTH", "4"))
+const NUTS_MAX_DEPTH = parse(Int, get(ENV, "HMC_NUTS_MAX_DEPTH", "4"))
+const COMPLETED_TREE_STEPS = 1 << NUTS_MAX_DEPTH
 
 const Runtime = VerifiedSamplers.Runtime
 const Reference = VerifiedSamplers.Reference
@@ -87,6 +86,8 @@ function advanced_components(target)
         integrator, FixedNSteps(LEAPFROG_STEPS)))
     nuts = HMCKernel(Trajectory{MultinomialTS}(
         integrator, GeneralisedNoUTurn(max_depth=NUTS_MAX_DEPTH)))
+    completed_tree = HMCKernel(Trajectory{MultinomialTS}(
+        integrator, FixedNSteps(COMPLETED_TREE_STEPS)))
     metric_hamiltonian = metric_endpoint = metric_multinomial = nothing
     if target.metric_mass !== nothing
         inverse_mass = target.advanced_inverse_mass
@@ -99,21 +100,22 @@ function advanced_components(target)
         metric_multinomial = HMCKernel(Trajectory{MultinomialTS}(
             integrator, FixedNSteps(LEAPFROG_STEPS)))
     end
-    (; hamiltonian, endpoint, multinomial, nuts, metric_hamiltonian,
+    (; hamiltonian, endpoint, multinomial, nuts, completed_tree, metric_hamiltonian,
         metric_endpoint, metric_multinomial)
 end
 
-function run_verified(stepper, target, seed::Int, draws::Int)
+function run_verified(stepper, target, seed::Int, draws::Int;
+        steps::Int=LEAPFROG_STEPS)
     source = Runtime.RNGSource(MersenneTwister(seed))
     chain = Matrix{Float64}(undef, DIMENSION, draws)
     position = zeros(DIMENSION)
     for index in axes(chain, 2)
         position = stepper(source, target.logdensity, target.gradient,
-            STEP_SIZE, LEAPFROG_STEPS, position)
+            STEP_SIZE, steps, position)
         chain[:, index] = position
     end
     (; chain, acceptance=NaN, divergences=0,
-        average_steps=Float64(LEAPFROG_STEPS), gradients_per_step=2)
+        average_steps=Float64(steps), gradients_per_step=2)
 end
 
 function run_verified_metric(stepper, target, seed::Int, draws::Int;
@@ -135,12 +137,12 @@ end
 
 function run_verified_nuts(target, seed::Int, draws::Int)
     sampler = VerifiedSamplers.NUTS(target.logdensity, target.gradient,
-        STEP_SIZE, NUTS_REFERENCE_DEPTH)
+        STEP_SIZE, NUTS_MAX_DEPTH)
     chain = VerifiedSamplers.sample(
         MersenneTwister(seed), sampler, zeros(DIMENSION), draws)
     # A completed depth-d tree has 2^d phase points. The randomized origin
     # changes construction order, not the reported completed-tree work.
-    average_steps = 1 << NUTS_REFERENCE_DEPTH
+    average_steps = 1 << NUTS_MAX_DEPTH
     (; chain, acceptance=NaN, divergences=0, average_steps,
         gradients_per_step=2)
 end
@@ -267,8 +269,11 @@ function benchmark_target(target)
     run_advanced(components.hamiltonian, components.endpoint, SEED, 100)
     run_advanced(components.hamiltonian, components.multinomial, SEED, 100)
     run_advanced(components.hamiltonian, components.nuts, SEED, 100)
+    run_advanced(components.hamiltonian, components.completed_tree, SEED, 100)
     run_verified_nuts(target, SEED, 100)
     run_optimized_nuts(target, SEED, 100)
+    run_verified(Optimized.multinomial_hmc_step!, target, SEED, 100;
+        steps=COMPLETED_TREE_STEPS)
 
     endpoint_reference = measure_case(target, "endpoint", "verified-reference",
         seed -> run_verified(
@@ -288,13 +293,20 @@ function benchmark_target(target)
     multinomial_advanced = measure_case(target, "multinomial", "advancedhmc",
         seed -> run_advanced(
         components.hamiltonian, components.multinomial, seed, DRAWS))
-    nuts_advanced = measure_case(target, "nuts", "advancedhmc",
+    nuts_advanced = measure_case(target, "dynamic-nuts", "advancedhmc",
         seed -> run_advanced(
-        components.hamiltonian, components.nuts, seed, DRAWS))
-    nuts_reference = measure_case(target, "nuts", "verified-reference",
+            components.hamiltonian, components.nuts, seed, DRAWS))
+    nuts_reference = measure_case(target, "completed-tree", "verified-reference",
         seed -> run_verified_nuts(target, seed, DRAWS))
-    nuts_optimized = measure_case(target, "nuts", "verified-optimized",
+    nuts_optimized = measure_case(target, "dynamic-nuts", "verified-optimized",
         seed -> run_optimized_nuts(target, seed, DRAWS))
+    completed_optimized = measure_case(target, "completed-tree",
+        "verified-optimized", seed -> run_verified(
+            Optimized.multinomial_hmc_step!, target, seed, DRAWS;
+            steps=COMPLETED_TREE_STEPS))
+    completed_advanced = measure_case(target, "completed-tree", "advancedhmc",
+        seed -> run_advanced(components.hamiltonian,
+            components.completed_tree, seed, DRAWS))
 
     measured = [
         ("endpoint", "verified-reference", endpoint_reference),
@@ -303,9 +315,11 @@ function benchmark_target(target)
         ("multinomial", "verified-reference", multinomial_reference),
         ("multinomial", "verified-optimized", multinomial_optimized),
         ("multinomial", "advancedhmc", multinomial_advanced),
-        ("nuts", "verified-reference", nuts_reference),
-        ("nuts", "verified-optimized", nuts_optimized),
-        ("nuts", "advancedhmc", nuts_advanced)]
+        ("completed-tree", "verified-reference", nuts_reference),
+        ("completed-tree", "verified-optimized", completed_optimized),
+        ("completed-tree", "advancedhmc", completed_advanced),
+        ("dynamic-nuts", "verified-optimized", nuts_optimized),
+        ("dynamic-nuts", "advancedhmc", nuts_advanced)]
     for (algorithm, implementation, trial) in measured
         quality_summary(target, algorithm, implementation, trial.outputs,
             sum(trial.times) / 1e9)
@@ -327,11 +341,15 @@ function benchmark_target(target)
             average_steps(multinomial_optimized)),
         result(target, "multinomial", "advancedhmc", multinomial_advanced,
             average_steps(multinomial_advanced)),
-        result(target, "nuts", "verified-reference", nuts_reference,
+        result(target, "completed-tree", "verified-reference", nuts_reference,
             average_steps(nuts_reference)),
-        result(target, "nuts", "verified-optimized", nuts_optimized,
+        result(target, "completed-tree", "verified-optimized", completed_optimized,
+            average_steps(completed_optimized)),
+        result(target, "completed-tree", "advancedhmc", completed_advanced,
+            average_steps(completed_advanced)),
+        result(target, "dynamic-nuts", "verified-optimized", nuts_optimized,
             average_steps(nuts_optimized)),
-        result(target, "nuts", "advancedhmc", nuts_advanced,
+        result(target, "dynamic-nuts", "advancedhmc", nuts_advanced,
             average_steps(nuts_advanced)),
     ]
     if target.metric_mass !== nothing
@@ -448,6 +466,8 @@ function write_results(rows)
         println(io, "commit,$commit")
         println(io, "julia,$VERSION")
         println(io, "cpu,$(Sys.cpu_info()[1].model)")
+        println(io, "nuts_max_depth,$NUTS_MAX_DEPTH")
+        println(io, "completed_tree_steps,$COMPLETED_TREE_STEPS")
     end
     println("wrote $metadata_output")
 end
@@ -458,15 +478,13 @@ function main()
     LEAPFROG_STEPS > 0 || error("HMC_LEAPFROG_STEPS must be positive")
     STEP_SIZE > 0 || error("HMC_STEP_SIZE must be positive")
     NUTS_MAX_DEPTH > 0 || error("HMC_NUTS_MAX_DEPTH must be positive")
-    NUTS_REFERENCE_DEPTH >= 0 ||
-        error("HMC_NUTS_REFERENCE_DEPTH must be nonnegative")
     length(BENCHMARK_SEEDS) >= 2 || error(
         "HMC_SEEDS must provide at least two seeds")
     length(unique(BENCHMARK_SEEDS)) == length(BENCHMARK_SEEDS) || error(
         "HMC_SEEDS must not contain duplicates")
     target_suite = Evaluation.standard_targets(DIMENSION)
     STARTED_CASES[] = 0
-    TOTAL_CASES[] = sum(target.metric_mass === nothing ? 9 : 15
+    TOTAL_CASES[] = sum(target.metric_mass === nothing ? 11 : 17
         for target in target_suite)
     BENCHMARK_STARTED_NS[] = time_ns()
     rows = reduce(vcat, benchmark_target(target) for target in target_suite)

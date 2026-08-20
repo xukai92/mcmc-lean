@@ -56,14 +56,14 @@ implementation; they have the same target and integration budget, but their
 trajectory construction and selection mechanics are not claimed to be
 identical.
 
-NUTS rows use the same three implementation labels as the rest of the report.
-`verified-reference` is the Lean-proved completed-tree C.4 `NUTS` sampler;
-`verified-optimized` is the independent production-shaped `Optimized.NUTS`,
-whose conformance and sampling-quality evidence is empirical rather than a
-formal transition-equivalence proof; and `advancedhmc` is the external
-comparison. Mean leapfrog work is reported because NUTS work is dynamic.
-The report calls out any zero-movement Reference rows: a correct identity
-component can still have throughput that is not useful sampling performance.
+The `completed-tree` rows compare the Lean-proved completed-tree C.4 Reference
+against Optimized and AdvancedHMC fixed-length multinomial trajectories using
+the same `2^d` leapfrog budget. They are work-matched, not claimed to implement
+the same transition. The separate `dynamic-nuts` rows compare the independent
+production-shaped `Optimized.NUTS` against AdvancedHMC using the same maximum
+depth and generalized U-turn termination. There is no Reference row in that
+group until early-stopping dynamic NUTS has a verified Reference
+implementation. Mean leapfrog work remains visible for both groups.
 
 The full runner records ten complete chains per case using the explicit fixed
 seed list `4109:4118` by default. The report shows every chain timing together
@@ -93,6 +93,8 @@ The generated Documenter page also includes an interactive Plotly explorer
 with metric, target, algorithm, implementation, and grouping controls. Its
 browser dataset is generated from the same committed CSV files. The SVG is
 retained as a static fallback for non-JavaScript readers and portable output.
+The site-wide **Full width** navbar control expands the chart and tables and
+persists the selected layout locally across documentation pages.
 
 The same timed chains write quality summaries to
 `benchmark/results/quality.csv`. They report
@@ -122,7 +124,9 @@ suite; the multi-chain and distributional report remains in this environment.
 
 The workload can be changed through `HMC_DIMENSION`, `HMC_DRAWS`,
 `HMC_LEAPFROG_STEPS`, `HMC_STEP_SIZE`, `HMC_SEED`, and `HMC_SEEDS`.
-`HMC_NUTS_MAX_DEPTH` controls the AdvancedHMC and optimized NUTS tree-depth
-cap. `HMC_NUTS_REFERENCE_DEPTH` controls the completed-tree Reference depth.
+`HMC_NUTS_MAX_DEPTH` is the single shared tree-depth budget for Reference,
+Optimized, and AdvancedHMC NUTS. Reference constructs the complete tree at
+that depth, while the dynamic implementations may stop earlier. The default is
+four, so every implementation uses at most 16 leapfrog steps per transition.
 `HMC_SEED` determines
 the default consecutive seed list; an explicit `HMC_SEEDS` takes precedence.

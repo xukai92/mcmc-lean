@@ -1,5 +1,13 @@
 # Development log
 
+## 2026-08-20: shared NUTS benchmark depth budget
+
+The benchmark no longer gives completed-tree Reference NUTS a depth of four
+while giving Optimized and AdvancedHMC a maximum depth of ten. A single
+`HMC_NUTS_MAX_DEPTH` setting now applies to all three, with a tractable default
+of four. Reference uses the full `2^d` budget; dynamic NUTS may stop earlier,
+so the report continues to expose mean leapfrog work alongside throughput.
+
 ## 2026-08-20: prepared-metric endpoint and multinomial optimization
 
 The independent constant-metric Optimized backend now prepares a metric once
