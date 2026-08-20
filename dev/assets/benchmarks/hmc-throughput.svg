@@ -85,7 +85,7 @@
 <circle cx="581.1850348094933" cy="155" r="3" fill="#cf222e" fill-opacity="0.30"/>
 <line x1="582.8715345215701" y1="155" x2="584.3454665910149" y2="155" stroke="#cf222e" stroke-width="5" stroke-linecap="round"/>
 <circle cx="583.0344393847954" cy="155" r="6" fill="#cf222e" stroke="white" stroke-width="1.5"/>
-<text x="271" y="212" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Isotropic Gaussian · Completed-tree</text>
+<text x="271" y="212" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Isotropic Gaussian · Nuts-complete</text>
 <circle cx="357.83436605393683" cy="189" r="3" fill="#bf8700" fill-opacity="0.30"/>
 <circle cx="354.4404272103576" cy="191" r="3" fill="#bf8700" fill-opacity="0.30"/>
 <circle cx="354.9378676490395" cy="187" r="3" fill="#bf8700" fill-opacity="0.30"/>
@@ -122,7 +122,7 @@
 <circle cx="535.8285798613593" cy="225" r="3" fill="#cf222e" fill-opacity="0.30"/>
 <line x1="534.5921904680785" y1="225" x2="536.5188108691743" y2="225" stroke="#cf222e" stroke-width="5" stroke-linecap="round"/>
 <circle cx="535.7377652854346" cy="225" r="6" fill="#cf222e" stroke="white" stroke-width="1.5"/>
-<text x="271" y="282" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Isotropic Gaussian · Dynamic-nuts</text>
+<text x="271" y="282" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Isotropic Gaussian · Nuts-dynamic</text>
 <circle cx="580.6499087602753" cy="277" r="3" fill="#1f6feb" fill-opacity="0.30"/>
 <circle cx="582.6704910675676" cy="279" r="3" fill="#1f6feb" fill-opacity="0.30"/>
 <circle cx="582.3916995838072" cy="275" r="3" fill="#1f6feb" fill-opacity="0.30"/>
@@ -222,7 +222,7 @@
 <circle cx="567.4666766273219" cy="435" r="3" fill="#cf222e" fill-opacity="0.30"/>
 <line x1="566.7186893271903" y1="435" x2="568.6966081500964" y2="435" stroke="#cf222e" stroke-width="5" stroke-linecap="round"/>
 <circle cx="567.6329302998886" cy="435" r="6" fill="#cf222e" stroke="white" stroke-width="1.5"/>
-<text x="271" y="492" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Correlated Gaussian (ρ=0.9) · Completed-tree</text>
+<text x="271" y="492" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Correlated Gaussian (ρ=0.9) · Nuts-complete</text>
 <circle cx="341.4087646148479" cy="469" r="3" fill="#bf8700" fill-opacity="0.30"/>
 <circle cx="339.1909237045364" cy="471" r="3" fill="#bf8700" fill-opacity="0.30"/>
 <circle cx="338.16746177762354" cy="467" r="3" fill="#bf8700" fill-opacity="0.30"/>
@@ -259,7 +259,7 @@
 <circle cx="521.0938486887933" cy="505" r="3" fill="#cf222e" fill-opacity="0.30"/>
 <line x1="523.8609148904728" y1="505" x2="524.8858448983536" y2="505" stroke="#cf222e" stroke-width="5" stroke-linecap="round"/>
 <circle cx="524.3488392956535" cy="505" r="6" fill="#cf222e" stroke="white" stroke-width="1.5"/>
-<text x="271" y="562" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Correlated Gaussian (ρ=0.9) · Dynamic-nuts</text>
+<text x="271" y="562" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Correlated Gaussian (ρ=0.9) · Nuts-dynamic</text>
 <circle cx="548.0674835835846" cy="557" r="3" fill="#1f6feb" fill-opacity="0.30"/>
 <circle cx="551.2483976585859" cy="559" r="3" fill="#1f6feb" fill-opacity="0.30"/>
 <circle cx="552.5839690934336" cy="555" r="3" fill="#1f6feb" fill-opacity="0.30"/>
@@ -433,7 +433,7 @@
 <circle cx="559.1505906793395" cy="855" r="3" fill="#cf222e" fill-opacity="0.30"/>
 <line x1="556.4428731484998" y1="855" x2="558.6035742827029" y2="855" stroke="#cf222e" stroke-width="5" stroke-linecap="round"/>
 <circle cx="557.0023824916655" cy="855" r="6" fill="#cf222e" stroke="white" stroke-width="1.5"/>
-<text x="271" y="912" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Product quartic · Completed-tree</text>
+<text x="271" y="912" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Product quartic · Nuts-complete</text>
 <circle cx="330.8819358172718" cy="889" r="3" fill="#bf8700" fill-opacity="0.30"/>
 <circle cx="329.5301939184225" cy="891" r="3" fill="#bf8700" fill-opacity="0.30"/>
 <circle cx="330.9850392965052" cy="887" r="3" fill="#bf8700" fill-opacity="0.30"/>
@@ -470,7 +470,7 @@
 <circle cx="515.7249097655039" cy="925" r="3" fill="#cf222e" fill-opacity="0.30"/>
 <line x1="515.2713567388835" y1="925" x2="517.2051399048215" y2="925" stroke="#cf222e" stroke-width="5" stroke-linecap="round"/>
 <circle cx="515.9948953067995" cy="925" r="6" fill="#cf222e" stroke="white" stroke-width="1.5"/>
-<text x="271" y="982" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Product quartic · Dynamic-nuts</text>
+<text x="271" y="982" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Product quartic · Nuts-dynamic</text>
 <circle cx="538.3268890596823" cy="977" r="3" fill="#1f6feb" fill-opacity="0.30"/>
 <circle cx="543.3288766153612" cy="979" r="3" fill="#1f6feb" fill-opacity="0.30"/>
 <circle cx="545.4951739413002" cy="975" r="3" fill="#1f6feb" fill-opacity="0.30"/>
@@ -570,7 +570,7 @@
 <circle cx="567.9716901596869" cy="1135" r="3" fill="#cf222e" fill-opacity="0.30"/>
 <line x1="562.701424411049" y1="1135" x2="567.169638421125" y2="1135" stroke="#cf222e" stroke-width="5" stroke-linecap="round"/>
 <circle cx="563.8829229324635" cy="1135" r="6" fill="#cf222e" stroke="white" stroke-width="1.5"/>
-<text x="271" y="1192" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Ill-conditioned Gaussian · Completed-tree</text>
+<text x="271" y="1192" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Ill-conditioned Gaussian · Nuts-complete</text>
 <circle cx="325.84639091291024" cy="1169" r="3" fill="#bf8700" fill-opacity="0.30"/>
 <circle cx="326.00961327211985" cy="1171" r="3" fill="#bf8700" fill-opacity="0.30"/>
 <circle cx="325.41390746106674" cy="1167" r="3" fill="#bf8700" fill-opacity="0.30"/>
@@ -607,7 +607,7 @@
 <circle cx="522.90484270891" cy="1205" r="3" fill="#cf222e" fill-opacity="0.30"/>
 <line x1="522.9886605252228" y1="1205" x2="524.3613397317475" y2="1205" stroke="#cf222e" stroke-width="5" stroke-linecap="round"/>
 <circle cx="523.8229249793093" cy="1205" r="6" fill="#cf222e" stroke="white" stroke-width="1.5"/>
-<text x="271" y="1262" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Ill-conditioned Gaussian · Dynamic-nuts</text>
+<text x="271" y="1262" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Ill-conditioned Gaussian · Nuts-dynamic</text>
 <circle cx="556.5932264501325" cy="1257" r="3" fill="#1f6feb" fill-opacity="0.30"/>
 <circle cx="557.3905506008109" cy="1259" r="3" fill="#1f6feb" fill-opacity="0.30"/>
 <circle cx="555.9540355609275" cy="1255" r="3" fill="#1f6feb" fill-opacity="0.30"/>
@@ -781,7 +781,7 @@
 <circle cx="534.5091121939386" cy="1555" r="3" fill="#cf222e" fill-opacity="0.30"/>
 <line x1="534.6106063514034" y1="1555" x2="535.6033932259916" y2="1555" stroke="#cf222e" stroke-width="5" stroke-linecap="round"/>
 <circle cx="535.1013801480497" cy="1555" r="6" fill="#cf222e" stroke="white" stroke-width="1.5"/>
-<text x="271" y="1612" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Regularized logistic · Completed-tree</text>
+<text x="271" y="1612" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Regularized logistic · Nuts-complete</text>
 <circle cx="316.7033279304311" cy="1589" r="3" fill="#bf8700" fill-opacity="0.30"/>
 <circle cx="314.5733097385069" cy="1591" r="3" fill="#bf8700" fill-opacity="0.30"/>
 <circle cx="314.40587752493235" cy="1587" r="3" fill="#bf8700" fill-opacity="0.30"/>
@@ -818,7 +818,7 @@
 <circle cx="493.92666382535106" cy="1625" r="3" fill="#cf222e" fill-opacity="0.30"/>
 <line x1="491.6142267216213" y1="1625" x2="493.7994529885126" y2="1625" stroke="#cf222e" stroke-width="5" stroke-linecap="round"/>
 <circle cx="493.1230380119923" cy="1625" r="6" fill="#cf222e" stroke="white" stroke-width="1.5"/>
-<text x="271" y="1682" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Regularized logistic · Dynamic-nuts</text>
+<text x="271" y="1682" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Regularized logistic · Nuts-dynamic</text>
 <circle cx="505.79826604711036" cy="1677" r="3" fill="#1f6feb" fill-opacity="0.30"/>
 <circle cx="511.46419881879604" cy="1679" r="3" fill="#1f6feb" fill-opacity="0.30"/>
 <circle cx="511.2509906321279" cy="1675" r="3" fill="#1f6feb" fill-opacity="0.30"/>
