@@ -1080,22 +1080,53 @@ end
     logdensity = q -> -dot(q, precision * q) / 2
     gradient = q -> precision * q
     for mass in ([1.0, 1.8], covariance)
-        events = [Runtime.NormalEvent(0.3), Runtime.NormalEvent(-0.5),
-            Runtime.IndexEvent(big(2)), Runtime.UniformEvent(0.45)]
-        reference_source = Runtime.FloatTraceSource(events)
-        optimized_source = Runtime.FloatTraceSource(events)
-        reference = Reference.metric_multinomial_hmc_step!(reference_source,
-            logdensity, gradient, 0.12, 4, [0.1, -0.2], mass)
-        optimized = Optimized.metric_multinomial_hmc_step!(optimized_source,
-            logdensity, gradient, 0.12, 4, [0.1, -0.2], mass)
-        @test optimized ≈ reference atol=3e-14
-        @test Runtime.remaining(reference_source) == 0
-        @test Runtime.remaining(optimized_source) == 0
+        prepared = Optimized.prepare_metric(mass)
+        for origin in 0:4
+            events = [Runtime.NormalEvent(0.3), Runtime.NormalEvent(-0.5),
+                Runtime.IndexEvent(big(origin)), Runtime.UniformEvent(0.45)]
+            reference_source = Runtime.FloatTraceSource(events)
+            optimized_source = Runtime.FloatTraceSource(events)
+            reference = Reference.metric_multinomial_hmc_step!(reference_source,
+                logdensity, gradient, 0.12, 4, [0.1, -0.2], mass)
+            optimized = Optimized.metric_multinomial_hmc_step!(optimized_source,
+                logdensity, gradient, 0.12, 4, [0.1, -0.2], prepared)
+            @test optimized ≈ reference atol=3e-14
+            @test Runtime.remaining(reference_source) == 0
+            @test Runtime.remaining(optimized_source) == 0
+        end
     end
     sampler = MetricMultinomialHMC(logdensity, gradient,
         DenseMetric(covariance), 0.18, 6)
     chain = sample(MersenneTwister(0x4d4d484d), sampler, zeros(2), 25_000)[:, 2501:end]
     @test maximum(abs.(cov(permutedims(chain)) - covariance)) < 0.15
+
+    @test_throws ArgumentError Optimized.prepare_metric(Float64[])
+    @test_throws ArgumentError Optimized.prepare_metric([1.0, 0.0])
+    @test_throws DimensionMismatch Optimized.prepare_metric(ones(2, 3))
+    @test_throws ArgumentError Optimized.prepare_metric([1.0 0.2; 0.1 1.0])
+
+    gradient_calls = Ref(0)
+    counted_gradient = q -> begin
+        gradient_calls[] += 1
+        gradient(q)
+    end
+    endpoint_events = Runtime.FloatTraceEvent[
+        Runtime.NormalEvent(0.3), Runtime.NormalEvent(-0.5),
+        Runtime.UniformEvent(0.45)]
+    Optimized.metric_hmc_step!(Runtime.FloatTraceSource(endpoint_events),
+        logdensity, counted_gradient, 0.12, 4, [0.1, -0.2],
+        Optimized.prepare_metric(covariance))
+    @test gradient_calls[] == 5
+
+    gradient_calls[] = 0
+    multinomial_events = Runtime.FloatTraceEvent[
+        Runtime.NormalEvent(0.3), Runtime.NormalEvent(-0.5),
+        Runtime.IndexEvent(big(2)), Runtime.UniformEvent(0.45)]
+    Optimized.metric_multinomial_hmc_step!(
+        Runtime.FloatTraceSource(multinomial_events), logdensity,
+        counted_gradient, 0.12, 4, [0.1, -0.2],
+        Optimized.prepare_metric(covariance))
+    @test gradient_calls[] == 5
 end
 
 @testset "continuous and mixed-state diagnostics" begin
@@ -1345,7 +1376,8 @@ end
             reference = Reference.metric_hmc_step!(reference_source,
                 logdensity, gradient, 0.12, 5, [0.2, -0.1], mass)
             optimized = Optimized.metric_hmc_step!(optimized_source,
-                logdensity, gradient, 0.12, 5, [0.2, -0.1], mass)
+                logdensity, gradient, 0.12, 5, [0.2, -0.1],
+                Optimized.prepare_metric(mass))
             @test optimized ≈ reference atol=2e-15
             @test Runtime.remaining(reference_source) == 0
             @test Runtime.remaining(optimized_source) == 0

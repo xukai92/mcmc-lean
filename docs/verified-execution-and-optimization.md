@@ -360,6 +360,19 @@ the acceptance workflow without implying that Metatheory.jl, IRTools.jl, a
 profiler, or a general search engine must occupy a particular phase. Those
 remain optional tools for future agentic passes.
 
+### Prepared constant metrics and single-pass trajectories
+
+The next measured pass targeted the dense preconditioned endpoint and
+multinomial paths. Inspection identified repeated Cholesky factorization,
+allocating triangular solves, duplicate adjacent gradient calls, and a
+randomized-origin trajectory that retraced its backward segment. The Optimized
+backend now uses a prepared metric, a BLAS inverse-mass action, `L+1` gradient
+calls for `L` leapfrog steps, and direct left/right multinomial construction.
+Reference remains unchanged and deterministic tests replay the same random
+events against the optimized result. The development benchmark reports the
+performance evidence; this transformation remains test-supported rather than
+a new Lean refinement theorem.
+
 ## Current directions
 
 The project is prioritizing four connected directions without expanding the

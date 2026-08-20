@@ -16,7 +16,97 @@ export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_ou
     fixed_point_generalized_leapfrog,
     certified_relativistic_multinomial_hmc_step!,
     dynamic_select_float!, streaming_eligible_select!,
-    categorical_dhmc_step!, leapfrog, vector_leapfrog
+    categorical_dhmc_step!, leapfrog, vector_leapfrog,
+    AbstractPreparedMetric, PreparedDiagonalMetric, PreparedDenseMetric,
+    prepare_metric
+
+"""A validated constant metric whose reusable numerical data are cached."""
+abstract type AbstractPreparedMetric end
+
+"""Cached elementwise operations for a positive diagonal mass matrix."""
+struct PreparedDiagonalMetric <: AbstractPreparedMetric
+    mass::Vector{Float64}
+    inverse_mass::Vector{Float64}
+    sqrt_mass::Vector{Float64}
+end
+
+"""Cached Cholesky factorization for a positive dense mass matrix."""
+struct PreparedDenseMetric{F} <: AbstractPreparedMetric
+    mass::Matrix{Float64}
+    inverse_mass::Matrix{Float64}
+    factorization::F
+end
+
+"""Validate and cache a constant diagonal or dense mass matrix.
+
+Prepare a metric once and reuse it across transitions. This avoids repeated
+factorization and construction of metric actions in the optimized samplers.
+"""
+function prepare_metric(mass::AbstractVector{<:Real})
+    converted = Float64.(mass)
+    isempty(converted) && throw(ArgumentError("mass cannot be empty"))
+    all(x -> isfinite(x) && x > 0, converted) || throw(ArgumentError(
+        "diagonal mass must be finite and positive"))
+    inverse_mass = inv.(converted)
+    sqrt_mass = sqrt.(converted)
+    all(isfinite, inverse_mass) || throw(ArgumentError(
+        "inverse diagonal mass must be finite"))
+    PreparedDiagonalMetric(converted, inverse_mass, sqrt_mass)
+end
+
+function prepare_metric(mass::AbstractMatrix{<:Real})
+    converted = Matrix{Float64}(mass)
+    size(converted, 1) == size(converted, 2) || throw(DimensionMismatch(
+        "mass matrix must be square"))
+    all(isfinite, converted) || throw(ArgumentError(
+        "mass matrix must be finite"))
+    issymmetric(converted) || throw(ArgumentError(
+        "mass matrix must be symmetric"))
+    factorization = cholesky(Symmetric(converted); check=true)
+    inverse_mass = Matrix(inv(factorization))
+    all(isfinite, inverse_mass) || throw(ArgumentError(
+        "inverse mass matrix must be finite"))
+    PreparedDenseMetric(converted, inverse_mass, factorization)
+end
+
+prepare_metric(metric::AbstractPreparedMetric) = metric
+
+metric_dimension(metric::PreparedDiagonalMetric) = length(metric.mass)
+metric_dimension(metric::PreparedDenseMetric) = size(metric.mass, 1)
+
+function sample_momentum!(momentum, noise, metric::PreparedDiagonalMetric)
+    @. momentum = metric.sqrt_mass * noise
+end
+
+function sample_momentum!(momentum, noise, metric::PreparedDenseMetric)
+    mul!(momentum, metric.factorization.L, noise)
+end
+
+function velocity!(result, momentum, metric::PreparedDiagonalMetric)
+    @. result = metric.inverse_mass * momentum
+end
+
+function velocity!(result, momentum, metric::PreparedDenseMetric)
+    mul!(result, metric.inverse_mass, momentum)
+end
+
+function kinetic_energy!(workspace, momentum, metric::AbstractPreparedMetric)
+    velocity!(workspace, momentum, metric)
+    dot(momentum, workspace) / 2
+end
+
+function prepared_leapfrog!(position, momentum, velocity_workspace, gradient,
+        force, step_size, metric::AbstractPreparedMetric)
+    half_step = step_size / 2
+    length(force) == length(position) || throw(DimensionMismatch("gradient"))
+    @. momentum -= half_step * force
+    velocity!(velocity_workspace, momentum, metric)
+    @. position += step_size * velocity_workspace
+    next_force = gradient(position)
+    length(next_force) == length(position) || throw(DimensionMismatch("gradient"))
+    @. momentum -= half_step * next_force
+    next_force
+end
 
 """Low-allocation counterpart of reference dynamic target-weighted selection."""
 function dynamic_select_float!(source::AbstractRandomSource,
@@ -314,31 +404,39 @@ end
 
 """Independent constant-metric endpoint HMC implementation."""
 function metric_hmc_step!(source::AbstractRandomSource, logdensity, gradient,
-        step_size::Float64, steps::Integer, current::AbstractVector{<:Real}, mass)
-    q = Float64.(current)
-    isempty(q) && throw(ArgumentError("position cannot be empty"))
-    if mass isa AbstractVector
-        length(mass) == length(q) || throw(DimensionMismatch("mass dimension"))
-        all(x -> isfinite(x) && x > 0, mass) ||
-            throw(ArgumentError("diagonal mass must be finite and positive"))
-        p = sqrt.(mass) .* [standard_normal!(source) for _ in eachindex(q)]
-        solve_mass = x -> x ./ mass
-    else
-        size(mass) == (length(q), length(q)) || throw(DimensionMismatch("mass dimension"))
-        decomposition = cholesky(Symmetric(Matrix{Float64}(mass)))
-        p = decomposition.L * [standard_normal!(source) for _ in eachindex(q)]
-        solve_mass = x -> decomposition \ x
-    end
+        step_size::Float64, steps::Integer, current::AbstractVector{<:Real},
+        metric::AbstractPreparedMetric)
+    isfinite(step_size) && step_size > 0 || throw(ArgumentError(
+        "step size must be finite and positive"))
+    steps > 0 || throw(ArgumentError("leapfrog steps must be positive"))
+    initial_q = Float64.(current)
+    isempty(initial_q) && throw(ArgumentError("position cannot be empty"))
+    all(isfinite, initial_q) || throw(ArgumentError("position must be finite"))
+    metric_dimension(metric) == length(initial_q) || throw(DimensionMismatch(
+        "mass dimension"))
+    q = copy(initial_q)
+    noise = [standard_normal!(source) for _ in eachindex(q)]
+    p = similar(q)
+    sample_momentum!(p, noise, metric)
     initial_p = copy(p)
+    velocity_workspace = similar(q)
+    force = gradient(q)
     for _ in 1:steps
-        p .-= (step_size / 2) .* gradient(q)
-        q .+= step_size .* solve_mass(p)
-        p .-= (step_size / 2) .* gradient(q)
+        force = prepared_leapfrog!(q, p, velocity_workspace, gradient, force,
+            step_size, metric)
     end
-    current_energy = -logdensity(current) + dot(initial_p, solve_mass(initial_p)) / 2
-    proposed_energy = -logdensity(q) + dot(p, solve_mass(p)) / 2
+    current_energy = -logdensity(initial_q) +
+        kinetic_energy!(velocity_workspace, initial_p, metric)
+    proposed_energy = -logdensity(q) +
+        kinetic_energy!(velocity_workspace, p, metric)
     log(uniform_unit!(source)) < min(0.0, current_energy - proposed_energy) ?
-        q : Float64.(current)
+        q : initial_q
+end
+
+function metric_hmc_step!(source::AbstractRandomSource, logdensity, gradient,
+        step_size::Float64, steps::Integer, current::AbstractVector{<:Real}, mass)
+    metric_hmc_step!(source, logdensity, gradient, step_size, steps, current,
+        prepare_metric(mass))
 end
 
 """Independent Float64 randomized-origin multinomial HMC implementation."""
@@ -373,50 +471,60 @@ end
 """Independent constant-metric randomized-origin multinomial HMC."""
 function metric_multinomial_hmc_step!(source::AbstractRandomSource, logdensity,
         gradient, step_size::Float64, steps::Integer,
-        current::AbstractVector{<:Real}, mass)
+        current::AbstractVector{<:Real}, metric::AbstractPreparedMetric)
+    isfinite(step_size) && step_size > 0 || throw(ArgumentError(
+        "step size must be finite and positive"))
     steps > 0 || throw(ArgumentError("trajectory length must be positive"))
-    q = Float64.(current)
-    isempty(q) && throw(ArgumentError("position cannot be empty"))
-    noise = [standard_normal!(source) for _ in eachindex(q)]
-    if mass isa AbstractVector
-        length(mass) == length(q) || throw(DimensionMismatch("mass dimension"))
-        all(x -> isfinite(x) && x > 0, mass) ||
-            throw(ArgumentError("diagonal mass must be finite and positive"))
-        p = sqrt.(mass) .* noise
-        velocity = x -> x ./ mass
-    else
-        size(mass) == (length(q), length(q)) ||
-            throw(DimensionMismatch("mass dimension"))
-        factor = cholesky(Symmetric(Matrix{Float64}(mass))).L
-        p = factor * noise
-        velocity = x -> factor' \ (factor \ x)
-    end
+    initial_q = Float64.(current)
+    isempty(initial_q) && throw(ArgumentError("position cannot be empty"))
+    all(isfinite, initial_q) || throw(ArgumentError("position must be finite"))
+    metric_dimension(metric) == length(initial_q) || throw(DimensionMismatch(
+        "mass dimension"))
+    noise = [standard_normal!(source) for _ in eachindex(initial_q)]
+    initial_p = similar(initial_q)
+    sample_momentum!(initial_p, noise, metric)
+    velocity_workspace = similar(initial_q)
     origin = Int(draw_below!(source, steps + 1))
-    advance = function (q, p, ε)
-        half = p .- (ε / 2) .* gradient(q)
-        next_q = q .+ ε .* velocity(half)
-        next_p = half .- (ε / 2) .* gradient(next_q)
-        next_q, next_p
+    initial_force = gradient(initial_q)
+    positions = Matrix{Float64}(undef, length(initial_q), steps + 1)
+    logweights = Vector{Float64}(undef, steps + 1)
+    current_index = origin + 1
+    positions[:, current_index] = initial_q
+    logweights[current_index] = logdensity(initial_q) -
+        kinetic_energy!(velocity_workspace, initial_p, metric)
+
+    q, p, force = copy(initial_q), copy(initial_p), initial_force
+    for index in origin:-1:1
+        force = prepared_leapfrog!(q, p, velocity_workspace, gradient, force,
+            -step_size, metric)
+        positions[:, index] = q
+        logweights[index] = logdensity(q) -
+            kinetic_energy!(velocity_workspace, p, metric)
     end
-    for _ in 1:origin
-        q, p = advance(q, p, -step_size)
+
+    q, p, force = copy(initial_q), copy(initial_p), initial_force
+    for index in (origin + 2):(steps + 1)
+        force = prepared_leapfrog!(q, p, velocity_workspace, gradient, force,
+            step_size, metric)
+        positions[:, index] = q
+        logweights[index] = logdensity(q) -
+            kinetic_energy!(velocity_workspace, p, metric)
     end
-    trajectory = Vector{Tuple{Vector{Float64},Vector{Float64}}}(undef, steps + 1)
-    trajectory[1] = (copy(q), copy(p))
-    for index in 2:(steps + 1)
-        q, p = advance(q, p, step_size)
-        trajectory[index] = (copy(q), copy(p))
-    end
-    logweights = [logdensity(position) - dot(momentum, velocity(momentum)) / 2
-        for (position, momentum) in trajectory]
     weights = exp.(logweights .- maximum(logweights))
     target = uniform_unit!(source) * sum(weights)
     cumulative = 0.0
     for (index, weight) in pairs(weights)
         cumulative += weight
-        target < cumulative && return trajectory[index][1]
+        target < cumulative && return copy(@view positions[:, index])
     end
-    trajectory[end][1]
+    copy(@view positions[:, end])
+end
+
+function metric_multinomial_hmc_step!(source::AbstractRandomSource, logdensity,
+        gradient, step_size::Float64, steps::Integer,
+        current::AbstractVector{<:Real}, mass)
+    metric_multinomial_hmc_step!(source, logdensity, gradient, step_size, steps,
+        current, prepare_metric(mass))
 end
 
 function _relativistic_radius!(source::AbstractRandomSource, dimension::Int,

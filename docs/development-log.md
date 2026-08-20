@@ -1,5 +1,24 @@
 # Development log
 
+## 2026-08-20: prepared-metric endpoint and multinomial optimization
+
+The independent constant-metric Optimized backend now prepares a metric once
+per chain. Diagonal preparation caches inverse and square-root entries; dense
+preparation caches the Cholesky momentum map and a BLAS-ready inverse-mass
+matrix. Leapfrog reuses the force shared by adjacent steps, reducing gradient
+callbacks from `2L` to `L+1`. Randomized-origin multinomial construction now
+integrates its left and right branches from the original phase point in exactly
+`L` total steps instead of retracing the left branch, stores only positions and
+log weights, and preserves the random-event schedule.
+
+The complete development benchmark passed. On its 100-dimensional correlated
+Gaussian fixture, Optimized preconditioned endpoint reached about 26.4k
+transitions/s versus AdvancedHMC's 13.3k, and Optimized preconditioned
+multinomial reached about 17.4k/s versus 12.0k. On the diagonal
+ill-conditioned fixture the corresponding rates were about 315k versus 25.7k
+and 160k versus 21.6k. These are short development measurements, not formal
+claims or replacements for the next full benchmark run.
+
 ## 2026-08-19: backend contracts, replay, and independent chains
 
 The Julia package now exposes typed backend capabilities separately from

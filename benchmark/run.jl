@@ -116,17 +116,21 @@ function run_verified(stepper, target, seed::Int, draws::Int)
         average_steps=Float64(LEAPFROG_STEPS), gradients_per_step=2)
 end
 
-function run_verified_metric(stepper, target, seed::Int, draws::Int)
+function run_verified_metric(stepper, target, seed::Int, draws::Int;
+        prepared::Bool=false)
     source = Runtime.RNGSource(MersenneTwister(seed))
     chain = Matrix{Float64}(undef, DIMENSION, draws)
     position = zeros(DIMENSION)
+    metric = prepared ? Optimized.prepare_metric(target.metric_mass) :
+        target.metric_mass
     for index in axes(chain, 2)
         position = stepper(source, target.logdensity, target.gradient,
-            STEP_SIZE, LEAPFROG_STEPS, position, target.metric_mass)
+            STEP_SIZE, LEAPFROG_STEPS, position, metric)
         chain[:, index] = position
     end
     (; chain, acceptance=NaN, divergences=0,
-        average_steps=Float64(LEAPFROG_STEPS), gradients_per_step=2)
+        average_steps=Float64(LEAPFROG_STEPS),
+        gradients_per_step=prepared ? 1 + inv(Float64(LEAPFROG_STEPS)) : 2)
 end
 
 function run_verified_nuts(target, seed::Int, draws::Int)
@@ -334,13 +338,15 @@ function benchmark_target(target)
         metric_reference_check = run_verified_metric(
             Reference.metric_hmc_step!, target, SEED, 100).chain[:, end]
         metric_optimized_check = run_verified_metric(
-            Optimized.metric_hmc_step!, target, SEED, 100).chain[:, end]
+            Optimized.metric_hmc_step!, target, SEED, 100;
+            prepared=true).chain[:, end]
         metric_reference_check ≈ metric_optimized_check || error(
             "Reference and Optimized metric endpoint HMC disagree for $(target.name)")
         metric_multi_reference_check = run_verified_metric(
             Reference.metric_multinomial_hmc_step!, target, SEED, 100).chain[:, end]
         metric_multi_optimized_check = run_verified_metric(
-            Optimized.metric_multinomial_hmc_step!, target, SEED, 100).chain[:, end]
+            Optimized.metric_multinomial_hmc_step!, target, SEED, 100;
+            prepared=true).chain[:, end]
         metric_multi_reference_check ≈ metric_multi_optimized_check || error(
             "Reference and Optimized metric multinomial HMC disagree for $(target.name)")
         run_advanced(components.metric_hamiltonian,
@@ -350,7 +356,7 @@ function benchmark_target(target)
             Reference.metric_hmc_step!, target, seed, DRAWS))
         metric_optimized = measure_case(target, "preconditioned-endpoint",
             "verified-optimized", seed -> run_verified_metric(
-            Optimized.metric_hmc_step!, target, seed, DRAWS))
+            Optimized.metric_hmc_step!, target, seed, DRAWS; prepared=true))
         metric_advanced = measure_case(target, "preconditioned-endpoint",
             "advancedhmc", seed -> run_advanced(
             components.metric_hamiltonian, components.metric_endpoint,
@@ -377,7 +383,8 @@ function benchmark_target(target)
         metric_multi_optimized = measure_case(target,
             "preconditioned-multinomial", "verified-optimized",
             seed -> run_verified_metric(
-            Optimized.metric_multinomial_hmc_step!, target, seed, DRAWS))
+            Optimized.metric_multinomial_hmc_step!, target, seed, DRAWS;
+            prepared=true))
         metric_multi_advanced = measure_case(target,
             "preconditioned-multinomial", "advancedhmc",
             seed -> run_advanced(

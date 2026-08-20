@@ -77,6 +77,11 @@ product quartic, an ill-conditioned diagonal Gaussian, and a symmetric
 regularized-logistic target. The latter two targets extend the original suite;
 preconditioned endpoint and multinomial rows include the implemented
 VerifiedSamplers Reference and Optimized constant-metric paths in new runs.
+The Optimized runner prepares each metric once per complete chain. Diagonal
+masses cache their inverse and square root; dense masses cache their Cholesky
+factor and inverse-mass action. Adjacent leapfrog steps share their endpoint
+gradient, and randomized-origin multinomial trajectories construct the left
+and right branches directly instead of retracing the backward branch.
 Raw results are written to
 `benchmark/results/latest.csv`, with repetition-level measurements in
 `benchmark/results/timings.csv`. `benchmark/report.jl` generates the committed
