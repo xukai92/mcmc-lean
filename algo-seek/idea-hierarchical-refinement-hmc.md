@@ -1,4 +1,4 @@
-# Leanification roadmap
+# Hierarchical refinement HMC: Leanification roadmap
 
 This note compares the work required to formalize DR-G-HMC, ATLAS, and the
 proposed hierarchical refinement HMC sampler. Effort levels describe relative

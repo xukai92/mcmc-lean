@@ -5,9 +5,10 @@ novelty are provisional until the related-work audit is complete. The primary
 goal is practical benefit per unit of computation; formalization should make
 the resulting algorithm trustworthy rather than serve as its only motivation.
 
-See the [Leanification roadmap](leanification-roadmap.md) for a comparison of
-the formal and executable work required for DR-G-HMC, ATLAS, and the proposed
-hierarchical refinement sampler.
+See the [hierarchical-refinement HMC
+roadmap](idea-hierarchical-refinement-hmc.md) for a comparison of the formal
+and executable work required for DR-G-HMC, ATLAS, and the proposed hierarchical
+refinement sampler.
 
 ## Evaluation principles
 
