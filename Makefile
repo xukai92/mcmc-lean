@@ -70,6 +70,9 @@ generate-docs:
 	julia --project=VerifiedSamplers.jl \
 		VerifiedSamplers.jl/tools/generate_backend_docs.jl \
 		docs/generated/backend-registry.md
+	julia --project=VerifiedSamplers.jl \
+		VerifiedSamplers.jl/tools/generate_artifact_docs.jl \
+		docs/generated/reference-artifact.md
 
 check-docs-generated:
 	cd formal && lake build generate_docs
@@ -79,8 +82,12 @@ check-docs-generated:
 	julia --project=VerifiedSamplers.jl \
 		VerifiedSamplers.jl/tools/generate_backend_docs.jl \
 		"$$tmp_dir/backends.md"; \
+	julia --project=VerifiedSamplers.jl \
+		VerifiedSamplers.jl/tools/generate_artifact_docs.jl \
+		"$$tmp_dir/artifact.md"; \
 	cmp "$$tmp_dir/architecture.md" docs/generated/architecture-graphs.md; \
-	cmp "$$tmp_dir/backends.md" docs/generated/backend-registry.md
+	cmp "$$tmp_dir/backends.md" docs/generated/backend-registry.md; \
+	cmp "$$tmp_dir/artifact.md" docs/generated/reference-artifact.md
 
 docs: generate-docs
 	julia --project=docs -e 'using Pkg; Pkg.instantiate()'

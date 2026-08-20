@@ -106,6 +106,8 @@ guarantees.
   samplers, paper clients, and executable layers.
 - [Adding a sampler](docs/development-guide.md): contributor workflow from
   mathematical formalization through IR refinement and Julia integration.
+- [Sampler obligation matrix](docs/sampler-obligation-matrix.md): vertical
+  theorem, execution, Reference, Optimized, and evidence boundaries.
 - [AdvancedHMC parity](docs/advancedhmc-parity.md): current non-adaptive
   fixed-parameter HMC/NUTS coverage goal.
 - [Progress matrix](docs/progress.md): concise method/property coverage.

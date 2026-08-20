@@ -11,30 +11,45 @@ include("Optimized/Optimized.jl")
 include("Backends/Backends.jl")
 include("Evaluation/Evaluation.jl")
 
-export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, BoundedRejectionSlice, SteppingOutSlice, SteppingOutSliceTrace, RestrictedQuarticSliceTraceCertificate, trace_stepping_out_slice, certify_stepping_out_slice_trace, certify_restricted_quartic_slice_trace, ShearedBirthDeathRJ, SpatialBirthDeathRJ, sheared_birth_unshear, TwoStateMH, GaussianRWMH, PositiveTransformedRWMH, OpenUnitTransformedRWMH,
+export Backends, Certificates, Evaluation, Optimized
+export sample
+export FiniteWeights, FiniteKernelWeights, FiniteMH, TwoStateMH
+export FiniteIntegerSlice, BoundedRejectionSlice, SteppingOutSlice,
+    SteppingOutSliceTrace, RestrictedQuarticSliceTraceCertificate,
+    trace_stepping_out_slice, certify_stepping_out_slice_trace,
+    certify_restricted_quartic_slice_trace
+export ShearedBirthDeathRJ, SpatialBirthDeathRJ, sheared_birth_unshear
+export GaussianRWMH, PositiveTransformedRWMH, OpenUnitTransformedRWMH,
     WarmupGaussianRWMH, GaussianRWMHWarmupResult, IndefiniteAdaptiveBool,
-    IndefiniteAdaptiveContinuousRefresh, warmup,
-    ScalarHMC, VectorHMC, FixedIntegrationTimeHMC, JitteredHMC, TemperedHMC,
-    MultinomialHMC, NUTS, HMCTransition, transition, sample_with_diagnostics,
-    PartialMomentumHMC, HMCPhaseState, PartialMomentumTransition,
-    initialize_phase,
-    CertifiedDynamicHMC,
-    CompletedTreeC4DynamicHMC,
-    CheckedFirstStopDynamicHMC, CheckedRecursiveDynamicHMC, VerifiedNUTS,
-    streaming_eligible_select,
-    MetricMultinomialHMC,
-    CategoricalDHMC,
-    DiagonalMetric, DenseMetric, RankUpdateMetric, MetricHMC,
-    RelativisticMultinomialHMC,
-    GaussianSoftAbsGRHMC,
-    CertifiedRelativisticMultinomialHMC,
-    RestrictedExpr, RestrictedInput, RestrictedConst, RestrictedAdd,
+    IndefiniteAdaptiveContinuousRefresh, warmup
+export ScalarHMC, VectorHMC, FixedIntegrationTimeHMC, JitteredHMC, TemperedHMC,
+    MultinomialHMC, MetricMultinomialHMC, MetricHMC,
+    RelativisticMultinomialHMC, CertifiedRelativisticMultinomialHMC,
+    GaussianSoftAbsGRHMC, fixed_point_generalized_leapfrog
+export DiagonalMetric, DenseMetric, RankUpdateMetric
+export NUTS, VerifiedNUTS, CertifiedDynamicHMC, CompletedTreeC4DynamicHMC,
+    CheckedFirstStopDynamicHMC, CheckedRecursiveDynamicHMC,
+    DynamicTreeCertificate, certify_dynamic_tree, coherent_dynamic_tree,
+    certified_orbit_partition, certified_dynamic_select!,
+    certified_dynamic_select, safe_dynamic_select!, safe_dynamic_select,
+    RecursiveBarrierTree, RecursiveBarrierLeaf, RecursiveBarrierNode,
+    recursive_barriers, certified_recursive_partition,
+    certified_scalar_uturn_partition, certified_vector_uturn_partition,
+    certified_spanning_uturn_partition, first_stop_endpoint_uturn_candidates,
+    recursive_doubling_uturn_candidates, completed_tree_direction_trace,
+    completed_tree_c4_candidates, generated_dynamic_tree,
+    streaming_eligible_select
+export HMCTransition, transition, sample_with_diagnostics, PartialMomentumHMC,
+    HMCPhaseState, PartialMomentumTransition, initialize_phase
+export CategoricalDHMC
+export RestrictedExpr, RestrictedInput, RestrictedConst, RestrictedAdd,
     RestrictedMul, RestrictedNeg, RestrictedExp, RestrictedSin, RestrictedCos,
     restricted_derivative, restricted_value_gradient,
     restricted_value_gradient_hessian, restricted_gaussian_potential,
-    restricted_quartic_potential, restricted_potential_rwmh,
-    restricted_potential_hmc, restricted_potential_slice,
-    restricted_sinusoidal_potential, RestrictedGaussianFloat64Certificate,
+    restricted_quartic_potential, restricted_sinusoidal_potential,
+    restricted_potential_rwmh, restricted_potential_hmc,
+    restricted_potential_slice
+export RestrictedGaussianFloat64Certificate,
     certify_restricted_gaussian_float64,
     restricted_gaussian_certificate_arguments,
     RestrictedQuarticFloat64Certificate,
@@ -43,77 +58,18 @@ export FiniteWeights, FiniteKernelWeights, FiniteMH, FiniteIntegerSlice, Bounded
     SoftAbsMetricFloat64Evaluation, SoftAbsDiagonalFloat64Evaluation,
     SoftAbsScalarHamiltonianFloat64Evaluation,
     UnitZeroSoftAbsFloat64Certificate, certify_unit_zero_softabs_float64,
-    unit_zero_softabs_certificate_arguments,
-    evaluate_softabs_metric_float64, evaluate_softabs_diagonal_float64,
-    evaluate_softabs_scalar_hamiltonian_float64,
-    Xu21CoupledSampler, coupled_meeting_time, coupled_meeting_diagnostic,
-    ScopedInferenceOperator, ComposableSampler, covers,
-    DynamicTreeCertificate, certify_dynamic_tree, coherent_dynamic_tree,
-    certified_orbit_partition,
-    certified_dynamic_select!, certified_dynamic_select,
-    safe_dynamic_select!, safe_dynamic_select,
-    RecursiveBarrierTree, RecursiveBarrierLeaf, RecursiveBarrierNode,
-    recursive_barriers, certified_recursive_partition,
-    certified_scalar_uturn_partition,
-    certified_vector_uturn_partition,
-    certified_spanning_uturn_partition,
-    first_stop_endpoint_uturn_candidates,
-    recursive_doubling_uturn_candidates,
-    completed_tree_direction_trace,
-    completed_tree_c4_candidates,
-    generated_dynamic_tree,
-    generated_schedule,
-    generated_transform,
-    GaussianZigZag, GaussianZigZagResult, gaussian_zigzag_waiting_time,
-    ObservationCursor, observation_cursor, resume_observation, run_observations,
-    FiniteHMMParticleGibbs,
-    fixed_point_generalized_leapfrog, sample
-export Backends, Certificates, Evaluation, Optimized
+    unit_zero_softabs_certificate_arguments, evaluate_softabs_metric_float64,
+    evaluate_softabs_diagonal_float64, evaluate_softabs_scalar_hamiltonian_float64
+export Xu21CoupledSampler, coupled_meeting_time, coupled_meeting_diagnostic
+export ScopedInferenceOperator, ComposableSampler, covers, generated_schedule,
+    generated_transform, ObservationCursor, observation_cursor,
+    resume_observation, run_observations, FiniteHMMParticleGibbs
+export GaussianZigZag, GaussianZigZagResult, gaussian_zigzag_waiting_time
 
 fixed_point_generalized_leapfrog(args...; kwargs...) =
     Reference.fixed_point_generalized_leapfrog(args...; kwargs...)
 include("Public/CategoricalDHMC.jl")
-
-"""Explicit suspend/resume state for a finite sequence of observation factors.
-
-This mirrors Lean's `ProbabilisticProgram.CoroutineState`. It is ordinary
-copyable data rather than a copied Julia `Task`, so cloning a cursor cannot
-duplicate hidden stack or scheduler state.
-"""
-struct ObservationCursor{S,F}
-    state::S
-    accumulated_weight::Float64
-    factors::Vector{F}
-    position::Int
-end
-
-function observation_cursor(state, factors::AbstractVector{F}) where {F}
-    ObservationCursor(state, 1.0, collect(factors), 1)
-end
-
-"""Consume at most one factor, returning `nothing` after completion."""
-function resume_observation(cursor::ObservationCursor)
-    cursor.position <= length(cursor.factors) || return nothing
-    factor = cursor.factors[cursor.position]
-    value = Float64(factor(cursor.state))
-    value >= 0.0 || throw(DomainError(value, "observation weight must be nonnegative"))
-    isfinite(value) || throw(DomainError(value, "observation weight must be finite"))
-    weight = cursor.accumulated_weight * value
-    isfinite(weight) || throw(DomainError(weight, "accumulated observation weight overflowed"))
-    ObservationCursor(cursor.state, weight, cursor.factors, cursor.position + 1)
-end
-
-"""Consume up to `fuel` factors and return the resulting explicit cursor."""
-function run_observations(cursor::ObservationCursor, fuel::Integer)
-    fuel >= 0 || throw(ArgumentError("observation fuel must be nonnegative"))
-    current = cursor
-    for _ in 1:fuel
-        next = resume_observation(current)
-        isnothing(next) && break
-        current = next
-    end
-    current
-end
+include("Public/ObservationCursor.jl")
 
 """Restricted scalar target syntax shared with Lean's verified evaluator."""
 abstract type RestrictedExpr end
@@ -466,336 +422,10 @@ function restricted_quartic_certificate_arguments(
     ]
 end
 
-"""A full-state transition annotated with the variables it may update.
-
-The transition must have signature `(rng, state) -> state`. Scope metadata does
-not establish target preservation; that mathematical premise is represented by
-the corresponding Lean `ScopedOperator` certificate.
-"""
-struct ScopedInferenceOperator{F}
-    scope::Vector{Symbol}
-    transition::F
-    function ScopedInferenceOperator(scope, transition::F) where {F}
-        converted = unique(Symbol.(collect(scope)))
-        isempty(converted) && throw(ArgumentError("operator scope cannot be empty"))
-        new{F}(converted, transition)
-    end
-end
-
-"""A left-to-right schedule of potentially overlapping inference operators."""
-struct ComposableSampler{O<:Tuple}
-    variables::Vector{Symbol}
-    operators::O
-    function ComposableSampler(variables, operators::ScopedInferenceOperator...)
-        converted = unique(Symbol.(collect(variables)))
-        isempty(converted) && throw(ArgumentError("model variables cannot be empty"))
-        sampler = new{typeof(operators)}(converted, operators)
-        covers(sampler) || throw(ArgumentError(
-            "operator scopes must cover every declared model variable"))
-        sampler
-    end
-end
-
-covers(sampler::ComposableSampler) = all(variable -> any(
-    operator -> variable in operator.scope, sampler.operators), sampler.variables)
-
-"""Instantiate Lean-generated schedule metadata with named runtime transitions.
-
-This checks names, scopes, ordering, and coverage. Mathematical preservation
-still requires each callback to refine the correspondingly proved kernel.
-"""
-function generated_schedule(name::AbstractString, transitions::AbstractDict)
-    descriptor = get(Reference.SCHEDULES, String(name), nothing)
-    descriptor === nothing && throw(ArgumentError("unknown generated schedule: $name"))
-    operators = map(descriptor.operators) do operator
-        transition = if haskey(transitions, operator.name)
-            transitions[operator.name]
-        elseif haskey(transitions, Symbol(operator.name))
-            transitions[Symbol(operator.name)]
-        else
-            throw(ArgumentError("missing transition for generated operator $(operator.name)"))
-        end
-        ScopedInferenceOperator(Symbol.(operator.scope), transition)
-    end
-    ComposableSampler(Symbol.(descriptor.variables), operators...)
-end
-
-"""Return a transform descriptor generated from Lean's versioned artifact."""
-function generated_transform(name::AbstractString)
-    descriptor = get(Reference.TRANSFORMS, String(name), nothing)
-    descriptor === nothing && throw(ArgumentError("unknown generated transform: $name"))
-    descriptor
-end
-
-"""Exact ideal-form Gaussian Zig-Zag inverse clock in Float64 arithmetic."""
-function gaussian_zigzag_waiting_time(position::Real, velocity::Integer,
-        exponential_draw::Real)
-    q, e = Float64(position), Float64(exponential_draw)
-    isfinite(q) || throw(ArgumentError("position must be finite"))
-    velocity in (-1, 1) || throw(ArgumentError("velocity must be -1 or 1"))
-    isfinite(e) && e > 0 ||
-        throw(ArgumentError("exponential hazard draw must be finite and positive"))
-    a = velocity * q
-    if a >= 0
-        root = sqrt(a * a + 2 * e)
-        wait = (2 * e) / (root + a)
-    else
-        wait = -a + sqrt(2 * e)
-    end
-    isfinite(wait) && wait >= 0 ||
-        throw(DomainError(wait, "Gaussian Zig-Zag waiting time must be finite"))
-    wait
-end
-
-struct GaussianZigZag
-    observation_interval::Float64
-    function GaussianZigZag(observation_interval::Real=1.0)
-        interval = Float64(observation_interval)
-        isfinite(interval) && interval > 0 ||
-            throw(ArgumentError("observation interval must be finite and positive"))
-        new(interval)
-    end
-end
-
-struct GaussianZigZagResult
-    positions::Vector{Float64}
-    velocities::Vector{Int8}
-end
-
-function step(rng::AbstractRNG, sampler::GaussianZigZag,
-        current::Tuple{<:Real,<:Integer})
-    q, velocity = Float64(current[1]), Int(current[2])
-    isfinite(q) || throw(ArgumentError("position must be finite"))
-    velocity in (-1, 1) || throw(ArgumentError("velocity must be -1 or 1"))
-    elapsed = 0.0
-    while true
-        wait = gaussian_zigzag_waiting_time(q, velocity, randexp(rng))
-        remaining = sampler.observation_interval - elapsed
-        if wait >= remaining
-            return (q + velocity * remaining, velocity)
-        end
-        q += velocity * wait
-        elapsed += wait
-        velocity = -velocity
-    end
-end
-
-step(sampler::GaussianZigZag, current::Tuple{<:Real,<:Integer}) =
-    step(Random.default_rng(), sampler, current)
-
-function sample(rng::AbstractRNG, sampler::GaussianZigZag,
-        initial::Tuple{<:Real,<:Integer}, count::Integer)
-    count >= 0 || throw(ArgumentError("sample count must be nonnegative"))
-    positions = Vector{Float64}(undef, count)
-    velocities = Vector{Int8}(undef, count)
-    current = initial
-    for index in eachindex(positions)
-        current = step(rng, sampler, current)
-        positions[index] = current[1]
-        velocities[index] = current[2]
-    end
-    GaussianZigZagResult(positions, velocities)
-end
-
-sample(sampler::GaussianZigZag, initial::Tuple{<:Real,<:Integer}, count::Integer) =
-    sample(Random.default_rng(), sampler, initial, count)
-
-function step(rng::AbstractRNG, sampler::ComposableSampler, current)
-    state = current
-    for operator in sampler.operators
-        state = operator.transition(rng, state)
-    end
-    state
-end
-
-step(sampler::ComposableSampler, current) =
-    step(Random.default_rng(), sampler, current)
-
-function sample(rng::AbstractRNG, sampler::ComposableSampler, initial,
-        count::Integer)
-    count >= 0 || throw(ArgumentError("sample count must be nonnegative"))
-    states = Vector{typeof(initial)}(undef, count)
-    current = initial
-    for index in eachindex(states)
-        current = step(rng, sampler, current)
-        states[index] = current
-    end
-    states
-end
-
-sample(sampler::ComposableSampler, initial, count::Integer) =
-    sample(Random.default_rng(), sampler, initial, count)
-
-"""Exact-integer bootstrap particle Gibbs for a finite hidden Markov model.
-
-The path target is proportional to the initial weight followed by each
-potential/transition factor. Potentials weight the state before each
-transition, matching the formal finite Feynman--Kac convention.
-"""
-struct FiniteHMMParticleGibbs
-    initial_weights::Vector{Int}
-    transition_weights::Matrix{Int}
-    potentials::Matrix{Int}
-    particles::Int
-    function FiniteHMMParticleGibbs(initial_weights::AbstractVector{<:Integer},
-            transition_weights::AbstractMatrix{<:Integer},
-            potentials::AbstractMatrix{<:Integer}, particles::Integer)
-        converted_initial = Int.(initial_weights)
-        converted_transition = Int.(transition_weights)
-        converted_potentials = Int.(potentials)
-        particles > 0 || throw(ArgumentError("particle count must be positive"))
-        states = length(converted_initial)
-        states > 0 || throw(ArgumentError("state space cannot be empty"))
-        size(converted_transition) == (states, states) ||
-            throw(DimensionMismatch("transition matrix"))
-        size(converted_potentials, 2) == states ||
-            throw(DimensionMismatch("potentials"))
-        all(>=(0), converted_initial) && sum(converted_initial) > 0 ||
-            throw(ArgumentError("invalid initial weights"))
-        all(>=(0), converted_transition) &&
-            all(row -> sum(row) > 0, eachrow(converted_transition)) ||
-            throw(ArgumentError("invalid transition weights"))
-        all(>(0), converted_potentials) ||
-            throw(ArgumentError("potentials must be strictly positive"))
-        new(converted_initial, converted_transition, converted_potentials,
-            Int(particles))
-    end
-end
-
-function step(rng::AbstractRNG, sampler::FiniteHMMParticleGibbs,
-        current_path::AbstractVector{<:Integer})
-    Reference.finite_hmm_particle_gibbs_step!(Runtime.RNGSource(rng),
-        sampler.initial_weights, sampler.transition_weights, sampler.potentials,
-        sampler.particles, current_path)
-end
-
-step(sampler::FiniteHMMParticleGibbs,
-    current_path::AbstractVector{<:Integer}) =
-  step(Random.default_rng(), sampler, current_path)
-
-function sample(rng::AbstractRNG, sampler::FiniteHMMParticleGibbs,
-        initial_path::AbstractVector{<:Integer}, count::Integer)
-    count >= 0 || throw(ArgumentError("sample count must be nonnegative"))
-    current = Int.(initial_path)
-    paths = Matrix{Int}(undef, length(current), count)
-    for index in axes(paths, 2)
-        current = step(rng, sampler, current)
-        paths[:, index] = current
-    end
-    paths
-end
-
-sample(sampler::FiniteHMMParticleGibbs,
-    initial_path::AbstractVector{<:Integer}, count::Integer) =
-  sample(Random.default_rng(), sampler, initial_path, count)
-
-struct Xu21CoupledSampler{F,G}
-    logdensity::F
-    gradient::G
-    step_size::Float64
-    steps::Int
-    rwmh_scale::Float64
-    hmc_weight::Float64
-    function Xu21CoupledSampler(logdensity::F, gradient::G, step_size::Real,
-            steps::Integer, rwmh_scale::Real, hmc_weight::Real=0.9) where {F,G}
-        ε, σ, p = Float64(step_size), Float64(rwmh_scale), Float64(hmc_weight)
-        isfinite(ε) && ε > 0 || throw(ArgumentError("step size must be positive"))
-        steps > 0 || throw(ArgumentError("trajectory length must be positive"))
-        isfinite(σ) && σ > 0 || throw(ArgumentError("RWMH scale must be positive"))
-        isfinite(p) && 0 <= p <= 1 || throw(ArgumentError("HMC weight must lie in [0,1]"))
-        new{F,G}(logdensity, gradient, ε, Int(steps), σ, p)
-    end
-end
-
-function step(rng::AbstractRNG, sampler::Xu21CoupledSampler,
-        current::Tuple{<:AbstractVector{<:Real},<:AbstractVector{<:Real}})
-    Reference.xu21_coupled_step!(Runtime.RNGSource(rng), sampler.logdensity,
-        sampler.gradient, sampler.step_size, sampler.steps, sampler.rwmh_scale,
-        sampler.hmc_weight, current[1], current[2])
-end
-
-step(sampler::Xu21CoupledSampler, current::Tuple) =
-    step(Random.default_rng(), sampler, current)
-
-function sample(rng::AbstractRNG, sampler::Xu21CoupledSampler,
-        initial::Tuple{<:AbstractVector{<:Real},<:AbstractVector{<:Real}},
-        count::Integer)
-    count >= 0 || throw(ArgumentError("sample count must be nonnegative"))
-    left, right = Float64.(initial[1]), Float64.(initial[2])
-    left_chain = Matrix{Float64}(undef, length(left), count)
-    right_chain = similar(left_chain)
-    met = falses(count)
-    for index in 1:count
-        left, right = step(rng, sampler, (left, right))
-        left_chain[:, index], right_chain[:, index] = left, right
-        met[index] = left == right
-    end
-    (left=left_chain, right=right_chain, met=met)
-end
-
-sample(sampler::Xu21CoupledSampler, initial::Tuple, count::Integer) =
-    sample(Random.default_rng(), sampler, initial, count)
-
-"""First exact meeting time of the faithful Xu et al. coupled runtime.
-
-Returns `nothing` if the supplied finite diagnostic horizon is exhausted. This
-is an executable experiment helper, not a replacement for a geometric-tail
-theorem.
-"""
-function coupled_meeting_time(rng::AbstractRNG, sampler::Xu21CoupledSampler,
-        initial::Tuple{<:AbstractVector{<:Real},<:AbstractVector{<:Real}},
-        max_steps::Integer)
-    max_steps >= 0 || throw(ArgumentError("maximum meeting horizon must be nonnegative"))
-    left, right = Float64.(initial[1]), Float64.(initial[2])
-    length(left) == length(right) || throw(DimensionMismatch("coupled states"))
-    left == right && return 0
-    for iteration in 1:max_steps
-        left, right = step(rng, sampler, (left, right))
-        left == right && return iteration
-    end
-    nothing
-end
-
-coupled_meeting_time(sampler::Xu21CoupledSampler, initial::Tuple,
-    max_steps::Integer) =
-    coupled_meeting_time(Random.default_rng(), sampler, initial, max_steps)
-
-"""Run a replicated, explicitly censored Xu et al. meeting-time diagnostic.
-
-`meeting_times` contains an integer meeting time or `nothing` for each
-replicate. `restricted_mean` replaces a censored time by `max_steps`; it is a
-finite-horizon empirical summary, not an estimate of an uncensored expectation
-and not a formal convergence certificate.
-"""
-function coupled_meeting_diagnostic(rng::AbstractRNG,
-        sampler::Xu21CoupledSampler,
-        initial::Tuple{<:AbstractVector{<:Real},<:AbstractVector{<:Real}},
-        replicates::Integer, max_steps::Integer)
-    replicates > 0 || throw(ArgumentError("replicate count must be positive"))
-    max_steps >= 0 || throw(ArgumentError("maximum meeting horizon must be nonnegative"))
-    times = Union{Nothing,Int}[
-        coupled_meeting_time(rng, sampler, initial, max_steps)
-        for _ in 1:replicates
-    ]
-    met = count(!isnothing, times)
-    observed_total = sum(time === nothing ? 0 : time for time in times)
-    restricted_total = sum(time === nothing ? max_steps : time for time in times)
-    (
-        meeting_times=times,
-        met=met,
-        censored=replicates - met,
-        meeting_fraction=met / replicates,
-        observed_mean=met == 0 ? nothing : observed_total / met,
-        restricted_mean=restricted_total / replicates,
-        horizon=Int(max_steps),
-    )
-end
-
-coupled_meeting_diagnostic(sampler::Xu21CoupledSampler, initial::Tuple,
-    replicates::Integer, max_steps::Integer) =
-    coupled_meeting_diagnostic(Random.default_rng(), sampler, initial,
-        replicates, max_steps)
-
+include("Public/ComposableInference.jl")
+include("Public/GaussianZigZag.jl")
+include("Public/FiniteParticleGibbs.jl")
+include("Public/Xu21Coupling.jl")
 function _hmc_integrator_parameters(integrator::Symbol,
         jitter::T, temperature::T) where {T<:AbstractFloat}
     integrator in (:leapfrog, :jittered, :tempered) || throw(ArgumentError(
@@ -2713,86 +2343,7 @@ const NUTS = CompletedTreeC4DynamicHMC
 """Compatibility alias for the canonical completed-tree Reference `NUTS`."""
 const VerifiedNUTS = NUTS
 
-struct FiniteKernelWeights
-    rows::Vector{Vector{BigInt}}
-    function FiniteKernelWeights(rows::AbstractVector{<:AbstractVector{<:Integer}})
-        isempty(rows) && throw(ArgumentError("proposal cannot be empty"))
-        state_count = length(rows)
-        converted = [BigInt.(row) for row in rows]
-        all(row -> length(row) == state_count, converted) ||
-            throw(DimensionMismatch("proposal must be square"))
-        all(row -> all(weight -> weight >= 0, row), converted) ||
-            throw(ArgumentError("proposal weights must be nonnegative"))
-        all(row -> sum(row) > 0, converted) ||
-            throw(ArgumentError("every proposal row must have positive total"))
-        new(converted)
-    end
-end
-
-FiniteKernelWeights(matrix::AbstractMatrix{<:Integer}) =
-    FiniteKernelWeights([collect(row) for row in eachrow(matrix)])
-
-struct FiniteMH
-    target::FiniteWeights
-    proposal::FiniteKernelWeights
-    function FiniteMH(target::FiniteWeights, proposal::FiniteKernelWeights)
-        all(weight -> weight > 0, target.weights) ||
-            throw(ArgumentError("finite MH target weights must be strictly positive"))
-        length(target.weights) == length(proposal.rows) ||
-            throw(DimensionMismatch("target and proposal state counts differ"))
-        new(target, proposal)
-    end
-end
-
-function step(rng::AbstractRNG, sampler::FiniteMH, current::Integer)
-    state_count = length(sampler.target.weights)
-    1 <= current <= state_count || throw(ArgumentError("current state is out of range"))
-    source = Runtime.RNGSource(rng)
-    Reference.finite_mh_step!(source, sampler.target.weights,
-        sampler.proposal.rows, current - 1) + 1
-end
-
-step(sampler::FiniteMH, current::Integer) =
-    step(Random.default_rng(), sampler, current)
-
-function sample(rng::AbstractRNG, sampler::FiniteMH, initial::Integer, count::Integer)
-    count >= 0 || throw(ArgumentError("sample count must be nonnegative"))
-    samples = Vector{Int}(undef, count)
-    current = Int(initial)
-    for index in eachindex(samples)
-        current = step(rng, sampler, current)
-        samples[index] = current
-    end
-    samples
-end
-
-sample(sampler::FiniteMH, initial::Integer, count::Integer) =
-    sample(Random.default_rng(), sampler, initial, count)
-
-struct TwoStateMH end
-
-function step(rng::AbstractRNG, ::TwoStateMH, current::Bool)
-    source = Runtime.RNGSource(rng)
-    Bool(Reference.two_state_mh_step!(source, Int(current)))
-end
-
-step(sampler::TwoStateMH, current::Bool) =
-    step(Random.default_rng(), sampler, current)
-
-function sample(rng::AbstractRNG, sampler::TwoStateMH, initial::Bool, count::Integer)
-    count >= 0 || throw(ArgumentError("sample count must be nonnegative"))
-    samples = Vector{Bool}(undef, count)
-    current = initial
-    for index in eachindex(samples)
-        current = step(rng, sampler, current)
-        samples[index] = current
-    end
-    samples
-end
-
-sample(sampler::TwoStateMH, initial::Bool, count::Integer) =
-    sample(Random.default_rng(), sampler, initial, count)
-
+include("Public/FiniteMH.jl")
 include("HMCParity.jl")
 include("Public/OptimizedNUTS.jl")
 

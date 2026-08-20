@@ -75,7 +75,9 @@ position-dependent generalized-leapfrog NUTS composition is not claimed.
 
 - HMCDA, dual averaging, and initial-step-size adaptation;
 - mass-matrix adaptation and Stan-style windowed warmup;
-- GPU, threaded, distributed, and vectorized-chain execution;
+- GPU, threaded, distributed, and vectorized-chain execution from the parity
+  target (the repository's separate backend contracts and independent-chain
+  executor do not imply AdvancedHMC feature parity here);
 - automatic differentiation; and
 - AbstractMCMC or Turing integration.
 
@@ -105,9 +107,9 @@ construct, or introduce a typed sub-IR/certified primitive.
 | Capability | Runtime | Formal boundary |
 |---|---|---|
 | Fixed-step endpoint HMC | Complete | Existing exact endpoint-HMC theory |
-| Fixed-integration-time endpoint HMC | Complete for ordinary, jittered, and tempered leapfrog | Reuses the corresponding fixed positive-step endpoint transition; dedicated formal wrapper pending |
+| Fixed-integration-time endpoint HMC | Complete for ordinary, jittered, and tempered leapfrog | `finiteScheduledEndpointHmcKernel_invariant` packages state-independent finite choices of step size and step count; the runtime's continuously distributed jitter and integrator-specific lowering remain separate |
 | Fixed multinomial HMC | Complete for ordinary and per-trajectory jittered leapfrog | Existing exact fixed-step multinomial-HMC theory; lifting its invariance through the state-independent jitter law remains to be packaged as a dedicated theorem |
-| Jittered endpoint HMC | Complete | Runtime mixture over fixed-step transitions; dedicated IR/refinement pending |
+| Jittered endpoint HMC | Complete | Finite state-independent schedule mixtures are proved invariant; continuous-uniform jitter measurability and IR/refinement remain pending |
 | Tempered endpoint HMC | Complete | Runtime implementation; formal integrator/refinement pending |
 | `Optimized.NUTS` production-shaped family | Complete for classic/generalized/strict-generalized × slice/multinomial × ordinary/jittered/tempered runtime combinations | Lean proves equal continuation and equal ordered candidate occurrences for successful online/completed builds; numerical tree construction and full transition correspondence remain pending |
 | Completed-tree `NUTS` Reference | Complete for bounded completed-tree C.4 rerooting with Euclidean U-turn checks | Lean proves the fair rerooted-trace law and completed-tree stationarity; Float64 refinement remains explicit and equivalence to `Optimized.NUTS` is not claimed |

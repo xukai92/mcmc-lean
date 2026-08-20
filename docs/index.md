@@ -16,6 +16,9 @@ arguments, and explicit audits of the targeted papers.
 - [Lean-generated architecture graphs](generated/architecture-graphs.md) show
   dependencies and the executable assurance chain from data maintained in
   Lean.
+- [Reference artifact registry](generated/reference-artifact.md) lists every
+  program, target, schedule, transform, and tree descriptor decoded from the
+  canonical Lean-emitted artifact.
 - [Executable architecture](executable-architecture.md) explains the Lean IR,
   Julia reference interpreter, and optimized implementation.
 - [Adding a sampler](development-guide.md) gives the contributor workflow from
@@ -23,6 +26,8 @@ arguments, and explicit audits of the targeted papers.
   integration.
 - [Sampler development record](sampler-development-template.md) is a copyable
   obligation ledger for theorem, execution, optimization, and diagnostics.
+- [Maintained sampler obligation matrix](sampler-obligation-matrix.md) applies
+  that ledger uniformly across the existing sampler families.
 - [Gaussian RWMH development record](rwmh-development-record.md) fills that
   ledger for the repository's maintained end-to-end example.
 - [Fixed-step HMC development record](hmc-development-record.md) applies the

@@ -344,7 +344,8 @@ end
 
 @testset "versioned reference IR" begin
     @test Reference.IR_FORMAT_VERSION == 20
-    @test sort!(collect(keys(Reference.PROGRAMS))) ==
+    facets = Reference.artifact_facets()
+    @test facets.programs ==
         ["categorical_index!", "certified_relativistic_multinomial_hmc_step!",
         "coupled_gaussian_rwmh_step!",
         "coupled_multinomial_hmc_step!", "dense_hmc_step!", "dense_multinomial_hmc_step!",
@@ -352,6 +353,14 @@ end
         "finite_mh_step!", "gaussian_rwmh_step!", "multinomial_hmc_step!",
         "relativistic_multinomial_hmc_step!", "scalar_hmc_step!",
         "vector_hmc_step!", "xu21_coupled_step!"]
+    @test facets.targets == ["restricted-gaussian-potential",
+        "restricted-quartic-potential", "restricted-sinusoidal-potential"]
+    @test facets.schedules == ["ge-pg-hmc"]
+    @test facets.transforms == ["open-unit-artanh", "positive-log"]
+    @test facets.dynamic_trees == ["checked-recursive-doubling"]
+    @test facets.nuts_tree_programs == ["checked-nuts-reference"]
+    empty!(facets.programs)
+    @test !isempty(Reference.artifact_facets().programs)
     transform = generated_transform("positive-log")
     @test transform.transform == "positive-log"
     @test transform.constrained_type == "positive-real"

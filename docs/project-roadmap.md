@@ -48,46 +48,65 @@ parking them neither discards results nor silently upgrades partial results.
 See [project completion status](project-status.md#core-completion-boundary) for
 the precise boundary.
 
-## Next engineering milestones — no sampler expansion
+## Consolidation roadmap — no sampler expansion
 
-These milestones improve the research-to-runtime system around the samplers
-already present. They do not add a new major theorem or sampler family.
+The backend-foundation program is complete at its declared boundary. Typed
+assurance and capability declarations, deterministic replay, the gated
+optimization loop, explicit-seed independent chains, host batching, and a
+fail-closed accelerator adapter are maintained infrastructure rather than
+future milestones. No particular device runtime or device arithmetic is
+thereby certified.
 
-The 2026-08-19 audit found five concrete system gaps. The foundation pass has
-closed the engineering portions while preserving the stated proof boundaries:
+The remaining work consolidates the research-to-runtime system around sampler
+families already present:
 
-- formal sampler mathematics is broad and deep, but executable-refinement
-  theorem shapes are not yet uniform across the maintained methods;
-- the finite command IR has typed Lean parsing and exact replay, while
-  continuous support is split among several specialized descriptors and Julia
-  interpreter correspondence remains test-supported;
-- the completed-tree C.4 NUTS Reference is productive on every maintained
-  benchmark fixture, and reusable replay now compares outcomes, failures, and
-  event consumption;
-- large historical Julia files remain, but public Evaluation, Backends, DHMC,
-  and optimized-NUTS surfaces are separated and capability declarations are
-  generated into the documentation; and
-- a gated optimization trial, explicit-seed parallel executor, maintained host
-  batch implementation, and fail-closed accelerator adapter are packaged.
-
-| Phase | Main layer | Deliverable | Effort |
+| Order | Direction | Deliverable | Effort |
 |---|---|---|---|
-| 1. Assurance and backend contract | Lean docs + Julia runtime | **Initial contract complete:** typed evidence classes and fail-closed capability declarations are public; extending generated sampler facets remains continuous documentation work | Medium |
-| 2. Productive Reference and cross-backend conformance | Bridge / IR | **Reusable harness complete:** maintained deterministic replay compares results, matching failures, and event consumption for any backend pair | Medium |
-| 3. Optimization acceptance loop | Testing / transformation | **First gated loop complete:** an explicit baseline, full release gate, measured threshold, assurance class, and machine-readable acceptance record govern the NUTS pass; general search remains demand-driven | Medium |
-| 4. Julia modularization | Julia package | **In progress:** Evaluation, Backends, and the Optimized NUTS forwarding surface are separated; continue extracting coherent engines without changing the public API | Medium |
-| 5. Parallel execution | Julia backend | **Independent chains complete:** explicit seeds reproduce sequential results in stable order over Julia threads; within-chain scans remain conditional on a proved decomposition | Medium, then high |
-| 6. Accelerator backend | Julia/CUDA or another array backend | **Scoped backend complete:** fail-closed adapters, explicit events, and an ordinary-array batch reference are maintained; Gaussian RWMH has an accelerator-ready broadcast implementation with host Reference conformance. No particular GPU runtime or device arithmetic is claimed tested | High |
-| 7. Optional numerical evidence | Lean certificates + backends | Reuse existing error/margin certificates across CPU, parallel, and accelerator executions when a concrete decision or benchmark warrants them; no universal IEEE/libm project | High and demand-driven |
-| Continuous documentation | All layers | Generate assurance matrices and architecture graphs from Lean/registries, keep executable examples current, and make benchmark evidence classes visible in reports | Low recurring |
+| 1 | Julia modularization and hygiene | Extract coherent engines from the large package, Reference, and certificate aggregation files without changing public dispatch | Medium |
+| 2 | Uniform obligation records | Give maintained sampler families the same exact-semantics, theorem, IR/descriptor, Reference, Optimized, conformance, and diagnostic ledger | Medium |
+| 3 | Existing HMC contract packaging | Package fixed-integration-time, state-independent jitter, tempering, partial refresh, and metric variants at their strongest existing proof/refinement boundary | Medium to high |
+| 4 | Continuous execution contract | Reduce duplicated descriptor/interpreter conventions and expose generated facets consistently; retain explicit callback, parser, RNG, and floating-point boundaries | High |
+| 5 | Cross-backend conformance | Extend deterministic replay and capability checks only when a concrete maintained backend or sampler path needs them | Low recurring |
+| 6 | Demand-driven optimization | Profile a measured bottleneck, preserve the release gates, and record the accepted transformation and evidence class | Medium per pass |
+| Continuous | Documentation and evaluation | Generate assurance views where practical, keep examples current, and reuse shared diagnostics in tests and benchmarks | Low recurring |
 
-The order matters. Phase 1 prevents “verified” from becoming a single vague
-badge. Phase 2 gives every later backend the same correctness interface. Phase
-3 makes agentic optimization useful without granting it authority to weaken
-tests or claims. Independent-chain parallelism precedes accelerator work
-because it settles seed scheduling and result aggregation with fewer numerical
-variables. Numeric certificates remain available in parallel rather than
-blocking ordinary backend development.
+This ordering makes code ownership and claim boundaries clear before adding
+more bridge machinery. It does not require every mathematical sampler to fit
+one universal IR: a sampler may use the core IR, a reusable extension, a typed
+sub-IR, or a certified primitive. Optimization and new backends remain driven
+by concrete measurements or users rather than becoming mandatory pipeline
+stages.
+
+Universal IEEE-754/`libm`/RNG certification and the theorem-heavy endpoints
+listed in [project completion status](project-status.md#core-completion-boundary)
+remain parked. Existing certificate modules stay available for bounded,
+execution-specific evidence, but neither parked direction blocks this
+consolidation roadmap.
+
+### Current consolidation pass
+
+The initial pass has established the shape of every direction above:
+
+- public finite MH, finite particle Gibbs, composable inference, observation
+  cursor, Gaussian Zig-Zag, and Xu coupling engines have separate source files;
+- Reference artifact parsing/decoding is separated from transition execution,
+  and certificate code is split into rational SoftAbs, dynamic-tree, practical
+  slice, and implicit-solver components;
+- the maintained sampler obligation matrix uses one evidence vocabulary across
+  formal, artifact, Reference, Optimized, conformance, and diagnostic layers;
+- `finiteScheduledEndpointHmcKernel_invariant` packages exact
+  state-independent finite choices of endpoint-HMC step size and step count;
+- the generated Reference artifact registry exposes every decoded program,
+  target, schedule, transform, and tree facet; and
+- generic optimized numeric types, deterministic replay, backend capabilities,
+  optimization acceptance records, and shared Evaluation diagnostics remain
+  release-gated foundations.
+
+Further extraction and optimization are ordinary maintenance driven by file
+ownership or measurements, not unfinished core-release blockers. Continuous
+uniform jitter, tempered-integrator refinement, partial-refresh composition,
+and production-shaped NUTS equivalence retain their explicit stronger proof
+boundaries.
 
 ## Track A: reusable sampler foundations
 

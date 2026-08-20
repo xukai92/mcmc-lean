@@ -1,5 +1,30 @@
 # Development log
 
+## 2026-08-20: consolidation roadmap and executable registries
+
+The canonical roadmap now treats assurance declarations, deterministic replay,
+the optimization gate, independent chains, host batching, and the scoped
+accelerator adapter as completed foundations. Its active ordering is
+modularization, uniform sampler obligation records, packaging of existing HMC
+boundaries, continuous-contract consolidation, concrete backend conformance,
+and demand-driven optimization; numerical universality and hard new theorem
+families remain parked.
+
+Julia public engines for finite MH, finite particle Gibbs, composable
+inference, observation cursors, Gaussian Zig-Zag, and the Xu coupling moved to
+coherent files without changing dispatch. Reference artifact parsing is now
+separate from transition execution. The certificate aggregation was split into
+rational SoftAbs, dynamic-tree, practical-slice, and implicit-solver engines.
+Lean adds `finiteScheduledEndpointHmcKernel_invariant`, proving that an
+independent finite choice of endpoint-HMC step size and step count preserves
+the same explicitly factored target. This does not identify continuous Julia
+jitter with the finite mixture.
+
+A generated Reference artifact registry now lists every decoded executable
+facet directly from artifact version 20, and the common sampler obligation
+matrix records exact semantics, runtime paths, evidence, and open refinement
+boundaries uniformly.
+
 ## 2026-08-20: explicit benchmark metric labels
 
 Constant-metric benchmark algorithms now put the trajectory family first and

@@ -6,10 +6,12 @@ pages = [
         "Formalization" => "architecture.md",
         "Adding a sampler" => "development-guide.md",
         "Sampler development record" => "sampler-development-template.md",
+        "Sampler obligation matrix" => "sampler-obligation-matrix.md",
         "Gaussian RWMH record" => "rwmh-development-record.md",
         "Fixed-step HMC record" => "hmc-development-record.md",
         "AdvancedHMC parity" => "advancedhmc-parity.md",
         "Lean-generated graphs" => "generated/architecture-graphs.md",
+        "Reference artifact registry" => "generated/reference-artifact.md",
         "Julia backend registry" => "generated/backend-registry.md",
         "Executable system" => "executable-architecture.md",
         "Verified execution and optimization" =>
@@ -51,10 +53,12 @@ pages = [
 # Documenter never copies its build directory back into itself.
 published_files = [
     "index.md", "architecture.md", "development-guide.md",
-    "sampler-development-template.md", "rwmh-development-record.md",
+    "sampler-development-template.md", "sampler-obligation-matrix.md",
+    "rwmh-development-record.md",
     "hmc-development-record.md",
     "advancedhmc-parity.md",
     "generated/architecture-graphs.md",
+    "generated/reference-artifact.md",
     "generated/backend-registry.md",
     "executable-architecture.md", "verified-execution-and-optimization.md",
     "continuous-executable-contract.md",

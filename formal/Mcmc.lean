@@ -68,6 +68,7 @@ import Mcmc.Executable.GaussianRWMH
 import Mcmc.Executable.Continuous.CompilerIR
 import Mcmc.Executable.Continuous.RWMH
 import Mcmc.Executable.Continuous.HMC
+import Mcmc.Executable.Continuous.HMCVariants
 import Mcmc.Executable.Continuous.NumericalRefinement
 import Mcmc.Executable.Continuous.BoundedRWMH
 import Mcmc.Executable.Continuous.BoundedSlice

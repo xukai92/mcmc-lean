@@ -2,9 +2,11 @@
 
 ## Purpose
 
-This note fixes the semantic and runtime boundaries for continuous Gaussian
-RWMH. It prevents three different objects from being described as though they
-were the same implementation:
+This note fixes the shared semantic and runtime boundaries for maintained
+continuous sampler presentations, beginning with Gaussian RWMH and extending
+through endpoint, multinomial, metric, dynamic-tree, and generalized HMC. It
+prevents three different objects from being described as though they were the
+same implementation:
 
 1. an exact mathlib probability measure and Markov kernel;
 2. an ideal-real sampler program and mathematical trace replay; and
@@ -59,7 +61,7 @@ input or probabilistic assumption.
 
 ## Julia layer
 
-The current version-19 artifact contains scalar and vector-valued multi-step endpoint
+The current version-20 artifact contains scalar and vector-valued multi-step endpoint
 HMC (introduced in version 5), constant-metric programs (version 6), and the
 randomized-origin multinomial-HMC command.
 Its explicit callbacks are the target log density and the gradient of the

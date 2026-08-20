@@ -36,6 +36,7 @@ derivative remains important for useful proposals and numerical behavior.
 | Phase-target invariance | `endpointHmcNPhaseKernel_invariant` | Proved |
 | Refreshed/projected position kernel | `endpointHmcNPositionKernel` | Existing construction |
 | Position-target invariance | `endpointHmcNPositionKernel_invariant` | Proved under explicit factorization |
+| State-independent finite schedules | `finiteScheduledEndpointHmcKernel_invariant` | Proved for finite choices of step size and step count |
 | Generic convergence | — | Not claimed |
 
 ## 3. Executable presentation
@@ -66,6 +67,13 @@ kernel denotation of the complete `scalarHmcProgram` with
 `endpointHmcNPositionKernel`. This is an explicitly recorded composition gap,
 not an assumed equality. Julia parsing, `Float64` arithmetic, callbacks,
 transcendentals, and RNG laws remain outside the exact-real results.
+
+`finiteScheduledEndpointHmcKernel` additionally packages a state-independent
+finite mixture of these position kernels. Its invariance theorem permits both
+the step size and step count to depend on the independently sampled schedule
+entry. It does not claim that Julia's continuously distributed jitter is that
+finite law; joint parameter measurability and runtime lowering remain visible
+continuous-jitter obligations.
 
 ## 5. Maintained Julia paths
 
