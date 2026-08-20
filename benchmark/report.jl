@@ -183,12 +183,14 @@ function write_doc(rows, timings, quality, metadata)
         println(io, "    The committed SVG remains available for non-JavaScript readers and portable rendering.\n")
         println(io, "    ![HMC transition-throughput distributions](assets/benchmarks/hmc-throughput.svg)\n")
         println(io, "Rows are grouped first by target and then by algorithm. Within each row, colors compare libraries implementing that same `target × algorithm` case. Small translucent points are complete-chain timing repetitions; large points and thick intervals are medians and IQRs. The shared logarithmic axis retains absolute throughput and remains extensible to additional libraries.\n")
-        has_verified_metric = any(row -> startswith(row.algorithm,
-            "preconditioned-") && startswith(row.implementation, "verified-"), rows)
+        has_verified_metric = any(row ->
+            (endswith(row.algorithm, "-dense") ||
+             endswith(row.algorithm, "-diagonal")) &&
+            startswith(row.implementation, "verified-"), rows)
         if has_verified_metric
-            println(io, "Preconditioned endpoint and multinomial rows include VerifiedSamplers' Reference and Optimized constant-metric paths.\n")
+            println(io, "Endpoint and multinomial labels ending in `-dense` or `-diagonal` include VerifiedSamplers' Reference and Optimized constant-metric paths.\n")
         else
-            println(io, "These historical preconditioned endpoint and multinomial rows are AdvancedHMC-only; they predate the implemented VerifiedSamplers benchmark cases and are not retroactively supplemented.\n")
+            println(io, "These historical constant-metric endpoint and multinomial rows are AdvancedHMC-only; they predate the implemented VerifiedSamplers benchmark cases and are not retroactively supplemented.\n")
         end
         has_verified_nuts = any(row -> row.algorithm == "nuts-complete" &&
             row.implementation == "verified-reference", rows)

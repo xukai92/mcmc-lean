@@ -75,7 +75,8 @@ count, and elapsed wall time; progress output occurs outside timed regions.
 The report covers an isotropic Gaussian, an AR(1)-correlated Gaussian, a
 product quartic, an ill-conditioned diagonal Gaussian, and a symmetric
 regularized-logistic target. The latter two targets extend the original suite;
-preconditioned endpoint and multinomial rows include the implemented
+endpoint and multinomial rows suffixed by their metric kind (`-dense` or
+`-diagonal`) include the implemented
 VerifiedSamplers Reference and Optimized constant-metric paths in new runs.
 The Optimized runner prepares each metric once per complete chain. Diagonal
 masses cache their inverse and square root; dense masses cache their Cholesky

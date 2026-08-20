@@ -74,6 +74,14 @@ function measure_case(target, algorithm, implementation, f)
     measure(f)
 end
 
+function metric_kind(target)
+    target.metric_mass isa AbstractVector && return "diagonal"
+    target.metric_mass isa AbstractMatrix && return "dense"
+    error("unsupported benchmark metric representation for $(target.name)")
+end
+
+metric_algorithm(target, trajectory) = "$(trajectory)-$(metric_kind(target))"
+
 function advanced_components(target)
     metric = UnitEuclideanMetric(DIMENSION)
     logdensity_and_gradient(q) =
@@ -353,6 +361,8 @@ function benchmark_target(target)
             average_steps(nuts_advanced)),
     ]
     if target.metric_mass !== nothing
+        endpoint_algorithm = metric_algorithm(target, "endpoint")
+        multinomial_algorithm = metric_algorithm(target, "multinomial")
         metric_reference_check = run_verified_metric(
             Reference.metric_hmc_step!, target, SEED, 100).chain[:, end]
         metric_optimized_check = run_verified_metric(
@@ -369,42 +379,42 @@ function benchmark_target(target)
             "Reference and Optimized metric multinomial HMC disagree for $(target.name)")
         run_advanced(components.metric_hamiltonian,
             components.metric_endpoint, SEED, 100)
-        metric_reference = measure_case(target, "preconditioned-endpoint",
+        metric_reference = measure_case(target, endpoint_algorithm,
             "verified-reference", seed -> run_verified_metric(
             Reference.metric_hmc_step!, target, seed, DRAWS))
-        metric_optimized = measure_case(target, "preconditioned-endpoint",
+        metric_optimized = measure_case(target, endpoint_algorithm,
             "verified-optimized", seed -> run_verified_metric(
             Optimized.metric_hmc_step!, target, seed, DRAWS; prepared=true))
-        metric_advanced = measure_case(target, "preconditioned-endpoint",
+        metric_advanced = measure_case(target, endpoint_algorithm,
             "advancedhmc", seed -> run_advanced(
             components.metric_hamiltonian, components.metric_endpoint,
             seed, DRAWS))
         for (implementation, trial) in (("verified-reference", metric_reference),
                 ("verified-optimized", metric_optimized),
                 ("advancedhmc", metric_advanced))
-            quality_summary(target, "preconditioned-endpoint", implementation,
+            quality_summary(target, endpoint_algorithm, implementation,
                 trial.outputs, sum(trial.times) / 1e9)
         end
         append!(results, [
-            result(target, "preconditioned-endpoint", "verified-reference",
+            result(target, endpoint_algorithm, "verified-reference",
                 metric_reference, average_steps(metric_reference)),
-            result(target, "preconditioned-endpoint", "verified-optimized",
+            result(target, endpoint_algorithm, "verified-optimized",
                 metric_optimized, average_steps(metric_optimized)),
-            result(target, "preconditioned-endpoint", "advancedhmc",
+            result(target, endpoint_algorithm, "advancedhmc",
                 metric_advanced, average_steps(metric_advanced)),
         ])
 
         metric_multi_reference = measure_case(target,
-            "preconditioned-multinomial", "verified-reference",
+            multinomial_algorithm, "verified-reference",
             seed -> run_verified_metric(
             Reference.metric_multinomial_hmc_step!, target, seed, DRAWS))
         metric_multi_optimized = measure_case(target,
-            "preconditioned-multinomial", "verified-optimized",
+            multinomial_algorithm, "verified-optimized",
             seed -> run_verified_metric(
             Optimized.metric_multinomial_hmc_step!, target, seed, DRAWS;
             prepared=true))
         metric_multi_advanced = measure_case(target,
-            "preconditioned-multinomial", "advancedhmc",
+            multinomial_algorithm, "advancedhmc",
             seed -> run_advanced(
             components.metric_hamiltonian, components.metric_multinomial,
             seed, DRAWS))
@@ -412,15 +422,15 @@ function benchmark_target(target)
                 (("verified-reference", metric_multi_reference),
                     ("verified-optimized", metric_multi_optimized),
                     ("advancedhmc", metric_multi_advanced))
-            quality_summary(target, "preconditioned-multinomial", implementation,
+            quality_summary(target, multinomial_algorithm, implementation,
                 trial.outputs, sum(trial.times) / 1e9)
         end
         append!(results, [
-            result(target, "preconditioned-multinomial", "verified-reference",
+            result(target, multinomial_algorithm, "verified-reference",
                 metric_multi_reference, average_steps(metric_multi_reference)),
-            result(target, "preconditioned-multinomial", "verified-optimized",
+            result(target, multinomial_algorithm, "verified-optimized",
                 metric_multi_optimized, average_steps(metric_multi_optimized)),
-            result(target, "preconditioned-multinomial", "advancedhmc",
+            result(target, multinomial_algorithm, "advancedhmc",
                 metric_multi_advanced, average_steps(metric_multi_advanced)),
         ])
     end

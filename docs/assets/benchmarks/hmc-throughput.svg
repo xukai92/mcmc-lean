@@ -284,7 +284,7 @@
 <circle cx="522.5720531127711" cy="575" r="3" fill="#cf222e" fill-opacity="0.30"/>
 <line x1="521.5501237322345" y1="575" x2="522.8165773791114" y2="575" stroke="#cf222e" stroke-width="5" stroke-linecap="round"/>
 <circle cx="522.0986803651049" cy="575" r="6" fill="#cf222e" stroke="white" stroke-width="1.5"/>
-<text x="271" y="632" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Correlated Gaussian (ρ=0.9) · Preconditioned-endpoint</text>
+<text x="271" y="632" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Correlated Gaussian (ρ=0.9) · Endpoint-dense</text>
 <circle cx="429.0214681001002" cy="609" r="3" fill="#bf8700" fill-opacity="0.30"/>
 <circle cx="431.7484787252056" cy="611" r="3" fill="#bf8700" fill-opacity="0.30"/>
 <circle cx="432.88610951786313" cy="607" r="3" fill="#bf8700" fill-opacity="0.30"/>
@@ -321,7 +321,7 @@
 <circle cx="518.2656037461478" cy="645" r="3" fill="#cf222e" fill-opacity="0.30"/>
 <line x1="521.557679994289" y1="645" x2="522.8809409553547" y2="645" stroke="#cf222e" stroke-width="5" stroke-linecap="round"/>
 <circle cx="522.3312974469267" cy="645" r="6" fill="#cf222e" stroke="white" stroke-width="1.5"/>
-<text x="271" y="702" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Correlated Gaussian (ρ=0.9) · Preconditioned-multinomial</text>
+<text x="271" y="702" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Correlated Gaussian (ρ=0.9) · Multinomial-dense</text>
 <circle cx="346.989420014764" cy="679" r="3" fill="#bf8700" fill-opacity="0.30"/>
 <circle cx="346.1785726088792" cy="681" r="3" fill="#bf8700" fill-opacity="0.30"/>
 <circle cx="344.9909487504707" cy="677" r="3" fill="#bf8700" fill-opacity="0.30"/>
@@ -632,7 +632,7 @@
 <circle cx="520.0058083700256" cy="1275" r="3" fill="#cf222e" fill-opacity="0.30"/>
 <line x1="519.0894011986207" y1="1275" x2="520.6261841525636" y2="1275" stroke="#cf222e" stroke-width="5" stroke-linecap="round"/>
 <circle cx="519.8971853899654" cy="1275" r="6" fill="#cf222e" stroke="white" stroke-width="1.5"/>
-<text x="271" y="1332" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Ill-conditioned Gaussian · Preconditioned-endpoint</text>
+<text x="271" y="1332" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Ill-conditioned Gaussian · Endpoint-diagonal</text>
 <circle cx="597.2967969492832" cy="1309" r="3" fill="#bf8700" fill-opacity="0.30"/>
 <circle cx="599.6188962402616" cy="1311" r="3" fill="#bf8700" fill-opacity="0.30"/>
 <circle cx="599.1274320535567" cy="1307" r="3" fill="#bf8700" fill-opacity="0.30"/>
@@ -669,7 +669,7 @@
 <circle cx="572.8784516072452" cy="1345" r="3" fill="#cf222e" fill-opacity="0.30"/>
 <line x1="573.4083136362664" y1="1345" x2="574.726399171569" y2="1345" stroke="#cf222e" stroke-width="5" stroke-linecap="round"/>
 <circle cx="573.8183539574379" cy="1345" r="6" fill="#cf222e" stroke="white" stroke-width="1.5"/>
-<text x="271" y="1402" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Ill-conditioned Gaussian · Preconditioned-multinomial</text>
+<text x="271" y="1402" text-anchor="end" font-family="sans-serif" font-size="14" fill="#24292f">Ill-conditioned Gaussian · Multinomial-diagonal</text>
 <circle cx="463.9360486133403" cy="1379" r="3" fill="#bf8700" fill-opacity="0.30"/>
 <circle cx="462.1774000352923" cy="1381" r="3" fill="#bf8700" fill-opacity="0.30"/>
 <circle cx="460.35797735732297" cy="1377" r="3" fill="#bf8700" fill-opacity="0.30"/>

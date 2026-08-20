@@ -1,5 +1,14 @@
 # Development log
 
+## 2026-08-20: explicit benchmark metric labels
+
+Constant-metric benchmark algorithms now put the trajectory family first and
+name the metric representation explicitly: `endpoint-dense`,
+`multinomial-dense`, `endpoint-diagonal`, and `multinomial-diagonal`. The
+runner derives the suffix from the configured mass representation, so future
+targets cannot silently reuse an ambiguous `preconditioned-*` label. Existing
+recorded measurements were relabelled without changing their values.
+
 ## 2026-08-20: generic optimized floating-point implementations
 
 The optimized continuous stack now propagates a single

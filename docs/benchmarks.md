@@ -19,7 +19,7 @@ Use the **Full width** control in the documentation navbar for a wider chart and
 
 Rows are grouped first by target and then by algorithm. Within each row, colors compare libraries implementing that same `target × algorithm` case. Small translucent points are complete-chain timing repetitions; large points and thick intervals are medians and IQRs. The shared logarithmic axis retains absolute throughput and remains extensible to additional libraries.
 
-Preconditioned endpoint and multinomial rows include VerifiedSamplers' Reference and Optimized constant-metric paths.
+Endpoint and multinomial labels ending in `-dense` or `-diagonal` include VerifiedSamplers' Reference and Optimized constant-metric paths.
 
 The `nuts-complete` group gives all three implementations the same fixed `2^d` leapfrog budget. Its `verified-reference` row uses the completed-tree C.4 rerooting construction proved in Lean; the Optimized and AdvancedHMC rows use their fixed-length multinomial implementations and are work-matched rather than transition-equivalent. The separate `nuts-dynamic` group compares Optimized against AdvancedHMC under the same maximum depth and generalized U-turn termination.
 
@@ -84,18 +84,28 @@ The `nuts-complete` group gives all three implementations the same fixed `2^d` l
 | Ill-conditioned Gaussian | 14602 | 10156 |
 | Regularized logistic | 9261 | 7823 |
 
-#### Preconditioned-endpoint
+#### Endpoint-dense
 
 | Target | verified-reference | verified-optimized | advancedhmc |
 |---|---:|---:|---:|
 | Correlated Gaussian (ρ=0.9) | 4143 | 18974 | 10402 |
-| Ill-conditioned Gaussian | 21923 | 152137 | 17290 |
 
-#### Preconditioned-multinomial
+#### Multinomial-dense
 
 | Target | verified-reference | verified-optimized | advancedhmc |
 |---|---:|---:|---:|
 | Correlated Gaussian (ρ=0.9) | 1805 | 15560 | 9407 |
+
+#### Endpoint-diagonal
+
+| Target | verified-reference | verified-optimized | advancedhmc |
+|---|---:|---:|---:|
+| Ill-conditioned Gaussian | 21923 | 152137 | 17290 |
+
+#### Multinomial-diagonal
+
+| Target | verified-reference | verified-optimized | advancedhmc |
+|---|---:|---:|---:|
 | Ill-conditioned Gaussian | 5614 | 93878 | 14982 |
 
 ### Complete summary
@@ -124,12 +134,12 @@ The `nuts-complete` group gives all three implementations the same fixed `2^d` l
 | Correlated Gaussian (ρ=0.9) | nuts-complete | advancedhmc | 942.4 ms | 937.4–946.9 ms | 10612 | 16.0 | n/a |
 | Correlated Gaussian (ρ=0.9) | nuts-dynamic | verified-optimized | 712.1 ms | 709.5–720.3 ms | 14042 | 15.0 | n/a |
 | Correlated Gaussian (ρ=0.9) | nuts-dynamic | advancedhmc | 963.5 ms | 956.7–968.8 ms | 10379 | 15.0 | n/a |
-| Correlated Gaussian (ρ=0.9) | preconditioned-endpoint | verified-reference | 2413.4 ms | 2382.4–2460.6 ms | 4143 | 10.0 | n/a |
-| Correlated Gaussian (ρ=0.9) | preconditioned-endpoint | verified-optimized | 527.0 ms | 524.4–530.0 ms | 18974 | 10.0 | n/a |
-| Correlated Gaussian (ρ=0.9) | preconditioned-endpoint | advancedhmc | 961.3 ms | 956.1–968.7 ms | 10402 | 10.0 | n/a |
-| Correlated Gaussian (ρ=0.9) | preconditioned-multinomial | verified-reference | 5540.0 ms | 5506.6–5573.7 ms | 1805 | 10.0 | n/a |
-| Correlated Gaussian (ρ=0.9) | preconditioned-multinomial | verified-optimized | 642.7 ms | 635.8–653.7 ms | 15560 | 10.0 | n/a |
-| Correlated Gaussian (ρ=0.9) | preconditioned-multinomial | advancedhmc | 1063.0 ms | 1057.0–1068.7 ms | 9407 | 10.0 | n/a |
+| Correlated Gaussian (ρ=0.9) | endpoint-dense | verified-reference | 2413.4 ms | 2382.4–2460.6 ms | 4143 | 10.0 | n/a |
+| Correlated Gaussian (ρ=0.9) | endpoint-dense | verified-optimized | 527.0 ms | 524.4–530.0 ms | 18974 | 10.0 | n/a |
+| Correlated Gaussian (ρ=0.9) | endpoint-dense | advancedhmc | 961.3 ms | 956.1–968.7 ms | 10402 | 10.0 | n/a |
+| Correlated Gaussian (ρ=0.9) | multinomial-dense | verified-reference | 5540.0 ms | 5506.6–5573.7 ms | 1805 | 10.0 | n/a |
+| Correlated Gaussian (ρ=0.9) | multinomial-dense | verified-optimized | 642.7 ms | 635.8–653.7 ms | 15560 | 10.0 | n/a |
+| Correlated Gaussian (ρ=0.9) | multinomial-dense | advancedhmc | 1063.0 ms | 1057.0–1068.7 ms | 9407 | 10.0 | n/a |
 | Product quartic | endpoint | verified-reference | 910.9 ms | 893.7–919.7 ms | 10978 | 10.0 | n/a |
 | Product quartic | endpoint | verified-optimized | 246.1 ms | 242.8–246.8 ms | 40640 | 10.0 | n/a |
 | Product quartic | endpoint | advancedhmc | 567.6 ms | 563.0–573.1 ms | 17618 | 10.0 | n/a |
@@ -152,12 +162,12 @@ The `nuts-complete` group gives all three implementations the same fixed `2^d` l
 | Ill-conditioned Gaussian | nuts-complete | advancedhmc | 947.3 ms | 942.2–955.1 ms | 10557 | 16.0 | n/a |
 | Ill-conditioned Gaussian | nuts-dynamic | verified-optimized | 684.9 ms | 680.9–689.4 ms | 14602 | 15.0 | n/a |
 | Ill-conditioned Gaussian | nuts-dynamic | advancedhmc | 984.7 ms | 977.6–992.6 ms | 10156 | 15.0 | n/a |
-| Ill-conditioned Gaussian | preconditioned-endpoint | verified-reference | 456.1 ms | 450.9–460.2 ms | 21923 | 10.0 | n/a |
-| Ill-conditioned Gaussian | preconditioned-endpoint | verified-optimized | 65.7 ms | 65.0–67.1 ms | 152137 | 10.0 | n/a |
-| Ill-conditioned Gaussian | preconditioned-endpoint | advancedhmc | 578.4 ms | 573.2–580.7 ms | 17290 | 10.0 | n/a |
-| Ill-conditioned Gaussian | preconditioned-multinomial | verified-reference | 1781.4 ms | 1768.5–1794.4 ms | 5614 | 10.0 | n/a |
-| Ill-conditioned Gaussian | preconditioned-multinomial | verified-optimized | 106.5 ms | 104.1–109.2 ms | 93878 | 10.0 | n/a |
-| Ill-conditioned Gaussian | preconditioned-multinomial | advancedhmc | 667.5 ms | 666.5–669.9 ms | 14982 | 10.0 | n/a |
+| Ill-conditioned Gaussian | endpoint-diagonal | verified-reference | 456.1 ms | 450.9–460.2 ms | 21923 | 10.0 | n/a |
+| Ill-conditioned Gaussian | endpoint-diagonal | verified-optimized | 65.7 ms | 65.0–67.1 ms | 152137 | 10.0 | n/a |
+| Ill-conditioned Gaussian | endpoint-diagonal | advancedhmc | 578.4 ms | 573.2–580.7 ms | 17290 | 10.0 | n/a |
+| Ill-conditioned Gaussian | multinomial-diagonal | verified-reference | 1781.4 ms | 1768.5–1794.4 ms | 5614 | 10.0 | n/a |
+| Ill-conditioned Gaussian | multinomial-diagonal | verified-optimized | 106.5 ms | 104.1–109.2 ms | 93878 | 10.0 | n/a |
+| Ill-conditioned Gaussian | multinomial-diagonal | advancedhmc | 667.5 ms | 666.5–669.9 ms | 14982 | 10.0 | n/a |
 | Regularized logistic | endpoint | verified-reference | 1164.7 ms | 1122.9–1174.5 ms | 8586 | 10.0 | n/a |
 | Regularized logistic | endpoint | verified-optimized | 386.4 ms | 382.3–388.9 ms | 25880 | 10.0 | n/a |
 | Regularized logistic | endpoint | advancedhmc | 744.0 ms | 739.0–751.0 ms | 13440 | 10.0 | n/a |
@@ -198,12 +208,12 @@ The same independently seeded full chains supply timing and quality evidence. Fu
 | Correlated Gaussian (ρ=0.9) | nuts-complete | advancedhmc | ⚠ 1.015 | 1187.6 | 3994.8 | 0.0007 | 0.0247 | 0.0760 | 0.0755 | 99.3 | 0.039 | 0.033 | 0.940 | 0.952 | 0 | 16.0 |
 | Correlated Gaussian (ρ=0.9) | nuts-dynamic | verified-optimized | 1.005 | 1410.2 | 5758.8 | 0.0005 | 0.0225 | 0.0541 | 0.0590 | 169.7 | 0.023 | 0.024 | 1.000 | 0.949 | 0 | 15.0 |
 | Correlated Gaussian (ρ=0.9) | nuts-dynamic | advancedhmc | 1.003 | 1567.8 | 5410.3 | 0.0010 | 0.0227 | 0.0616 | 0.0540 | 142.8 | 0.023 | 0.029 | 1.000 | 0.949 | 0 | 15.0 |
-| Correlated Gaussian (ρ=0.9) | preconditioned-endpoint | verified-reference | 1.001 | 15195.3 | 33300.2 | 0.0076 | 0.0082 | 0.0260 | 0.0286 | 649.0 | 0.009 | 0.009 | 0.996 | — | 0 | 10.0 |
-| Correlated Gaussian (ρ=0.9) | preconditioned-endpoint | verified-optimized | 1.001 | 15195.3 | 33300.2 | 0.0138 | 0.0082 | 0.0260 | 0.0286 | 2977.7 | 0.009 | 0.009 | 0.996 | — | 0 | 10.0 |
-| Correlated Gaussian (ρ=0.9) | preconditioned-endpoint | advancedhmc | 1.001 | 15789.1 | 32462.1 | 0.0158 | 0.0082 | 0.0194 | 0.0209 | 1650.9 | 0.010 | 0.007 | 0.995 | 0.995 | 0 | 10.0 |
-| Correlated Gaussian (ρ=0.9) | preconditioned-multinomial | verified-reference | 1.003 | 2704.1 | 6205.3 | 0.0014 | 0.0182 | 0.0469 | 0.0309 | 50.7 | 0.014 | 0.020 | 0.909 | — | 0 | 10.0 |
-| Correlated Gaussian (ρ=0.9) | preconditioned-multinomial | verified-optimized | 1.003 | 2704.1 | 6205.3 | 0.0025 | 0.0182 | 0.0469 | 0.0309 | 433.2 | 0.014 | 0.020 | 0.909 | — | 0 | 10.0 |
-| Correlated Gaussian (ρ=0.9) | preconditioned-multinomial | advancedhmc | 1.005 | 2725.7 | 6263.5 | 0.0027 | 0.0181 | 0.0577 | 0.0572 | 242.1 | 0.019 | 0.023 | 0.909 | 0.998 | 0 | 10.0 |
+| Correlated Gaussian (ρ=0.9) | endpoint-dense | verified-reference | 1.001 | 15195.3 | 33300.2 | 0.0076 | 0.0082 | 0.0260 | 0.0286 | 649.0 | 0.009 | 0.009 | 0.996 | — | 0 | 10.0 |
+| Correlated Gaussian (ρ=0.9) | endpoint-dense | verified-optimized | 1.001 | 15195.3 | 33300.2 | 0.0138 | 0.0082 | 0.0260 | 0.0286 | 2977.7 | 0.009 | 0.009 | 0.996 | — | 0 | 10.0 |
+| Correlated Gaussian (ρ=0.9) | endpoint-dense | advancedhmc | 1.001 | 15789.1 | 32462.1 | 0.0158 | 0.0082 | 0.0194 | 0.0209 | 1650.9 | 0.010 | 0.007 | 0.995 | 0.995 | 0 | 10.0 |
+| Correlated Gaussian (ρ=0.9) | multinomial-dense | verified-reference | 1.003 | 2704.1 | 6205.3 | 0.0014 | 0.0182 | 0.0469 | 0.0309 | 50.7 | 0.014 | 0.020 | 0.909 | — | 0 | 10.0 |
+| Correlated Gaussian (ρ=0.9) | multinomial-dense | verified-optimized | 1.003 | 2704.1 | 6205.3 | 0.0025 | 0.0182 | 0.0469 | 0.0309 | 433.2 | 0.014 | 0.020 | 0.909 | — | 0 | 10.0 |
+| Correlated Gaussian (ρ=0.9) | multinomial-dense | advancedhmc | 1.005 | 2725.7 | 6263.5 | 0.0027 | 0.0181 | 0.0577 | 0.0572 | 242.1 | 0.019 | 0.023 | 0.909 | 0.998 | 0 | 10.0 |
 | Product quartic | endpoint | verified-reference | 1.000 | 36720.4 | 84182.5 | 0.0184 | 0.0038 | — | 0.0204 | 3919.4 | 0.006 | 0.004 | 0.988 | — | 0 | 10.0 |
 | Product quartic | endpoint | verified-optimized | 1.000 | 36720.4 | 84182.5 | 0.0184 | 0.0038 | — | 0.0204 | 14032.7 | 0.006 | 0.004 | 0.988 | — | 0 | 10.0 |
 | Product quartic | endpoint | advancedhmc | 1.000 | 36781.8 | 86589.9 | 0.0368 | 0.0037 | — | 0.0123 | 6386.5 | 0.005 | 0.004 | 0.988 | 0.988 | 0 | 10.0 |
@@ -226,12 +236,12 @@ The same independently seeded full chains supply timing and quality evidence. Fu
 | Ill-conditioned Gaussian | nuts-complete | advancedhmc | 1.000 | 86291.9 | 56109.0 | 0.0539 | 0.2859 | 13.3656 | 1.7168 | 9267.7 | 0.037 | 0.040 | 0.939 | 0.893 | 0 | 16.0 |
 | Ill-conditioned Gaussian | nuts-dynamic | verified-optimized | 1.000 | 86734.3 | 54470.5 | 0.0289 | 0.2915 | 18.1091 | 1.7082 | 13146.4 | 0.032 | 0.038 | 1.000 | 0.886 | 0 | 15.0 |
 | Ill-conditioned Gaussian | nuts-dynamic | advancedhmc | 1.000 | 86979.1 | 55881.0 | 0.0580 | 0.3187 | 14.4449 | 1.0218 | 9135.6 | 0.031 | 0.035 | 1.000 | 0.885 | 0 | 15.0 |
-| Ill-conditioned Gaussian | preconditioned-endpoint | verified-reference | 1.001 | 15042.3 | 30906.0 | 0.0075 | 0.0798 | 1.3167 | 0.2859 | 3333.9 | 0.009 | 0.009 | 0.996 | — | 0 | 10.0 |
-| Ill-conditioned Gaussian | preconditioned-endpoint | verified-optimized | 1.001 | 15042.3 | 30906.0 | 0.0137 | 0.0798 | 1.3167 | 0.2859 | 22963.4 | 0.009 | 0.009 | 0.996 | — | 0 | 10.0 |
-| Ill-conditioned Gaussian | preconditioned-endpoint | advancedhmc | 1.001 | 15179.2 | 31583.1 | 0.0152 | 0.0764 | 1.1941 | 0.1266 | 2647.8 | 0.008 | 0.007 | 0.995 | 0.995 | 0 | 10.0 |
-| Ill-conditioned Gaussian | preconditioned-multinomial | verified-reference | 1.003 | 2768.7 | 6427.5 | 0.0014 | 0.1737 | 2.8200 | 0.2501 | 149.8 | 0.018 | 0.021 | 0.909 | — | 0 | 10.0 |
-| Ill-conditioned Gaussian | preconditioned-multinomial | verified-optimized | 1.003 | 2768.7 | 6427.5 | 0.0025 | 0.1737 | 2.8200 | 0.2501 | 2495.1 | 0.018 | 0.021 | 0.909 | — | 0 | 10.0 |
-| Ill-conditioned Gaussian | preconditioned-multinomial | advancedhmc | 1.006 | 2787.5 | 6409.1 | 0.0028 | 0.1670 | 3.4796 | 0.3842 | 405.0 | 0.016 | 0.020 | 0.909 | 0.998 | 0 | 10.0 |
+| Ill-conditioned Gaussian | endpoint-diagonal | verified-reference | 1.001 | 15042.3 | 30906.0 | 0.0075 | 0.0798 | 1.3167 | 0.2859 | 3333.9 | 0.009 | 0.009 | 0.996 | — | 0 | 10.0 |
+| Ill-conditioned Gaussian | endpoint-diagonal | verified-optimized | 1.001 | 15042.3 | 30906.0 | 0.0137 | 0.0798 | 1.3167 | 0.2859 | 22963.4 | 0.009 | 0.009 | 0.996 | — | 0 | 10.0 |
+| Ill-conditioned Gaussian | endpoint-diagonal | advancedhmc | 1.001 | 15179.2 | 31583.1 | 0.0152 | 0.0764 | 1.1941 | 0.1266 | 2647.8 | 0.008 | 0.007 | 0.995 | 0.995 | 0 | 10.0 |
+| Ill-conditioned Gaussian | multinomial-diagonal | verified-reference | 1.003 | 2768.7 | 6427.5 | 0.0014 | 0.1737 | 2.8200 | 0.2501 | 149.8 | 0.018 | 0.021 | 0.909 | — | 0 | 10.0 |
+| Ill-conditioned Gaussian | multinomial-diagonal | verified-optimized | 1.003 | 2768.7 | 6427.5 | 0.0025 | 0.1737 | 2.8200 | 0.2501 | 2495.1 | 0.018 | 0.021 | 0.909 | — | 0 | 10.0 |
+| Ill-conditioned Gaussian | multinomial-diagonal | advancedhmc | 1.006 | 2787.5 | 6409.1 | 0.0028 | 0.1670 | 3.4796 | 0.3842 | 405.0 | 0.016 | 0.020 | 0.909 | 0.998 | 0 | 10.0 |
 | Regularized logistic | endpoint | verified-reference | 1.000 | 23123.2 | 41791.1 | 0.0116 | 0.0057 | — | 0.0208 | 2000.1 | 0.007 | 0.008 | 0.992 | — | 0 | 10.0 |
 | Regularized logistic | endpoint | verified-optimized | 1.000 | 23123.2 | 41791.1 | 0.0116 | 0.0057 | — | 0.0208 | 5922.1 | 0.007 | 0.008 | 0.992 | — | 0 | 10.0 |
 | Regularized logistic | endpoint | advancedhmc | 1.001 | 23430.9 | 41867.0 | 0.0234 | 0.0057 | — | 0.0130 | 3183.1 | 0.007 | 0.007 | 0.992 | 0.992 | 0 | 10.0 |
