@@ -24,16 +24,16 @@ export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_ou
 abstract type AbstractPreparedMetric end
 
 """Cached elementwise operations for a positive diagonal mass matrix."""
-struct PreparedDiagonalMetric <: AbstractPreparedMetric
-    mass::Vector{Float64}
-    inverse_mass::Vector{Float64}
-    sqrt_mass::Vector{Float64}
+struct PreparedDiagonalMetric{T<:AbstractFloat} <: AbstractPreparedMetric
+    mass::Vector{T}
+    inverse_mass::Vector{T}
+    sqrt_mass::Vector{T}
 end
 
 """Cached Cholesky factorization for a positive dense mass matrix."""
-struct PreparedDenseMetric{F} <: AbstractPreparedMetric
-    mass::Matrix{Float64}
-    inverse_mass::Matrix{Float64}
+struct PreparedDenseMetric{T<:AbstractFloat,F} <: AbstractPreparedMetric
+    mass::Matrix{T}
+    inverse_mass::Matrix{T}
     factorization::F
 end
 
@@ -42,8 +42,8 @@ end
 Prepare a metric once and reuse it across transitions. This avoids repeated
 factorization and construction of metric actions in the optimized samplers.
 """
-function prepare_metric(mass::AbstractVector{<:Real})
-    converted = Float64.(mass)
+function prepare_metric(mass::AbstractVector{T}) where {T<:AbstractFloat}
+    converted = collect(mass)
     isempty(converted) && throw(ArgumentError("mass cannot be empty"))
     all(x -> isfinite(x) && x > 0, converted) || throw(ArgumentError(
         "diagonal mass must be finite and positive"))
@@ -54,8 +54,8 @@ function prepare_metric(mass::AbstractVector{<:Real})
     PreparedDiagonalMetric(converted, inverse_mass, sqrt_mass)
 end
 
-function prepare_metric(mass::AbstractMatrix{<:Real})
-    converted = Matrix{Float64}(mass)
+function prepare_metric(mass::AbstractMatrix{T}) where {T<:AbstractFloat}
+    converted = Matrix(mass)
     size(converted, 1) == size(converted, 2) || throw(DimensionMismatch(
         "mass matrix must be square"))
     all(isfinite, converted) || throw(ArgumentError(
@@ -366,7 +366,7 @@ function fixed_point_generalized_leapfrog(position_derivative,
 end
 
 """One scalar velocity-Verlet/leapfrog step with unit mass."""
-function leapfrog(gradient, step_size::Float64, position::Float64, momentum::Float64)
+function leapfrog(gradient, step_size::T, position::T, momentum::T) where {T<:AbstractFloat}
     half_momentum = momentum - step_size * gradient(position) / 2
     next_position = position + step_size * half_momentum
     next_momentum = half_momentum - step_size * gradient(next_position) / 2
@@ -374,27 +374,27 @@ function leapfrog(gradient, step_size::Float64, position::Float64, momentum::Flo
 end
 
 """One vector velocity-Verlet/leapfrog step with unit mass."""
-function vector_leapfrog(gradient, step_size::Float64,
-        position::AbstractVector{<:Real}, momentum::AbstractVector{<:Real})
+function vector_leapfrog(gradient, step_size::T,
+        position::AbstractVector{T}, momentum::AbstractVector{T}) where {T<:AbstractFloat}
     half_momentum = momentum .- (step_size / 2) .* gradient(position)
     next_position = position .+ step_size .* half_momentum
     next_momentum = half_momentum .- (step_size / 2) .* gradient(next_position)
     next_position, next_momentum
 end
 
-"""Independent Float64 implementation of vector endpoint HMC."""
+"""Independent generic floating-point implementation of vector endpoint HMC."""
 function vector_hmc_step!(source::AbstractRandomSource, logdensity, gradient,
-        step_size::Float64, steps::Integer, current::AbstractVector{<:Real})
+        step_size::T, steps::Integer, current::AbstractVector{T}) where {T<:AbstractFloat}
     isfinite(step_size) && step_size > 0.0 ||
         throw(ArgumentError("step size must be finite and positive"))
     steps > 0 || throw(ArgumentError("leapfrog steps must be positive"))
     isempty(current) && throw(ArgumentError("position cannot be empty"))
-    initial = Float64.(current)
-    momentum = [standard_normal!(source) for _ in eachindex(initial)]
+    ε, initial = step_size, collect(current)
+    momentum = T[standard_normal!(source) for _ in eachindex(initial)]
     next_position, next_momentum = copy(initial), copy(momentum)
     for _ in 1:steps
         next_position, next_momentum = vector_leapfrog(
-            gradient, step_size, next_position, next_momentum)
+            gradient, ε, next_position, next_momentum)
     end
     current_energy = -logdensity(initial) + sum(abs2, momentum) / 2
     next_energy = -logdensity(next_position) + sum(abs2, next_momentum) / 2
@@ -404,18 +404,19 @@ end
 
 """Independent constant-metric endpoint HMC implementation."""
 function metric_hmc_step!(source::AbstractRandomSource, logdensity, gradient,
-        step_size::Float64, steps::Integer, current::AbstractVector{<:Real},
-        metric::AbstractPreparedMetric)
+        step_size::T, steps::Integer, current::AbstractVector{T},
+        metric::AbstractPreparedMetric) where {T<:AbstractFloat}
     isfinite(step_size) && step_size > 0 || throw(ArgumentError(
         "step size must be finite and positive"))
     steps > 0 || throw(ArgumentError("leapfrog steps must be positive"))
-    initial_q = Float64.(current)
+    eltype(metric.mass) === T || throw(ArgumentError("state and metric element types must match"))
+    ε, initial_q = step_size, collect(current)
     isempty(initial_q) && throw(ArgumentError("position cannot be empty"))
     all(isfinite, initial_q) || throw(ArgumentError("position must be finite"))
     metric_dimension(metric) == length(initial_q) || throw(DimensionMismatch(
         "mass dimension"))
     q = copy(initial_q)
-    noise = [standard_normal!(source) for _ in eachindex(q)]
+    noise = T[standard_normal!(source) for _ in eachindex(q)]
     p = similar(q)
     sample_momentum!(p, noise, metric)
     initial_p = copy(p)
@@ -423,7 +424,7 @@ function metric_hmc_step!(source::AbstractRandomSource, logdensity, gradient,
     force = gradient(q)
     for _ in 1:steps
         force = prepared_leapfrog!(q, p, velocity_workspace, gradient, force,
-            step_size, metric)
+            ε, metric)
     end
     current_energy = -logdensity(initial_q) +
         kinetic_energy!(velocity_workspace, initial_p, metric)
@@ -434,26 +435,26 @@ function metric_hmc_step!(source::AbstractRandomSource, logdensity, gradient,
 end
 
 function metric_hmc_step!(source::AbstractRandomSource, logdensity, gradient,
-        step_size::Float64, steps::Integer, current::AbstractVector{<:Real}, mass)
+        step_size::T, steps::Integer, current::AbstractVector{T}, mass) where {T<:AbstractFloat}
     metric_hmc_step!(source, logdensity, gradient, step_size, steps, current,
         prepare_metric(mass))
 end
 
-"""Independent Float64 randomized-origin multinomial HMC implementation."""
+"""Independent generic floating-point randomized-origin multinomial HMC."""
 function multinomial_hmc_step!(source::AbstractRandomSource, logdensity, gradient,
-        step_size::Float64, steps::Integer, current::AbstractVector{<:Real})
+        step_size::T, steps::Integer, current::AbstractVector{T}) where {T<:AbstractFloat}
     steps > 0 || throw(ArgumentError("trajectory length must be positive"))
-    q = Float64.(current)
+    ε, q = step_size, collect(current)
     isempty(q) && throw(ArgumentError("position cannot be empty"))
-    p = [standard_normal!(source) for _ in eachindex(q)]
+    p = T[standard_normal!(source) for _ in eachindex(q)]
     origin = Int(draw_below!(source, steps + 1))
     for _ in 1:origin
-        q, p = vector_leapfrog(gradient, -step_size, q, p)
+        q, p = vector_leapfrog(gradient, -ε, q, p)
     end
-    trajectory = Vector{Tuple{Vector{Float64},Vector{Float64}}}(undef, steps + 1)
+    trajectory = Vector{Tuple{Vector{T},Vector{T}}}(undef, steps + 1)
     trajectory[1] = (copy(q), copy(p))
     for index in 2:(steps + 1)
-        q, p = vector_leapfrog(gradient, step_size, q, p)
+        q, p = vector_leapfrog(gradient, ε, q, p)
         trajectory[index] = (copy(q), copy(p))
     end
     logweights = [logdensity(position) - sum(abs2, momentum) / 2
@@ -470,33 +471,35 @@ end
 
 """Independent constant-metric randomized-origin multinomial HMC."""
 function metric_multinomial_hmc_step!(source::AbstractRandomSource, logdensity,
-        gradient, step_size::Float64, steps::Integer,
-        current::AbstractVector{<:Real}, metric::AbstractPreparedMetric)
+        gradient, step_size::T, steps::Integer,
+        current::AbstractVector{T}, metric::AbstractPreparedMetric) where {T<:AbstractFloat}
     isfinite(step_size) && step_size > 0 || throw(ArgumentError(
         "step size must be finite and positive"))
     steps > 0 || throw(ArgumentError("trajectory length must be positive"))
-    initial_q = Float64.(current)
+    eltype(metric.mass) === T || throw(ArgumentError("state and metric element types must match"))
+    ε, initial_q = step_size, collect(current)
     isempty(initial_q) && throw(ArgumentError("position cannot be empty"))
     all(isfinite, initial_q) || throw(ArgumentError("position must be finite"))
     metric_dimension(metric) == length(initial_q) || throw(DimensionMismatch(
         "mass dimension"))
-    noise = [standard_normal!(source) for _ in eachindex(initial_q)]
+    noise = T[standard_normal!(source) for _ in eachindex(initial_q)]
     initial_p = similar(initial_q)
     sample_momentum!(initial_p, noise, metric)
     velocity_workspace = similar(initial_q)
     origin = Int(draw_below!(source, steps + 1))
     initial_force = gradient(initial_q)
-    positions = Matrix{Float64}(undef, length(initial_q), steps + 1)
-    logweights = Vector{Float64}(undef, steps + 1)
+    positions = Matrix{T}(undef, length(initial_q), steps + 1)
+    initial_logweight = logdensity(initial_q) -
+        kinetic_energy!(velocity_workspace, initial_p, metric)
+    logweights = Vector{typeof(initial_logweight)}(undef, steps + 1)
     current_index = origin + 1
     positions[:, current_index] = initial_q
-    logweights[current_index] = logdensity(initial_q) -
-        kinetic_energy!(velocity_workspace, initial_p, metric)
+    logweights[current_index] = initial_logweight
 
     q, p, force = copy(initial_q), copy(initial_p), initial_force
     for index in origin:-1:1
         force = prepared_leapfrog!(q, p, velocity_workspace, gradient, force,
-            -step_size, metric)
+            -ε, metric)
         positions[:, index] = q
         logweights[index] = logdensity(q) -
             kinetic_energy!(velocity_workspace, p, metric)
@@ -505,7 +508,7 @@ function metric_multinomial_hmc_step!(source::AbstractRandomSource, logdensity,
     q, p, force = copy(initial_q), copy(initial_p), initial_force
     for index in (origin + 2):(steps + 1)
         force = prepared_leapfrog!(q, p, velocity_workspace, gradient, force,
-            step_size, metric)
+            ε, metric)
         positions[:, index] = q
         logweights[index] = logdensity(q) -
             kinetic_energy!(velocity_workspace, p, metric)
@@ -521,8 +524,8 @@ function metric_multinomial_hmc_step!(source::AbstractRandomSource, logdensity,
 end
 
 function metric_multinomial_hmc_step!(source::AbstractRandomSource, logdensity,
-        gradient, step_size::Float64, steps::Integer,
-        current::AbstractVector{<:Real}, mass)
+        gradient, step_size::T, steps::Integer,
+        current::AbstractVector{T}, mass) where {T<:AbstractFloat}
     metric_multinomial_hmc_step!(source, logdensity, gradient, step_size, steps,
         current, prepare_metric(mass))
 end
@@ -633,32 +636,34 @@ function certified_relativistic_multinomial_hmc_step!(source::AbstractRandomSour
     trajectory[end][1]
 end
 
-"""Independent Float64 implementation of scalar one-step endpoint HMC."""
+"""Independent generic floating-point implementation of scalar endpoint HMC."""
 function scalar_hmc_step!(source::AbstractRandomSource, logdensity, gradient,
-        step_size::Float64, steps::Integer, current::Float64)
+        step_size::T, steps::Integer, current::T) where {T<:AbstractFloat}
     checked_positive_float(step_size, "step size")
     checked_positive_count(steps, "leapfrog steps")
     checked_finite_float(current, "current state")
-    momentum = standard_normal!(source)
-    next_position, next_momentum = current, momentum
+    ε, initial = step_size, current
+    momentum = T(standard_normal!(source))
+    next_position, next_momentum = initial, momentum
     for _ in 1:steps
         next_position, next_momentum = leapfrog(
-            gradient, step_size, next_position, next_momentum)
+            gradient, ε, next_position, next_momentum)
     end
-    current_energy = -logdensity(current) + momentum^2 / 2
+    current_energy = -logdensity(initial) + momentum^2 / 2
     next_energy = -logdensity(next_position) + next_momentum^2 / 2
     log(uniform_unit!(source)) < min(0.0, current_energy - next_energy) ?
-        next_position : current
+        next_position : initial
 end
 
-"""Tested Float64 Gaussian RWMH step; not an exact realization of Lean `ℝ`."""
+"""Tested generic floating-point Gaussian RWMH step; not exact Lean `ℝ`."""
 function gaussian_rwmh_step!(source::AbstractRandomSource, logdensity,
-        scale::Float64, current::Float64)
+        scale::T, current::T) where {T<:AbstractFloat}
     checked_positive_float(scale, "scale")
     checked_finite_float(current, "current state")
-    proposal = current + scale * standard_normal!(source)
-    logratio = logdensity(proposal) - logdensity(current)
-    log(uniform_unit!(source)) < min(0.0, logratio) ? proposal : current
+    σ, initial = scale, current
+    proposal = initial + σ * T(standard_normal!(source))
+    logratio = logdensity(proposal) - logdensity(initial)
+    log(uniform_unit!(source)) < min(zero(logratio), logratio) ? proposal : initial
 end
 
 """Maintained categorical implementation using cumulative sums and binary search."""
