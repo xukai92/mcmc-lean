@@ -12,6 +12,10 @@ const QUALITY = joinpath(@__DIR__, "results",
     DEV_MODE ? "dev-quality.csv" : "quality.csv")
 const METADATA = joinpath(@__DIR__, "results",
     DEV_MODE ? "dev-metadata.csv" : "metadata.csv")
+const RMHMC_RESULTS = joinpath(@__DIR__, "results", "rmhmc.csv")
+const RMHMC_TIMINGS = joinpath(@__DIR__, "results", "rmhmc-timings.csv")
+const RMHMC_QUALITY = joinpath(@__DIR__, "results", "rmhmc-quality.csv")
+const RMHMC_METADATA = joinpath(@__DIR__, "results", "rmhmc-metadata.csv")
 const DOC = joinpath(@__DIR__, "..", "docs", "benchmarks.md")
 const SVG = joinpath(@__DIR__, "..", "docs", "assets", "benchmarks",
     "hmc-throughput.svg")
@@ -163,7 +167,9 @@ function display_name(value)
         "correlated-gaussian-rho-0.9" => "Correlated Gaussian (ρ=0.9)",
         "product-quartic" => "Product quartic",
         "ill-conditioned-gaussian" => "Ill-conditioned Gaussian",
-        "regularized-logistic" => "Regularized logistic"), value, value)
+        "regularized-logistic" => "Regularized logistic",
+        "position-dependent-gaussian" =>
+            "Gaussian with G(q)=diag(2+sin(qᵢ))"), value, value)
 end
 
 function write_doc(rows, timings, quality, metadata)
@@ -220,6 +226,9 @@ function write_doc(rows, timings, quality, metadata)
         if haskey(metadata, "nuts_max_depth")
             println(io, "- Shared NUTS depth budget: `$(metadata["nuts_max_depth"])`")
             println(io, "- Completed-tree trajectory length: `$(metadata["completed_tree_steps"])` leapfrog steps")
+        end
+        if haskey(metadata, "rmhmc_dimension")
+            println(io, "\nThe `rmhmc-dense` rows use a separate position-dependent workload: dimension `$(metadata["rmhmc_dimension"])`, `$(metadata["rmhmc_draws"])` draws per chain, `$(metadata["rmhmc_steps"])` generalized-leapfrog steps, step size `$(metadata["rmhmc_step_size"])`, `$(metadata["rmhmc_solver_iterations"])` fixed-point iterations, and checked residual tolerance `$(metadata["rmhmc_residual_tolerance"])`. They have `$(metadata["rmhmc_repetitions"])` seeded timing/quality chains. AdvancedHMC's pinned Riemannian source is loaded explicitly because version 0.8 does not load its metric implementation into the public module.\n")
         end
         println(io, "- Gradients: analytic callbacks for both packages; AD time excluded\n")
         if combined_protocol
@@ -295,8 +304,9 @@ function write_doc(rows, timings, quality, metadata)
         println(io, "- **Product quartic:** independent coordinates with potential `x⁴/4 + x²/2`, adding a nonlinear strongly convex target.\n")
         println(io, "- **Ill-conditioned Gaussian:** diagonal covariance ranging from `10⁻²` to `10²`; it also activates matched constant-metric algorithms.")
         println(io, "- **Regularized logistic:** a symmetric product logistic posterior with paired labels and a standard-normal prior.\n")
+        println(io, "- **Position-dependent Gaussian:** standard-normal target with `G(q)=diag(2+sin(qᵢ))`; this activates generic dense RMHMC metric derivatives and implicit solves.\n")
         println(io, "## Reproduce\n")
-        println(io, "```sh\nmake benchmark-hmc\nmake benchmark-report\n```\n")
+        println(io, "```sh\nmake benchmark-hmc\nmake benchmark-rmhmc\nmake benchmark-report\n```\n")
         println(io, "Aggregate measurements are committed at [`benchmark/results/latest.csv`](https://github.com/xukai92/mcmc-lean/blob/main/benchmark/results/latest.csv), with every timing repetition in [`benchmark/results/timings.csv`](https://github.com/xukai92/mcmc-lean/blob/main/benchmark/results/timings.csv) and sampling diagnostics in [`benchmark/results/quality.csv`](https://github.com/xukai92/mcmc-lean/blob/main/benchmark/results/quality.csv).")
     end
 end
@@ -305,6 +315,18 @@ rows = read_rows(RESULTS)
 timings = read_rows(TIMINGS)
 quality = read_rows(QUALITY)
 metadata = read_metadata(METADATA)
+if !DEV_MODE && all(isfile, (RMHMC_RESULTS, RMHMC_TIMINGS,
+        RMHMC_QUALITY, RMHMC_METADATA))
+    append!(rows, read_rows(RMHMC_RESULTS))
+    append!(timings, read_rows(RMHMC_TIMINGS))
+    append!(quality, read_rows(RMHMC_QUALITY))
+    rmhmc_metadata = read_metadata(RMHMC_METADATA)
+    for (name, value) in rmhmc_metadata
+        metadata["rmhmc_$name"] = value
+    end
+    metadata["rmhmc_repetitions"] = string(length(unique(
+        row.seed for row in timings if row.algorithm == "rmhmc-dense")))
+end
 write_svg(rows, timings)
 write_interactive_data(rows, timings, quality, metadata)
 write_doc(rows, timings, quality, metadata)

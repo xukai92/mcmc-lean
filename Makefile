@@ -93,7 +93,7 @@ docs: generate-docs
 	julia --project=docs -e 'using Pkg; Pkg.instantiate()'
 	julia --project=docs docs/make.jl
 
-benchmarks: benchmark-hmc benchmark-report
+benchmarks: benchmark-hmc benchmark-rmhmc benchmark-report
 
 benchmark-dev:
 	julia --project=benchmark benchmark/run.jl --dev
