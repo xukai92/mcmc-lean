@@ -371,12 +371,13 @@ agreement at intermediate dimensions, but it does not improve the overall
 quality/cost trade-off here. A fair positive test needs genuinely higher-rank
 local geometry.
 
-These prototypes are not yet end-to-end verified Reference samplers. The
-benchmark selects the Optimized generalized-leapfrog implementation, but probe
-construction, metric callbacks, and public RMHMC orchestration are maintained
-direct Julia. Establishing an IR-backed Reference for dense and structured
-RMHMC is a prerequisite for the repository's usual Reference-versus-Optimized
-development loop.
+Artifact version 23 now supplies explicit IR-backed Reference entries for
+dense and random-sketch RMHMC. The random-sketch program owns structured
+momentum refresh, repeated residual-gated integration, energy comparison, and
+accept/reject; seeded tests compare it with the independent Optimized path.
+Curvature actions, derivatives, and the finite-tolerance solver remain
+declared host callbacks, so this closes the executable reference architecture
+without claiming a theorem about Julia or positive-residual stationarity.
 
 ## Primary precedents
 

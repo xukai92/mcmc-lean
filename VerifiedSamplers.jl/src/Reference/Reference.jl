@@ -4,7 +4,7 @@ using LinearAlgebra
 
 using ..Runtime: AbstractRandomSource, draw_below!, standard_normal!,
     uniform_unit!, checked_positive_float, checked_positive_count,
-    checked_finite_float
+    checked_finite_float, FloatTraceEvent, FloatTraceSource
 using ..Certificates: ImplicitSolveCertificate, certify_implicit_solve,
     certifies_exact_solver
 
@@ -17,6 +17,7 @@ export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_ou
     vector_leapfrog_step,
     classical_rmhmc_step!,
     approximate_classical_rmhmc_step!,
+    dense_rmhmc_step!, random_sketch_rmhmc_step!,
     certified_relativistic_multinomial_hmc_step!,
     dynamic_select_float!, streaming_eligible_select!, recursive_doubling_rows,
     NUTSTreeLeaf, NUTSTreeNode, NUTSSubtreeResult, build_nuts_phase_tree,
@@ -26,7 +27,7 @@ export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_ou
     coupled_multinomial_hmc_step!, coupled_gaussian_rwmh_step!, xu21_coupled_step!,
     IR_FORMAT_VERSION, artifact_facets
 
-const IR_FORMAT_VERSION = 22
+const IR_FORMAT_VERSION = 23
 
 """Execute one instance of the Lean IR `vector-leapfrog` primitive."""
 function vector_leapfrog_step(gradient, step_size::Real,
@@ -469,6 +470,16 @@ function eval_expr(raw, env::Dict{String,Any})
             env["metric_factor"], env["integrator"], step_size, steps,
             current; residual_tolerance)
     end
+    if tag == "structured-rmhmc"
+        source = eval_expr(node[2], env)
+        step_size = Float64(eval_expr(node[3], env))
+        steps = Int(eval_expr(node[4], env))
+        current = eval_expr(node[5], env)
+        residual_tolerance = Float64(eval_expr(node[6], env))
+        return _structured_rmhmc_step!(source, env["hamiltonian"],
+            env["momentum_sampler"], env["integrator"], step_size, steps,
+            current, residual_tolerance)
+    end
     if tag == "coupled-multinomial-hmc" || tag == "coupled-gaussian-rwmh" ||
             tag == "xu21-coupled-mixture"
         source = eval_expr(node[2], env)
@@ -629,6 +640,8 @@ function valid_input_value(kind::String, value)
         return applicable(value, 0.0) || applicable(value, Float64[])
     kind == "hamiltonian" && return applicable(value, Float64[], Float64[])
     kind == "metric-factor" && return applicable(value, Float64[])
+    kind == "momentum-sampler" &&
+        return applicable(value, FloatTraceSource(FloatTraceEvent[]), Float64[])
     kind == "integrator" &&
         return applicable(value, Float64[], Float64[], 0.0)
     kind == "nat" && return value isa Integer && value >= 0
@@ -1128,6 +1141,71 @@ function approximate_classical_rmhmc_step!(source::AbstractRandomSource,
     Float64.(run_program("approximate_classical_rmhmc_step!", source,
         hamiltonian, metric_factor, integrator, Float64(step_size), steps,
         current, Float64(residual_tolerance)))
+end
+
+"""Execute the explicit dense-RMHMC Lean IR entry point."""
+function dense_rmhmc_step!(source::AbstractRandomSource, hamiltonian,
+        metric_factor, integrator, step_size::Real, steps::Integer,
+        current::AbstractVector{<:Real}, residual_tolerance::Real)
+    Float64.(run_program("dense_rmhmc_step!", source, hamiltonian,
+        metric_factor, integrator, Float64(step_size), steps, current,
+        Float64(residual_tolerance)))
+end
+
+"""Reference primitive for structured RMHMC momentum and integration.
+
+The IR owns the stochastic transition. `momentum_sampler(source, q)` and the
+Hamiltonian/integrator callbacks are explicit host boundaries.
+"""
+function _structured_rmhmc_step!(source::AbstractRandomSource, hamiltonian,
+        momentum_sampler, integrator, step_size::Real, steps::Integer,
+        current::AbstractVector{<:Real}, residual_tolerance::Real)
+    ε = Float64(step_size)
+    isfinite(ε) && ε > 0 || throw(ArgumentError(
+        "step size must be finite and positive"))
+    steps > 0 || throw(ArgumentError("trajectory length must be positive"))
+    tolerance = BigFloat(residual_tolerance)
+    isfinite(tolerance) && tolerance >= 0 || throw(ArgumentError(
+        "residual tolerance must be finite and nonnegative"))
+    q0 = Float64.(current)
+    isempty(q0) && throw(ArgumentError("position cannot be empty"))
+    all(isfinite, q0) || throw(ArgumentError("position must be finite"))
+    p0 = Float64.(momentum_sampler(source, q0))
+    length(p0) == length(q0) || throw(DimensionMismatch(
+        "refreshed momentum dimension"))
+    all(isfinite, p0) || throw(DomainError(p0, "refreshed momentum"))
+    q, p = copy(q0), p0
+    for _ in 1:steps
+        result = integrator(q, p, ε)
+        result isa Tuple && length(result) == 3 || throw(ArgumentError(
+            "integrator must return (position, momentum, certificate)"))
+        next_q, next_p, certificate = result
+        certificate isa ImplicitSolveCertificate || throw(ArgumentError(
+            "integrator did not return an implicit-solver certificate"))
+        certificate.half_momentum_residual.bound <= tolerance &&
+            certificate.position_residual.bound <= tolerance ||
+            throw(ArgumentError("implicit solve exceeds residual tolerance"))
+        q, p = Float64.(next_q), Float64.(next_p)
+        length(q) == length(q0) && length(p) == length(q0) ||
+            throw(DimensionMismatch("integrator state dimension"))
+        all(isfinite, q) && all(isfinite, p) || throw(DomainError(
+            (q, p), "integrator state"))
+    end
+    current_energy = Float64(hamiltonian(q0, p0))
+    proposed_energy = Float64(hamiltonian(q, p))
+    isfinite(current_energy) && isfinite(proposed_energy) || throw(DomainError(
+        (current_energy, proposed_energy), "Hamiltonian must be finite"))
+    threshold = exp(min(0.0, current_energy - proposed_energy))
+    uniform_unit!(source) < threshold ? q : q0
+end
+
+"""Execute the structured-RMHMC Lean IR entry point."""
+function random_sketch_rmhmc_step!(source::AbstractRandomSource, hamiltonian,
+        momentum_sampler, integrator, step_size::Real, steps::Integer,
+        current::AbstractVector{<:Real}, residual_tolerance::Real)
+    Float64.(run_program("random_sketch_rmhmc_step!", source, hamiltonian,
+        momentum_sampler, integrator, Float64(step_size), steps, current,
+        Float64(residual_tolerance)))
 end
 
 """One concrete derivative callback invocation made by the reference solver."""

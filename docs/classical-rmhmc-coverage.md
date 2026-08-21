@@ -103,13 +103,14 @@ draws = sample(MersenneTwister(42), sampler, zeros(5), 1_000)
 its step size. The Optimized path remains generic; generated Reference performs
 an explicitly local Float64 conversion at its artifact boundary.
 
-This does not yet make generic dense RMHMC an end-to-end IR-derived sampler.
-The Reference transition primitive is artifact-backed, but the public dense
-metric callbacks and finite-tolerance fixed-point integrator are supplied by
-Julia closures. `implementation=:reference` therefore identifies the
-transition/control primitive, not an IR representation of every metric and
-solver operation. The same limitation currently applies to random-sketch
-RMHMC and is tracked as the next execution-architecture milestone.
+Artifact version 23 gives generic dense RMHMC an explicit
+`dense_rmhmc_step!` Reference entry, and gives random-sketch RMHMC a separate
+`random_sketch_rmhmc_step!` entry backed by the `structured-rmhmc` primitive.
+Their IR owns stochastic transition control, residual checking, and endpoint
+acceptance. This does not encode arbitrary user metric algebra inside the IR:
+dense metric, sketch curvature, derivative, and finite-tolerance integrator
+callbacks remain declared Julia host boundaries. Thus the programs are
+IR-backed executable References, not proofs of callback or Float64 semantics.
 
 ## Focused benchmark
 

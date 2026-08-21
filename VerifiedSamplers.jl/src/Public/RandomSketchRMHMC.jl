@@ -233,7 +233,18 @@ end
 function step(rng::AbstractRNG, sampler::RandomSketchRMHMC,
         current::AbstractVector{<:AbstractFloat})
     T = typeof(sampler.step_size)
-    _random_sketch_step!(Runtime.RNGSource(rng), sampler, T.(current))
+    source = Runtime.RNGSource(rng)
+    state = T.(current)
+    if sampler.implementation === :reference
+        callbacks = _random_sketch_callbacks(sampler)
+        momentum_sampler = (runtime_source, q) ->
+            _random_sketch_momentum!(runtime_source, sampler, T.(q))
+        T.(Reference.random_sketch_rmhmc_step!(source, callbacks.hamiltonian,
+            momentum_sampler, callbacks.integrator, sampler.step_size,
+            sampler.steps, state, sampler.residual_tolerance))
+    else
+        _random_sketch_step!(source, sampler, state)
+    end
 end
 
 step(sampler::RandomSketchRMHMC,

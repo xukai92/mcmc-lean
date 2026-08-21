@@ -116,7 +116,7 @@ function step(rng::AbstractRNG, sampler::DenseRiemannianRMHMC,
     T = typeof(sampler.step_size)
     state = T.(current)
     if sampler.implementation === :reference
-        T.(Reference.approximate_classical_rmhmc_step!(source,
+        T.(Reference.dense_rmhmc_step!(source,
             callbacks.hamiltonian, callbacks.factor, callbacks.integrator,
             Float64(sampler.step_size), sampler.steps, Float64.(state),
             Float64(sampler.residual_tolerance)))

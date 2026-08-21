@@ -570,6 +570,22 @@ treated as a measured budget rather than increased automatically.
 The same audit corrected the execution-layer description. `VectorHMC` in this
 study is the IR-backed Reference transition. Dense and sketch RMHMC use the
 Optimized generalized-leapfrog machinery, while metric construction and public
-orchestration remain direct Julia. The next architectural milestone is an
-end-to-end IR-backed Reference contract for both dense and structured RMHMC,
-followed by separately maintained end-to-end Optimized implementations.
+orchestration remain direct Julia in those timed rows.
+
+## 2026-08-21: IR-backed dense and random-sketch RMHMC Reference
+
+Artifact version 23 adds explicit `dense_rmhmc_step!` and
+`random_sketch_rmhmc_step!` programs. The dense entry gives the existing
+bounded-residual classical primitive an unambiguous public artifact name. The
+random-sketch entry uses a new `structured-rmhmc` primitive whose IR-declared
+transition owns momentum refresh, repeated certificate checking, Hamiltonian
+comparison, and accept/reject. Its structured momentum callback consumes the
+required `d + M` standard normals without materializing a dense factor.
+
+Public `implementation=:reference` now routes both samplers through these
+artifact programs; `implementation=:optimized` remains an independently
+maintained path. Seeded multi-step tests compare the two paths. This is an
+IR-backed executable Reference contract, not a theorem about Julia, callbacks,
+floating-point fixed-point solves, or positive-residual stationarity. Metric,
+curvature-action, derivative, and finite-tolerance integrator callbacks remain
+explicit host boundaries.

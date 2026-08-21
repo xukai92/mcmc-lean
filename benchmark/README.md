@@ -91,13 +91,14 @@ The implicit fixed-point solver stops at tolerance `1e-10`, subject to a
 `GEOMETRY_STUDY_SOLVER_ITERATIONS` when studying solver sensitivity.
 
 Execution labels in this exploratory study are intentionally narrower than
-the repository-wide benchmark labels. `VectorHMC` currently invokes the
-IR-backed Reference transition. Dense and sketch RMHMC invoke the maintained
-Optimized generalized-leapfrog and accept/reject primitives, but their metric
-callbacks and public orchestration are direct Julia code. Consequently their
-wall-clock rows do not yet compare three end-to-end Optimized samplers. The
-ESS and `Rhat` diagnostics remain meaningful; interpret cross-method ESS/s only
-after matching the execution layer.
+the repository-wide benchmark labels. `VectorHMC` invokes the IR-backed
+Reference transition, while the study explicitly selects the Optimized dense
+and sketch RMHMC paths. Artifact version 23 now also supplies IR-backed
+Reference entries for dense and random-sketch RMHMC, but those are parity
+anchors rather than the timed rows in this study. Metric and curvature
+callbacks remain declared host boundaries for both paths. Consequently these
+wall-clock rows do not compare three implementations at the same execution
+layer; interpret cross-method ESS/s accordingly.
 
 To make a fail-closed acceptance decision, first record the pre-change median,
 then run the complete release gate and candidate measurement together:
