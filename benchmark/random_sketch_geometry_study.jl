@@ -12,7 +12,8 @@ const DEFAULT_PROBES = PROBE_SCHEDULE == "log2" ?
     max(1, ceil(Int, log2(DIMENSION))) : 1
 const PROBES = parse(Int,
     get(ENV, "GEOMETRY_STUDY_PROBES", string(DEFAULT_PROBES)))
-const DRAWS = parse(Int, get(ENV, "GEOMETRY_STUDY_DRAWS", "4000"))
+const DRAWS = parse(Int, get(ENV, "GEOMETRY_STUDY_DRAWS", "2000"))
+const BURNIN = parse(Int, get(ENV, "GEOMETRY_STUDY_BURNIN", "1000"))
 const BANANA = parse(Float64, get(ENV, "GEOMETRY_STUDY_BANANA", "2.0"))
 const RIDGE = parse(Float64, get(ENV, "GEOMETRY_STUDY_RIDGE", "0.1"))
 const SOLVER_ITERATIONS = parse(Int,
@@ -189,7 +190,8 @@ end
 
 failed_row(algorithm, step_size, integration_time, failures) =
     (; algorithm, probes=PROBES, step_size, integration_time,
-        steps=configured_steps(integration_time, step_size), failures,
+        steps=configured_steps(integration_time, step_size), draws=DRAWS,
+        burnin=BURNIN, retained_per_chain=DRAWS - BURNIN, failures,
         seconds=Inf, draws_per_second=0.0, bulk_ess=0.0, tail_ess=0.0,
         bulk_ess_per_transition=0.0, tail_ess_per_transition=0.0,
         bulk_ess_per_second=0.0, tail_ess_per_second=0.0,
@@ -269,8 +271,7 @@ function run_configuration(algorithm, probes, step_size, integration_time)
     isempty(chains) && return failed_row(
         algorithm, step_size, integration_time, failures)
 
-    burnin = DRAWS ÷ 10
-    retained = [@view chain[:, (burnin + 1):end] for chain in chains]
+    retained = [@view chain[:, (BURNIN + 1):end] for chain in chains]
     coordinate_count = min(4, DIMENSION)
     rank_diagnostics = [VerifiedSamplers.Evaluation.split_rank_diagnostics(
         hcat([vec(@view chain[coordinate, :]) for chain in retained]...))
@@ -286,7 +287,8 @@ function run_configuration(algorithm, probes, step_size, integration_time)
         @view(chain[:, index - 1])) / DIMENSION
         for index in 2:size(chain, 2)) for chain in retained)
     (; algorithm, probes=PROBES, step_size, integration_time,
-        steps=configured_steps(integration_time, step_size), failures,
+        steps=configured_steps(integration_time, step_size), draws=DRAWS,
+        burnin=BURNIN, retained_per_chain=DRAWS - BURNIN, failures,
         seconds=total_seconds,
         draws_per_second=length(chains) * DRAWS / total_seconds,
         bulk_ess, tail_ess,
@@ -321,7 +323,7 @@ function read_result_rows(path)
         for line in @view lines[2:end]]
 end
 
-function best_stable_row(rows, algorithm)
+function best_no_failure_row(rows, algorithm)
     candidates = filter(row -> row.algorithm == algorithm &&
         parse(Int, row.failures) == 0 &&
         isfinite(parse(Float64, row.rank_normalized_rhat)), rows)
@@ -370,7 +372,7 @@ function dimension_sweep_main()
     for (dimension, path) in zip(dimensions, result_paths)
         rows = read_result_rows(path)
         for algorithm in ("hmc", "full-rmhmc", "random-sketch-rmhmc")
-            best = best_stable_row(rows, algorithm)
+            best = best_no_failure_row(rows, algorithm)
             isnothing(best) && continue
             push!(summaries, (; dimension, algorithm,
                 probes=parse(Int, best.probes),
@@ -411,8 +413,9 @@ function dimension_sweep_main()
         for plot in plots
             isnothing(plot) && continue
             first_plot || println(io)
-            print(io, rstrip(string(plot)))
-            println(io)
+            for line in split(rstrip(string(plot)), '\n')
+                println(io, rstrip(line))
+            end
             first_plot = false
         end
     end
@@ -430,6 +433,8 @@ function main()
     0 < PROBES <= DIMENSION || error(
         "GEOMETRY_STUDY_PROBES must lie in 1:dimension")
     DRAWS >= 100 || error("GEOMETRY_STUDY_DRAWS must be at least 100")
+    0 <= BURNIN < DRAWS || error(
+        "GEOMETRY_STUDY_BURNIN must lie in 0:(draws - 1)")
     length(SEEDS) >= 2 || error("GEOMETRY_STUDY_SEEDS needs at least two seeds")
     probes = fixed_probes()
     rows = NamedTuple[]

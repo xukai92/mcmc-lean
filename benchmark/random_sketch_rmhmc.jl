@@ -160,9 +160,12 @@ function main()
     probes = fixed_probes()
     rows = [
         measure("ordinary-hmc", ordinary_sampler()),
-        measure("full-dense-rmhmc", full_dense_sampler()),
-        measure("dense-materialized", dense_sampler(probes)),
-        measure("random-sketch-structured", sketch_sampler(probes)),
+        measure("full-dense-rmhmc",
+            full_dense_sampler(; implementation=:optimized)),
+        measure("dense-materialized",
+            dense_sampler(probes; implementation=:optimized)),
+        measure("random-sketch-structured",
+            sketch_sampler(probes; implementation=:optimized)),
     ]
     println("matched-metric dense versus structured random-sketch RMHMC")
     println("dimension=$DIMENSION probes=$PROBES draws=$DRAWS " *

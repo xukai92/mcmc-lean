@@ -76,11 +76,13 @@ It reports every completed chain with an estimated completion time and
 incrementally writes a `*-progress.csv` checkpoint beside each dimension's
 result. Thus interrupted runs retain per-chain status and timing, although they
 do not resume sampler state. It also writes per-dimension CSV files, a combined
-best-stable-row CSV, and UnicodePlots charts for bulk/tail ESS per transition
+best-no-failure-row CSV, and UnicodePlots charts for bulk/tail ESS per transition
 and tail ESS per second. Override `GEOMETRY_STUDY_DIMENSIONS` and
-`GEOMETRY_STUDY_DRAWS` for development runs. The default sweep uses 1,000
-draws rather than the 4,000-draw 2D confirmation workload and remains
-exploratory until a full run is explicitly recorded and reviewed.
+`GEOMETRY_STUDY_DRAWS` for development runs. All geometry studies default to
+2,000 iterations per chain and discard the first 1,000 as burn-in; override
+the latter with `GEOMETRY_STUDY_BURNIN`. Result rows record total, burn-in,
+and retained counts explicitly. These short runs remain exploratory until a
+full run is explicitly recorded and reviewed.
 
 The rank-log command uses `ceil(log2(d))` fixed random probes, records the
 probe count in every result row, and writes separate `*-rank-log-*` artifacts.

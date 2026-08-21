@@ -73,27 +73,30 @@ function _dense_rmhmc_callbacks(sampler::DenseRiemannianRMHMC)
         inv(Matrix(decomposition.L))
     end
     hamiltonian(q, p) = begin
-        decomposition, metric = _dense_metric_data(sampler, q)
+        decomposition, _ = _dense_metric_data(sampler, q)
         potential = eltype(q)(sampler.potential(q))
         isfinite(potential) || throw(DomainError(potential,
             "potential must be finite"))
-        potential + sum(log, diag(decomposition.L)) + dot(p, metric \ p) / 2
+        potential + sum(log, diag(decomposition.L)) +
+            dot(p, decomposition \ p) / 2
     end
     momentum_derivative(q, p) = begin
-        _, metric = _dense_metric_data(sampler, q)
-        metric \ p
+        decomposition, _ = _dense_metric_data(sampler, q)
+        decomposition \ p
     end
     position_derivative(q, p) = begin
-        _, metric = _dense_metric_data(sampler, q)
+        decomposition, _ = _dense_metric_data(sampler, q)
         derivative = _dense_metric_derivative(sampler, q)
         gradient = eltype(q).(sampler.potential_gradient(q))
         length(gradient) == length(q) ||
             throw(DimensionMismatch("potential gradient dimension"))
-        inverse_momentum = metric \ p
+        inverse_momentum = decomposition \ p
+        inverse_metric = decomposition \ Matrix{eltype(q)}(
+            I, length(q), length(q))
         for coordinate in eachindex(gradient)
             slice = @view derivative[:, :, coordinate]
             gradient[coordinate] +=
-                (tr(metric \ slice) - dot(inverse_momentum,
+                (dot(transpose(inverse_metric), slice) - dot(inverse_momentum,
                     slice * inverse_momentum)) / 2
         end
         gradient

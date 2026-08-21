@@ -1,3 +1,3 @@
-algorithm,probes,step_size,integration_time,steps,failures,seconds,draws_per_second,bulk_ess,tail_ess,bulk_ess_per_transition,tail_ess_per_transition,bulk_ess_per_second,tail_ess_per_second,rank_normalized_rhat,latent_esjd,latent_mean_rmse,latent_variance_rmse
-random-sketch-rmhmc,3,0.005,1.0,200,0,45.912674386,87.12191248915151,869.666478271316,1380.5831373542724,0.2415740217420322,0.3834953159317423,18.941751703675543,30.06976081914429,1.021159418634652,1.2531400439253,0.04499301007687041,0.2717618825549795
-random-sketch-rmhmc,3,0.01,1.0,100,4,Inf,0.0,0.0,0.0,0.0,0.0,0.0,0.0,Inf,0.0,Inf,Inf
+algorithm,probes,step_size,integration_time,steps,draws,burnin,retained_per_chain,failures,seconds,draws_per_second,bulk_ess,tail_ess,bulk_ess_per_transition,tail_ess_per_transition,bulk_ess_per_second,tail_ess_per_second,rank_normalized_rhat,latent_esjd,latent_mean_rmse,latent_variance_rmse
+random-sketch-rmhmc,3,0.005,1.0,200,2000,1000,1000,0,49.968854648000004,160.09972724720436,855.001326155666,1626.954198061731,0.2137503315389165,0.40673854951543276,17.110684889190015,32.55936541917215,1.0624761534955653,2.0327303554402714,0.024858552081895295,0.14985653611695857
+random-sketch-rmhmc,3,0.01,1.0,100,2000,1000,1000,4,Inf,0.0,0.0,0.0,0.0,0.0,0.0,0.0,Inf,0.0,Inf,Inf

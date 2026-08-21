@@ -31,6 +31,16 @@ struct RandomSketchRMHMC{T<:AbstractFloat,P,PG,C,CD,PR}
     implementation::Symbol
 end
 
+mutable struct _RandomSketchGeometryCache{T<:AbstractFloat}
+    position::Vector{T}
+    factor::Matrix{T}
+    gram::Union{Nothing,Cholesky{T,Matrix{T}}}
+    factor_derivative::Union{Nothing,Array{T,3}}
+end
+
+_RandomSketchGeometryCache(::Type{T}) where {T<:AbstractFloat} =
+    _RandomSketchGeometryCache(T[], Matrix{T}(undef, 0, 0), nothing, nothing)
+
 function RandomSketchRMHMC(potential::P, potential_gradient::PG,
         curvature_action::C, curvature_action_derivative::CD,
         probes::AbstractMatrix{T}, ridge::T, step_size::T,
@@ -81,7 +91,7 @@ function _random_sketch_factor(sampler::RandomSketchRMHMC, q)
             "curvature action dimension"))
         all(isfinite, action) || throw(DomainError(action,
             "curvature action must be finite"))
-        factor[:, probe_index] = scale .* action
+        @views factor[:, probe_index] .= scale .* action
     end
     factor
 end
@@ -101,8 +111,8 @@ function _random_sketch_factor_derivative(sampler::RandomSketchRMHMC, q)
         all(isfinite, action_derivative) || throw(DomainError(
             action_derivative, "curvature action derivative must be finite"))
         for coordinate in 1:dimension
-            derivative[:, probe_index, coordinate] =
-                scale .* @view(action_derivative[:, coordinate])
+            @views derivative[:, probe_index, coordinate] .=
+                scale .* action_derivative[:, coordinate]
         end
     end
     derivative
@@ -116,11 +126,32 @@ function _random_sketch_gram(sampler::RandomSketchRMHMC, factor)
 end
 
 function _random_sketch_inverse_apply(sampler::RandomSketchRMHMC,
-        factor, vector)
+        factor, gram, vector)
     T = eltype(factor)
     ridge = T(sampler.ridge)
-    gram = cholesky(_random_sketch_gram(sampler, factor); check=true)
     vector / ridge - factor * (gram \ (factor' * vector)) / ridge^2
+end
+
+function _random_sketch_geometry!(cache::_RandomSketchGeometryCache{T},
+        sampler::RandomSketchRMHMC, q::AbstractVector{T};
+        derivative::Bool=false) where {T<:AbstractFloat}
+    if length(cache.position) != length(q) || cache.position != q
+        cache.position = collect(q)
+        cache.factor = _random_sketch_factor(sampler, q)
+        cache.gram = cholesky(
+            _random_sketch_gram(sampler, cache.factor); check=true)
+        cache.factor_derivative = nothing
+    end
+    if derivative && isnothing(cache.factor_derivative)
+        cache.factor_derivative = _random_sketch_factor_derivative(sampler, q)
+    end
+    cache
+end
+
+function _random_sketch_inverse_apply(sampler::RandomSketchRMHMC,
+        factor, vector)
+    gram = cholesky(_random_sketch_gram(sampler, factor); check=true)
+    _random_sketch_inverse_apply(sampler, factor, gram, vector)
 end
 
 """Evaluate the dense matrix represented by a random-sketch metric."""
@@ -143,12 +174,15 @@ function random_sketch_metric_derivative(sampler::RandomSketchRMHMC, q)
     derivative
 end
 
-function _random_sketch_callbacks(sampler::RandomSketchRMHMC)
+function _random_sketch_callbacks(sampler::RandomSketchRMHMC,
+        ::Type{T}) where {T<:AbstractFloat}
+    cache = _RandomSketchGeometryCache(T)
     hamiltonian(q, p) = begin
-        T = eltype(q)
-        factor = _random_sketch_factor(sampler, q)
-        gram = cholesky(_random_sketch_gram(sampler, factor); check=true)
-        inverse_momentum = _random_sketch_inverse_apply(sampler, factor, p)
+        geometry = _random_sketch_geometry!(cache, sampler, q)
+        factor = geometry.factor
+        gram = something(geometry.gram)
+        inverse_momentum = _random_sketch_inverse_apply(
+            sampler, factor, gram, p)
         potential = T(sampler.potential(q))
         isfinite(potential) || throw(DomainError(potential,
             "potential must be finite"))
@@ -157,15 +191,21 @@ function _random_sketch_callbacks(sampler::RandomSketchRMHMC)
         potential + logdet / 2 + dot(p, inverse_momentum) / 2
     end
     momentum_derivative(q, p) = begin
-        factor = _random_sketch_factor(sampler, q)
-        _random_sketch_inverse_apply(sampler, factor, p)
+        geometry = _random_sketch_geometry!(cache, sampler, q)
+        factor = geometry.factor
+        gram = something(geometry.gram)
+        _random_sketch_inverse_apply(sampler, factor, gram, p)
     end
     position_derivative(q, p) = begin
-        T = eltype(q)
-        factor = _random_sketch_factor(sampler, q)
-        factor_derivative = _random_sketch_factor_derivative(sampler, q)
-        inverse_momentum = _random_sketch_inverse_apply(sampler, factor, p)
-        inverse_factor = _random_sketch_inverse_apply(sampler, factor, factor)
+        geometry = _random_sketch_geometry!(cache, sampler, q;
+            derivative=true)
+        factor = geometry.factor
+        factor_derivative = something(geometry.factor_derivative)
+        gram = something(geometry.gram)
+        inverse_momentum = _random_sketch_inverse_apply(
+            sampler, factor, gram, p)
+        inverse_factor = _random_sketch_inverse_apply(
+            sampler, factor, gram, factor)
         gradient = T.(sampler.potential_gradient(q))
         length(gradient) == length(q) || throw(DimensionMismatch(
             "potential gradient dimension"))
@@ -174,8 +214,19 @@ function _random_sketch_callbacks(sampler::RandomSketchRMHMC)
         projected_momentum = factor' * inverse_momentum
         for coordinate in eachindex(gradient)
             slice = @view factor_derivative[:, :, coordinate]
-            gradient[coordinate] += sum(inverse_factor .* slice) -
-                dot(slice' * inverse_momentum, projected_momentum)
+            trace_term = zero(T)
+            momentum_term = zero(T)
+            for probe in axes(slice, 2)
+                projected_derivative = zero(T)
+                for row in axes(slice, 1)
+                    value = slice[row, probe]
+                    trace_term += inverse_factor[row, probe] * value
+                    projected_derivative += value * inverse_momentum[row]
+                end
+                momentum_term += projected_derivative *
+                    projected_momentum[probe]
+            end
+            gradient[coordinate] += trace_term - momentum_term
         end
         gradient
     end
@@ -203,7 +254,7 @@ end
 function _random_sketch_step!(source::Runtime.AbstractRandomSource,
         sampler::RandomSketchRMHMC, current::AbstractVector{T}) where
         {T<:AbstractFloat}
-    callbacks = _random_sketch_callbacks(sampler)
+    callbacks = _random_sketch_callbacks(sampler, T)
     q0 = collect(current)
     all(isfinite, q0) || throw(ArgumentError("position must be finite"))
     p0 = _random_sketch_momentum!(source, sampler, q0)
@@ -236,7 +287,7 @@ function step(rng::AbstractRNG, sampler::RandomSketchRMHMC,
     source = Runtime.RNGSource(rng)
     state = T.(current)
     if sampler.implementation === :reference
-        callbacks = _random_sketch_callbacks(sampler)
+        callbacks = _random_sketch_callbacks(sampler, Float64)
         momentum_sampler = (runtime_source, q) ->
             _random_sketch_momentum!(runtime_source, sampler, T.(q))
         T.(Reference.random_sketch_rmhmc_step!(source, callbacks.hamiltonian,

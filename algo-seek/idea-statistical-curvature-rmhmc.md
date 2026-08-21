@@ -289,46 +289,27 @@ geometry are required before evaluating that hypothesis.
 Gaussian with banana parameter `2.0`. Its inverse transformation is known, so
 all convergence, bulk/tail ESS, jump-distance, mean, and variance diagnostics
 are computed in latent standard-normal coordinates. Step size and integration
-time are tuned separately. The confirmation run uses four chains of 4,000
-draws and excludes configurations with any numerical failure when selecting a
-best row.
+time are tuned separately. The confirmation run uses four chains of 2,000
+iterations, discards the first 1,000 from each chain, and excludes
+configurations with any numerical failure when selecting a best observed row.
 
 | Algorithm | `epsilon` | Integration time | Bulk ESS/transition | Tail ESS/transition | Tail ESS/s | `Rhat` |
 |---|---:|---:|---:|---:|---:|---:|
-| Ordinary HMC | 0.002 | 0.2 | 0.00752 | 0.07453 | 627.05 | 1.054 |
-| Full dense GGN RMHMC | 0.04 | 1.0 | 0.10875 | 0.14593 | 46.44 | 1.003 |
-| Rank-one random-sketch RMHMC | 0.005 | 1.0 | 0.10927 | 0.12670 | 12.55 | 1.002 |
+| Ordinary HMC | 0.001 | 0.2 | 0.02654 | 0.05524 | 149.07 | 1.204 |
+| Full dense GGN RMHMC | 0.04 | 1.0 | 0.11815 | 0.17369 | 192.15 | 1.011 |
+| Rank-one random-sketch RMHMC | 0.005 | 1.0 | 0.12178 | 0.19032 | 29.69 | 1.006 |
 
-On this target, full RMHMC improves bulk ESS per transition by `14.45x` and
-tail ESS per transition by `1.96x` over the best numerically stable HMC row.
-The rank-one sketch retains essentially all of the observed bulk benefit and
-about `86.82%` of full RMHMC's tail ESS per transition. Latent-space RMSE also
-improves substantially: mean/variance RMSE are `0.1935/0.2840` for HMC,
-`0.00138/0.0179` for full RMHMC, and `0.0114/0.0326` for the sketch.
+The two Riemannian rows have acceptable between-chain agreement and the sketch
+slightly exceeds full RMHMC in both bulk and tail ESS per retained transition.
+The selected HMC row has `Rhat = 1.204`, however, so its ESS estimates are not
+a reliable converged baseline and ratios against it are intentionally not
+promoted as evidence. Latent mean/variance RMSE are `0.1722/0.4433` for that
+HMC row, `0.0180/0.0392` for full RMHMC, and `0.0156/0.0456` for the sketch.
 
-The practical-cost result remains negative at this dimension: HMC has much
-higher ESS/s. The study therefore establishes that the Riemannian geometry
-improves exploration and that the sketch preserves much of that benefit, but
-not yet that this implementation repays its implicit-solver and metric-force
-cost in wall-clock time. The HMC `Rhat` of `1.054` is also only marginal; longer
-confirmation chains would strengthen the comparison further.
-
-For the direct sketch ablation, full and sketch RMHMC were also run with
-identical hyperparameters: `epsilon = 0.005`, 200 integration steps,
-integration time `1.0`, 50 implicit iterations, ridge `0.1`, the same four
-seeds, and the same residual tolerance. Both completed without failures:
-
-| Metric | Bulk ESS/transition | Tail ESS/transition | Bulk ESS/s | Tail ESS/s | `Rhat` |
-|---|---:|---:|---:|---:|---:|
-| Full GGN | 0.10897 | 0.14796 | 10.59 | 14.38 | 1.003 |
-| Rank-one sketch | 0.10927 | 0.12670 | 10.83 | 12.55 | 1.002 |
-
-At matched settings, the sketch retains `100.28%` of bulk ESS per transition
-and `85.63%` of tail ESS per transition. Throughput differs by only `1.92%` at
-dimension two, where dense `2`-by-`2` algebra is too small for structured
-complexity to matter. This matched comparison isolates metric approximation;
-the separately tuned table answers the different question of each algorithm's
-best observed operating point.
+The practical-cost comparison remains mixed. Full RMHMC is faster than the
+rank-one sketch in the 2D confirmation, where low-rank structure has little
+opportunity to repay callback overhead. The dimension sweep below is the more
+relevant implementation-scaling comparison.
 
 The next scaling study is implemented by
 `make benchmark-random-sketch-dimensions`. It replaces the axis-aligned banana
@@ -341,7 +322,7 @@ y(q) = q + b ((a^T q)^2 - 1) c,    a^T c = 0,
 whose inverse and pullback GGN metric are known. This preserves exact latent
 standard-normal diagnostics while varying ambient dimension independently of
 the intrinsic nonlinear geometry. The runner produces per-dimension CSV files,
-a combined stable-row summary, and terminal plots for bulk/tail ESS per
+a combined no-failure-row summary, and terminal plots for bulk/tail ESS per
 transition and tail ESS per second.
 
 ### Probe-rank and solver audit
@@ -353,17 +334,18 @@ acceptance gate. A 12-iteration cap was tested and rejected by that gate. Thus
 25 is a fail-closed empirical setting for this workload, not a general theorem
 about fixed-point convergence.
 
-With four 1,000-draw chains, rank one and `ceil(log2(d))` probes give the
+With four 2,000-iteration chains and 1,000 burn-in iterations, rank one and
+`ceil(log2(d))` probes give the
 following best observed tail rows. Rows with elevated `Rhat` are exploratory
 and their ESS estimates should not be treated as converged:
 
 | `d` | Rank-one ESS/transition | Rank-one ESS/s | Rank-one `Rhat` | Rank-log `M` | Rank-log ESS/transition | Rank-log ESS/s | Rank-log `Rhat` |
 |---:|---:|---:|---:|---:|---:|---:|---:|
-| 2 | 0.332 | 54.76 | 1.015 | 1 | 0.332 | 53.64 | 1.015 |
-| 4 | 0.362 | 50.92 | 1.026 | 2 | 0.331 | 43.63 | 1.011 |
-| 8 | 0.408 | 84.67 | 1.132 | 3 | 0.384 | 30.07 | 1.021 |
-| 16 | 0.596 | 48.56 | 1.042 | 4 | 0.458 | 15.09 | 1.022 |
-| 32 | 0.776 | 66.39 | 1.121 | 5 | 0.554 | 8.62 | 1.183 |
+| 2 | 0.319 | 44.27 | 1.004 | 1 | 0.319 | 44.36 | 1.004 |
+| 4 | 0.324 | 41.41 | 1.018 | 2 | 0.322 | 41.03 | 1.010 |
+| 8 | 0.375 | 75.96 | 1.030 | 3 | 0.407 | 32.56 | 1.062 |
+| 16 | 0.625 | 107.15 | 1.306 | 4 | 0.361 | 33.55 | 1.110 |
+| 32 | n/a | n/a | n/a | 5 | 0.714 | 12.98 | 1.120 |
 
 This target has one intrinsic nonlinear direction, so increasing sketch rank
 mostly adds irrelevant work. Rank-log sometimes improves between-chain

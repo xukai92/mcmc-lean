@@ -526,29 +526,20 @@ amortized curvature prediction and online adaptation remain later research
 stages.
 
 A subsequent hard-geometry study evaluates a strongly warped Gaussian in its
-known latent standard-normal coordinates. Across four 4,000-draw chains, the
-best stable full-RMHMC row improves bulk ESS per transition by `14.45x` and
-tail ESS per transition by `1.96x` over tuned stable HMC. A stable rank-one
-sketch retains the bulk gain and `86.82%` of full RMHMC's tail ESS per
-transition. Both Riemannian rows have rank-normalized `Rhat` near `1.00`, while
-the HMC row remains at `1.054`. HMC still wins ESS per second at this small
-dimension, so the study supports the geometric premise but not yet an
-end-to-end performance claim.
-
-A matched-hyperparameter ablation then ran full and rank-one sketch RMHMC with
-`epsilon = 0.005`, 200 steps, 50 implicit iterations, identical tolerances,
-ridge, and seeds. The sketch retains `100.28%` of full RMHMC's bulk ESS per
-transition and `85.63%` of its tail ESS per transition. Their runtime is
-essentially equal at dimension two, as expected before low-rank structured
-algebra reaches its intended high-dimensional regime.
+known latent standard-normal coordinates. The current protocol runs four
+2,000-iteration chains and discards the first 1,000 iterations. The 2D full
+and rank-one sketch RMHMC rows have rank-normalized `Rhat` of `1.011` and
+`1.006`; the sketch slightly exceeds full RMHMC in bulk and tail ESS per
+retained transition. The selected HMC row has `Rhat = 1.204`, so ratios against
+its ESS estimate are not treated as converged evidence.
 
 The benchmark environment now pins `UnicodePlots` and the geometry-study
 runner has an optional dimension-sweep mode. Sweep children use a dense rotated
 volume-preserving warp with known inverse and analytic pullback metric, then
 aggregate the best numerically stable rows across ambient dimension. The
-runner writes both CSV summaries and terminal-rendered plots. Exploratory
-1,000-draw sweeps remain distinct from the recorded 4,000-draw 2D confirmation
-evidence.
+runner writes both CSV summaries and terminal-rendered plots. All current
+geometry sweeps use the same 2,000-iteration/1,000-burn-in policy and record
+total, burn-in, and retained counts in each result row.
 
 ## 2026-08-21: sketch-rank and implicit-solver audit
 
@@ -562,7 +553,7 @@ workloads and roughly doubled rank-one throughput at dimensions 2 and 16.
 
 The rank-log result is negative on the current intrinsically rank-one warped
 target. At dimensions 4 and 8 it improves some `Rhat` values, but additional
-probe work reduces ESS/s; at dimension 32 its selected row has `Rhat = 1.183`
+probe work reduces ESS/s; at dimension 32 its selected row has `Rhat = 1.120`
 and is not a trustworthy convergence result. This does not reject higher-rank
 sketching on genuinely higher-rank geometry. It shows that probe rank must be
 treated as a measured budget rather than increased automatically.
@@ -589,3 +580,27 @@ IR-backed executable Reference contract, not a theorem about Julia, callbacks,
 floating-point fixed-point solves, or positive-residual stationarity. Metric,
 curvature-action, derivative, and finite-tolerance integrator callbacks remain
 explicit host boundaries.
+
+## 2026-08-21: optimized RMHMC linear-algebra pass
+
+The maintained dense RMHMC path now reuses one Cholesky factorization within
+each Hamiltonian or force callback and computes the inverse-metric trace terms
+with one matrix solve rather than one solve per coordinate. The structured
+random-sketch path similarly reuses one small Gram-matrix factorization for
+all inverse actions within a callback, caches typed factor/derivative geometry
+across repeated fixed-point evaluations at the same position, fuses the force
+contractions, and fills factor work arrays without temporary column
+assignments.
+
+Seeded Reference/Optimized trajectory parity, statistical smoke tests, and
+`Float32` type-propagation tests continue to pass. The exploratory
+`random_sketch_*` research workloads explicitly select these Optimized dense
+and sketch paths; the separate RMHMC comparison benchmark retains its
+Reference, Optimized, and AdvancedHMC rows.
+
+On the dimension-20 matched-metric workload, the cached structured path
+increased from about 972 to 2,157 draws/s and reduced median allocation from
+2.20 GB to 0.56 GB. A non-writing dimension-16 geometry confirmation reduced
+the optimized sketch chain time from about 19.5 to 10.6 seconds and increased
+tail ESS/s from 25.6 to 52.6 for the exercised seeded configuration. These are
+machine-specific empirical measurements, not formal performance claims.
