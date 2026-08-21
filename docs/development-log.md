@@ -505,3 +505,71 @@ parser or a formal semantics for Julia. The execution plan now keeps the
 existing handwritten `Optimized` layer, avoids a new optimizer framework, and
 reserves Metatheory.jl or IRTools.jl for concrete benchmark-motivated
 transformations whose semantic preservation is separately proved or checked.
+
+## 2026-08-20: budgeted random-sketch RMHMC prototype
+
+Added a generic fixed-probe `RandomSketchRMHMC` runtime. Given `M` fixed
+curvature probes, it constructs the position-dependent metric
+`G_M(q) = lambda I + U_M(q) U_M(q)^T`, samples its Gaussian momentum without a
+dense factorization, and evaluates inverse actions, log determinants, and
+metric-force contractions using an `M`-dimensional Gram matrix. The runtime
+uses the existing bounded-residual generalized leapfrog and therefore does not
+claim exact floating-point reversibility, volume preservation, or stationarity.
+
+The accompanying nonlinear-banana benchmark compares ordinary HMC, full dense
+GGN RMHMC, the sketch materialized through dense RMHMC, and the same sketch
+using structured algebra. It reports ESS per second and per configured
+integrator step in addition to raw throughput. The matched sketch rows isolate
+the structured implementation gain; ordinary-HMC and full-RMHMC comparisons
+also change geometry and answer a different efficiency question. Offline
+amortized curvature prediction and online adaptation remain later research
+stages.
+
+A subsequent hard-geometry study evaluates a strongly warped Gaussian in its
+known latent standard-normal coordinates. Across four 4,000-draw chains, the
+best stable full-RMHMC row improves bulk ESS per transition by `14.45x` and
+tail ESS per transition by `1.96x` over tuned stable HMC. A stable rank-one
+sketch retains the bulk gain and `86.82%` of full RMHMC's tail ESS per
+transition. Both Riemannian rows have rank-normalized `Rhat` near `1.00`, while
+the HMC row remains at `1.054`. HMC still wins ESS per second at this small
+dimension, so the study supports the geometric premise but not yet an
+end-to-end performance claim.
+
+A matched-hyperparameter ablation then ran full and rank-one sketch RMHMC with
+`epsilon = 0.005`, 200 steps, 50 implicit iterations, identical tolerances,
+ridge, and seeds. The sketch retains `100.28%` of full RMHMC's bulk ESS per
+transition and `85.63%` of its tail ESS per transition. Their runtime is
+essentially equal at dimension two, as expected before low-rank structured
+algebra reaches its intended high-dimensional regime.
+
+The benchmark environment now pins `UnicodePlots` and the geometry-study
+runner has an optional dimension-sweep mode. Sweep children use a dense rotated
+volume-preserving warp with known inverse and analytic pullback metric, then
+aggregate the best numerically stable rows across ambient dimension. The
+runner writes both CSV summaries and terminal-rendered plots. Exploratory
+1,000-draw sweeps remain distinct from the recorded 4,000-draw 2D confirmation
+evidence.
+
+## 2026-08-21: sketch-rank and implicit-solver audit
+
+The dimension runner now checkpoints every chain, records the probe count, and
+supports the schedule `M(d) = ceil(log2(d))`. An audit found that the original
+study passed a zero fixed-point stopping tolerance with a 50-iteration cap,
+which normally forced all 50 iterations. The refined study instead stops at
+`1e-10`, caps at 25 iterations, and retains the independent `1e-6` residual
+gate. A 12-iteration trial failed closed at that gate; 25 passed the exercised
+workloads and roughly doubled rank-one throughput at dimensions 2 and 16.
+
+The rank-log result is negative on the current intrinsically rank-one warped
+target. At dimensions 4 and 8 it improves some `Rhat` values, but additional
+probe work reduces ESS/s; at dimension 32 its selected row has `Rhat = 1.183`
+and is not a trustworthy convergence result. This does not reject higher-rank
+sketching on genuinely higher-rank geometry. It shows that probe rank must be
+treated as a measured budget rather than increased automatically.
+
+The same audit corrected the execution-layer description. `VectorHMC` in this
+study is the IR-backed Reference transition. Dense and sketch RMHMC use the
+Optimized generalized-leapfrog machinery, while metric construction and public
+orchestration remain direct Julia. The next architectural milestone is an
+end-to-end IR-backed Reference contract for both dense and structured RMHMC,
+followed by separately maintained end-to-end Optimized implementations.

@@ -242,6 +242,33 @@ additional irreducibility and recurrence assumptions; these do not follow
 from detailed balance alone. The exact claims and implementation boundary are
 recorded in the [classical RMHMC coverage audit](classical-rmhmc-coverage.md).
 
+#### Statistically sensed position-dependent metrics
+
+A possible structured-metric direction combines RMHMC with randomized
+curvature sensing under a fixed pass budget. Given `M` extra Hessian-vector,
+Fisher-vector, or generalized Gauss--Newton-vector products per metric
+evaluation, their outer products define a local ridge-plus-rank-`M` metric.
+The represented matrix has dense entries and captures rotated curvature, but
+Woodbury and determinant identities avoid dense factorization. A diagonal
+probe estimate is retained only as a baseline. Fisher/GGN geometry supplies a
+positive-semidefinite source in many statistical models; randomized range
+finding and Krylov methods supply the repeated-pass linear-algebra precedent.
+
+These ingredients do not by themselves prove a new sampler correct. A probe
+estimate used as `G(q)` must remain a smooth, strictly positive-definite
+function of position, and its inverse, log determinant, and metric force must
+be derived consistently. Probe randomness must be fixed during a reversible
+proposal or included in an extended state. By contrast, curvature accumulated
+during warmup and then frozen gives global preconditioned HMC rather than
+position-dependent RMHMC.
+
+The candidate design and its relationship to RMHMC, Fisher/GGN metrics,
+randomized numerical linear algebra, and auxiliary-variable MCMC are recorded
+in the [statistical-curvature RMHMC idea
+note](https://github.com/xukai92/mcmc-lean/blob/main/algo-seek/idea-statistical-curvature-rmhmc.md).
+The combination is a
+research direction, not presently a novelty claim or a covered theorem.
+
 ### Practical Hamiltonian Monte Carlo on Riemannian manifolds
 
 Xu and Ge introduce general-relativistic HMC (GR-HMC), combining a

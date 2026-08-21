@@ -10,6 +10,12 @@ roadmap](idea-hierarchical-refinement-hmc.md) for a comparison of the formal
 and executable work required for DR-G-HMC, ATLAS, and the proposed hierarchical
 refinement sampler.
 
+See [statistically sensed local curvature for
+RMHMC](idea-statistical-curvature-rmhmc.md) for a separate position-dependent
+metric idea using fixed Hessian-vector, Fisher-vector, or GGN-vector probes.
+That note distinguishes genuinely local geometry from warmup-only global
+preconditioning and records the exactness boundary for probe randomness.
+
 ## Evaluation principles
 
 A candidate should identify:

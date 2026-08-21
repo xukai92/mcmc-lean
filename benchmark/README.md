@@ -58,6 +58,47 @@ It writes `rmhmc.csv`, `rmhmc-timings.csv`, `rmhmc-quality.csv`, and
 and interactive website explorer while displaying their separate workload
 configuration.
 
+The random-sketch RMHMC studies use this same benchmark environment:
+
+```sh
+make benchmark-random-sketch-rmhmc
+make benchmark-random-sketch-geometry
+make benchmark-random-sketch-dimensions
+make benchmark-random-sketch-rank-log
+```
+
+The dimension command runs isolated geometry-study jobs at ambient dimensions
+`2,4,8,16` by default. They use a dense rotated, volume-preserving warp
+with a known inverse, so all diagnostics are evaluated in latent
+standard-normal coordinates. Dimension one remains available as an optional
+unwarped Gaussian smoke-test baseline but is not part of the default sweep.
+It reports every completed chain with an estimated completion time and
+incrementally writes a `*-progress.csv` checkpoint beside each dimension's
+result. Thus interrupted runs retain per-chain status and timing, although they
+do not resume sampler state. It also writes per-dimension CSV files, a combined
+best-stable-row CSV, and UnicodePlots charts for bulk/tail ESS per transition
+and tail ESS per second. Override `GEOMETRY_STUDY_DIMENSIONS` and
+`GEOMETRY_STUDY_DRAWS` for development runs. The default sweep uses 1,000
+draws rather than the 4,000-draw 2D confirmation workload and remains
+exploratory until a full run is explicitly recorded and reviewed.
+
+The rank-log command uses `ceil(log2(d))` fixed random probes, records the
+probe count in every result row, and writes separate `*-rank-log-*` artifacts.
+The implicit fixed-point solver stops at tolerance `1e-10`, subject to a
+25-iteration cap; every accepted transition must also satisfy the independent
+`1e-6` residual check. Override these with
+`GEOMETRY_STUDY_SOLVER_TOLERANCE` and
+`GEOMETRY_STUDY_SOLVER_ITERATIONS` when studying solver sensitivity.
+
+Execution labels in this exploratory study are intentionally narrower than
+the repository-wide benchmark labels. `VectorHMC` currently invokes the
+IR-backed Reference transition. Dense and sketch RMHMC invoke the maintained
+Optimized generalized-leapfrog and accept/reject primitives, but their metric
+callbacks and public orchestration are direct Julia code. Consequently their
+wall-clock rows do not yet compare three end-to-end Optimized samplers. The
+ESS and `Rhat` diagnostics remain meaningful; interpret cross-method ESS/s only
+after matching the execution layer.
+
 To make a fail-closed acceptance decision, first record the pre-change median,
 then run the complete release gate and candidate measurement together:
 
