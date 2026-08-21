@@ -26,7 +26,8 @@ export ScalarHMC, VectorHMC, FixedIntegrationTimeHMC, JitteredHMC, TemperedHMC,
     MultinomialHMC, MetricMultinomialHMC, MetricHMC,
     RelativisticMultinomialHMC, CertifiedRelativisticMultinomialHMC,
     GaussianSoftAbsGRHMC, ClassicalRMHMC, DenseRiemannianRMHMC,
-    fixed_point_generalized_leapfrog
+    RandomSketchRMHMC, random_sketch_metric,
+    random_sketch_metric_derivative, fixed_point_generalized_leapfrog
 export DiagonalMetric, DenseMetric, RankUpdateMetric
 export NUTS, VerifiedNUTS, CertifiedDynamicHMC, CompletedTreeC4DynamicHMC,
     CheckedFirstStopDynamicHMC, CheckedRecursiveDynamicHMC,
@@ -72,6 +73,7 @@ fixed_point_generalized_leapfrog(args...; kwargs...) =
 include("Public/CategoricalDHMC.jl")
 include("Public/ClassicalRMHMC.jl")
 include("Public/DenseRiemannianRMHMC.jl")
+include("Public/RandomSketchRMHMC.jl")
 include("Public/ObservationCursor.jl")
 
 """Restricted scalar target syntax shared with Lean's verified evaluator."""

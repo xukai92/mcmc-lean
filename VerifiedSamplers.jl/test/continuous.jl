@@ -675,6 +675,68 @@ end
     @test all(isfinite, float32_draws)
 end
 
+@testset "fixed-probe random-sketch RMHMC" begin
+    curvature_action(q, probe) = (one(eltype(q)) .+ eltype(q)(0.1) .* sin.(q)) .* probe
+    curvature_action_derivative(q, probe) = begin
+        derivative = zeros(eltype(q), length(q), length(q))
+        for coordinate in eachindex(q)
+            derivative[coordinate, coordinate] =
+                eltype(q)(0.1) * cos(q[coordinate]) * probe[coordinate]
+        end
+        derivative
+    end
+    potential(q) = sum(abs2, q) / 2
+    potential_gradient(q) = q
+    probes = Matrix{Float64}(I, 2, 2)
+    reference = RandomSketchRMHMC(potential, potential_gradient,
+        curvature_action, curvature_action_derivative, probes, 0.5, 0.035, 3;
+        solver_iterations=12, residual_tolerance=1e-9)
+    optimized = RandomSketchRMHMC(potential, potential_gradient,
+        curvature_action, curvature_action_derivative, probes, 0.5, 0.035, 3;
+        solver_iterations=12, residual_tolerance=1e-9,
+        implementation=:optimized)
+
+    q = [0.2, -0.4]
+    scales = 1 .+ 0.1 .* sin.(q)
+    expected_metric = Matrix(Diagonal(0.5 .+ scales.^2 ./ 2))
+    @test random_sketch_metric(reference, q) ≈ expected_metric atol=1e-14 rtol=0
+    derivative = random_sketch_metric_derivative(reference, q)
+    @test derivative[1, 1, 1] ≈ scales[1] * 0.1 * cos(q[1]) atol=1e-14
+    @test derivative[2, 2, 2] ≈ scales[2] * 0.1 * cos(q[2]) atol=1e-14
+    @test count(!iszero, derivative) == 2
+
+    reference_draws = sample(MersenneTwister(0x5ce7), reference, zeros(2), 300)
+    optimized_draws = sample(MersenneTwister(0x5ce7), optimized, zeros(2), 300)
+    @test reference_draws ≈ optimized_draws atol=1e-12 rtol=0
+    @test all(isfinite, reference_draws)
+
+    rotated = RandomSketchRMHMC(potential, potential_gradient,
+        curvature_action, curvature_action_derivative, ones(2, 1), 0.5,
+        0.035, 1; solver_iterations=12, residual_tolerance=1e-9)
+    @test random_sketch_metric(rotated, q)[1, 2] != 0
+    rotated_derivative = random_sketch_metric_derivative(rotated, q)
+    finite_difference_step = 1e-6
+    for coordinate in eachindex(q)
+        direction = zeros(2)
+        direction[coordinate] = finite_difference_step
+        finite_difference = (random_sketch_metric(rotated, q + direction) -
+            random_sketch_metric(rotated, q - direction)) /
+            (2finite_difference_step)
+        @test finite_difference ≈ rotated_derivative[:, :, coordinate] atol=1e-9
+    end
+    float32 = RandomSketchRMHMC(potential, potential_gradient,
+        curvature_action, curvature_action_derivative,
+        Matrix{Float32}(I, 2, 2), 0.5f0, 0.02f0, 1;
+        solver_iterations=12, residual_tolerance=1f-6,
+        implementation=:optimized)
+    @test eltype(sample(MersenneTwister(5), float32, zeros(Float32, 2), 2)) ===
+        Float32
+    @test_throws ArgumentError RandomSketchRMHMC(potential,
+        potential_gradient, curvature_action, curvature_action_derivative,
+        probes, 0.0, 0.035)
+    @test_throws DimensionMismatch random_sketch_metric(reference, zeros(3))
+end
+
 @testset "position-dependent fixed-point generalized leapfrog" begin
     coefficient = 0.2
     position_derivative(q, p) = (coefficient / 2) .* p.^2

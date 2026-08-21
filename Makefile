@@ -1,4 +1,4 @@
-.PHONY: all formal oracle julia test generate check-generated generate-docs check-docs-generated docs benchmarks benchmark-dev benchmark-hmc benchmark-report benchmark-rmhmc benchmark-nuts-optimization optimization-trial experiments experiment-xu21 experiment-xu21-logistic experiment-particle-gibbs-count experiment-dynamic-hmc experiment-restricted-quartic experiment-reversible-jump experiment-warmup-rwmh experiment-indefinite-adaptation experiment-indefinite-continuous-adaptation experiment-constrained-transforms experiment-ge-pg-hmc experiment-gaussian-softabs experiment-gaussian-performance
+.PHONY: all formal oracle julia test generate check-generated generate-docs check-docs-generated docs benchmarks benchmark-dev benchmark-hmc benchmark-report benchmark-rmhmc benchmark-random-sketch-rmhmc benchmark-random-sketch-geometry benchmark-random-sketch-dimensions benchmark-random-sketch-rank-log benchmark-nuts-optimization optimization-trial experiments experiment-xu21 experiment-xu21-logistic experiment-particle-gibbs-count experiment-dynamic-hmc experiment-restricted-quartic experiment-reversible-jump experiment-warmup-rwmh experiment-indefinite-adaptation experiment-indefinite-continuous-adaptation experiment-constrained-transforms experiment-ge-pg-hmc experiment-gaussian-softabs experiment-gaussian-performance
 
 XU21_SEED ?= 2021
 XU21_REPLICATES ?= 100
@@ -107,6 +107,25 @@ benchmark-report:
 
 benchmark-rmhmc:
 	julia --project=benchmark benchmark/rmhmc.jl
+
+benchmark-random-sketch-rmhmc:
+	julia --project=benchmark benchmark/random_sketch_rmhmc.jl
+
+benchmark-random-sketch-geometry:
+	julia --project=benchmark benchmark/random_sketch_geometry_study.jl
+
+benchmark-random-sketch-dimensions:
+	GEOMETRY_STUDY_DIMENSIONS=$${GEOMETRY_STUDY_DIMENSIONS:-2,4,8,16} \
+	GEOMETRY_STUDY_DRAWS=$${GEOMETRY_STUDY_DRAWS:-1000} \
+		julia --project=benchmark benchmark/random_sketch_geometry_study.jl
+
+benchmark-random-sketch-rank-log:
+	GEOMETRY_STUDY_DIMENSIONS=$${GEOMETRY_STUDY_DIMENSIONS:-2,4,8,16,32} \
+	GEOMETRY_STUDY_DRAWS=$${GEOMETRY_STUDY_DRAWS:-1000} \
+	GEOMETRY_STUDY_ALGORITHMS=random-sketch-rmhmc \
+	GEOMETRY_STUDY_PROBE_SCHEDULE=log2 \
+	GEOMETRY_STUDY_OUTPUT_PREFIX=random-sketch-geometry-rank-log \
+		julia --project=benchmark benchmark/random_sketch_geometry_study.jl
 
 benchmark-nuts-optimization:
 	julia --project=benchmark benchmark/nuts_optimization.jl

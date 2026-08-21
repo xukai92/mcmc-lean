@@ -9,3 +9,4 @@
 /benchmark/results/dev-timings.csv
 /benchmark/results/dev-quality.csv
 /benchmark/results/dev-metadata.csv
+/benchmark/results/*-progress.csv
