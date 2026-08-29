@@ -50,6 +50,51 @@ and coding agents without making every stage mandatory. In particular, a
 mathematics-only contribution can complete its declared formal obligations and
 leave executable lowering explicitly pending.
 
+## The recommended vertical slice
+
+For an algorithm intended to become a maintained sampler, use this order. A
+stage may be left explicitly pending, but it must not be silently replaced by
+evidence from a later stage.
+
+| Stage | Typical destination | Exit condition |
+|---|---|---|
+| Mathematical semantics | `formal/Mcmc/Kernel/`, `Finite/`, or another reusable formal layer | The transition and target are defined independently of execution |
+| Correctness theorem | The same formal module, with a small client under `formal/Mcmc/Examples/` when useful | The exact proved property and hypotheses compile without placeholders |
+| Executable presentation | `formal/Mcmc/Executable/` | One transition has typed ideal semantics, including draw order and failure behavior |
+| IR lowering | `CompilerIR.lean` or a focused typed sub-IR | Existing constructs are reused, or each new construct has reusable semantics |
+| Refinement | A focused `*Refinement.lean` module | The command law, kernel, or deterministic trace is connected to the mathematical sampler—or the remaining bridge is named explicitly |
+| Generated Reference | `IRFormat.lean`, `IRParser.lean`, and `VerifiedSamplers.jl/src/Reference/` | The canonical artifact regenerates and the Julia interpreter exposes a narrow wrapper |
+| Maintained implementation | `VerifiedSamplers.jl/src/Optimized/` | An independent, concretely typed implementation passes differential and edge-case tests |
+| Public API | `VerifiedSamplers.jl/src/Public/` | `step(rng, ...)` and `sample(rng, ...)` route explicitly to Reference or Optimized |
+| Evaluation | `VerifiedSamplers.jl/test/` and, when useful, `benchmark/` | Replay, statistical, and performance evidence are labelled as empirical |
+| Coverage record | progress, obligation matrix, development log, and any paper audit | Readers can locate every theorem, implementation, and open boundary |
+
+This order is about justification, not mandatory commit granularity. It is
+often productive to prototype the executable form while proving the kernel,
+but the prototype does not determine the mathematical statement.
+
+### Before writing a new definition
+
+Search the repository and pinned mathlib first. Many algorithms are clients of
+an existing construction rather than new correctness proofs. For example, a
+new proposal accepted with the general Metropolis--Hastings construction may
+need a proposal normalization/measurability proof, not a second proof of the
+abstract MH theorem.
+
+```sh
+rg -n "candidateName|relevantConcept" formal/Mcmc VerifiedSamplers.jl/src
+rg -n "relevantMathlibLemma" formal/.lake/packages/mathlib/Mathlib
+```
+
+Decide up front:
+
+- the mathematical state space and base measure;
+- whether callback gradients mean `∇logπ` or the gradient of a potential;
+- parameter conventions, such as variance versus standard deviation;
+- the random-event order and rejection/failure fallback; and
+- whether the desired theorem is validity, reversibility, invariance,
+  convergence, or an execution-refinement statement.
+
 ## 1. Formalize the mathematical sampler
 
 Start under `formal/Mcmc/` at the lowest reusable layer. Prefer mathlib
@@ -162,6 +207,82 @@ julia --project=docs docs/make.jl
 During development, use a narrow Lean module check before the full build. Also
 review `git diff --check` and the complete diff, and do not commit proof
 placeholders.
+
+## Worked vertical slice: isotropic MALA
+
+MALA illustrates the complete repository shape without pretending that all
+assurance layers are the same theorem.
+
+```text
+score and target weight
+        │
+        ▼
+scoreMALA mathematical kernel
+        │  Markov / reversible / invariant in Lean
+        ▼
+scalar_mala_step! and vector_mala_step! typed programs
+        │  introduced in artifact version 24 (current format: 25)
+        ▼
+Reference interpreter ───── shared events ───── Optimized implementation
+        │                                           │
+        └──────── public MALA dispatch ──────────────┘
+                              │
+                              ▼
+                replay + moments + benchmark rows
+```
+
+The mathematical layer is in
+`formal/Mcmc/Kernel/Langevin.lean`. It defines the conventional drift
+`ε²/2 ∇logπ(q)` and proves `scoreMALA_isMarkov`,
+`scoreMALA_isReversible`, and `scoreMALA_invariant` under explicit hypotheses.
+These are invariance results, not geometric-convergence results.
+
+The executable programs are in
+`formal/Mcmc/Executable/Continuous/CompilerIR.lean`. They declare `ε` as the
+proposal standard deviation, draw Gaussian noise before the uniform decision,
+evaluate the score at both endpoints, and include the forward/reverse Gaussian
+proposal correction. `IRFormat.lean` emits the programs and `IRParser.lean`
+checks their canonical syntax round trip.
+
+The Reference wrapper in `VerifiedSamplers.jl/src/Reference/Reference.jl`
+interprets that emitted program at the documented Float64 boundary. The
+independent implementation in `src/Optimized/Optimized.jl` preserves a caller's
+concrete `T<:AbstractFloat`; `src/Public/MALA.jl` selects the path explicitly.
+Tests replay identical events through both paths, check malformed dimensions,
+exercise `Float32`, and run normal-target moment diagnostics. The shared
+benchmark adds `mala × verified-reference` and
+`mala × verified-optimized` rows and records `MALA_STEP_SIZE` separately.
+
+One boundary remains deliberately visible: the repository proves the
+score-MALA kernel and separately gives the typed MALA command its ideal
+formula, artifact round trip, and runtime conformance tests. A focused theorem
+identifying the complete stochastic command denotation with `scoreMALA` would
+strengthen this from the current explicit bridge boundary to the same kind of
+closed command-kernel refinement available for scalar Gaussian RWMH. Artifact
+generation or seeded equality alone does not prove that theorem.
+
+### Definition of done for a maintained sampler
+
+A sampler is end-to-end at its declared assurance level when:
+
+1. its public mathematical theorem is named and its assumptions are documented;
+2. one transition has an unambiguous typed executable presentation;
+3. every new IR operation has semantics and its artifact round trip is checked;
+4. the Reference path consumes the generated artifact rather than duplicating
+   the algorithm in an unrelated handwritten implementation;
+5. the Optimized path, if present, is independently maintained and generically
+   typed;
+6. shared-event tests cover acceptance, rejection, and invalid inputs;
+7. statistical tests exercise a target with known behavior;
+8. benchmark rows use the same declared algorithm and hyperparameters;
+9. exact-real, floating-point, callback, RNG, and external-library boundaries
+   are stated separately; and
+10. the progress and obligation ledgers identify anything still open.
+
+The phrase “end-to-end” must therefore be qualified by its bridge status. A
+sampler can have every runtime layer and still have an open formal refinement
+obligation; conversely, a complete mathematical theorem does not require a
+Julia implementation.
 
 ## Review checklist
 

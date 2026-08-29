@@ -8,13 +8,16 @@ using ..Runtime: AbstractRandomSource, draw_below!, standard_normal!,
 using ..Certificates: ImplicitSolveCertificate, certify_implicit_solve,
     certifies_exact_solver
 
-export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_out_slice_step!, sheared_birth_death_step!, spatial_birth_death_step!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!, scalar_hmc_step!, vector_hmc_step!, metric_hmc_step!, multinomial_hmc_step!, metric_multinomial_hmc_step!, categorical_dhmc_step!,
+export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_out_slice_step!, sheared_birth_death_step!, spatial_birth_death_step!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!, scalar_mala_step!, vector_mala_step!, dense_pmala_step!, scalar_hmc_step!, vector_hmc_step!, metric_hmc_step!, multinomial_hmc_step!, metric_multinomial_hmc_step!, categorical_dhmc_step!,
     finite_hmm_particle_gibbs_step!,
     relativistic_multinomial_hmc_step!,
     fixed_point_generalized_leapfrog,
     fixed_point_generalized_leapfrog_trace,
     FixedPointGeneralizedLeapfrogTrace,
-    vector_leapfrog_step,
+    vector_leapfrog_step, vector_gauss_legendre_step,
+    vector_gauss_legendre_hmc_step!,
+    affine_prefix_scan, speculative_trajectory, certified_trajectory,
+    certified_speculative_trajectory,
     classical_rmhmc_step!,
     approximate_classical_rmhmc_step!,
     dense_rmhmc_step!, random_sketch_rmhmc_step!,
@@ -27,7 +30,50 @@ export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_ou
     coupled_multinomial_hmc_step!, coupled_gaussian_rwmh_step!, xu21_coupled_step!,
     IR_FORMAT_VERSION, artifact_facets
 
-const IR_FORMAT_VERSION = 23
+const IR_FORMAT_VERSION = 26
+
+function affine_prefix_scan(segments::AbstractVector{<:Tuple})
+    result = collect(segments)
+    for index in 2:length(result)
+        later, earlier = segments[index], result[index - 1]
+        result[index] = (later[1] * earlier[1],
+            later[1] * earlier[2] + later[2])
+    end
+    result
+end
+
+function certified_trajectory(step, initial, candidate::AbstractVector)
+    current = initial
+    for proposed in candidate
+        expected = step(current)
+        proposed == expected || return foldl((x, _) -> step(x), candidate;
+            init=initial), false
+        current = proposed
+    end
+    current, true
+end
+
+"""Jacobi-style parallel recurrence approximation with explicit pass count."""
+function speculative_trajectory(step, initial, length::Integer, passes::Integer)
+    length >= 0 || throw(ArgumentError("trajectory length must be nonnegative"))
+    passes >= 0 || throw(ArgumentError("pass count must be nonnegative"))
+    current = fill(initial, length)
+    for _ in 1:passes
+        previous = current
+        current = similar(previous)
+        for index in eachindex(current)
+            parent = index == firstindex(current) ? initial : previous[index - 1]
+            current[index] = step(parent)
+        end
+    end
+    current
+end
+
+function certified_speculative_trajectory(step, initial, length::Integer,
+        passes::Integer)
+    candidate = speculative_trajectory(step, initial, length, passes)
+    certified_trajectory(step, initial, candidate)
+end
 
 """Execute one instance of the Lean IR `vector-leapfrog` primitive."""
 function vector_leapfrog_step(gradient, step_size::Real,
@@ -45,6 +91,46 @@ function vector_leapfrog_step(gradient, step_size::Real,
     all(isfinite, position) && all(isfinite, momentum) ||
         throw(DomainError((position, momentum), "leapfrog state must be finite"))
     position, momentum
+end
+
+"""Allocation-transparent interpretation of one two-stage Gauss--Legendre step.
+
+The fixed iteration count is part of the serialized algorithm. The exact Lean
+geometric theorem applies when the returned stages satisfy the collocation
+equations; finite residuals are exposed to tests rather than hidden.
+"""
+function vector_gauss_legendre_step(gradient, step_size::Real,
+        iterations::Integer, position::AbstractVector{<:Real},
+        momentum::AbstractVector{<:Real})
+    length(position) == length(momentum) || throw(DimensionMismatch("phase state"))
+    iterations > 0 || throw(ArgumentError("stage iterations must be positive"))
+    q, p = Float64.(position), Float64.(momentum)
+    field(state) = begin
+        n = length(q)
+        sq, sp = @view(state[1:n]), @view(state[(n + 1):(2n)])
+        vcat(sp, -Float64.(gradient(sq)))
+    end
+    z = vcat(q, p)
+    k1 = field(z)
+    k2 = copy(k1)
+    radius = sqrt(3.0) / 6.0
+    a11, a12, a21, a22 = 0.25, 0.25 - radius, 0.25 + radius, 0.25
+    for _ in 1:iterations
+        next1 = field(z .+ step_size .* (a11 .* k1 .+ a12 .* k2))
+        next2 = field(z .+ step_size .* (a21 .* k1 .+ a22 .* k2))
+        k1, k2 = next1, next2
+    end
+    next = z .+ (step_size / 2) .* (k1 .+ k2)
+    (next[1:length(q)], next[(length(q) + 1):end])
+end
+
+function _vector_gauss_legendre_n(gradient, step_size, steps, iterations,
+        position, momentum)
+    q, p = Float64.(position), Float64.(momentum)
+    for _ in 1:steps
+        q, p = vector_gauss_legendre_step(gradient, step_size, iterations, q, p)
+    end
+    q, p
 end
 
 """Stable target-weighted selection from a supplied candidate index set.
@@ -381,6 +467,9 @@ function eval_expr(raw, env::Dict{String,Any})
     tag == "vector-log-density" && return env["logdensity"](eval_expr(node[2], env))
     tag == "vector-gradient" && return env["gradient"](eval_expr(node[2], env))
     tag == "squared-norm" && return sum(abs2, eval_expr(node[2], env); init=0.0)
+    tag == "vector-add-scaled" && return eval_expr(node[2], env) .+
+        eval_expr(node[3], env) .* eval_expr(node[4], env)
+    tag == "vector-sub" && return eval_expr(node[2], env) .- eval_expr(node[3], env)
     if tag == "leapfrog-position" || tag == "leapfrog-momentum"
         step_size = Float64(eval_expr(node[2], env))
         steps = Int(eval_expr(node[3], env))
@@ -392,6 +481,11 @@ function eval_expr(raw, env::Dict{String,Any})
             momentum = half_momentum - step_size * env["gradient"](position) / 2
         end
         return tag == "leapfrog-position" ? position : momentum
+    end
+    if tag == "dense-pmala"
+        return _dense_pmala_step!(eval_expr(node[2], env), env["logdensity"],
+            env["gradient"], env["metric"], env["metric_derivative"],
+            Float64(eval_expr(node[3], env)), eval_expr(node[4], env))
     end
     if tag == "vector-leapfrog-position" || tag == "vector-leapfrog-momentum"
         step_size = Float64(eval_expr(node[2], env))
@@ -459,6 +553,17 @@ function eval_expr(raw, env::Dict{String,Any})
         current = eval_expr(node[5], env)
         return _classical_rmhmc_step!(source, env["hamiltonian"],
             env["metric_factor"], env["integrator"], step_size, steps, current)
+    end
+    if tag == "vector-gauss-legendre-position" ||
+            tag == "vector-gauss-legendre-momentum"
+        step_size = Float64(eval_expr(node[2], env))
+        steps = Int(eval_expr(node[3], env))
+        iterations = Int(eval_expr(node[4], env))
+        position = eval_expr(node[5], env)
+        momentum = eval_expr(node[6], env)
+        q, p = _vector_gauss_legendre_n(env["gradient"], step_size, steps,
+            iterations, position, momentum)
+        return tag == "vector-gauss-legendre-position" ? q : p
     end
     if tag == "approximate-classical-rmhmc"
         source = eval_expr(node[2], env)
@@ -640,6 +745,8 @@ function valid_input_value(kind::String, value)
         return applicable(value, 0.0) || applicable(value, Float64[])
     kind == "hamiltonian" && return applicable(value, Float64[], Float64[])
     kind == "metric-factor" && return applicable(value, Float64[])
+    kind == "metric" && return applicable(value, Float64[])
+    kind == "metric-derivative" && return applicable(value, Float64[])
     kind == "momentum-sampler" &&
         return applicable(value, FloatTraceSource(FloatTraceEvent[]), Float64[])
     kind == "integrator" &&
@@ -778,6 +885,105 @@ function gaussian_rwmh_step!(source::AbstractRandomSource, logdensity,
     Float64(run_program("gaussian_rwmh_step!", source, checked, scale, current))
 end
 
+"""Float64 interpretation of the serialized scalar MALA program."""
+function scalar_mala_step!(source::AbstractRandomSource, logdensity, gradient,
+        step_size::Float64, current::Float64)
+    checked_positive_float(step_size, "step size")
+    checked_finite_float(current, "current state")
+    checked_log = value -> checked_logdensity(logdensity, value)
+    checked_grad = value -> checked_gradient(gradient, value)
+    Float64(run_program("scalar_mala_step!", source, checked_log, checked_grad,
+        step_size, current))
+end
+
+"""Float64 interpretation of the serialized vector MALA program."""
+function vector_mala_step!(source::AbstractRandomSource, logdensity, gradient,
+        step_size::Float64, current::AbstractVector{<:Real})
+    checked_positive_float(step_size, "step size")
+    isempty(current) && throw(ArgumentError("position cannot be empty"))
+    position = Float64.(current)
+    all(isfinite, position) || throw(ArgumentError("position must be finite"))
+    checked_log = value -> checked_logdensity(logdensity, value)
+    checked_grad = value -> checked_gradient(gradient, value)
+    Float64.(run_program("vector_mala_step!", source, checked_log, checked_grad,
+        step_size, length(position), position))
+end
+
+function _dense_pmala_geometry(gradient, metric, metric_derivative,
+        step_size::Float64, position::Vector{Float64})
+    dimension = length(position)
+    score = checked_gradient(gradient, position)
+    raw_metric = metric(position)
+    raw_metric isa AbstractMatrix || throw(ArgumentError("metric must return a matrix"))
+    size(raw_metric) == (dimension, dimension) || throw(DimensionMismatch("metric dimension"))
+    matrix = Matrix{Float64}(raw_metric)
+    all(isfinite, matrix) || throw(DomainError(raw_metric, "metric must be finite"))
+    issymmetric(matrix) || throw(ArgumentError("metric must be symmetric"))
+    factor = try
+        cholesky(Symmetric(matrix))
+    catch error
+        error isa PosDefException || rethrow()
+        throw(DomainError(raw_metric, "metric must be positive definite"))
+    end
+    inverse_metric = factor \ Matrix{Float64}(I, dimension, dimension)
+    raw_derivative = metric_derivative(position)
+    raw_derivative isa AbstractArray || throw(ArgumentError(
+        "metric derivative must return a rank-three array"))
+    ndims(raw_derivative) == 3 && size(raw_derivative) ==
+        (dimension, dimension, dimension) ||
+        throw(DimensionMismatch("metric derivative dimension"))
+    derivative = Array{Float64,3}(raw_derivative)
+    all(isfinite, derivative) || throw(DomainError(raw_derivative,
+        "metric derivative must be finite"))
+    divergence = zeros(Float64, dimension)
+    for coordinate in 1:dimension
+        derivative_inverse = -inverse_metric *
+            @view(derivative[:, :, coordinate]) * inverse_metric
+        divergence .+= @view derivative_inverse[:, coordinate]
+    end
+    mean = position .+ (step_size^2 / 2) .*
+        (inverse_metric * score .+ divergence)
+    logdet = 2sum(log, diag(factor.L))
+    (; matrix, factor, mean, logdet)
+end
+
+function _dense_pmala_step!(source::AbstractRandomSource, logdensity, gradient,
+        metric, metric_derivative, step_size::Float64,
+        current::AbstractVector{<:Real})
+    checked_positive_float(step_size, "step size")
+    isempty(current) && throw(ArgumentError("position cannot be empty"))
+    position = Float64.(current)
+    all(isfinite, position) || throw(DomainError(current, "position must be finite"))
+    current_geometry = _dense_pmala_geometry(
+        gradient, metric, metric_derivative, step_size, position)
+    noise = [standard_normal!(source) for _ in eachindex(position)]
+    proposed = current_geometry.mean .+ step_size .* (current_geometry.factor.L' \ noise)
+    proposed_geometry = _dense_pmala_geometry(
+        gradient, metric, metric_derivative, step_size, proposed)
+    forward_residual = proposed .- current_geometry.mean
+    reverse_residual = position .- proposed_geometry.mean
+    forward_quadratic = dot(forward_residual,
+        current_geometry.matrix * forward_residual) / step_size^2
+    reverse_quadratic = dot(reverse_residual,
+        proposed_geometry.matrix * reverse_residual) / step_size^2
+    logratio = checked_logdensity(logdensity, proposed) -
+        checked_logdensity(logdensity, position) +
+        (proposed_geometry.logdet - current_geometry.logdet) / 2 -
+        (reverse_quadratic - forward_quadratic) / 2
+    isfinite(logratio) || throw(DomainError(logratio, "PMALA log ratio must be finite"))
+    uniform_unit!(source) < exp(min(0.0, logratio)) ? proposed : copy(position)
+end
+
+"""Interpret the emitted dense Lebesgue-correct PMALA program."""
+function dense_pmala_step!(source::AbstractRandomSource, logdensity, gradient,
+        metric, metric_derivative, step_size::Float64,
+        current::AbstractVector{<:Real})
+    checked_log = value -> checked_logdensity(logdensity, value)
+    checked_grad = value -> checked_gradient(gradient, value)
+    run_program("dense_pmala_step!", source, checked_log, checked_grad,
+        metric, metric_derivative, step_size, Float64.(current)) |> x -> Float64.(x)
+end
+
 """Float64 interpretation of the serialized scalar one-step HMC program."""
 function scalar_hmc_step!(source::AbstractRandomSource, logdensity, gradient,
         step_size::Float64, steps::Integer, current::Float64)
@@ -803,6 +1009,21 @@ function vector_hmc_step!(source::AbstractRandomSource, logdensity, gradient,
     checked_grad = value -> checked_gradient(gradient, value)
     result = run_program("vector_hmc_step!", source, checked_log, checked_grad,
         step_size, steps, length(position), position)
+    Float64.(result)
+end
+
+"""Interpret the Lean-emitted two-stage Gauss--Legendre endpoint-HMC IR."""
+function vector_gauss_legendre_hmc_step!(source::AbstractRandomSource,
+        logdensity, gradient, step_size::Float64, steps::Integer,
+        iterations::Integer, current::AbstractVector{<:Real})
+    step_size > 0 && isfinite(step_size) || throw(ArgumentError("step size"))
+    steps > 0 || throw(ArgumentError("integration steps must be positive"))
+    iterations > 0 || throw(ArgumentError("stage iterations must be positive"))
+    position = Float64.(current)
+    result = run_program("vector_gauss_legendre_hmc_step!", source,
+        value -> checked_logdensity(logdensity, value),
+        value -> checked_gradient(gradient, value), step_size, steps,
+        iterations, length(position), position)
     Float64.(result)
 end
 

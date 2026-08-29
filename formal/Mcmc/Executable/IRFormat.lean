@@ -22,7 +22,7 @@ namespace Mcmc.Executable.IRFormat
 
 open Finite.CompilerIR
 
-def version : Nat := 23
+def version : Nat := 26
 
 private def quote (value : String) : String :=
   let escapedBackslash := value.replace "\\" "\\\\"
@@ -135,6 +135,11 @@ private def continuousExprRender : {type : Continuous.CompilerIR.Ty} →
       list ["vector-log-density", continuousExprRender value]
   | _, .vectorGradient value =>
       list ["vector-gradient", continuousExprRender value]
+  | _, .vectorAddScaled left scale right =>
+      list ["vector-add-scaled", continuousExprRender left,
+        continuousExprRender scale, continuousExprRender right]
+  | _, .vectorSub left right =>
+      list ["vector-sub", continuousExprRender left, continuousExprRender right]
   | _, .vectorLeapfrogPosition stepSize steps position momentum =>
       list ["vector-leapfrog-position", continuousExprRender stepSize,
         continuousExprRender steps, continuousExprRender position,
@@ -143,6 +148,14 @@ private def continuousExprRender : {type : Continuous.CompilerIR.Ty} →
       list ["vector-leapfrog-momentum", continuousExprRender stepSize,
         continuousExprRender steps, continuousExprRender position,
         continuousExprRender momentum]
+  | _, .vectorGaussLegendrePosition stepSize steps iterations position momentum =>
+      list ["vector-gauss-legendre-position", continuousExprRender stepSize,
+        continuousExprRender steps, continuousExprRender iterations,
+        continuousExprRender position, continuousExprRender momentum]
+  | _, .vectorGaussLegendreMomentum stepSize steps iterations position momentum =>
+      list ["vector-gauss-legendre-momentum", continuousExprRender stepSize,
+        continuousExprRender steps, continuousExprRender iterations,
+        continuousExprRender position, continuousExprRender momentum]
   | _, .squaredNorm value =>
       list ["squared-norm", continuousExprRender value]
 
@@ -297,8 +310,11 @@ def render : String :=
     finiteProgramRender categoricalProgram,
     finiteProgramRender metropolisHastingsProgram,
     continuousProgramRender Continuous.CompilerIR.gaussianRwmhProgram,
+    continuousProgramRender Continuous.CompilerIR.scalarMalaProgram,
+    continuousProgramRender Continuous.CompilerIR.vectorMalaProgram,
     continuousProgramRender Continuous.CompilerIR.scalarHmcProgram,
     continuousProgramRender Continuous.CompilerIR.vectorHmcProgram,
+    continuousProgramRender Continuous.CompilerIR.vectorGaussLegendreHmcProgram,
     Continuous.MetricCompilerIR.diagonalHmcProgram.render,
     Continuous.MetricCompilerIR.denseHmcProgram.render,
     Continuous.MetricCompilerIR.diagonalMultinomialHmcProgram.render,
@@ -308,6 +324,7 @@ def render : String :=
     Continuous.RiemannianCompilerIR.renderApproximate,
     Continuous.RiemannianCompilerIR.renderDense,
     Continuous.RiemannianCompilerIR.renderStructured,
+    Continuous.RiemannianCompilerIR.renderDensePmala,
     Continuous.RelativisticCompilerIR.program.render,
     Continuous.RelativisticCompilerIR.certifiedPositionDependentProgram.render,
     restrictedTargetRender "restricted-gaussian-potential"

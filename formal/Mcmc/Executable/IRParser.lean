@@ -364,6 +364,18 @@ theorem gaussianRwmhProgram_textRoundTrips :
   native_decide
 
 open Mcmc.Executable.Continuous.CompilerIR in
+/-- Scalar MALA has canonical portable syntax. -/
+theorem scalarMalaProgram_textRoundTrips :
+    textRoundTrips (IRFormat.continuousProgramRender scalarMalaProgram) := by
+  native_decide
+
+open Mcmc.Executable.Continuous.CompilerIR in
+/-- Vector MALA has canonical portable syntax. -/
+theorem vectorMalaProgram_textRoundTrips :
+    textRoundTrips (IRFormat.continuousProgramRender vectorMalaProgram) := by
+  native_decide
+
+open Mcmc.Executable.Continuous.CompilerIR in
 /-- The existing scalar fixed-step-HMC declaration canonically parses and
 re-renders. Its stronger semantic boundaries remain recorded separately. -/
 theorem scalarHmcProgram_textRoundTrips :

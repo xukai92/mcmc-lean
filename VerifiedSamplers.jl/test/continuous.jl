@@ -1409,6 +1409,107 @@ end
         @test_throws ArgumentError Runtime.uniform_unit!(
             Runtime.FloatTraceSource([Runtime.UniformEvent(1.0)]))
     end
+    @testset "MALA reference, optimized, and moments" begin
+        logdensity(x) = -sum(abs2, x) / 2
+        gradient(x) = -x
+        scalar_events = Runtime.FloatTraceEvent[
+            Runtime.NormalEvent(0.5), Runtime.UniformEvent(0.4)]
+        scalar_comparison = Evaluation.replay_pair(scalar_events,
+            source -> Reference.scalar_mala_step!(source,
+                x -> -x^2 / 2, x -> -x, 0.4, 0.7),
+            source -> Optimized.scalar_mala_step!(source,
+                x -> -x^2 / 2, x -> -x, 0.4, 0.7))
+        @test Evaluation.conforms(scalar_comparison)
+
+        vector_events = Runtime.FloatTraceEvent[
+            Runtime.NormalEvent(0.5), Runtime.NormalEvent(-0.2),
+            Runtime.UniformEvent(0.4)]
+        vector_comparison = Evaluation.replay_pair(vector_events,
+            source -> Reference.vector_mala_step!(source,
+                logdensity, gradient, 0.4, [0.7, -0.3]),
+            source -> Optimized.vector_mala_step!(source,
+                logdensity, gradient, 0.4, [0.7, -0.3]))
+        @test Evaluation.conforms(vector_comparison)
+
+        reference = MALA(x -> -x^2 / 2, x -> -x, 0.8;
+            implementation=:reference)
+        optimized = MALA(x -> -x^2 / 2, x -> -x, 0.8;
+            implementation=:optimized)
+        reference_chain = sample(MersenneTwister(410), reference, 0.0, 12_000)
+        optimized_chain = sample(MersenneTwister(411), optimized, 0.0, 12_000)
+        for chain in (reference_chain, optimized_chain)
+            retained = @view chain[2_001:end]
+            @test abs(mean(retained)) < 0.06
+            @test abs(var(retained) - 1) < 0.10
+        end
+
+        float32 = MALA(x -> -sum(abs2, x) / 2, x -> -x, 0.5f0;
+            implementation=:optimized)
+        draws32 = sample(MersenneTwister(412), float32, zeros(Float32, 2), 4)
+        @test eltype(draws32) === Float32
+        @test_throws ArgumentError MALA(identity, identity, 0.0)
+        @test_throws ArgumentError MALA(identity, identity, 0.1;
+            implementation=:unknown)
+        @test_throws DimensionMismatch Optimized.vector_mala_step!(
+            Runtime.FloatTraceSource(Runtime.FloatTraceEvent[]),
+            logdensity, _ -> [0.0], 0.4, [0.0, 0.0])
+    end
+
+    @testset "dense position-dependent MALA" begin
+        logdensity(q) = -sum(abs2, q) / 2
+        score(q) = -q
+        identity_metric(q) = Matrix{eltype(q)}(I, length(q), length(q))
+        zero_derivative(q) = zeros(eltype(q), length(q), length(q), length(q))
+        events = Runtime.FloatTraceEvent[
+            Runtime.NormalEvent(0.4), Runtime.NormalEvent(-0.3),
+            Runtime.UniformEvent(0.25)]
+        ordinary = Reference.vector_mala_step!(
+            Runtime.FloatTraceSource(copy(events)), logdensity, score,
+            0.4, [0.2, -0.5])
+        dense_identity = Reference.dense_pmala_step!(
+            Runtime.FloatTraceSource(copy(events)), logdensity, score,
+            identity_metric, zero_derivative, 0.4, [0.2, -0.5])
+        @test dense_identity ≈ ordinary atol=1e-14
+
+        metric(q) = Matrix(Diagonal(one(eltype(q)) .+ eltype(q)(0.2) .* q.^2))
+        function metric_derivative(q)
+            derivative = zeros(eltype(q), length(q), length(q), length(q))
+            for coordinate in eachindex(q)
+                derivative[coordinate, coordinate, coordinate] =
+                    eltype(q)(0.4) * q[coordinate]
+            end
+            derivative
+        end
+        comparison = Evaluation.replay_pair(events,
+            source -> Reference.dense_pmala_step!(source, logdensity, score,
+                metric, metric_derivative, 0.3, [0.2, -0.5]),
+            source -> Optimized.dense_pmala_step!(source, logdensity, score,
+                metric, metric_derivative, 0.3, [0.2, -0.5]))
+        @test comparison.reference ≈ comparison.optimized atol=1e-14
+        @test comparison.reference_remaining == 0
+        @test comparison.optimized_remaining == 0
+
+        for implementation in (:reference, :optimized)
+            sampler = DensePMALA(logdensity, score, metric, metric_derivative,
+                0.6; implementation)
+            chain = sample(MersenneTwister(520 + (implementation === :optimized)),
+                sampler, zeros(2), 16_000)
+            retained = @view chain[:, 2_001:end]
+            @test maximum(abs, vec(mean(retained; dims=2))) < 0.08
+            @test maximum(abs, vec(var(retained; dims=2)) .- 1) < 0.12
+        end
+
+        float32 = DensePMALA(logdensity, score, metric, metric_derivative,
+            0.4f0; implementation=:optimized)
+        @test eltype(sample(MersenneTwister(523), float32,
+            zeros(Float32, 2), 3)) === Float32
+        @test_throws ArgumentError DensePMALA(logdensity, score, metric,
+            metric_derivative, 0.0)
+        @test_throws DimensionMismatch Optimized.dense_pmala_step!(
+            Runtime.FloatTraceSource(Runtime.FloatTraceEvent[]), logdensity,
+            score, _ -> ones(1, 1), metric_derivative, 0.3, zeros(2))
+    end
+
     @testset "scalar HMC reference, optimized, and moments" begin
         logdensity = x -> -x^2 / 2
         gradient = identity
@@ -1799,6 +1900,138 @@ end
         @test optimized_logdensity_calls[] == 20 * 2
     end
 end
+
+@testset "transport HMC" begin
+    logdensity(q) = -sum(abs2, q) / 2
+    gradient(q) = q
+
+    scale = [2.0, 0.5]
+    forward(z) = scale .* z
+    inverse(q) = q ./ scale
+    pullback(z, value) = scale .* value
+    logjac(z) = sum(log, scale)
+    grad_logjac(z) = zeros(eltype(z), length(z))
+
+    reference = TransportHMC(logdensity, gradient, forward, inverse,
+        pullback, logjac, grad_logjac, 0.18, 7; implementation=:reference)
+    optimized = TransportHMC(logdensity, gradient, forward, inverse,
+        pullback, logjac, grad_logjac, 0.18, 7; implementation=:optimized)
+    reference_draws = sample(MersenneTwister(0x7472616e), reference,
+        zeros(2), 12_000)
+    optimized_draws = sample(MersenneTwister(0x7472616e), optimized,
+        zeros(2), 12_000)
+    @test reference_draws == optimized_draws
+    retained = @view reference_draws[:, 2001:end]
+    @test maximum(abs, vec(mean(retained; dims=2))) < 0.06
+    @test maximum(abs, vec(var(retained; dims=2)) .- 1) < 0.10
+
+    nonlinear_forward(z) = sinh.(z)
+    nonlinear_inverse(q) = asinh.(q)
+    nonlinear_pullback(z, value) = cosh.(z) .* value
+    nonlinear_logjac(z) = sum(log ∘ cosh, z)
+    nonlinear_grad_logjac(z) = tanh.(z)
+    nonlinear = TransportHMC(logdensity, gradient, nonlinear_forward,
+        nonlinear_inverse, nonlinear_pullback, nonlinear_logjac,
+        nonlinear_grad_logjac, 0.16, 8; implementation=:optimized)
+    nonlinear_draws = sample(MersenneTwister(0x6e6f6e6c), nonlinear,
+        zeros(2), 14_000)
+    nonlinear_retained = @view nonlinear_draws[:, 2001:end]
+    @test maximum(abs, vec(mean(nonlinear_retained; dims=2))) < 0.07
+    @test maximum(abs, vec(var(nonlinear_retained; dims=2)) .- 1) < 0.12
+
+    T = Float32
+    float32_sampler = TransportHMC(q -> -sum(abs2, q) / T(2), identity,
+        identity, identity, (z, value) -> value, z -> zero(T),
+        z -> zeros(T, length(z)), T(0.15), 3; implementation=:optimized)
+    float32_result = step(MersenneTwister(1), float32_sampler, zeros(T, 2))
+    @test eltype(float32_result) === T
+
+    @test_throws ArgumentError TransportHMC(logdensity, gradient, forward,
+        inverse, pullback, logjac, grad_logjac, 0.0, 7)
+    @test_throws ArgumentError TransportHMC(logdensity, gradient, forward,
+        inverse, pullback, logjac, grad_logjac, 0.1, 0)
+end
+
+
+@testset "fixed likelihood-informed HMC" begin
+    basis = reshape([1.0, 0.0, 0.0], 3, 1)
+    flat_loglikelihood(q) = 0.0
+    flat_score(q) = zeros(eltype(q), length(q))
+    reference = LikelihoodInformedHMC(flat_loglikelihood, flat_score, basis,
+        0.25, 6; complement_scale=0.6, implementation=:reference)
+    optimized = LikelihoodInformedHMC(flat_loglikelihood, flat_score, basis,
+        0.25, 6; complement_scale=0.6, implementation=:optimized)
+    reference_draws = sample(MersenneTwister(0x6c6973), reference,
+        zeros(3), 14_000)
+    optimized_draws = sample(MersenneTwister(0x6c6973), optimized,
+        zeros(3), 14_000)
+    @test reference_draws == optimized_draws
+    retained = @view reference_draws[:, 2001:end]
+    @test maximum(abs, vec(mean(retained; dims=2))) < 0.06
+    @test maximum(abs, vec(var(retained; dims=2)) .- 1) < 0.10
+
+    informative_loglikelihood(q) = -3q[1]^2 / 2
+    informative_score(q) = [-3q[1], zero(eltype(q)), zero(eltype(q))]
+    informative = LikelihoodInformedHMC(informative_loglikelihood,
+        informative_score, basis, 0.22, 7; complement_scale=0.6,
+        implementation=:optimized)
+    informative_draws = sample(MersenneTwister(0x64696c69), informative,
+        zeros(3), 16_000)
+    informative_retained = @view informative_draws[:, 2001:end]
+    empirical_variance = vec(var(informative_retained; dims=2))
+    @test abs(empirical_variance[1] - 0.25) < 0.04
+    @test maximum(abs, empirical_variance[2:3] .- 1) < 0.10
+
+    T = Float32
+    float_basis = reshape(T[1, 0], 2, 1)
+    float_sampler = LikelihoodInformedHMC(q -> zero(T),
+        q -> zeros(T, length(q)), float_basis, T(0.2), 3;
+        complement_scale=T(0.5), implementation=:optimized)
+    float_result = step(MersenneTwister(2), float_sampler, zeros(T, 2))
+    @test eltype(float_result) === T
+
+    @test_throws ArgumentError LikelihoodInformedHMC(flat_loglikelihood,
+        flat_score, [1.0 1.0; 0.0 0.0], 0.2, 3)
+    @test_throws ArgumentError LikelihoodInformedHMC(flat_loglikelihood,
+        flat_score, basis, 0.2, 3; complement_scale=0.0)
+end
+
+
+@testset "rank-one polynomial transport fitting" begin
+    rng = MersenneTwister(0x72616e6b)
+    d, n = 16, 5_000
+    input = randn(rng, d)
+    input ./= norm(input)
+    output = randn(rng, d)
+    output .-= input .* dot(input, output)
+    output ./= norm(output)
+    latent = randn(rng, d, n)
+    samples = copy(latent)
+    for index in axes(samples, 2)
+        coordinate = dot(input, @view latent[:, index])
+        samples[:, index] .-= 2(coordinate^2 - 1) .* output
+    end
+    fitted = fit_rank_one_polynomial_transport(samples)
+    @test abs(dot(fitted.input_direction, input)) > 0.95
+    @test abs(dot(fitted.output_direction, output)) > 0.95
+    @test abs(fitted.quadratic) > 1.8
+
+    for _ in 1:20
+        z = randn(rng, d)
+        q = transport_forward(fitted, z)
+        @test transport_inverse(fitted, q) ≈ z atol=2e-12
+        @test isfinite(transport_logabsdetjac(fitted, z))
+        @test transport_grad_logabsdetjac(fitted, z) == zeros(d)
+    end
+
+    T = Float32
+    float_fitted = fit_rank_one_polynomial_transport(T.(samples))
+    z = randn(rng, T, d)
+    @test eltype(transport_forward(float_fitted, z)) === T
+    @test transport_inverse(float_fitted,
+        transport_forward(float_fitted, z)) ≈ z atol=T(2e-5)
+end
+
 @testset "optimized core numeric type propagation" begin
     for T in (Float32, Float64, BigFloat)
         logdensity = q -> -sum(abs2, q) / T(2)

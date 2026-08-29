@@ -98,6 +98,7 @@ end
 
 const SUPPORTED_INPUT_KINDS = Set([
     "source", "log-density", "gradient", "hamiltonian", "metric-factor",
+    "metric", "metric-derivative",
     "momentum-sampler",
     "integrator", "nat", "nat-vector", "nat-matrix", "real",
     "real-vector", "real-matrix"])

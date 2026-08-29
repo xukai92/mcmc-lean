@@ -1,10 +1,19 @@
-# HMC benchmarks
+# Sampler benchmarks
 
-This isolated Julia environment compares fixed-step endpoint HMC,
+This isolated Julia environment compares MALA, fixed-step endpoint HMC,
 fixed-length multinomial HMC, and fixed-parameter NUTS from VerifiedSamplers
 and AdvancedHMC on a small target suite. The
 default workload is 10,000 transitions in 100 dimensions, with step size 0.08;
 the fixed-length algorithms use 10 leapfrog steps per transition.
+MALA has separate `MALA_STEP_SIZE` configuration (also 0.08 by default) and
+reports Reference and Optimized rows; AdvancedHMC is not used as a MALA oracle.
+The two-stage Gauss--Legendre rows use a fixed number of simultaneous-stage
+iterations configured by `HMC_GAUSS_LEGENDRE_ITERATIONS` (default 8). Set
+`JULIA_NUM_THREADS=2` or higher to exercise the Optimized stage-parallel path.
+The `gauss-legendre-2stage-simd` row instead uses an explicit two-column
+batched-gradient interface and SIMD stage algebra. Maintained targets currently
+adapt their scalar callbacks; a fused model-specific callback can expose more
+cross-stage vectorization.
 
 ```sh
 make benchmark-hmc
@@ -66,6 +75,81 @@ make benchmark-random-sketch-geometry
 make benchmark-random-sketch-dimensions
 make benchmark-random-sketch-rank-log
 ```
+
+The hard-geometry study includes optimized MALA and dense PMALA as single-step
+local-gradient baselines alongside HMC, fixed-map transport HMC, fixed-basis
+likelihood-informed HMC, full RMHMC, and random-sketch RMHMC.
+Their proposal-standard-deviation grids are controlled by
+`GEOMETRY_STUDY_MALA_STEP_SIZES` and
+`GEOMETRY_STUDY_DENSE_PMALA_STEP_SIZES`;
+the reported step count is one transition and the `integration_time` column is
+only a schema placeholder for this non-Hamiltonian method.
+
+The two amortized-geometry grids are controlled by
+`GEOMETRY_STUDY_TRANSPORT_HMC_STEP_SIZES`,
+`GEOMETRY_STUDY_LIKELIHOOD_INFORMED_HMC_STEP_SIZES`, and
+`GEOMETRY_STUDY_AMORTIZED_INTEGRATION_TIMES`. Transport HMC receives the
+study target's known exact inverse warp, making it an oracle upper baseline;
+map-learning cost is not included. Likelihood-informed HMC receives the known
+rank-one warped input direction and uses pCN in its Gaussian-reference
+complement. Its basis-learning cost is likewise excluded. These rows assess
+the fixed transition mechanisms, not warmup learning quality or cost.
+
+`transport-hmc-dimension-16.csv` is a focused four-chain confirmation using
+only the known exact rotated transport at ambient dimension 16. Its selected
+`ε=0.2`, five-step row has tail ESS/transition `0.5113`, tail ESS/s `33,311`,
+and `Rhat=1.005`. It measures fixed-map execution, not map learning. A learned
+map need not perfectly Gaussianize the target to remain correct: any fixed
+invertible map is handled through its Jacobian-correct transformed density.
+
+`moment-fitted-transport-dimension-16.csv` evaluates a rank-one quadratic map
+fitted from 5,000 controlled independent target samples. Its selected `ε=0.2`
+row has tail ESS/transition `0.5051`, tail ESS/s `13,209`, and `Rhat=1.004`,
+close to the analytic transport's transition efficiency. This is a
+representation experiment: the independent training sample acquisition is
+not timed or claimed as a practical warmup procedure. The map fit itself takes
+about `3.3 ms` after compilation on the recorded machine.
+
+`paired-transport-dimension-16.csv` is the fair acquisition comparison. Every
+method owns four independent chains, each of which first runs exactly 1,000
+ordinary-HMC transitions (`ε=0.01`, 50 steps) and then continues from its own
+endpoint and RNG state under the evaluated transition. The fitted method pools
+its own 4,000 warmup states and freezes one fitted map. Selected end-to-end
+tail ESS/s values are `544` for ordinary HMC, `4,494` for the analytic-map
+ceiling, and `2,299` for the fitted map. Their tail ESS/transition values are
+`0.1543`, `0.4595`, and `0.3819`, with Rhat `1.046`, `1.006`, and `1.008`,
+respectively. Reproduction settings and per-method acquisition timings are in
+`paired-transport-dimension-16-metadata.csv`.
+
+In the current two-dimensional four-chain run, the best MALA grid point
+(`ε=0.3`) has tail ESS/transition `0.0082` but rank-normalized `Rhat=1.362`.
+It therefore does not provide converged ESS/s evidence despite its very high
+raw transition throughput. The full and sketch RMHMC selected rows have
+`Rhat=1.011` and `1.006`, respectively. This study is useful precisely because
+it distinguishes cheap local transitions from successful exploration of the
+warped geometry.
+
+The geometry-study HMC baseline previously passed the score where `VectorHMC`
+expects the potential gradient. This sign error was corrected and all affected
+result files were rerun. The corrected selected dimension-two HMC row still
+fails to converge (`Rhat=1.695`), so its ESS is not comparative evidence.
+
+Dense PMALA materially improves this baseline. Its selected `ε=1.0` row has
+tail ESS/transition `0.1912` and about `27,077` nominal tail ESS/s, with
+`Rhat=1.050`. This is a strong exploratory result but remains borderline under
+strict between-chain diagnostics; a longer confirmation is needed before the
+ESS/s value is treated as stable efficiency evidence.
+
+The exact-map Transport HMC oracle is the clear upper baseline: its selected
+`ε=0.2`, trajectory-time `1.0` row has tail ESS/transition `0.5555`, about
+`97,569` tail ESS/s, and `Rhat=1.005`. This measures the value of completely
+flattening the known warp; it excludes the cost of learning such a map.
+
+The fixed rank-one likelihood-informed client improves movement to tail
+ESS/transition `0.2931` at `ε=0.1`, but its `Rhat=1.107` shows that the short
+run has not converged across chains. A single linear informed direction does
+not fully remove this target's nonlinear geometry, so its nominal ESS/s is not
+interpreted as converged efficiency evidence.
 
 The dimension command runs isolated geometry-study jobs at ambient dimensions
 `2,4,8,16` by default. They use a dense rotated, volume-preserving warp
@@ -198,7 +282,8 @@ stable covariance and known-quantile regressions belong in the integrated test
 suite; the multi-chain and distributional report remains in this environment.
 
 The workload can be changed through `HMC_DIMENSION`, `HMC_DRAWS`,
-`HMC_LEAPFROG_STEPS`, `HMC_STEP_SIZE`, `HMC_SEED`, and `HMC_SEEDS`.
+`HMC_LEAPFROG_STEPS`, `HMC_STEP_SIZE`, `MALA_STEP_SIZE`, `HMC_SEED`, and
+`HMC_SEEDS`.
 `HMC_NUTS_MAX_DEPTH` is the single shared tree-depth budget for Reference,
 Optimized, and AdvancedHMC NUTS. Reference constructs the complete tree at
 that depth, while the dynamic implementations may stop earlier. The default is

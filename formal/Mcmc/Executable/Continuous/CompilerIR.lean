@@ -52,9 +52,16 @@ inductive Expr : Ty → Type where
       (position momentum : Expr .real) : Expr .real
   | vectorLogDensity (value : Expr .realVector) : Expr .real
   | vectorGradient (value : Expr .realVector) : Expr .realVector
+  | vectorAddScaled (left : Expr .realVector) (scale : Expr .real)
+      (right : Expr .realVector) : Expr .realVector
+  | vectorSub (left right : Expr .realVector) : Expr .realVector
   | vectorLeapfrogPosition (stepSize : Expr .real) (steps : Expr .nat)
       (position momentum : Expr .realVector) : Expr .realVector
   | vectorLeapfrogMomentum (stepSize : Expr .real) (steps : Expr .nat)
+      (position momentum : Expr .realVector) : Expr .realVector
+  | vectorGaussLegendrePosition (stepSize : Expr .real) (steps iterations : Expr .nat)
+      (position momentum : Expr .realVector) : Expr .realVector
+  | vectorGaussLegendreMomentum (stepSize : Expr .real) (steps iterations : Expr .nat)
       (position momentum : Expr .realVector) : Expr .realVector
   | squaredNorm (value : Expr .realVector) : Expr .real
 
@@ -193,6 +200,49 @@ noncomputable def vectorLeapfrogN (gradient : List ℝ → List ℝ)
         (gradient nextPosition)
       (nextPosition, nextMomentum)
 
+private noncomputable def vectorField (gradient : List ℝ → List ℝ)
+    (state : List ℝ × List ℝ) : List ℝ × List ℝ :=
+  (state.2, (gradient state.1).map (-·))
+
+/-- Fixed-work simultaneous-stage interpretation of two-stage
+Gauss--Legendre. The exact Lean theorem is about stage witnesses; this
+executable approximation has a declared iteration count. -/
+noncomputable def vectorGaussLegendreStep (gradient : List ℝ → List ℝ)
+    (stepSize : ℝ) (iterations : Nat) (position momentum : List ℝ) :
+    List ℝ × List ℝ :=
+  let r := Real.sqrt 3 / 6
+  let initial := (position, momentum)
+  let initialField := vectorField gradient initial
+  let stages := (List.range iterations).foldl (fun stages _ =>
+    let firstState :=
+      (vectorAddScaled position stepSize
+          (vectorAddScaled (stages.1.1.map ((1 / 4) * ·)) 1
+            (stages.2.1.map ((1 / 4 - r) * ·))),
+       vectorAddScaled momentum stepSize
+          (vectorAddScaled (stages.1.2.map ((1 / 4) * ·)) 1
+            (stages.2.2.map ((1 / 4 - r) * ·))))
+    let secondState :=
+      (vectorAddScaled position stepSize
+          (vectorAddScaled (stages.1.1.map ((1 / 4 + r) * ·)) 1
+            (stages.2.1.map ((1 / 4) * ·))),
+       vectorAddScaled momentum stepSize
+          (vectorAddScaled (stages.1.2.map ((1 / 4 + r) * ·)) 1
+            (stages.2.2.map ((1 / 4) * ·))))
+    (vectorField gradient firstState, vectorField gradient secondState))
+    (initialField, initialField)
+  (vectorAddScaled position (stepSize / 2)
+      (vectorAddScaled stages.1.1 1 stages.2.1),
+   vectorAddScaled momentum (stepSize / 2)
+      (vectorAddScaled stages.1.2 1 stages.2.2))
+
+noncomputable def vectorGaussLegendreN (gradient : List ℝ → List ℝ)
+    (stepSize : ℝ) (iterations : Nat) : Nat → List ℝ → List ℝ → List ℝ × List ℝ
+  | 0, position, momentum => (position, momentum)
+  | steps + 1, position, momentum =>
+      let previous := vectorGaussLegendreN gradient stepSize iterations
+        steps position momentum
+      vectorGaussLegendreStep gradient stepSize iterations previous.1 previous.2
+
 /-- Evaluate one pure expression against an explicit target callback. -/
 noncomputable def evalExpr : {type : Ty} → Expr type → Env →
     Except RuntimeError (type.denote × Env)
@@ -252,6 +302,15 @@ noncomputable def evalExpr : {type : Ty} → Expr type → Env →
   | _, .vectorGradient value, env => do
       let (value, env) ← evalExpr value env
       return (env.vectorGradient value, env)
+  | _, .vectorAddScaled left scale right, env => do
+      let (left, env) ← evalExpr left env
+      let (scale, env) ← evalExpr scale env
+      let (right, env) ← evalExpr right env
+      return (vectorAddScaled left scale right, env)
+  | _, .vectorSub left right, env => do
+      let (left, env) ← evalExpr left env
+      let (right, env) ← evalExpr right env
+      return (List.zipWith (· - ·) left right, env)
   | _, .vectorLeapfrogPosition stepSize steps position momentum, env => do
       let (stepSize, env) ← evalExpr stepSize env
       let (steps, env) ← evalExpr steps env
@@ -264,6 +323,20 @@ noncomputable def evalExpr : {type : Ty} → Expr type → Env →
       let (position, env) ← evalExpr position env
       let (momentum, env) ← evalExpr momentum env
       return ((vectorLeapfrogN env.vectorGradient stepSize steps position momentum).2, env)
+  | _, .vectorGaussLegendrePosition stepSize steps iterations position momentum, env => do
+      let (stepSize, env) ← evalExpr stepSize env
+      let (steps, env) ← evalExpr steps env
+      let (iterations, env) ← evalExpr iterations env
+      let (position, env) ← evalExpr position env
+      let (momentum, env) ← evalExpr momentum env
+      return ((vectorGaussLegendreN env.vectorGradient stepSize iterations steps position momentum).1, env)
+  | _, .vectorGaussLegendreMomentum stepSize steps iterations position momentum, env => do
+      let (stepSize, env) ← evalExpr stepSize env
+      let (steps, env) ← evalExpr steps env
+      let (iterations, env) ← evalExpr iterations env
+      let (position, env) ← evalExpr position env
+      let (momentum, env) ← evalExpr momentum env
+      return ((vectorGaussLegendreN env.vectorGradient stepSize iterations steps position momentum).2, env)
   | _, .squaredNorm value, env => do
       let (value, env) ← evalExpr value env
       return (value.foldl (fun total x => total + x * x) 0, env)
@@ -446,8 +519,102 @@ def vectorCurrentVar : Var .realVector := ⟨"current"⟩
 def vectorMomentumVar : Var .realVector := ⟨"momentum"⟩
 def vectorNextPositionVar : Var .realVector := ⟨"next_position"⟩
 def vectorNextMomentumVar : Var .realVector := ⟨"next_momentum"⟩
+def iterationsVar : Var .nat := ⟨"iterations"⟩
+
+def malaVarianceVar : Var .real := ⟨"variance"⟩
+def malaHalfVarianceVar : Var .real := ⟨"half_variance"⟩
+def malaCurrentGradientVar : Var .real := ⟨"current_gradient"⟩
+def malaProposedGradientVar : Var .real := ⟨"proposed_gradient"⟩
+def malaForwardResidualVar : Var .real := ⟨"forward_residual"⟩
+def malaReverseResidualVar : Var .real := ⟨"reverse_residual"⟩
+def malaLogRatioVar : Var .real := ⟨"log_ratio"⟩
+def malaVectorNoiseVar : Var .realVector := ⟨"noise"⟩
+def malaVectorProposedVar : Var .realVector := ⟨"proposed"⟩
+def malaVectorCurrentGradientVar : Var .realVector := ⟨"current_gradient"⟩
+def malaVectorProposedGradientVar : Var .realVector := ⟨"proposed_gradient"⟩
+def malaVectorForwardResidualVar : Var .realVector := ⟨"forward_residual"⟩
+def malaVectorReverseResidualVar : Var .realVector := ⟨"reverse_residual"⟩
 
 private def two : Expr .real := .real 2
+
+/-- Scalar isotropic Metropolis-adjusted Langevin transition. `step_size` is
+the Gaussian proposal standard deviation. -/
+def scalarMalaProgram : Program where
+  name := "scalar_mala_step!"
+  sourceInput := "source"
+  logDensityInput := "logdensity"
+  gradientInput := some "gradient"
+  realInputs := [stepSizeVar.name, currentVar.name]
+  body :=
+    [.letE malaVarianceVar (.mul (.var stepSizeVar) (.var stepSizeVar)),
+      .letE malaHalfVarianceVar (.div (.var malaVarianceVar) two),
+      .letE malaCurrentGradientVar (.gradient (.var currentVar)),
+      .sampleStandardNormal noiseVar,
+      .letE proposedVar
+        (.add (.add (.var currentVar)
+          (.mul (.var malaHalfVarianceVar) (.var malaCurrentGradientVar)))
+          (.mul (.var stepSizeVar) (.var noiseVar))),
+      .letE malaProposedGradientVar (.gradient (.var proposedVar)),
+      .letE malaForwardResidualVar
+        (.sub (.var proposedVar) (.add (.var currentVar)
+          (.mul (.var malaHalfVarianceVar) (.var malaCurrentGradientVar)))),
+      .letE malaReverseResidualVar
+        (.sub (.var currentVar) (.add (.var proposedVar)
+          (.mul (.var malaHalfVarianceVar) (.var malaProposedGradientVar)))),
+      .letE malaLogRatioVar
+        (.add (.sub (.logDensity (.var proposedVar))
+          (.logDensity (.var currentVar)))
+          (.div (.sub
+            (.mul (.var malaForwardResidualVar) (.var malaForwardResidualVar))
+            (.mul (.var malaReverseResidualVar) (.var malaReverseResidualVar)))
+            (.mul two (.var malaVarianceVar)))),
+      .letE thresholdVar (.exp (.min (.real 0) (.var malaLogRatioVar))),
+      .sampleUniformUnit uniformVar,
+      .ifThen (.lt (.var uniformVar) (.var thresholdVar))
+        [.return (.var proposedVar)],
+      .return (.var currentVar)]
+
+/-- Dimension-polymorphic isotropic Metropolis-adjusted Langevin transition. -/
+def vectorMalaProgram : Program where
+  name := "vector_mala_step!"
+  sourceInput := "source"
+  logDensityInput := "logdensity"
+  gradientInput := some "gradient"
+  realInputs := [stepSizeVar.name]
+  natInputs := [dimensionVar.name]
+  vectorInputs := [vectorCurrentVar.name]
+  body :=
+    [.letE malaVarianceVar (.mul (.var stepSizeVar) (.var stepSizeVar)),
+      .letE malaHalfVarianceVar (.div (.var malaVarianceVar) two),
+      .letE malaVectorCurrentGradientVar
+        (.vectorGradient (.var vectorCurrentVar)),
+      .sampleStandardNormalVector malaVectorNoiseVar (.var dimensionVar),
+      .letE malaVectorProposedVar
+        (.vectorAddScaled
+          (.vectorAddScaled (.var vectorCurrentVar)
+            (.var malaHalfVarianceVar) (.var malaVectorCurrentGradientVar))
+          (.var stepSizeVar) (.var malaVectorNoiseVar)),
+      .letE malaVectorProposedGradientVar
+        (.vectorGradient (.var malaVectorProposedVar)),
+      .letE malaVectorForwardResidualVar
+        (.vectorSub (.var malaVectorProposedVar)
+          (.vectorAddScaled (.var vectorCurrentVar)
+            (.var malaHalfVarianceVar) (.var malaVectorCurrentGradientVar))),
+      .letE malaVectorReverseResidualVar
+        (.vectorSub (.var vectorCurrentVar)
+          (.vectorAddScaled (.var malaVectorProposedVar)
+            (.var malaHalfVarianceVar) (.var malaVectorProposedGradientVar))),
+      .letE malaLogRatioVar
+        (.add (.sub (.vectorLogDensity (.var malaVectorProposedVar))
+          (.vectorLogDensity (.var vectorCurrentVar)))
+          (.div (.sub (.squaredNorm (.var malaVectorForwardResidualVar))
+            (.squaredNorm (.var malaVectorReverseResidualVar)))
+            (.mul two (.var malaVarianceVar)))),
+      .letE thresholdVar (.exp (.min (.real 0) (.var malaLogRatioVar))),
+      .sampleUniformUnit uniformVar,
+      .ifThen (.lt (.var uniformVar) (.var thresholdVar))
+        [.returnVector (.var malaVectorProposedVar)],
+      .returnVector (.var vectorCurrentVar)]
 
 /-- Scalar, unit-mass endpoint HMC with one leapfrog step. The target supplies
 both its log density and the gradient of its negative log density. -/
@@ -498,6 +665,37 @@ def vectorHmcProgram : Program where
       .letE vectorNextMomentumVar
         (.vectorLeapfrogMomentum (.var stepSizeVar) (.var stepsVar)
           (.var vectorCurrentVar) (.var vectorMomentumVar)),
+      .letE currentEnergyVar
+        (.add (.sub (.real 0) (.vectorLogDensity (.var vectorCurrentVar)))
+          (.div (.squaredNorm (.var vectorMomentumVar)) two)),
+      .letE nextEnergyVar
+        (.add (.sub (.real 0) (.vectorLogDensity (.var vectorNextPositionVar)))
+          (.div (.squaredNorm (.var vectorNextMomentumVar)) two)),
+      .letE thresholdVar
+        (.exp (.min (.real 0)
+          (.sub (.var currentEnergyVar) (.var nextEnergyVar)))),
+      .sampleUniformUnit uniformVar,
+      .ifThen (.lt (.var uniformVar) (.var thresholdVar))
+        [.returnVector (.var vectorNextPositionVar)],
+      .returnVector (.var vectorCurrentVar)]
+
+/-- Fixed-work two-stage Gauss--Legendre endpoint HMC artifact. -/
+def vectorGaussLegendreHmcProgram : Program where
+  name := "vector_gauss_legendre_hmc_step!"
+  sourceInput := "source"
+  logDensityInput := "logdensity"
+  gradientInput := some "gradient"
+  realInputs := [stepSizeVar.name]
+  natInputs := [stepsVar.name, iterationsVar.name, dimensionVar.name]
+  vectorInputs := [vectorCurrentVar.name]
+  body :=
+    [.sampleStandardNormalVector vectorMomentumVar (.var dimensionVar),
+      .letE vectorNextPositionVar
+        (.vectorGaussLegendrePosition (.var stepSizeVar) (.var stepsVar)
+          (.var iterationsVar) (.var vectorCurrentVar) (.var vectorMomentumVar)),
+      .letE vectorNextMomentumVar
+        (.vectorGaussLegendreMomentum (.var stepSizeVar) (.var stepsVar)
+          (.var iterationsVar) (.var vectorCurrentVar) (.var vectorMomentumVar)),
       .letE currentEnergyVar
         (.add (.sub (.real 0) (.vectorLogDensity (.var vectorCurrentVar)))
           (.div (.squaredNorm (.var vectorMomentumVar)) two)),

@@ -5,6 +5,19 @@ novelty are provisional until the related-work audit is complete. The primary
 goal is practical benefit per unit of computation; formalization should make
 the resulting algorithm trustworthy rather than serve as its only motivation.
 
+See [parallel coupled MCMC for unbiased
+estimation](idea-parallel-coupled-unbiased-mcmc.md) for the combined direction
+of parallel trajectory construction and unbiased scheduling of random-duration
+coupled replicates. It distinguishes safe resource reallocation from deadline,
+restart, duplication, and runtime-weighting rules that can introduce
+completion bias.
+
+The associated [parallel HMC integrator
+audit](parallel-hmc-integrator-audit.md) compares nonlinear recurrence solvers,
+Parareal, MGRIT, PFASST, deferred correction, stage-parallel symplectic
+integrators, and exact affine scans through the finite-map obligations required
+by HMC.
+
 See the [hierarchical-refinement HMC
 roadmap](idea-hierarchical-refinement-hmc.md) for a comparison of the formal
 and executable work required for DR-G-HMC, ATLAS, and the proposed hierarchical
@@ -15,6 +28,17 @@ RMHMC](idea-statistical-curvature-rmhmc.md) for a separate position-dependent
 metric idea using fixed Hessian-vector, Fisher-vector, or GGN-vector probes.
 That note distinguishes genuinely local geometry from warmup-only global
 preconditioning and records the exactness boundary for probe randomness.
+
+See [position-dependent MALA with sensed local
+geometry](idea-position-dependent-mala.md) for the lower-cost Langevin branch.
+It distinguishes Lebesgue-correct PMALA, the original manifold reference
+measure, and simplified MMALA before reusing the full and random-sketch
+metrics.
+
+See [transport and likelihood-informed
+HMC](idea-transport-and-subspace-hmc.md) for the two amortized-geometry
+directions. Transport HMC is implemented first; the likelihood-informed
+subspace kernel is the next client.
 
 ## Evaluation principles
 

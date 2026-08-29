@@ -8,7 +8,7 @@ using ...Runtime: AbstractRandomSource, draw_below!, standard_normal!,
 using ...Certificates: ImplicitSolveCertificate, certify_implicit_solve,
     certifies_exact_solver
 
-export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_out_slice_step!, sheared_birth_death_step!, spatial_birth_death_step!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!,
+export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_out_slice_step!, sheared_birth_death_step!, spatial_birth_death_step!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!, scalar_mala_step!, vector_mala_step!, dense_pmala_step!,
     finite_hmm_particle_gibbs_step!,
     scalar_hmc_step!, vector_hmc_step!, metric_hmc_step!, multinomial_hmc_step!,
     metric_multinomial_hmc_step!,
@@ -19,8 +19,75 @@ export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_ou
     certified_relativistic_multinomial_hmc_step!,
     dynamic_select_float!, streaming_eligible_select!,
     categorical_dhmc_step!, leapfrog, vector_leapfrog,
+    vector_gauss_legendre_step, vector_gauss_legendre_hmc_step!,
+    vector_gauss_legendre_simd_step,
+    affine_prefix_scan, speculative_trajectory, certified_trajectory,
+    certified_speculative_trajectory,
     AbstractPreparedMetric, PreparedDiagonalMetric, PreparedDenseMetric,
     prepare_metric
+
+@inline _affine_comp(later, earlier) =
+    (later[1] * earlier[1], later[1] * earlier[2] + later[2])
+
+function affine_prefix_scan(segments::AbstractVector{<:Tuple};
+        parallel::Bool=Threads.nthreads() > 1)
+    current = collect(segments)
+    offset = 1
+    while offset < length(current)
+        previous = copy(current)
+        if parallel
+            Threads.@threads for index in (offset + 1):length(current)
+                current[index] = _affine_comp(previous[index], previous[index - offset])
+            end
+        else
+            for index in (offset + 1):length(current)
+                current[index] = _affine_comp(previous[index], previous[index - offset])
+            end
+        end
+        offset *= 2
+    end
+    current
+end
+
+function certified_trajectory(step, initial, candidate::AbstractVector)
+    current = initial
+    for proposed in candidate
+        expected = step(current)
+        proposed == expected || return foldl((x, _) -> step(x), candidate;
+            init=initial), false
+        current = proposed
+    end
+    current, true
+end
+
+function speculative_trajectory(step, initial, length::Integer, passes::Integer;
+        parallel::Bool=Threads.nthreads() > 1)
+    length >= 0 || throw(ArgumentError("trajectory length must be nonnegative"))
+    passes >= 0 || throw(ArgumentError("pass count must be nonnegative"))
+    current = fill(initial, length)
+    for _ in 1:passes
+        previous = current
+        current = similar(previous)
+        if parallel
+            Threads.@threads for index in eachindex(current)
+                parent = index == firstindex(current) ? initial : previous[index - 1]
+                current[index] = step(parent)
+            end
+        else
+            for index in eachindex(current)
+                parent = index == firstindex(current) ? initial : previous[index - 1]
+                current[index] = step(parent)
+            end
+        end
+    end
+    current
+end
+
+function certified_speculative_trajectory(step, initial, length::Integer,
+        passes::Integer; parallel::Bool=Threads.nthreads() > 1)
+    candidate = speculative_trajectory(step, initial, length, passes; parallel)
+    certified_trajectory(step, initial, candidate)
+end
 
 """A validated constant metric whose reusable numerical data are cached."""
 abstract type AbstractPreparedMetric end
@@ -379,6 +446,119 @@ function vector_leapfrog(gradient, step_size::T,
     next_position = position .+ step_size .* half_momentum
     next_momentum = half_momentum .- (step_size / 2) .* gradient(next_position)
     next_position, next_momentum
+end
+
+"""Generic two-stage Gauss--Legendre step with optionally concurrent stages."""
+function vector_gauss_legendre_step(gradient, step_size::T,
+        iterations::Integer, position::AbstractVector{T},
+        momentum::AbstractVector{T}; parallel::Bool=false) where {T<:AbstractFloat}
+    length(position) == length(momentum) || throw(DimensionMismatch("phase state"))
+    iterations > 0 || throw(ArgumentError("stage iterations must be positive"))
+    n = length(position)
+    z = vcat(position, momentum)
+    function field(state)
+        q = @view state[1:n]
+        p = @view state[(n + 1):(2n)]
+        force = T.(gradient(q))
+        length(force) == n || throw(DimensionMismatch("gradient"))
+        vcat(p, -force)
+    end
+    k1, k2 = field(z), field(z)
+    radius = sqrt(T(3)) / T(6)
+    a11, a12, a21, a22 = T(1)/T(4), T(1)/T(4)-radius,
+        T(1)/T(4)+radius, T(1)/T(4)
+    for _ in 1:iterations
+        state1 = z .+ step_size .* (a11 .* k1 .+ a12 .* k2)
+        state2 = z .+ step_size .* (a21 .* k1 .+ a22 .* k2)
+        if parallel
+            task = Threads.@spawn field(state1)
+            next2 = field(state2)
+            next1 = fetch(task)
+            k1, k2 = next1, next2
+        else
+            k1, k2 = field(state1), field(state2)
+        end
+    end
+    next = z .+ (step_size / T(2)) .* (k1 .+ k2)
+    collect(@view(next[1:n])), collect(@view(next[(n + 1):(2n)]))
+end
+
+"""Two-stage Gauss--Legendre step using a batched gradient and SIMD stage algebra.
+
+`batched_gradient!(output, positions)` must fill column `j` of `output` with
+the gradient at column `j` of `positions`.  Keeping this interface explicit is
+important: an arbitrary scalar callback cannot safely be assumed to support
+vectorization across Runge--Kutta stages.
+"""
+function vector_gauss_legendre_simd_step(batched_gradient!, step_size::T,
+        iterations::Integer, position::AbstractVector{T},
+        momentum::AbstractVector{T}) where {T<:AbstractFloat}
+    length(position) == length(momentum) || throw(DimensionMismatch("phase state"))
+    iterations > 0 || throw(ArgumentError("stage iterations must be positive"))
+    n = length(position)
+    positions = Matrix{T}(undef, n, 2)
+    momenta = Matrix{T}(undef, n, 2)
+    gradients = Matrix{T}(undef, n, 2)
+    initial_gradient = Matrix{T}(undef, n, 2)
+    @inbounds @simd for index in eachindex(position)
+        positions[index, 1] = position[index]
+        positions[index, 2] = position[index]
+    end
+    batched_gradient!(initial_gradient, positions)
+    size(initial_gradient) == (n, 2) || throw(DimensionMismatch("batched gradient"))
+    @inbounds @simd for index in eachindex(position)
+        momenta[index, 1] = momentum[index]
+        momenta[index, 2] = momentum[index]
+    end
+
+    radius = sqrt(T(3)) / T(6)
+    a11, a12 = T(1) / T(4), T(1) / T(4) - radius
+    a21, a22 = T(1) / T(4) + radius, T(1) / T(4)
+    for _ in 1:iterations
+        @inbounds @simd for index in eachindex(position)
+            p1, p2 = momenta[index, 1], momenta[index, 2]
+            g1, g2 = initial_gradient[index, 1], initial_gradient[index, 2]
+            positions[index, 1] = position[index] + step_size * (a11*p1 + a12*p2)
+            positions[index, 2] = position[index] + step_size * (a21*p1 + a22*p2)
+            momenta[index, 1] = momentum[index] - step_size * (a11*g1 + a12*g2)
+            momenta[index, 2] = momentum[index] - step_size * (a21*g1 + a22*g2)
+        end
+        batched_gradient!(gradients, positions)
+        initial_gradient, gradients = gradients, initial_gradient
+    end
+
+    next_position, next_momentum = similar(position), similar(momentum)
+    @inbounds @simd for index in eachindex(position)
+        next_position[index] = position[index] +
+            (step_size / T(2)) * (momenta[index, 1] + momenta[index, 2])
+        next_momentum[index] = momentum[index] -
+            (step_size / T(2)) * (initial_gradient[index, 1] + initial_gradient[index, 2])
+    end
+    next_position, next_momentum
+end
+
+"""Generic maintained endpoint HMC using fixed-work stage-parallel GL2."""
+function vector_gauss_legendre_hmc_step!(source::AbstractRandomSource,
+        logdensity, gradient, step_size::T, steps::Integer,
+        iterations::Integer, current::AbstractVector{T};
+        parallel::Bool=false, batched_gradient! = nothing) where {T<:AbstractFloat}
+    isfinite(step_size) && step_size > 0 || throw(ArgumentError("step size"))
+    steps > 0 || throw(ArgumentError("integration steps must be positive"))
+    iterations > 0 || throw(ArgumentError("stage iterations must be positive"))
+    initial = collect(current)
+    p0 = T[standard_normal!(source) for _ in eachindex(initial)]
+    q, p = copy(initial), copy(p0)
+    for _ in 1:steps
+        q, p = isnothing(batched_gradient!) ?
+            vector_gauss_legendre_step(gradient, step_size, iterations,
+                q, p; parallel) :
+            vector_gauss_legendre_simd_step(batched_gradient!, step_size,
+                iterations, q, p)
+    end
+    current_energy = -T(logdensity(initial)) + sum(abs2, p0) / T(2)
+    next_energy = -T(logdensity(q)) + sum(abs2, p) / T(2)
+    log(T(uniform_unit!(source))) < min(zero(T), current_energy - next_energy) ?
+        q : initial
 end
 
 """Independent generic floating-point implementation of vector endpoint HMC."""
@@ -744,6 +924,135 @@ function gaussian_rwmh_step!(source::AbstractRandomSource, logdensity,
     proposal = initial + σ * T(standard_normal!(source))
     logratio = logdensity(proposal) - logdensity(initial)
     log(uniform_unit!(source)) < min(zero(logratio), logratio) ? proposal : initial
+end
+
+"""Maintained generic scalar MALA step with the asymmetric Hastings correction."""
+function scalar_mala_step!(source::AbstractRandomSource, logdensity, gradient,
+        step_size::T, current::T) where {T<:AbstractFloat}
+    checked_positive_float(step_size, "step size")
+    checked_finite_float(current, "current state")
+    variance = step_size * step_size
+    half_variance = variance / T(2)
+    current_gradient = T(gradient(current))
+    isfinite(current_gradient) || throw(DomainError(current_gradient, "gradient must be finite"))
+    proposed = current + half_variance * current_gradient +
+        step_size * T(standard_normal!(source))
+    proposed_gradient = T(gradient(proposed))
+    isfinite(proposed_gradient) || throw(DomainError(proposed_gradient, "gradient must be finite"))
+    forward_residual = proposed - (current + half_variance * current_gradient)
+    reverse_residual = current - (proposed + half_variance * proposed_gradient)
+    logratio = T(logdensity(proposed)) - T(logdensity(current)) +
+        (forward_residual^2 - reverse_residual^2) / (T(2) * variance)
+    isfinite(logratio) || throw(DomainError(logratio, "MALA log ratio must be finite"))
+    T(uniform_unit!(source)) < exp(min(zero(T), logratio)) ? proposed : current
+end
+
+"""Maintained generic isotropic vector MALA step."""
+function vector_mala_step!(source::AbstractRandomSource, logdensity, gradient,
+        step_size::T, current::AbstractVector{T}) where {T<:AbstractFloat}
+    checked_positive_float(step_size, "step size")
+    isempty(current) && throw(ArgumentError("position cannot be empty"))
+    all(isfinite, current) || throw(DomainError(current, "position must be finite"))
+    variance = step_size * step_size
+    half_variance = variance / T(2)
+    current_gradient = T.(gradient(current))
+    length(current_gradient) == length(current) || throw(DimensionMismatch("gradient dimension"))
+    all(isfinite, current_gradient) || throw(DomainError(current_gradient, "gradient must be finite"))
+    proposed = similar(current)
+    @inbounds for index in eachindex(current)
+        proposed[index] = current[index] + half_variance * current_gradient[index] +
+            step_size * T(standard_normal!(source))
+    end
+    proposed_gradient = T.(gradient(proposed))
+    length(proposed_gradient) == length(current) || throw(DimensionMismatch("gradient dimension"))
+    all(isfinite, proposed_gradient) || throw(DomainError(proposed_gradient, "gradient must be finite"))
+    forward_norm = zero(T)
+    reverse_norm = zero(T)
+    @inbounds for index in eachindex(current)
+        forward = proposed[index] - (current[index] + half_variance * current_gradient[index])
+        reverse = current[index] - (proposed[index] + half_variance * proposed_gradient[index])
+        forward_norm += forward^2
+        reverse_norm += reverse^2
+    end
+    logratio = T(logdensity(proposed)) - T(logdensity(current)) +
+        (forward_norm - reverse_norm) / (T(2) * variance)
+    isfinite(logratio) || throw(DomainError(logratio, "MALA log ratio must be finite"))
+    T(uniform_unit!(source)) < exp(min(zero(T), logratio)) ? proposed : copy(current)
+end
+
+function _dense_pmala_geometry(gradient, metric, metric_derivative,
+        step_size::T, position::AbstractVector{T}) where {T<:AbstractFloat}
+    dimension = length(position)
+    score = T.(gradient(position))
+    length(score) == dimension || throw(DimensionMismatch("gradient dimension"))
+    all(isfinite, score) || throw(DomainError(score, "gradient must be finite"))
+    raw_metric = metric(position)
+    raw_metric isa AbstractMatrix || throw(ArgumentError("metric must return a matrix"))
+    size(raw_metric) == (dimension, dimension) || throw(DimensionMismatch("metric dimension"))
+    matrix = Matrix{T}(raw_metric)
+    all(isfinite, matrix) || throw(DomainError(raw_metric, "metric must be finite"))
+    issymmetric(matrix) || throw(ArgumentError("metric must be symmetric"))
+    factor = try
+        cholesky(Symmetric(matrix))
+    catch error
+        error isa PosDefException || rethrow()
+        throw(DomainError(raw_metric, "metric must be positive definite"))
+    end
+    inverse_metric = factor \ Matrix{T}(I, dimension, dimension)
+    raw_derivative = metric_derivative(position)
+    raw_derivative isa AbstractArray || throw(ArgumentError(
+        "metric derivative must return a rank-three array"))
+    ndims(raw_derivative) == 3 && size(raw_derivative) ==
+        (dimension, dimension, dimension) ||
+        throw(DimensionMismatch("metric derivative dimension"))
+    derivative = T.(raw_derivative)
+    all(isfinite, derivative) || throw(DomainError(raw_derivative,
+        "metric derivative must be finite"))
+    divergence = zeros(T, dimension)
+    for coordinate in 1:dimension
+        derivative_inverse = -inverse_metric *
+            @view(derivative[:, :, coordinate]) * inverse_metric
+        divergence .+= @view derivative_inverse[:, coordinate]
+    end
+    mean = position .+ (step_size^2 / T(2)) .*
+        (inverse_metric * score .+ divergence)
+    logdet = T(2) * sum(log, diag(factor.L); init=zero(T))
+    (; matrix, factor, mean, logdet)
+end
+
+"""Generic dense Lebesgue-correct position-dependent MALA transition."""
+function dense_pmala_step!(source::AbstractRandomSource, logdensity, gradient,
+        metric, metric_derivative, step_size::T,
+        current::AbstractVector{T}) where {T<:AbstractFloat}
+    checked_positive_float(step_size, "step size")
+    isempty(current) && throw(ArgumentError("position cannot be empty"))
+    all(isfinite, current) || throw(DomainError(current, "position must be finite"))
+    current_geometry = _dense_pmala_geometry(
+        gradient, metric, metric_derivative, step_size, current)
+    noise = Vector{T}(undef, length(current))
+    @inbounds for index in eachindex(noise)
+        noise[index] = T(standard_normal!(source))
+    end
+    proposed = current_geometry.mean .+
+        step_size .* (current_geometry.factor.L' \ noise)
+    proposed_geometry = _dense_pmala_geometry(
+        gradient, metric, metric_derivative, step_size, proposed)
+    forward_residual = proposed .- current_geometry.mean
+    reverse_residual = current .- proposed_geometry.mean
+    forward_quadratic = dot(forward_residual,
+        current_geometry.matrix * forward_residual) / step_size^2
+    reverse_quadratic = dot(reverse_residual,
+        proposed_geometry.matrix * reverse_residual) / step_size^2
+    proposed_logdensity = T(logdensity(proposed))
+    current_logdensity = T(logdensity(current))
+    all(isfinite, (proposed_logdensity, current_logdensity)) ||
+        throw(DomainError((proposed_logdensity, current_logdensity),
+            "logdensity must be finite"))
+    logratio = proposed_logdensity - current_logdensity +
+        (proposed_geometry.logdet - current_geometry.logdet) / T(2) -
+        (reverse_quadratic - forward_quadratic) / T(2)
+    isfinite(logratio) || throw(DomainError(logratio, "PMALA log ratio must be finite"))
+    T(uniform_unit!(source)) < exp(min(zero(T), logratio)) ? proposed : copy(current)
 end
 
 """Maintained categorical implementation using cumulative sums and binary search."""

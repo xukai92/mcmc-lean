@@ -25,6 +25,10 @@ def denseProgram : Program where
 def structuredProgram : Program where
   name := "random_sketch_rmhmc_step!"
 
+/-- Dense Lebesgue-correct position-dependent MALA reference entry point. -/
+def densePmalaProgram : Program where
+  name := "dense_pmala_step!"
+
 private def quote (value : String) : String := "\"" ++ value ++ "\""
 
 def Program.render (program : Program) : String :=
@@ -69,5 +73,15 @@ def renderStructured : String :=
   " (body (return (structured-rmhmc (var source \"source\")" ++
   " (var real \"step_size\") (var nat \"steps\")" ++
   " (var real-vector \"current\") (var real \"residual_tolerance\")))))"
+
+/-- Render dense PMALA as a typed, callback-parameterized primitive. -/
+def renderDensePmala : String :=
+  "(program " ++ quote densePmalaProgram.name ++
+  " (inputs (input source \"source\") (input log-density \"logdensity\")" ++
+  " (input gradient \"gradient\") (input metric \"metric\")" ++
+  " (input metric-derivative \"metric_derivative\")" ++
+  " (input real \"step_size\") (input real-vector \"current\"))" ++
+  " (body (return (dense-pmala (var source \"source\")" ++
+  " (var real \"step_size\") (var real-vector \"current\")))))"
 
 end Mcmc.Executable.Continuous.RiemannianCompilerIR

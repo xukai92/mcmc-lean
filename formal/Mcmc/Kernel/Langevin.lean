@@ -56,6 +56,21 @@ theorem measurable_langevinCentre {drift : (ι → ℝ) → (ι → ℝ)}
     (hdrift : Measurable drift) : Measurable (langevinCentre drift) := by
   exact measurable_id.add hdrift
 
+/-- The standard MALA drift: half the proposal variance times the score
+`∇ log π`. Keeping the score as a callback avoids imposing a particular
+differentiability representation on target densities. -/
+noncomputable def malaScoreDrift (variance : ℝ≥0) (score : (ι → ℝ) → (ι → ℝ))
+    (x : ι → ℝ) : ι → ℝ :=
+  fun i => ((variance : ℝ) / 2) * score x i
+
+omit [Fintype ι] in
+theorem measurable_malaScoreDrift {variance : ℝ≥0}
+    {score : (ι → ℝ) → (ι → ℝ)} (hscore : Measurable score) :
+    Measurable (malaScoreDrift variance score) := by
+  apply measurable_pi_iff.mpr
+  intro i
+  exact ((measurable_pi_apply i).comp hscore).const_mul _
+
 /-- The isotropic Gaussian density `q(x,y)` used by ULA and MALA. -/
 noncomputable def langevinProposalDensity
     (drift : (ι → ℝ) → (ι → ℝ)) (variance : ℝ≥0)
@@ -106,6 +121,15 @@ noncomputable def metropolisAdjustedLangevin
     (measurable_uncurry_langevinProposalDensity hdrift variance)
     (langevinProposalDensity_normalized drift variance hvariance)
 
+/-- Conventional isotropic MALA, specialized to the score-scaled drift
+`variance / 2 * ∇ log π`. -/
+noncomputable def scoreMALA
+    (weight : (ι → ℝ) → ENNReal) (score : (ι → ℝ) → (ι → ℝ))
+    (variance : ℝ≥0) (hscore : Measurable score) (hvariance : variance ≠ 0) :
+    Kernel (ι → ℝ) (ι → ℝ) :=
+  metropolisAdjustedLangevin weight (malaScoreDrift variance score) variance
+    (measurable_malaScoreDrift hscore) hvariance
+
 theorem metropolisAdjustedLangevin_isMarkov
     (weight : (ι → ℝ) → ENNReal) (drift : (ι → ℝ) → (ι → ℝ))
     (variance : ℝ≥0) (hweight : Measurable weight)
@@ -115,6 +139,15 @@ theorem metropolisAdjustedLangevin_isMarkov
   exact densityMetropolisHastings_isMarkov volume weight _ hweight
     (measurable_uncurry_langevinProposalDensity hdrift variance)
     (langevinProposalDensity_normalized drift variance hvariance)
+
+theorem scoreMALA_isMarkov
+    (weight : (ι → ℝ) → ENNReal) (score : (ι → ℝ) → (ι → ℝ))
+    (variance : ℝ≥0) (hweight : Measurable weight)
+    (hscore : Measurable score) (hvariance : variance ≠ 0) :
+    IsMarkovKernel (scoreMALA weight score variance hscore hvariance) := by
+  exact metropolisAdjustedLangevin_isMarkov weight
+    (malaScoreDrift variance score) variance hweight
+    (measurable_malaScoreDrift hscore) hvariance
 
 theorem metropolisAdjustedLangevin_isReversible
     (weight : (ι → ℝ) → ENNReal) (drift : (ι → ℝ) → (ι → ℝ))
@@ -128,6 +161,18 @@ theorem metropolisAdjustedLangevin_isReversible
     (measurable_uncurry_langevinProposalDensity hdrift variance)
     (langevinProposalDensity_normalized drift variance hvariance) hfinite
 
+theorem scoreMALA_isReversible
+    (weight : (ι → ℝ) → ENNReal) (score : (ι → ℝ) → (ι → ℝ))
+    (variance : ℝ≥0) (hweight : Measurable weight)
+    (hscore : Measurable score) (hvariance : variance ≠ 0)
+    (hfinite : ∀ x y, forwardDensityFlow weight
+      (langevinProposalDensity (malaScoreDrift variance score) variance) x y ≠ ∞) :
+    (scoreMALA weight score variance hscore hvariance).IsReversible
+      (densityTarget volume weight) := by
+  exact metropolisAdjustedLangevin_isReversible weight
+    (malaScoreDrift variance score) variance hweight
+    (measurable_malaScoreDrift hscore) hvariance hfinite
+
 theorem metropolisAdjustedLangevin_invariant
     (weight : (ι → ℝ) → ENNReal) (drift : (ι → ℝ) → (ι → ℝ))
     (variance : ℝ≥0) (hweight : Measurable weight)
@@ -139,5 +184,17 @@ theorem metropolisAdjustedLangevin_invariant
   exact densityMetropolisHastings_invariant volume weight _ hweight
     (measurable_uncurry_langevinProposalDensity hdrift variance)
     (langevinProposalDensity_normalized drift variance hvariance) hfinite
+
+theorem scoreMALA_invariant
+    (weight : (ι → ℝ) → ENNReal) (score : (ι → ℝ) → (ι → ℝ))
+    (variance : ℝ≥0) (hweight : Measurable weight)
+    (hscore : Measurable score) (hvariance : variance ≠ 0)
+    (hfinite : ∀ x y, forwardDensityFlow weight
+      (langevinProposalDensity (malaScoreDrift variance score) variance) x y ≠ ∞) :
+    (scoreMALA weight score variance hscore hvariance).Invariant
+      (densityTarget volume weight) := by
+  exact metropolisAdjustedLangevin_invariant weight
+    (malaScoreDrift variance score) variance hweight
+    (measurable_malaScoreDrift hscore) hvariance hfinite
 
 end Mcmc.Kernel

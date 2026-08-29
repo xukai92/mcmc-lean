@@ -13,6 +13,7 @@ const REPO_ROOT = normpath(joinpath(@__DIR__, "..", ".."))
 const ORACLE = joinpath(REPO_ROOT, "formal", ".lake", "build", "bin", "mcmc_oracle")
 
 include("properties.jl")
+include("parallel_integrators.jl")
 include("backends.jl")
 include("quality_diagnostics.jl")
 include("geweke.jl")

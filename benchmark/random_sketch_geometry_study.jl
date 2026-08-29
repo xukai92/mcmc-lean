@@ -26,7 +26,7 @@ const SEEDS = parse.(Int, split(get(ENV,
     "GEOMETRY_STUDY_SEEDS", "9211,9212,9213,9214"), ','))
 const PROBE_SEED = parse(Int, get(ENV, "GEOMETRY_STUDY_PROBE_SEED", "9210"))
 const ALGORITHMS = split(get(ENV, "GEOMETRY_STUDY_ALGORITHMS",
-    "hmc,full-rmhmc,random-sketch-rmhmc"), ',')
+    "mala,dense-pmala,hmc,transport-hmc,moment-fitted-transport-hmc,warmup-fitted-transport-hmc,likelihood-informed-hmc,full-rmhmc,random-sketch-rmhmc"), ',')
 const OUTPUT = get(ENV, "GEOMETRY_STUDY_OUTPUT",
     "random-sketch-geometry-study.csv")
 const OUTPUT_PREFIX = get(ENV, "GEOMETRY_STUDY_OUTPUT_PREFIX",
@@ -41,6 +41,32 @@ const RMHMC_INTEGRATION_TIMES = parse_grid(
     get(ENV, "GEOMETRY_STUDY_INTEGRATION_TIMES", "1.0"))
 const HMC_STEP_SIZES = parse_grid(
     "GEOMETRY_STUDY_HMC_STEP_SIZES", "0.001,0.002,0.005")
+const TRANSPORT_HMC_STEP_SIZES = parse_grid(
+    "GEOMETRY_STUDY_TRANSPORT_HMC_STEP_SIZES", "0.1,0.2,0.4")
+const LIKELIHOOD_INFORMED_HMC_STEP_SIZES = parse_grid(
+    "GEOMETRY_STUDY_LIKELIHOOD_INFORMED_HMC_STEP_SIZES", "0.05,0.1,0.2")
+const AMORTIZED_INTEGRATION_TIMES = parse_grid(
+    "GEOMETRY_STUDY_AMORTIZED_INTEGRATION_TIMES", "1.0")
+const TRANSPORT_TRAINING_SAMPLES = parse(Int,
+    get(ENV, "GEOMETRY_STUDY_TRANSPORT_TRAINING_SAMPLES", "5000"))
+const TRANSPORT_WARMUP_CHAINS = parse(Int,
+    get(ENV, "GEOMETRY_STUDY_TRANSPORT_WARMUP_CHAINS", "4"))
+const TRANSPORT_WARMUP_BURNIN = parse(Int,
+    get(ENV, "GEOMETRY_STUDY_TRANSPORT_WARMUP_BURNIN", "500"))
+const TRANSPORT_WARMUP_STEP_SIZE = parse(Float64,
+    get(ENV, "GEOMETRY_STUDY_TRANSPORT_WARMUP_STEP_SIZE", "0.01"))
+const TRANSPORT_WARMUP_STEPS = parse(Int,
+    get(ENV, "GEOMETRY_STUDY_TRANSPORT_WARMUP_STEPS", "50"))
+const PAIRED_WARMUP_TRANSITIONS = parse(Int,
+    get(ENV, "GEOMETRY_STUDY_PAIRED_WARMUP_TRANSITIONS", "1000"))
+const PAIRED_HMC_STEP_SIZES = parse_grid(
+    "GEOMETRY_STUDY_PAIRED_HMC_STEP_SIZES", "0.01")
+const PAIRED_HMC_INTEGRATION_TIMES = parse_grid(
+    "GEOMETRY_STUDY_PAIRED_HMC_INTEGRATION_TIMES", "0.5")
+const MALA_STEP_SIZES = parse_grid(
+    "GEOMETRY_STUDY_MALA_STEP_SIZES", "0.02,0.05,0.1,0.2,0.3")
+const DENSE_PMALA_STEP_SIZES = parse_grid(
+    "GEOMETRY_STUDY_DENSE_PMALA_STEP_SIZES", "0.2,0.5,0.8,1.0,1.2,1.5")
 const RMHMC_STEP_SIZES = parse_grid(
     "GEOMETRY_STUDY_RMHMC_STEP_SIZES", "0.005,0.01,0.04")
 const FULL_RMHMC_STEP_SIZES = parse_grid(
@@ -88,6 +114,178 @@ function potential_gradient(q)
     gradient[1] = y[1] + 2BANANA * q[1] * y[2]
     gradient
 end
+
+"""Exact inverse of `latent`: map standard-normal latent coordinates to q."""
+function inverse_latent(z)
+    if ROTATED
+        coordinate = dot(WARP_INPUT, z)
+        return z - BANANA * (coordinate^2 - 1) .* WARP_OUTPUT
+    end
+    result = copy(z)
+    result[2] -= BANANA * (result[1]^2 - 1)
+    result
+end
+
+"""Jacobian-transpose action for `inverse_latent`."""
+function inverse_latent_pullback(z, value)
+    if ROTATED
+        slope = 2BANANA * dot(WARP_INPUT, z)
+        return value - slope * dot(WARP_OUTPUT, value) .* WARP_INPUT
+    end
+    result = copy(value)
+    result[1] -= 2BANANA * z[1] * value[2]
+    result
+end
+
+function informed_basis()
+    if ROTATED
+        return reshape(copy(WARP_INPUT), DIMENSION, 1)
+    end
+    basis = zeros(DIMENSION, 1)
+    basis[1, 1] = 1
+    basis
+end
+
+const FITTED_TRANSPORT_CACHE = Ref{Any}(nothing)
+const WARMUP_FITTED_TRANSPORT_CACHE = Ref{Any}(nothing)
+const PAIRED_WARMUP_CACHE = Dict{String,Any}()
+
+function fitted_transport()
+    if isnothing(FITTED_TRANSPORT_CACHE[])
+        rng = MersenneTwister(PROBE_SEED + 0x7472616e)
+        training = Matrix{Float64}(undef, DIMENSION, TRANSPORT_TRAINING_SAMPLES)
+        for index in axes(training, 2)
+            training[:, index] = inverse_latent(randn(rng, DIMENSION))
+        end
+        FITTED_TRANSPORT_CACHE[] = fit_rank_one_polynomial_transport(training)
+    end
+    FITTED_TRANSPORT_CACHE[]
+end
+
+function warmup_fitted_transport()
+    if isnothing(WARMUP_FITTED_TRANSPORT_CACHE[])
+        retained_per_chain = cld(
+            TRANSPORT_TRAINING_SAMPLES, TRANSPORT_WARMUP_CHAINS)
+        warmup_sampler = VectorHMC(q -> -potential(q), potential_gradient,
+            TRANSPORT_WARMUP_STEP_SIZE, TRANSPORT_WARMUP_STEPS)
+        training = Matrix{Float64}(undef, DIMENSION,
+            retained_per_chain * TRANSPORT_WARMUP_CHAINS)
+        started = time()
+        offset = 0
+        for chain in 1:TRANSPORT_WARMUP_CHAINS
+            draws = sample(MersenneTwister(PROBE_SEED + 10_000 + chain),
+                warmup_sampler, zeros(DIMENSION),
+                TRANSPORT_WARMUP_BURNIN + retained_per_chain)
+            training[:, (offset + 1):(offset + retained_per_chain)] =
+                @view draws[:, (TRANSPORT_WARMUP_BURNIN + 1):end]
+            offset += retained_per_chain
+        end
+        training = training[:, 1:TRANSPORT_TRAINING_SAMPLES]
+        acquisition_seconds = time() - started
+        fit_started = time()
+        map = fit_rank_one_polynomial_transport(training)
+        fit_seconds = time() - fit_started
+        input_alignment = abs(dot(map.input_direction, WARP_INPUT))
+        output_alignment = abs(dot(map.output_direction, WARP_OUTPUT))
+        WARMUP_FITTED_TRANSPORT_CACHE[] =
+            (; map, acquisition_seconds, fit_seconds, input_alignment,
+                output_alignment)
+        metadata_path = joinpath(@__DIR__, "results",
+            "warmup-fitted-transport-dimension-$DIMENSION-metadata.csv")
+        open(metadata_path, "w") do io
+            println(io, "dimension,training_samples,warmup_chains,burnin_per_chain,warmup_step_size,warmup_steps,acquisition_seconds,fit_seconds,input_alignment,output_alignment")
+            println(io, join((DIMENSION, TRANSPORT_TRAINING_SAMPLES,
+                TRANSPORT_WARMUP_CHAINS, TRANSPORT_WARMUP_BURNIN,
+                TRANSPORT_WARMUP_STEP_SIZE, TRANSPORT_WARMUP_STEPS,
+                acquisition_seconds, fit_seconds, input_alignment,
+                output_alignment), ','))
+        end
+        println("warmup transport: acquisition=$(round(acquisition_seconds; digits=3)) s, " *
+            "fit=$(round(fit_seconds; digits=4)) s, " *
+            "input alignment=$(round(input_alignment; digits=3)), " *
+            "output alignment=$(round(output_alignment; digits=3))")
+    end
+    WARMUP_FITTED_TRANSPORT_CACHE[]
+end
+
+function paired_warmup(algorithm)
+    if !haskey(PAIRED_WARMUP_CACHE, algorithm)
+        warmup_sampler = VectorHMC(q -> -potential(q), potential_gradient,
+            TRANSPORT_WARMUP_STEP_SIZE, TRANSPORT_WARMUP_STEPS)
+        training = Matrix{Float64}(undef, DIMENSION,
+            PAIRED_WARMUP_TRANSITIONS * length(SEEDS))
+        endpoints = Vector{Vector{Float64}}(undef, length(SEEDS))
+        continuation_rngs = Vector{MersenneTwister}(undef, length(SEEDS))
+        chain_seconds = zeros(length(SEEDS))
+        offset = 0
+        # Compile the shared warmup transition before recording acquisition.
+        sample(MersenneTwister(PROBE_SEED), warmup_sampler,
+            zeros(DIMENSION), 2)
+        algorithm_offset = findfirst(==(algorithm),
+            ["paired-hmc", "paired-oracle-transport-hmc",
+                "paired-fitted-transport-hmc"])
+        isnothing(algorithm_offset) && error("unknown paired algorithm $algorithm")
+        for (chain, seed) in enumerate(SEEDS)
+            rng = MersenneTwister(seed + 100_000 * algorithm_offset)
+            trial = @timed sample(rng, warmup_sampler,
+                zeros(DIMENSION), PAIRED_WARMUP_TRANSITIONS)
+            training[:, (offset + 1):(offset + PAIRED_WARMUP_TRANSITIONS)] =
+                trial.value
+            endpoints[chain] = copy(@view trial.value[:, end])
+            continuation_rngs[chain] = deepcopy(rng)
+            chain_seconds[chain] = trial.time
+            offset += PAIRED_WARMUP_TRANSITIONS
+        end
+        if algorithm == "paired-fitted-transport-hmc"
+            # As elsewhere in the benchmark, compilation is not sampler cost.
+            fit_rank_one_polynomial_transport(training)
+        end
+        fit_trial = algorithm == "paired-fitted-transport-hmc" ?
+            @timed(fit_rank_one_polynomial_transport(training)) : nothing
+        map = isnothing(fit_trial) ? nothing : fit_trial.value
+        fit_seconds = isnothing(fit_trial) ? 0.0 : fit_trial.time
+        input_alignment = isnothing(map) ? NaN :
+            abs(dot(map.input_direction, WARP_INPUT))
+        output_alignment = isnothing(map) ? NaN :
+            abs(dot(map.output_direction, WARP_OUTPUT))
+        PAIRED_WARMUP_CACHE[algorithm] = (; map, endpoints, continuation_rngs,
+            chain_seconds,
+            acquisition_seconds=sum(chain_seconds), fit_seconds,
+            input_alignment, output_alignment)
+        metadata_path = joinpath(@__DIR__, "results",
+            "paired-transport-dimension-$DIMENSION-metadata.csv")
+        open(metadata_path, "w") do io
+            println(io, "algorithm,dimension,chains,warmup_transitions_per_chain,warmup_step_size,warmup_steps,acquisition_seconds,fit_seconds,input_alignment,output_alignment")
+            for name in ("paired-hmc", "paired-oracle-transport-hmc",
+                    "paired-fitted-transport-hmc")
+                haskey(PAIRED_WARMUP_CACHE, name) || continue
+                result = PAIRED_WARMUP_CACHE[name]
+                println(io, join((name, DIMENSION, length(SEEDS),
+                    PAIRED_WARMUP_TRANSITIONS, TRANSPORT_WARMUP_STEP_SIZE,
+                    TRANSPORT_WARMUP_STEPS, result.acquisition_seconds,
+                    result.fit_seconds, result.input_alignment,
+                    result.output_alignment), ','))
+            end
+        end
+        println("$algorithm warmup: $(PAIRED_WARMUP_TRANSITIONS) HMC transitions/chain, " *
+            "acquisition=$(round(sum(chain_seconds); digits=3)) s, " *
+            "fit=$(round(fit_seconds; digits=4)) s, " *
+            "alignment=$(round(input_alignment; digits=3))/" *
+            "$(round(output_alignment; digits=3))")
+    end
+    PAIRED_WARMUP_CACHE[algorithm]
+end
+
+is_paired_algorithm(algorithm) = algorithm in
+    ("paired-hmc", "paired-oracle-transport-hmc",
+        "paired-fitted-transport-hmc")
+
+initial_position(algorithm, chain_index) = is_paired_algorithm(algorithm) ?
+    paired_warmup(algorithm).endpoints[chain_index] : zeros(DIMENSION)
+
+sampling_rng(algorithm, chain_index, seed) = is_paired_algorithm(algorithm) ?
+    deepcopy(paired_warmup(algorithm).continuation_rngs[chain_index]) :
+    MersenneTwister(seed)
 
 function curvature_action(q, probe)
     if ROTATED
@@ -157,11 +355,66 @@ end
 configured_steps(integration_time, step_size) =
     max(1, round(Int, integration_time / step_size))
 
+algorithm_steps(algorithm, integration_time, step_size) =
+    algorithm in ("mala", "dense-pmala") ? 1 :
+    configured_steps(integration_time, step_size)
+
 function sampler(algorithm, probes, step_size, integration_time)
     steps = configured_steps(integration_time, step_size)
-    if algorithm == "hmc"
-        return VectorHMC(q -> -potential(q), q -> -potential_gradient(q),
+    if algorithm == "mala"
+        return MALA(q -> -potential(q), q -> -potential_gradient(q),
+            step_size; implementation=:optimized)
+    elseif algorithm == "dense-pmala"
+        return DensePMALA(q -> -potential(q), q -> -potential_gradient(q),
+            full_metric, full_metric_derivative, step_size;
+            implementation=:optimized)
+    elseif algorithm == "hmc"
+        return VectorHMC(q -> -potential(q), potential_gradient,
             step_size, steps)
+    elseif algorithm == "paired-hmc"
+        return VectorHMC(q -> -potential(q), potential_gradient,
+            step_size, steps)
+    elseif algorithm == "transport-hmc"
+        return TransportHMC(q -> -potential(q), potential_gradient,
+            inverse_latent, latent, inverse_latent_pullback,
+            _ -> 0.0, z -> zeros(eltype(z), length(z)), step_size, steps;
+            implementation=:optimized)
+    elseif algorithm == "paired-oracle-transport-hmc"
+        return TransportHMC(q -> -potential(q), potential_gradient,
+            inverse_latent, latent, inverse_latent_pullback,
+            _ -> 0.0, z -> zeros(eltype(z), length(z)), step_size, steps;
+            implementation=:optimized)
+    elseif algorithm == "moment-fitted-transport-hmc"
+        map = fitted_transport()
+        return TransportHMC(q -> -potential(q), potential_gradient,
+            z -> transport_forward(map, z), q -> transport_inverse(map, q),
+            (z, value) -> transport_pullback(map, z, value),
+            z -> transport_logabsdetjac(map, z),
+            z -> transport_grad_logabsdetjac(map, z), step_size, steps;
+            implementation=:optimized)
+    elseif algorithm == "warmup-fitted-transport-hmc"
+        fit = warmup_fitted_transport()
+        map = fit.map
+        return TransportHMC(q -> -potential(q), potential_gradient,
+            z -> transport_forward(map, z), q -> transport_inverse(map, q),
+            (z, value) -> transport_pullback(map, z, value),
+            z -> transport_logabsdetjac(map, z),
+            z -> transport_grad_logabsdetjac(map, z), step_size, steps;
+            implementation=:optimized)
+    elseif algorithm == "paired-fitted-transport-hmc"
+        map = paired_warmup(algorithm).map
+        return TransportHMC(q -> -potential(q), potential_gradient,
+            z -> transport_forward(map, z), q -> transport_inverse(map, q),
+            (z, value) -> transport_pullback(map, z, value),
+            z -> transport_logabsdetjac(map, z),
+            z -> transport_grad_logabsdetjac(map, z), step_size, steps;
+            implementation=:optimized)
+    elseif algorithm == "likelihood-informed-hmc"
+        loglikelihood = q -> -potential(q) + sum(abs2, q) / 2
+        likelihood_score = q -> q - potential_gradient(q)
+        return LikelihoodInformedHMC(loglikelihood, likelihood_score,
+            informed_basis(), step_size, steps; complement_scale=0.6,
+            implementation=:optimized)
     elseif algorithm == "full-rmhmc"
         return DenseRiemannianRMHMC(potential, potential_gradient,
             full_metric, full_metric_derivative, step_size, steps;
@@ -190,7 +443,7 @@ end
 
 failed_row(algorithm, step_size, integration_time, failures) =
     (; algorithm, probes=PROBES, step_size, integration_time,
-        steps=configured_steps(integration_time, step_size), draws=DRAWS,
+        steps=algorithm_steps(algorithm, integration_time, step_size), draws=DRAWS,
         burnin=BURNIN, retained_per_chain=DRAWS - BURNIN, failures,
         seconds=Inf, draws_per_second=0.0, bulk_ess=0.0, tail_ess=0.0,
         bulk_ess_per_transition=0.0, tail_ess_per_transition=0.0,
@@ -229,7 +482,8 @@ end
 function run_configuration(algorithm, probes, step_size, integration_time)
     configured = sampler(algorithm, probes, step_size, integration_time)
     try
-        sample(MersenneTwister(first(SEEDS)), configured, zeros(DIMENSION), 2)
+        sample(sampling_rng(algorithm, 1, first(SEEDS)), configured,
+            initial_position(algorithm, 1), 2)
     catch error
         is_numerical_failure(error) || rethrow()
         return failed_row(algorithm, step_size, integration_time,
@@ -244,8 +498,8 @@ function run_configuration(algorithm, probes, step_size, integration_time)
         flush(stdout)
         GC.gc()
         trial = try
-            @timed sample(MersenneTwister(seed), configured,
-                zeros(DIMENSION), DRAWS)
+            @timed sample(sampling_rng(algorithm, chain_index, seed), configured,
+                initial_position(algorithm, chain_index), DRAWS)
         catch error
             is_numerical_failure(error) || rethrow()
             failures += 1
@@ -287,7 +541,7 @@ function run_configuration(algorithm, probes, step_size, integration_time)
         @view(chain[:, index - 1])) / DIMENSION
         for index in 2:size(chain, 2)) for chain in retained)
     (; algorithm, probes=PROBES, step_size, integration_time,
-        steps=configured_steps(integration_time, step_size), draws=DRAWS,
+        steps=algorithm_steps(algorithm, integration_time, step_size), draws=DRAWS,
         burnin=BURNIN, retained_per_chain=DRAWS - BURNIN, failures,
         seconds=total_seconds,
         draws_per_second=length(chains) * DRAWS / total_seconds,
@@ -335,7 +589,13 @@ function dimension_plot(summaries, field, title, ylabel)
     plot = nothing
     upper = maximum(Float64[getproperty(row, field) for row in summaries])
     limits = (0.0, upper * 1.05)
-    for algorithm in ("hmc", "full-rmhmc", "random-sketch-rmhmc")
+    for algorithm in
+            ("mala", "dense-pmala", "hmc", "transport-hmc",
+                "moment-fitted-transport-hmc",
+                "warmup-fitted-transport-hmc",
+                "paired-hmc", "paired-oracle-transport-hmc",
+                "paired-fitted-transport-hmc",
+                "likelihood-informed-hmc", "full-rmhmc", "random-sketch-rmhmc")
         selected = sort(filter(row -> row.algorithm == algorithm, summaries);
             by=row -> row.dimension)
         isempty(selected) && continue
@@ -371,7 +631,13 @@ function dimension_sweep_main()
     summaries = NamedTuple[]
     for (dimension, path) in zip(dimensions, result_paths)
         rows = read_result_rows(path)
-        for algorithm in ("hmc", "full-rmhmc", "random-sketch-rmhmc")
+        for algorithm in
+                ("mala", "dense-pmala", "hmc", "transport-hmc",
+                    "moment-fitted-transport-hmc",
+                    "warmup-fitted-transport-hmc",
+                    "paired-hmc", "paired-oracle-transport-hmc",
+                    "paired-fitted-transport-hmc",
+                    "likelihood-informed-hmc", "full-rmhmc", "random-sketch-rmhmc")
             best = best_no_failure_row(rows, algorithm)
             isnothing(best) && continue
             push!(summaries, (; dimension, algorithm,
@@ -440,14 +706,35 @@ function main()
     rows = NamedTuple[]
     initialize_progress()
     all(algorithm -> algorithm in
-        ("hmc", "full-rmhmc", "random-sketch-rmhmc"), ALGORITHMS) ||
+        ("mala", "dense-pmala", "hmc", "transport-hmc",
+            "moment-fitted-transport-hmc",
+            "warmup-fitted-transport-hmc",
+            "paired-hmc", "paired-oracle-transport-hmc",
+            "paired-fitted-transport-hmc",
+            "likelihood-informed-hmc", "full-rmhmc",
+            "random-sketch-rmhmc"), ALGORITHMS) ||
         error("GEOMETRY_STUDY_ALGORITHMS contains an unknown algorithm")
     for algorithm in ALGORITHMS
-        step_sizes = algorithm == "hmc" ? HMC_STEP_SIZES :
+        step_sizes = algorithm == "mala" ? MALA_STEP_SIZES :
+            algorithm == "dense-pmala" ? DENSE_PMALA_STEP_SIZES :
+            algorithm == "hmc" ? HMC_STEP_SIZES :
+            algorithm == "paired-hmc" ? PAIRED_HMC_STEP_SIZES :
+            algorithm in ("transport-hmc", "moment-fitted-transport-hmc",
+                "warmup-fitted-transport-hmc", "paired-oracle-transport-hmc",
+                "paired-fitted-transport-hmc") ?
+                TRANSPORT_HMC_STEP_SIZES :
+            algorithm == "likelihood-informed-hmc" ?
+                LIKELIHOOD_INFORMED_HMC_STEP_SIZES :
             algorithm == "full-rmhmc" ? FULL_RMHMC_STEP_SIZES :
             SKETCH_RMHMC_STEP_SIZES
-        integration_times = algorithm == "hmc" ? HMC_INTEGRATION_TIMES :
-            RMHMC_INTEGRATION_TIMES
+        integration_times = algorithm in ("mala", "dense-pmala") ? [1.0] :
+            algorithm == "hmc" ? HMC_INTEGRATION_TIMES :
+            algorithm == "paired-hmc" ? PAIRED_HMC_INTEGRATION_TIMES :
+            algorithm in ("transport-hmc", "moment-fitted-transport-hmc",
+                "warmup-fitted-transport-hmc",
+                "paired-oracle-transport-hmc", "paired-fitted-transport-hmc",
+                "likelihood-informed-hmc") ?
+                AMORTIZED_INTEGRATION_TIMES : RMHMC_INTEGRATION_TIMES
         for integration_time in integration_times, step_size in step_sizes
             print("$algorithm epsilon=$step_size tau=$integration_time ... ")
             row = run_configuration(

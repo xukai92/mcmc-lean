@@ -34,7 +34,7 @@ rewrite committed artifacts.
 The core release includes:
 
 - general-state and finite Metropolis--Hastings foundations;
-- RWMH, HMC, multinomial HMC, classical Gaussian-momentum RMHMC, coupling,
+- RWMH, MALA, HMC, multinomial HMC, classical Gaussian-momentum RMHMC, coupling,
   and meeting-time results;
 - corrected theorem coverage for Xu et al. (2021) and Xu and Ge (2024);
 - composable PG--HMC semantics inspired by Ge et al. (2018);
@@ -82,6 +82,7 @@ julia --project=docs docs/make.jl
 
 ```julia
 using Random
+using LinearAlgebra
 using VerifiedSamplers
 
 rng = MersenneTwister(42)
@@ -89,6 +90,33 @@ rng = MersenneTwister(42)
 # Random-walk Metropolis for a standard normal target.
 rwmh = GaussianRWMH(x -> -x^2 / 2, 0.8)
 rwmh_draws = sample(rng, rwmh, 0.0, 2_000)
+
+# MALA uses the gradient of log density and includes the asymmetric correction.
+mala = MALA(x -> -x^2 / 2, x -> -x, 0.8; implementation=:reference)
+mala_draws = sample(rng, mala, 0.0, 2_000)
+
+# Lebesgue-correct position-dependent MALA with a dense metric.
+metric(q) = Matrix{eltype(q)}(I, length(q), length(q))
+metric_derivative(q) = zeros(eltype(q), length(q), length(q), length(q))
+pmala = DensePMALA(q -> -sum(abs2, q) / 2, q -> -q,
+    metric, metric_derivative, 0.8; implementation=:optimized)
+pmala_draws = sample(rng, pmala, zeros(2), 2_000)
+
+# Transport HMC runs ordinary HMC after an exact invertible coordinate change.
+scale = [2.0, 0.5]
+transport_hmc = TransportHMC(q -> -sum(abs2, q) / 2, identity,
+    z -> scale .* z, q -> q ./ scale,
+    (z, v) -> scale .* v, z -> sum(log, scale),
+    z -> zeros(eltype(z), length(z)), 0.18, 7;
+    implementation=:optimized)
+transport_draws = sample(rng, transport_hmc, zeros(2), 2_000)
+
+# Fixed likelihood-informed subspace plus Gaussian-reference pCN complement.
+basis = reshape([1.0, 0.0], 2, 1)
+lis_hmc = LikelihoodInformedHMC(q -> -3q[1]^2 / 2,
+    q -> [-3q[1], 0.0], basis, 0.22, 7;
+    complement_scale=0.6, implementation=:optimized)
+lis_draws = sample(rng, lis_hmc, zeros(2), 2_000)
 
 # Vector endpoint HMC for a standard Gaussian target.
 hmc = VectorHMC(q -> -sum(abs2, q) / 2, identity, 0.15, 8)
@@ -106,7 +134,8 @@ guarantees.
 - [Architecture](docs/architecture.md): mathlib measures through kernels,
   samplers, paper clients, and executable layers.
 - [Adding a sampler](docs/development-guide.md): contributor workflow from
-  mathematical formalization through IR refinement and Julia integration.
+  mathematical formalization through IR refinement and Julia integration,
+  with MALA as a worked vertical slice.
 - [Sampler obligation matrix](docs/sampler-obligation-matrix.md): vertical
   theorem, execution, Reference, Optimized, and evidence boundaries.
 - [AdvancedHMC parity](docs/advancedhmc-parity.md): current non-adaptive

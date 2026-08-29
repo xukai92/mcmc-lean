@@ -242,6 +242,28 @@ additional irreducibility and recurrence assumptions; these do not follow
 from detailed balance alone. The exact claims and implementation boundary are
 recorded in the [classical RMHMC coverage audit](classical-rmhmc-coverage.md).
 
+#### Position-dependent and manifold MALA
+
+Girolami and Calderhead also derive a manifold Langevin proposal with
+position-dependent covariance. Xifara, Sherlock, Livingstone, Byrne, and
+Girolami later identify a missing factor of one half and clarify that the
+original diffusion's density is naturally expressed relative to Riemannian
+volume, not ordinary Lebesgue measure. For a Lebesgue-density target they
+propose position-dependent MALA (PMALA), whose drift adds half the row
+divergence of the inverse metric.
+
+- Tatiana Xifara, Chris Sherlock, Samuel Livingstone, Simon Byrne, and Mark
+  Girolami, [Langevin diffusions and the Metropolis-adjusted Langevin
+  algorithm](https://arxiv.org/abs/1309.2983), 2014.
+
+This distinction affects diffusion interpretation, not the generic MH fact:
+a simplified position-dependent Gaussian proposal still defines an invariant
+MH kernel when its actual forward and reverse densities are used. The project
+therefore treats Lebesgue-correct PMALA as the primary geometric Langevin
+method and simplified MMALA as a labelled control. The fixed-probe dense and
+low-rank metric plan is recorded in the
+[position-dependent MALA idea note](https://github.com/xukai92/mcmc-lean/blob/main/algo-seek/idea-position-dependent-mala.md).
+
 #### Statistically sensed position-dependent metrics
 
 A possible structured-metric direction combines RMHMC with randomized
@@ -268,6 +290,43 @@ in the [statistical-curvature RMHMC idea
 note](https://github.com/xukai92/mcmc-lean/blob/main/algo-seek/idea-statistical-curvature-rmhmc.md).
 The combination is a
 research direction, not presently a novelty claim or a covered theorem.
+
+#### Transport maps and likelihood-informed subspaces
+
+Transport-map MCMC learns an invertible coordinate change that makes a target
+easier for a conventional transition; Parno and Marzouk retain exactness with
+Metropolis correction, while NeuTra HMC runs HMC after a learned neural
+transport. Likelihood-informed methods instead identify directions in which a
+likelihood substantially changes a Gaussian reference measure and spend more
+proposal effort in that subspace. A linear subspace does not itself straighten
+curved geometry, while a general transport has a larger learning and Jacobian
+cost.
+
+This repository implements fixed-map transport HMC first. The map is frozen
+during retained sampling, and the Lean theorem exposes the exact pushforward
+identity in which the Jacobian belongs. It also implements a fixed-basis
+likelihood-informed client: conditional HMC acts in the active subspace and an
+MH-corrected pCN move acts in the Gaussian-reference complement. Its Lean
+surface currently proves conditional common-target composition; concrete
+component clients remain open. Online adaptation is not silently included in
+either stationary kernel.
+See the [algorithm note](https://github.com/xukai92/mcmc-lean/blob/main/algo-seek/idea-transport-and-subspace-hmc.md).
+
+#### Parallel coupled unbiased MCMC
+
+Coupled unbiased estimators are independently replicable, but random meeting
+times create variance, straggler, and completion-bias concerns. Parallelism
+inside target evaluation or between marginal chains does not by itself change
+the estimator law; cancelling, restarting, selecting, or weighting replicates
+according to observed completion can. Parallelizing the time direction of an
+HMC trajectory additionally needs a proposal-level correctness argument
+because ordinary leapfrog is sequential.
+
+The [parallel coupled-MCMC idea
+note](https://github.com/xukai92/mcmc-lean/blob/main/algo-seek/idea-parallel-coupled-unbiased-mcmc.md)
+records the relationship to unbiased MCMC, coupled HMC, multinomial-HMC
+couplings, parallel-in-sequence MCMC, and a proposed malleable scheduler. It is
+a research plan, not a proved scheduler or a novelty claim.
 
 ### Practical Hamiltonian Monte Carlo on Riemannian manifolds
 
@@ -429,6 +488,12 @@ library only for a concrete, measured transformation rather than maintaining a
 parallel general-purpose optimizer.
 
 ## Implications for this repository
+
+The algorithm-seeking notes include a dated [parallel HMC integrator
+audit](https://github.com/xukai92/mcmc-lean/blob/main/algo-seek/parallel-hmc-integrator-audit.md). It treats
+parallel-in-time convergence and finite-proposal HMC validity as separate
+questions and recommends exact affine scans, then certified speculative
+nonlinear recurrence solving, before higher-complexity multilevel methods.
 
 Nishimura, Dunson, and Lu embed discrete parameters into piecewise-constant
 continuous targets and use independent Laplace momentum. Their coordinate

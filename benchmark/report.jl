@@ -173,12 +173,13 @@ function display_name(value)
 end
 
 algorithm_name(value) = value == "rmhmc-dense" ? "Dense RMHMC" :
+    value == "mala" ? "MALA" :
     uppercasefirst(value)
 
 function write_doc(rows, timings, quality, metadata)
     combined_protocol = !isempty(quality) && hasproperty(first(quality), :chains)
     open(DOC, "w") do io
-        println(io, "# HMC benchmark report\n")
+        println(io, "# Sampler benchmark report\n")
         DEV_MODE && println(io, "!!! warning \"Development-mode results\"\n    This page was generated from a short `--dev` run for layout iteration. Its timings are not publication-quality.\n")
         println(io, "This is a reproducible implementation benchmark, not a theorem about convergence or a claim that Float64 execution is identical to the exact-real Lean semantics.\n")
         println(io, "```@raw html")

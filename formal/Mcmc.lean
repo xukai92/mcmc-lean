@@ -111,6 +111,7 @@ import Mcmc.Hamiltonian.LogisticRegression
 import Mcmc.Hamiltonian.LogisticRegressionXu
 import Mcmc.Hamiltonian.CoupledMixture
 import Mcmc.Hamiltonian.HMC
+import Mcmc.Hamiltonian.TransportHMC
 import Mcmc.Hamiltonian.Invariance
 import Mcmc.Hamiltonian.DynamicMultinomial
 import Mcmc.Hamiltonian.DynamicInvariance
@@ -123,6 +124,8 @@ import Mcmc.Hamiltonian.MultinomialHMC
 import Mcmc.Hamiltonian.RandomizedTrajectory
 import Mcmc.Hamiltonian.VolumePreservation
 import Mcmc.Hamiltonian.GeneralizedHMC
+import Mcmc.Hamiltonian.ParallelIntegrators
+import Mcmc.Hamiltonian.GaussLegendre
 import Mcmc.Kernel.Coupling
 import Mcmc.Kernel.AuxiliaryGibbs
 import Mcmc.Kernel.ComposableInference
@@ -132,6 +135,8 @@ import Mcmc.Kernel.LocalMinorizationCoupling
 import Mcmc.Kernel.RefreshAugmented
 import Mcmc.Kernel.IndependenceMetropolis
 import Mcmc.Kernel.Langevin
+import Mcmc.Kernel.LikelihoodInformed
+import Mcmc.Kernel.PositionDependentMALA
 import Mcmc.Kernel.Slice
 import Mcmc.Kernel.PracticalSlice
 import Mcmc.Examples.BoundedUniformSlice

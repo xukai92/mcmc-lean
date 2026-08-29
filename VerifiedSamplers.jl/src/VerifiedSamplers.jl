@@ -22,6 +22,14 @@ export ShearedBirthDeathRJ, SpatialBirthDeathRJ, sheared_birth_unshear
 export GaussianRWMH, PositiveTransformedRWMH, OpenUnitTransformedRWMH,
     WarmupGaussianRWMH, GaussianRWMHWarmupResult, IndefiniteAdaptiveBool,
     IndefiniteAdaptiveContinuousRefresh, warmup
+export MALA
+export GaussLegendreHMC
+export DensePMALA
+export TransportHMC
+export LikelihoodInformedHMC
+export RankOnePolynomialTransport, fit_rank_one_polynomial_transport,
+    transport_forward, transport_inverse, transport_pullback,
+    transport_logabsdetjac, transport_grad_logabsdetjac
 export ScalarHMC, VectorHMC, FixedIntegrationTimeHMC, JitteredHMC, TemperedHMC,
     MultinomialHMC, MetricMultinomialHMC, MetricHMC,
     RelativisticMultinomialHMC, CertifiedRelativisticMultinomialHMC,
@@ -74,6 +82,12 @@ include("Public/CategoricalDHMC.jl")
 include("Public/ClassicalRMHMC.jl")
 include("Public/DenseRiemannianRMHMC.jl")
 include("Public/RandomSketchRMHMC.jl")
+include("Public/MALA.jl")
+include("Public/DensePMALA.jl")
+include("Public/TransportHMC.jl")
+include("Public/LikelihoodInformedHMC.jl")
+include("Public/RankOnePolynomialTransport.jl")
+include("Public/GaussLegendreHMC.jl")
 include("Public/ObservationCursor.jl")
 
 """Restricted scalar target syntax shared with Lean's verified evaluator."""

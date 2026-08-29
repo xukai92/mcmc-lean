@@ -1,0 +1,2 @@
+dimension,training_samples,warmup_chains,burnin_per_chain,warmup_step_size,warmup_steps,acquisition_seconds,fit_seconds,input_alignment,output_alignment
+2,5000,4,500,0.01,50,0.3898589611053467,0.00045108795166015625,0.6457296448746157,0.6457296448746176

@@ -1,5 +1,62 @@
 # Development log
 
+## 2026-08-21: fixed-map transport HMC
+
+Added `Mcmc.Hamiltonian.TransportHMC`, which reuses exact measurable-
+equivalence kernel conjugation. Its multinomial-HMC client exposes the target
+pushforward equality as the change-of-variables/Jacobian obligation. The Julia
+`TransportHMC` interface takes a forward map, inverse, Jacobian-transpose
+action, log absolute Jacobian determinant, and its gradient. It reuses the
+IR-backed vector endpoint-HMC Reference and generic Optimized transition.
+
+Tests cover exact affine Reference/Optimized replay, original-coordinate
+moments, a nonlinear `sinh` map, validation, and `Float32` Optimized execution.
+The map is fixed during retained sampling; learning, callback consistency,
+concrete analytic Jacobian proofs, and endpoint executable refinement remain
+declared boundaries.
+
+The hard-geometry benchmark now includes both methods. Exact-map Transport HMC
+uses the analytically known inverse warp and reaches tail ESS/transition
+`0.5555` with `Rhat=1.005`; this is an oracle upper baseline that excludes map
+learning. Fixed rank-one likelihood-informed HMC reaches `0.2931`, but
+`Rhat=1.107` makes its short-run ESS/s non-interpretable as converged evidence.
+
+Added a generic `RankOnePolynomialTransport` and its moment-based fitter. The
+map is full dimensional but has one triangular quadratic coupling, analytic
+inverse and pullback, and constant log determinant. Tests recover hidden
+directions on a rotated dimension-16 banana, check forward/inverse agreement,
+and exercise `Float32`. With 5,000 controlled independent target training
+samples, the selected fitted-map benchmark reaches tail ESS/transition
+`0.5051` and `Rhat=1.004`, compared with `0.5113` and `1.005` for the analytic
+oracle. Training-sample acquisition remains deliberately unclaimed.
+
+The practical acquisition follow-up gives every method four independent
+chains. Each runs exactly 1,000 ordinary-HMC transitions and continues from
+its own endpoint and RNG state under the evaluated transition; the fitted
+method pools its own 4,000 warmup states and freezes one map. Selected
+ordinary-HMC, analytic-map, and fitted-map continuations have tail
+ESS/transition `0.1543`, `0.4595`, and `0.3819` and Rhat `1.046`, `1.006`, and
+`1.008`; charging each method's acquisition gives end-to-end tail ESS/s about
+`544`, `4,494`, and `2,299`. This work also found
+that the geometry-study HMC baseline passed the score instead of the potential
+gradient; the sign was corrected and affected benchmark evidence regenerated.
+
+## 2026-08-21: fixed likelihood-informed split
+
+Added the exact `likelihoodInformedSplit_invariant` composition theorem and a
+Julia `LikelihoodInformedHMC` client for targets represented as a likelihood
+times a standard Gaussian reference. It performs conditional endpoint HMC in
+a fixed orthonormal active subspace and an MH-corrected pCN proposal in the
+orthogonal complement; the pCN acceptance ratio contains only the likelihood
+change because the proposal is reversible for the Gaussian reference.
+
+Reference and generic Optimized paths share the existing vector-HMC engine.
+Tests cover exact path replay, Gaussian-reference moments, a nontrivial
+active-direction posterior variance, invalid bases, and `Float32`. Concrete
+Lean component-invariance clients and a typed descriptor for the composed
+schedule remain open, so the current theorem surface is explicitly
+conditional rather than presented as full command refinement.
+
 ## 2026-08-20: RMHMC website benchmark integration
 
 The focused nonconstant classical-RMHMC runner now emits the same aggregate,
@@ -604,3 +661,83 @@ increased from about 972 to 2,157 draws/s and reduced median allocation from
 the optimized sketch chain time from about 19.5 to 10.6 seconds and increased
 tail ESS/s from 25.6 to 52.6 for the exercised seeded configuration. These are
 machine-specific empirical measurements, not formal performance claims.
+
+## 2026-08-21: end-to-end isotropic MALA
+
+Added explicit scalar and vector MALA programs to artifact version 24. The
+programs use proposal standard deviation `ε`, mean
+`q + ε²/2 ∇logπ(q)`, and the full forward/reverse Gaussian Hastings
+correction. Julia now exposes an IR-interpreted Float64 Reference and an
+independent generic `T<:AbstractFloat` Optimized implementation through the
+same `MALA` public API. Seeded event replay, normal-target moments, vector
+dimension checks, and `Float32` propagation cover the maintained paths.
+
+The general-state Lean theorem remains the mathematical source of truth:
+MALA is Markov, reversible, and invariant under its stated measurability,
+positive-variance, and finite-flow hypotheses. This is not a geometric
+convergence theorem, and it does not identify Float64 Julia execution with
+exact-real semantics. The shared benchmark now records MALA Reference and
+Optimized timing and quality rows with a separately reported step size.
+
+The contributor guide now uses this addition as a worked vertical slice. It
+records the recommended file-by-file order, stage exit conditions, definition
+of done, and the still-open full stochastic command-to-`scoreMALA` refinement
+as a distinct obligation rather than treating artifact generation or replay
+tests as a proof of that bridge.
+
+The hard-geometry random-sketch study now includes the Optimized MALA path with
+an independent proposal-standard-deviation grid. A complete four-chain run at
+2,000 iterations with 1,000 discarded selected `ε=0.3` by tail ESS per
+transition, but its rank-normalized `Rhat=1.362` shows that the chains did not
+mix adequately. Its large nominal ESS/s is therefore not interpreted as
+quality-adjusted performance. On the same run, full and sketch RMHMC retained
+`Rhat=1.011` and `1.006` with tail ESS/transition `0.1737` and `0.1903`.
+
+## 2026-08-21: position-dependent MALA foundation
+
+Added an algorithm-seeking plan for the Langevin use of full and random-sketch
+metrics. Following Xifara et al., the primary convention targets a density with
+respect to Lebesgue measure and includes half the row divergence of the inverse
+metric. The note separately labels original/full MMALA and simplified MMALA so
+their reference-measure and diffusion interpretations are not conflated.
+
+The new Lean module defines inverse-metric action, inverse-metric divergence,
+the corrected and simplified drifts, and the Euler mean. It packages the
+measurability and row-normalization obligations of a position-dependent
+proposal density and proves its Metropolis completion Markov, reversible, and
+invariant. A dense state-dependent Gaussian client must next prove that its
+implemented mean/covariance density satisfies this interface. The dense
+Gaussian formula is now explicit, while analytic row normalization remains a
+client hypothesis rather than an axiom hidden in the kernel definition.
+
+Artifact version 25 adds `dense_pmala_step!` with explicit target-score,
+metric, metric-derivative, step-size, and state inputs. Julia supplies an
+IR-interpreted Float64 Reference, an independent generic Optimized transition,
+and public `DensePMALA` dispatch. Shared-event tests check both implementations,
+the identity metric reduces to ordinary MALA, standard-normal moment tests pass,
+and the maintained path preserves `Float32`.
+
+The hard-geometry study selected dense PMALA at `ε=1.0`, with tail
+ESS/transition `0.1912`, nominal tail ESS/s about `27,077`, and
+rank-normalized `Rhat=1.050`. The per-transition result is competitive with
+full and sketch RMHMC, but the borderline `Rhat` means the throughput-adjusted
+ESS remains exploratory pending a longer run.
+## 2026-08-28: parallel trajectory and Gauss--Legendre foundation
+
+The parallel-integrator audit is now backed by an initial implementation.
+Lean proves associative scalar-affine summaries, exact equality of an
+edge-certified candidate trace with serial recurrence, the two-stage
+Gauss--Legendre symplectic coefficient identities, and exact reverse-stage
+algebra. IR format 26 adds an emitted vector Gauss--Legendre endpoint-HMC
+program. The Julia Reference interprets that artifact; the generic Optimized
+path offers serial and concurrent stage evaluation. Cross-layer parity,
+reverse-step, exact-fallback, affine-scan, and `Float32` tests are included.
+The public `GaussLegendreHMC` sampler selects the IR-backed Reference or the
+generic Optimized backend and makes concurrent stage execution explicit.
+
+The current finite fixed-point iteration is not claimed to satisfy the exact
+stage equations merely because its residual is small. The remaining formal
+gate is exact-stage certification/fallback plus the local theorem connecting
+the symplectic Runge--Kutta coefficient condition to phase-volume
+preservation. A two-thread development benchmark is integrated, but its cheap
+100-dimensional targets expose scheduling overhead rather than a speedup.

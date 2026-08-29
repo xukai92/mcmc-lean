@@ -12,6 +12,9 @@ const DIMENSION = parse(Int, get(ENV, "HMC_DIMENSION", "100"))
 const DRAWS = parse(Int, get(ENV, "HMC_DRAWS", DEV_MODE ? "1000" : "10000"))
 const LEAPFROG_STEPS = parse(Int, get(ENV, "HMC_LEAPFROG_STEPS", "10"))
 const STEP_SIZE = parse(Float64, get(ENV, "HMC_STEP_SIZE", "0.08"))
+const MALA_STEP_SIZE = parse(Float64, get(ENV, "MALA_STEP_SIZE", "0.08"))
+const GAUSS_LEGENDRE_ITERATIONS = parse(Int,
+    get(ENV, "HMC_GAUSS_LEGENDRE_ITERATIONS", "8"))
 const SEED = parse(Int, get(ENV, "HMC_SEED", "4109"))
 const DEFAULT_SEEDS = join(SEED .+ (0:9), ',')
 const CONFIGURED_SEEDS = parse.(Int,
@@ -124,6 +127,54 @@ function run_verified(stepper, target, seed::Int, draws::Int;
     end
     (; chain, acceptance=NaN, divergences=0,
         average_steps=Float64(steps), gradients_per_step=2)
+end
+
+function run_gauss_legendre(stepper, target, seed::Int, draws::Int;
+        parallel::Bool=false, batched::Bool=false)
+    source = Runtime.RNGSource(MersenneTwister(seed))
+    chain = Matrix{Float64}(undef, DIMENSION, draws)
+    position = zeros(DIMENSION)
+    batched_gradient! = batched ? target_batched_gradient(target) : nothing
+    for index in axes(chain, 2)
+        position = stepper === Optimized.vector_gauss_legendre_hmc_step! ?
+            stepper(source, target.logdensity, target.gradient, STEP_SIZE,
+                LEAPFROG_STEPS, GAUSS_LEGENDRE_ITERATIONS, position; parallel,
+                batched_gradient!) :
+            stepper(source, target.logdensity, target.gradient, STEP_SIZE,
+                LEAPFROG_STEPS, GAUSS_LEGENDRE_ITERATIONS, position)
+        chain[:, index] = position
+    end
+    (; chain, acceptance=NaN, divergences=0,
+        average_steps=Float64(LEAPFROG_STEPS),
+        gradients_per_step=2 * GAUSS_LEGENDRE_ITERATIONS)
+end
+
+"""Adapt a target to the explicit two-column gradient batching contract."""
+function target_batched_gradient(target)
+    function batched_gradient!(output, positions)
+        size(output) == size(positions) || throw(DimensionMismatch("stage batch"))
+        for stage in axes(positions, 2)
+            gradient = target.gradient(@view positions[:, stage])
+            @inbounds @simd for index in axes(positions, 1)
+                output[index, stage] = gradient[index]
+            end
+        end
+        output
+    end
+end
+
+function run_verified_mala(stepper, target, seed::Int, draws::Int)
+    source = Runtime.RNGSource(MersenneTwister(seed))
+    chain = Matrix{Float64}(undef, DIMENSION, draws)
+    position = zeros(DIMENSION)
+    score(q) = -target.gradient(q)
+    for index in axes(chain, 2)
+        position = stepper(source, target.logdensity, score,
+            MALA_STEP_SIZE, position)
+        chain[:, index] = position
+    end
+    (; chain, acceptance=NaN, divergences=0, average_steps=1.0,
+        gradients_per_step=2)
 end
 
 function run_verified_metric(stepper, target, seed::Int, draws::Int;
@@ -241,7 +292,8 @@ function quality_summary(target, algorithm, implementation, outputs, seconds)
         acceptance, divergences, average_steps))
 end
 
-function result(target, algorithm, implementation, trial, average_steps)
+function result(target, algorithm, implementation, trial, average_steps;
+        step_size=STEP_SIZE)
     times = trial.times ./ 1e9
     seconds = median(times)
     for (repetition, (seed, nanoseconds)) in enumerate(
@@ -253,7 +305,7 @@ function result(target, algorithm, implementation, trial, average_steps)
             draws_per_second=DRAWS / repetition_seconds))
     end
     (; target=target.name, dimension=DIMENSION, algorithm, implementation,
-        step_size=STEP_SIZE, configured_steps=LEAPFROG_STEPS, average_steps,
+        step_size, configured_steps=LEAPFROG_STEPS, average_steps,
         draws=DRAWS, median_seconds=seconds,
         q25_seconds=quantile(times, 0.25), q75_seconds=quantile(times, 0.75),
         draws_per_second=DRAWS / seconds, memory_bytes=trial.memory,
@@ -274,6 +326,23 @@ function benchmark_target(target)
         Optimized.multinomial_hmc_step!, target, SEED, 100).chain[:, end]
     multinomial_reference_check ≈ multinomial_optimized_check || error(
         "Reference and Optimized multinomial HMC disagree for $(target.name)")
+    mala_reference_check = run_verified_mala(
+        Reference.vector_mala_step!, target, SEED, 100).chain[:, end]
+    mala_optimized_check = run_verified_mala(
+        Optimized.vector_mala_step!, target, SEED, 100).chain[:, end]
+    mala_reference_check == mala_optimized_check || error(
+        "Reference and Optimized MALA disagree for $(target.name)")
+    gauss_reference_check = run_gauss_legendre(
+        Reference.vector_gauss_legendre_hmc_step!, target, SEED, 20).chain[:, end]
+    gauss_optimized_check = run_gauss_legendre(
+        Optimized.vector_gauss_legendre_hmc_step!, target, SEED, 20).chain[:, end]
+    gauss_reference_check ≈ gauss_optimized_check || error(
+        "Reference and Optimized Gauss--Legendre HMC disagree for $(target.name)")
+    gauss_simd_check = run_gauss_legendre(
+        Optimized.vector_gauss_legendre_hmc_step!, target, SEED, 20;
+        batched=true).chain[:, end]
+    gauss_optimized_check ≈ gauss_simd_check || error(
+        "serial and SIMD Gauss--Legendre HMC disagree for $(target.name)")
     run_advanced(components.hamiltonian, components.endpoint, SEED, 100)
     run_advanced(components.hamiltonian, components.multinomial, SEED, 100)
     run_advanced(components.hamiltonian, components.nuts, SEED, 100)
@@ -315,6 +384,26 @@ function benchmark_target(target)
     completed_advanced = measure_case(target, "nuts-complete", "advancedhmc",
         seed -> run_advanced(components.hamiltonian,
             components.completed_tree, seed, DRAWS))
+    mala_reference = measure_case(target, "mala", "verified-reference",
+        seed -> run_verified_mala(
+            Reference.vector_mala_step!, target, seed, DRAWS))
+    mala_optimized = measure_case(target, "mala", "verified-optimized",
+        seed -> run_verified_mala(
+            Optimized.vector_mala_step!, target, seed, DRAWS))
+    gauss_reference = measure_case(target, "gauss-legendre-2stage",
+        "verified-reference", seed -> run_gauss_legendre(
+            Reference.vector_gauss_legendre_hmc_step!, target, seed, DRAWS))
+    gauss_optimized = measure_case(target, "gauss-legendre-2stage",
+        "verified-optimized", seed -> run_gauss_legendre(
+            Optimized.vector_gauss_legendre_hmc_step!, target, seed, DRAWS))
+    gauss_parallel = measure_case(target, "gauss-legendre-2stage-parallel",
+        "verified-optimized", seed -> run_gauss_legendre(
+            Optimized.vector_gauss_legendre_hmc_step!, target, seed, DRAWS;
+            parallel=true))
+    gauss_simd = measure_case(target, "gauss-legendre-2stage-simd",
+        "verified-optimized", seed -> run_gauss_legendre(
+            Optimized.vector_gauss_legendre_hmc_step!, target, seed, DRAWS;
+            batched=true))
 
     measured = [
         ("endpoint", "verified-reference", endpoint_reference),
@@ -327,7 +416,13 @@ function benchmark_target(target)
         ("nuts-complete", "verified-optimized", completed_optimized),
         ("nuts-complete", "advancedhmc", completed_advanced),
         ("nuts-dynamic", "verified-optimized", nuts_optimized),
-        ("nuts-dynamic", "advancedhmc", nuts_advanced)]
+        ("nuts-dynamic", "advancedhmc", nuts_advanced),
+        ("mala", "verified-reference", mala_reference),
+        ("mala", "verified-optimized", mala_optimized),
+        ("gauss-legendre-2stage", "verified-reference", gauss_reference),
+        ("gauss-legendre-2stage", "verified-optimized", gauss_optimized),
+        ("gauss-legendre-2stage-parallel", "verified-optimized", gauss_parallel),
+        ("gauss-legendre-2stage-simd", "verified-optimized", gauss_simd)]
     for (algorithm, implementation, trial) in measured
         quality_summary(target, algorithm, implementation, trial.outputs,
             sum(trial.times) / 1e9)
@@ -359,6 +454,18 @@ function benchmark_target(target)
             average_steps(nuts_optimized)),
         result(target, "nuts-dynamic", "advancedhmc", nuts_advanced,
             average_steps(nuts_advanced)),
+        result(target, "mala", "verified-reference", mala_reference,
+            average_steps(mala_reference); step_size=MALA_STEP_SIZE),
+        result(target, "mala", "verified-optimized", mala_optimized,
+            average_steps(mala_optimized); step_size=MALA_STEP_SIZE),
+        result(target, "gauss-legendre-2stage", "verified-reference",
+            gauss_reference, average_steps(gauss_reference)),
+        result(target, "gauss-legendre-2stage", "verified-optimized",
+            gauss_optimized, average_steps(gauss_optimized)),
+        result(target, "gauss-legendre-2stage-parallel", "verified-optimized",
+            gauss_parallel, average_steps(gauss_parallel)),
+        result(target, "gauss-legendre-2stage-simd", "verified-optimized",
+            gauss_simd, average_steps(gauss_simd)),
     ]
     if target.metric_mass !== nothing
         endpoint_algorithm = metric_algorithm(target, "endpoint")
@@ -478,6 +585,8 @@ function write_results(rows)
         println(io, "cpu,$(Sys.cpu_info()[1].model)")
         println(io, "nuts_max_depth,$NUTS_MAX_DEPTH")
         println(io, "completed_tree_steps,$COMPLETED_TREE_STEPS")
+        println(io, "mala_step_size,$MALA_STEP_SIZE")
+        println(io, "gauss_legendre_iterations,$GAUSS_LEGENDRE_ITERATIONS")
     end
     println("wrote $metadata_output")
 end
@@ -487,6 +596,9 @@ function main()
     DRAWS >= 8 || error("HMC_DRAWS must be at least eight for split diagnostics")
     LEAPFROG_STEPS > 0 || error("HMC_LEAPFROG_STEPS must be positive")
     STEP_SIZE > 0 || error("HMC_STEP_SIZE must be positive")
+    MALA_STEP_SIZE > 0 || error("MALA_STEP_SIZE must be positive")
+    GAUSS_LEGENDRE_ITERATIONS > 0 || error(
+        "HMC_GAUSS_LEGENDRE_ITERATIONS must be positive")
     NUTS_MAX_DEPTH > 0 || error("HMC_NUTS_MAX_DEPTH must be positive")
     length(BENCHMARK_SEEDS) >= 2 || error(
         "HMC_SEEDS must provide at least two seeds")
@@ -494,7 +606,7 @@ function main()
         "HMC_SEEDS must not contain duplicates")
     target_suite = Evaluation.standard_targets(DIMENSION)
     STARTED_CASES[] = 0
-    TOTAL_CASES[] = sum(target.metric_mass === nothing ? 11 : 17
+    TOTAL_CASES[] = sum(target.metric_mass === nothing ? 17 : 23
         for target in target_suite)
     BENCHMARK_STARTED_NS[] = time_ns()
     rows = reduce(vcat, benchmark_target(target) for target in target_suite)

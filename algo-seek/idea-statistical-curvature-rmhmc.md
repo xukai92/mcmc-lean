@@ -295,16 +295,21 @@ configurations with any numerical failure when selecting a best observed row.
 
 | Algorithm | `epsilon` | Integration time | Bulk ESS/transition | Tail ESS/transition | Tail ESS/s | `Rhat` |
 |---|---:|---:|---:|---:|---:|---:|
-| Ordinary HMC | 0.001 | 0.2 | 0.02654 | 0.05524 | 149.07 | 1.204 |
-| Full dense GGN RMHMC | 0.04 | 1.0 | 0.11815 | 0.17369 | 192.15 | 1.011 |
-| Rank-one random-sketch RMHMC | 0.005 | 1.0 | 0.12178 | 0.19032 | 29.69 | 1.006 |
+| Ordinary HMC | 0.001 | 0.1 | 0.01595 | 0.00620 | 36.82 | 1.695 |
+| Exact-map Transport HMC | 0.2 | 1.0 | 0.29102 | 0.55553 | 97,568.88 | 1.005 |
+| Rank-one likelihood-informed HMC | 0.1 | 1.0 | 0.07058 | 0.29305 | 24,240.67 | 1.107 |
+| Full dense GGN RMHMC | 0.04 | 1.0 | 0.11815 | 0.17369 | 189.31 | 1.011 |
+| Rank-one random-sketch RMHMC | 0.005 | 1.0 | 0.12178 | 0.19032 | 29.08 | 1.006 |
 
-The two Riemannian rows have acceptable between-chain agreement and the sketch
-slightly exceeds full RMHMC in both bulk and tail ESS per retained transition.
-The selected HMC row has `Rhat = 1.204`, however, so its ESS estimates are not
-a reliable converged baseline and ratios against it are intentionally not
-promoted as evidence. Latent mean/variance RMSE are `0.1722/0.4433` for that
-HMC row, `0.0180/0.0392` for full RMHMC, and `0.0156/0.0456` for the sketch.
+Exact-map Transport HMC has strong between-chain agreement and is the clear
+upper baseline, but it is given the analytically known inverse warp and does
+not include map-learning cost. The two Riemannian rows also have acceptable
+between-chain agreement, and the sketch slightly exceeds full RMHMC in both
+bulk and tail ESS per retained transition. The selected likelihood-informed
+and ordinary-HMC rows have `Rhat = 1.107` and `1.695`, respectively, so their
+ESS estimates are not reliable converged comparisons. The likelihood-informed
+`epsilon=0.2` alternative improves agreement to `Rhat=1.017`, with tail
+ESS/transition `0.25412` and nominal tail ESS/s `34,659.10`.
 
 The practical-cost comparison remains mixed. Full RMHMC is faster than the
 rank-one sketch in the 2D confirmation, where low-rank structure has little
