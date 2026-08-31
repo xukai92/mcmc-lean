@@ -196,3 +196,66 @@ work. Its first target is lower latency and better processor utilization
 without completion bias. Reducing total work requires a better coupling,
 reusable trajectory computation, or better allocation among heterogeneous
 unbiased estimators.
+
+## Variance-reduction audit
+
+The repository currently has an important layer mismatch. The Lean module
+`Mcmc.Kernel.UnbiasedEstimator` proves the finite telescoping identity and,
+under explicit meeting-tail and moment hypotheses, unbiasedness and finite
+variance of the stopped estimator. The Julia `Xu21CoupledSampler` exposes
+meeting times and censoring diagnostics, but not the estimator itself. Meeting
+time is therefore measurable while the actual objective
+
+```text
+expected work * variance(H)
+```
+
+is not yet available end to end.
+
+The literature suggests four distinct variance levers, in increasing order of
+implementation and proof risk:
+
+1. **Time averaging and independent pilot tuning.** Implement `H_{k:m}` rather
+   than only `H_k`. Use an independent pilot sample of meeting times to freeze
+   `k` at a high meeting-time quantile and compare predetermined multiples
+   `m/k`. Heng and Jacob report that this can reduce relative inefficiency by
+   orders of magnitude. Tuning on production estimator values would require a
+   separate justification.
+2. **General lag `L`.** A lag larger than one reduces the number and weights of
+   bias-correction terms and can lower variance at similar work. This changes
+   the path construction and should be formalized as a general-lag telescoping
+   identity before it becomes a verified runtime option.
+3. **Same-marginal control variates.** Since `X_t` and `Y_t` have the same
+   marginal law at fixed `t`, predetermined linear combinations of
+   `h(X_t)-h(Y_t)` have expectation zero. Coefficients estimated on an
+   independent pilot and frozen for production preserve the simple
+   unbiasedness argument. Jointly fitted production coefficients are not
+   silently assumed unbiased.
+4. **Surrogate-Hamiltonian and antithetic controls.** A tractable approximation
+   `Q` to the target can provide a correlated control chain with known or
+   cheaply unbiased expectations; antithetic HMC can be layered on top when
+   approximate symmetry is present. This adds a second target, coupling,
+   fitting boundary, and cost model, so it follows the generic estimator work.
+
+The immediate implementation milestone should therefore be deliberately
+small:
+
+```text
+faithful coupled path
+    -> executable H_{k:m} and signed correction trace
+    -> replicated variance, cost, and work-normalized variance diagnostics
+    -> independent pilot selection of frozen (k,m)
+```
+
+Only after this baseline exists can a change to multinomial coupling, mixture
+weight, trajectory length, lag, or control variate be called a variance
+improvement rather than merely a meeting-time improvement.
+
+Primary references for this ordering are Heng and Jacob's
+[unbiased HMC study](https://doi.org/10.1093/biomet/asy074), Vanetti and
+Doucet's general-lag discussion in the
+[JRSS-B discussion](https://rss.onlinelibrary.wiley.com/doi/full/10.1111/rssb.12336),
+Craiu and Meng's
+[same-marginal control variates](https://doi.org/10.5705/ss.202020.0461), and
+Piponi, Hoffman, and Sountsov's
+[surrogate and antithetic HMC controls](https://proceedings.mlr.press/v108/piponi20a.html).
