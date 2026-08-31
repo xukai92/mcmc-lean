@@ -228,7 +228,7 @@ def workflow() -> Workflow:
             "4. Risk assessment: low-risk vs high-risk optimizations\n"
             "5. Implementation order: which optimizations to apply first\n\n"
             "SACRED CONSTRAINTS (never violate):\n"
-            "- Reference/Reference.jl is NEVER modified\n"
+            "- VerifiedSamplers.jl/src/Reference/Reference.jl is NEVER modified\n"
             "- Function signature must match Reference exactly\n"
             "- Deterministic replay: identical outputs for same RNG state\n"
             "- Generic typing: preserve T<:AbstractFloat parameterization"
@@ -318,7 +318,7 @@ def workflow() -> Workflow:
         evaluator_role=AgentRole.CEO,
         gate_prompt=(
             "Review builder output for the optimize workflow:\n"
-            "1. Optimized/Optimized.jl was modified (check git diff)\n"
+            "1. VerifiedSamplers.jl/src/Optimized/Optimized.jl was modified (check git diff)\n"
             "2. Builder committed changes (check builder-latest.md for commit hash)\n"
             "3. No obvious syntax errors or incomplete code\n"
             "4. VerifiedSamplers.jl/src/Reference/Reference.jl was NOT modified (SACRED — verify)\n\n"
