@@ -24,7 +24,8 @@ export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_ou
     affine_prefix_scan, speculative_trajectory, certified_trajectory,
     certified_speculative_trajectory,
     AbstractPreparedMetric, PreparedDiagonalMetric, PreparedDenseMetric,
-    prepare_metric
+    prepare_metric,
+    MALAWorkspace, prepare_mala_workspace
 
 @inline _affine_comp(later, earlier) =
     (later[1] * earlier[1], later[1] * earlier[2] + later[2])
@@ -947,37 +948,64 @@ function scalar_mala_step!(source::AbstractRandomSource, logdensity, gradient,
     T(uniform_unit!(source)) < exp(min(zero(T), logratio)) ? proposed : current
 end
 
-"""Maintained generic isotropic vector MALA step."""
+"""Pre-allocated workspace for zero-allocation steady-state MALA steps."""
+struct MALAWorkspace{T<:AbstractFloat}
+    proposed::Vector{T}
+    current_gradient::Vector{T}
+    proposed_gradient::Vector{T}
+end
+
+"""Allocate a MALA workspace sized for vectors matching `current`."""
+function prepare_mala_workspace(current::AbstractVector{T}) where {T<:AbstractFloat}
+    n = length(current)
+    MALAWorkspace{T}(Vector{T}(undef, n), Vector{T}(undef, n), Vector{T}(undef, n))
+end
+
+function _convert_gradient_validated!(dest::Vector{T}, src, current_length::Int) where {T}
+    length(src) == current_length || throw(DimensionMismatch("gradient dimension"))
+    @inbounds for i in eachindex(dest)
+        dest[i] = T(src[i])
+        isfinite(dest[i]) || throw(DomainError(src, "gradient must be finite"))
+    end
+    dest
+end
+
+"""Maintained generic isotropic vector MALA step with pre-allocated workspace."""
 function vector_mala_step!(source::AbstractRandomSource, logdensity, gradient,
-        step_size::T, current::AbstractVector{T}) where {T<:AbstractFloat}
+        step_size::T, current::AbstractVector{T},
+        workspace::MALAWorkspace{T}) where {T<:AbstractFloat}
     checked_positive_float(step_size, "step size")
     isempty(current) && throw(ArgumentError("position cannot be empty"))
     all(isfinite, current) || throw(DomainError(current, "position must be finite"))
     variance = step_size * step_size
     half_variance = variance / T(2)
-    current_gradient = T.(gradient(current))
-    length(current_gradient) == length(current) || throw(DimensionMismatch("gradient dimension"))
-    all(isfinite, current_gradient) || throw(DomainError(current_gradient, "gradient must be finite"))
-    proposed = similar(current)
+    _convert_gradient_validated!(workspace.current_gradient, gradient(current), length(current))
+    proposed = workspace.proposed
+    noise_sq_sum = zero(T)
     @inbounds for index in eachindex(current)
-        proposed[index] = current[index] + half_variance * current_gradient[index] +
-            step_size * T(standard_normal!(source))
+        noise = T(standard_normal!(source))
+        noise_sq_sum += noise * noise
+        proposed[index] = muladd(half_variance, workspace.current_gradient[index],
+            muladd(step_size, noise, current[index]))
     end
-    proposed_gradient = T.(gradient(proposed))
-    length(proposed_gradient) == length(current) || throw(DimensionMismatch("gradient dimension"))
-    all(isfinite, proposed_gradient) || throw(DomainError(proposed_gradient, "gradient must be finite"))
-    forward_norm = zero(T)
+    _convert_gradient_validated!(workspace.proposed_gradient, gradient(proposed), length(current))
+    forward_norm = variance * noise_sq_sum
     reverse_norm = zero(T)
-    @inbounds for index in eachindex(current)
-        forward = proposed[index] - (current[index] + half_variance * current_gradient[index])
-        reverse = current[index] - (proposed[index] + half_variance * proposed_gradient[index])
-        forward_norm += forward^2
-        reverse_norm += reverse^2
+    @inbounds @simd for index in eachindex(current)
+        reverse = current[index] - (proposed[index] + half_variance * workspace.proposed_gradient[index])
+        reverse_norm += reverse * reverse
     end
     logratio = T(logdensity(proposed)) - T(logdensity(current)) +
         (forward_norm - reverse_norm) / (T(2) * variance)
     isfinite(logratio) || throw(DomainError(logratio, "MALA log ratio must be finite"))
     T(uniform_unit!(source)) < exp(min(zero(T), logratio)) ? proposed : copy(current)
+end
+
+"""Maintained generic isotropic vector MALA step."""
+function vector_mala_step!(source::AbstractRandomSource, logdensity, gradient,
+        step_size::T, current::AbstractVector{T}) where {T<:AbstractFloat}
+    vector_mala_step!(source, logdensity, gradient, step_size, current,
+        prepare_mala_workspace(current))
 end
 
 function _dense_pmala_geometry(gradient, metric, metric_derivative,
