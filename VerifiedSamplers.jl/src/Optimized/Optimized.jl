@@ -955,24 +955,31 @@ function vector_mala_step!(source::AbstractRandomSource, logdensity, gradient,
     all(isfinite, current) || throw(DomainError(current, "position must be finite"))
     variance = step_size * step_size
     half_variance = variance / T(2)
-    current_gradient = T.(gradient(current))
-    length(current_gradient) == length(current) || throw(DimensionMismatch("gradient dimension"))
-    all(isfinite, current_gradient) || throw(DomainError(current_gradient, "gradient must be finite"))
-    proposed = similar(current)
-    @inbounds for index in eachindex(current)
-        proposed[index] = current[index] + half_variance * current_gradient[index] +
-            step_size * T(standard_normal!(source))
+    gradient_buffer = similar(current)
+    raw_grad = gradient(current)
+    length(raw_grad) == length(current) || throw(DimensionMismatch("gradient dimension"))
+    @inbounds for i in eachindex(gradient_buffer)
+        gradient_buffer[i] = T(raw_grad[i])
     end
-    proposed_gradient = T.(gradient(proposed))
-    length(proposed_gradient) == length(current) || throw(DimensionMismatch("gradient dimension"))
-    all(isfinite, proposed_gradient) || throw(DomainError(proposed_gradient, "gradient must be finite"))
-    forward_norm = zero(T)
-    reverse_norm = zero(T)
+    all(isfinite, gradient_buffer) || throw(DomainError(gradient_buffer, "gradient must be finite"))
+    proposed = similar(current)
+    noise_norm = zero(T)
     @inbounds for index in eachindex(current)
-        forward = proposed[index] - (current[index] + half_variance * current_gradient[index])
-        reverse = current[index] - (proposed[index] + half_variance * proposed_gradient[index])
-        forward_norm += forward^2
-        reverse_norm += reverse^2
+        noise = T(standard_normal!(source))
+        noise_norm += noise * noise
+        proposed[index] = muladd(step_size, noise, muladd(half_variance, gradient_buffer[index], current[index]))
+    end
+    forward_norm = variance * noise_norm
+    raw_grad = gradient(proposed)
+    length(raw_grad) == length(current) || throw(DimensionMismatch("gradient dimension"))
+    @inbounds for i in eachindex(gradient_buffer)
+        gradient_buffer[i] = T(raw_grad[i])
+    end
+    all(isfinite, gradient_buffer) || throw(DomainError(gradient_buffer, "gradient must be finite"))
+    reverse_norm = zero(T)
+    @inbounds @simd for index in eachindex(current)
+        reverse = current[index] - (proposed[index] + half_variance * gradient_buffer[index])
+        reverse_norm += reverse * reverse
     end
     logratio = T(logdensity(proposed)) - T(logdensity(current)) +
         (forward_norm - reverse_norm) / (T(2) * variance)
