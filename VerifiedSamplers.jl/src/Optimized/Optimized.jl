@@ -8,7 +8,7 @@ using ...Runtime: AbstractRandomSource, draw_below!, standard_normal!,
 using ...Certificates: ImplicitSolveCertificate, certify_implicit_solve,
     certifies_exact_solver
 
-export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_out_slice_step!, sheared_birth_death_step!, spatial_birth_death_step!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!, scalar_mala_step!, vector_mala_step!, dense_pmala_step!,
+export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_out_slice_step!, sheared_birth_death_step!, spatial_birth_death_step!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!, scalar_barker_rwmh_step!, scalar_mala_step!, vector_mala_step!, dense_pmala_step!,
     finite_hmm_particle_gibbs_step!,
     scalar_hmc_step!, vector_hmc_step!, metric_hmc_step!, multinomial_hmc_step!,
     metric_multinomial_hmc_step!,
@@ -925,6 +925,25 @@ function gaussian_rwmh_step!(source::AbstractRandomSource, logdensity,
     proposal = initial + σ * T(standard_normal!(source))
     logratio = logdensity(proposal) - logdensity(initial)
     log(uniform_unit!(source)) < min(zero(logratio), logratio) ? proposal : initial
+end
+
+@inline function _logistic(x::T) where {T<:AbstractFloat}
+    if x >= zero(T)
+        one(T) - one(T) / (one(T) + exp(x))
+    else
+        one(T) / (one(T) + exp(-x))
+    end
+end
+
+"""Maintained generic scalar Barker RWMH step with logistic acceptance."""
+function scalar_barker_rwmh_step!(source::AbstractRandomSource, logdensity,
+        scale::T, current::T) where {T<:AbstractFloat}
+    checked_positive_float(scale, "scale")
+    checked_finite_float(current, "current state")
+    σ, initial = scale, current
+    proposal = initial + σ * T(standard_normal!(source))
+    logratio = T(logdensity(proposal)) - T(logdensity(initial))
+    T(uniform_unit!(source)) < _logistic(logratio) ? proposal : initial
 end
 
 """Maintained generic scalar MALA step with the asymmetric Hastings correction."""

@@ -1409,6 +1409,63 @@ end
         @test_throws ArgumentError Runtime.uniform_unit!(
             Runtime.FloatTraceSource([Runtime.UniformEvent(1.0)]))
     end
+    @testset "Barker RWMH optimized and moments" begin
+        # Accept case: proposal = 0.0 + 1.0*0.5 = 0.5
+        # logratio = -0.125 - 0.0 = -0.125, logistic(-0.125) ≈ 0.469, 0.1 < 0.469 → ACCEPT
+        accept_trace = Runtime.FloatTraceSource([
+            Runtime.NormalEvent(0.5), Runtime.UniformEvent(0.1)])
+        @test Optimized.scalar_barker_rwmh_step!(accept_trace, x -> -x^2/2, 1.0, 0.0) == 0.5
+
+        # Reject case: proposal = 0.0 + 1.0*2.0 = 2.0
+        # logratio = -2.0 - 0.0 = -2.0, logistic(-2.0) ≈ 0.119, 0.9 > 0.119 → REJECT
+        reject_trace = Runtime.FloatTraceSource([
+            Runtime.NormalEvent(2.0), Runtime.UniformEvent(0.9)])
+        @test Optimized.scalar_barker_rwmh_step!(reject_trace, x -> -x^2/2, 1.0, 0.0) == 0.0
+
+        # Symmetric case: logdensity constant → logratio = 0, logistic(0) = 0.5
+        sym_accept = Runtime.FloatTraceSource([
+            Runtime.NormalEvent(1.0), Runtime.UniformEvent(0.3)])
+        @test Optimized.scalar_barker_rwmh_step!(sym_accept, x -> 0.0, 1.0, 0.0) == 1.0
+        sym_reject = Runtime.FloatTraceSource([
+            Runtime.NormalEvent(1.0), Runtime.UniformEvent(0.7)])
+        @test Optimized.scalar_barker_rwmh_step!(sym_reject, x -> 0.0, 1.0, 0.0) == 0.0
+
+        # Error validation
+        @test_throws ArgumentError Optimized.scalar_barker_rwmh_step!(
+            Runtime.FloatTraceSource(Runtime.FloatTraceEvent[]), identity, 0.0, 0.0)
+        @test_throws ArgumentError Optimized.scalar_barker_rwmh_step!(
+            Runtime.FloatTraceSource(Runtime.FloatTraceEvent[]), identity, -1.0, 0.0)
+        @test_throws ArgumentError Optimized.scalar_barker_rwmh_step!(
+            Runtime.FloatTraceSource(Runtime.FloatTraceEvent[]), identity, 1.0, Inf)
+        @test_throws ArgumentError Optimized.scalar_barker_rwmh_step!(
+            Runtime.FloatTraceSource(Runtime.FloatTraceEvent[]), identity, 1.0, NaN)
+
+        # Float32 type stability
+        f32_trace = Runtime.FloatTraceSource([
+            Runtime.NormalEvent(0.5), Runtime.UniformEvent(0.1)])
+        result32 = Optimized.scalar_barker_rwmh_step!(f32_trace, x -> -x^2/2, 1.0f0, 0.0f0)
+        @test result32 isa Float32
+
+        # Barker rejects where MH would accept:
+        # proposal = 0+1*1 = 1, logratio = 1-0 = 1, logistic(1) ≈ 0.731
+        # uniform = 0.75 > 0.731 → REJECT (MH would accept since min(1,e^1)=1)
+        barker_test = Runtime.FloatTraceSource([
+            Runtime.NormalEvent(1.0), Runtime.UniformEvent(0.75)])
+        @test Optimized.scalar_barker_rwmh_step!(barker_test, identity, 1.0, 0.0) == 0.0
+
+        # Moment convergence targeting N(0,1)
+        using Random: MersenneTwister
+        using Statistics: mean, var
+        rng = MersenneTwister(42)
+        source = Runtime.RNGSource(rng)
+        chain = Vector{Float64}(undef, 100_000)
+        chain[1] = 0.0
+        for i in 2:length(chain)
+            chain[i] = Optimized.scalar_barker_rwmh_step!(source, x -> -x^2/2, 1.5, chain[i-1])
+        end
+        @test abs(mean(chain[10_001:end])) < 0.05
+        @test abs(var(chain[10_001:end]) - 1.0) < 0.15
+    end
     @testset "MALA reference, optimized, and moments" begin
         logdensity(x) = -sum(abs2, x) / 2
         gradient(x) = -x
