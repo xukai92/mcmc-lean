@@ -343,7 +343,7 @@ end
 end
 
 @testset "versioned reference IR" begin
-    @test Reference.IR_FORMAT_VERSION == 26
+    @test Reference.IR_FORMAT_VERSION == 27
     facets = Reference.artifact_facets()
     @test facets.programs ==
         ["approximate_classical_rmhmc_step!", "categorical_index!", "certified_relativistic_multinomial_hmc_step!",
@@ -353,7 +353,8 @@ end
         "diagonal_hmc_step!", "diagonal_multinomial_hmc_step!",
         "finite_mh_step!", "gaussian_rwmh_step!", "multinomial_hmc_step!",
         "random_sketch_rmhmc_step!", "relativistic_multinomial_hmc_step!",
-        "scalar_hmc_step!", "scalar_mala_step!", "vector_gauss_legendre_hmc_step!", "vector_hmc_step!",
+        "scalar_barker_rwmh_step!", "scalar_hmc_step!", "scalar_mala_step!",
+        "vector_gauss_legendre_hmc_step!", "vector_hmc_step!",
         "vector_mala_step!", "xu21_coupled_step!"]
     @test facets.targets == ["restricted-gaussian-potential",
         "restricted-quartic-potential", "restricted-sinusoidal-potential"]
