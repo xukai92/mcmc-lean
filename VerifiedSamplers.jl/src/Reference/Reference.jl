@@ -8,7 +8,7 @@ using ..Runtime: AbstractRandomSource, draw_below!, standard_normal!,
 using ..Certificates: ImplicitSolveCertificate, certify_implicit_solve,
     certifies_exact_solver
 
-export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_out_slice_step!, sheared_birth_death_step!, spatial_birth_death_step!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!, scalar_barker_rwmh_step!, scalar_mala_step!, vector_mala_step!, dense_pmala_step!, scalar_hmc_step!, vector_hmc_step!, metric_hmc_step!, multinomial_hmc_step!, metric_multinomial_hmc_step!, categorical_dhmc_step!,
+export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_out_slice_step!, sheared_birth_death_step!, spatial_birth_death_step!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!, scalar_barker_rwmh_step!, scalar_mala_step!, vector_mala_step!, dense_pmala_step!, scalar_hmc_step!, scalar_dr_ghmc_step!, vector_hmc_step!, metric_hmc_step!, multinomial_hmc_step!, metric_multinomial_hmc_step!, categorical_dhmc_step!,
     finite_hmm_particle_gibbs_step!,
     relativistic_multinomial_hmc_step!,
     fixed_point_generalized_leapfrog,
@@ -30,7 +30,7 @@ export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_ou
     coupled_multinomial_hmc_step!, coupled_gaussian_rwmh_step!, xu21_coupled_step!,
     IR_FORMAT_VERSION, artifact_facets
 
-const IR_FORMAT_VERSION = 27
+const IR_FORMAT_VERSION = 28
 
 function affine_prefix_scan(segments::AbstractVector{<:Tuple})
     result = collect(segments)
@@ -1006,6 +1006,21 @@ function scalar_hmc_step!(source::AbstractRandomSource, logdensity, gradient,
     checked_grad = value -> checked_gradient(gradient, value)
     Float64(run_program("scalar_hmc_step!", source, checked_log, checked_grad,
         step_size, current, steps))
+end
+
+"""Float64 interpretation of the serialized scalar DR-G-HMC program."""
+function scalar_dr_ghmc_step!(source::AbstractRandomSource, logdensity, gradient,
+        step_size::Float64, alpha::Float64, beta::Float64,
+        current::Float64, steps::Integer)
+    checked_positive_float(step_size, "step size")
+    checked_positive_count(steps, "leapfrog steps")
+    checked_finite_float(current, "current state")
+    checked_finite_float(alpha, "alpha")
+    checked_finite_float(beta, "beta")
+    checked_log = value -> checked_logdensity(logdensity, value)
+    checked_grad = value -> checked_gradient(gradient, value)
+    Float64(run_program("scalar_dr_ghmc_step!", source, checked_log, checked_grad,
+        step_size, alpha, beta, current, steps))
 end
 
 """Float64 interpretation of the serialized vector endpoint-HMC program."""
