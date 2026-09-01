@@ -67,6 +67,7 @@ import Mcmc.Executable.IR
 import Mcmc.Executable.GaussianRWMH
 import Mcmc.Executable.Continuous.CompilerIR
 import Mcmc.Executable.Continuous.RWMH
+import Mcmc.Executable.Continuous.BarkerRWMH
 import Mcmc.Executable.Continuous.HMC
 import Mcmc.Executable.Continuous.HMCVariants
 import Mcmc.Executable.Continuous.NumericalRefinement
@@ -183,6 +184,7 @@ import Mcmc.Kernel.Meeting
 import Mcmc.Kernel.MeetingDrift
 import Mcmc.Kernel.MetropolisHastings
 import Mcmc.Kernel.ParameterizedDensityCoupling
+import Mcmc.Kernel.BarkerAcceptance
 import Mcmc.Kernel.RandomWalkMetropolisHastings
 import Mcmc.Kernel.ReversibleJump
 import Mcmc.Kernel.UnbiasedEstimator

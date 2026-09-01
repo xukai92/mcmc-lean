@@ -521,6 +521,31 @@ def vectorNextPositionVar : Var .realVector := ⟨"next_position"⟩
 def vectorNextMomentumVar : Var .realVector := ⟨"next_momentum"⟩
 def iterationsVar : Var .nat := ⟨"iterations"⟩
 
+def logRatioVar : Var .real := ⟨"log_ratio"⟩
+
+/-- Scalar Gaussian RWMH with Barker's sigmoid acceptance. -/
+def gaussianBarkerRwmhProgram : Program where
+  name := "scalar_barker_rwmh_step!"
+  sourceInput := "source"
+  logDensityInput := "logdensity"
+  realInputs := [scaleVar.name, currentVar.name]
+  body :=
+    [.sampleStandardNormal noiseVar,
+      .letE proposedVar
+        (.add (.var currentVar) (.mul (.var scaleVar) (.var noiseVar))),
+      .letE currentLogDensityVar (.logDensity (.var currentVar)),
+      .letE proposedLogDensityVar (.logDensity (.var proposedVar)),
+      .letE logRatioVar
+        (.sub (.var proposedLogDensityVar) (.var currentLogDensityVar)),
+      .letE thresholdVar
+        (.div (.real 1)
+          (.add (.real 1)
+            (.exp (.sub (.real 0) (.var logRatioVar))))),
+      .sampleUniformUnit uniformVar,
+      .ifThen (.lt (.var uniformVar) (.var thresholdVar))
+        [.return (.var proposedVar)],
+      .return (.var currentVar)]
+
 def malaVarianceVar : Var .real := ⟨"variance"⟩
 def malaHalfVarianceVar : Var .real := ⟨"half_variance"⟩
 def malaCurrentGradientVar : Var .real := ⟨"current_gradient"⟩
