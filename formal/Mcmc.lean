@@ -70,6 +70,7 @@ import Mcmc.Executable.Continuous.RWMH
 import Mcmc.Executable.Continuous.BarkerRWMH
 import Mcmc.Executable.Continuous.HMC
 import Mcmc.Executable.Continuous.HMCVariants
+import Mcmc.Executable.Continuous.DRGHMC
 import Mcmc.Executable.Continuous.NumericalRefinement
 import Mcmc.Executable.Continuous.BoundedRWMH
 import Mcmc.Executable.Continuous.BoundedSlice
@@ -125,6 +126,7 @@ import Mcmc.Hamiltonian.MultinomialHMC
 import Mcmc.Hamiltonian.RandomizedTrajectory
 import Mcmc.Hamiltonian.VolumePreservation
 import Mcmc.Hamiltonian.GeneralizedHMC
+import Mcmc.Hamiltonian.DelayedRejection
 import Mcmc.Hamiltonian.ParallelIntegrators
 import Mcmc.Hamiltonian.GaussLegendre
 import Mcmc.Kernel.Coupling
