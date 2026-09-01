@@ -735,6 +735,200 @@ def vectorGaussLegendreHmcProgram : Program where
         [.returnVector (.var vectorNextPositionVar)],
       .returnVector (.var vectorCurrentVar)]
 
+def alphaVar : Var .real := ⟨"alpha"⟩
+def betaVar : Var .real := ⟨"beta"⟩
+def pRefreshedVar : Var .real := ⟨"p_refreshed"⟩
+def noiseVar2 : Var .real := ⟨"noise2"⟩
+def pFlippedVar : Var .real := ⟨"p_flipped"⟩
+def halfStepVar : Var .real := ⟨"half_step"⟩
+def q2Var : Var .real := ⟨"q2"⟩
+def p2Var : Var .real := ⟨"p2"⟩
+def p2FlippedVar : Var .real := ⟨"p2_flipped"⟩
+def qGhostVar : Var .real := ⟨"q_ghost"⟩
+def pGhostVar : Var .real := ⟨"p_ghost"⟩
+def h0Var : Var .real := ⟨"H0"⟩
+def h1Var : Var .real := ⟨"H1"⟩
+def h2Var : Var .real := ⟨"H2"⟩
+def hFlippedVar : Var .real := ⟨"H_flipped"⟩
+def hGhostVar : Var .real := ⟨"H_ghost"⟩
+def a1Var : Var .real := ⟨"a1"⟩
+def a1GhostVar : Var .real := ⟨"a1_ghost"⟩
+def a2Var : Var .real := ⟨"a2"⟩
+def uniform1Var : Var .real := ⟨"u1"⟩
+def uniform2Var : Var .real := ⟨"u2"⟩
+def oneMinusA1Var : Var .real := ⟨"one_minus_a1"⟩
+def oneMinusA1GhostVar : Var .real := ⟨"one_minus_a1_ghost"⟩
+def drCorrectionVar : Var .real := ⟨"dr_correction"⟩
+def energyRatioVar : Var .real := ⟨"energy_ratio"⟩
+
+/-- Scalar, unit-mass two-stage delayed-rejection generalized HMC.
+    Inputs: step_size (ε), alpha (AR(1) persistence), beta (AR(1) noise),
+    current (q₀). Returns: next position (discards momentum).
+    Consumes exactly 2 standard normals and 2 uniform draws. -/
+def scalarDrGhmcProgram : Program where
+  name := "scalar_dr_ghmc_step!"
+  sourceInput := "source"
+  logDensityInput := "logdensity"
+  gradientInput := some "gradient"
+  realInputs := [stepSizeVar.name, alphaVar.name, betaVar.name, currentVar.name]
+  natInputs := [stepsVar.name]
+  body :=
+    [ .sampleStandardNormal momentumVar,
+      .sampleStandardNormal noiseVar2,
+      .sampleUniformUnit uniform1Var,
+      .sampleUniformUnit uniform2Var,
+
+    -- AR(1) momentum refresh
+      .letE pRefreshedVar
+        (.add (.mul (.var alphaVar) (.var momentumVar))
+              (.mul (.var betaVar) (.var noiseVar2))),
+
+    -- Stage 1: Aggressive leapfrog (ε)
+      .letE nextPositionVar
+        (.leapfrogPosition (.var stepSizeVar) (.var stepsVar)
+          (.var currentVar) (.var pRefreshedVar)),
+      .letE nextMomentumVar
+        (.leapfrogMomentum (.var stepSizeVar) (.var stepsVar)
+          (.var currentVar) (.var pRefreshedVar)),
+      .letE h0Var
+        (.add (.sub (.real 0) (.logDensity (.var currentVar)))
+          (.div (.mul (.var pRefreshedVar) (.var pRefreshedVar)) two)),
+      .letE h1Var
+        (.add (.sub (.real 0) (.logDensity (.var nextPositionVar)))
+          (.div (.mul (.var nextMomentumVar) (.var nextMomentumVar)) two)),
+      .letE a1Var
+        (.exp (.min (.real 0) (.sub (.var h0Var) (.var h1Var)))),
+
+    -- Stage 1 accept: return q₁
+      .ifThen (.lt (.var uniform1Var) (.var a1Var))
+        [.return (.var nextPositionVar)],
+
+    -- Stage 2: Delayed rejection (ε/2, with momentum flip)
+      .letE pFlippedVar (.sub (.real 0) (.var pRefreshedVar)),
+      .letE halfStepVar (.div (.var stepSizeVar) (.real 2)),
+      .letE q2Var
+        (.leapfrogPosition (.var halfStepVar) (.var stepsVar)
+          (.var currentVar) (.var pFlippedVar)),
+      .letE p2Var
+        (.leapfrogMomentum (.var halfStepVar) (.var stepsVar)
+          (.var currentVar) (.var pFlippedVar)),
+
+    -- Ghost path: one ε-step from (q₂, -p₂)
+      .letE p2FlippedVar (.sub (.real 0) (.var p2Var)),
+      .letE qGhostVar
+        (.leapfrogPosition (.var stepSizeVar) (.var stepsVar)
+          (.var q2Var) (.var p2FlippedVar)),
+      .letE pGhostVar
+        (.leapfrogMomentum (.var stepSizeVar) (.var stepsVar)
+          (.var q2Var) (.var p2FlippedVar)),
+
+    -- Compute energies for DR acceptance
+      .letE hFlippedVar
+        (.add (.sub (.real 0) (.logDensity (.var currentVar)))
+          (.div (.mul (.var pFlippedVar) (.var pFlippedVar)) two)),
+      .letE h2Var
+        (.add (.sub (.real 0) (.logDensity (.var q2Var)))
+          (.div (.mul (.var p2Var) (.var p2Var)) two)),
+      .letE hGhostVar
+        (.add (.sub (.real 0) (.logDensity (.var qGhostVar)))
+          (.div (.mul (.var pGhostVar) (.var pGhostVar)) two)),
+
+    -- Ghost stage-1 acceptance
+      .letE a1GhostVar
+        (.exp (.min (.real 0)
+          (.sub (.add (.sub (.real 0) (.logDensity (.var q2Var)))
+                      (.div (.mul (.var p2FlippedVar) (.var p2FlippedVar)) two))
+                (.var hGhostVar)))),
+
+    -- DR correction
+      .letE oneMinusA1Var (.sub (.real 1) (.var a1Var)),
+      .letE oneMinusA1GhostVar (.sub (.real 1) (.var a1GhostVar)),
+      .letE drCorrectionVar
+        (.div (.var oneMinusA1GhostVar) (.var oneMinusA1Var)),
+      .letE energyRatioVar
+        (.exp (.sub (.var hFlippedVar) (.var h2Var))),
+      .letE a2Var
+        (.min (.real 1) (.mul (.var energyRatioVar) (.var drCorrectionVar))),
+
+    -- Stage 2 accept: return q₂
+      .ifThen (.lt (.var uniform2Var) (.var a2Var))
+        [.return (.var q2Var)],
+
+    -- Total rejection: return current position
+      .return (.var currentVar)]
+
+/-- Execute scalar DR-G-HMC against ideal-real callbacks and events. -/
+noncomputable def runScalarDrGhmc (logDensity gradient : ℝ → ℝ)
+    (stepSize α β : ℝ) (steps : Nat) (current : ℝ) (trace : List IR.Event) :
+    Except RuntimeError (IR.Replay ℝ) := do
+  let env : Env :=
+    { trace, logDensity, gradient,
+      reals := [(stepSizeVar.name, stepSize), (alphaVar.name, α),
+                (betaVar.name, β), (currentVar.name, current)],
+      nats := [(stepsVar.name, steps)] }
+  match ← runStatements scalarDrGhmcProgram.body env with
+  | .next _ => .error .programDidNotReturn
+  | .returned value env => .ok ⟨value, env.trace⟩
+  | .returnedVector _ _ => .error .programDidNotReturn
+
+/-- Expected output of the DR-G-HMC program given random draws. -/
+noncomputable def scalarDrGhmcResult (logDensity gradient : ℝ → ℝ)
+    (stepSize α β current momentum noise u₁ u₂ : ℝ) (steps : Nat) : ℝ :=
+  let pRefreshed := α * momentum + β * noise
+  let next := scalarLeapfrogN gradient stepSize steps current pRefreshed
+  let currentEnergy := -logDensity current + pRefreshed * pRefreshed / 2
+  let nextEnergy := -logDensity next.1 + next.2 * next.2 / 2
+  let a₁ := Real.exp (min 0 (currentEnergy - nextEnergy))
+  if u₁ < a₁ then next.1
+  else
+    let pFlipped := -pRefreshed
+    let halfStep := stepSize / 2
+    let stage2 := scalarLeapfrogN gradient halfStep steps current pFlipped
+    let q₂ := stage2.1
+    let p₂ := stage2.2
+    let ghost := scalarLeapfrogN gradient stepSize steps q₂ (-p₂)
+    let H_flipped := -logDensity current + pRefreshed * pRefreshed / 2
+    let H₂ := -logDensity q₂ + p₂ * p₂ / 2
+    let H_ghost := -logDensity ghost.1 + ghost.2 * ghost.2 / 2
+    let H₂_ghost_start := -logDensity q₂ + (-p₂) * (-p₂) / 2
+    let a₁_ghost := Real.exp (min 0 (H₂_ghost_start - H_ghost))
+    let energyRatio := Real.exp (H_flipped - H₂)
+    let drCorrection := (1 - a₁_ghost) / (1 - a₁)
+    let a₂ := min 1 (energyRatio * drCorrection)
+    if u₂ < a₂ then q₂ else current
+
+private theorem except_ok_ite {p : Prop} [Decidable p] {a b : α} :
+    (if p then @Except.ok ε α a else @Except.ok ε α b) =
+    @Except.ok ε α (if p then a else b) := by
+  split <;> rfl
+
+set_option maxHeartbeats 32000000 in
+/-- The DR-G-HMC program replays to the exact delayed-rejection transition. -/
+theorem runScalarDrGhmc_refines (logDensity gradient : ℝ → ℝ)
+    (stepSize α β current momentum noise u₁ u₂ : ℝ) (steps : Nat)
+    (hu₁ : 0 ≤ u₁ ∧ u₁ < 1) (hu₂ : 0 ≤ u₂ ∧ u₂ < 1)
+    (rest : List IR.Event) :
+    runScalarDrGhmc logDensity gradient stepSize α β steps current
+        (.standardNormal momentum :: .standardNormal noise ::
+          .uniformUnit u₁ :: .uniformUnit u₂ :: rest) =
+      .ok ⟨scalarDrGhmcResult logDensity gradient stepSize α β current
+             momentum noise u₁ u₂ steps, rest⟩ := by
+  have neg_comm : -(α * momentum + β * noise) = -(β * noise) + -(α * momentum) := by ring
+  simp [runScalarDrGhmc, scalarDrGhmcProgram, scalarDrGhmcResult,
+    runStatements, statementsCost, Stmt.cost, runStatementsFuel,
+    evalExpr, Env.get, Env.set, lookup, store, require,
+    momentumVar, noiseVar2, uniform1Var, uniform2Var,
+    pRefreshedVar, nextPositionVar, nextMomentumVar,
+    h0Var, h1Var, a1Var, pFlippedVar, halfStepVar,
+    q2Var, p2Var, p2FlippedVar, qGhostVar, pGhostVar,
+    hFlippedVar, h2Var, hGhostVar, a1GhostVar,
+    oneMinusA1Var, oneMinusA1GhostVar, drCorrectionVar,
+    energyRatioVar, a2Var,
+    alphaVar, betaVar, stepSizeVar, stepsVar, currentVar, two,
+    IR.Prim.replay, hu₁, hu₂, except_ok_bind,
+    except_ok_ite, neg_comm]
+  split_ifs <;> simp_all
+
 /-- Execute scalar one-step HMC against ideal-real callbacks and events. -/
 noncomputable def runScalarHmc (logDensity gradient : ℝ → ℝ)
     (stepSize : ℝ) (steps : Nat) (current : ℝ) (trace : List IR.Event) :
