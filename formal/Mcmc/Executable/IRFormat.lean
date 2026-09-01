@@ -22,7 +22,7 @@ namespace Mcmc.Executable.IRFormat
 
 open Finite.CompilerIR
 
-def version : Nat := 26
+def version : Nat := 27
 
 private def quote (value : String) : String :=
   let escapedBackslash := value.replace "\\" "\\\\"
@@ -310,6 +310,7 @@ def render : String :=
     finiteProgramRender categoricalProgram,
     finiteProgramRender metropolisHastingsProgram,
     continuousProgramRender Continuous.CompilerIR.gaussianRwmhProgram,
+    continuousProgramRender Continuous.CompilerIR.gaussianBarkerRwmhProgram,
     continuousProgramRender Continuous.CompilerIR.scalarMalaProgram,
     continuousProgramRender Continuous.CompilerIR.vectorMalaProgram,
     continuousProgramRender Continuous.CompilerIR.scalarHmcProgram,
