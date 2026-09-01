@@ -8,7 +8,7 @@ using ..Runtime: AbstractRandomSource, draw_below!, standard_normal!,
 using ..Certificates: ImplicitSolveCertificate, certify_implicit_solve,
     certifies_exact_solver
 
-export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_out_slice_step!, sheared_birth_death_step!, spatial_birth_death_step!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!, scalar_mala_step!, vector_mala_step!, dense_pmala_step!, scalar_hmc_step!, vector_hmc_step!, metric_hmc_step!, multinomial_hmc_step!, metric_multinomial_hmc_step!, categorical_dhmc_step!,
+export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_out_slice_step!, sheared_birth_death_step!, spatial_birth_death_step!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!, scalar_barker_rwmh_step!, scalar_mala_step!, vector_mala_step!, dense_pmala_step!, scalar_hmc_step!, vector_hmc_step!, metric_hmc_step!, multinomial_hmc_step!, metric_multinomial_hmc_step!, categorical_dhmc_step!,
     finite_hmm_particle_gibbs_step!,
     relativistic_multinomial_hmc_step!,
     fixed_point_generalized_leapfrog,
@@ -30,7 +30,7 @@ export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_ou
     coupled_multinomial_hmc_step!, coupled_gaussian_rwmh_step!, xu21_coupled_step!,
     IR_FORMAT_VERSION, artifact_facets
 
-const IR_FORMAT_VERSION = 26
+const IR_FORMAT_VERSION = 27
 
 function affine_prefix_scan(segments::AbstractVector{<:Tuple})
     result = collect(segments)
@@ -883,6 +883,18 @@ function gaussian_rwmh_step!(source::AbstractRandomSource, logdensity,
     checked_finite_float(current, "current state")
     checked = value -> checked_logdensity(logdensity, value)
     Float64(run_program("gaussian_rwmh_step!", source, checked, scale, current))
+end
+
+"""Float64 interpretation of the serialized Barker RWMH program.
+
+Uses sigmoid acceptance: 1 / (1 + exp(-log_ratio)) instead of exp(min(0, log_ratio)).
+"""
+function scalar_barker_rwmh_step!(source::AbstractRandomSource, logdensity,
+        scale::Float64, current::Float64)
+    checked_positive_float(scale, "scale")
+    checked_finite_float(current, "current state")
+    checked = value -> checked_logdensity(logdensity, value)
+    Float64(run_program("scalar_barker_rwmh_step!", source, checked, scale, current))
 end
 
 """Float64 interpretation of the serialized scalar MALA program."""
