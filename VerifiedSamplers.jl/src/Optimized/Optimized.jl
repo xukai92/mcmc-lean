@@ -626,27 +626,61 @@ function multinomial_hmc_step!(source::AbstractRandomSource, logdensity, gradien
     steps > 0 || throw(ArgumentError("trajectory length must be positive"))
     ε, q = step_size, collect(current)
     isempty(q) && throw(ArgumentError("position cannot be empty"))
-    p = T[standard_normal!(source) for _ in eachindex(q)]
+    d = length(q)
+
+    p = Vector{T}(undef, d)
+    @inbounds for i in eachindex(p)
+        p[i] = T(standard_normal!(source))
+    end
     origin = Int(draw_below!(source, steps + 1))
-    for _ in 1:origin
-        q, p = vector_leapfrog(gradient, -ε, q, p)
+
+    positions = Matrix{T}(undef, d, steps + 1)
+    logweights = Vector{T}(undef, steps + 1)
+    half_step = ε / T(2)
+
+    current_index = origin + 1
+    positions[:, current_index] = q
+    logweights[current_index] = logdensity(q) - sum(abs2, p) / T(2)
+
+    bq, bp = copy(q), copy(p)
+    for index in origin:-1:1
+        force = gradient(bq)
+        @. bp += half_step * force
+        @. bq -= ε * bp
+        force = gradient(bq)
+        @. bp += half_step * force
+        positions[:, index] = bq
+        logweights[index] = logdensity(bq) - sum(abs2, bp) / T(2)
     end
-    trajectory = Vector{Tuple{Vector{T},Vector{T}}}(undef, steps + 1)
-    trajectory[1] = (copy(q), copy(p))
-    for index in 2:(steps + 1)
-        q, p = vector_leapfrog(gradient, ε, q, p)
-        trajectory[index] = (copy(q), copy(p))
+
+    fq, fp = copy(q), copy(p)
+    for index in (origin + 2):(steps + 1)
+        force = gradient(fq)
+        @. fp -= half_step * force
+        @. fq += ε * fp
+        force = gradient(fq)
+        @. fp -= half_step * force
+        positions[:, index] = fq
+        logweights[index] = logdensity(fq) - sum(abs2, fp) / T(2)
     end
-    logweights = [logdensity(position) - sum(abs2, momentum) / 2
-        for (position, momentum) in trajectory]
-    weights = exp.(logweights .- maximum(logweights))
-    target = uniform_unit!(source) * sum(weights)
-    cumulative = 0.0
-    for (index, weight) in pairs(weights)
-        cumulative += weight
-        target < cumulative && return trajectory[index][1]
+
+    max_weight = maximum(logweights)
+    total = zero(T)
+    @inbounds for i in eachindex(logweights)
+        logweights[i] = exp(logweights[i] - max_weight)
+        total += logweights[i]
     end
-    trajectory[end][1]
+    target = T(uniform_unit!(source)) * total
+    cumulative = zero(T)
+    selected = steps + 1
+    @inbounds for i in eachindex(logweights)
+        cumulative += logweights[i]
+        if target < cumulative
+            selected = i
+            break
+        end
+    end
+    copy(@view positions[:, selected])
 end
 
 """Independent constant-metric randomized-origin multinomial HMC."""
