@@ -10,3 +10,32 @@
 /benchmark/results/dev-quality.csv
 /benchmark/results/dev-metadata.csv
 /benchmark/results/*-progress.csv
+
+# Factory runtime artifacts (transient, per-session)
+.factory/eval_profile.json
+.factory/eval_spec.json
+.factory/events.jsonl
+.factory/performance_report.json
+.factory/reviews/
+.factory/strategy/
+.factory/state/
+.factory/hooks/
+.factory/archive/
+.factory/workflows/__pycache__/
+.factory-worktrees/
+
+# Factory-generated SKILL.md exports (regenerated at runtime)
+skills/
+workflow-*/
+
+# Claude Code session artifacts
+.claude/
+
+# re:factory supervisor workspace
+.refactory/
+
+# Analog server data
+data/
+
+# Auto-discovered eval (factory discover output)
+eval/
