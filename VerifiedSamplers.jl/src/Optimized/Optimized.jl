@@ -762,10 +762,15 @@ function _dense_metric_multinomial_step!(source::AbstractRandomSource, logdensit
     initial_p = similar(initial_q)
     mul!(initial_p, metric.factorization.L, noise)
 
-    workspace = similar(initial_q)
+    initial_v = similar(initial_q)
+    mul!(initial_v, metric.inverse_mass, initial_p)
+
+    g_workspace = similar(initial_q)
 
     origin = Int(draw_below!(source, steps + 1))
     initial_force = gradient(initial_q)
+    mul!(g_workspace, metric.inverse_mass, initial_force)
+    initial_g = copy(g_workspace)
 
     d = length(initial_q)
     positions = Matrix{T}(undef, d, steps + 1)
@@ -778,37 +783,41 @@ function _dense_metric_multinomial_step!(source::AbstractRandomSource, logdensit
 
     half_step = ε / T(2)
 
-    q, p, force = copy(initial_q), copy(initial_p), initial_force
+    q, p, v = copy(initial_q), copy(initial_p), copy(initial_v)
+    force = initial_force
+    g = copy(initial_g)
     for index in origin:-1:1
         @. p += half_step * force
-        copyto!(workspace, p)
-        ldiv!(metric.factorization, workspace)
-        @. q -= ε * workspace
+        @. v += half_step * g
+        @. q -= ε * v
         force = gradient(q)
+        mul!(g_workspace, metric.inverse_mass, force)
         @. p += half_step * force
+        @. v += half_step * g_workspace
+        copyto!(g, g_workspace)
         positions[:, index] = q
-        copyto!(workspace, p)
-        ldiv!(metric.factorization.L, workspace)
-        logweights[index] = logdensity(q) - dot(workspace, workspace) / T(2)
+        logweights[index] = logdensity(q) - dot(p, v) / T(2)
     end
 
-    q, p, force = copy(initial_q), copy(initial_p), initial_force
+    q, p, v = copy(initial_q), copy(initial_p), copy(initial_v)
+    force = initial_force
+    copyto!(g, initial_g)
     for index in (origin + 2):(steps + 1)
         @. p -= half_step * force
-        copyto!(workspace, p)
-        ldiv!(metric.factorization, workspace)
-        @. q += ε * workspace
+        @. v -= half_step * g
+        @. q += ε * v
         force = gradient(q)
+        mul!(g_workspace, metric.inverse_mass, force)
         @. p -= half_step * force
+        @. v -= half_step * g_workspace
+        copyto!(g, g_workspace)
         positions[:, index] = q
-        copyto!(workspace, p)
-        ldiv!(metric.factorization.L, workspace)
-        logweights[index] = logdensity(q) - dot(workspace, workspace) / T(2)
+        logweights[index] = logdensity(q) - dot(p, v) / T(2)
     end
 
     weights = exp.(logweights .- maximum(logweights))
     target = uniform_unit!(source) * sum(weights)
-    cumulative = 0.0
+    cumulative = zero(T)
     for (index, weight) in pairs(weights)
         cumulative += weight
         target < cumulative && return copy(@view positions[:, index])
