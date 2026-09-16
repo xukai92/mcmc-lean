@@ -744,6 +744,95 @@ function metric_multinomial_hmc_step!(source::AbstractRandomSource, logdensity,
         current, prepare_metric(mass))
 end
 
+function _dense_metric_multinomial_step!(source::AbstractRandomSource, logdensity,
+        gradient, step_size::T, steps::Integer,
+        current::AbstractVector{T}, metric::PreparedDenseMetric{T}) where {T<:AbstractFloat}
+    isfinite(step_size) && step_size > 0 || throw(ArgumentError(
+        "step size must be finite and positive"))
+    steps > 0 || throw(ArgumentError("trajectory length must be positive"))
+    eltype(metric.mass) === T || throw(ArgumentError(
+        "state and metric element types must match"))
+    ε, initial_q = step_size, collect(current)
+    isempty(initial_q) && throw(ArgumentError("position cannot be empty"))
+    all(isfinite, initial_q) || throw(ArgumentError("position must be finite"))
+    metric_dimension(metric) == length(initial_q) || throw(DimensionMismatch(
+        "mass dimension"))
+
+    noise = T[standard_normal!(source) for _ in eachindex(initial_q)]
+    initial_p = similar(initial_q)
+    mul!(initial_p, metric.factorization.L, noise)
+
+    initial_v = similar(initial_q)
+    mul!(initial_v, metric.inverse_mass, initial_p)
+
+    g_workspace = similar(initial_q)
+
+    origin = Int(draw_below!(source, steps + 1))
+    initial_force = gradient(initial_q)
+    mul!(g_workspace, metric.inverse_mass, initial_force)
+    initial_g = copy(g_workspace)
+
+    d = length(initial_q)
+    positions = Matrix{T}(undef, d, steps + 1)
+    initial_ke = sum(abs2, noise) / T(2)
+    initial_logweight = logdensity(initial_q) - initial_ke
+    logweights = Vector{typeof(initial_logweight)}(undef, steps + 1)
+    current_index = origin + 1
+    positions[:, current_index] = initial_q
+    logweights[current_index] = initial_logweight
+
+    half_step = ε / T(2)
+
+    q, p, v = copy(initial_q), copy(initial_p), copy(initial_v)
+    force = initial_force
+    g = copy(initial_g)
+    for index in origin:-1:1
+        @. p += half_step * force
+        @. v += half_step * g
+        @. q -= ε * v
+        force = gradient(q)
+        mul!(g_workspace, metric.inverse_mass, force)
+        @. p += half_step * force
+        @. v += half_step * g_workspace
+        copyto!(g, g_workspace)
+        positions[:, index] = q
+        logweights[index] = logdensity(q) - dot(p, v) / T(2)
+    end
+
+    q, p, v = copy(initial_q), copy(initial_p), copy(initial_v)
+    force = initial_force
+    copyto!(g, initial_g)
+    for index in (origin + 2):(steps + 1)
+        @. p -= half_step * force
+        @. v -= half_step * g
+        @. q += ε * v
+        force = gradient(q)
+        mul!(g_workspace, metric.inverse_mass, force)
+        @. p -= half_step * force
+        @. v -= half_step * g_workspace
+        copyto!(g, g_workspace)
+        positions[:, index] = q
+        logweights[index] = logdensity(q) - dot(p, v) / T(2)
+    end
+
+    weights = exp.(logweights .- maximum(logweights))
+    target = uniform_unit!(source) * sum(weights)
+    cumulative = zero(T)
+    for (index, weight) in pairs(weights)
+        cumulative += weight
+        target < cumulative && return copy(@view positions[:, index])
+    end
+    copy(@view positions[:, end])
+end
+
+function metric_multinomial_hmc_step!(source::AbstractRandomSource, logdensity,
+        gradient, step_size::T, steps::Integer,
+        current::AbstractVector{T},
+        metric::PreparedDenseMetric{T}) where {T<:AbstractFloat}
+    _dense_metric_multinomial_step!(source, logdensity, gradient, step_size,
+        steps, current, metric)
+end
+
 function _relativistic_radius!(source::AbstractRandomSource, dimension::Int,
         relativistic_mass::T) where {T<:AbstractFloat}
     while true
