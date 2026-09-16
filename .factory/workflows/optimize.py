@@ -1,14 +1,19 @@
 """Optimize workflow — single-function MCMC sampler optimization with correctness preservation.
 
-18-node pipeline:
+19-node pipeline:
   precondition_check → fork_research → [3 researchers] → join_research → gate_research →
   strategist → gate_strategy (USER) → builder → gate_build → fork_qa →
-  [conformance, tests, benchmark] → join_qa → gate_qa (RELOOP → builder, max 3) →
+  [conformance, tests, benchmark, statistical] → join_qa → gate_qa (RELOOP → builder, max 3) →
   archivist (async)
 
-Requires --focus naming a specific sampler function.
-Checks VerifiedSamplers.jl/src/Reference/Reference.jl for existence.
-Optimizes in VerifiedSamplers.jl/src/Optimized/Optimized.jl.
+Requires --focus naming a specific sampler function (or scope:<topic> for scope mode).
+Checks Reference/Reference.jl for existence.
+Optimizes in Optimized/Optimized.jl.
+
+Template variables (substituted by CEO at runtime):
+  {conformance_tier} — "bit-exact" (default) or "numerical"
+  {atol}             — absolute tolerance (default "1e-12"), used when tier is "numerical"
+  {rtol}             — relative tolerance (default "1e-12"), used when tier is "numerical"
 """
 
 from __future__ import annotations
@@ -34,8 +39,9 @@ meta = {
     "description": (
         "Optimize a single MCMC sampler function — parallel research, "
         "user-approved strategy, builder with RELOOP, parallel QA "
-        "(conformance replay + tests + benchmark), async archival. "
-        "Requires --focus <function_name>."
+        "(conformance replay + tests + benchmark + statistical equivalence), "
+        "async archival. "
+        "Requires --focus <function_name> or --focus scope:<topic>."
     ),
 }
 
@@ -48,22 +54,34 @@ def workflow() -> Workflow:
         id="precondition_check",
         command=(
             "cd {project_path} && "
-            "FOCUS=$(echo '{focus}' | sed 's/[^a-zA-Z0-9_!]//g') && "
-            'if [ -z "$FOCUS" ]; then '
+            "RAW_FOCUS='{focus}' && "
+            'if [ -z "$RAW_FOCUS" ]; then '
             "echo 'HALT: --focus is required but empty'; exit 1; fi && "
-            "if [ ! -f VerifiedSamplers.jl/src/Reference/Reference.jl ]; then "
-            "echo 'HALT: VerifiedSamplers.jl/src/Reference/Reference.jl not found'; exit 1; fi && "
-            'if ! grep -q "function ${FOCUS}" VerifiedSamplers.jl/src/Reference/Reference.jl; then '
-            'echo "HALT: function ${FOCUS} not found in VerifiedSamplers.jl/src/Reference/Reference.jl"; exit 1; fi && '
-            'echo "PROCEED: function ${FOCUS} found in VerifiedSamplers.jl/src/Reference/Reference.jl" && '
-            'if grep -q "function ${FOCUS}" VerifiedSamplers.jl/src/Optimized/Optimized.jl 2>/dev/null; then '
+            "if [ ! -f Reference/Reference.jl ]; then "
+            "echo 'HALT: Reference/Reference.jl not found'; exit 1; fi && "
+            'SCOPE_MODE=false && '
+            'case "$RAW_FOCUS" in scope:*) SCOPE_MODE=true ;; esac && '
+            'if [ "$SCOPE_MODE" = true ]; then '
+            'SCOPE_TOPIC=$(echo "$RAW_FOCUS" | sed "s/^scope://") && '
+            'echo "SCOPE_MODE: topic=$SCOPE_TOPIC" && '
+            "if [ ! -d Optimized ]; then "
+            "echo 'HALT: Optimized/ directory not found'; exit 1; fi && "
+            'echo "PROCEED: scope mode — researcher will discover targets for: $SCOPE_TOPIC"; '
+            "else "
+            "FOCUS=$(echo '$RAW_FOCUS' | sed 's/[^a-zA-Z0-9_!]//g') && "
+            'if ! grep -q "function ${FOCUS}" Reference/Reference.jl; then '
+            'echo "HALT: function ${FOCUS} not found in Reference/Reference.jl"; exit 1; fi && '
+            'echo "PROCEED: function ${FOCUS} found in Reference/Reference.jl" && '
+            'if grep -q "function ${FOCUS}" Optimized/Optimized.jl 2>/dev/null; then '
             "echo 'BASELINE: optimized (existing Optimized implementation)'; "
             "else "
-            "echo 'BASELINE: reference (no existing Optimized implementation)'; fi"
+            "echo 'BASELINE: reference (no existing Optimized implementation)'; fi; fi"
         ),
         writes=set(),
         notes=(
-            "Validates --focus target exists in VerifiedSamplers.jl/src/Reference/Reference.jl. "
+            "Validates --focus target exists in Reference/Reference.jl. "
+            "When --focus starts with 'scope:', skips function grep and only "
+            "verifies Reference/Reference.jl and Optimized/ directory exist. "
             "Exits non-zero (HALT) if missing. Reports baseline source."
         ),
     )
@@ -79,8 +97,9 @@ def workflow() -> Workflow:
         id="researcher_semantics",
         role=AgentRole.RESEARCHER,
         prompt_template=(
+            "Conformance tier: {conformance_tier}\n\n"
             "Analyze the Reference implementation of the function specified by --focus "
-            "in {project_path}/VerifiedSamplers.jl/src/Reference/Reference.jl.\n\n"
+            "in Reference/Reference.jl.\n\n"
             "Deliverables:\n"
             "1. Algorithm semantics: What does this sampler do mathematically?\n"
             "2. Data flow: Inputs -> transformations -> outputs\n"
@@ -89,8 +108,17 @@ def workflow() -> Workflow:
             "5. Boundary conditions: Edge cases and numerical stability concerns\n"
             "6. Lean IR analysis: If verified-samplers-lean/ exists, check for "
             "formal specifications of this function\n\n"
+            "TIER-SPECIFIC GUIDANCE:\n"
+            "If conformance_tier is 'bit-exact': Focus on deterministic transformations "
+            "(constant folding, dead code elimination, inlining). Document which operations "
+            "MUST preserve exact bit patterns. Any reordering of floating-point operations "
+            "is FORBIDDEN.\n"
+            "If conformance_tier is 'numerical': Document which operations can tolerate "
+            "floating-point reordering (e.g., Cholesky factorization, SIMD reductions). "
+            "Identify the numerical stability bounds for each operation. Note operations "
+            "where FMA fusion or SIMD reassociation would change results.\n\n"
             "Read:\n"
-            "- {project_path}/VerifiedSamplers.jl/src/Reference/Reference.jl (find the focus function)\n"
+            "- Reference/Reference.jl (find the focus function)\n"
             "- Any Lean IR files in verified-samplers-lean/ if available\n"
             "- Project CLAUDE.md for context\n\n"
             "Write findings to: .factory/strategy/research-semantics.md"
@@ -111,18 +139,26 @@ def workflow() -> Workflow:
         id="researcher_conventions",
         role=AgentRole.RESEARCHER,
         prompt_template=(
+            "Conformance tier: {conformance_tier}\n\n"
             "Analyze existing Optimized implementations and project optimization conventions.\n\n"
             "Deliverables:\n"
-            "1. Current optimizations applied to OTHER functions in {project_path}/VerifiedSamplers.jl/src/Optimized/Optimized.jl\n"
+            "1. Current optimizations applied to OTHER functions in Optimized/Optimized.jl\n"
             "2. PreparedMetric usage patterns and struct conventions\n"
             "3. Threading patterns: where and how @threads is applied\n"
             "4. Memory patterns: in-place mutation (!-suffix), buffer pre-allocation\n"
             "5. Type stability: Generic T<:AbstractFloat usage throughout\n"
             "6. Annotation patterns: @inline, @simd, @inbounds usage\n"
             "7. Function signature conventions (must match Reference exactly)\n\n"
+            "TIER-SPECIFIC GUIDANCE:\n"
+            "If conformance_tier is 'bit-exact': Document which existing optimizations "
+            "preserve exact bit patterns vs which require numerical tolerance. Flag any "
+            "existing @simd or @fastmath annotations — these change FP semantics.\n"
+            "If conformance_tier is 'numerical': Document which existing optimizations "
+            "use SIMD, FMA, or parallel reductions. Note the observed numerical deviations "
+            "from Reference for each optimization pattern.\n\n"
             "Read:\n"
-            "- {project_path}/VerifiedSamplers.jl/src/Optimized/Optimized.jl (all functions, not just the focus target)\n"
-            "- {project_path}/VerifiedSamplers.jl/src/Reference/Reference.jl (for signature comparison)\n"
+            "- Optimized/Optimized.jl (all functions, not just the focus target)\n"
+            "- Reference/Reference.jl (for signature comparison)\n"
             "- CLAUDE.md and any project documentation\n\n"
             "Write findings to: .factory/strategy/research-conventions.md"
         ),
@@ -141,6 +177,7 @@ def workflow() -> Workflow:
         id="researcher_julia_perf",
         role=AgentRole.RESEARCHER,
         prompt_template=(
+            "Conformance tier: {conformance_tier}\n\n"
             "Research Julia performance optimization techniques relevant to MCMC samplers.\n\n"
             "Focus areas:\n"
             "1. Allocation elimination: avoiding heap allocations in hot loops\n"
@@ -150,6 +187,14 @@ def workflow() -> Workflow:
             "5. @inline, @inbounds, @fastmath annotations — when safe to use\n"
             "6. StaticArrays.jl for small fixed-size arrays\n"
             "7. Pre-allocation patterns for work buffers\n\n"
+            "TIER-SPECIFIC GUIDANCE:\n"
+            "If conformance_tier is 'bit-exact': Exclude @fastmath, SIMD reassociation, "
+            "and any transformation that reorders floating-point operations. Focus on "
+            "allocation elimination, type stability, inlining, and bounds-check removal.\n"
+            "If conformance_tier is 'numerical': Include algorithmic alternatives "
+            "(Cholesky solve via LAPACK, SIMD-friendly memory layouts, cache-optimized "
+            "blocked operations). Research FMA fusion impact on numerical accuracy. "
+            "Document expected ULP deviation for each technique.\n\n"
             "Search for:\n"
             "- Julia performance tips from official documentation\n"
             "- MCMC-specific Julia optimization techniques\n"
@@ -206,14 +251,15 @@ def workflow() -> Workflow:
         id="strategist",
         role=AgentRole.STRATEGIST,
         prompt_template=(
+            "Conformance tier: {conformance_tier}\n\n"
             "Synthesize the 3 research reports into a prioritized optimization "
             "strategy for the focus function.\n\n"
             "Read:\n"
             "- .factory/strategy/research-semantics.md\n"
             "- .factory/strategy/research-conventions.md\n"
             "- .factory/strategy/research-julia-perf.md\n"
-            "- {project_path}/VerifiedSamplers.jl/src/Reference/Reference.jl (the focus function)\n"
-            "- {project_path}/VerifiedSamplers.jl/src/Optimized/Optimized.jl (if existing baseline)\n\n"
+            "- Reference/Reference.jl (the focus function)\n"
+            "- Optimized/Optimized.jl (if existing baseline)\n\n"
             "Deliverables (write to .factory/strategy/current.md):\n"
             "1. Bottleneck analysis: where is time likely spent?\n"
             "2. Optimization opportunities ranked by expected impact:\n"
@@ -224,13 +270,25 @@ def workflow() -> Workflow:
             "   - Cache-friendly memory access\n"
             "   - PreparedMetric struct additions\n"
             "3. Correctness preservation plan: how to verify each optimization "
-            "maintains deterministic replay\n"
+            "maintains conformance at the declared tier\n"
             "4. Risk assessment: low-risk vs high-risk optimizations\n"
             "5. Implementation order: which optimizations to apply first\n\n"
-            "SACRED CONSTRAINTS (never violate):\n"
-            "- VerifiedSamplers.jl/src/Reference/Reference.jl is NEVER modified\n"
-            "- Function signature must match Reference exactly\n"
+            "TIER-SPECIFIC CONSTRAINTS:\n"
+            "If conformance_tier is 'bit-exact':\n"
             "- Deterministic replay: identical outputs for same RNG state\n"
+            "- Do NOT propose optimizations that reorder floating-point operations\n"
+            "- Do NOT propose @fastmath, SIMD reassociation, or FMA fusion\n"
+            "- Safe: inlining, bounds-check elimination, allocation removal, "
+            "loop unrolling, register blocking\n"
+            "If conformance_tier is 'numerical' (atol={atol}, rtol={rtol}):\n"
+            "- Outputs must satisfy |Optimized - Reference| < {atol} + {rtol} * |Reference| per step\n"
+            "- Accept/reject branch decisions must agree for all test seeds\n"
+            "- May propose: SIMD vectorization, FMA fusion, parallel reductions, "
+            "alternative linear algebra paths (e.g., Cholesky via LAPACK)\n"
+            "- Each proposed optimization MUST document expected numerical impact\n\n"
+            "SACRED CONSTRAINTS (never violate):\n"
+            "- Reference/Reference.jl is NEVER modified\n"
+            "- Function signature must match Reference exactly\n"
             "- Generic typing: preserve T<:AbstractFloat parameterization"
         ),
         reads={
@@ -270,20 +328,27 @@ def workflow() -> Workflow:
         role=AgentRole.BUILDER,
         max_iterations=3,
         prompt_template=(
+            "Conformance tier: {conformance_tier}\n\n"
             "Implement the approved optimization strategy for the focus function "
-            "in VerifiedSamplers.jl/src/Optimized/Optimized.jl.\n\n"
+            "in Optimized/Optimized.jl.\n\n"
             "Read:\n"
             "- .factory/strategy/current.md (approved strategy)\n"
-            "- {project_path}/VerifiedSamplers.jl/src/Reference/Reference.jl (the canonical implementation — NEVER modify)\n"
-            "- {project_path}/VerifiedSamplers.jl/src/Optimized/Optimized.jl (current state — your target file)\n"
+            "- Reference/Reference.jl (the canonical implementation — NEVER modify)\n"
+            "- Optimized/Optimized.jl (current state — your target file)\n"
             "- .factory/strategy/research-semantics.md (correctness invariants)\n"
             "- .factory/strategy/research-conventions.md (project patterns)\n\n"
             "SACRED CONSTRAINTS:\n"
-            "- NEVER modify VerifiedSamplers.jl/src/Reference/Reference.jl\n"
+            "- NEVER modify Reference/Reference.jl\n"
             "- Function signature MUST match Reference exactly\n"
-            "- Deterministic replay: identical outputs for same RNG state\n"
             "- Preserve Generic typing: T<:AbstractFloat\n"
             "- All existing tests must continue to pass\n\n"
+            "CONFORMANCE REQUIREMENT:\n"
+            "If conformance_tier is 'bit-exact': outputs must be identical to Reference "
+            "for the same RNG state. Do NOT use @fastmath, SIMD reassociation, or any "
+            "transformation that reorders floating-point operations.\n"
+            "If conformance_tier is 'numerical': outputs must satisfy "
+            "|Optimized - Reference| < {atol} + {rtol} * |Reference| per step, AND "
+            "accept/reject branch decisions must agree for all test seeds.\n\n"
             "Implementation:\n"
             "1. Apply optimizations from strategy in priority order\n"
             "2. Follow project conventions (PreparedMetric, @threads patterns)\n"
@@ -292,7 +357,7 @@ def workflow() -> Workflow:
             "5. Commit changes with descriptive message\n\n"
             "If this is a RELOOP iteration, read .factory/reviews/qa-*.md for "
             "feedback on what failed and fix those specific issues.\n\n"
-            "Write to: VerifiedSamplers.jl/src/Optimized/Optimized.jl\n"
+            "Write to: Optimized/Optimized.jl\n"
             "Commit changes on the current branch."
         ),
         reads={
@@ -318,10 +383,10 @@ def workflow() -> Workflow:
         evaluator_role=AgentRole.CEO,
         gate_prompt=(
             "Review builder output for the optimize workflow:\n"
-            "1. VerifiedSamplers.jl/src/Optimized/Optimized.jl was modified (check git diff)\n"
+            "1. Optimized/Optimized.jl was modified (check git diff)\n"
             "2. Builder committed changes (check builder-latest.md for commit hash)\n"
             "3. No obvious syntax errors or incomplete code\n"
-            "4. VerifiedSamplers.jl/src/Reference/Reference.jl was NOT modified (SACRED — verify)\n\n"
+            "4. Reference/Reference.jl was NOT modified (SACRED — verify)\n\n"
             "PROCEED to QA if build looks complete.\n"
             "RELOOP to builder if issues found (max 3 iterations)."
         ),
@@ -331,7 +396,7 @@ def workflow() -> Workflow:
     # ── Node 12: fork_qa (ForkNode) ─────────────────────────────
     nodes["fork_qa"] = ForkNode(
         id="fork_qa",
-        targets=["qa_conformance", "qa_tests", "qa_benchmark"],
+        targets=["qa_conformance", "qa_tests", "qa_benchmark", "qa_statistical"],
     )
 
     # ── Node 13: qa_conformance (FnNode) ────────────────────────
@@ -339,13 +404,30 @@ def workflow() -> Workflow:
         id="qa_conformance",
         command=(
             "cd {project_path} && "
-            "make julia > .factory/reviews/qa-conformance.md 2>&1"
+            "julia --project=. -e '"
+            "using Evaluation; "
+            'tier = "{conformance_tier}"; '
+            'if tier == "bit-exact"; '
+            "results = Evaluation.Conformance.run_conformance(); "
+            "else; "
+            "results = Evaluation.Conformance.run_conformance("
+            "atol={atol}, rtol={rtol}, check_decisions=true); "
+            "end; "
+            "any_fail = any(r -> !r.passed, results); "
+            "for r in results; "
+            'println(r.passed ? "PASS" : "FAIL", ": ", r.name); '
+            "end; "
+            'println("TIER: ", tier); '
+            "exit(any_fail ? 1 : 0)"
+            "' 2>&1 | tee .factory/reviews/qa-conformance.md"
         ),
         writes={".factory/reviews/qa-conformance.md"},
         notes=(
-            "Runs the full Julia test suite (make julia → Pkg.test()) which "
-            "includes conformance replay tests verifying Optimized outputs "
-            "match Reference exactly. Exit 0 = all pass, exit 1 = any failure."
+            "Runs Evaluation.Conformance to verify Optimized outputs match Reference. "
+            "Tier 'bit-exact': identical outputs (Evaluation.replay_pair). "
+            "Tier 'numerical': |Optimized - Reference| < atol + rtol*|Reference| per step, "
+            "AND accept/reject decisions must agree for all test seeds. "
+            "Exit 0 = all pass, exit 1 = any failure."
         ),
     )
 
@@ -354,7 +436,8 @@ def workflow() -> Workflow:
         id="qa_tests",
         command=(
             "cd {project_path} && "
-            "make test > .factory/reviews/qa-tests.md 2>&1"
+            "make test 2>&1 | tee .factory/reviews/qa-tests.md; "
+            "exit ${PIPESTATUS[0]}"
         ),
         writes={".factory/reviews/qa-tests.md"},
         notes="Run full test suite. Exit 0 = all pass, exit 1 = any failure.",
@@ -365,38 +448,76 @@ def workflow() -> Workflow:
         id="qa_benchmark",
         command=(
             "cd {project_path} && "
-            "julia --project=VerifiedSamplers.jl -e '"
-            "ref_time = @elapsed using VerifiedSamplers.Reference; "
-            "opt_time = @elapsed using VerifiedSamplers.Optimized; "
-            'println(\"Reference load: \", round(ref_time; digits=3), \"s\"); '
-            'println(\"Optimized load: \", round(opt_time; digits=3), \"s\"); '
-            'println(\"PASS: both modules load successfully\"); '
-            "exit(0)"
-            "' > .factory/reviews/qa-benchmark.md 2>&1"
+            "julia --project=. -e '"
+            "using Evaluation; "
+            'result = Evaluation.OptimizationTrial.run_trial("{focus}"); '
+            'println("Baseline: ", result.baseline_time); '
+            'println("Optimized: ", result.optimized_time); '
+            'println("Speedup: ", result.speedup, "x"); '
+            "threshold = {speedup_threshold}; "
+            "if result.speedup >= threshold; "
+            'println("PASS: speedup ", result.speedup, "x >= threshold ", threshold, "x"); '
+            "exit(0); "
+            "else; "
+            'println("FAIL: speedup ", result.speedup, "x < threshold ", threshold, "x"); '
+            "exit(1); "
+            "end"
+            "' 2>&1 | tee .factory/reviews/qa-benchmark.md"
         ),
         writes={".factory/reviews/qa-benchmark.md"},
         notes=(
-            "Smoke benchmark: loads Reference and Optimized modules, reports "
-            "load times. Real function-level benchmarking requires the focus "
-            "function name, which is only available in SKILL.md context (CEO "
-            "substitutes {focus} in AgentNode prompts, not FnNode commands). "
-            "The Builder should run @elapsed benchmarks within its agent session. "
-            "Exit 0 = both modules load, exit 1 = load failure."
+            "Runs OptimizationTrial benchmark. Compares Optimized vs baseline. "
+            "Exit 0 = speedup >= threshold, exit 1 = below threshold. "
+            "Default speedup_threshold = 1.0 (no regression). "
+            "CEO substitutes {focus} and {speedup_threshold} at runtime."
         ),
     )
 
-    # ── Node 16: join_qa (JoinNode) ─────────────────────────────
+    # ── Node 16: qa_statistical (FnNode) ────────────────────────
+    nodes["qa_statistical"] = FnNode(
+        id="qa_statistical",
+        command=(
+            "cd {project_path} && "
+            "julia --project=. -e '"
+            "using Evaluation; "
+            "result = Evaluation.Statistical.run_statistical_check("
+            '"{focus}", n_draws=10_000, sigma=3); '
+            'println("Sample mean check: ", result.mean_ok ? "PASS" : "FAIL"); '
+            'println("Acceptance rate: ", result.acceptance_rate); '
+            'println("Expected range: ", result.expected_range); '
+            'println("Rate in range: ", result.rate_ok ? "PASS" : "FAIL"); '
+            "if result.mean_ok && result.rate_ok; "
+            'println("PASS: statistical equivalence verified"); '
+            "exit(0); "
+            "else; "
+            'println("FAIL: statistical equivalence check failed"); '
+            "exit(1); "
+            "end"
+            "' 2>&1 | tee .factory/reviews/qa-statistical.md"
+        ),
+        writes={".factory/reviews/qa-statistical.md"},
+        notes=(
+            "Statistical equivalence verification. Runs a long chain (10K draws) "
+            "on a standard target, verifies sample mean within 3-sigma of expected "
+            "value, and verifies acceptance rate falls in the expected range for "
+            "the sampler type. Always runs regardless of conformance tier. "
+            "Exit 0 = all pass, exit 1 = any failure."
+        ),
+    )
+
+    # ── Node 17: join_qa (JoinNode) ─────────────────────────────
     nodes["join_qa"] = JoinNode(
         id="join_qa",
-        sources=["qa_conformance", "qa_tests", "qa_benchmark"],
+        sources=["qa_conformance", "qa_tests", "qa_benchmark", "qa_statistical"],
         reads={
             ".factory/reviews/qa-conformance.md",
             ".factory/reviews/qa-tests.md",
             ".factory/reviews/qa-benchmark.md",
+            ".factory/reviews/qa-statistical.md",
         },
     )
 
-    # ── Node 17: gate_qa (GateNode — fn) ────────────────────────
+    # ── Node 18: gate_qa (GateNode — fn) ────────────────────────
     nodes["gate_qa"] = GateNode(
         id="gate_qa",
         evaluator_type="fn",
@@ -405,11 +526,13 @@ def workflow() -> Workflow:
             "CONFORMANCE=$(grep -c 'FAIL' .factory/reviews/qa-conformance.md 2>/dev/null || echo '1') && "
             "TESTS=$(grep -cE 'FAIL|Error|error' .factory/reviews/qa-tests.md 2>/dev/null || echo '1') && "
             "BENCHMARK=$(grep -c 'FAIL' .factory/reviews/qa-benchmark.md 2>/dev/null || echo '1') && "
-            'if [ "$CONFORMANCE" -gt 0 ] || [ "$TESTS" -gt 0 ] || [ "$BENCHMARK" -gt 0 ]; then '
+            "STATISTICAL=$(grep -c 'FAIL' .factory/reviews/qa-statistical.md 2>/dev/null || echo '1') && "
+            'if [ "$CONFORMANCE" -gt 0 ] || [ "$TESTS" -gt 0 ] || [ "$BENCHMARK" -gt 0 ] || [ "$STATISTICAL" -gt 0 ]; then '
             "echo 'RELOOP: QA failed —'; "
             '[ "$CONFORMANCE" -gt 0 ] && echo \'  - Conformance replay: FAILED (outputs differ from Reference)\'; '
             '[ "$TESTS" -gt 0 ] && echo \'  - Test suite: FAILED\'; '
             '[ "$BENCHMARK" -gt 0 ] && echo \'  - Benchmark: FAILED (below speedup threshold)\'; '
+            '[ "$STATISTICAL" -gt 0 ] && echo \'  - Statistical equivalence: FAILED (sample mean or acceptance rate out of range)\'; '
             "exit 1; "
             "else "
             "echo 'PROCEED: All QA checks passed'; "
@@ -419,10 +542,11 @@ def workflow() -> Workflow:
             ".factory/reviews/qa-conformance.md",
             ".factory/reviews/qa-tests.md",
             ".factory/reviews/qa-benchmark.md",
+            ".factory/reviews/qa-statistical.md",
         },
     )
 
-    # ── Node 18: archivist (AgentNode — async) ──────────────────
+    # ── Node 19: archivist (AgentNode — async) ──────────────────
     nodes["archivist"] = AgentNode(
         id="archivist",
         role=AgentRole.ARCHIVIST,
@@ -434,13 +558,25 @@ def workflow() -> Workflow:
             "- .factory/reviews/builder-latest.md (implementation notes)\n"
             "- .factory/reviews/qa-conformance.md (conformance result)\n"
             "- .factory/reviews/qa-tests.md (test result)\n"
-            "- .factory/reviews/qa-benchmark.md (benchmark result)\n\n"
+            "- .factory/reviews/qa-benchmark.md (benchmark result)\n"
+            "- .factory/reviews/qa-statistical.md (statistical equivalence result)\n\n"
             "Archive:\n"
             "1. Optimization strategy (what was attempted)\n"
             "2. Implementation approach (how it was done)\n"
             "3. Benchmark results (speedup achieved)\n"
             "4. Key learnings (what worked, what didn't)\n"
-            "5. Correctness verification (how determinism was confirmed)\n\n"
+            "5. Correctness verification (how conformance was confirmed)\n"
+            "6. Statistical verification (sample mean, acceptance rate)\n\n"
+            "PROVENANCE METADATA — write a JSON block in your archive note "
+            "with the following fields:\n"
+            "- conformance_tier: {conformance_tier}\n"
+            "- atol: {atol} (record even if bit-exact — documents the default)\n"
+            "- rtol: {rtol}\n"
+            "- ir_format_version: extract from project metadata, Manifest.toml, "
+            "or CLAUDE.md (if unavailable, write 'unknown')\n"
+            "- commit_hash: run 'git rev-parse HEAD' and record the output\n"
+            "- timestamp: current UTC time in ISO 8601 format\n"
+            "- focus_function: the --focus target function name\n\n"
             "Write to: .factory/archive/optimization-record.md"
         ),
         reads={
@@ -449,6 +585,7 @@ def workflow() -> Workflow:
             ".factory/reviews/qa-conformance.md",
             ".factory/reviews/qa-tests.md",
             ".factory/reviews/qa-benchmark.md",
+            ".factory/reviews/qa-statistical.md",
         },
         writes={".factory/archive/optimization-record.md"},
     )
@@ -479,9 +616,11 @@ def workflow() -> Workflow:
         Edge(source="fork_qa", target="qa_conformance"),
         Edge(source="fork_qa", target="qa_tests"),
         Edge(source="fork_qa", target="qa_benchmark"),
+        Edge(source="fork_qa", target="qa_statistical"),
         Edge(source="qa_conformance", target="join_qa"),
         Edge(source="qa_tests", target="join_qa"),
         Edge(source="qa_benchmark", target="join_qa"),
+        Edge(source="qa_statistical", target="join_qa"),
         # QA gate with RELOOP to builder
         Edge(source="join_qa", target="gate_qa"),
         Edge(source="gate_qa", target="archivist", condition=VerdictType.PROCEED),
