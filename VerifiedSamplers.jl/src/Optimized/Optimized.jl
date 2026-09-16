@@ -178,6 +178,42 @@ function prepared_leapfrog!(position, momentum, velocity_workspace, gradient,
     next_force
 end
 
+function _dense_multinomial_trajectory!(
+        positions::Matrix{T}, logweights::Vector, velocity_workspace::Vector{T},
+        initial_q::Vector{T}, initial_p::Vector{T}, initial_force,
+        gradient, logdensity, ε::T, origin::Int, steps::Int,
+        metric::PreparedDenseMetric{T}) where {T<:AbstractFloat}
+    inverse_mass = metric.inverse_mass
+    half_step = ε / T(2)
+
+    q, p = copy(initial_q), copy(initial_p)
+    force = initial_force
+    @inbounds for index in origin:-1:1
+        @. p += half_step * force
+        mul!(velocity_workspace, inverse_mass, p)
+        @. q -= ε * velocity_workspace
+        force = gradient(q)
+        @. p += half_step * force
+        positions[:, index] = q
+        mul!(velocity_workspace, inverse_mass, p)
+        logweights[index] = logdensity(q) - dot(p, velocity_workspace) / T(2)
+    end
+
+    q, p = copy(initial_q), copy(initial_p)
+    force = initial_force
+    @inbounds for index in (origin + 2):(steps + 1)
+        @. p -= half_step * force
+        mul!(velocity_workspace, inverse_mass, p)
+        @. q += ε * velocity_workspace
+        force = gradient(q)
+        @. p -= half_step * force
+        positions[:, index] = q
+        mul!(velocity_workspace, inverse_mass, p)
+        logweights[index] = logdensity(q) - dot(p, velocity_workspace) / T(2)
+    end
+    nothing
+end
+
 """Low-allocation counterpart of reference dynamic target-weighted selection."""
 function dynamic_select_float!(source::AbstractRandomSource,
         candidates::AbstractVector{<:Integer},
@@ -742,6 +778,47 @@ function metric_multinomial_hmc_step!(source::AbstractRandomSource, logdensity,
         current::AbstractVector{T}, mass) where {T<:AbstractFloat}
     metric_multinomial_hmc_step!(source, logdensity, gradient, step_size, steps,
         current, prepare_metric(mass))
+end
+
+function metric_multinomial_hmc_step!(source::AbstractRandomSource, logdensity,
+        gradient, step_size::T, steps::Integer,
+        current::AbstractVector{T},
+        metric::PreparedDenseMetric{T}) where {T<:AbstractFloat}
+    isfinite(step_size) && step_size > 0 || throw(ArgumentError(
+        "step size must be finite and positive"))
+    steps > 0 || throw(ArgumentError("trajectory length must be positive"))
+    eltype(metric.mass) === T || throw(ArgumentError(
+        "state and metric element types must match"))
+    ε, initial_q = step_size, collect(current)
+    isempty(initial_q) && throw(ArgumentError("position cannot be empty"))
+    all(isfinite, initial_q) || throw(ArgumentError("position must be finite"))
+    metric_dimension(metric) == length(initial_q) || throw(DimensionMismatch(
+        "mass dimension"))
+    noise = T[standard_normal!(source) for _ in eachindex(initial_q)]
+    initial_p = similar(initial_q)
+    sample_momentum!(initial_p, noise, metric)
+    velocity_workspace = similar(initial_q)
+    origin = Int(draw_below!(source, steps + 1))
+    initial_force = gradient(initial_q)
+    positions = Matrix{T}(undef, length(initial_q), steps + 1)
+    mul!(velocity_workspace, metric.inverse_mass, initial_p)
+    initial_logweight = logdensity(initial_q) -
+        dot(initial_p, velocity_workspace) / T(2)
+    logweights = Vector{typeof(initial_logweight)}(undef, steps + 1)
+    current_index = origin + 1
+    positions[:, current_index] = initial_q
+    logweights[current_index] = initial_logweight
+    _dense_multinomial_trajectory!(positions, logweights, velocity_workspace,
+        initial_q, initial_p, initial_force, gradient, logdensity, ε, origin,
+        steps, metric)
+    weights = exp.(logweights .- maximum(logweights))
+    target = uniform_unit!(source) * sum(weights)
+    cumulative = 0.0
+    for (index, weight) in pairs(weights)
+        cumulative += weight
+        target < cumulative && return copy(@view positions[:, index])
+    end
+    copy(@view positions[:, end])
 end
 
 function _relativistic_radius!(source::AbstractRandomSource, dimension::Int,
