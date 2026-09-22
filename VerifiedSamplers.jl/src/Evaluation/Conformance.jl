@@ -4,7 +4,7 @@ module Conformance
 using ...Runtime
 
 export CapturedFailure, ReplayResult, replay_pair, replay_integer_pair,
-    conforms
+    conforms, conforms_numerical
 
 """A comparable failure outcome captured without hiding its type or message."""
 struct CapturedFailure
@@ -69,5 +69,25 @@ function conforms(result::ReplayResult; remaining::Integer=0)
         result.optimized_remaining == remaining &&
         result.reference_evidence == result.optimized_evidence
 end
+
+"""Numerical conformance: values within tolerance and event consumption agrees."""
+function conforms_numerical(result::ReplayResult;
+        atol::Real=1e-10, rtol::Real=1e-10, remaining::Integer=0)
+    result.reference_remaining == remaining &&
+        result.optimized_remaining == remaining || return false
+    ref, opt = result.reference, result.optimized
+    ref isa CapturedFailure && return opt isa CapturedFailure
+    opt isa CapturedFailure && return false
+    _values_close(ref, opt, atol, rtol)
+end
+
+_values_close(a::Real, b::Real, atol, rtol) =
+    abs(a - b) <= atol + rtol * abs(a)
+
+_values_close(a::AbstractVector, b::AbstractVector, atol, rtol) =
+    length(a) == length(b) &&
+    all(i -> _values_close(a[i], b[i], atol, rtol), eachindex(a))
+
+_values_close(a, b, _, _) = a == b
 
 end

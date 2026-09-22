@@ -1,10 +1,10 @@
 """Optimize workflow — single-function MCMC sampler optimization with correctness preservation.
 
-19-node pipeline:
+21-node pipeline:
   precondition_check → fork_research → [3 researchers] → join_research → gate_research →
-  strategist → gate_strategy (USER) → builder → gate_build → fork_qa →
+  strategist → gate_strategy (USER) → builder → gate_build → fn_scope_check → fork_qa →
   [conformance, tests, benchmark, statistical] → join_qa → gate_qa (RELOOP → builder, max 3) →
-  archivist (async)
+  fn_manifest → archivist (async)
 
 Requires --focus naming a specific sampler function (or scope:<topic> for scope mode).
 Checks Reference/Reference.jl for existence.
@@ -393,6 +393,34 @@ def workflow() -> Workflow:
         reads={".factory/reviews/builder-latest.md"},
     )
 
+    # ── Node 11b: fn_scope_check (FnNode) ────────────────────────
+    nodes["fn_scope_check"] = FnNode(
+        id="fn_scope_check",
+        command=(
+            "cd {project_path} && "
+            "CHANGED=$(git diff --name-only HEAD~1 2>/dev/null) && "
+            "if [ -z \"$CHANGED\" ]; then "
+            "echo 'HALT: no files changed — vacuous success'; exit 1; fi && "
+            "if echo \"$CHANGED\" | grep -q '^Reference/Reference.jl$'; then "
+            "echo 'HALT: Reference/Reference.jl was modified (SACRED)'; exit 1; fi && "
+            "DISALLOWED=$(echo \"$CHANGED\" | grep -vE "
+            "'^(Optimized/|test/|Project\\.toml|Manifest\\.toml|\\.factory/)' "
+            "|| true) && "
+            "if [ -n \"$DISALLOWED\" ]; then "
+            "echo \"HALT: files outside allowed scope: $DISALLOWED\"; exit 1; fi && "
+            "echo 'PASS: changes within scope, non-vacuous, Reference untouched'"
+        ),
+        writes=set(),
+        notes=(
+            "Post-build scope validation. Checks three conditions: "
+            "(1) non-vacuous — at least one file changed, "
+            "(2) Reference/Reference.jl untouched (SACRED), "
+            "(3) all changed files within allowed scope "
+            "(Optimized/, test/, Project.toml, Manifest.toml, .factory/). "
+            "Exit 0 = pass, exit non-zero = HALT workflow."
+        ),
+    )
+
     # ── Node 12: fork_qa (ForkNode) ─────────────────────────────
     nodes["fork_qa"] = ForkNode(
         id="fork_qa",
@@ -406,27 +434,35 @@ def workflow() -> Workflow:
             "cd {project_path} && "
             "julia --project=. -e '"
             "using Evaluation; "
-            'tier = "{conformance_tier}"; '
-            'if tier == "bit-exact"; '
-            "results = Evaluation.Conformance.run_conformance(); "
+            "events = Evaluation.load_events(\"{focus}\"); "
+            "ref_step = Evaluation.reference_step(\"{focus}\"); "
+            "opt_step = Evaluation.optimized_step(\"{focus}\"); "
+            "result = Evaluation.replay_pair(events, ref_step, opt_step); "
+            "tier = \"{conformance_tier}\"; "
+            "if tier == \"bit-exact\"; "
+            "passed = Evaluation.conforms(result; remaining=0); "
+            "println(\"TIER: bit-exact\"); "
+            "println(passed ? \"PASS: bit-exact conformance verified\" : "
+            "\"FAIL: outputs differ from Reference\"); "
             "else; "
-            "results = Evaluation.Conformance.run_conformance("
-            "atol={atol}, rtol={rtol}, check_decisions=true); "
+            "passed = Evaluation.conforms_numerical(result; "
+            "atol={atol}, rtol={rtol}, remaining=0); "
+            "println(\"TIER: numerical (atol={atol}, rtol={rtol})\"); "
+            "println(passed ? \"PASS: numerical conformance verified\" : "
+            "\"FAIL: numerical conformance check failed\"); "
             "end; "
-            "any_fail = any(r -> !r.passed, results); "
-            "for r in results; "
-            'println(r.passed ? "PASS" : "FAIL", ": ", r.name); '
-            "end; "
-            'println("TIER: ", tier); '
-            "exit(any_fail ? 1 : 0)"
+            "exit_code = passed ? 0 : 1; "
+            "write(\".factory/qa_conformance.exitcode\", string(exit_code)); "
+            "exit(exit_code)"
             "' 2>&1 | tee .factory/reviews/qa-conformance.md"
         ),
-        writes={".factory/reviews/qa-conformance.md"},
+        writes={".factory/reviews/qa-conformance.md", ".factory/qa_conformance.exitcode"},
         notes=(
-            "Runs Evaluation.Conformance to verify Optimized outputs match Reference. "
-            "Tier 'bit-exact': identical outputs (Evaluation.replay_pair). "
-            "Tier 'numerical': |Optimized - Reference| < atol + rtol*|Reference| per step, "
-            "AND accept/reject decisions must agree for all test seeds. "
+            "Conformance verification using replay_pair + conforms/conforms_numerical API. "
+            "Tier 'bit-exact': conforms(result; remaining=0) — identical outputs. "
+            "Tier 'numerical': conforms_numerical(result; atol, rtol, remaining=0) — "
+            "|Optimized - Reference| < atol + rtol*|Reference| per step. "
+            "Writes .exitcode sentinel for gate_qa. "
             "Exit 0 = all pass, exit 1 = any failure."
         ),
     )
@@ -437,9 +473,11 @@ def workflow() -> Workflow:
         command=(
             "cd {project_path} && "
             "make test 2>&1 | tee .factory/reviews/qa-tests.md; "
-            "exit ${PIPESTATUS[0]}"
+            "EC=${PIPESTATUS[0]}; "
+            "echo $EC > .factory/qa_tests.exitcode; "
+            "exit $EC"
         ),
-        writes={".factory/reviews/qa-tests.md"},
+        writes={".factory/reviews/qa-tests.md", ".factory/qa_tests.exitcode"},
         notes="Run full test suite. Exit 0 = all pass, exit 1 = any failure.",
     )
 
@@ -450,25 +488,38 @@ def workflow() -> Workflow:
             "cd {project_path} && "
             "julia --project=. -e '"
             "using Evaluation; "
-            'result = Evaluation.OptimizationTrial.run_trial("{focus}"); '
-            'println("Baseline: ", result.baseline_time); '
-            'println("Optimized: ", result.optimized_time); '
-            'println("Speedup: ", result.speedup, "x"); '
+            "input = Evaluation.benchmark_input(\"{focus}\"); "
+            "ref_fn = Evaluation.reference_fn(\"{focus}\"); "
+            "opt_fn = Evaluation.optimized_fn(\"{focus}\"); "
+            "ref_fn(input...); opt_fn(input...); "
+            "n = 100; "
+            "ref_time = @elapsed for _ in 1:n; ref_fn(input...); end; "
+            "opt_time = @elapsed for _ in 1:n; opt_fn(input...); end; "
+            "ref_ms = ref_time / n * 1000; "
+            "opt_ms = opt_time / n * 1000; "
+            "speedup = ref_time / opt_time; "
+            "println(\"Reference: \", round(ref_ms; digits=2), \" ms/call\"); "
+            "println(\"Optimized: \", round(opt_ms; digits=2), \" ms/call\"); "
+            "println(\"Speedup: \", round(speedup; digits=2), \"x\"); "
             "threshold = {speedup_threshold}; "
-            "if result.speedup >= threshold; "
-            'println("PASS: speedup ", result.speedup, "x >= threshold ", threshold, "x"); '
-            "exit(0); "
+            "passed = speedup >= threshold; "
+            "if passed; "
+            "println(\"PASS: speedup \", round(speedup; digits=2), "
+            "\"x >= threshold \", threshold, \"x\"); "
             "else; "
-            'println("FAIL: speedup ", result.speedup, "x < threshold ", threshold, "x"); '
-            "exit(1); "
-            "end"
+            "println(\"FAIL: speedup \", round(speedup; digits=2), "
+            "\"x < threshold \", threshold, \"x\"); "
+            "end; "
+            "write(\".factory/qa_benchmark.exitcode\", string(passed ? 0 : 1)); "
+            "exit(passed ? 0 : 1)"
             "' 2>&1 | tee .factory/reviews/qa-benchmark.md"
         ),
-        writes={".factory/reviews/qa-benchmark.md"},
+        writes={".factory/reviews/qa-benchmark.md", ".factory/qa_benchmark.exitcode"},
         notes=(
-            "Runs OptimizationTrial benchmark. Compares Optimized vs baseline. "
-            "Exit 0 = speedup >= threshold, exit 1 = below threshold. "
-            "Default speedup_threshold = 1.0 (no regression). "
+            "Julia @elapsed benchmark of {focus}. Runs 100 iterations each of "
+            "Reference and Optimized implementations, computes speedup ratio. "
+            "PASS if speedup >= {speedup_threshold} (default 1.0 = no regression). "
+            "Writes .exitcode sentinel for gate_qa. "
             "CEO substitutes {focus} and {speedup_threshold} at runtime."
         ),
     )
@@ -481,21 +532,22 @@ def workflow() -> Workflow:
             "julia --project=. -e '"
             "using Evaluation; "
             "result = Evaluation.Statistical.run_statistical_check("
-            '"{focus}", n_draws=10_000, sigma=3); '
-            'println("Sample mean check: ", result.mean_ok ? "PASS" : "FAIL"); '
-            'println("Acceptance rate: ", result.acceptance_rate); '
-            'println("Expected range: ", result.expected_range); '
-            'println("Rate in range: ", result.rate_ok ? "PASS" : "FAIL"); '
-            "if result.mean_ok && result.rate_ok; "
-            'println("PASS: statistical equivalence verified"); '
-            "exit(0); "
+            "\"{focus}\", n_draws=10_000, sigma=3); "
+            "println(\"Sample mean check: \", result.mean_ok ? \"PASS\" : \"FAIL\"); "
+            "println(\"Acceptance rate: \", result.acceptance_rate); "
+            "println(\"Expected range: \", result.expected_range); "
+            "println(\"Rate in range: \", result.rate_ok ? \"PASS\" : \"FAIL\"); "
+            "exit_code = (result.mean_ok && result.rate_ok) ? 0 : 1; "
+            "if exit_code == 0; "
+            "println(\"PASS: statistical equivalence verified\"); "
             "else; "
-            'println("FAIL: statistical equivalence check failed"); '
-            "exit(1); "
-            "end"
+            "println(\"FAIL: statistical equivalence check failed\"); "
+            "end; "
+            "write(\".factory/qa_statistical.exitcode\", string(exit_code)); "
+            "exit(exit_code)"
             "' 2>&1 | tee .factory/reviews/qa-statistical.md"
         ),
-        writes={".factory/reviews/qa-statistical.md"},
+        writes={".factory/reviews/qa-statistical.md", ".factory/qa_statistical.exitcode"},
         notes=(
             "Statistical equivalence verification. Runs a long chain (10K draws) "
             "on a standard target, verifies sample mean within 3-sigma of expected "
@@ -523,27 +575,74 @@ def workflow() -> Workflow:
         evaluator_type="fn",
         evaluator_command=(
             "cd {project_path} && "
-            "CONFORMANCE=$(grep -c 'FAIL' .factory/reviews/qa-conformance.md 2>/dev/null || echo '1') && "
-            "TESTS=$(grep -cE 'FAIL|Error|error' .factory/reviews/qa-tests.md 2>/dev/null || echo '1') && "
-            "BENCHMARK=$(grep -c 'FAIL' .factory/reviews/qa-benchmark.md 2>/dev/null || echo '1') && "
-            "STATISTICAL=$(grep -c 'FAIL' .factory/reviews/qa-statistical.md 2>/dev/null || echo '1') && "
-            'if [ "$CONFORMANCE" -gt 0 ] || [ "$TESTS" -gt 0 ] || [ "$BENCHMARK" -gt 0 ] || [ "$STATISTICAL" -gt 0 ]; then '
-            "echo 'RELOOP: QA failed —'; "
-            '[ "$CONFORMANCE" -gt 0 ] && echo \'  - Conformance replay: FAILED (outputs differ from Reference)\'; '
-            '[ "$TESTS" -gt 0 ] && echo \'  - Test suite: FAILED\'; '
-            '[ "$BENCHMARK" -gt 0 ] && echo \'  - Benchmark: FAILED (below speedup threshold)\'; '
-            '[ "$STATISTICAL" -gt 0 ] && echo \'  - Statistical equivalence: FAILED (sample mean or acceptance rate out of range)\'; '
-            "exit 1; "
+            "C=$(cat .factory/qa_conformance.exitcode 2>/dev/null || echo missing) && "
+            "T=$(cat .factory/qa_tests.exitcode 2>/dev/null || echo missing) && "
+            "B=$(cat .factory/qa_benchmark.exitcode 2>/dev/null || echo missing) && "
+            "S=$(cat .factory/qa_statistical.exitcode 2>/dev/null || echo missing) && "
+            "if [ \"$C\" = \"0\" ] && [ \"$T\" = \"0\" ] && "
+            "[ \"$B\" = \"0\" ] && [ \"$S\" = \"0\" ]; then "
+            "echo 'proceed: All QA checks passed'; "
             "else "
-            "echo 'PROCEED: All QA checks passed'; "
-            "exit 0; fi"
+            "echo 'reloop: QA failed —'; "
+            "[ \"$C\" != \"0\" ] && echo \"  - Conformance: FAILED (exit=$C)\"; "
+            "[ \"$T\" != \"0\" ] && echo \"  - Tests: FAILED (exit=$T)\"; "
+            "[ \"$B\" != \"0\" ] && echo \"  - Benchmark: FAILED (exit=$B)\"; "
+            "[ \"$S\" != \"0\" ] && echo \"  - Statistical: FAILED (exit=$S)\"; "
+            "fi"
         ),
         reads={
-            ".factory/reviews/qa-conformance.md",
-            ".factory/reviews/qa-tests.md",
-            ".factory/reviews/qa-benchmark.md",
-            ".factory/reviews/qa-statistical.md",
+            ".factory/qa_conformance.exitcode",
+            ".factory/qa_tests.exitcode",
+            ".factory/qa_benchmark.exitcode",
+            ".factory/qa_statistical.exitcode",
         },
+    )
+
+    # ── Node 18b: fn_manifest (FnNode) ───────────────────────────
+    nodes["fn_manifest"] = FnNode(
+        id="fn_manifest",
+        command=(
+            "cd {project_path} && "
+            "COMMIT=$(git rev-parse HEAD 2>/dev/null || echo unknown) && "
+            "TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ) && "
+            "C=$(cat .factory/qa_conformance.exitcode 2>/dev/null || echo missing) && "
+            "T=$(cat .factory/qa_tests.exitcode 2>/dev/null || echo missing) && "
+            "B=$(cat .factory/qa_benchmark.exitcode 2>/dev/null || echo missing) && "
+            "S=$(cat .factory/qa_statistical.exitcode 2>/dev/null || echo missing) && "
+            "cat > .factory/manifest.json <<MANIFEST_EOF\n"
+            "{\n"
+            "  \"workflow\": \"optimize\",\n"
+            "  \"focus\": \"{focus}\",\n"
+            "  \"conformance_tier\": \"{conformance_tier}\",\n"
+            "  \"atol\": \"{atol}\",\n"
+            "  \"rtol\": \"{rtol}\",\n"
+            "  \"commit\": \"$COMMIT\",\n"
+            "  \"timestamp\": \"$TIMESTAMP\",\n"
+            "  \"qa_results\": {\n"
+            "    \"conformance\": $C,\n"
+            "    \"tests\": $T,\n"
+            "    \"benchmark\": $B,\n"
+            "    \"statistical\": $S\n"
+            "  },\n"
+            "  \"disposition\": \"success\"\n"
+            "}\n"
+            "MANIFEST_EOF\n"
+            "echo 'MANIFEST: written to .factory/manifest.json' && "
+            "cat .factory/manifest.json"
+        ),
+        reads={
+            ".factory/qa_conformance.exitcode",
+            ".factory/qa_tests.exitcode",
+            ".factory/qa_benchmark.exitcode",
+            ".factory/qa_statistical.exitcode",
+        },
+        writes={".factory/manifest.json"},
+        notes=(
+            "Writes run provenance manifest after all QA passes. "
+            "Records: workflow name, focus function, conformance tier/tolerances, "
+            "git commit, timestamp, QA exit codes, disposition. "
+            "Machine-readable JSON for downstream analysis and archival."
+        ),
     )
 
     # ── Node 19: archivist (AgentNode — async) ──────────────────
@@ -608,10 +707,12 @@ def workflow() -> Workflow:
         # Strategy
         Edge(source="strategist", target="gate_strategy"),
         Edge(source="gate_strategy", target="builder", condition=VerdictType.PROCEED),
-        # Builder → Build gate
+        # Builder → Build gate → Scope check
         Edge(source="builder", target="gate_build"),
-        Edge(source="gate_build", target="fork_qa", condition=VerdictType.PROCEED),
+        Edge(source="gate_build", target="fn_scope_check", condition=VerdictType.PROCEED),
         Edge(source="gate_build", target="builder", condition=VerdictType.RELOOP),
+        # Scope check → Fork QA
+        Edge(source="fn_scope_check", target="fork_qa"),
         # Fork/Join QA
         Edge(source="fork_qa", target="qa_conformance"),
         Edge(source="fork_qa", target="qa_tests"),
@@ -621,10 +722,12 @@ def workflow() -> Workflow:
         Edge(source="qa_tests", target="join_qa"),
         Edge(source="qa_benchmark", target="join_qa"),
         Edge(source="qa_statistical", target="join_qa"),
-        # QA gate with RELOOP to builder
+        # QA gate → Manifest → Archivist
         Edge(source="join_qa", target="gate_qa"),
-        Edge(source="gate_qa", target="archivist", condition=VerdictType.PROCEED),
+        Edge(source="gate_qa", target="fn_manifest", condition=VerdictType.PROCEED),
         Edge(source="gate_qa", target="builder", condition=VerdictType.RELOOP),
+        # Manifest → Archivist
+        Edge(source="fn_manifest", target="archivist"),
     ]
 
     # ── Trigger ─────────────────────────────────────────────────
