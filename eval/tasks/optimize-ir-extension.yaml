@@ -1,0 +1,33 @@
+id: optimize-ir-extension
+type: optimize
+difficulty: ir-extension
+pilot: false
+sampler: vector_gauss_legendre_hmc_step!
+starting_commit: 5c7b9c75d60158a6560c4ee0e848efb5876111c2
+
+task_statement: |
+  Optimize vector_gauss_legendre_hmc_step! in Optimized.jl. This sampler uses
+  the Gauss-Legendre implicit integrator instead of standard leapfrog. The
+  Optimized version already exists but the optimization requires understanding
+  the implicit solver iteration pattern, which is structurally different from
+  leapfrog-based samplers.
+
+  This tests the workflow on a sampler that may require extending or adapting
+  the optimization patterns beyond the standard leapfrog template.
+
+repository_instructions: AGENTS.md
+tool_access: [claude-code, factory-cli, git, julia]
+resource_budget:
+  max_wall_time_minutes: 90
+  max_builder_retries: 3
+
+evaluator:
+  gates: [conformance, test_suite, benchmark, statistical]
+  conformance_tier: bit-exact
+  speedup_threshold: 1.0
+  human_gate: standardized
+
+notes: |
+  IR-extension task. The Gauss-Legendre integrator uses fixed-point iteration
+  internally, making the optimization pattern different from leapfrog-based
+  samplers. Tests whether the workflow adapts to non-standard structure.

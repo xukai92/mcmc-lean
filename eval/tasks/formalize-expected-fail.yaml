@@ -1,0 +1,37 @@
+id: formalize-expected-fail
+type: formalize
+difficulty: expected-failure
+pilot: false
+sampler: Fictional "always-accept" sampler with wrong acceptance
+starting_commit: 5c7b9c75d60158a6560c4ee0e848efb5876111c2
+
+task_statement: |
+  Formalize a sampler that always accepts proposals (acceptance = 1 regardless
+  of target density). This violates detailed balance for any non-uniform target.
+  The Lean kernel theory should fail to prove invariance, and the lake build
+  gate should catch the resulting sorry or type error.
+
+  Specification:
+  - Proposal: y = x + scale * noise, noise ~ N(0,1)
+  - Acceptance: always accept (a = 1)
+  - Claim: this preserves any target measure (FALSE — it only preserves the
+    proposal measure, not an arbitrary target)
+
+repository_instructions: AGENTS.md
+tool_access: [claude-code, factory-cli, git, julia, lean]
+resource_budget:
+  max_wall_time_minutes: 60
+  max_theory_retries: 5
+  max_ir_retries: 3
+
+evaluator:
+  gates: [lake_build, proof_hygiene]
+  expected_outcome: failure
+  failure_mode: lake_build should fail (cannot prove invariance for arbitrary target)
+                OR proof_hygiene should catch sorry/admit
+  human_gate: standardized
+
+notes: |
+  Expected-failure task. Tests that the formalize gate rejects incorrect
+  mathematics. The builder should be unable to prove target invariance
+  without sorry/admit, and the gates should catch this.

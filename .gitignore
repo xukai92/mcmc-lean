@@ -38,4 +38,4 @@ workflow-*/
 data/
 
 # Auto-discovered eval (factory discover output)
-eval/
+eval/score.py

@@ -1,0 +1,27 @@
+id: optimize-multinomial
+type: optimize
+difficulty: medium
+pilot: true
+sampler: multinomial_hmc_step!
+starting_commit: 5c7b9c75d60158a6560c4ee0e848efb5876111c2
+
+task_statement: |
+  Optimize multinomial_hmc_step! in Optimized.jl. Replace allocating
+  vector_leapfrog with in-place operations, use Matrix storage instead of
+  Vector of tuples, fuse logweight computation into trajectory loop.
+
+repository_instructions: AGENTS.md
+tool_access: [claude-code, factory-cli, git, julia]
+resource_budget:
+  max_wall_time_minutes: 60
+  max_builder_retries: 3
+
+evaluator:
+  gates: [conformance, test_suite, benchmark, statistical]
+  conformance_tier: bit-exact
+  speedup_threshold: 1.0
+  human_gate: standardized
+
+notes: |
+  Pilot task — completed. 2.88x speedup at d=20, 1.96x at d=100.
+  Key insight: builder must use make julia not make test (lake build timeout).

@@ -1,0 +1,28 @@
+id: optimize-mala
+type: optimize
+difficulty: easy
+pilot: true
+sampler: vector_mala_step!
+starting_commit: 5c7b9c75d60158a6560c4ee0e848efb5876111c2
+
+task_statement: |
+  Optimize vector_mala_step! in Optimized.jl. The function already exists in
+  both Reference and Optimized. Target: reduce allocation, add workspace
+  reuse, fuse forward-norm computation, enable SIMD on residual loop.
+
+repository_instructions: AGENTS.md
+tool_access: [claude-code, factory-cli, git, julia]
+resource_budget:
+  max_wall_time_minutes: 60
+  max_builder_retries: 3
+
+evaluator:
+  gates: [conformance, test_suite, benchmark, statistical]
+  conformance_tier: bit-exact
+  speedup_threshold: 1.0
+  human_gate: standardized
+
+notes: |
+  Pilot task — completed in 2 runs. Run 1: forward-norm fusion (2.11x
+  overhead speedup). Run 2: MALAWorkspace struct (9.97x with workspace
+  reuse, but requires MALA.jl wiring to realize in production).

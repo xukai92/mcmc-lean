@@ -1,0 +1,36 @@
+id: formalize-drghmc
+type: formalize
+difficulty: hard
+pilot: true
+sampler: DR-G-HMC (Turok, Modi & Carpenter 2025)
+starting_commit: 5c7b9c75d60158a6560c4ee0e848efb5876111c2
+
+task_statement: |
+  Formalize two-stage Delayed-Rejection Generalized HMC. Prove AR(1) momentum
+  preservation, stage-1 involutivity and volume preservation, ghost-path
+  identity, delayed-rejection acceptance correction, and composed phase-space
+  invariance. Produce IR program scalar_dr_ghmc_step! with 2 normals + 2
+  uniforms and auto-generated Reference Julia.
+
+repository_instructions: AGENTS.md
+tool_access: [claude-code, factory-cli, git, julia, lean]
+resource_budget:
+  max_wall_time_minutes: 180
+  max_theory_retries: 5
+  max_ir_retries: 3
+
+evaluator:
+  gates: [lake_build, check_generated, proof_hygiene, theorem_names]
+  expected_theorems:
+    - ar1MomentumKernel_isMarkov
+    - drStage1Endpoint_involutive
+    - measurePreserving_drStage1Endpoint
+    - drStage1PhaseKernel_invariant
+    - runScalarDrGhmc_refines
+  human_gate: standardized
+
+notes: |
+  Pilot task — already completed. Hardest formalize task attempted.
+  The ghost-path reconstruction and DR acceptance algebra are genuinely
+  novel proof obligations. Builder used 1 retry on theory phase.
+  Key finding: IR wiring took ~1h due to complex branching program.

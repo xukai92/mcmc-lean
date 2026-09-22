@@ -1,0 +1,33 @@
+id: optimize-dense-pmala
+type: optimize
+difficulty: medium
+pilot: false
+sampler: dense_pmala_step!
+starting_commit: 5c7b9c75d60158a6560c4ee0e848efb5876111c2
+
+task_statement: |
+  Optimize dense_pmala_step! in Optimized.jl. This is position-dependent MALA
+  with a dense metric — the most complex MALA variant. The function involves
+  metric-dependent drift, Christoffel correction terms, and an asymmetric
+  proposal with full Hastings correction.
+
+  Target optimizations: generic T<:AbstractFloat, workspace reuse for metric
+  computations, cache metric derivatives across the forward/reverse evaluation,
+  reduce allocation in the Christoffel term computation.
+
+repository_instructions: AGENTS.md
+tool_access: [claude-code, factory-cli, git, julia]
+resource_budget:
+  max_wall_time_minutes: 90
+  max_builder_retries: 3
+
+evaluator:
+  gates: [conformance, test_suite, benchmark, statistical]
+  conformance_tier: bit-exact
+  speedup_threshold: 1.0
+  human_gate: standardized
+
+notes: |
+  Confirmatory task. Also serves as the validation pilot for hardened gates.
+  Medium difficulty — the function is complex (metric + derivative + Christoffel)
+  but follows patterns established in other optimized samplers.

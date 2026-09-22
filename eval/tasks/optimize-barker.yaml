@@ -1,0 +1,28 @@
+id: optimize-barker
+type: optimize
+difficulty: easy
+pilot: true
+sampler: scalar_barker_rwmh_step!
+starting_commit: 5c7b9c75d60158a6560c4ee0e848efb5876111c2
+
+task_statement: |
+  Optimize scalar_barker_rwmh_step! in Optimized.jl. Create a direct Julia
+  implementation bypassing the IR interpreter. Use numerically stable sigmoid
+  with piecewise formula. Preserve generic T<:AbstractFloat typing.
+
+repository_instructions: AGENTS.md
+tool_access: [claude-code, factory-cli, git, julia]
+resource_budget:
+  max_wall_time_minutes: 30
+  max_builder_retries: 3
+
+evaluator:
+  gates: [conformance, test_suite, benchmark, statistical]
+  conformance_tier: bit-exact
+  speedup_threshold: 1.0
+  human_gate: standardized
+
+notes: |
+  Pilot task — completed. 145x speedup (IR interpreter bypass).
+  Key lesson: must run in formalize worktree (--no-worktree) to have
+  Reference available for conformance testing.

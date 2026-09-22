@@ -1,0 +1,32 @@
+id: formalize-barker
+type: formalize
+difficulty: easy
+pilot: true
+sampler: Barker RWMH (Barker 1965)
+starting_commit: 5c7b9c75d60158a6560c4ee0e848efb5876111c2
+
+task_statement: |
+  Formalize Barker's proposal as a scalar Gaussian random walk with Barker's
+  acceptance ratio a(r) = r/(1+r). Prove detailed balance for symmetric
+  proposals using the product-over-sum flow identity. Produce IR program
+  scalar_barker_rwmh_step! and auto-generated Reference Julia.
+
+repository_instructions: AGENTS.md
+tool_access: [claude-code, factory-cli, git, julia, lean]
+resource_budget:
+  max_wall_time_minutes: 60
+  max_theory_retries: 5
+  max_ir_retries: 3
+
+evaluator:
+  gates: [lake_build, check_generated, proof_hygiene, theorem_names]
+  expected_theorems:
+    - barkerAcceptedFlow_swap
+    - barkerDensityAcceptedKernel_reversible
+    - barkerDensityMetropolisHastings_invariant
+  human_gate: standardized
+
+notes: |
+  Pilot task — already completed. Used to develop and validate the formalize
+  workflow. Results are labeled as development examples, not confirmatory.
+  Kernel theory straightforward: a(r) = r/(1+r) satisfies skew-detailed-balance.

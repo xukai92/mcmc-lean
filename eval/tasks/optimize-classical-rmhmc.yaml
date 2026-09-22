@@ -1,0 +1,33 @@
+id: optimize-classical-rmhmc
+type: optimize
+difficulty: hard
+pilot: false
+sampler: classical_rmhmc_step!
+starting_commit: 5c7b9c75d60158a6560c4ee0e848efb5876111c2
+
+task_statement: |
+  Optimize classical_rmhmc_step! in Optimized.jl. Riemannian manifold HMC with
+  fixed-point generalized leapfrog, position-dependent metric, and implicit
+  solver certification. The function involves metric factorization, implicit
+  momentum solves, and certified trajectory construction.
+
+  Target optimizations: workspace reuse across implicit solver iterations,
+  cache metric factorizations within a trajectory, reduce allocation in the
+  generalized leapfrog inner loop.
+
+repository_instructions: AGENTS.md
+tool_access: [claude-code, factory-cli, git, julia]
+resource_budget:
+  max_wall_time_minutes: 120
+  max_builder_retries: 3
+
+evaluator:
+  gates: [conformance, test_suite, benchmark, statistical]
+  conformance_tier: bit-exact
+  speedup_threshold: 1.0
+  human_gate: standardized
+
+notes: |
+  Confirmatory task. Hard — the implicit solver and metric factorization
+  make this the most complex optimize target. The existing Optimized
+  implementation already has some optimizations; gains may be modest.

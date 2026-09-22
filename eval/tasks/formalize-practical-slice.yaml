@@ -1,0 +1,37 @@
+id: formalize-practical-slice
+type: formalize
+difficulty: hard
+pilot: false
+sampler: PracticalSlice (stepping-out + shrinkage)
+starting_commit: 5c7b9c75d60158a6560c4ee0e848efb5876111c2
+
+task_statement: |
+  Formalize scalar practical slice sampling (stepping-out + shrinkage) with
+  executable refinement and IR emission. Kernel theory exists at
+  formal/Mcmc/Kernel/PracticalSlice.lean (trace semantics, shrinkage budget).
+  A Reference stepping_out_slice_step! already exists from existing IR.
+
+  The task is to add the executable refinement theorem connecting the existing
+  IR program to the mathematical kernel, proving that the trace-based execution
+  implements the slice sampling transition. This is hard because the stepping-out
+  and shrinkage procedures involve variable-length loops with termination proofs.
+
+repository_instructions: AGENTS.md
+tool_access: [claude-code, factory-cli, git, julia, lean]
+resource_budget:
+  max_wall_time_minutes: 180
+  max_theory_retries: 5
+  max_ir_retries: 3
+
+evaluator:
+  gates: [lake_build, check_generated, proof_hygiene, theorem_names]
+  expected_theorems:
+    - practicalSlice_traceReversal
+    - practicalSlice_refinement
+  human_gate: standardized
+
+notes: |
+  Confirmatory task. Hard because stepping-out involves unbounded iteration
+  (capped by shrink budget), and the trace-reversal proof is the main
+  mathematical obligation. The IR and Reference already exist — this is
+  about the refinement theorem connecting them.

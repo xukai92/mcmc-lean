@@ -1,0 +1,27 @@
+id: optimize-expected-fail
+type: optimize
+difficulty: expected-failure
+pilot: false
+sampler: nonexistent_sampler_step!
+starting_commit: 5c7b9c75d60158a6560c4ee0e848efb5876111c2
+
+task_statement: |
+  Optimize nonexistent_sampler_step! in Optimized.jl. This function does not
+  exist in Reference/Reference.jl. The precondition gate should reject the
+  run immediately.
+
+repository_instructions: AGENTS.md
+tool_access: [claude-code, factory-cli, git, julia]
+resource_budget:
+  max_wall_time_minutes: 5
+  max_builder_retries: 3
+
+evaluator:
+  gates: [precondition]
+  expected_outcome: failure
+  failure_mode: precondition_check should exit 1 (function not found in Reference)
+  human_gate: none
+
+notes: |
+  Expected-failure task. Tests that the optimize precondition gate correctly
+  rejects a nonexistent function. Should fail within seconds, not minutes.

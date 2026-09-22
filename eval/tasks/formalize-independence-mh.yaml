@@ -1,0 +1,40 @@
+id: formalize-independence-mh
+type: formalize
+difficulty: medium
+pilot: false
+sampler: IndependenceMetropolis
+starting_commit: 5c7b9c75d60158a6560c4ee0e848efb5876111c2
+
+task_statement: |
+  Formalize scalar independence Metropolis-Hastings with executable refinement
+  and IR emission. The kernel theory already exists at
+  formal/Mcmc/Kernel/IndependenceMetropolis.lean (state-independent proposal
+  density, Doeblin minorization). The task is to add executable refinement
+  connecting the kernel to a concrete IR program, wire the IR, and generate
+  Reference Julia.
+
+  The IR program independence_mh_step! takes (source, logdensity,
+  proposal_logdensity, proposal_sampler, current) and implements:
+  1. Draw proposed ~ proposal distribution
+  2. Compute acceptance = min(1, exp(logdensity(proposed) - logdensity(current)
+     + proposal_logdensity(current) - proposal_logdensity(proposed)))
+  3. Accept with probability acceptance
+
+repository_instructions: AGENTS.md
+tool_access: [claude-code, factory-cli, git, julia, lean]
+resource_budget:
+  max_wall_time_minutes: 120
+  max_theory_retries: 5
+  max_ir_retries: 3
+
+evaluator:
+  gates: [lake_build, check_generated, proof_hygiene, theorem_names]
+  expected_theorems:
+    - independenceMetropolisHastings_invariant
+    - independenceMhProgram_refines
+  human_gate: standardized
+
+notes: |
+  Confirmatory task. Kernel theory exists but no executable refinement.
+  Medium difficulty — the acceptance ratio involves two log-density callbacks
+  (target and proposal), which is more complex than standard symmetric-proposal MH.

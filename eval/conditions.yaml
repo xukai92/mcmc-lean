@@ -1,0 +1,62 @@
+conditions:
+  factory-claude:
+    agent: claude-code
+    factory: true
+    role_decomposition: true
+    strategy_gate: true
+    managed_retries: true
+    archival_state: true
+    dispatch: "factory ceo <project> --mode <type> --focus <task>"
+
+  factory-codex:
+    agent: codex
+    factory: true
+    role_decomposition: true
+    strategy_gate: true
+    managed_retries: true
+    archival_state: true
+    dispatch: "factory ceo <project> --mode <type> --focus <task> --runner codex"
+
+  direct-claude:
+    agent: claude-code
+    factory: false
+    role_decomposition: false
+    strategy_gate: false
+    managed_retries: false
+    archival_state: false
+    dispatch: "claude --project <project> with task prompt only"
+    strips:
+      - researcher/strategist/builder/QA role split
+      - user approval gate at strategy
+      - RELOOP edges (managed retries)
+      - .factory/reviews/ and manifest artifacts
+    preserves:
+      - task statement (identical)
+      - starting commit (identical)
+      - repository instructions (AGENTS.md)
+      - tool access (same CLI tools available)
+      - resource budget (same wall time cap)
+      - final evaluator (same gates checked post hoc)
+
+  direct-codex:
+    agent: codex
+    factory: false
+    role_decomposition: false
+    strategy_gate: false
+    managed_retries: false
+    archival_state: false
+    dispatch: "codex --project <project> with task prompt only"
+    strips: same as direct-claude
+    preserves: same as direct-claude
+
+paired_comparisons:
+  - pair: [factory-claude, direct-claude]
+    rationale: "Within-Claude comparison isolates factory contribution"
+  - pair: [factory-codex, direct-codex]
+    rationale: "Within-Codex comparison isolates factory contribution"
+
+notes: |
+  AdvancedHMC is a downstream sampler-performance comparator for optimize
+  tasks, not an agent-workflow condition. Both factory conditions use the
+  corresponding coding-agent product (Claude Code or Codex), not a bare
+  language-model API.
