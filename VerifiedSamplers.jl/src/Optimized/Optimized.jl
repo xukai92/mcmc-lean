@@ -1147,8 +1147,10 @@ function vector_mala_step!(source::AbstractRandomSource, logdensity, gradient,
         prepare_mala_workspace(current))
 end
 
-function _dense_pmala_geometry(gradient, metric, metric_derivative,
-        step_size::T, position::AbstractVector{T}) where {T<:AbstractFloat}
+function _dense_pmala_geometry!(gradient, metric, metric_derivative,
+        step_size::T, position::AbstractVector{T}, mean::Vector{T},
+        divergence::Vector{T}, work_matrix::Matrix{T},
+        derivative_inverse::Matrix{T}) where {T<:AbstractFloat}
     dimension = length(position)
     score = T.(gradient(position))
     length(score) == dimension || throw(DimensionMismatch("gradient dimension"))
@@ -1175,14 +1177,16 @@ function _dense_pmala_geometry(gradient, metric, metric_derivative,
     derivative = T.(raw_derivative)
     all(isfinite, derivative) || throw(DomainError(raw_derivative,
         "metric derivative must be finite"))
-    divergence = zeros(T, dimension)
+    fill!(divergence, zero(T))
     for coordinate in 1:dimension
-        derivative_inverse = -inverse_metric *
-            @view(derivative[:, :, coordinate]) * inverse_metric
-        divergence .+= @view derivative_inverse[:, coordinate]
+        mul!(work_matrix, @view(derivative[:, :, coordinate]), inverse_metric)
+        mul!(derivative_inverse, inverse_metric, work_matrix)
+        @inbounds for i in 1:dimension
+            divergence[i] -= derivative_inverse[i, coordinate]
+        end
     end
-    mean = position .+ (step_size^2 / T(2)) .*
-        (inverse_metric * score .+ divergence)
+    mul!(mean, inverse_metric, score)
+    @. mean = position + (step_size^2 / T(2)) * (mean + divergence)
     logdet = T(2) * sum(log, diag(factor.L); init=zero(T))
     (; matrix, factor, mean, logdet)
 end
@@ -1194,22 +1198,34 @@ function dense_pmala_step!(source::AbstractRandomSource, logdensity, gradient,
     checked_positive_float(step_size, "step size")
     isempty(current) && throw(ArgumentError("position cannot be empty"))
     all(isfinite, current) || throw(DomainError(current, "position must be finite"))
-    current_geometry = _dense_pmala_geometry(
-        gradient, metric, metric_derivative, step_size, current)
-    noise = Vector{T}(undef, length(current))
+    d = length(current)
+    divergence = Vector{T}(undef, d)
+    derivative_inverse = Matrix{T}(undef, d, d)
+    work_matrix = Matrix{T}(undef, d, d)
+    matvec_buf = Vector{T}(undef, d)
+    forward_residual = Vector{T}(undef, d)
+    reverse_residual = Vector{T}(undef, d)
+    mean_current = Vector{T}(undef, d)
+    mean_proposed = Vector{T}(undef, d)
+    current_geometry = _dense_pmala_geometry!(
+        gradient, metric, metric_derivative, step_size, current,
+        mean_current, divergence, work_matrix, derivative_inverse)
+    noise = Vector{T}(undef, d)
     @inbounds for index in eachindex(noise)
         noise[index] = T(standard_normal!(source))
     end
-    proposed = current_geometry.mean .+
-        step_size .* (current_geometry.factor.L' \ noise)
-    proposed_geometry = _dense_pmala_geometry(
-        gradient, metric, metric_derivative, step_size, proposed)
-    forward_residual = proposed .- current_geometry.mean
-    reverse_residual = current .- proposed_geometry.mean
-    forward_quadratic = dot(forward_residual,
-        current_geometry.matrix * forward_residual) / step_size^2
-    reverse_quadratic = dot(reverse_residual,
-        proposed_geometry.matrix * reverse_residual) / step_size^2
+    ldiv!(UpperTriangular(current_geometry.factor.L'), noise)
+    proposed = Vector{T}(undef, d)
+    @. proposed = current_geometry.mean + step_size * noise
+    proposed_geometry = _dense_pmala_geometry!(
+        gradient, metric, metric_derivative, step_size, proposed,
+        mean_proposed, divergence, work_matrix, derivative_inverse)
+    @. forward_residual = proposed - current_geometry.mean
+    @. reverse_residual = current - proposed_geometry.mean
+    mul!(matvec_buf, current_geometry.matrix, forward_residual)
+    forward_quadratic = dot(forward_residual, matvec_buf) / step_size^2
+    mul!(matvec_buf, proposed_geometry.matrix, reverse_residual)
+    reverse_quadratic = dot(reverse_residual, matvec_buf) / step_size^2
     proposed_logdensity = T(logdensity(proposed))
     current_logdensity = T(logdensity(current))
     all(isfinite, (proposed_logdensity, current_logdensity)) ||
