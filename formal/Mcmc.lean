@@ -180,6 +180,7 @@ import Mcmc.Kernel.GaussianRandomWalk
 import Mcmc.Kernel.GaussianProposalCoupling
 import Mcmc.Kernel.LiftEvolveProject
 import Mcmc.Kernel.Invariant
+import Mcmc.Kernel.ParallelTempering
 import Mcmc.Kernel.ParameterMixture
 import Mcmc.Kernel.ConstrainedTransform
 import Mcmc.Kernel.Meeting
