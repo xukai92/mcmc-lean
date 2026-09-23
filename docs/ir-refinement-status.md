@@ -31,7 +31,7 @@ grep -rn 'theorem.*refines\|theorem.*programKernel' \
 
 ## Current status (26 programs, IR version 29)
 
-### Proved (12/26)
+### Proved (14/26)
 
 | IR program | Refinement theorem | File |
 |---|---|---|
@@ -47,15 +47,15 @@ grep -rn 'theorem.*refines\|theorem.*programKernel' \
 | `multinomial_hmc_step!` | `multinomialHmcProgramKernel_refines` | Continuous/MultinomialRefinement.lean |
 | `diagonal_multinomial_hmc_step!` | `diagonalMultinomialHmcProgramKernel_refines` | Continuous/MultinomialRefinement.lean |
 | `dense_multinomial_hmc_step!` | `denseMultinomialHmcProgramKernel_refines` | Continuous/MultinomialRefinement.lean |
+| `diagonal_hmc_step!` | `diagonalHmcProgramKernel_refines` | Continuous/MetricRefinement.lean |
+| `dense_hmc_step!` | `denseHmcProgramKernel_refines` | Continuous/MetricRefinement.lean |
 
-### Open — kernel theorem exists, refinement open (6/26)
+### Open — kernel theorem exists, refinement open (4/26)
 
 | IR program | Kernel theorem | Gap |
 |---|---|---|
 | `vector_mala_step!` | `Kernel.Langevin` invariance | Vector version of proved scalar MALA pattern |
 | `dense_pmala_step!` | `Kernel.PositionDependentMALA` | Measurability + Gaussian normalization |
-| `diagonal_hmc_step!` | metric HMC invariance | Metric-specific command refinement |
-| `dense_hmc_step!` | metric HMC invariance | Same |
 | `vector_gauss_legendre_hmc_step!` | GL integrator theorems | Implicit-solver command refinement |
 | `multi_marginal_transport_hmc_step!` | marginal preservation | Command-to-coupling-kernel |
 
