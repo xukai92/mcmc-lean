@@ -25,7 +25,8 @@ export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_ou
     certified_speculative_trajectory,
     AbstractPreparedMetric, PreparedDiagonalMetric, PreparedDenseMetric,
     prepare_metric,
-    MALAWorkspace, prepare_mala_workspace
+    MALAWorkspace, prepare_mala_workspace,
+    DensePMALAWorkspace, prepare_dense_pmala_workspace
 
 @inline _affine_comp(later, earlier) =
     (later[1] * earlier[1], later[1] * earlier[2] + later[2])
@@ -1147,79 +1148,158 @@ function vector_mala_step!(source::AbstractRandomSource, logdensity, gradient,
         prepare_mala_workspace(current))
 end
 
-function _dense_pmala_geometry(gradient, metric, metric_derivative,
+"""Pre-allocated workspace for zero-allocation steady-state dense PMALA steps."""
+struct DensePMALAWorkspace{T<:AbstractFloat}
+    current_matrix::Matrix{T}
+    current_mean::Vector{T}
+    proposed_matrix::Matrix{T}
+    proposed_mean::Vector{T}
+    score::Vector{T}
+    inverse_metric::Matrix{T}
+    derivative::Array{T,3}
+    divergence::Vector{T}
+    temp_matrix::Matrix{T}
+    temp_vector::Vector{T}
+    noise::Vector{T}
+    proposed::Vector{T}
+    residual::Vector{T}
+end
+
+"""Allocate a dense PMALA workspace sized for vectors matching `current`."""
+function prepare_dense_pmala_workspace(current::AbstractVector{T}) where {T<:AbstractFloat}
+    d = length(current)
+    DensePMALAWorkspace{T}(
+        Matrix{T}(undef, d, d),
+        Vector{T}(undef, d),
+        Matrix{T}(undef, d, d),
+        Vector{T}(undef, d),
+        Vector{T}(undef, d),
+        Matrix{T}(undef, d, d),
+        Array{T,3}(undef, d, d, d),
+        Vector{T}(undef, d),
+        Matrix{T}(undef, d, d),
+        Vector{T}(undef, d),
+        Vector{T}(undef, d),
+        Vector{T}(undef, d),
+        Vector{T}(undef, d),
+    )
+end
+
+function _dense_pmala_geometry!(matrix_out::Matrix{T}, mean_out::Vector{T},
+        workspace::DensePMALAWorkspace{T}, gradient, metric, metric_derivative,
         step_size::T, position::AbstractVector{T}) where {T<:AbstractFloat}
     dimension = length(position)
-    score = T.(gradient(position))
-    length(score) == dimension || throw(DimensionMismatch("gradient dimension"))
-    all(isfinite, score) || throw(DomainError(score, "gradient must be finite"))
+    raw_score = gradient(position)
+    length(raw_score) == dimension || throw(DimensionMismatch("gradient dimension"))
+    @inbounds for i in 1:dimension
+        workspace.score[i] = T(raw_score[i])
+    end
+    all(isfinite, workspace.score) || throw(DomainError(workspace.score, "gradient must be finite"))
     raw_metric = metric(position)
     raw_metric isa AbstractMatrix || throw(ArgumentError("metric must return a matrix"))
     size(raw_metric) == (dimension, dimension) || throw(DimensionMismatch("metric dimension"))
-    matrix = Matrix{T}(raw_metric)
-    all(isfinite, matrix) || throw(DomainError(raw_metric, "metric must be finite"))
-    issymmetric(matrix) || throw(ArgumentError("metric must be symmetric"))
+    @inbounds for j in 1:dimension, i in 1:dimension
+        matrix_out[i, j] = T(raw_metric[i, j])
+    end
+    all(isfinite, matrix_out) || throw(DomainError(raw_metric, "metric must be finite"))
+    issymmetric(matrix_out) || throw(ArgumentError("metric must be symmetric"))
     factor = try
-        cholesky(Symmetric(matrix))
+        cholesky(Symmetric(matrix_out))
     catch error
         error isa PosDefException || rethrow()
         throw(DomainError(raw_metric, "metric must be positive definite"))
     end
-    inverse_metric = factor \ Matrix{T}(I, dimension, dimension)
+    fill!(workspace.inverse_metric, zero(T))
+    @inbounds for i in 1:dimension
+        workspace.inverse_metric[i, i] = one(T)
+    end
+    ldiv!(factor, workspace.inverse_metric)
     raw_derivative = metric_derivative(position)
     raw_derivative isa AbstractArray || throw(ArgumentError(
         "metric derivative must return a rank-three array"))
     ndims(raw_derivative) == 3 && size(raw_derivative) ==
         (dimension, dimension, dimension) ||
         throw(DimensionMismatch("metric derivative dimension"))
-    derivative = T.(raw_derivative)
-    all(isfinite, derivative) || throw(DomainError(raw_derivative,
-        "metric derivative must be finite"))
-    divergence = zeros(T, dimension)
-    for coordinate in 1:dimension
-        derivative_inverse = -inverse_metric *
-            @view(derivative[:, :, coordinate]) * inverse_metric
-        divergence .+= @view derivative_inverse[:, coordinate]
+    @inbounds for k in 1:dimension, j in 1:dimension, i in 1:dimension
+        workspace.derivative[i, j, k] = T(raw_derivative[i, j, k])
     end
-    mean = position .+ (step_size^2 / T(2)) .*
-        (inverse_metric * score .+ divergence)
-    logdet = T(2) * sum(log, diag(factor.L); init=zero(T))
-    (; matrix, factor, mean, logdet)
+    all(isfinite, workspace.derivative) || throw(DomainError(raw_derivative,
+        "metric derivative must be finite"))
+    fill!(workspace.divergence, zero(T))
+    @inbounds for coordinate in 1:dimension
+        mul!(workspace.temp_matrix, workspace.inverse_metric,
+            @view(workspace.derivative[:, :, coordinate]))
+        mul!(workspace.temp_vector, workspace.temp_matrix,
+            @view(workspace.inverse_metric[:, coordinate]))
+        workspace.divergence .-= workspace.temp_vector
+    end
+    mul!(workspace.temp_vector, workspace.inverse_metric, workspace.score)
+    @inbounds for i in 1:dimension
+        mean_out[i] = position[i] + (step_size^2 / T(2)) *
+            (workspace.temp_vector[i] + workspace.divergence[i])
+    end
+    logdet_val = zero(T)
+    @inbounds for i in 1:dimension
+        logdet_val += log(factor.L[i, i])
+    end
+    logdet_val *= T(2)
+    factor, logdet_val
+end
+
+"""Generic dense Lebesgue-correct PMALA transition with pre-allocated workspace."""
+function dense_pmala_step!(source::AbstractRandomSource, logdensity, gradient,
+        metric, metric_derivative, step_size::T,
+        current::AbstractVector{T},
+        workspace::DensePMALAWorkspace{T}) where {T<:AbstractFloat}
+    checked_positive_float(step_size, "step size")
+    isempty(current) && throw(ArgumentError("position cannot be empty"))
+    all(isfinite, current) || throw(DomainError(current, "position must be finite"))
+    length(current) == length(workspace.score) ||
+        throw(DimensionMismatch("workspace dimension does not match state"))
+    current_factor, current_logdet = _dense_pmala_geometry!(
+        workspace.current_matrix, workspace.current_mean, workspace,
+        gradient, metric, metric_derivative, step_size, current)
+    @inbounds for i in eachindex(workspace.noise)
+        workspace.noise[i] = T(standard_normal!(source))
+    end
+    copyto!(workspace.temp_vector, workspace.noise)
+    ldiv!(current_factor.U, workspace.temp_vector)
+    @inbounds for i in eachindex(workspace.proposed)
+        workspace.proposed[i] = workspace.current_mean[i] +
+            step_size * workspace.temp_vector[i]
+    end
+    _, proposed_logdet = _dense_pmala_geometry!(
+        workspace.proposed_matrix, workspace.proposed_mean, workspace,
+        gradient, metric, metric_derivative, step_size, workspace.proposed)
+    @inbounds for i in eachindex(workspace.residual)
+        workspace.residual[i] = workspace.proposed[i] - workspace.current_mean[i]
+    end
+    mul!(workspace.temp_vector, workspace.current_matrix, workspace.residual)
+    forward_quadratic = dot(workspace.residual, workspace.temp_vector) / step_size^2
+    @inbounds for i in eachindex(workspace.residual)
+        workspace.residual[i] = current[i] - workspace.proposed_mean[i]
+    end
+    mul!(workspace.temp_vector, workspace.proposed_matrix, workspace.residual)
+    reverse_quadratic = dot(workspace.residual, workspace.temp_vector) / step_size^2
+    proposed_logdensity = T(logdensity(workspace.proposed))
+    current_logdensity = T(logdensity(current))
+    all(isfinite, (proposed_logdensity, current_logdensity)) ||
+        throw(DomainError((proposed_logdensity, current_logdensity),
+            "logdensity must be finite"))
+    logratio = proposed_logdensity - current_logdensity +
+        (proposed_logdet - current_logdet) / T(2) -
+        (reverse_quadratic - forward_quadratic) / T(2)
+    isfinite(logratio) || throw(DomainError(logratio, "PMALA log ratio must be finite"))
+    T(uniform_unit!(source)) < exp(min(zero(T), logratio)) ?
+        workspace.proposed : copy(current)
 end
 
 """Generic dense Lebesgue-correct position-dependent MALA transition."""
 function dense_pmala_step!(source::AbstractRandomSource, logdensity, gradient,
         metric, metric_derivative, step_size::T,
         current::AbstractVector{T}) where {T<:AbstractFloat}
-    checked_positive_float(step_size, "step size")
-    isempty(current) && throw(ArgumentError("position cannot be empty"))
-    all(isfinite, current) || throw(DomainError(current, "position must be finite"))
-    current_geometry = _dense_pmala_geometry(
-        gradient, metric, metric_derivative, step_size, current)
-    noise = Vector{T}(undef, length(current))
-    @inbounds for index in eachindex(noise)
-        noise[index] = T(standard_normal!(source))
-    end
-    proposed = current_geometry.mean .+
-        step_size .* (current_geometry.factor.L' \ noise)
-    proposed_geometry = _dense_pmala_geometry(
-        gradient, metric, metric_derivative, step_size, proposed)
-    forward_residual = proposed .- current_geometry.mean
-    reverse_residual = current .- proposed_geometry.mean
-    forward_quadratic = dot(forward_residual,
-        current_geometry.matrix * forward_residual) / step_size^2
-    reverse_quadratic = dot(reverse_residual,
-        proposed_geometry.matrix * reverse_residual) / step_size^2
-    proposed_logdensity = T(logdensity(proposed))
-    current_logdensity = T(logdensity(current))
-    all(isfinite, (proposed_logdensity, current_logdensity)) ||
-        throw(DomainError((proposed_logdensity, current_logdensity),
-            "logdensity must be finite"))
-    logratio = proposed_logdensity - current_logdensity +
-        (proposed_geometry.logdet - current_geometry.logdet) / T(2) -
-        (reverse_quadratic - forward_quadratic) / T(2)
-    isfinite(logratio) || throw(DomainError(logratio, "PMALA log ratio must be finite"))
-    T(uniform_unit!(source)) < exp(min(zero(T), logratio)) ? proposed : copy(current)
+    dense_pmala_step!(source, logdensity, gradient, metric, metric_derivative,
+        step_size, current, prepare_dense_pmala_workspace(current))
 end
 
 """Maintained categorical implementation using cumulative sums and binary search."""
