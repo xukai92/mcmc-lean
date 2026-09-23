@@ -140,6 +140,7 @@ import Mcmc.Kernel.IndependenceMetropolis
 import Mcmc.Kernel.Langevin
 import Mcmc.Kernel.LikelihoodInformed
 import Mcmc.Kernel.PositionDependentMALA
+import Mcmc.Kernel.ActiveSketchSMMALA
 import Mcmc.Kernel.Slice
 import Mcmc.Kernel.PracticalSlice
 import Mcmc.Examples.BoundedUniformSlice
@@ -147,6 +148,7 @@ import Mcmc.Examples.IndefiniteAdaptiveBool
 import Mcmc.Examples.IndefiniteContinuousRefresh
 import Mcmc.Examples.ContinuousWarmupAdaptation
 import Mcmc.Examples.UniformRefreshSMC
+import Mcmc.Examples.ActiveSketchSMMALA
 import Mcmc.PDMP.Generator
 import Mcmc.PDMP.Uniformization
 import Mcmc.PDMP.Poissonization
