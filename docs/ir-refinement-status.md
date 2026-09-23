@@ -31,7 +31,7 @@ grep -rn 'theorem.*refines\|theorem.*programKernel' \
 
 ## Current status (26 programs, IR version 29)
 
-### Proved (14/26)
+### Proved (20/26)
 
 | IR program | Refinement theorem | File |
 |---|---|---|
@@ -49,6 +49,12 @@ grep -rn 'theorem.*refines\|theorem.*programKernel' \
 | `dense_multinomial_hmc_step!` | `denseMultinomialHmcProgramKernel_refines` | Continuous/MultinomialRefinement.lean |
 | `diagonal_hmc_step!` | `diagonalHmcProgramKernel_refines` | Continuous/MetricRefinement.lean |
 | `dense_hmc_step!` | `denseHmcProgramKernel_refines` | Continuous/MetricRefinement.lean |
+| `classical_rmhmc_step!` | `classicalRmhmcProgramKernel_refines` | Continuous/RiemannianRefinement.lean |
+| `approximate_classical_rmhmc_step!` | `approximateClassicalRmhmcProgramKernel_refines` | Continuous/RiemannianRefinement.lean |
+| `dense_rmhmc_step!` | `denseRmhmcProgramKernel_refines` | Continuous/RiemannianRefinement.lean |
+| `random_sketch_rmhmc_step!` | `randomSketchRmhmcProgramKernel_refines` | Continuous/RiemannianRefinement.lean |
+| `relativistic_multinomial_hmc_step!` | `relativisticMultinomialHmcProgramKernel_refines` | Continuous/RelativisticRefinement.lean |
+| `certified_relativistic_multinomial_hmc_step!` | `certifiedRelativisticMultinomialHmcProgramKernel_refines` | Continuous/RelativisticRefinement.lean |
 
 ### Open — kernel theorem exists, refinement open (4/26)
 
@@ -59,16 +65,10 @@ grep -rn 'theorem.*refines\|theorem.*programKernel' \
 | `vector_gauss_legendre_hmc_step!` | GL integrator theorems | Implicit-solver command refinement |
 | `multi_marginal_transport_hmc_step!` | marginal preservation | Command-to-coupling-kernel |
 
-### Open — kernel theorem partial or absent (8/26)
+### Open — kernel theorem partial or absent (2/26)
 
 | IR program | Status | Gap |
 |---|---|---|
-| `classical_rmhmc_step!` | kernel conditional on exact solver | Solver certificate + command refinement |
-| `approximate_classical_rmhmc_step!` | kernel conditional | Approximate solver tolerance + refinement |
-| `dense_rmhmc_step!` | kernel conditional | Dense metric Riemannian refinement |
-| `random_sketch_rmhmc_step!` | kernel conditional | Sketch-specific refinement |
-| `relativistic_multinomial_hmc_step!` | kernel conditional | Relativistic integrator refinement |
-| `certified_relativistic_multinomial_hmc_step!` | kernel conditional | Certificate + refinement |
 | `coupled_multinomial_hmc_step!` | coupling theorem exists | Coupled-kernel command refinement |
 | `coupled_gaussian_rwmh_step!` | coupling theorem exists | Coupled-RWMH command refinement |
 | `xu21_coupled_step!` | Xu21 coupling theorems | Mixture command refinement |
