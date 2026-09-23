@@ -1,5 +1,35 @@
 # Development log
 
+## 2026-09-23: multi-marginal transport HMC end-to-end
+
+Proved `multiMarginalTransportHMC_marginal`: each coordinate marginal of the
+K-chain shared-momentum kernel equals the single-chain `positionMultinomialHMC`.
+This establishes that the multi-marginal construction is a valid coupling —
+correct marginals, correlated joint via shared momentum. Product invariance
+does NOT hold; the shared momentum creates inter-chain correlation by design.
+
+The K=2 specialization in `MultiMarginalTransportK2.lean` demonstrates both
+coordinate marginals explicitly.
+
+Closed the last open IR program: `multiMarginalTransportHmcProgramKernel_refines`
+connects the IR program to the mathematical kernel, with a `_marginal` corollary
+that each coordinate marginal of the program kernel equals
+`positionMultinomialHMC`. IR refinement status: 15 modeled-kernel + 5 replay-spec
++ 7 conditional + 0 open = 26 programs.
+
+Julia implementations:
+- Reference: `multi_marginal_transport_hmc_step!` via IR interpreter opcode
+  `multi-marginal-transport-hmc`. Reshapes flat vector by `chain_count`, draws
+  one shared momentum, runs independent multinomial HMC per chain.
+- Optimized: `MultiMarginalTransportHMCWorkspace{T<:AbstractFloat}` with
+  preallocated buffers for zero steady-state allocation. Generic `T` typing.
+- Conformance: replay-pair tests verify Reference == Optimized for K=2 (dim=2)
+  and K=3 (dim=1), plus Float32 generic typing and workspace reuse.
+
+Evaluation module: `MultiMarginalEval` compares K coupled chains vs K
+independent chains, computing variance reduction factors, pairwise chain
+correlation, ESS per gradient evaluation, and meeting-time tails (K=2).
+
 ## 2026-08-21: fixed-map transport HMC
 
 Added `Mcmc.Hamiltonian.TransportHMC`, which reuses exact measurable-
