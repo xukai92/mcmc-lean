@@ -346,7 +346,8 @@ end
     @test Reference.IR_FORMAT_VERSION == 29
     facets = Reference.artifact_facets()
     @test facets.programs ==
-        ["approximate_classical_rmhmc_step!",
+        ["active_sketch_smmala_step!",
+        "approximate_classical_rmhmc_step!",
         "categorical_index!", "certified_relativistic_multinomial_hmc_step!",
         "classical_rmhmc_step!", "coupled_gaussian_rwmh_step!",
         "coupled_multinomial_hmc_step!", "dense_hmc_step!", "dense_multinomial_hmc_step!",
