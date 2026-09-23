@@ -30,7 +30,7 @@ export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_ou
     coupled_multinomial_hmc_step!, coupled_gaussian_rwmh_step!, xu21_coupled_step!,
     IR_FORMAT_VERSION, artifact_facets
 
-const IR_FORMAT_VERSION = 28
+const IR_FORMAT_VERSION = 29
 
 function affine_prefix_scan(segments::AbstractVector{<:Tuple})
     result = collect(segments)
