@@ -741,3 +741,50 @@ gate is exact-stage certification/fallback plus the local theorem connecting
 the symplectic Runge--Kutta coefficient condition to phase-volume
 preservation. A two-thread development benchmark is integrated, but its cheap
 100-dimensional targets expose scheduling overhead rather than a speedup.
+
+## 2026-09-23: Active-Sketch sMMALA end-to-end pipeline
+
+Added `active_sketch_smmala_step!` as the 27th IR program with full
+end-to-end pipeline:
+
+1. **IR emission**: `renderActiveSketchSmMala` (already wired at
+   `IRFormat.lean:332`) emits the program with `sketch`, `step_size`,
+   `regularization`, and `current` inputs.
+
+2. **Refinement theorem**: `activeSketchSmMalaProgramKernel_refines`
+   (`Continuous/ActiveSketchSMMALA.lean`) proves kernel equality by
+   specializing the dense PMALA refinement with the sketch metric
+   `G(x) = S(x)ᵀS(x) + λI`. Also provides
+   `activeSketchSmMalaProgramKernel_invariant` for target invariance.
+   No `sorry`, `admit`, or `axiom`. All proofs delegate to existing
+   `densePMALA` infrastructure.
+
+3. **Reference Julia**: IR interpreter dispatches the `active-sketch-smmala`
+   opcode through `_active_sketch_smmala_step!`, which assembles the
+   sketched metric, computes the simplified drift, and runs the MH
+   acceptance step.
+
+4. **Optimized Julia**: `ActiveSketchSMMALAWorkspace{T}` provides
+   pre-allocated buffers for zero-allocation steady-state steps. Generic
+   `T<:AbstractFloat` throughout — no hardcoded `Float64`. The metric is
+   formed as `SᵀS + λI` via an explicit Gram product.
+
+5. **Conformance tests**: Three test cases exercise (a) asymmetric sketch
+   M < d, (b) square sketch M = d (degenerates toward dense PMALA),
+   (c) zero sketch (λI metric). Both bit-exact replay and numerical
+   tolerance conformance are verified. Moment tests confirm target
+   invariance. `Float32` path validated.
+
+6. **Public interface**: `ActiveSketchSMMALA` sampler dispatches to
+   `:reference` (IR-backed) or `:optimized` implementations.
+
+**Cost model**: The per-step cost is O(Md² + d³) dominated by the Gram
+product `SᵀS` (O(Md²)) and Cholesky factorization (O(d³)). When M ≪ d,
+the Gram product is cheaper than the full O(d³) metric evaluation of dense
+PMALA plus the O(d⁴) metric-derivative divergence computation that dense
+PMALA requires. The simplified drift (no metric-derivative divergence)
+eliminates the O(d⁴) term entirely, making the per-step cost O(Md² + d³).
+For the competitive regime to materialize in wall-clock time, the sketch rank
+M must be small enough that the omitted divergence term dominates the
+per-step budget, and the acceptance rate must remain comparable to dense
+PMALA's. This is target-dependent and not guaranteed.

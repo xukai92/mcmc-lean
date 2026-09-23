@@ -39,9 +39,9 @@ for prog in categorical_index scalar_hmc vector_hmc scalar_dr_ghmc; do
 done
 ```
 
-## Current status (26 programs, IR version 29)
+## Current status (27 programs, IR version 29)
 
-### Modeled-kernel equality (14/26)
+### Modeled-kernel equality (15/27)
 
 Each theorem states `FooProgramKernel = FooKernel` (assembled kernel =
 verified mathematical kernel).
@@ -58,11 +58,12 @@ verified mathematical kernel).
 | `diagonal_hmc_step!` | `diagonalHmcProgramKernel_refines` | Continuous/MetricRefinement.lean:41 | |
 | `dense_hmc_step!` | `denseHmcProgramKernel_refines` | Continuous/MetricRefinement.lean:55 | |
 | `dense_pmala_step!` | `densePmalaProgramKernel_refines` | Continuous/DensePMALA.lean:109 | Also has `densePmalaProgramKernel_invariant` |
+| `active_sketch_smmala_step!` | `activeSketchSmMalaProgramKernel_refines` | Continuous/ActiveSketchSMMALA.lean:103 | Also has `activeSketchSmMalaProgramKernel_invariant`; specializes dense PMALA with `G(x) = SᵀS + λI` |
 | `coupled_multinomial_hmc_step!` | `coupledMultinomialHmcProgramKernel_refines` | Continuous/CoupledRefinement.lean:61 | Also has `_isCoupling` theorem |
 | `coupled_gaussian_rwmh_step!` | `coupledGaussianRwmhProgramKernel_refines` | Continuous/CoupledRefinement.lean:70 | Also has `_isCoupling` theorem |
 | `xu21_coupled_step!` | `xu21CoupledProgramKernel_refines` | Continuous/CoupledRefinement.lean:75 | Also has `_isCoupling` theorem |
 
-### Replay-spec only (5/26)
+### Replay-spec only (5/27)
 
 These have a deterministic trace theorem (`run*_refines`) but **no kernel
 equality theorem**. The IR interpreter produces the correct deterministic
@@ -82,7 +83,7 @@ Note: `finite_mh_step!` has the additional `stepPMF_refines`
 (Finite/MetropolisHastings.lean:279) which is exact PMF-vs-kernel-row
 equality — stronger than replay but specific to the finite-state setting.
 
-### Conditional on solver certificate (7/26)
+### Conditional on solver certificate (7/27)
 
 Each theorem has `(selection : GeneralizedLeapfrogSelection ...)
 (hvalid : selection.IsValid)` or equivalent as an explicit hypothesis.
@@ -99,35 +100,33 @@ the certificate.
 | `certified_relativistic_multinomial_hmc_step!` | `certifiedRelativisticMultinomialHmcProgramKernel_refines` | Continuous/RelativisticRefinement.lean:96 | `GeneralizedLeapfrogSelection.IsValid` |
 | `vector_gauss_legendre_hmc_step!` | `gaussLegendreProgramKernel_refines_approximate` | Continuous/GaussLegendreHMC.lean:89 | `Measurable (approximateGaussLegendreProposal ...)` |
 
-### Open (1/26)
+### Open (1/27)
 
 | IR program | Status | Gap |
 |---|---|---|
 | `multi_marginal_transport_hmc_step!` | IR emitted (`MultiMarginalCompilerIR.lean`), no refinement theorem | Kernel theory proves coordinate-lifting lemmas but no theorem connects the IR program to the mathematical kernel |
 
-### Not in Samplers.ir
-
-| Item | Note |
-|---|---|
-| `active_sketch_smmala_step!` | Kernel theory exists (`ActiveSketchSMMALA.lean`) but IR program is not emitted to `Samplers.ir`. No Reference function generated. |
-
 ## Summary
 
 | Category | Count | Description |
 |----------|-------|-------------|
-| Modeled-kernel | 14 | `ProgramKernel = Kernel` equality |
+| Modeled-kernel | 15 | `ProgramKernel = Kernel` equality |
 | Replay-spec only | 5 | Interpreter trace = result; no kernel equality |
 | Conditional | 7 | Kernel equality under solver certificate |
 | Open | 1 | IR emitted, no theorem |
-| **Total** | **26** | (not counting 1 kernel-only item not in IR) |
+| **Total** | **27** | (1 program has no theorem) |
 
-14 + 5 + 7 = 26 programs with some theorem. Of these, 14 have the strongest
-(modeled-kernel) refinement. The 5 replay-spec programs have open gaps for
-command-to-kernel composition. The 7 conditional programs are honestly
-conditional on solver certificates.
+15 + 5 + 7 = 27 programs with some theorem. Of these, 15 have the strongest
+(modeled-kernel) refinement (including the new `active_sketch_smmala_step!`).
+The 5 replay-spec programs have open gaps for command-to-kernel composition.
+The 7 conditional programs are honestly conditional on solver certificates.
 
 ## Changelog
 
+- 2026-09-23: Added `active_sketch_smmala_step!` as 27th program.
+  Modeled-kernel refinement via `activeSketchSmMalaProgramKernel_refines`
+  (specializes dense PMALA with `G(x) = SᵀS + λI`). Updated counts:
+  15 modeled + 5 replay + 7 conditional + 1 open = 27 programs.
 - 2026-09-23: Reconciled with actual Lean on main. Reclassified by theorem
   strength (modeled-kernel / replay-spec / conditional / open). Removed phantom
   `active_sketch_smmala_step!` row (not in Samplers.ir). Corrected

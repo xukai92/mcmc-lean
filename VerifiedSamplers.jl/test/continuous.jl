@@ -1510,6 +1510,89 @@ end
             score, _ -> ones(1, 1), metric_derivative, 0.3, zeros(2))
     end
 
+    @testset "active-sketch sMMALA" begin
+        logdensity(q) = -sum(abs2, q) / 2
+        score(q) = -q
+
+        # (a) Asymmetric sketch: M < d (2×3 sketch on 3-dim state)
+        asymmetric_sketch(q) = [one(eltype(q)) + eltype(q)(0.1) * q[1] zero(eltype(q)) zero(eltype(q));
+                                zero(eltype(q)) one(eltype(q)) + eltype(q)(0.1) * q[2] zero(eltype(q))]
+        events_a = Runtime.FloatTraceEvent[
+            Runtime.NormalEvent(0.4), Runtime.NormalEvent(-0.3),
+            Runtime.NormalEvent(0.1), Runtime.UniformEvent(0.25)]
+        comparison_a = Evaluation.replay_pair(events_a,
+            source -> Reference.active_sketch_smmala_step!(source,
+                logdensity, score, asymmetric_sketch,
+                0.3, 1.0, [0.2, -0.5, 0.1]),
+            source -> Optimized.active_sketch_smmala_step!(source,
+                logdensity, score, asymmetric_sketch,
+                0.3, 1.0, [0.2, -0.5, 0.1]))
+        @test comparison_a.reference ≈ comparison_a.optimized atol=1e-13
+        @test comparison_a.reference_remaining == 0
+        @test comparison_a.optimized_remaining == 0
+
+        # (b) Square sketch: M = d (degenerates toward dense PMALA)
+        square_sketch(q) = Matrix{eltype(q)}(I, length(q), length(q))
+        events_b = Runtime.FloatTraceEvent[
+            Runtime.NormalEvent(0.4), Runtime.NormalEvent(-0.3),
+            Runtime.UniformEvent(0.25)]
+        comparison_b = Evaluation.replay_pair(events_b,
+            source -> Reference.active_sketch_smmala_step!(source,
+                logdensity, score, square_sketch,
+                0.3, 1.0, [0.2, -0.5]),
+            source -> Optimized.active_sketch_smmala_step!(source,
+                logdensity, score, square_sketch,
+                0.3, 1.0, [0.2, -0.5]))
+        @test comparison_b.reference ≈ comparison_b.optimized atol=1e-13
+        @test comparison_b.reference_remaining == 0
+        @test comparison_b.optimized_remaining == 0
+
+        # (c) Zero sketch: G(x) = λI, should behave like MALA-scaled
+        zero_sketch(q) = zeros(eltype(q), 1, length(q))
+        events_c = Runtime.FloatTraceEvent[
+            Runtime.NormalEvent(0.4), Runtime.NormalEvent(-0.3),
+            Runtime.UniformEvent(0.25)]
+        ref_zero = Reference.active_sketch_smmala_step!(
+            Runtime.FloatTraceSource(copy(events_c)),
+            logdensity, score, zero_sketch, 0.3, 2.0, [0.2, -0.5])
+        opt_zero = Optimized.active_sketch_smmala_step!(
+            Runtime.FloatTraceSource(copy(events_c)),
+            logdensity, score, zero_sketch, 0.3, 2.0, [0.2, -0.5])
+        @test ref_zero ≈ opt_zero atol=1e-13
+
+        # Numerical tolerance conformance
+        comparison_num = Evaluation.replay_pair(events_a,
+            source -> Reference.active_sketch_smmala_step!(source,
+                logdensity, score, asymmetric_sketch,
+                0.3, 1.0, [0.2, -0.5, 0.1]),
+            source -> Optimized.active_sketch_smmala_step!(source,
+                logdensity, score, asymmetric_sketch,
+                0.3, 1.0, [0.2, -0.5, 0.1]))
+        @test Evaluation.conforms_numerical(comparison_num; atol=1e-10)
+
+        # Public sampler interface
+        for implementation in (:reference, :optimized)
+            sampler = ActiveSketchSMMALA(logdensity, score, square_sketch,
+                0.6, 1.0; implementation)
+            chain = sample(MersenneTwister(550 + (implementation === :optimized)),
+                sampler, zeros(2), 16_000)
+            retained = @view chain[:, 2_001:end]
+            @test maximum(abs, vec(mean(retained; dims=2))) < 0.08
+            @test maximum(abs, vec(var(retained; dims=2)) .- 1) < 0.15
+        end
+
+        # Float32 path
+        float32 = ActiveSketchSMMALA(logdensity, score, square_sketch,
+            0.5f0, 1.0f0; implementation=:optimized)
+        @test eltype(sample(MersenneTwister(553), float32,
+            zeros(Float32, 2), 3)) === Float32
+
+        @test_throws ArgumentError ActiveSketchSMMALA(logdensity, score,
+            square_sketch, 0.0, 1.0)
+        @test_throws ArgumentError ActiveSketchSMMALA(logdensity, score,
+            square_sketch, 0.3, 0.0)
+    end
+
     @testset "scalar HMC reference, optimized, and moments" begin
         logdensity = x -> -x^2 / 2
         gradient = identity

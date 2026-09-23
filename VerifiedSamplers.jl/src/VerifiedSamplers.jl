@@ -24,7 +24,7 @@ export GaussianRWMH, PositiveTransformedRWMH, OpenUnitTransformedRWMH,
     IndefiniteAdaptiveContinuousRefresh, warmup
 export MALA
 export GaussLegendreHMC
-export DensePMALA
+export DensePMALA, ActiveSketchSMMALA
 export TransportHMC
 export LikelihoodInformedHMC
 export RankOnePolynomialTransport, fit_rank_one_polynomial_transport,
@@ -84,6 +84,7 @@ include("Public/DenseRiemannianRMHMC.jl")
 include("Public/RandomSketchRMHMC.jl")
 include("Public/MALA.jl")
 include("Public/DensePMALA.jl")
+include("Public/ActiveSketchSMMALA.jl")
 include("Public/TransportHMC.jl")
 include("Public/LikelihoodInformedHMC.jl")
 include("Public/RankOnePolynomialTransport.jl")

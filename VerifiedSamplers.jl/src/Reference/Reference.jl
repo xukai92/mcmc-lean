@@ -8,7 +8,7 @@ using ..Runtime: AbstractRandomSource, draw_below!, standard_normal!,
 using ..Certificates: ImplicitSolveCertificate, certify_implicit_solve,
     certifies_exact_solver
 
-export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_out_slice_step!, sheared_birth_death_step!, spatial_birth_death_step!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!, scalar_barker_rwmh_step!, scalar_mala_step!, vector_mala_step!, dense_pmala_step!, scalar_hmc_step!, scalar_dr_ghmc_step!, vector_hmc_step!, metric_hmc_step!, multinomial_hmc_step!, metric_multinomial_hmc_step!, categorical_dhmc_step!,
+export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_out_slice_step!, sheared_birth_death_step!, spatial_birth_death_step!, finite_mh_step!, two_state_mh_step!, gaussian_rwmh_step!, scalar_barker_rwmh_step!, scalar_mala_step!, vector_mala_step!, dense_pmala_step!, active_sketch_smmala_step!, scalar_hmc_step!, scalar_dr_ghmc_step!, vector_hmc_step!, metric_hmc_step!, multinomial_hmc_step!, metric_multinomial_hmc_step!, categorical_dhmc_step!,
     finite_hmm_particle_gibbs_step!,
     relativistic_multinomial_hmc_step!,
     fixed_point_generalized_leapfrog,
@@ -487,6 +487,12 @@ function eval_expr(raw, env::Dict{String,Any})
             env["gradient"], env["metric"], env["metric_derivative"],
             Float64(eval_expr(node[3], env)), eval_expr(node[4], env))
     end
+    if tag == "active-sketch-smmala"
+        return _active_sketch_smmala_step!(eval_expr(node[2], env),
+            env["logdensity"], env["gradient"], env["sketch"],
+            Float64(eval_expr(node[3], env)), Float64(eval_expr(node[4], env)),
+            eval_expr(node[5], env))
+    end
     if tag == "vector-leapfrog-position" || tag == "vector-leapfrog-momentum"
         step_size = Float64(eval_expr(node[2], env))
         steps = Int(eval_expr(node[3], env))
@@ -747,6 +753,7 @@ function valid_input_value(kind::String, value)
     kind == "metric-factor" && return applicable(value, Float64[])
     kind == "metric" && return applicable(value, Float64[])
     kind == "metric-derivative" && return applicable(value, Float64[])
+    kind == "sketch" && return applicable(value, Float64[])
     kind == "momentum-sampler" &&
         return applicable(value, FloatTraceSource(FloatTraceEvent[]), Float64[])
     kind == "integrator" &&
@@ -994,6 +1001,73 @@ function dense_pmala_step!(source::AbstractRandomSource, logdensity, gradient,
     checked_grad = value -> checked_gradient(gradient, value)
     run_program("dense_pmala_step!", source, checked_log, checked_grad,
         metric, metric_derivative, step_size, Float64.(current)) |> x -> Float64.(x)
+end
+
+function _active_sketch_smmala_geometry(gradient, sketch_callback,
+        step_size::Float64, regularization::Float64,
+        position::Vector{Float64})
+    dimension = length(position)
+    score = checked_gradient(gradient, position)
+    raw_sketch = sketch_callback(position)
+    raw_sketch isa AbstractMatrix || throw(ArgumentError("sketch must return a matrix"))
+    size(raw_sketch, 2) == dimension || throw(DimensionMismatch("sketch column dimension"))
+    sketch = Matrix{Float64}(raw_sketch)
+    all(isfinite, sketch) || throw(DomainError(raw_sketch, "sketch must be finite"))
+    gram = sketch' * sketch
+    matrix = gram + regularization * I
+    all(isfinite, matrix) || throw(DomainError(matrix, "metric must be finite"))
+    issymmetric(matrix) || (matrix = (matrix + matrix') / 2)
+    factor = try
+        cholesky(Symmetric(matrix))
+    catch error
+        error isa PosDefException || rethrow()
+        throw(DomainError(matrix, "metric must be positive definite"))
+    end
+    inverse_metric = factor \ Matrix{Float64}(I, dimension, dimension)
+    mean = position .+ (step_size^2 / 2) .* (inverse_metric * score)
+    logdet = 2sum(log, diag(factor.L))
+    (; matrix, factor, mean, logdet)
+end
+
+function _active_sketch_smmala_step!(source::AbstractRandomSource, logdensity,
+        gradient, sketch_callback, step_size::Float64,
+        regularization::Float64, current::AbstractVector{<:Real})
+    checked_positive_float(step_size, "step size")
+    isfinite(regularization) && regularization > 0 ||
+        throw(ArgumentError("regularization must be finite and positive"))
+    isempty(current) && throw(ArgumentError("position cannot be empty"))
+    position = Float64.(current)
+    all(isfinite, position) || throw(DomainError(current, "position must be finite"))
+    current_geometry = _active_sketch_smmala_geometry(
+        gradient, sketch_callback, step_size, regularization, position)
+    noise = [standard_normal!(source) for _ in eachindex(position)]
+    proposed = current_geometry.mean .+ step_size .* (current_geometry.factor.L' \ noise)
+    proposed_geometry = _active_sketch_smmala_geometry(
+        gradient, sketch_callback, step_size, regularization, proposed)
+    forward_residual = proposed .- current_geometry.mean
+    reverse_residual = position .- proposed_geometry.mean
+    forward_quadratic = dot(forward_residual,
+        current_geometry.matrix * forward_residual) / step_size^2
+    reverse_quadratic = dot(reverse_residual,
+        proposed_geometry.matrix * reverse_residual) / step_size^2
+    logratio = checked_logdensity(logdensity, proposed) -
+        checked_logdensity(logdensity, position) +
+        (proposed_geometry.logdet - current_geometry.logdet) / 2 -
+        (reverse_quadratic - forward_quadratic) / 2
+    isfinite(logratio) || throw(DomainError(logratio,
+        "active-sketch sMMALA log ratio must be finite"))
+    uniform_unit!(source) < exp(min(0.0, logratio)) ? proposed : copy(position)
+end
+
+"""Interpret the emitted active-sketch sMMALA program."""
+function active_sketch_smmala_step!(source::AbstractRandomSource, logdensity,
+        gradient, sketch_callback, step_size::Float64,
+        regularization::Float64, current::AbstractVector{<:Real})
+    checked_log = value -> checked_logdensity(logdensity, value)
+    checked_grad = value -> checked_gradient(gradient, value)
+    run_program("active_sketch_smmala_step!", source, checked_log, checked_grad,
+        sketch_callback, step_size, regularization,
+        Float64.(current)) |> x -> Float64.(x)
 end
 
 """Float64 interpretation of the serialized scalar one-step HMC program."""

@@ -26,7 +26,8 @@ export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_ou
     AbstractPreparedMetric, PreparedDiagonalMetric, PreparedDenseMetric,
     prepare_metric,
     MALAWorkspace, prepare_mala_workspace,
-    DensePMALAWorkspace, prepare_dense_pmala_workspace
+    DensePMALAWorkspace, prepare_dense_pmala_workspace,
+    ActiveSketchSMMALAWorkspace, prepare_active_sketch_smmala_workspace
 
 @inline _affine_comp(later, earlier) =
     (later[1] * earlier[1], later[1] * earlier[2] + later[2])
@@ -1300,6 +1301,154 @@ function dense_pmala_step!(source::AbstractRandomSource, logdensity, gradient,
         current::AbstractVector{T}) where {T<:AbstractFloat}
     dense_pmala_step!(source, logdensity, gradient, metric, metric_derivative,
         step_size, current, prepare_dense_pmala_workspace(current))
+end
+
+"""Pre-allocated workspace for active-sketch sMMALA steps.
+
+The sketch `S(x)` is M×d; the metric is `G(x) = SᵀS + λI` (d×d).
+Buffers are sized for the state dimension `d` and sketch rank `M`.
+"""
+struct ActiveSketchSMMALAWorkspace{T<:AbstractFloat}
+    sketch::Matrix{T}
+    gram::Matrix{T}
+    metric::Matrix{T}
+    inverse_metric::Matrix{T}
+    current_mean::Vector{T}
+    proposed_mean::Vector{T}
+    score::Vector{T}
+    noise::Vector{T}
+    proposed::Vector{T}
+    residual::Vector{T}
+    temp_vector::Vector{T}
+end
+
+"""Allocate an active-sketch sMMALA workspace for dimension `d` and sketch rank `M`."""
+function prepare_active_sketch_smmala_workspace(d::Int, M::Int, ::Type{T}) where {T<:AbstractFloat}
+    d > 0 || throw(ArgumentError("dimension must be positive"))
+    M > 0 || throw(ArgumentError("sketch rank must be positive"))
+    ActiveSketchSMMALAWorkspace{T}(
+        Matrix{T}(undef, M, d),
+        Matrix{T}(undef, d, d),
+        Matrix{T}(undef, d, d),
+        Matrix{T}(undef, d, d),
+        Vector{T}(undef, d),
+        Vector{T}(undef, d),
+        Vector{T}(undef, d),
+        Vector{T}(undef, d),
+        Vector{T}(undef, d),
+        Vector{T}(undef, d),
+        Vector{T}(undef, d),
+    )
+end
+
+function _active_sketch_geometry!(metric_out::Matrix{T}, mean_out::Vector{T},
+        workspace::ActiveSketchSMMALAWorkspace{T}, gradient, sketch_callback,
+        step_size::T, regularization::T,
+        position::AbstractVector{T}) where {T<:AbstractFloat}
+    dimension = length(position)
+    raw_score = gradient(position)
+    length(raw_score) == dimension || throw(DimensionMismatch("gradient dimension"))
+    @inbounds for i in 1:dimension
+        workspace.score[i] = T(raw_score[i])
+    end
+    all(isfinite, workspace.score) || throw(DomainError(workspace.score, "gradient must be finite"))
+    raw_sketch = sketch_callback(position)
+    raw_sketch isa AbstractMatrix || throw(ArgumentError("sketch must return a matrix"))
+    M, d = size(raw_sketch)
+    d == dimension || throw(DimensionMismatch("sketch column dimension"))
+    M == size(workspace.sketch, 1) || throw(DimensionMismatch("sketch row dimension"))
+    @inbounds for j in 1:d, i in 1:M
+        workspace.sketch[i, j] = T(raw_sketch[i, j])
+    end
+    all(isfinite, workspace.sketch) || throw(DomainError(raw_sketch, "sketch must be finite"))
+    mul!(workspace.gram, workspace.sketch', workspace.sketch)
+    @inbounds for j in 1:dimension, i in 1:dimension
+        metric_out[i, j] = workspace.gram[i, j] + (i == j ? regularization : zero(T))
+    end
+    factor = try
+        cholesky(Symmetric(metric_out))
+    catch error
+        error isa PosDefException || rethrow()
+        throw(DomainError(metric_out, "metric must be positive definite"))
+    end
+    fill!(workspace.inverse_metric, zero(T))
+    @inbounds for i in 1:dimension
+        workspace.inverse_metric[i, i] = one(T)
+    end
+    ldiv!(factor, workspace.inverse_metric)
+    mul!(workspace.temp_vector, workspace.inverse_metric, workspace.score)
+    @inbounds for i in 1:dimension
+        mean_out[i] = position[i] + (step_size^2 / T(2)) * workspace.temp_vector[i]
+    end
+    logdet_val = zero(T)
+    @inbounds for i in 1:dimension
+        logdet_val += log(factor.L[i, i])
+    end
+    logdet_val *= T(2)
+    factor, logdet_val
+end
+
+"""Generic active-sketch sMMALA transition with pre-allocated workspace."""
+function active_sketch_smmala_step!(source::AbstractRandomSource, logdensity,
+        gradient, sketch_callback, step_size::T, regularization::T,
+        current::AbstractVector{T},
+        workspace::ActiveSketchSMMALAWorkspace{T}) where {T<:AbstractFloat}
+    checked_positive_float(step_size, "step size")
+    isfinite(regularization) && regularization > zero(T) ||
+        throw(ArgumentError("regularization must be finite and positive"))
+    isempty(current) && throw(ArgumentError("position cannot be empty"))
+    all(isfinite, current) || throw(DomainError(current, "position must be finite"))
+    length(current) == size(workspace.sketch, 2) ||
+        throw(DimensionMismatch("workspace dimension does not match state"))
+    current_factor, current_logdet = _active_sketch_geometry!(
+        workspace.metric, workspace.current_mean, workspace,
+        gradient, sketch_callback, step_size, regularization, current)
+    @inbounds for i in eachindex(workspace.noise)
+        workspace.noise[i] = T(standard_normal!(source))
+    end
+    copyto!(workspace.temp_vector, workspace.noise)
+    ldiv!(current_factor.U, workspace.temp_vector)
+    @inbounds for i in eachindex(workspace.proposed)
+        workspace.proposed[i] = workspace.current_mean[i] +
+            step_size * workspace.temp_vector[i]
+    end
+    _, proposed_logdet = _active_sketch_geometry!(
+        workspace.gram, workspace.proposed_mean, workspace,
+        gradient, sketch_callback, step_size, regularization, workspace.proposed)
+    proposed_metric = copy(workspace.gram)
+    @inbounds for i in eachindex(workspace.residual)
+        workspace.residual[i] = workspace.proposed[i] - workspace.current_mean[i]
+    end
+    mul!(workspace.temp_vector, workspace.metric, workspace.residual)
+    forward_quadratic = dot(workspace.residual, workspace.temp_vector) / step_size^2
+    @inbounds for i in eachindex(workspace.residual)
+        workspace.residual[i] = current[i] - workspace.proposed_mean[i]
+    end
+    mul!(workspace.temp_vector, proposed_metric, workspace.residual)
+    reverse_quadratic = dot(workspace.residual, workspace.temp_vector) / step_size^2
+    proposed_logdensity = T(logdensity(workspace.proposed))
+    current_logdensity = T(logdensity(current))
+    all(isfinite, (proposed_logdensity, current_logdensity)) ||
+        throw(DomainError((proposed_logdensity, current_logdensity),
+            "logdensity must be finite"))
+    logratio = proposed_logdensity - current_logdensity +
+        (proposed_logdet - current_logdet) / T(2) -
+        (reverse_quadratic - forward_quadratic) / T(2)
+    isfinite(logratio) || throw(DomainError(logratio,
+        "active-sketch sMMALA log ratio must be finite"))
+    T(uniform_unit!(source)) < exp(min(zero(T), logratio)) ?
+        workspace.proposed : copy(current)
+end
+
+"""Generic active-sketch sMMALA transition."""
+function active_sketch_smmala_step!(source::AbstractRandomSource, logdensity,
+        gradient, sketch_callback, step_size::T, regularization::T,
+        current::AbstractVector{T}) where {T<:AbstractFloat}
+    raw_sketch = sketch_callback(T.(current))
+    M = size(raw_sketch, 1)
+    ws = prepare_active_sketch_smmala_workspace(length(current), M, T)
+    active_sketch_smmala_step!(source, logdensity, gradient, sketch_callback,
+        step_size, regularization, current, ws)
 end
 
 """Maintained categorical implementation using cumulative sums and binary search."""
