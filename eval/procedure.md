@@ -6,7 +6,8 @@ Every run batch pins these versions before starting:
 
 | Component | Source | Current |
 |-----------|--------|---------|
-| Factory | `.factory/factory-version` | remote-factory==0.2.0 |
+| Factory | `.factory/factory-version` | remote-factory==0.2.0 (commit f0b06f6d) |
+| Factory engine | `.factory/factory-version` | `--engine tool` (required) |
 | Lean toolchain | `formal/lean-toolchain` | pinned per repo |
 | Julia | `juliaup status` | 1.12.5 |
 | Claude Code | `claude --version` | record at batch start |
@@ -74,6 +75,25 @@ All human gate responses are recorded verbatim in the run log.
   agent transcripts (where available), timing data
 - Pilots are stored under `eval/pilots/` and labeled PILOT in manifests
 - Confirmatory runs are stored under `eval/runs/` and never mixed with pilots
+
+## Execution engine
+
+All factory conditions MUST use `--engine tool`:
+
+```sh
+factory ceo <project> --mode <type> --focus "<task>" --engine tool
+```
+
+The default `--engine skill` (SKILL.md prose) allows the CEO to bypass FnNode
+gate commands and substitute its own. The `--engine tool` mode makes the CEO
+drive execution via workflow tool commands, ensuring hardened FnNode gates
+(conformance, benchmark, statistical, scope check, manifest) execute literally.
+
+Validated by pilot: skill engine fired 1/5 gates, tool engine fired 4/5 gates.
+
+The `--engine deterministic` (headless WorkflowExecutor) is an alternative that
+walks the DAG without a CEO agent. It may be used for fully automated runs
+but lacks the CEO's adaptive error recovery.
 
 ## Pilot separation
 

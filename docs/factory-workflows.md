@@ -62,7 +62,8 @@ IR wiring (mechanical once theory compiles).
 ```sh
 factory ceo /path/to/verified-samplers \
   --mode formalize \
-  --focus "Implement [algorithm]. [Math spec]. [What to prove]. [IR program spec]."
+  --focus "Implement [algorithm]. [Math spec]. [What to prove]. [IR program spec]." \
+  --engine tool
 ```
 
 **Produces.** New `.lean` files under `formal/Mcmc/`, updated `CompilerIR.lean`
@@ -97,7 +98,8 @@ Reference is the starting point.
 ```sh
 factory ceo /path/to/verified-samplers \
   --mode optimize \
-  --focus "function_name!"
+  --focus "function_name!" \
+  --engine tool
 ```
 
 **Produces.** Updated `Optimized/Optimized.jl` with generic `T<:AbstractFloat`
@@ -115,7 +117,8 @@ the Reference output from the formalize run. Two approaches:
 factory ceo /path/to/formalize-worktree \
   --mode optimize \
   --focus "function_name!" \
-  --no-worktree
+  --no-worktree \
+  --engine tool
 ```
 
 **Option 2.** Merge the formalize commits to main first, then run optimize
@@ -141,6 +144,13 @@ worktree or merge first.
 both Reference and Optimized implementations exist. When the Reference is
 missing (e.g., wrong worktree), the gate passes vacuously. The precondition
 check catches a missing Reference function, but not a stale one.
+
+**Use `--engine tool` for gate enforcement.** The default `--engine skill`
+allows the CEO to read the SKILL.md prose and improvise its own commands,
+which can bypass hardened FnNode gates. Use `--engine tool` to ensure the
+CEO drives execution via workflow tool commands and the hardened gates
+(conformance, benchmark, statistical, scope check, manifest) fire literally.
+Validated by pilot: skill engine fired 1/5 gates, tool engine fired 4/5.
 
 **IR version bumps require Julia updates.** When the formalize workflow bumps
 the IR format version, the Julia Reference interpreter needs a handler for the
