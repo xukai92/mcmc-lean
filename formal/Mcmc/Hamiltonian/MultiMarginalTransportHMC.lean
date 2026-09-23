@@ -26,8 +26,14 @@ single-chain `positionMultinomialHMC`.
   single-coordinate kernel
 * `multiMarginalTransportHMC_marginal`: each coordinate marginal equals
   `positionMultinomialHMC`
-* `multiMarginalTransportHMC_productInvariant`: product-target invariance
-  when all K chains share the same potential
+
+## Design note
+
+Product invariance does NOT hold for this kernel — the shared momentum
+creates inter-chain correlation by construction. This is a coupling
+(correct marginals, correlated joint), not a product-invariant kernel.
+The K=2 special case in `CoupledMultinomialHMC` is explicitly proved as
+a coupling with verified marginals.
 -/
 
 open MeasureTheory
@@ -293,5 +299,90 @@ instance multiMarginalTransportHMC_isMarkovKernel
       hpotential hgradient momentumTarget) := by
   unfold multiMarginalTransportHMC
   exact Kernel.IsMarkovKernel.map _ (measurable_positionProjectK K)
+
+/-! ### Marginal correctness -/
+
+omit [Fintype ι] in
+/-- Projecting the position-project map to coordinate k equals projecting
+to coordinate k in phase space and then taking position. -/
+theorem positionProjectK_eval (K : ℕ) (k : Fin K) :
+    Function.eval k ∘ positionProjectK (ι := ι) K =
+      Prod.fst ∘ Function.eval k := by
+  ext z; rfl
+
+/-- The k-th marginal of `sharedMomentumLiftK` equals the single-chain
+position-momentum lift applied at `x k`. -/
+theorem sharedMomentumLiftK_map_eval (K : ℕ)
+    (momentumTarget : Measure (Momentum ι))
+    [IsProbabilityMeasure momentumTarget]
+    (k : Fin K) (x : Fin K → Position ι) :
+    (sharedMomentumLiftK K momentumTarget x).map (Function.eval k) =
+      positionMomentumLift momentumTarget (x k) := by
+  unfold sharedMomentumLiftK
+  rw [Kernel.map_apply _ (measurable_reassociatePhaseK K),
+    Measure.map_map (measurable_pi_apply k) (measurable_reassociatePhaseK K)]
+  have h_compose : Function.eval k ∘ reassociatePhaseK (ι := ι) K =
+      Prod.map (Function.eval k) (Function.eval k) := by
+    ext ⟨xv, pv⟩ <;> rfl
+  rw [h_compose, Kernel.prod_apply, Kernel.id_apply, Kernel.const_apply,
+    ← Measure.map_prod_map _ _ (measurable_pi_apply k) (measurable_pi_apply k),
+    Measure.map_dirac, diagonalMomentumMeasureK_marginal]
+  rw [positionMomentumLift, Kernel.prod_apply, Kernel.id_apply, Kernel.const_apply]
+
+/-- The k-th phase-space marginal of the composition
+`independentTrajectoryK ∘ₖ sharedMomentumLiftK` equals the single-chain
+composition `randomizedMultinomialLeapfrogKernel ∘ₖ positionMomentumLift`. -/
+theorem comp_sharedLift_map_eval
+    (potential : Position ι → ℝ) (gradient : Position ι → Position ι)
+    (ε : ℝ) (L : ℕ) (K : ℕ) (hpotential : Measurable potential)
+    (hgradient : Measurable gradient)
+    (momentumTarget : Measure (Momentum ι))
+    [IsProbabilityMeasure momentumTarget]
+    (k : Fin K) (x : Fin K → Position ι) :
+    ((independentTrajectoryK potential gradient ε L hpotential hgradient K ∘ₖ
+        sharedMomentumLiftK K momentumTarget) x).map (Function.eval k) =
+      (randomizedMultinomialLeapfrogKernel potential gradient ε L
+        hpotential hgradient ∘ₖ
+        positionMomentumLift momentumTarget) (x k) := by
+  ext s hs
+  rw [Measure.map_apply (measurable_pi_apply k) hs,
+    Kernel.comp_apply' _ _ _ hs,
+    Kernel.comp_apply' _ _ _ ((measurable_pi_apply k) hs)]
+  conv_lhs =>
+    arg 2; ext z
+    rw [show (independentTrajectoryK potential gradient ε L
+        hpotential hgradient K z) ((Function.eval k) ⁻¹' s) =
+      ((independentTrajectoryK potential gradient ε L
+        hpotential hgradient K z).map (Function.eval k)) s from
+      (Measure.map_apply (measurable_pi_apply k) hs).symm]
+    unfold independentTrajectoryK
+    rw [withinTemp_map_eval
+        (randomizedMultinomialLeapfrogKernel potential gradient ε L
+          hpotential hgradient) k z]
+  rw [← MeasureTheory.lintegral_map
+    ((randomizedMultinomialLeapfrogKernel potential gradient ε L
+      hpotential hgradient).measurable_coe hs) (measurable_pi_apply k),
+    sharedMomentumLiftK_map_eval]
+
+/-- Each coordinate marginal of the multi-marginal transport HMC kernel
+equals the single-chain `positionMultinomialHMC` kernel. -/
+theorem multiMarginalTransportHMC_marginal
+    (potential : Position ι → ℝ) (gradient : Position ι → Position ι)
+    (ε : ℝ) (L : ℕ) (K : ℕ) (hpotential : Measurable potential)
+    (hgradient : Measurable gradient)
+    (momentumTarget : Measure (Momentum ι))
+    [IsProbabilityMeasure momentumTarget]
+    (k : Fin K) (x : Fin K → Position ι) :
+    (multiMarginalTransportHMC potential gradient ε L K
+      hpotential hgradient momentumTarget x).map (Function.eval k) =
+      positionMultinomialHMC potential gradient ε L hpotential hgradient
+        momentumTarget (x k) := by
+  unfold multiMarginalTransportHMC positionMultinomialHMC
+  rw [Kernel.map_apply _ (measurable_positionProjectK K),
+    Measure.map_map (measurable_pi_apply k) (measurable_positionProjectK K),
+    positionProjectK_eval,
+    ← Measure.map_map measurable_fst (measurable_pi_apply k),
+    comp_sharedLift_map_eval,
+    Kernel.map_apply _ measurable_fst]
 
 end Mcmc.Hamiltonian

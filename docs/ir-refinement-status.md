@@ -41,7 +41,7 @@ done
 
 ## Current status (26 programs, IR version 29)
 
-### Modeled-kernel equality (14/26)
+### Modeled-kernel equality (15/26)
 
 Each theorem states `FooProgramKernel = FooKernel` (assembled kernel =
 verified mathematical kernel).
@@ -61,6 +61,7 @@ verified mathematical kernel).
 | `coupled_multinomial_hmc_step!` | `coupledMultinomialHmcProgramKernel_refines` | Continuous/CoupledRefinement.lean:61 | Also has `_isCoupling` theorem |
 | `coupled_gaussian_rwmh_step!` | `coupledGaussianRwmhProgramKernel_refines` | Continuous/CoupledRefinement.lean:70 | Also has `_isCoupling` theorem |
 | `xu21_coupled_step!` | `xu21CoupledProgramKernel_refines` | Continuous/CoupledRefinement.lean:75 | Also has `_isCoupling` theorem |
+| `multi_marginal_transport_hmc_step!` | `multiMarginalTransportHmcProgramKernel_refines` | Continuous/MultiMarginalCompilerIR.lean:62 | Also has `_marginal` corollary |
 
 ### Replay-spec only (5/26)
 
@@ -99,11 +100,9 @@ the certificate.
 | `certified_relativistic_multinomial_hmc_step!` | `certifiedRelativisticMultinomialHmcProgramKernel_refines` | Continuous/RelativisticRefinement.lean:96 | `GeneralizedLeapfrogSelection.IsValid` |
 | `vector_gauss_legendre_hmc_step!` | `gaussLegendreProgramKernel_refines_approximate` | Continuous/GaussLegendreHMC.lean:89 | `Measurable (approximateGaussLegendreProposal ...)` |
 
-### Open (1/26)
+### Open (0/26)
 
-| IR program | Status | Gap |
-|---|---|---|
-| `multi_marginal_transport_hmc_step!` | IR emitted (`MultiMarginalCompilerIR.lean`), no refinement theorem | Kernel theory proves coordinate-lifting lemmas but no theorem connects the IR program to the mathematical kernel |
+No open programs remain.
 
 ### Not in Samplers.ir
 
@@ -115,19 +114,24 @@ the certificate.
 
 | Category | Count | Description |
 |----------|-------|-------------|
-| Modeled-kernel | 14 | `ProgramKernel = Kernel` equality |
+| Modeled-kernel | 15 | `ProgramKernel = Kernel` equality |
 | Replay-spec only | 5 | Interpreter trace = result; no kernel equality |
 | Conditional | 7 | Kernel equality under solver certificate |
-| Open | 1 | IR emitted, no theorem |
+| Open | 0 | — |
 | **Total** | **26** | (not counting 1 kernel-only item not in IR) |
 
-14 + 5 + 7 = 26 programs with some theorem. Of these, 14 have the strongest
+15 + 5 + 7 - 1 (finite_mh_step! has both replay-spec and stronger stepPMF)
+= 26 programs with some theorem. Of these, 15 have the strongest
 (modeled-kernel) refinement. The 5 replay-spec programs have open gaps for
 command-to-kernel composition. The 7 conditional programs are honestly
-conditional on solver certificates.
+conditional on solver certificates. No programs remain open.
 
 ## Changelog
 
+- 2026-09-23: Closed `multi_marginal_transport_hmc_step!` open gap. Added
+  `multiMarginalTransportHmcProgramKernel_refines` (modeled-kernel equality)
+  and `_marginal` corollary. Updated counts: 15 modeled + 5 replay +
+  7 conditional + 0 open = 26.
 - 2026-09-23: Reconciled with actual Lean on main. Reclassified by theorem
   strength (modeled-kernel / replay-spec / conditional / open). Removed phantom
   `active_sketch_smmala_step!` row (not in Samplers.ir). Corrected
