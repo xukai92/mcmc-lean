@@ -96,6 +96,7 @@ import Mcmc.Executable.Continuous.MetricCompilerIR
 import Mcmc.Executable.Continuous.GaussianTransport
 import Mcmc.Executable.Continuous.MultinomialHMC
 import Mcmc.Executable.Continuous.MultinomialCompilerIR
+import Mcmc.Executable.Continuous.MultinomialRefinement
 import Mcmc.Executable.Continuous.MultiMarginalCompilerIR
 import Mcmc.Executable.Continuous.CoupledXu21
 import Mcmc.Executable.Continuous.RelativisticCompilerIR
