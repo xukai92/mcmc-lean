@@ -41,7 +41,7 @@ done
 
 ## Current status (27 programs, IR version 29)
 
-### Modeled-kernel equality (15/27)
+### Modeled-kernel equality (16/27)
 
 Each theorem states `FooProgramKernel = FooKernel` (assembled kernel =
 verified mathematical kernel).
@@ -59,6 +59,7 @@ verified mathematical kernel).
 | `dense_hmc_step!` | `denseHmcProgramKernel_refines` | Continuous/MetricRefinement.lean:55 | |
 | `dense_pmala_step!` | `densePmalaProgramKernel_refines` | Continuous/DensePMALA.lean:109 | Also has `densePmalaProgramKernel_invariant` |
 | `active_sketch_smmala_step!` | `activeSketchSmMalaProgramKernel_refines` | Continuous/ActiveSketchSMMALA.lean:103 | Also has `activeSketchSmMalaProgramKernel_invariant`; specializes dense PMALA with `G(x) = SᵀS + λI` |
+| `multi_marginal_transport_hmc_step!` | `multiMarginalTransportHmcProgramKernel_refines` | Continuous/MultiMarginalCompilerIR.lean:62 | Also has `_marginal` corollary |
 | `coupled_multinomial_hmc_step!` | `coupledMultinomialHmcProgramKernel_refines` | Continuous/CoupledRefinement.lean:61 | Also has `_isCoupling` theorem |
 | `coupled_gaussian_rwmh_step!` | `coupledGaussianRwmhProgramKernel_refines` | Continuous/CoupledRefinement.lean:70 | Also has `_isCoupling` theorem |
 | `xu21_coupled_step!` | `xu21CoupledProgramKernel_refines` | Continuous/CoupledRefinement.lean:75 | Also has `_isCoupling` theorem |
@@ -100,33 +101,38 @@ the certificate.
 | `certified_relativistic_multinomial_hmc_step!` | `certifiedRelativisticMultinomialHmcProgramKernel_refines` | Continuous/RelativisticRefinement.lean:96 | `GeneralizedLeapfrogSelection.IsValid` |
 | `vector_gauss_legendre_hmc_step!` | `gaussLegendreProgramKernel_refines_approximate` | Continuous/GaussLegendreHMC.lean:89 | `Measurable (approximateGaussLegendreProposal ...)` |
 
-### Open (1/27)
+### Open (0/27)
 
-| IR program | Status | Gap |
-|---|---|---|
-| `multi_marginal_transport_hmc_step!` | IR emitted (`MultiMarginalCompilerIR.lean`), no refinement theorem | Kernel theory proves coordinate-lifting lemmas but no theorem connects the IR program to the mathematical kernel |
+No open programs remain.
 
 ## Summary
 
 | Category | Count | Description |
 |----------|-------|-------------|
-| Modeled-kernel | 15 | `ProgramKernel = Kernel` equality |
+| Modeled-kernel | 16 | `ProgramKernel = Kernel` equality |
 | Replay-spec only | 5 | Interpreter trace = result; no kernel equality |
 | Conditional | 7 | Kernel equality under solver certificate |
-| Open | 1 | IR emitted, no theorem |
-| **Total** | **27** | (1 program has no theorem) |
+| Open | 0 | — |
+| **Total** | **27** | All programs have refinement theorems |
 
-15 + 5 + 7 = 27 programs with some theorem. Of these, 15 have the strongest
-(modeled-kernel) refinement (including the new `active_sketch_smmala_step!`).
+16 + 5 + 7 = 27 programs (excluding the `finite_mh_step!` overlap which has
+both replay-spec and the stronger `stepPMF_refines`). Of these, 16 have the
+strongest (modeled-kernel) refinement, including the two novel samplers:
+`active_sketch_smmala_step!` and `multi_marginal_transport_hmc_step!`.
 The 5 replay-spec programs have open gaps for command-to-kernel composition.
 The 7 conditional programs are honestly conditional on solver certificates.
+No programs remain open.
 
 ## Changelog
 
-- 2026-09-23: Added `active_sketch_smmala_step!` as 27th program.
-  Modeled-kernel refinement via `activeSketchSmMalaProgramKernel_refines`
-  (specializes dense PMALA with `G(x) = SᵀS + λI`). Updated counts:
-  15 modeled + 5 replay + 7 conditional + 1 open = 27 programs.
+- 2026-09-23: Merged both novel samplers. Active-Sketch sMMALA added as
+  27th program with modeled-kernel refinement
+  (`activeSketchSmMalaProgramKernel_refines`, specializes dense PMALA with
+  `G(x) = SᵀS + λI`). Multi-Marginal Transport HMC closed the sole open
+  program with `multiMarginalTransportHmcProgramKernel_refines` and
+  `multiMarginalTransportHMC_marginal` (each coordinate marginal equals
+  `positionMultinomialHMC`). Updated counts: 16 modeled + 5 replay +
+  7 conditional + 0 open = 27 programs.
 - 2026-09-23: Reconciled with actual Lean on main. Reclassified by theorem
   strength (modeled-kernel / replay-spec / conditional / open). Removed phantom
   `active_sketch_smmala_step!` row (not in Samplers.ir). Corrected

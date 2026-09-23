@@ -27,7 +27,8 @@ export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_ou
     prepare_metric,
     MALAWorkspace, prepare_mala_workspace,
     DensePMALAWorkspace, prepare_dense_pmala_workspace,
-    ActiveSketchSMMALAWorkspace, prepare_active_sketch_smmala_workspace
+    ActiveSketchSMMALAWorkspace, prepare_active_sketch_smmala_workspace,
+    MultiMarginalTransportHMCWorkspace, multi_marginal_transport_hmc_step!
 
 @inline _affine_comp(later, earlier) =
     (later[1] * earlier[1], later[1] * earlier[2] + later[2])
@@ -1540,6 +1541,148 @@ function finite_mh_step!(source::AbstractRandomSource,
     acceptance_mass = min(acceptance_bound,
         big(target[proposed + 1]) * big(proposal[proposed + 1][current + 1]) * current_total)
     draw_below!(source, acceptance_bound) < acceptance_mass ? proposed : current
+end
+
+"""Preallocated workspace for multi-marginal transport HMC."""
+mutable struct MultiMarginalTransportHMCWorkspace{T<:AbstractFloat}
+    dim::Int
+    chain_count::Int
+    momentum::Vector{T}
+    positions::Matrix{T}
+    logweights::Vector{T}
+    forward_q::Vector{T}
+    forward_p::Vector{T}
+    backward_q::Vector{T}
+    backward_p::Vector{T}
+    force::Vector{T}
+end
+
+function MultiMarginalTransportHMCWorkspace{T}(dim::Int, chain_count::Int,
+        steps::Int) where {T<:AbstractFloat}
+    dim > 0 || throw(ArgumentError("dimension must be positive"))
+    chain_count > 0 || throw(ArgumentError("chain_count must be positive"))
+    steps > 0 || throw(ArgumentError("steps must be positive"))
+    MultiMarginalTransportHMCWorkspace{T}(dim, chain_count,
+        Vector{T}(undef, dim), Matrix{T}(undef, dim, steps + 1),
+        Vector{T}(undef, steps + 1), Vector{T}(undef, dim),
+        Vector{T}(undef, dim), Vector{T}(undef, dim),
+        Vector{T}(undef, dim), Vector{T}(undef, dim))
+end
+
+function _multinomial_select_with_shared_momentum!(
+        source::AbstractRandomSource, logdensity, gradient,
+        step_size::T, steps::Int, current::AbstractVector{T},
+        momentum::AbstractVector{T}, positions::AbstractMatrix{T},
+        logweights::AbstractVector{T}, fq::Vector{T}, fp::Vector{T},
+        bq::Vector{T}, bp::Vector{T}, force::Vector{T}) where {T<:AbstractFloat}
+    d = length(current)
+    ε = step_size
+    half_step = ε / T(2)
+    origin = Int(draw_below!(source, steps + 1))
+    current_index = origin + 1
+    @inbounds positions[:, current_index] = current
+    logweights[current_index] = T(logdensity(current)) - sum(abs2, momentum) / T(2)
+    copyto!(bq, current)
+    copyto!(bp, momentum)
+    for index in origin:-1:1
+        force .= T.(gradient(bq))
+        @. bp += half_step * force
+        @. bq -= ε * bp
+        force .= T.(gradient(bq))
+        @. bp += half_step * force
+        @inbounds positions[:, index] = bq
+        logweights[index] = T(logdensity(bq)) - sum(abs2, bp) / T(2)
+    end
+    copyto!(fq, current)
+    copyto!(fp, momentum)
+    for index in (origin + 2):(steps + 1)
+        force .= T.(gradient(fq))
+        @. fp -= half_step * force
+        @. fq += ε * fp
+        force .= T.(gradient(fq))
+        @. fp -= half_step * force
+        @inbounds positions[:, index] = fq
+        logweights[index] = T(logdensity(fq)) - sum(abs2, fp) / T(2)
+    end
+    max_weight = maximum(logweights)
+    total = zero(T)
+    @inbounds for i in eachindex(logweights)
+        logweights[i] = exp(logweights[i] - max_weight)
+        total += logweights[i]
+    end
+    target = T(uniform_unit!(source)) * total
+    cumulative = zero(T)
+    selected = steps + 1
+    @inbounds for i in eachindex(logweights)
+        cumulative += logweights[i]
+        if target < cumulative
+            selected = i
+            break
+        end
+    end
+    copy(@view positions[:, selected])
+end
+
+"""Multi-marginal transport HMC with preallocated workspace.
+
+All K chains share one momentum draw and independently select trajectory
+indices via multinomial weighting.
+"""
+function multi_marginal_transport_hmc_step!(
+        workspace::MultiMarginalTransportHMCWorkspace{T},
+        source::AbstractRandomSource, logdensity, gradient,
+        step_size::T, steps::Integer, chain_count::Integer,
+        current_positions::AbstractVector{T}) where {T<:AbstractFloat}
+    K = Int(chain_count)
+    K > 0 || throw(ArgumentError("chain_count must be positive"))
+    steps > 0 || throw(ArgumentError("trajectory length must be positive"))
+    isfinite(step_size) && step_size > 0 ||
+        throw(ArgumentError("step size must be finite and positive"))
+    total = length(current_positions)
+    total > 0 || throw(ArgumentError("positions cannot be empty"))
+    total % K == 0 ||
+        throw(DimensionMismatch("position length must be divisible by chain_count"))
+    dim = total ÷ K
+    workspace.dim == dim && workspace.chain_count == K ||
+        throw(DimensionMismatch("workspace dimensions do not match"))
+    size(workspace.positions, 2) >= Int(steps) + 1 ||
+        throw(DimensionMismatch("workspace was created for fewer steps"))
+    p = workspace.momentum
+    @inbounds for i in eachindex(p)
+        p[i] = T(standard_normal!(source))
+    end
+    result = Vector{T}(undef, total)
+    for k in 1:K
+        offset = (k - 1) * dim
+        chain_q = @view current_positions[offset + 1 : offset + dim]
+        selected = _multinomial_select_with_shared_momentum!(
+            source, logdensity, gradient, step_size, Int(steps),
+            chain_q, p, workspace.positions, workspace.logweights,
+            workspace.forward_q, workspace.forward_p,
+            workspace.backward_q, workspace.backward_p, workspace.force)
+        @inbounds result[offset + 1 : offset + dim] = selected
+    end
+    result
+end
+
+"""Multi-marginal transport HMC without preallocated workspace."""
+function multi_marginal_transport_hmc_step!(
+        source::AbstractRandomSource, logdensity, gradient,
+        step_size::T, steps::Integer, chain_count::Integer,
+        current_positions::AbstractVector{T}) where {T<:AbstractFloat}
+    K = Int(chain_count)
+    K > 0 || throw(ArgumentError("chain_count must be positive"))
+    steps > 0 || throw(ArgumentError("trajectory length must be positive"))
+    isfinite(step_size) && step_size > 0 ||
+        throw(ArgumentError("step size must be finite and positive"))
+    total = length(current_positions)
+    total > 0 || throw(ArgumentError("positions cannot be empty"))
+    total % K == 0 ||
+        throw(DimensionMismatch("position length must be divisible by chain_count"))
+    dim = total ÷ K
+    workspace = MultiMarginalTransportHMCWorkspace{T}(dim, K, Int(steps))
+    multi_marginal_transport_hmc_step!(workspace, source, logdensity, gradient,
+        step_size, steps, chain_count, current_positions)
 end
 
 end

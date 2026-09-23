@@ -2152,3 +2152,82 @@ end
         @test eltype(p) === T
     end
 end
+
+@testset "multi-marginal transport HMC conformance" begin
+    logdensity(x) = -sum(abs2, x) / 2
+    gradient(x) = x
+
+    @testset "K=2, dim=2, Float64 replay" begin
+        # K=2 chains, each 2D, so flat vector is 4 elements
+        positions = [0.1, -0.2, 0.3, 0.5]
+        # Momentum draw: 2 normals; chain 1 origin + selection: 1 index + 1 uniform;
+        # chain 2 origin + selection: 1 index + 1 uniform
+        events = Runtime.FloatTraceEvent[
+            Runtime.NormalEvent(0.4), Runtime.NormalEvent(-0.7),
+            Runtime.IndexEvent(1), Runtime.UniformEvent(0.35),
+            Runtime.IndexEvent(0), Runtime.UniformEvent(0.6)]
+        ref_source = Runtime.FloatTraceSource(copy(events))
+        opt_source = Runtime.FloatTraceSource(copy(events))
+        reference = Reference.multi_marginal_transport_hmc_step!(ref_source,
+            logdensity, gradient, 0.1, 2, 2, Float64.(positions))
+        optimized = Optimized.multi_marginal_transport_hmc_step!(opt_source,
+            logdensity, gradient, 0.1, 2, 2, Float64.(positions))
+        @test reference ≈ optimized atol=1e-14 rtol=0
+        @test length(reference) == 4
+        @test all(isfinite, reference)
+        @test Runtime.remaining(ref_source) == 0
+        @test Runtime.remaining(opt_source) == 0
+    end
+
+    @testset "K=3, dim=1, Float64 replay" begin
+        positions = [1.0, -1.0, 0.5]
+        events = Runtime.FloatTraceEvent[
+            Runtime.NormalEvent(0.3),
+            Runtime.IndexEvent(0), Runtime.UniformEvent(0.2),
+            Runtime.IndexEvent(1), Runtime.UniformEvent(0.8),
+            Runtime.IndexEvent(0), Runtime.UniformEvent(0.5)]
+        ref_source = Runtime.FloatTraceSource(copy(events))
+        opt_source = Runtime.FloatTraceSource(copy(events))
+        reference = Reference.multi_marginal_transport_hmc_step!(ref_source,
+            logdensity, gradient, 0.15, 2, 3, Float64.(positions))
+        optimized = Optimized.multi_marginal_transport_hmc_step!(opt_source,
+            logdensity, gradient, 0.15, 2, 3, Float64.(positions))
+        @test reference ≈ optimized atol=1e-14 rtol=0
+        @test length(reference) == 3
+        @test all(isfinite, reference)
+    end
+
+    @testset "Float32 generic typing" begin
+        positions = Float32[0.1, -0.2, 0.3, 0.5]
+        rng = MersenneTwister(42)
+        result = Optimized.multi_marginal_transport_hmc_step!(
+            Runtime.RNGSource(rng), x -> Float32(-sum(abs2, x) / 2),
+            x -> Float32.(x), Float32(0.1), 2, 2, positions)
+        @test eltype(result) === Float32
+        @test length(result) == 4
+        @test all(isfinite, result)
+    end
+
+    @testset "workspace reuse" begin
+        workspace = Optimized.MultiMarginalTransportHMCWorkspace{Float64}(2, 2, 3)
+        rng = MersenneTwister(99)
+        positions = [0.1, -0.2, 0.3, 0.5]
+        for _ in 1:10
+            positions = Optimized.multi_marginal_transport_hmc_step!(
+                workspace, Runtime.RNGSource(rng), logdensity, gradient,
+                0.1, 3, 2, positions)
+        end
+        @test length(positions) == 4
+        @test all(isfinite, positions)
+    end
+
+    @testset "error cases" begin
+        rng = Runtime.RNGSource(MersenneTwister(1))
+        @test_throws ArgumentError Optimized.multi_marginal_transport_hmc_step!(
+            rng, logdensity, gradient, 0.1, 2, 0, Float64[1.0])
+        @test_throws DimensionMismatch Optimized.multi_marginal_transport_hmc_step!(
+            rng, logdensity, gradient, 0.1, 2, 2, Float64[1.0, 2.0, 3.0])
+        @test_throws ArgumentError Optimized.multi_marginal_transport_hmc_step!(
+            rng, logdensity, gradient, 0.1, 2, 1, Float64[])
+    end
+end

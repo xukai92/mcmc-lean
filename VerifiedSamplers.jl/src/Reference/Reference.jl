@@ -28,6 +28,7 @@ export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_ou
     interpret_nuts_outer_trace, select_nuts_candidate, interpret_nuts_transition,
     interpret_checked_nuts_rows, checked_nuts_or_identity_select!,
     coupled_multinomial_hmc_step!, coupled_gaussian_rwmh_step!, xu21_coupled_step!,
+    multi_marginal_transport_hmc_step!,
     IR_FORMAT_VERSION, artifact_facets
 
 const IR_FORMAT_VERSION = 29
@@ -612,6 +613,15 @@ function eval_expr(raw, env::Dict{String,Any})
                 step_size, steps, left, right) :
             _coupled_gaussian_rwmh_step!(source, env["logdensity"], scale, left, right)
     end
+    if tag == "multi-marginal-transport-hmc"
+        source = eval_expr(node[2], env)
+        step_size = Float64(eval_expr(node[3], env))
+        steps = Int(eval_expr(node[4], env))
+        chain_count = Int(eval_expr(node[5], env))
+        flat_positions = Float64.(eval_expr(node[6], env))
+        return _multi_marginal_transport_hmc_step!(source, env["logdensity"],
+            env["gradient"], step_size, steps, chain_count, flat_positions)
+    end
     if tag == "categorical"
         source = eval_expr(node[2], env)
         weights = eval_expr(node[3], env)
@@ -696,6 +706,57 @@ function _coupled_gaussian_rwmh_step!(source, logdensity, scale, left, right)
     next_left = u < min(0.0, logdensity(proposed_left) - logdensity(left)) ? proposed_left : left
     next_right = u < min(0.0, logdensity(proposed_right) - logdensity(right)) ? proposed_right : right
     [next_left, next_right]
+end
+
+function _multi_marginal_transport_hmc_step!(source, logdensity, gradient,
+        step_size, steps, chain_count, flat_positions)
+    chain_count > 0 || throw(ArgumentError("chain_count must be positive"))
+    steps > 0 || throw(ArgumentError("trajectory length must be positive"))
+    total = length(flat_positions)
+    total > 0 || throw(ArgumentError("positions cannot be empty"))
+    total % chain_count == 0 ||
+        throw(DimensionMismatch("position length must be divisible by chain_count"))
+    dim = total ÷ chain_count
+    chains = [flat_positions[(k - 1) * dim + 1 : k * dim] for k in 1:chain_count]
+    momentum = [standard_normal!(source) for _ in 1:dim]
+    results = Vector{Vector{Float64}}(undef, chain_count)
+    for k in 1:chain_count
+        results[k] = _multinomial_hmc_step_with_momentum!(source, logdensity,
+            gradient, step_size, steps, chains[k], momentum)
+    end
+    vcat(results...)
+end
+
+function _multinomial_hmc_step_with_momentum!(source, logdensity, gradient,
+        step_size, steps, current, shared_momentum)
+    q0 = Float64.(current)
+    p0 = Float64.(shared_momentum)
+    origin = Int(draw_below!(source, steps + 1))
+    trajectory = Vector{Tuple{Vector{Float64},Vector{Float64}}}(undef, steps + 1)
+    for index in 0:steps
+        q, p = copy(q0), copy(p0)
+        signed_step = index >= origin ? step_size : -step_size
+        for _ in 1:abs(index - origin)
+            half = p .- (signed_step / 2) .* gradient(q)
+            q = q .+ signed_step .* half
+            p = half .- (signed_step / 2) .* gradient(q)
+        end
+        trajectory[index + 1] = (q, p)
+    end
+    logweights = [logdensity(q) - sum(abs2, p) / 2 for (q, p) in trajectory]
+    maximum_weight = maximum(logweights)
+    weights = exp.(logweights .- maximum_weight)
+    draw = uniform_unit!(source) * sum(weights)
+    selected = length(weights)
+    cumulative = 0.0
+    for index in eachindex(weights)
+        cumulative += weights[index]
+        if draw < cumulative
+            selected = index
+            break
+        end
+    end
+    trajectory[selected][1]
 end
 
 struct Returned
@@ -1750,5 +1811,30 @@ xu21_coupled_step!(source::AbstractRandomSource, logdensity, gradient,
     left::AbstractVector{<:Real}, right::AbstractVector{<:Real}) =
     _run_coupled("xu21_coupled_step!", source, logdensity, gradient, step_size,
         steps, scale, hmc_weight, left, right)
+
+"""Multi-marginal transport HMC: K chains share one momentum draw.
+
+`current_positions` is a flat vector of K×dim scalars. The runtime reshapes
+by `chain_count`, draws ONE shared momentum p ~ N(0,I), runs independent
+multinomial HMC on each chain with that momentum, and returns the flattened
+K×dim result.
+"""
+function multi_marginal_transport_hmc_step!(source::AbstractRandomSource,
+        logdensity, gradient, step_size::Real, steps::Integer,
+        chain_count::Integer, current_positions::AbstractVector{<:Real})
+    chain_count > 0 || throw(ArgumentError("chain_count must be positive"))
+    steps > 0 || throw(ArgumentError("trajectory length must be positive"))
+    isfinite(step_size) && step_size > 0 ||
+        throw(ArgumentError("step size must be finite and positive"))
+    isempty(current_positions) &&
+        throw(ArgumentError("positions cannot be empty"))
+    all(isfinite, current_positions) ||
+        throw(ArgumentError("positions must be finite"))
+    checked_log = value -> checked_logdensity(logdensity, value)
+    checked_grad = value -> checked_gradient(gradient, value)
+    Float64.(_multi_marginal_transport_hmc_step!(source, checked_log,
+        checked_grad, Float64(step_size), Int(steps), Int(chain_count),
+        Float64.(current_positions)))
+end
 
 end
