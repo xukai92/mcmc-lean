@@ -68,6 +68,7 @@ import Mcmc.Executable.IR
 import Mcmc.Executable.GaussianRWMH
 import Mcmc.Executable.Continuous.CompilerIR
 import Mcmc.Executable.Continuous.RWMH
+import Mcmc.Executable.Continuous.MALA
 import Mcmc.Executable.Continuous.BarkerRWMH
 import Mcmc.Executable.Continuous.HMC
 import Mcmc.Executable.Continuous.HMCVariants
