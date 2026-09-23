@@ -29,6 +29,11 @@ def structuredProgram : Program where
 def densePmalaProgram : Program where
   name := "dense_pmala_step!"
 
+/-- Active-Sketch sMMALA: simplified manifold MALA with sketched metric
+`G(x) = S(x)ᵀS(x) + λI`. -/
+def activeSketchSmMalaProgram : Program where
+  name := "active_sketch_smmala_step!"
+
 private def quote (value : String) : String := "\"" ++ value ++ "\""
 
 def Program.render (program : Program) : String :=
@@ -83,5 +88,16 @@ def renderDensePmala : String :=
   " (input real \"step_size\") (input real-vector \"current\"))" ++
   " (body (return (dense-pmala (var source \"source\")" ++
   " (var real \"step_size\") (var real-vector \"current\")))))"
+
+/-- Render Active-Sketch sMMALA with sketch callback and regularization. -/
+def renderActiveSketchSmMala : String :=
+  "(program " ++ quote activeSketchSmMalaProgram.name ++
+  " (inputs (input source \"source\") (input log-density \"logdensity\")" ++
+  " (input gradient \"gradient\") (input sketch \"sketch\")" ++
+  " (input real \"step_size\") (input real \"regularization\")" ++
+  " (input real-vector \"current\"))" ++
+  " (body (return (active-sketch-smmala (var source \"source\")" ++
+  " (var real \"step_size\") (var real \"regularization\")" ++
+  " (var real-vector \"current\")))))"
 
 end Mcmc.Executable.Continuous.RiemannianCompilerIR

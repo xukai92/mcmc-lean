@@ -22,7 +22,7 @@ namespace Mcmc.Executable.IRFormat
 
 open Finite.CompilerIR
 
-def version : Nat := 28
+def version : Nat := 29
 
 private def quote (value : String) : String :=
   let escapedBackslash := value.replace "\\" "\\\\"
@@ -327,6 +327,7 @@ def render : String :=
     Continuous.RiemannianCompilerIR.renderDense,
     Continuous.RiemannianCompilerIR.renderStructured,
     Continuous.RiemannianCompilerIR.renderDensePmala,
+    Continuous.RiemannianCompilerIR.renderActiveSketchSmMala,
     Continuous.RelativisticCompilerIR.program.render,
     Continuous.RelativisticCompilerIR.certifiedPositionDependentProgram.render,
     restrictedTargetRender "restricted-gaussian-potential"
