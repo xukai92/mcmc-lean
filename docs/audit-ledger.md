@@ -64,7 +64,28 @@ Status codes:
 | turok2025drghmc | Executable refinement | `scalarDrGhmcTransition_position_eq` | Executable/Continuous/DRGHMC.lean | proved | IR interpreter replay = mathematical transition |
 | geyer1991 | Product-target invariance (finite, 2 temperatures) | `ParallelTempering.stationary` | Finite/ParallelTempering.lean | proved | Within-updates + MH swap preserves product distribution |
 | geyer1991 | Cold marginal projection | `ParallelTempering.cold_marginal` | Finite/ParallelTempering.lean | proved | First marginal of product target is cold distribution |
-| syed2022nrpt | Non-reversible schedule (DEO) | — | — | out-of-scope | Requires general-state PT formalization; planned for Part B |
-| syed2022nrpt | Round-trip rate bounds | — | — | out-of-scope | Requires non-reversible PT + mixing analysis; planned |
-| surjanovic2022varpt | Variational/generalized PT | — | — | out-of-scope | Requires general-state PT foundations |
+| geyer1991 | Product-target invariance (general-state, K temperatures) | `pairSwapKernel_invariant` | Kernel/ParallelTempering.lean | proved-with-hypotheses | Pair swap kernel invariance proved; full SEO/DEO composition invariance blocked on pi-withDensity bridge lemma |
+| geyer1991 | Swap kernel detailed balance (general-state) | `pairSwapKernel_isReversible` | Kernel/ParallelTempering.lean:198 | proved | Pairwise swap kernel satisfies detailed balance w.r.t. product target |
+| geyer1991 | Swap coordinate involutivity | `swapCoord_involutive` | Kernel/ParallelTempering.lean:100 | proved | Swapping twice returns to original |
+| geyer1991 | Swap coordinate measure preservation | `swapCoord_measurePreserving` | Kernel/ParallelTempering.lean:153 | proved | Swap preserves the product density target |
+| syed2022nrpt | SEO kernel definition (stochastic even-odd) | `seoKernel` | Kernel/ParallelTempering.lean:321 | proved | 50-50 mixture of even and odd swap kernels, defined |
+| syed2022nrpt | DEO kernel definition (deterministic even-odd) | `deoKernel` | Kernel/ParallelTempering.lean:329 | proved | Deterministic alternation even-odd, defined |
+| syed2022nrpt | SEO/DEO invariance | — | — | conditional | Definitions complete; invariance proof blocked on pi-withDensity bridge lemma connecting Measure.pi to withDensity |
+| syed2022nrpt | DEO non-reversibility | — | — | conditional | DEO kernel defined; non-reversibility proof requires the invariance bridge first |
+| syed2022nrpt | Round-trip rate bounds | — | — | out-of-scope | Requires mixing-time analysis beyond current scope |
+| surjanovic2022varpt | Variational/generalized PT | — | — | out-of-scope | Requires adaptation theory beyond current scope |
 | surjanovic2025pigeons | Distributed parallelism invariance | — | — | out-of-scope | Systems claim; requires distributed-execution formalization |
+| zhou2020mixed | MH correction term (proceedings version) | — | — | corrected | Proceedings used incorrect MH correction due to supplementary lemma error; author acknowledged and fixed on arXiv |
+| zhou2020mixed | MH correction term (arXiv/corrected version) | — | — | conditional | Corrected term needs formalization; classified as conditional pending Lean implementation |
+| zhou2020mixed | Detailed balance of mixed discrete/continuous transition | — | — | conditional | Requires formalization of the embedded discrete/continuous target and the mixed HMC kernel |
+| zhou2020mixed | Q_i(x\|x)=0 requirement for correctness | — | — | out-of-scope | Algorithmic design constraint, not a mathematical theorem |
+| nishimura2020dhmc | Exact energy preservation (coordinatewise crossing/reflection) | `discontinuousCoordinateStep_energy` | Hamiltonian/Discontinuous.lean:61 | proved | Scalar Laplace-momentum coordinate update preserves total energy |
+| nishimura2020dhmc | Reflection involutivity | `discontinuous_reflect_reflect` | Hamiltonian/Discontinuous.lean:75 | proved | Double reflection returns to original phase state |
+| nishimura2020dhmc | Crossing probability = MH acceptance | `expMeasure_crossing_probability_eq_mh_acceptance` | Hamiltonian/DiscontinuousMetropolis.lean:54 | proved | Exponential-measure crossing probability equals the target ratio acceptance |
+| nishimura2020dhmc | One-step kernel target invariance | `oneStepDiscontinuousKernel_stationary` | Hamiltonian/DiscontinuousMetropolis.lean:79 | proved | Single-coordinate discontinuous HMC kernel preserves target |
+| nishimura2020dhmc | Volume preservation of the multi-coordinate integrator | — | — | conditional | Requires measure-theoretic volume-preservation theorem for the composed coordinatewise updates |
+| nishimura2020dhmc | Full kernel invariance (all coordinates) | — | — | conditional | Requires composed multi-coordinate kernel + momentum refreshment formalization |
+| nishimura2020dhmc | Connection to zig-zag sampler | — | — | out-of-scope | Theoretical comparison, not a correctness claim |
+| zoltowski2025parallel | Sequential-parallel equivalence of Newton fixed-point | — | — | conditional | Deterministic refinement claim; requires formalization of the Newton iteration and convergence proof |
+| zoltowski2025parallel | O(log T) parallel complexity | — | — | out-of-scope | Computational complexity claim, not a correctness/invariance result |
+| zoltowski2025parallel | Exact chain reproduction (no approximation error) | — | — | conditional | Requires proof that the fixed-point solver converges to the exact sequential solution |
