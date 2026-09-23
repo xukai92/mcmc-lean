@@ -102,6 +102,7 @@ import Mcmc.Executable.Continuous.MultinomialRefinement
 import Mcmc.Executable.Continuous.MetricRefinement
 import Mcmc.Executable.Continuous.MultiMarginalCompilerIR
 import Mcmc.Executable.Continuous.CoupledXu21
+import Mcmc.Executable.Continuous.CoupledRefinement
 import Mcmc.Executable.Continuous.RelativisticCompilerIR
 import Mcmc.Executable.Continuous.RiemannianCompilerIR
 import Mcmc.Executable.Continuous.RelativisticCertificates
