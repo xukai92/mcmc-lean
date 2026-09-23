@@ -1496,6 +1496,8 @@ function multi_marginal_transport_hmc_step!(
     dim = total ÷ K
     workspace.dim == dim && workspace.chain_count == K ||
         throw(DimensionMismatch("workspace dimensions do not match"))
+    size(workspace.positions, 2) >= Int(steps) + 1 ||
+        throw(DimensionMismatch("workspace was created for fewer steps"))
     p = workspace.momentum
     @inbounds for i in eachindex(p)
         p[i] = T(standard_normal!(source))

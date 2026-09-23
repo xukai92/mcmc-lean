@@ -46,8 +46,14 @@ function _autocorrelation_ess(chain::AbstractVector{<:Real})
     n / tau
 end
 
+"""Evaluate multi-marginal transport HMC on a test target.
+
+`gradient` is the potential gradient ∇U where U = -logdensity (the sampler
+convention used throughout this project). For a standard Gaussian with
+U(x) = ||x||²/2, pass `gradient = x -> x`, not `x -> -x`.
+"""
 function evaluate(;
-        logdensity, gradient, dim::Int, step_size::Real, L::Int, K::Int,
+        logdensity, potential_gradient, dim::Int, step_size::Real, L::Int, K::Int,
         N::Int, seed::UInt64=UInt64(42), meeting_trials::Int=0,
         meeting_horizon::Int=1000)
     rng_coupled = MersenneTwister(seed)
@@ -61,13 +67,13 @@ function evaluate(;
 
     for step in 1:N
         coupled_flat = multi_marginal_transport_hmc_step!(
-            RNGSource(rng_coupled), logdensity, gradient,
+            RNGSource(rng_coupled), logdensity, potential_gradient,
             Float64(step_size), L, K, coupled_flat)
         coupled_samples[:, step] = coupled_flat
 
         for k in 1:K
             independent_chains[k] = multinomial_hmc_step!(
-                RNGSource(rng_independent), logdensity, gradient,
+                RNGSource(rng_independent), logdensity, potential_gradient,
                 Float64(step_size), L, independent_chains[k])
         end
         for k in 1:K
@@ -109,7 +115,7 @@ function evaluate(;
             met = nothing
             for t in 1:meeting_horizon
                 pos = multi_marginal_transport_hmc_step!(
-                    RNGSource(rng_trial), logdensity, gradient,
+                    RNGSource(rng_trial), logdensity, potential_gradient,
                     Float64(step_size), L, 2, pos)
                 if pos[1:dim] ≈ pos[dim+1:2*dim]
                     met = t
