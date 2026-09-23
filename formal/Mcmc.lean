@@ -69,6 +69,7 @@ import Mcmc.Executable.GaussianRWMH
 import Mcmc.Executable.Continuous.CompilerIR
 import Mcmc.Executable.Continuous.RWMH
 import Mcmc.Executable.Continuous.MALA
+import Mcmc.Executable.Continuous.DensePMALA
 import Mcmc.Executable.Continuous.BarkerRWMH
 import Mcmc.Executable.Continuous.HMC
 import Mcmc.Executable.Continuous.HMCVariants
@@ -134,6 +135,7 @@ import Mcmc.Hamiltonian.GeneralizedHMC
 import Mcmc.Hamiltonian.DelayedRejection
 import Mcmc.Hamiltonian.ParallelIntegrators
 import Mcmc.Hamiltonian.GaussLegendre
+import Mcmc.Executable.Continuous.GaussLegendreHMC
 import Mcmc.Kernel.Coupling
 import Mcmc.Kernel.AuxiliaryGibbs
 import Mcmc.Kernel.ComposableInference
