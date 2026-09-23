@@ -31,7 +31,7 @@ grep -rn 'theorem.*refines\|theorem.*programKernel' \
 
 ## Current status (26 programs, IR version 29)
 
-### Proved (8/26)
+### Proved (12/26)
 
 | IR program | Refinement theorem | File |
 |---|---|---|
@@ -43,19 +43,19 @@ grep -rn 'theorem.*refines\|theorem.*programKernel' \
 | `vector_hmc_step!` | `runVectorHmc_refines` | Continuous/CompilerIR.lean |
 | `scalar_dr_ghmc_step!` | `runScalarDrGhmc_refines` | Continuous/CompilerIR.lean |
 | `active_sketch_smmala_step!` | `activeSketchSmmalaProgramKernel_refines` | Continuous/ActiveSketchSMMALA.lean |
+| `scalar_mala_step!` | `scalarMalaProgramKernel_refines` | Continuous/MALA.lean |
+| `multinomial_hmc_step!` | `multinomialHmcProgramKernel_refines` | Continuous/MultinomialRefinement.lean |
+| `diagonal_multinomial_hmc_step!` | `diagonalMultinomialHmcProgramKernel_refines` | Continuous/MultinomialRefinement.lean |
+| `dense_multinomial_hmc_step!` | `denseMultinomialHmcProgramKernel_refines` | Continuous/MultinomialRefinement.lean |
 
-### Open — kernel theorem exists, refinement open (10/26)
+### Open — kernel theorem exists, refinement open (6/26)
 
 | IR program | Kernel theorem | Gap |
 |---|---|---|
-| `scalar_mala_step!` | `Kernel.Langevin` invariance | Stochastic command-to-kernel composition |
-| `vector_mala_step!` | `Kernel.Langevin` invariance | Same as scalar |
+| `vector_mala_step!` | `Kernel.Langevin` invariance | Vector version of proved scalar MALA pattern |
 | `dense_pmala_step!` | `Kernel.PositionDependentMALA` | Measurability + Gaussian normalization |
-| `multinomial_hmc_step!` | `positionMultinomialHMC` invariance | Command-to-multinomial-kernel |
 | `diagonal_hmc_step!` | metric HMC invariance | Metric-specific command refinement |
 | `dense_hmc_step!` | metric HMC invariance | Same |
-| `diagonal_multinomial_hmc_step!` | metric multinomial HMC | Metric-specific command refinement |
-| `dense_multinomial_hmc_step!` | metric multinomial HMC | Same |
 | `vector_gauss_legendre_hmc_step!` | GL integrator theorems | Implicit-solver command refinement |
 | `multi_marginal_transport_hmc_step!` | marginal preservation | Command-to-coupling-kernel |
 
