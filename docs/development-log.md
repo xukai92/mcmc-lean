@@ -1,5 +1,51 @@
 # Development log
 
+## 2026-09-24: statistical-efficiency benchmark suite
+
+Added `benchmark/statistical_efficiency.jl` — a self-contained benchmark that
+evaluates Active-Sketch sMMALA and Multi-Marginal Transport HMC with full
+sampling diagnostics from MCMCDiagnosticTools.jl (bulk/tail ESS, R-hat, MCSE).
+
+**Active-Sketch sMMALA** is benchmarked against MALA and multinomial HMC
+baselines on isotropic and correlated Gaussian targets. Gradient and
+sketch-probe evaluations are counted via mutable closures, and the
+cost-normalized metric ESS/(gradient+probe) isolates algorithmic efficiency
+from implementation speed. Conformance gates (Reference vs Optimized numerical
+replay) run before every timed configuration. Float32 type propagation is
+validated. Development-mode results (d=10, rank=5, 2 chains, 1000 retained
+draws):
+
+- Isotropic Gaussian: ESS/(grad+probe) = 0.000238 vs MALA 0.00548 (ratio 0.04)
+  and HMC 0.00192 (ratio 0.12). Active-Sketch is not competitive.
+- Correlated Gaussian ρ=0.9: ESS/(grad+probe) = 0.000121 vs MALA 0.00115
+  (ratio 0.11) and HMC 0.000268 (ratio 0.45). Closer to HMC but still
+  dominated by the per-step probe cost (2 sketch evaluations × 5 probes each).
+
+At d=10 with rank 5, the sketch-probe overhead (10 gradient-equivalents per
+step) dominates the benefit from curvature information in the metric. A
+competitive regime may require either higher dimension where the simplified
+drift (no O(d⁴) metric-derivative divergence) dominates, or a target where
+curvature varies strongly across the state space. The development run is too
+short (R-hat up to 1.73) for definitive conclusions; the full run with 4 chains
+× 10,000 draws at d=10/50/100 and ranks 5/10/20 is needed.
+
+**Multi-Marginal Transport HMC** uses the Reference implementation, comparing
+K coupled chains (shared momentum) against K independent multinomial HMC
+chains. Development results (d=10, K∈{2,4}):
+
+- Isotropic Gaussian: median variance reduction ≈ 1.0 (no benefit from
+  coupling on this isometry-invariant target).
+- Correlated Gaussian ρ=0.9: median VR 1.17–1.62 across chains (modest
+  variance reduction; the shared momentum creates correlation that partially
+  cancels coordinate-level variance).
+- Meeting times (K=2): 0/20 trials met within 1000-step horizon on both
+  targets. The coupling is not contractive for these configurations.
+
+The benchmark adds MCMCDiagnosticTools.jl v0.3.19 to the benchmark environment.
+Results are written to `benchmark/results/statistical_efficiency/` with full
+provenance (Julia version, BLAS config, git commit, hostname, thread count).
+The `--dev` flag runs a reduced workload (2 seeds, 1000 draws, d=10 only).
+
 ## 2026-09-23: multi-marginal transport HMC end-to-end
 
 Proved `multiMarginalTransportHMC_marginal`: each coordinate marginal of the

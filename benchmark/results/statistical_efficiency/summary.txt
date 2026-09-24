@@ -1,0 +1,41 @@
+Statistical-Efficiency Benchmark Summary
+==================================================
+Mode: development (--dev)
+Date: 2026-09-24T01:51:49.010
+Chains: 2, Warmup: 1000, Retained: 1000
+
+Active-Sketch sMMALA Results
+----------------------------------------
+  isotropic-gaussian d=10 active-sketch-smmala rank=5: bulk_ESS=11.4 tail_ESS=22.9 Rhat=1.2783 accept=0.994 ESS/grad=0.00143 ESS/(grad+probe)=0.000238
+  isotropic-gaussian d=10 mala rank=0: bulk_ESS=43.8 tail_ESS=118.3 Rhat=1.0734 accept=0.982 ESS/grad=0.00548 ESS/(grad+probe)=0.00548
+  isotropic-gaussian d=10 multinomial-hmc rank=0: bulk_ESS=153.3 tail_ESS=260.9 Rhat=1.0134 accept=0.907 ESS/grad=0.00192 ESS/(grad+probe)=0.00192
+  correlated-gaussian d=10 active-sketch-smmala rank=5: bulk_ESS=5.8 tail_ESS=19.2 Rhat=1.7278 accept=0.931 ESS/grad=0.000724 ESS/(grad+probe)=0.000121
+  correlated-gaussian d=10 mala rank=0: bulk_ESS=9.2 tail_ESS=19.4 Rhat=1.327 accept=0.804 ESS/grad=0.00115 ESS/(grad+probe)=0.00115
+  correlated-gaussian d=10 multinomial-hmc rank=0: bulk_ESS=21.5 tail_ESS=42.5 Rhat=1.0687 accept=0.906 ESS/grad=0.000268 ESS/(grad+probe)=0.000268
+
+Key Finding: Active-Sketch Competitive Regime
+----------------------------------------
+  isotropic-gaussian: best sketch (rank=5) ESS/(grad+probe) = 0.000238 vs MALA ESS/grad = 0.00548 (ratio=0.04)
+    vs HMC ESS/grad = 0.00192 (ratio=0.12)
+  correlated-gaussian: best sketch (rank=5) ESS/(grad+probe) = 0.000121 vs MALA ESS/grad = 0.00115 (ratio=0.11)
+    vs HMC ESS/grad = 0.000268 (ratio=0.45)
+
+Multi-Marginal Transport HMC Results
+----------------------------------------
+  isotropic-gaussian d=10 K=2 chain=1: coupled_ESS=152.1 ind_ESS=182.4 VR=0.989
+  isotropic-gaussian d=10 K=2 chain=2: coupled_ESS=179.2 ind_ESS=189.8 VR=1.061
+  isotropic-gaussian d=10 K=4 chain=1: coupled_ESS=199.1 ind_ESS=205.0 VR=1.01
+  isotropic-gaussian d=10 K=4 chain=2: coupled_ESS=172.0 ind_ESS=167.8 VR=1.102
+  isotropic-gaussian d=10 K=4 chain=3: coupled_ESS=175.5 ind_ESS=148.4 VR=1.021
+  isotropic-gaussian d=10 K=4 chain=4: coupled_ESS=127.6 ind_ESS=185.5 VR=1.02
+  correlated-gaussian d=10 K=2 chain=1: coupled_ESS=16.4 ind_ESS=14.0 VR=1.391
+  correlated-gaussian d=10 K=2 chain=2: coupled_ESS=27.3 ind_ESS=14.5 VR=1.171
+  correlated-gaussian d=10 K=4 chain=1: coupled_ESS=11.8 ind_ESS=11.9 VR=1.621
+  correlated-gaussian d=10 K=4 chain=2: coupled_ESS=39.7 ind_ESS=21.0 VR=1.453
+  correlated-gaussian d=10 K=4 chain=3: coupled_ESS=15.1 ind_ESS=19.9 VR=0.614
+  correlated-gaussian d=10 K=4 chain=4: coupled_ESS=28.3 ind_ESS=14.1 VR=1.007
+
+Meeting Times (K=2)
+----------------------------------------
+  isotropic-gaussian: 0/20 met
+  correlated-gaussian: 0/20 met
