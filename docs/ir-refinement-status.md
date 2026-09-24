@@ -59,7 +59,7 @@ verified mathematical kernel).
 | `dense_hmc_step!` | `denseHmcProgramKernel_refines` | Continuous/MetricRefinement.lean:55 | |
 | `dense_pmala_step!` | `densePmalaProgramKernel_refines` | Continuous/DensePMALA.lean:109 | Also has `densePmalaProgramKernel_invariant` |
 | `active_sketch_smmala_step!` | `activeSketchSmMalaProgramKernel_refines` | Continuous/ActiveSketchSMMALA.lean:103 | Also has `activeSketchSmMalaProgramKernel_invariant`; specializes dense PMALA with `G(x) = SᵀS + λI` |
-| `multi_marginal_transport_hmc_step!` | `multiMarginalTransportHmcProgramKernel_refines` | Continuous/MultiMarginalCompilerIR.lean:62 | Also has `_marginal` corollary |
+| `shared_momentum_multinomial_hmc_step!` | `sharedMomentumMultinomialHmcProgramKernel_refines` | Continuous/SharedMomentumCompilerIR.lean:62 | Also has `_marginal` corollary |
 | `coupled_multinomial_hmc_step!` | `coupledMultinomialHmcProgramKernel_refines` | Continuous/CoupledRefinement.lean:61 | Also has `_isCoupling` theorem |
 | `coupled_gaussian_rwmh_step!` | `coupledGaussianRwmhProgramKernel_refines` | Continuous/CoupledRefinement.lean:70 | Also has `_isCoupling` theorem |
 | `xu21_coupled_step!` | `xu21CoupledProgramKernel_refines` | Continuous/CoupledRefinement.lean:75 | Also has `_isCoupling` theorem |
@@ -117,7 +117,7 @@ No open programs remain.
 
 15 + 5 + 7 = 27. Of these, 15 have the strongest (modeled-kernel)
 refinement, including the two novel samplers:
-`active_sketch_smmala_step!` and `multi_marginal_transport_hmc_step!`.
+`active_sketch_smmala_step!` and `shared_momentum_multinomial_hmc_step!`.
 The 5 replay-spec programs have open gaps for command-to-kernel composition.
 The 7 conditional programs are honestly conditional on solver certificates.
 No programs remain open.
@@ -129,14 +129,14 @@ No programs remain open.
 - 2026-09-23: Merged both novel samplers. Active-Sketch sMMALA added as
   27th program with modeled-kernel refinement
   (`activeSketchSmMalaProgramKernel_refines`, specializes dense PMALA with
-  `G(x) = SᵀS + λI`). Multi-Marginal Transport HMC closed the sole open
-  program with `multiMarginalTransportHmcProgramKernel_refines` and
-  `multiMarginalTransportHMC_marginal` (each coordinate marginal equals
+  `G(x) = SᵀS + λI`). Shared-momentum multinomial HMC closed the sole open
+  program with `sharedMomentumMultinomialHmcProgramKernel_refines` and
+  `sharedMomentumMultinomialHMC_marginal` (each coordinate marginal equals
   `positionMultinomialHMC`). Updated counts: 15 modeled + 5 replay +
   7 conditional + 0 open = 27 programs.
 - 2026-09-23: Reconciled with actual Lean on main. Reclassified by theorem
   strength (modeled-kernel / replay-spec / conditional / open). Removed phantom
   `active_sketch_smmala_step!` row (not in Samplers.ir). Corrected
-  `multi_marginal_transport_hmc_step!` to open. Fixed counts: 14 modeled +
+  `shared_momentum_multinomial_hmc_step!` to open. Fixed counts: 14 modeled +
   5 replay + 7 conditional + 1 open = 26 + 1 not-in-IR.
 - 2026-09-23: Initial creation and batched refinement work.

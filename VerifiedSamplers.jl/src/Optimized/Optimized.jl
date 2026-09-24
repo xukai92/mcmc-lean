@@ -28,7 +28,7 @@ export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_ou
     MALAWorkspace, prepare_mala_workspace,
     DensePMALAWorkspace, prepare_dense_pmala_workspace,
     ActiveSketchSMMALAWorkspace, prepare_active_sketch_smmala_workspace,
-    MultiMarginalTransportHMCWorkspace, multi_marginal_transport_hmc_step!
+    SharedMomentumMultinomialHMCWorkspace, shared_momentum_multinomial_hmc_step!
 
 @inline _affine_comp(later, earlier) =
     (later[1] * earlier[1], later[1] * earlier[2] + later[2])
@@ -1543,8 +1543,8 @@ function finite_mh_step!(source::AbstractRandomSource,
     draw_below!(source, acceptance_bound) < acceptance_mass ? proposed : current
 end
 
-"""Preallocated workspace for multi-marginal transport HMC."""
-mutable struct MultiMarginalTransportHMCWorkspace{T<:AbstractFloat}
+"""Preallocated workspace for shared-momentum multinomial HMC."""
+mutable struct SharedMomentumMultinomialHMCWorkspace{T<:AbstractFloat}
     dim::Int
     chain_count::Int
     momentum::Vector{T}
@@ -1557,12 +1557,12 @@ mutable struct MultiMarginalTransportHMCWorkspace{T<:AbstractFloat}
     force::Vector{T}
 end
 
-function MultiMarginalTransportHMCWorkspace{T}(dim::Int, chain_count::Int,
+function SharedMomentumMultinomialHMCWorkspace{T}(dim::Int, chain_count::Int,
         steps::Int) where {T<:AbstractFloat}
     dim > 0 || throw(ArgumentError("dimension must be positive"))
     chain_count > 0 || throw(ArgumentError("chain_count must be positive"))
     steps > 0 || throw(ArgumentError("steps must be positive"))
-    MultiMarginalTransportHMCWorkspace{T}(dim, chain_count,
+    SharedMomentumMultinomialHMCWorkspace{T}(dim, chain_count,
         Vector{T}(undef, dim), Matrix{T}(undef, dim, steps + 1),
         Vector{T}(undef, steps + 1), Vector{T}(undef, dim),
         Vector{T}(undef, dim), Vector{T}(undef, dim),
@@ -1623,13 +1623,13 @@ function _multinomial_select_with_shared_momentum!(
     copy(@view positions[:, selected])
 end
 
-"""Multi-marginal transport HMC with preallocated workspace.
+"""Shared-momentum multinomial HMC with preallocated workspace.
 
 All K chains share one momentum draw and independently select trajectory
 indices via multinomial weighting.
 """
-function multi_marginal_transport_hmc_step!(
-        workspace::MultiMarginalTransportHMCWorkspace{T},
+function shared_momentum_multinomial_hmc_step!(
+        workspace::SharedMomentumMultinomialHMCWorkspace{T},
         source::AbstractRandomSource, logdensity, gradient,
         step_size::T, steps::Integer, chain_count::Integer,
         current_positions::AbstractVector{T}) where {T<:AbstractFloat}
@@ -1665,8 +1665,8 @@ function multi_marginal_transport_hmc_step!(
     result
 end
 
-"""Multi-marginal transport HMC without preallocated workspace."""
-function multi_marginal_transport_hmc_step!(
+"""Shared-momentum multinomial HMC without preallocated workspace."""
+function shared_momentum_multinomial_hmc_step!(
         source::AbstractRandomSource, logdensity, gradient,
         step_size::T, steps::Integer, chain_count::Integer,
         current_positions::AbstractVector{T}) where {T<:AbstractFloat}
@@ -1680,8 +1680,8 @@ function multi_marginal_transport_hmc_step!(
     total % K == 0 ||
         throw(DimensionMismatch("position length must be divisible by chain_count"))
     dim = total ÷ K
-    workspace = MultiMarginalTransportHMCWorkspace{T}(dim, K, Int(steps))
-    multi_marginal_transport_hmc_step!(workspace, source, logdensity, gradient,
+    workspace = SharedMomentumMultinomialHMCWorkspace{T}(dim, K, Int(steps))
+    shared_momentum_multinomial_hmc_step!(workspace, source, logdensity, gradient,
         step_size, steps, chain_count, current_positions)
 end
 

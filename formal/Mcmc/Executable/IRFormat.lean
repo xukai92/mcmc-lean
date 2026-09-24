@@ -9,7 +9,7 @@ import Mcmc.Executable.Continuous.RestrictedArtifact
 import Mcmc.Executable.ComposableIR
 import Mcmc.Executable.ConstrainedTransformIR
 import Mcmc.Executable.DynamicTreeIR
-import Mcmc.Executable.Continuous.MultiMarginalCompilerIR
+import Mcmc.Executable.Continuous.SharedMomentumCompilerIR
 import Mcmc.Executable.Continuous.NUTSIR
 
 /-!
@@ -323,7 +323,7 @@ def render : String :=
     Continuous.MetricCompilerIR.diagonalMultinomialHmcProgram.render,
     Continuous.MetricCompilerIR.denseMultinomialHmcProgram.render,
     Continuous.MultinomialCompilerIR.program.render,
-    Continuous.MultiMarginalCompilerIR.program.render,
+    Continuous.SharedMomentumCompilerIR.program.render,
     Continuous.RiemannianCompilerIR.program.render,
     Continuous.RiemannianCompilerIR.renderApproximate,
     Continuous.RiemannianCompilerIR.renderDense,

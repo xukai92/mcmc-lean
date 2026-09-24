@@ -165,10 +165,10 @@ function conformance_gate_mm(target, step_size, steps, K)
     end
     initial = 0.1 .* randn(rng, d * K)
     result = Evaluation.replay_pair(events,
-        source -> Reference.multi_marginal_transport_hmc_step!(source,
+        source -> Reference.shared_momentum_multinomial_hmc_step!(source,
             target.logdensity, target.potential_gradient,
             Float64(step_size), steps, K, Float64.(initial)),
-        source -> Optimized.multi_marginal_transport_hmc_step!(source,
+        source -> Optimized.shared_momentum_multinomial_hmc_step!(source,
             target.logdensity, target.potential_gradient,
             Float64(step_size), steps, K, Float64.(initial)))
     Evaluation.conforms_numerical(result; atol=1e-10)
@@ -201,13 +201,13 @@ function run_coupled_arm(target, K::Int, step_size::T, steps::Int,
     d = target.dimension
     counted_log, counted_grad, log_count, grad_count =
         make_counters(target.logdensity, target.potential_gradient)
-    workspace = Optimized.MultiMarginalTransportHMCWorkspace{T}(d, K, steps)
+    workspace = Optimized.SharedMomentumMultinomialHMCWorkspace{T}(d, K, steps)
     rng = Random.Xoshiro(seed)
     source = Runtime.RNGSource(rng)
     position = zeros(T, K * d)
     chain = Matrix{T}(undef, K * d, TOTAL_DRAWS)
     for i in 1:TOTAL_DRAWS
-        position = Optimized.multi_marginal_transport_hmc_step!(workspace,
+        position = Optimized.shared_momentum_multinomial_hmc_step!(workspace,
             source, counted_log, counted_grad,
             step_size, steps, K, position)
         chain[:, i] = position
@@ -368,7 +368,7 @@ function run_pooled_benchmark(targets)
         for K in K_VALUES
             println("[pooled] target=$(target.name) d=$d K=$K")
 
-            print("  conformance (mm-thmc): ")
+            print("  conformance (sm-mhmc): ")
             if !conformance_gate_mm(target, step_size, LEAPFROG_STEPS, K)
                 println("FAILED — skipping K=$K")
                 continue
@@ -676,7 +676,7 @@ function run_coupling_diagnostics(targets)
                 met_tol_1 = false
 
                 for t in 1:MEETING_HORIZON
-                    pos = Optimized.multi_marginal_transport_hmc_step!(source,
+                    pos = Optimized.shared_momentum_multinomial_hmc_step!(source,
                         target.logdensity, target.potential_gradient,
                         Float64(step_size), LEAPFROG_STEPS, K, pos)
                     dist = norm(pos[1:d] .- pos[d+1:2*d])
@@ -732,13 +732,13 @@ function float32_validation()
         q -> copy(q),
         zeros(Float32, d), ones(Float32, d), step_size)
 
-    workspace = Optimized.MultiMarginalTransportHMCWorkspace{Float32}(d, K, LEAPFROG_STEPS)
+    workspace = Optimized.SharedMomentumMultinomialHMCWorkspace{Float32}(d, K, LEAPFROG_STEPS)
     rng = Random.Xoshiro(42)
     source = Runtime.RNGSource(rng)
     position = zeros(Float32, K * d)
 
     for _ in 1:10
-        position = Optimized.multi_marginal_transport_hmc_step!(workspace,
+        position = Optimized.shared_momentum_multinomial_hmc_step!(workspace,
             source, target.logdensity, target.potential_gradient,
             step_size, LEAPFROG_STEPS, K, position)
     end
@@ -818,7 +818,7 @@ function write_summary(pooled_rows, contrast_rows, meeting_rows)
     mkpath(RESULTS_DIR)
     path = joinpath(RESULTS_DIR, "summary.txt")
     open(path, "w") do io
-        println(io, "Multi-Marginal Transport HMC Benchmark Summary")
+        println(io, "Shared-Momentum Multinomial HMC Benchmark Summary")
         println(io, "=" ^ 50)
         println(io, "Mode: $(DEV_MODE ? "development (--dev)" : "full")")
         println(io, "Date: $(Dates.now())")
@@ -957,7 +957,7 @@ end
 # --- Main ---
 
 function main()
-    println("Multi-Marginal Transport HMC Benchmark")
+    println("Shared-Momentum Multinomial HMC Benchmark")
     println("Mode: $(DEV_MODE ? "development (--dev)" : "full")")
     println("Protocol: $(CHAIN_COUNT) replicates × " *
         "$(WARMUP) warmup + $(RETAINED) retained draws")

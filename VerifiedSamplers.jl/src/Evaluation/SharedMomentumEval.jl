@@ -1,19 +1,19 @@
-"""Evaluation utilities for multi-marginal transport HMC.
+"""Evaluation utilities for shared-momentum multinomial HMC.
 
 Compare K coupled chains (shared momentum) vs K independent chains on
 a test target. Reports variance reduction, pairwise chain correlation,
 ESS per gradient evaluation, and meeting-time tails (K=2).
 """
-module MultiMarginalEval
+module SharedMomentumEval
 
 using Random
 using Statistics
 using LinearAlgebra
 
 using ...Runtime: RNGSource, standard_normal!, draw_below!, uniform_unit!
-using ...Reference: multi_marginal_transport_hmc_step!, multinomial_hmc_step!
+using ...Reference: shared_momentum_multinomial_hmc_step!, multinomial_hmc_step!
 
-struct MultiMarginalDiagnostic
+struct SharedMomentumDiagnostic
     seed::UInt64
     step_size::Float64
     L::Int
@@ -46,7 +46,7 @@ function _autocorrelation_ess(chain::AbstractVector{<:Real})
     n / tau
 end
 
-"""Evaluate multi-marginal transport HMC on a test target.
+"""Evaluate shared-momentum multinomial HMC on a test target.
 
 `gradient` is the potential gradient ∇U where U = -logdensity (the sampler
 convention used throughout this project). For a standard Gaussian with
@@ -66,7 +66,7 @@ function evaluate(;
     independent_samples = Matrix{Float64}(undef, K * dim, N)
 
     for step in 1:N
-        coupled_flat = multi_marginal_transport_hmc_step!(
+        coupled_flat = shared_momentum_multinomial_hmc_step!(
             RNGSource(rng_coupled), logdensity, potential_gradient,
             Float64(step_size), L, K, coupled_flat)
         coupled_samples[:, step] = coupled_flat
@@ -114,7 +114,7 @@ function evaluate(;
             pos[dim+1:2*dim] .= 0.5 .* randn(rng_trial, dim)
             met = nothing
             for t in 1:meeting_horizon
-                pos = multi_marginal_transport_hmc_step!(
+                pos = shared_momentum_multinomial_hmc_step!(
                     RNGSource(rng_trial), logdensity, potential_gradient,
                     Float64(step_size), L, 2, pos)
                 if pos[1:dim] ≈ pos[dim+1:2*dim]
@@ -126,16 +126,16 @@ function evaluate(;
         end
     end
 
-    MultiMarginalDiagnostic(seed, Float64(step_size), L, K, dim, N,
+    SharedMomentumDiagnostic(seed, Float64(step_size), L, K, dim, N,
         coupled_samples, independent_samples,
         coupled_variance, independent_variance, vr,
         pairwise_corr, coupled_ess_per_grad, independent_ess_per_grad,
         meeting_times)
 end
 
-function summary(d::MultiMarginalDiagnostic)
+function summary(d::SharedMomentumDiagnostic)
     lines = String[]
-    push!(lines, "Multi-marginal transport HMC evaluation")
+    push!(lines, "Shared-momentum multinomial HMC evaluation")
     push!(lines, "  seed=$(d.seed) step_size=$(d.step_size) L=$(d.L) K=$(d.K) dim=$(d.dim) N=$(d.N)")
     push!(lines, "  Variance reduction (ind/coupled): median=$(round(median(d.variance_reduction); digits=3))")
     push!(lines, "  Pairwise chain correlation (off-diagonal): $(round(mean(d.pairwise_correlation[i,j] for i in 1:d.K for j in 1:d.K if i != j); digits=4))")

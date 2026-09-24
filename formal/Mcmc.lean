@@ -45,7 +45,7 @@ import Mcmc.Examples.ParticleGibbs
 import Mcmc.Examples.ComposableInference
 import Mcmc.Examples.GeneralStatePgHmc
 import Mcmc.Examples.IntegerSlice
-import Mcmc.Examples.MultiMarginalTransportK2
+import Mcmc.Examples.SharedMomentumK2
 import Mcmc.Examples.FiniteVelocityFlip
 import Mcmc.Executable.Finite.Weights
 import Mcmc.Executable.Finite.Trace
@@ -101,7 +101,7 @@ import Mcmc.Executable.Continuous.MultinomialHMC
 import Mcmc.Executable.Continuous.MultinomialCompilerIR
 import Mcmc.Executable.Continuous.MultinomialRefinement
 import Mcmc.Executable.Continuous.MetricRefinement
-import Mcmc.Executable.Continuous.MultiMarginalCompilerIR
+import Mcmc.Executable.Continuous.SharedMomentumCompilerIR
 import Mcmc.Executable.Continuous.CoupledXu21
 import Mcmc.Executable.Continuous.CoupledRefinement
 import Mcmc.Executable.Continuous.RelativisticCompilerIR
@@ -122,7 +122,7 @@ import Mcmc.Hamiltonian.LocalContractivity
 import Mcmc.Hamiltonian.LogisticRegression
 import Mcmc.Hamiltonian.LogisticRegressionXu
 import Mcmc.Hamiltonian.CoupledMixture
-import Mcmc.Hamiltonian.MultiMarginalTransportHMC
+import Mcmc.Hamiltonian.SharedMomentumMultinomialHMC
 import Mcmc.Hamiltonian.HMC
 import Mcmc.Hamiltonian.TransportHMC
 import Mcmc.Hamiltonian.Invariance

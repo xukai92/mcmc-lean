@@ -4,7 +4,7 @@ import Mcmc.Kernel.ParallelTempering
 import Mathlib.MeasureTheory.Constructions.Pi
 
 /-!
-# Multi-marginal transport HMC kernel theory
+# Shared-momentum multinomial HMC kernel theory
 
 This module formalizes a K-chain generalization of the shared-momentum
 coupling from `CoupledMultinomialHMC.lean`.  All K chains draw one common
@@ -18,13 +18,13 @@ single-chain `positionMultinomialHMC`.
 * `reassociatePhaseK`: reassociate K positions × K momenta to K phase points
 * `sharedMomentumLiftK`: augment K positions with shared momentum
 * `independentTrajectoryK`: coordinatewise independent trajectory selection
-* `multiMarginalTransportHMC`: complete K-chain position kernel
+* `sharedMomentumMultinomialHMC`: complete K-chain position kernel
 
 ## Main results
 
 * `withinTemp_map_eval`: k-th marginal of coordinatewise application equals
   single-coordinate kernel
-* `multiMarginalTransportHMC_marginal`: each coordinate marginal equals
+* `sharedMomentumMultinomialHMC_marginal`: each coordinate marginal equals
   `positionMultinomialHMC`
 
 ## Design note
@@ -277,10 +277,10 @@ instance independentTrajectoryK_isMarkovKernel
 
 /-! ### Main joint kernel -/
 
-/-- Multi-marginal transport HMC: compose shared momentum lift, independent
+/-- Shared-momentum multinomial HMC: compose shared momentum lift, independent
 coordinatewise trajectory selection, and position projection.  All K chains
 share a single momentum draw and independently select trajectory indices. -/
-noncomputable def multiMarginalTransportHMC
+noncomputable def sharedMomentumMultinomialHMC
     (potential : Position ι → ℝ) (gradient : Position ι → Position ι)
     (ε : ℝ) (L : ℕ) (K : ℕ)
     (hpotential : Measurable potential) (hgradient : Measurable gradient)
@@ -289,15 +289,15 @@ noncomputable def multiMarginalTransportHMC
   (independentTrajectoryK potential gradient ε L hpotential hgradient K ∘ₖ
     sharedMomentumLiftK K momentumTarget).map (positionProjectK K)
 
-instance multiMarginalTransportHMC_isMarkovKernel
+instance sharedMomentumMultinomialHMC_isMarkovKernel
     (potential : Position ι → ℝ) (gradient : Position ι → Position ι)
     (ε : ℝ) (L : ℕ) (K : ℕ)
     (hpotential : Measurable potential) (hgradient : Measurable gradient)
     (momentumTarget : Measure (Momentum ι))
     [IsProbabilityMeasure momentumTarget] :
-    IsMarkovKernel (multiMarginalTransportHMC potential gradient ε L K
+    IsMarkovKernel (sharedMomentumMultinomialHMC potential gradient ε L K
       hpotential hgradient momentumTarget) := by
-  unfold multiMarginalTransportHMC
+  unfold sharedMomentumMultinomialHMC
   exact Kernel.IsMarkovKernel.map _ (measurable_positionProjectK K)
 
 /-! ### Marginal correctness -/
@@ -364,20 +364,20 @@ theorem comp_sharedLift_map_eval
       hpotential hgradient).measurable_coe hs) (measurable_pi_apply k),
     sharedMomentumLiftK_map_eval]
 
-/-- Each coordinate marginal of the multi-marginal transport HMC kernel
+/-- Each coordinate marginal of the shared-momentum multinomial HMC kernel
 equals the single-chain `positionMultinomialHMC` kernel. -/
-theorem multiMarginalTransportHMC_marginal
+theorem sharedMomentumMultinomialHMC_marginal
     (potential : Position ι → ℝ) (gradient : Position ι → Position ι)
     (ε : ℝ) (L : ℕ) (K : ℕ) (hpotential : Measurable potential)
     (hgradient : Measurable gradient)
     (momentumTarget : Measure (Momentum ι))
     [IsProbabilityMeasure momentumTarget]
     (k : Fin K) (x : Fin K → Position ι) :
-    (multiMarginalTransportHMC potential gradient ε L K
+    (sharedMomentumMultinomialHMC potential gradient ε L K
       hpotential hgradient momentumTarget x).map (Function.eval k) =
       positionMultinomialHMC potential gradient ε L hpotential hgradient
         momentumTarget (x k) := by
-  unfold multiMarginalTransportHMC positionMultinomialHMC
+  unfold sharedMomentumMultinomialHMC positionMultinomialHMC
   rw [Kernel.map_apply _ (measurable_positionProjectK K),
     Measure.map_map (measurable_pi_apply k) (measurable_positionProjectK K),
     positionProjectK_eval,

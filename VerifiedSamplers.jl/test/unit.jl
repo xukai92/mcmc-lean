@@ -354,9 +354,10 @@ end
         "dense_pmala_step!", "dense_rmhmc_step!",
         "diagonal_hmc_step!", "diagonal_multinomial_hmc_step!",
         "finite_mh_step!", "gaussian_rwmh_step!",
-        "multi_marginal_transport_hmc_step!", "multinomial_hmc_step!",
+        "multinomial_hmc_step!",
         "random_sketch_rmhmc_step!", "relativistic_multinomial_hmc_step!",
         "scalar_barker_rwmh_step!", "scalar_dr_ghmc_step!", "scalar_hmc_step!", "scalar_mala_step!",
+        "shared_momentum_multinomial_hmc_step!",
         "vector_gauss_legendre_hmc_step!", "vector_hmc_step!",
         "vector_mala_step!", "xu21_coupled_step!"]
     @test facets.targets == ["restricted-gaussian-potential",
