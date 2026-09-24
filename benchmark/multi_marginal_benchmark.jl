@@ -78,7 +78,7 @@ function benchmark_targets()
                 g = similar(q)
                 g[1] = v / 9
                 for i in 2:length(q)
-                    g[1] += (q[i]^2 / (2 * exp(v)) - 0.5)
+                    g[1] -= (q[i]^2 / (2 * exp(v)) - 0.5)
                 end
                 for i in 2:length(q)
                     g[i] = q[i] / exp(v)
@@ -122,7 +122,7 @@ function benchmark_targets()
                 g = similar(q)
                 g[1] = v / 9
                 for i in 2:length(q)
-                    g[1] += (q[i]^2 / (2 * exp(v)) - 0.5)
+                    g[1] -= (q[i]^2 / (2 * exp(v)) - 0.5)
                 end
                 for i in 2:length(q)
                     g[i] = q[i] / exp(v)
@@ -327,27 +327,6 @@ end
 
 # --- Diagnostics ---
 
-function compute_diagnostics(chains::Vector{<:AbstractMatrix{T}}) where {T}
-    d = size(first(chains), 1)
-    n_chains = length(chains)
-    n_draws = minimum(size(c, 2) for c in chains)
-    samples = Array{T,3}(undef, n_draws, n_chains, d)
-    for (c, chain) in enumerate(chains)
-        for p in 1:d
-            samples[:, c, p] = chain[p, 1:n_draws]
-        end
-    end
-    bulk = ess_rhat(samples; kind=:bulk)
-    tail = ess_rhat(samples; kind=:tail)
-    mcse_vals = mcse(samples; kind=mean)
-    (; min_bulk_ess=minimum(bulk.ess), min_tail_ess=minimum(tail.ess),
-        max_rhat=maximum(bulk.rhat),
-        median_bulk_ess=median(bulk.ess), median_tail_ess=median(tail.ess),
-        max_mcse=maximum(mcse_vals),
-        bulk_ess_per_param=bulk.ess, tail_ess_per_param=tail.ess,
-        rhat_per_param=bulk.rhat)
-end
-
 function compute_single_chain_diagnostics(chain::AbstractMatrix{T}) where {T}
     d = size(chain, 1)
     n_draws = size(chain, 2)
@@ -364,7 +343,7 @@ function compute_single_chain_diagnostics(chain::AbstractMatrix{T}) where {T}
         max_mcse_var=maximum(mcse_sq))
 end
 
-function compute_acceptance_rate(samples::AbstractMatrix{T}, d::Int, K::Int) where {T}
+function compute_acceptance_rate(samples::AbstractMatrix{T}) where {T}
     n = size(samples, 2)
     accepts = 0
     for i in 2:n
@@ -438,7 +417,8 @@ function run_pooled_benchmark(targets)
                         chain_data = r.retained[offset+1:offset+d, :]
                         diag = compute_single_chain_diagnostics(chain_data)
                         acc = compute_acceptance_rate(
-                            r.retained[offset+1:offset+d, :], d, 1)
+                            r.retained[offset+1:offset+d, :])
+                        mean_x1 = mean(chain_data[1, :])
                         push!(rows, (target=target.name, dimension=d,
                             K=K, arm=arm_name, chain=k,
                             replicate_seed=seed,
@@ -450,6 +430,7 @@ function run_pooled_benchmark(targets)
                             acceptance_rate=acc,
                             mcse_mean=diag.max_mcse_mean,
                             mcse_var=diag.max_mcse_var,
+                            mean_x1=mean_x1,
                             grad_count=r.grad_count,
                             logdensity_count=r.log_count,
                             wall_seconds=wall_seconds,
@@ -488,63 +469,6 @@ function make_shifted_target(base_target, shift_vector::Vector{T}) where {T}
         base_target.hmc_step_size)
 end
 
-function _crn_multinomial_select!(source::Runtime.AbstractRandomSource,
-        logdensity, gradient, step_size::T, steps::Int,
-        current::AbstractVector{T},
-        momentum::AbstractVector{T}) where {T<:AbstractFloat}
-    d = length(current)
-    ε = step_size
-    half_step = ε / T(2)
-    origin = Int(Runtime.draw_below!(source, steps + 1))
-
-    positions = Matrix{T}(undef, d, steps + 1)
-    logweights = Vector{T}(undef, steps + 1)
-
-    current_index = origin + 1
-    positions[:, current_index] = current
-    logweights[current_index] = T(logdensity(current)) - sum(abs2, momentum) / T(2)
-
-    bq, bp = copy(current), copy(momentum)
-    for index in origin:-1:1
-        force = T.(gradient(bq))
-        @. bp += half_step * force
-        @. bq -= ε * bp
-        force = T.(gradient(bq))
-        @. bp += half_step * force
-        positions[:, index] = bq
-        logweights[index] = T(logdensity(bq)) - sum(abs2, bp) / T(2)
-    end
-
-    fq, fp = copy(current), copy(momentum)
-    for index in (origin + 2):(steps + 1)
-        force = T.(gradient(fq))
-        @. fp -= half_step * force
-        @. fq += ε * fp
-        force = T.(gradient(fq))
-        @. fp -= half_step * force
-        positions[:, index] = fq
-        logweights[index] = T(logdensity(fq)) - sum(abs2, fp) / T(2)
-    end
-
-    max_weight = maximum(logweights)
-    total = zero(T)
-    @inbounds for i in eachindex(logweights)
-        logweights[i] = exp(logweights[i] - max_weight)
-        total += logweights[i]
-    end
-    target_draw = T(Runtime.uniform_unit!(source)) * total
-    cumulative = zero(T)
-    selected = steps + 1
-    @inbounds for i in eachindex(logweights)
-        cumulative += logweights[i]
-        if target_draw < cumulative
-            selected = i
-            break
-        end
-    end
-    copy(@view positions[:, selected])
-end
-
 function run_crn_coupled(targets_shifted, K::Int, step_size::T, steps::Int,
         seed::Int) where {T<:AbstractFloat}
     d = targets_shifted[1].dimension
@@ -560,7 +484,7 @@ function run_crn_coupled(targets_shifted, K::Int, step_size::T, steps::Int,
             offset = (k - 1) * d
             chain_q = collect(position[offset+1:offset+d])
             t = targets_shifted[k]
-            selected = _crn_multinomial_select!(source,
+            selected = _shared_momentum_multinomial_step!(source,
                 t.logdensity, t.potential_gradient,
                 step_size, steps, chain_q, momentum)
             @inbounds result[offset+1:offset+d] = selected
@@ -751,7 +675,7 @@ function run_meeting_times(targets)
                     pos = Optimized.multi_marginal_transport_hmc_step!(source,
                         target.logdensity, target.potential_gradient,
                         Float64(step_size), LEAPFROG_STEPS, K, pos)
-                    if norm(pos[1:d] .- pos[d+1:2*d]) < 1e-12
+                    if norm(pos[1:d] .- pos[d+1:2*d]) < 1e-6
                         met = true
                         meeting_time = t
                         break
@@ -918,12 +842,19 @@ function write_summary(pooled_rows, contrast_rows, meeting_rows)
                     r.K == K && r.arm == "coupled", pooled_rows)
                 ind_data = filter(r -> r.target == target_name &&
                     r.K == K && r.arm == "independent", pooled_rows)
-                isempty(coupled_data) || isempty(ind_data) && continue
-                ind_var = var(r.bulk_ess for r in ind_data)
-                coupled_var = var(r.bulk_ess for r in coupled_data)
-                vr = coupled_var > 0 ? ind_var / coupled_var : NaN
-                println(io, "  $(target_name) K=$K: " *
-                    "VR(ESS variance)=$(round(vr; digits=3))")
+                (isempty(coupled_data) || isempty(ind_data)) && continue
+                ind_var = var(r.mean_x1 for r in ind_data)
+                coupled_var = var(r.mean_x1 for r in coupled_data)
+                shared_data = filter(r -> r.target == target_name &&
+                    r.K == K && r.arm == "shared-noise", pooled_rows)
+                shared_var = isempty(shared_data) ? NaN :
+                    var(r.mean_x1 for r in shared_data)
+                vr_coupled = coupled_var > 0 ? ind_var / coupled_var : NaN
+                vr_shared = shared_var > 0 ? ind_var / shared_var : NaN
+                d = first(ind_data).dimension
+                println(io, "  $(target_name) d=$d K=$K: " *
+                    "VR_coupled=$(round(vr_coupled; digits=3)) " *
+                    "VR_shared_noise=$(round(vr_shared; digits=3))")
             end
         end
 
@@ -984,7 +915,7 @@ function write_summary(pooled_rows, contrast_rows, meeting_rows)
 
         if !isempty(meeting_rows)
             println(io)
-            println(io, "Meeting Times (K=2)")
+            println(io, "Meeting Times (K=2, tolerance=1e-6)")
             println(io, "-" ^ 40)
             for target_name in unique(r.target for r in meeting_rows)
                 t_rows = filter(r -> r.target == target_name, meeting_rows)
