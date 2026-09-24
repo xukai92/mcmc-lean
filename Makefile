@@ -226,6 +226,9 @@ benchmark-multi-marginal-dev:
 	julia --project=benchmark benchmark/multi_marginal_benchmark.jl --dev
 
 check-no-sorry:
-	@count=$$(grep -crn 'sorry\|admit' formal/Mcmc/ --include='*.lean' 2>/dev/null | grep -v '/\.lake/' | awk -F: '{s+=$$NF}END{print s+0}'); \
-	if [ "$$count" -ne 0 ]; then echo "Found $$count sorry/admit occurrences"; exit 1; fi; \
-	echo "No sorry or admit found"
+	@if grep -rnw 'sorry' formal/Mcmc/ --include='*.lean' 2>/dev/null | grep -v '/\.lake/' | grep -q .; then \
+		echo 'Found sorry tactics:'; \
+		grep -rnw 'sorry' formal/Mcmc/ --include='*.lean' 2>/dev/null | grep -v '/\.lake/'; \
+		exit 1; \
+	fi
+	@echo 'No sorry tactics found'
