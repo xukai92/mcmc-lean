@@ -1,5 +1,53 @@
 # Development log
 
+## 2026-09-24: Star-transport-coupled multinomial HMC (28th IR program)
+
+Added `transport_coupled_multinomial_hmc_step!` as the 28th IR program with
+end-to-end Lean formalization, Julia implementation, and conformance tests.
+
+**Lean formalization** (`Mcmc.Hamiltonian.TransportCoupledMultinomialHMC`):
+- `transportCoupledMultinomialHMC`: K-chain position kernel composing
+  shared momentum lift, coordinatewise trajectory selection, and
+  position projection. Type: `Kernel (Fin K → Position ι) (Fin K → Position ι)`.
+- `transportCoupledMultinomialHMC_marginal`: each coordinate marginal
+  equals `positionMultinomialHMC` (the verified single-chain kernel).
+  No `sorry`, `admit`, or `axiom`.
+- `starTransportCoupling_pairwiseOptimal`: for each pair (0, k), the
+  `transportTrajectoryIndexCoupling` minimizes expected squared position
+  distance among all couplings with correct Boltzmann marginals.
+- `starTransportCoupling_isCoupling`: the transport coupling has the
+  correct trajectory-index marginals.
+
+**IR and refinement** (`Continuous/TransportCoupledCompilerIR.lean`,
+`Continuous/TransportCoupledRefinement.lean`):
+- `transportCoupledMultinomialHmcProgramKernel_refines`: program kernel
+  equals `transportCoupledMultinomialHMC` (modeled-kernel refinement).
+- `transportCoupledMultinomialHmcProgramKernel_marginal`: marginal
+  corollary for the IR program kernel.
+
+**Julia implementation** (`Optimized/Optimized.jl`):
+- `TransportCoupledMultinomialHMCWorkspace{T}`: preallocated buffers
+  for zero-allocation steady-state steps. Generic `T<:AbstractFloat`.
+- `transport_coupled_multinomial_hmc_step!`: star-topology transport
+  coupling. Chain 0 is reference; for each pair (0, k), trajectory
+  indices are coupled via greedy optimal transport under squared
+  position distance. Chain 0's index is sampled once; each chain k ≥ 1
+  is sampled from the conditional of the (0, k) transport plan.
+- Internal helpers: `_build_trajectory!`, `_logweights_to_weights!`,
+  `_solve_transport_plan!`, `_squared_position_cost!`,
+  `_sample_conditional!`.
+
+**Tests** (`test/transport_coupled.jl`):
+- K=2, K=3, K=4 basic execution
+- Workspace reuse
+- Float32 path validation
+- Marginal moment tests (K=2, K=3): mean ≈ 0, variance ≈ 1
+- Input validation (chain count, step size, dimension mismatch)
+
+**Limitation documented**: only (0, k) pairs use optimal transport coupling.
+The (i, j)-marginal for i, j ≠ 0 is NOT optimal — this is inherent to the
+star topology and is the multi-marginal transport problem.
+
 ## 2026-09-24: paper-quality shared-momentum multinomial HMC benchmark
 
 Added `benchmark/shared_momentum_benchmark.jl` — a self-contained, paper-quality

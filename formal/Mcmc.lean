@@ -104,6 +104,8 @@ import Mcmc.Executable.Continuous.MetricRefinement
 import Mcmc.Executable.Continuous.SharedMomentumCompilerIR
 import Mcmc.Executable.Continuous.CoupledXu21
 import Mcmc.Executable.Continuous.CoupledRefinement
+import Mcmc.Executable.Continuous.TransportCoupledCompilerIR
+import Mcmc.Executable.Continuous.TransportCoupledRefinement
 import Mcmc.Executable.Continuous.RelativisticCompilerIR
 import Mcmc.Executable.Continuous.RiemannianCompilerIR
 import Mcmc.Executable.Continuous.RelativisticCertificates
@@ -123,6 +125,7 @@ import Mcmc.Hamiltonian.LogisticRegression
 import Mcmc.Hamiltonian.LogisticRegressionXu
 import Mcmc.Hamiltonian.CoupledMixture
 import Mcmc.Hamiltonian.SharedMomentumMultinomialHMC
+import Mcmc.Hamiltonian.TransportCoupledMultinomialHMC
 import Mcmc.Hamiltonian.HMC
 import Mcmc.Hamiltonian.TransportHMC
 import Mcmc.Hamiltonian.Invariance

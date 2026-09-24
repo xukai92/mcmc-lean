@@ -29,6 +29,7 @@ include("integer_slice.jl")
 include("bounded_slice.jl")
 include("reversible_jump.jl")
 include("dynamic_tree.jl")
+include("transport_coupled.jl")
 
 @testset "finite categorical core" begin
     for (weights, expected) in (([1, 0, 2], [0, 2, 2]), ([2, 1], [0, 0, 1]))

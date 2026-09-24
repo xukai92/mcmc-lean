@@ -28,7 +28,8 @@ export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_ou
     MALAWorkspace, prepare_mala_workspace,
     DensePMALAWorkspace, prepare_dense_pmala_workspace,
     ActiveSketchSMMALAWorkspace, prepare_active_sketch_smmala_workspace,
-    SharedMomentumMultinomialHMCWorkspace, shared_momentum_multinomial_hmc_step!
+    SharedMomentumMultinomialHMCWorkspace, shared_momentum_multinomial_hmc_step!,
+    TransportCoupledMultinomialHMCWorkspace, transport_coupled_multinomial_hmc_step!
 
 @inline _affine_comp(later, earlier) =
     (later[1] * earlier[1], later[1] * earlier[2] + later[2])
@@ -1682,6 +1683,255 @@ function shared_momentum_multinomial_hmc_step!(
     dim = total ÷ K
     workspace = SharedMomentumMultinomialHMCWorkspace{T}(dim, K, Int(steps))
     shared_momentum_multinomial_hmc_step!(workspace, source, logdensity, gradient,
+        step_size, steps, chain_count, current_positions)
+end
+
+"""Preallocated workspace for transport-coupled multinomial HMC.
+
+All K chains share one momentum draw. Chain 0 is the reference; for each
+pair (0, k), trajectory indices are jointly selected via optimal transport
+coupling under squared position distance. Only (0, k) pairs are optimal;
+(i, j) for i, j ≠ 0 are NOT optimal transport.
+"""
+mutable struct TransportCoupledMultinomialHMCWorkspace{T<:AbstractFloat}
+    dim::Int
+    chain_count::Int
+    momentum::Vector{T}
+    positions::Matrix{T}
+    logweights::Vector{T}
+    forward_q::Vector{T}
+    forward_p::Vector{T}
+    backward_q::Vector{T}
+    backward_p::Vector{T}
+    force::Vector{T}
+    ref_positions::Matrix{T}
+    ref_logweights::Vector{T}
+    ref_weights::Vector{T}
+    chain_weights::Vector{T}
+    transport_plan::Matrix{T}
+end
+
+function TransportCoupledMultinomialHMCWorkspace{T}(dim::Int, chain_count::Int,
+        steps::Int) where {T<:AbstractFloat}
+    dim > 0 || throw(ArgumentError("dimension must be positive"))
+    chain_count > 0 || throw(ArgumentError("chain_count must be positive"))
+    steps > 0 || throw(ArgumentError("steps must be positive"))
+    n = steps + 1
+    TransportCoupledMultinomialHMCWorkspace{T}(dim, chain_count,
+        Vector{T}(undef, dim), Matrix{T}(undef, dim, n),
+        Vector{T}(undef, n), Vector{T}(undef, dim),
+        Vector{T}(undef, dim), Vector{T}(undef, dim),
+        Vector{T}(undef, dim), Vector{T}(undef, dim),
+        Matrix{T}(undef, dim, n), Vector{T}(undef, n),
+        Vector{T}(undef, n), Vector{T}(undef, n),
+        Matrix{T}(undef, n, n))
+end
+
+function _build_trajectory!(
+        logdensity, gradient, step_size::T, steps::Int,
+        current::AbstractVector{T}, momentum::AbstractVector{T},
+        positions::AbstractMatrix{T}, logweights::AbstractVector{T},
+        fq::Vector{T}, fp::Vector{T}, bq::Vector{T}, bp::Vector{T},
+        force::Vector{T}, origin::Int) where {T<:AbstractFloat}
+    ε = step_size
+    half_step = ε / T(2)
+    current_index = origin + 1
+    @inbounds positions[:, current_index] = current
+    logweights[current_index] = T(logdensity(current)) - sum(abs2, momentum) / T(2)
+    copyto!(bq, current)
+    copyto!(bp, momentum)
+    for index in origin:-1:1
+        force .= T.(gradient(bq))
+        @. bp += half_step * force
+        @. bq -= ε * bp
+        force .= T.(gradient(bq))
+        @. bp += half_step * force
+        @inbounds positions[:, index] = bq
+        logweights[index] = T(logdensity(bq)) - sum(abs2, bp) / T(2)
+    end
+    copyto!(fq, current)
+    copyto!(fp, momentum)
+    for index in (origin + 2):(steps + 1)
+        force .= T.(gradient(fq))
+        @. fp -= half_step * force
+        @. fq += ε * fp
+        force .= T.(gradient(fq))
+        @. fp -= half_step * force
+        @inbounds positions[:, index] = fq
+        logweights[index] = T(logdensity(fq)) - sum(abs2, fp) / T(2)
+    end
+    nothing
+end
+
+function _logweights_to_weights!(logweights::AbstractVector{T},
+        weights::AbstractVector{T}) where {T<:AbstractFloat}
+    max_w = maximum(logweights)
+    @inbounds for i in eachindex(logweights)
+        weights[i] = exp(logweights[i] - max_w)
+    end
+    nothing
+end
+
+function _solve_transport_plan!(plan::AbstractMatrix{T},
+        p::AbstractVector{T}, q::AbstractVector{T},
+        cost::AbstractMatrix{T}) where {T<:AbstractFloat}
+    n = length(p)
+    fill!(plan, zero(T))
+    supply = copy(p)
+    demand = copy(q)
+    for _ in 1:n*n
+        best_i, best_j = 1, 1
+        best_cost = typemax(T)
+        for i in 1:n, j in 1:n
+            if supply[i] > zero(T) && demand[j] > zero(T) && cost[i, j] < best_cost
+                best_cost = cost[i, j]
+                best_i, best_j = i, j
+            end
+        end
+        if best_cost == typemax(T)
+            break
+        end
+        amount = min(supply[best_i], demand[best_j])
+        plan[best_i, best_j] += amount
+        supply[best_i] -= amount
+        demand[best_j] -= amount
+    end
+    nothing
+end
+
+function _squared_position_cost!(cost::AbstractMatrix{T},
+        ref_positions::AbstractMatrix{T},
+        chain_positions::AbstractMatrix{T}) where {T<:AbstractFloat}
+    n = size(ref_positions, 2)
+    @inbounds for j in 1:n, i in 1:n
+        s = zero(T)
+        for d in 1:size(ref_positions, 1)
+            diff = ref_positions[d, i] - chain_positions[d, j]
+            s += diff * diff
+        end
+        cost[i, j] = s
+    end
+    nothing
+end
+
+function _sample_conditional!(source::AbstractRandomSource,
+        plan::AbstractMatrix{T}, ref_idx::Int) where {T<:AbstractFloat}
+    n = size(plan, 2)
+    total = zero(T)
+    @inbounds for j in 1:n
+        total += plan[ref_idx, j]
+    end
+    if total <= zero(T)
+        return 1
+    end
+    target = T(uniform_unit!(source)) * total
+    cumulative = zero(T)
+    @inbounds for j in 1:n
+        cumulative += plan[ref_idx, j]
+        if target < cumulative
+            return j
+        end
+    end
+    return n
+end
+
+"""Transport-coupled multinomial HMC with preallocated workspace.
+
+Star topology: chain 0 is reference. For each pair (0, k), trajectory
+indices are coupled via optimal transport under squared position distance.
+Chain 0's index is sampled from its Boltzmann marginal; each chain k ≥ 1
+is sampled from the conditional of the (0, k) transport coupling.
+"""
+function transport_coupled_multinomial_hmc_step!(
+        workspace::TransportCoupledMultinomialHMCWorkspace{T},
+        source::AbstractRandomSource, logdensity, gradient,
+        step_size::T, steps::Integer, chain_count::Integer,
+        current_positions::AbstractVector{T}) where {T<:AbstractFloat}
+    K = Int(chain_count)
+    K > 0 || throw(ArgumentError("chain_count must be positive"))
+    steps > 0 || throw(ArgumentError("trajectory length must be positive"))
+    isfinite(step_size) && step_size > 0 ||
+        throw(ArgumentError("step size must be finite and positive"))
+    total = length(current_positions)
+    total > 0 || throw(ArgumentError("positions cannot be empty"))
+    total % K == 0 ||
+        throw(DimensionMismatch("position length must be divisible by chain_count"))
+    dim = total ÷ K
+    workspace.dim == dim && workspace.chain_count == K ||
+        throw(DimensionMismatch("workspace dimensions do not match"))
+    n = Int(steps) + 1
+    size(workspace.positions, 2) >= n ||
+        throw(DimensionMismatch("workspace was created for fewer steps"))
+    p = workspace.momentum
+    @inbounds for i in eachindex(p)
+        p[i] = T(standard_normal!(source))
+    end
+    origin = Int(draw_below!(source, n))
+    ref_q = @view current_positions[1:dim]
+    _build_trajectory!(logdensity, gradient, step_size, Int(steps),
+        ref_q, p, workspace.ref_positions, workspace.ref_logweights,
+        workspace.forward_q, workspace.forward_p,
+        workspace.backward_q, workspace.backward_p,
+        workspace.force, origin)
+    _logweights_to_weights!(workspace.ref_logweights, workspace.ref_weights)
+    ref_total = sum(workspace.ref_weights)
+    ref_target = T(uniform_unit!(source)) * ref_total
+    ref_cumulative = zero(T)
+    ref_selected = n
+    @inbounds for i in 1:n
+        ref_cumulative += workspace.ref_weights[i]
+        if ref_target < ref_cumulative
+            ref_selected = i
+            break
+        end
+    end
+    result = Vector{T}(undef, total)
+    @inbounds result[1:dim] = @view workspace.ref_positions[:, ref_selected]
+    for k in 2:K
+        offset = (k - 1) * dim
+        chain_q = @view current_positions[offset + 1 : offset + dim]
+        _build_trajectory!(logdensity, gradient, step_size, Int(steps),
+            chain_q, p, workspace.positions, workspace.logweights,
+            workspace.forward_q, workspace.forward_p,
+            workspace.backward_q, workspace.backward_p,
+            workspace.force, origin)
+        _logweights_to_weights!(workspace.logweights, workspace.chain_weights)
+        ref_w = @view workspace.ref_weights[1:n]
+        chain_w = @view workspace.chain_weights[1:n]
+        ref_sum = sum(ref_w)
+        chain_sum = sum(chain_w)
+        ref_norm = ref_w ./ ref_sum
+        chain_norm = chain_w ./ chain_sum
+        _squared_position_cost!(workspace.transport_plan,
+            workspace.ref_positions, workspace.positions)
+        cost_copy = copy(workspace.transport_plan)
+        _solve_transport_plan!(workspace.transport_plan,
+            ref_norm, chain_norm, cost_copy)
+        chain_selected = _sample_conditional!(source,
+            workspace.transport_plan, ref_selected)
+        @inbounds result[offset + 1 : offset + dim] =
+            @view workspace.positions[:, chain_selected]
+    end
+    result
+end
+
+"""Transport-coupled multinomial HMC without preallocated workspace."""
+function transport_coupled_multinomial_hmc_step!(
+        source::AbstractRandomSource, logdensity, gradient,
+        step_size::T, steps::Integer, chain_count::Integer,
+        current_positions::AbstractVector{T}) where {T<:AbstractFloat}
+    K = Int(chain_count)
+    K > 0 || throw(ArgumentError("chain_count must be positive"))
+    steps > 0 || throw(ArgumentError("trajectory length must be positive"))
+    isfinite(step_size) && step_size > 0 ||
+        throw(ArgumentError("step size must be finite and positive"))
+    total = length(current_positions)
+    total > 0 || throw(ArgumentError("positions cannot be empty"))
+    total % K == 0 ||
+        throw(DimensionMismatch("position length must be divisible by chain_count"))
+    dim = total ÷ K
+    workspace = TransportCoupledMultinomialHMCWorkspace{T}(dim, K, Int(steps))
+    transport_coupled_multinomial_hmc_step!(workspace, source, logdensity, gradient,
         step_size, steps, chain_count, current_positions)
 end
 

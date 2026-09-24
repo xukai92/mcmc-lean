@@ -39,9 +39,9 @@ for prog in categorical_index scalar_hmc vector_hmc scalar_dr_ghmc; do
 done
 ```
 
-## Current status (27 programs, IR version 29)
+## Current status (28 programs, IR version 30)
 
-### Modeled-kernel equality (15/27)
+### Modeled-kernel equality (16/28)
 
 Each theorem states `FooProgramKernel = FooKernel` (assembled kernel =
 verified mathematical kernel).
@@ -63,8 +63,9 @@ verified mathematical kernel).
 | `coupled_multinomial_hmc_step!` | `coupledMultinomialHmcProgramKernel_refines` | Continuous/CoupledRefinement.lean:61 | Also has `_isCoupling` theorem |
 | `coupled_gaussian_rwmh_step!` | `coupledGaussianRwmhProgramKernel_refines` | Continuous/CoupledRefinement.lean:70 | Also has `_isCoupling` theorem |
 | `xu21_coupled_step!` | `xu21CoupledProgramKernel_refines` | Continuous/CoupledRefinement.lean:75 | Also has `_isCoupling` theorem |
+| `transport_coupled_multinomial_hmc_step!` | `transportCoupledMultinomialHmcProgramKernel_refines` | Continuous/TransportCoupledCompilerIR.lean:56 | Also has `_marginal` corollary; star-transport-coupled K-chain HMC |
 
-### Replay-spec only (5/27)
+### Replay-spec only (5/28)
 
 These have a deterministic trace theorem (`run*_refines`) but **no kernel
 equality theorem**. The IR interpreter produces the correct deterministic
@@ -84,7 +85,7 @@ Note: `finite_mh_step!` has the additional `stepPMF_refines`
 (Finite/MetropolisHastings.lean:279) which is exact PMF-vs-kernel-row
 equality — stronger than replay but specific to the finite-state setting.
 
-### Conditional on solver certificate (7/27)
+### Conditional on solver certificate (7/28)
 
 Each theorem has `(selection : GeneralizedLeapfrogSelection ...)
 (hvalid : selection.IsValid)` or equivalent as an explicit hypothesis.
@@ -101,7 +102,7 @@ the certificate.
 | `certified_relativistic_multinomial_hmc_step!` | `certifiedRelativisticMultinomialHmcProgramKernel_refines` | Continuous/RelativisticRefinement.lean:96 | `GeneralizedLeapfrogSelection.IsValid` |
 | `vector_gauss_legendre_hmc_step!` | `gaussLegendreProgramKernel_refines_approximate` | Continuous/GaussLegendreHMC.lean:89 | `Measurable (approximateGaussLegendreProposal ...)` |
 
-### Open (0/27)
+### Open (0/28)
 
 No open programs remain.
 
@@ -109,21 +110,28 @@ No open programs remain.
 
 | Category | Count | Description |
 |----------|-------|-------------|
-| Modeled-kernel | 15 | `ProgramKernel = Kernel` equality |
+| Modeled-kernel | 16 | `ProgramKernel = Kernel` equality |
 | Replay-spec only | 5 | Interpreter trace = result; no kernel equality |
 | Conditional | 7 | Kernel equality under solver certificate |
 | Open | 0 | — |
-| **Total** | **27** | All programs have refinement theorems |
+| **Total** | **28** | All programs have refinement theorems |
 
-15 + 5 + 7 = 27. Of these, 15 have the strongest (modeled-kernel)
-refinement, including the two novel samplers:
-`active_sketch_smmala_step!` and `shared_momentum_multinomial_hmc_step!`.
+16 + 5 + 7 = 28. Of these, 16 have the strongest (modeled-kernel)
+refinement, including the three novel samplers:
+`active_sketch_smmala_step!`, `shared_momentum_multinomial_hmc_step!`,
+and `transport_coupled_multinomial_hmc_step!`.
 The 5 replay-spec programs have open gaps for command-to-kernel composition.
 The 7 conditional programs are honestly conditional on solver certificates.
 No programs remain open.
 
 ## Changelog
 
+- 2026-09-24: Added 28th program `transport_coupled_multinomial_hmc_step!`
+  with modeled-kernel refinement
+  (`transportCoupledMultinomialHmcProgramKernel_refines` in
+  `Continuous/TransportCoupledCompilerIR.lean`). Also has `_marginal`
+  corollary proving each coordinate marginal equals `positionMultinomialHMC`.
+  Updated counts: 16 modeled + 5 replay + 7 conditional + 0 open = 28.
 - 2026-09-24: Fixed modeled-kernel count from 16 to 15 (off-by-one).
   Clean partition: 15 modeled + 5 replay + 7 conditional + 0 open = 27.
 - 2026-09-23: Merged both novel samplers. Active-Sketch sMMALA added as
