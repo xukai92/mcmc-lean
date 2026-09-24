@@ -1,0 +1,74 @@
+Multi-Marginal Transport HMC Benchmark Summary
+==================================================
+Mode: development (--dev)
+Date: 2026-09-24T04:01:28.969
+Replicates: 2, Warmup: 1000, Retained: 1000
+K values: 2, 4
+Leapfrog steps: 10
+
+Pooled Identical-Target Results
+----------------------------------------
+  isotropic-gaussian d=10 K=2 coupled: bulk_ESS=63.9 accept=0.901 ESS/grad=0.000799
+  isotropic-gaussian d=10 K=2 independent: bulk_ESS=77.9 accept=0.901 ESS/grad=0.000973
+  isotropic-gaussian d=10 K=2 shared-noise: bulk_ESS=79.0 accept=0.916 ESS/grad=0.000988
+  isotropic-gaussian d=10 K=4 coupled: bulk_ESS=65.4 accept=0.901 ESS/grad=0.000409
+  isotropic-gaussian d=10 K=4 independent: bulk_ESS=82.5 accept=0.909 ESS/grad=0.000515
+  isotropic-gaussian d=10 K=4 shared-noise: bulk_ESS=79.5 accept=0.911 ESS/grad=0.000497
+  correlated-gaussian d=10 K=2 coupled: bulk_ESS=11.0 accept=0.901 ESS/grad=0.000137
+  correlated-gaussian d=10 K=2 independent: bulk_ESS=15.9 accept=0.897 ESS/grad=0.000198
+  correlated-gaussian d=10 K=2 shared-noise: bulk_ESS=6.5 accept=0.915 ESS/grad=8.14e-5
+  correlated-gaussian d=10 K=4 coupled: bulk_ESS=8.2 accept=0.905 ESS/grad=5.12e-5
+  correlated-gaussian d=10 K=4 independent: bulk_ESS=8.5 accept=0.905 ESS/grad=5.29e-5
+  correlated-gaussian d=10 K=4 shared-noise: bulk_ESS=6.5 accept=0.911 ESS/grad=4.07e-5
+  neals-funnel d=10 K=2 coupled: bulk_ESS=2.7 accept=0.902 ESS/grad=3.37e-5
+  neals-funnel d=10 K=2 independent: bulk_ESS=2.9 accept=0.902 ESS/grad=3.67e-5
+  neals-funnel d=10 K=2 shared-noise: bulk_ESS=2.7 accept=0.915 ESS/grad=3.41e-5
+  neals-funnel d=10 K=4 coupled: bulk_ESS=2.6 accept=0.904 ESS/grad=1.64e-5
+  neals-funnel d=10 K=4 independent: bulk_ESS=2.8 accept=0.909 ESS/grad=1.74e-5
+  neals-funnel d=10 K=4 shared-noise: bulk_ESS=2.8 accept=0.911 ESS/grad=1.74e-5
+
+Variance Reduction (pooled identical-target, x₁ sample mean)
+----------------------------------------
+  isotropic-gaussian d=10 K=2: VR_coupled=1.3 VR_shared_noise=12.113
+  isotropic-gaussian d=10 K=4: VR_coupled=1.651 VR_shared_noise=2.034
+  correlated-gaussian d=10 K=2: VR_coupled=1.131 VR_shared_noise=0.776
+  correlated-gaussian d=10 K=4: VR_coupled=0.247 VR_shared_noise=0.584
+  neals-funnel d=10 K=2: VR_coupled=0.204 VR_shared_noise=0.398
+  neals-funnel d=10 K=4: VR_coupled=1.321 VR_shared_noise=1.698
+
+CRN Contrast Results
+----------------------------------------
+  isotropic-gaussian d=10 K=2 coupled: median_VR=0.576 mean_VR=0.576
+  isotropic-gaussian d=10 K=2 shared-noise: median_VR=0.824 mean_VR=0.824
+  isotropic-gaussian d=10 K=2 VR_mechanism(coupled/shared_noise)=1.474
+  isotropic-gaussian d=10 K=4 coupled: median_VR=1.658 mean_VR=1.575
+  isotropic-gaussian d=10 K=4 shared-noise: median_VR=0.824 mean_VR=0.989
+  isotropic-gaussian d=10 K=4 VR_mechanism(coupled/shared_noise)=0.541
+  correlated-gaussian d=10 K=2 coupled: median_VR=0.67 mean_VR=0.67
+  correlated-gaussian d=10 K=2 shared-noise: median_VR=0.943 mean_VR=0.943
+  correlated-gaussian d=10 K=2 VR_mechanism(coupled/shared_noise)=2.35
+  correlated-gaussian d=10 K=4 coupled: median_VR=0.725 mean_VR=0.855
+  correlated-gaussian d=10 K=4 shared-noise: median_VR=0.556 mean_VR=0.567
+  correlated-gaussian d=10 K=4 VR_mechanism(coupled/shared_noise)=0.312
+
+Variance reduction observed in some CRN contrast configurations. See per-configuration results above for details.
+
+Coupling-Quality Diagnostics (K=2)
+----------------------------------------
+NOTE: Exact coalescence is not expected for multi-marginal
+transport HMC because multinomial trajectory selection is
+independent per chain. The coupling-quality metrics measure
+how tightly chains co-move, not whether they merge.
+
+  isotropic-gaussian d=10:
+    min_distance: median=0.65 mean=0.646
+    within tolerance 1.0: 39/40
+    correlation_x1: median=0.0113
+  correlated-gaussian d=10:
+    min_distance: median=0.661 mean=0.658
+    within tolerance 1.0: 39/40
+    correlation_x1: median=-0.0525
+  neals-funnel d=10:
+    min_distance: median=1.54 mean=1.53
+    within tolerance 1.0: 9/40
+    correlation_x1: median=-0.000888

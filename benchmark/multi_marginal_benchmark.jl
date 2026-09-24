@@ -649,10 +649,10 @@ function run_contrast_benchmark(targets)
     rows
 end
 
-# --- Meeting times ---
+# --- Coupling-quality diagnostics ---
 
-function run_meeting_times(targets)
-    println("\n=== Meeting Times (K=2) ===\n")
+function run_coupling_diagnostics(targets)
+    println("\n=== Coupling-Quality Diagnostics (K=2) ===\n")
     rows = NamedTuple[]
 
     for target in targets
@@ -660,7 +660,7 @@ function run_meeting_times(targets)
         step_size = target.hmc_step_size
         K = 2
 
-        println("[meeting] target=$(target.name) d=$d")
+        println("[coupling] target=$(target.name) d=$d")
 
         for (seed_idx, seed) in enumerate(SEEDS)
             for trial in 1:MEETING_TRIALS
@@ -669,37 +669,51 @@ function run_meeting_times(targets)
                 pos[1:d] .= 0.5 .* randn(rng, d)
                 pos[d+1:2*d] .= 0.5 .* randn(rng, d)
                 source = Runtime.RNGSource(rng)
-                met = false
-                meeting_time = -1
+
+                distances = Vector{Float64}(undef, MEETING_HORIZON)
+                x1_chain1 = Vector{Float64}(undef, MEETING_HORIZON)
+                x1_chain2 = Vector{Float64}(undef, MEETING_HORIZON)
+                met_tol_1 = false
+
                 for t in 1:MEETING_HORIZON
                     pos = Optimized.multi_marginal_transport_hmc_step!(source,
                         target.logdensity, target.potential_gradient,
                         Float64(step_size), LEAPFROG_STEPS, K, pos)
-                    if norm(pos[1:d] .- pos[d+1:2*d]) < 1e-6
-                        met = true
-                        meeting_time = t
-                        break
+                    dist = norm(pos[1:d] .- pos[d+1:2*d])
+                    distances[t] = dist
+                    x1_chain1[t] = pos[1]
+                    x1_chain2[t] = pos[d + 1]
+                    if dist < 1.0
+                        met_tol_1 = true
                     end
                 end
+
+                min_dist = minimum(distances)
+                med_dist = median(distances)
+                final_dist = distances[end]
+
+                x1_mean1 = mean(x1_chain1)
+                x1_mean2 = mean(x1_chain2)
+                x1_dev1 = x1_chain1 .- x1_mean1
+                x1_dev2 = x1_chain2 .- x1_mean2
+                denom = sqrt(sum(abs2, x1_dev1) * sum(abs2, x1_dev2))
+                corr_x1 = denom > 0 ? dot(x1_dev1, x1_dev2) / denom : 0.0
+
                 push!(rows, (target=target.name, dimension=d,
                     K=K, replicate_seed=seed, trial=trial,
-                    meeting_time=meeting_time, met=met,
-                    horizon=MEETING_HORIZON))
+                    min_distance=min_dist, median_distance=med_dist,
+                    final_distance=final_dist, met_tol_1=met_tol_1,
+                    correlation_x1=corr_x1, horizon=MEETING_HORIZON))
             end
         end
 
-        met_rows = filter(r -> r.target == target.name && r.met, rows)
-        total_rows = filter(r -> r.target == target.name, rows)
-        met_count = length(met_rows)
-        total_count = length(total_rows)
-        println("  $(met_count)/$(total_count) met within horizon")
-        if met_count > 0
-            times = [r.meeting_time for r in met_rows]
-            println("  median=$(median(times)) mean=$(round(mean(times); digits=1)) " *
-                "max=$(maximum(times)) " *
-                "Q90=$(round(quantile(times, 0.9); digits=1)) " *
-                "Q95=$(round(quantile(times, 0.95); digits=1))")
-        end
+        t_rows = filter(r -> r.target == target.name, rows)
+        met_count = count(r -> r.met_tol_1, t_rows)
+        med_min = median(r.min_distance for r in t_rows)
+        med_corr = median(r.correlation_x1 for r in t_rows)
+        println("  $(met_count)/$(length(t_rows)) within tolerance 1.0")
+        println("  median min_distance=$(round(med_min; sigdigits=3))")
+        println("  median correlation_x1=$(round(med_corr; sigdigits=3))")
     end
     rows
 end
@@ -915,22 +929,25 @@ function write_summary(pooled_rows, contrast_rows, meeting_rows)
 
         if !isempty(meeting_rows)
             println(io)
-            println(io, "Meeting Times (K=2, tolerance=1e-6)")
+            println(io, "Coupling-Quality Diagnostics (K=2)")
             println(io, "-" ^ 40)
+            println(io, "NOTE: Exact coalescence is not expected for multi-marginal")
+            println(io, "transport HMC because multinomial trajectory selection is")
+            println(io, "independent per chain. The coupling-quality metrics measure")
+            println(io, "how tightly chains co-move, not whether they merge.")
+            println(io)
             for target_name in unique(r.target for r in meeting_rows)
                 t_rows = filter(r -> r.target == target_name, meeting_rows)
-                met = filter(r -> r.met, t_rows)
                 d = first(t_rows).dimension
-                println(io, "  $(target_name) d=$d: " *
-                    "$(length(met))/$(length(t_rows)) met within horizon")
-                if !isempty(met)
-                    times = [r.meeting_time for r in met]
-                    println(io, "    median=$(median(times)) " *
-                        "mean=$(round(mean(times); digits=1)) " *
-                        "max=$(maximum(times)) " *
-                        "Q90=$(round(quantile(times, 0.9); digits=1)) " *
-                        "Q95=$(round(quantile(times, 0.95); digits=1))")
-                end
+                met_count = count(r -> r.met_tol_1, t_rows)
+                med_min = median(r.min_distance for r in t_rows)
+                mean_min = mean(r.min_distance for r in t_rows)
+                med_corr = median(r.correlation_x1 for r in t_rows)
+                println(io, "  $(target_name) d=$d:")
+                println(io, "    min_distance: median=$(round(med_min; sigdigits=3))" *
+                    " mean=$(round(mean_min; sigdigits=3))")
+                println(io, "    within tolerance 1.0: $(met_count)/$(length(t_rows))")
+                println(io, "    correlation_x1: median=$(round(med_corr; sigdigits=3))")
             end
         end
     end
@@ -955,7 +972,7 @@ function main()
 
     pooled_rows = run_pooled_benchmark(targets)
     contrast_rows = run_contrast_benchmark(targets)
-    meeting_rows = run_meeting_times(targets)
+    meeting_rows = run_coupling_diagnostics(targets)
 
     mkpath(RESULTS_DIR)
     write_csv(joinpath(RESULTS_DIR, "pooled_diagnostics.csv"), pooled_rows)

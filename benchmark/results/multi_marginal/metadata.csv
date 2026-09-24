@@ -1,0 +1,20 @@
+key,value
+commit,8774cb0-dirty
+julia_version,1.12.5
+hostname,ai-innovation-h100-01-preserve
+cpu_model,Intel Xeon Processor (SapphireRapids)
+threads,1
+blas_threads,1
+blas_config,LBTConfig([ILP64] libopenblas64_.so)
+seeds,7331;7332
+float_type,Float64
+dev_mode,true
+K_values,2;4
+warmup,1000
+retained,1000
+leapfrog_steps,10
+step_sizes,0.15;0.1;0.02
+meeting_trials,20
+meeting_horizon,1000
+mcmcdiagnostictools_version,0.3.19
+timestamp,2026-09-24T04:01:28.969
