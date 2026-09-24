@@ -1,0 +1,18 @@
+key,value
+commit,b890ca9-dirty
+julia_version,1.12.5
+julia_git,5fe89b8ddc1
+blas_config,LBTConfig([ILP64] libopenblas64_.so)
+hostname,ai-innovation-h100-01-preserve
+cpu,Intel Xeon Processor (SapphireRapids)
+threads,1
+blas_threads,1
+dev_mode,true
+chain_count,2
+warmup,1000
+retained,1000
+seeds,42001;42002
+sketch_ranks,5;10
+sketch_regularization,1.0
+leapfrog_steps,10
+mcmc_diagnostic_tools_version,0.3.19

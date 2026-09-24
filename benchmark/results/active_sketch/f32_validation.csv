@@ -1,0 +1,11 @@
+target,dimension,sampler,f32_acceptance,f64_acceptance,f32_eltype,f64_eltype
+isotropic-gaussian,10,mala,0.98,0.96,Float32,Float64
+isotropic-gaussian,10,active-sketch-smmala,1.0,NaN,Float32,Float64
+correlated-gaussian,10,mala,0.22,0.38,Float32,Float64
+correlated-gaussian,10,active-sketch-smmala,0.72,NaN,Float32,Float64
+ill-conditioned-gaussian,10,mala,0.04,0.03,Float32,Float64
+ill-conditioned-gaussian,10,active-sketch-smmala,0.16,NaN,Float32,Float64
+regularized-logistic,10,mala,0.95,0.95,Float32,Float64
+regularized-logistic,10,active-sketch-smmala,0.99,NaN,Float32,Float64
+neals-funnel,10,mala,0.97,0.98,Float32,Float64
+neals-funnel,10,active-sketch-smmala,1.0,NaN,Float32,Float64

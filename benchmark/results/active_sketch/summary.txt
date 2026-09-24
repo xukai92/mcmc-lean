@@ -1,0 +1,56 @@
+Active-Sketch sMMALA Paper Benchmark Summary
+=======================================================
+Mode: development (--dev)
+Date: 2026-09-24T03:34:13.883
+Chains: 2, Warmup: 1000, Retained: 1000
+
+Results by Target
+-------------------------------------------------------
+  isotropic-gaussian d=10 active-sketch-smmala rank=5: bulk_ESS=11.4 tail_ESS=56.6 Rhat=1.2549 accept=0.993 ESS/grad=0.00142 ESS/(grad+probe)=0.000237
+  isotropic-gaussian d=10 mala: bulk_ESS=76.5 tail_ESS=114.2 Rhat=1.0441 accept=0.979 ESS/grad=0.00956 ESS/(grad+probe)=0.00956
+  isotropic-gaussian d=10 dense-pmala: bulk_ESS=33.2 tail_ESS=74.6 Rhat=1.0787 accept=0.992 ESS/grad=0.00414 ESS/(grad+probe)=0.00414
+  isotropic-gaussian d=10 multinomial-hmc: bulk_ESS=196.9 tail_ESS=296.4 Rhat=1.015 accept=0.9 ESS/grad=0.00246 ESS/(grad+probe)=0.00246
+  correlated-gaussian d=10 active-sketch-smmala rank=5: bulk_ESS=7.0 tail_ESS=14.2 Rhat=1.4995 accept=0.752 ESS/grad=0.000877 ESS/(grad+probe)=0.000146
+  correlated-gaussian d=10 mala: bulk_ESS=6.4 tail_ESS=15.2 Rhat=1.5228 accept=0.34 ESS/grad=0.000803 ESS/(grad+probe)=0.000803
+  correlated-gaussian d=10 dense-pmala: bulk_ESS=44.1 tail_ESS=60.6 Rhat=1.0705 accept=0.992 ESS/grad=0.00552 ESS/(grad+probe)=0.00552
+  correlated-gaussian d=10 multinomial-hmc: bulk_ESS=36.0 tail_ESS=148.3 Rhat=1.0051 accept=0.9 ESS/grad=0.00045 ESS/(grad+probe)=0.00045
+  ill-conditioned-gaussian d=10 active-sketch-smmala rank=5: bulk_ESS=5.1 tail_ESS=12.5 Rhat=2.0444 accept=0.221 ESS/grad=0.000639 ESS/(grad+probe)=0.000107
+  ill-conditioned-gaussian d=10 mala: bulk_ESS=4.7 tail_ESS=NaN Rhat=2.5325 accept=0.032 ESS/grad=0.000587 ESS/(grad+probe)=0.000587
+  ill-conditioned-gaussian d=10 dense-pmala: bulk_ESS=33.2 tail_ESS=74.6 Rhat=1.0787 accept=0.992 ESS/grad=0.00414 ESS/(grad+probe)=0.00414
+  ill-conditioned-gaussian d=10 multinomial-hmc: bulk_ESS=8.5 tail_ESS=19.1 Rhat=1.2525 accept=0.891 ESS/grad=0.000106 ESS/(grad+probe)=0.000106
+  regularized-logistic d=10 active-sketch-smmala rank=5: bulk_ESS=17.3 tail_ESS=73.9 Rhat=1.1592 accept=0.99 ESS/grad=0.00216 ESS/(grad+probe)=0.000361
+  regularized-logistic d=10 mala: bulk_ESS=109.3 tail_ESS=173.1 Rhat=1.0322 accept=0.965 ESS/grad=0.0137 ESS/(grad+probe)=0.0137
+  regularized-logistic d=10 dense-pmala: bulk_ESS=51.5 tail_ESS=102.3 Rhat=1.0524 accept=0.986 ESS/grad=0.00644 ESS/(grad+probe)=0.00644
+  regularized-logistic d=10 multinomial-hmc: bulk_ESS=279.1 tail_ESS=308.3 Rhat=1.01 accept=0.901 ESS/grad=0.00349 ESS/(grad+probe)=0.00349
+  neals-funnel d=10 active-sketch-smmala rank=5: bulk_ESS=5.6 tail_ESS=22.1 Rhat=1.795 accept=0.874 ESS/grad=0.000703 ESS/(grad+probe)=0.000117
+  neals-funnel d=10 mala: bulk_ESS=7.0 tail_ESS=13.3 Rhat=1.3733 accept=0.809 ESS/grad=0.000869 ESS/(grad+probe)=0.000869
+  neals-funnel d=10 dense-pmala: bulk_ESS=6.7 tail_ESS=17.4 Rhat=1.5893 accept=0.69 ESS/grad=0.00084 ESS/(grad+probe)=0.00084
+  neals-funnel d=10 multinomial-hmc: bulk_ESS=12.4 tail_ESS=17.9 Rhat=1.1259 accept=0.896 ESS/grad=0.000155 ESS/(grad+probe)=0.000155
+
+Competitive Regime Analysis
+-------------------------------------------------------
+  isotropic-gaussian d=10:
+    best sketch (rank=5): ESS/(grad+probe)=0.000237
+    vs MALA ESS/grad=0.00956 (ratio=0.025)
+    vs HMC ESS/grad=0.00246 (ratio=0.096)
+    vs dense-PMALA ESS/grad=0.00414 (ratio=0.057)
+  correlated-gaussian d=10:
+    best sketch (rank=5): ESS/(grad+probe)=0.000146
+    vs MALA ESS/grad=0.000803 (ratio=0.182)
+    vs HMC ESS/grad=0.00045 (ratio=0.325)
+    vs dense-PMALA ESS/grad=0.00552 (ratio=0.027)
+  ill-conditioned-gaussian d=10:
+    best sketch (rank=5): ESS/(grad+probe)=0.000107
+    vs MALA ESS/grad=0.000587 (ratio=0.181)
+    vs HMC ESS/grad=0.000106 (ratio=1.007)
+    vs dense-PMALA ESS/grad=0.00414 (ratio=0.026)
+  regularized-logistic d=10:
+    best sketch (rank=5): ESS/(grad+probe)=0.000361
+    vs MALA ESS/grad=0.0137 (ratio=0.026)
+    vs HMC ESS/grad=0.00349 (ratio=0.103)
+    vs dense-PMALA ESS/grad=0.00644 (ratio=0.056)
+  neals-funnel d=10:
+    best sketch (rank=5): ESS/(grad+probe)=0.000117
+    vs MALA ESS/grad=0.000869 (ratio=0.135)
+    vs HMC ESS/grad=0.000155 (ratio=0.756)
+    vs dense-PMALA ESS/grad=0.00084 (ratio=0.139)
