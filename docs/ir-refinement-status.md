@@ -41,7 +41,7 @@ done
 
 ## Current status (27 programs, IR version 29)
 
-### Modeled-kernel equality (16/27)
+### Modeled-kernel equality (15/27)
 
 Each theorem states `FooProgramKernel = FooKernel` (assembled kernel =
 verified mathematical kernel).
@@ -109,15 +109,14 @@ No open programs remain.
 
 | Category | Count | Description |
 |----------|-------|-------------|
-| Modeled-kernel | 16 | `ProgramKernel = Kernel` equality |
+| Modeled-kernel | 15 | `ProgramKernel = Kernel` equality |
 | Replay-spec only | 5 | Interpreter trace = result; no kernel equality |
 | Conditional | 7 | Kernel equality under solver certificate |
 | Open | 0 | — |
 | **Total** | **27** | All programs have refinement theorems |
 
-16 + 5 + 7 = 27 programs (excluding the `finite_mh_step!` overlap which has
-both replay-spec and the stronger `stepPMF_refines`). Of these, 16 have the
-strongest (modeled-kernel) refinement, including the two novel samplers:
+15 + 5 + 7 = 27. Of these, 15 have the strongest (modeled-kernel)
+refinement, including the two novel samplers:
 `active_sketch_smmala_step!` and `multi_marginal_transport_hmc_step!`.
 The 5 replay-spec programs have open gaps for command-to-kernel composition.
 The 7 conditional programs are honestly conditional on solver certificates.
@@ -125,13 +124,15 @@ No programs remain open.
 
 ## Changelog
 
+- 2026-09-24: Fixed modeled-kernel count from 16 to 15 (off-by-one).
+  Clean partition: 15 modeled + 5 replay + 7 conditional + 0 open = 27.
 - 2026-09-23: Merged both novel samplers. Active-Sketch sMMALA added as
   27th program with modeled-kernel refinement
   (`activeSketchSmMalaProgramKernel_refines`, specializes dense PMALA with
   `G(x) = SᵀS + λI`). Multi-Marginal Transport HMC closed the sole open
   program with `multiMarginalTransportHmcProgramKernel_refines` and
   `multiMarginalTransportHMC_marginal` (each coordinate marginal equals
-  `positionMultinomialHMC`). Updated counts: 16 modeled + 5 replay +
+  `positionMultinomialHMC`). Updated counts: 15 modeled + 5 replay +
   7 conditional + 0 open = 27 programs.
 - 2026-09-23: Reconciled with actual Lean on main. Reclassified by theorem
   strength (modeled-kernel / replay-spec / conditional / open). Removed phantom
