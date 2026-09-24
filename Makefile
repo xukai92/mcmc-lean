@@ -1,4 +1,4 @@
-.PHONY: all formal oracle julia test generate check-generated generate-docs check-docs-generated docs benchmarks benchmark-dev benchmark-hmc benchmark-report benchmark-rmhmc benchmark-random-sketch-rmhmc benchmark-random-sketch-geometry benchmark-random-sketch-dimensions benchmark-random-sketch-rank-log benchmark-nuts-optimization optimization-trial experiments experiment-xu21 experiment-xu21-logistic experiment-particle-gibbs-count experiment-dynamic-hmc experiment-restricted-quartic experiment-reversible-jump experiment-warmup-rwmh experiment-indefinite-adaptation experiment-indefinite-continuous-adaptation experiment-constrained-transforms experiment-ge-pg-hmc experiment-gaussian-softabs experiment-gaussian-performance benchmark-multi-marginal benchmark-multi-marginal-dev
+.PHONY: all formal oracle julia test generate check-generated generate-docs check-docs-generated docs benchmarks benchmark-dev benchmark-hmc benchmark-report benchmark-rmhmc benchmark-random-sketch-rmhmc benchmark-random-sketch-geometry benchmark-random-sketch-dimensions benchmark-random-sketch-rank-log benchmark-nuts-optimization optimization-trial experiments experiment-xu21 experiment-xu21-logistic experiment-particle-gibbs-count experiment-dynamic-hmc experiment-restricted-quartic experiment-reversible-jump experiment-warmup-rwmh experiment-indefinite-adaptation experiment-indefinite-continuous-adaptation experiment-constrained-transforms experiment-ge-pg-hmc experiment-gaussian-softabs experiment-gaussian-performance benchmark-multi-marginal benchmark-multi-marginal-dev check-no-sorry
 
 XU21_SEED ?= 2021
 XU21_REPLICATES ?= 100
@@ -224,3 +224,8 @@ benchmark-multi-marginal:
 
 benchmark-multi-marginal-dev:
 	julia --project=benchmark benchmark/multi_marginal_benchmark.jl --dev
+
+check-no-sorry:
+	@count=$$(grep -crn 'sorry\|admit' formal/Mcmc/ --include='*.lean' 2>/dev/null | grep -v '/\.lake/' | awk -F: '{s+=$$NF}END{print s+0}'); \
+	if [ "$$count" -ne 0 ]; then echo "Found $$count sorry/admit occurrences"; exit 1; fi; \
+	echo "No sorry or admit found"

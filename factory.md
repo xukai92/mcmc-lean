@@ -16,7 +16,7 @@ make julia
 
 ## Project Eval
 - name: lean_build
-  command: bash -c 'cd formal && lake build'
+  command: make formal
   parse: exit_code
   weight: 0.4
   description: Lean 4 formal proofs compile without errors
@@ -31,7 +31,7 @@ make julia
   weight: 0.2
   description: Generated IR matches committed Samplers.ir
 - name: no_sorry
-  command: bash -c 'count=$(grep -crn "sorry\|admit" formal/Mcmc/ --include="*.lean" | grep -v /\.lake/ | awk -F: "{s+=\}END{print s}"); test "$count" -eq 0'
+  command: make check-no-sorry
   parse: exit_code
   weight: 0.1
   description: No sorry or admit in formal proofs
