@@ -1,50 +1,49 @@
 # Development log
 
-## 2026-09-24: statistical-efficiency benchmark suite
+## 2026-09-24: Active-Sketch sMMALA paper benchmark
 
-Added `benchmark/statistical_efficiency.jl` — a self-contained benchmark that
-evaluates Active-Sketch sMMALA and Multi-Marginal Transport HMC with full
-sampling diagnostics from MCMCDiagnosticTools.jl (bulk/tail ESS, R-hat, MCSE).
+Rewrote `benchmark/statistical_efficiency.jl` as a focused Active-Sketch sMMALA
+paper-quality benchmark. Removed all multi-marginal transport code. Results now
+write to `benchmark/results/active_sketch/`.
 
-**Active-Sketch sMMALA** is benchmarked against MALA and multinomial HMC
-baselines on isotropic and correlated Gaussian targets. Gradient and
-sketch-probe evaluations are counted via mutable closures, and the
-cost-normalized metric ESS/(gradient+probe) isolates algorithmic efficiency
-from implementation speed. Conformance gates (Reference vs Optimized numerical
-replay) run before every timed configuration. Float32 type propagation is
-validated. Development-mode results (d=10, rank=5, 2 chains, 1000 retained
-draws):
+**Benchmark methodology.** Each sampler×target×config undergoes a conformance
+gate (Reference vs Optimized numerical replay at atol=1e-10) before timed
+sampling. Every chain uses an independently-seeded MersenneTwister (seeds
+42001–42004) with no shared RNG state. A throwaway 10-iteration compile warmup
+per sampler precedes the timed loops. Gradient, log-density, and sketch-probe
+calls are counted via mutable closures. All computational functions are
+parameterized on `T<:AbstractFloat` with no hardcoded Float64.
 
-- Isotropic Gaussian: ESS/(grad+probe) = 0.000238 vs MALA 0.00548 (ratio 0.04)
-  and HMC 0.00192 (ratio 0.12). Active-Sketch is not competitive.
-- Correlated Gaussian ρ=0.9: ESS/(grad+probe) = 0.000121 vs MALA 0.00115
-  (ratio 0.11) and HMC 0.000268 (ratio 0.45). Closer to HMC but still
-  dominated by the per-step probe cost (2 sketch evaluations × 5 probes each).
+**Targets (5).** Isotropic Gaussian, correlated Gaussian (ρ=0.9),
+ill-conditioned Gaussian (condition number ~1e4), regularized logistic, and
+Neal's funnel. The funnel uses an analytically derived position-dependent
+diagonal metric G(θ) = diag(1/9, exp(−θ₁), …, exp(−θ₁)) and its
+metric-derivative tensor. True moments: mean = 0, Var[θ₁] = 9,
+Var[θᵢ>₁] ≈ exp(9/2) ≈ 90.
 
-At d=10 with rank 5, the sketch-probe overhead (10 gradient-equivalents per
-step) dominates the benefit from curvature information in the metric. A
-competitive regime may require either higher dimension where the simplified
-drift (no O(d⁴) metric-derivative divergence) dominates, or a target where
-curvature varies strongly across the state space. The development run is too
-short (R-hat up to 1.73) for definitive conclusions; the full run with 4 chains
-× 10,000 draws at d=10/50/100 and ranks 5/10/20 is needed.
+**Baselines (3) + Active-Sketch.** MALA (vector_mala_step!), fixed-length
+multinomial HMC (L=10 leapfrog steps), dense-PMALA (dense_pmala_step! with
+metric/metric_derivative callbacks). For Gaussians, the metric is the constant
+precision matrix. For Neal's funnel, the Fisher information metric. For
+isotropic and logistic targets, identity metric (making dense-PMALA ≡ MALA).
 
-**Multi-Marginal Transport HMC** uses the Reference implementation, comparing
-K coupled chains (shared momentum) against K independent multinomial HMC
-chains. Development results (d=10, K∈{2,4}):
+**Sketch rank sweep.** M ∈ {5, 10, 20} per target×dimension, skipped when
+M ≥ d. Step sizes are research-guided per dimension (d=10/50/100) with
+halved values for Neal's funnel.
 
-- Isotropic Gaussian: median variance reduction ≈ 1.0 (no benefit from
-  coupling on this isometry-invariant target).
-- Correlated Gaussian ρ=0.9: median VR 1.17–1.62 across chains (modest
-  variance reduction; the shared momentum creates correlation that partially
-  cancels coordinate-level variance).
-- Meeting times (K=2): 0/20 trials met within 1000-step horizon on both
-  targets. The coupling is not contractive for these configurations.
+**Metrics.** Bulk and tail ESS (via MCMCDiagnosticTools.ess_rhat), ESS/sec
+(wall-clock), ESS/gradient, ESS/(gradient+probe), R-hat, acceptance rate,
+MCSE. Dimensions: d=50, d=100 in full mode; d=10 in dev mode. 4 chains ×
+1000 warmup + 10000 retained in full mode; 2 chains × 1000 + 1000 in dev.
 
-The benchmark adds MCMCDiagnosticTools.jl v0.3.19 to the benchmark environment.
-Results are written to `benchmark/results/statistical_efficiency/` with full
-provenance (Julia version, BLAS config, git commit, hostname, thread count).
-The `--dev` flag runs a reduced workload (2 seeds, 1000 draws, d=10 only).
+**Float32 validation.** A short Float32 chain per sampler verifies generic
+typing and reports acceptance rate comparison vs Float64.
+
+**Provenance.** metadata.csv records hostname, CPU, Julia version, BLAS config,
+all seeds, chain parameters, MCMCDiagnosticTools version, and git commit.
+
+**Output.** diagnostics.csv, metadata.csv, summary.txt, f32_validation.csv in
+`benchmark/results/active_sketch/`.
 
 ## 2026-09-23: multi-marginal transport HMC end-to-end
 
