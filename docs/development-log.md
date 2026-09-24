@@ -1,5 +1,46 @@
 # Development log
 
+## 2026-09-24: paper-quality multi-marginal transport HMC benchmark
+
+Added `benchmark/multi_marginal_benchmark.jl` — a self-contained, paper-quality
+benchmark for Multi-Marginal Transport HMC with three experimental arms, dual
+estimands, and full provenance tracking.
+
+**Design:**
+- Three-arm comparison: coupled MM-THMC (shared momentum), independent
+  multinomial HMC (per-chain Xoshiro RNGs), and shared-noise control (shared
+  momentum draw, independent MH/multinomial selection) to isolate the transport
+  mechanism's contribution.
+- Per-chain RNG independence: each independent chain uses its own `Xoshiro`
+  seeded from a distinct recorded seed via `make_independent_rngs`. This fixes
+  the shared-RNG bug present in `statistical_efficiency.jl`.
+- Conformance gates: every configuration passes Reference-vs-Optimized
+  numerical replay before timing begins, for both `multi_marginal_transport_hmc_step!`
+  and `multinomial_hmc_step!`.
+- Float32 validation: one configuration (isotropic Gaussian, d=10, K=2) verifies
+  type preservation with `Float32` step sizes and positions.
+
+**Estimands:**
+1. Pooled identical-target: all K chains target the same π. Reports per-chain
+   bulk/tail ESS, ESS/sec, ESS/gradient, R-hat, acceptance rate, MCSE, gradient
+   and logdensity call counts. Computes cross-chain variance reduction.
+2. CRN-style contrasts: K chains target K slightly shifted Gaussians
+   (μ + 0.1·eₖ). Reports pairwise contrast variance and VR vs independent
+   baseline. Also computes VR_mechanism = coupled/shared_noise to isolate the
+   transport mechanism.
+
+**Diagnostics:**
+- Meeting times (K=2): records whether chains meet within 1000-step horizon
+  using explicit norm tolerance (< 1e-12), with median/mean/max/Q90/Q95.
+- Gradient and logdensity call counts via mutable closure wrappers.
+- Full provenance in `metadata.csv` (commit, Julia version, hostname, CPU,
+  threads, BLAS config, seeds, step sizes, MCMCDiagnosticTools version).
+
+**Scale:** dev mode (d=10, K∈{2,4}, 2 replicates, 1000 draws); full mode
+(d∈{50,100} for Gaussians + d=10 for Neal's funnel, K∈{2,4,8}, 4 replicates,
+10000 draws). Targets: isotropic Gaussian, correlated Gaussian (ρ=0.9), and
+Neal's funnel. Results written to `benchmark/results/multi_marginal/`.
+
 ## 2026-09-24: Active-Sketch sMMALA paper benchmark
 
 Rewrote `benchmark/statistical_efficiency.jl` as a focused Active-Sketch sMMALA
