@@ -60,7 +60,7 @@ Scope codes: **proposed** (retained, counted), **dependency** (excluded),
 | livingstone2022barker | Barker MH preserves target measure | `barkerDensityMetropolisHastings_invariant` | Kernel/BarkerAcceptance.lean | proved | proposed | Follows from reversibility |
 | livingstone2022barker | Sigmoid bridge (log-space acceptance) | `barkerLogDensityAcceptance_eq_sigmoid` | Executable/Continuous/BarkerRWMH.lean | proved | proposed | r/(1+r) = 1/(1+exp(-log r)) |
 | livingstone2022barker | Executable refinement | `gaussianBarkerRwmhProgramKernel_refines` | Executable/Continuous/BarkerRWMH.lean | proved | proposed | IR program = mathematical kernel |
-| turok2025drghmc | AR(1) momentum refresh preserves Gaussian | `ar1MomentumKernel_isMarkov` | Hamiltonian/DelayedRejection.lean | proved | proposed | Valid Markov kernel when α²+β²=1 |
+| turok2025drghmc | AR(1) momentum refresh is a valid Markov kernel | `ar1MomentumKernel_isMarkov` | Hamiltonian/DelayedRejection.lean | proved | proposed | IsMarkovKernel when α²+β²=1; Gaussian invariance not proved |
 | turok2025drghmc | Stage-1 proposal is an involution | `drStage1Endpoint_involutive` | Hamiltonian/DelayedRejection.lean | proved | proposed | momentumFlip ∘ leapfrog is involutive |
 | turok2025drghmc | Stage-1 and stage-2 maps are volume-preserving | `measurePreserving_drStage1Endpoint`, `measurePreserving_drStage2Proposal` | Hamiltonian/DelayedRejection.lean | proved | proposed | Composition of existing volume-preservation results |
 | turok2025drghmc | Ghost path reconstruction identity | `drGhostPath_of_drStage2Proposal` | Hamiltonian/DelayedRejection.lean | proved | proposed | Ghost path from stage-2 endpoint recovers original |
