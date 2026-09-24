@@ -1,13 +1,13 @@
 # Development log
 
-## 2026-09-24: paper-quality multi-marginal transport HMC benchmark
+## 2026-09-24: paper-quality shared-momentum multinomial HMC benchmark
 
-Added `benchmark/multi_marginal_benchmark.jl` — a self-contained, paper-quality
-benchmark for Multi-Marginal Transport HMC with three experimental arms, dual
+Added `benchmark/shared_momentum_benchmark.jl` — a self-contained, paper-quality
+benchmark for shared-momentum multinomial HMC with three experimental arms, dual
 estimands, and full provenance tracking.
 
 **Design:**
-- Three-arm comparison: coupled MM-THMC (shared momentum), independent
+- Three-arm comparison: coupled SM-MHMC (shared momentum), independent
   multinomial HMC (per-chain Xoshiro RNGs), and shared-noise control (shared
   momentum draw, independent MH/multinomial selection) to isolate the transport
   mechanism's contribution.
@@ -15,7 +15,7 @@ estimands, and full provenance tracking.
   seeded from a distinct recorded seed via `make_independent_rngs`. This fixes
   the shared-RNG bug present in `statistical_efficiency.jl`.
 - Conformance gates: every configuration passes Reference-vs-Optimized
-  numerical replay before timing begins, for both `multi_marginal_transport_hmc_step!`
+  numerical replay before timing begins, for both `shared_momentum_multinomial_hmc_step!`
   and `multinomial_hmc_step!`.
 - Float32 validation: one configuration (isotropic Gaussian, d=10, K=2) verifies
   type preservation with `Float32` step sizes and positions.
@@ -44,7 +44,7 @@ Neal's funnel. Results written to `benchmark/results/multi_marginal/`.
 ## 2026-09-24: Active-Sketch sMMALA paper benchmark
 
 Rewrote `benchmark/statistical_efficiency.jl` as a focused Active-Sketch sMMALA
-paper-quality benchmark. Removed all multi-marginal transport code. Results now
+paper-quality benchmark. Removed all shared-momentum multinomial HMC code. Results now
 write to `benchmark/results/active_sketch/`.
 
 **Benchmark methodology.** Each sampler×target×config undergoes a conformance
@@ -86,33 +86,33 @@ all seeds, chain parameters, MCMCDiagnosticTools version, and git commit.
 **Output.** diagnostics.csv, metadata.csv, summary.txt, f32_validation.csv in
 `benchmark/results/active_sketch/`.
 
-## 2026-09-23: multi-marginal transport HMC end-to-end
+## 2026-09-23: shared-momentum multinomial HMC end-to-end
 
-Proved `multiMarginalTransportHMC_marginal`: each coordinate marginal of the
+Proved `sharedMomentumMultinomialHMC_marginal`: each coordinate marginal of the
 K-chain shared-momentum kernel equals the single-chain `positionMultinomialHMC`.
-This establishes that the multi-marginal construction is a valid coupling —
+This establishes that the shared-momentum construction is a valid coupling —
 correct marginals, correlated joint via shared momentum. Product invariance
 does NOT hold; the shared momentum creates inter-chain correlation by design.
 
-The K=2 specialization in `MultiMarginalTransportK2.lean` demonstrates both
+The K=2 specialization in `SharedMomentumK2.lean` demonstrates both
 coordinate marginals explicitly.
 
-Closed the last open IR program: `multiMarginalTransportHmcProgramKernel_refines`
+Closed the last open IR program: `sharedMomentumMultinomialHmcProgramKernel_refines`
 connects the IR program to the mathematical kernel, with a `_marginal` corollary
 that each coordinate marginal of the program kernel equals
 `positionMultinomialHMC`. IR refinement status: 15 modeled-kernel + 5 replay-spec
 + 7 conditional + 0 open = 26 programs.
 
 Julia implementations:
-- Reference: `multi_marginal_transport_hmc_step!` via IR interpreter opcode
-  `multi-marginal-transport-hmc`. Reshapes flat vector by `chain_count`, draws
+- Reference: `shared_momentum_multinomial_hmc_step!` via IR interpreter opcode
+  `shared-momentum-multinomial-hmc`. Reshapes flat vector by `chain_count`, draws
   one shared momentum, runs independent multinomial HMC per chain.
-- Optimized: `MultiMarginalTransportHMCWorkspace{T<:AbstractFloat}` with
+- Optimized: `SharedMomentumMultinomialHMCWorkspace{T<:AbstractFloat}` with
   preallocated buffers for zero steady-state allocation. Generic `T` typing.
 - Conformance: replay-pair tests verify Reference == Optimized for K=2 (dim=2)
   and K=3 (dim=1), plus Float32 generic typing and workspace reuse.
 
-Evaluation module: `MultiMarginalEval` compares K coupled chains vs K
+Evaluation module: `SharedMomentumEval` compares K coupled chains vs K
 independent chains, computing variance reduction factors, pairwise chain
 correlation, ESS per gradient evaluation, and meeting-time tails (K=2).
 

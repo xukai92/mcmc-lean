@@ -28,7 +28,7 @@ export categorical_index!, integer_slice_step!, bounded_slice_step!, stepping_ou
     interpret_nuts_outer_trace, select_nuts_candidate, interpret_nuts_transition,
     interpret_checked_nuts_rows, checked_nuts_or_identity_select!,
     coupled_multinomial_hmc_step!, coupled_gaussian_rwmh_step!, xu21_coupled_step!,
-    multi_marginal_transport_hmc_step!,
+    shared_momentum_multinomial_hmc_step!,
     IR_FORMAT_VERSION, artifact_facets
 
 const IR_FORMAT_VERSION = 29
@@ -613,13 +613,13 @@ function eval_expr(raw, env::Dict{String,Any})
                 step_size, steps, left, right) :
             _coupled_gaussian_rwmh_step!(source, env["logdensity"], scale, left, right)
     end
-    if tag == "multi-marginal-transport-hmc"
+    if tag == "shared-momentum-multinomial-hmc"
         source = eval_expr(node[2], env)
         step_size = Float64(eval_expr(node[3], env))
         steps = Int(eval_expr(node[4], env))
         chain_count = Int(eval_expr(node[5], env))
         flat_positions = Float64.(eval_expr(node[6], env))
-        return _multi_marginal_transport_hmc_step!(source, env["logdensity"],
+        return _shared_momentum_multinomial_hmc_step!(source, env["logdensity"],
             env["gradient"], step_size, steps, chain_count, flat_positions)
     end
     if tag == "categorical"
@@ -708,7 +708,7 @@ function _coupled_gaussian_rwmh_step!(source, logdensity, scale, left, right)
     [next_left, next_right]
 end
 
-function _multi_marginal_transport_hmc_step!(source, logdensity, gradient,
+function _shared_momentum_multinomial_hmc_step!(source, logdensity, gradient,
         step_size, steps, chain_count, flat_positions)
     chain_count > 0 || throw(ArgumentError("chain_count must be positive"))
     steps > 0 || throw(ArgumentError("trajectory length must be positive"))
@@ -1812,14 +1812,14 @@ xu21_coupled_step!(source::AbstractRandomSource, logdensity, gradient,
     _run_coupled("xu21_coupled_step!", source, logdensity, gradient, step_size,
         steps, scale, hmc_weight, left, right)
 
-"""Multi-marginal transport HMC: K chains share one momentum draw.
+"""Shared-momentum multinomial HMC: K chains share one momentum draw.
 
 `current_positions` is a flat vector of K×dim scalars. The runtime reshapes
 by `chain_count`, draws ONE shared momentum p ~ N(0,I), runs independent
 multinomial HMC on each chain with that momentum, and returns the flattened
 K×dim result.
 """
-function multi_marginal_transport_hmc_step!(source::AbstractRandomSource,
+function shared_momentum_multinomial_hmc_step!(source::AbstractRandomSource,
         logdensity, gradient, step_size::Real, steps::Integer,
         chain_count::Integer, current_positions::AbstractVector{<:Real})
     chain_count > 0 || throw(ArgumentError("chain_count must be positive"))
@@ -1832,7 +1832,7 @@ function multi_marginal_transport_hmc_step!(source::AbstractRandomSource,
         throw(ArgumentError("positions must be finite"))
     checked_log = value -> checked_logdensity(logdensity, value)
     checked_grad = value -> checked_gradient(gradient, value)
-    Float64.(_multi_marginal_transport_hmc_step!(source, checked_log,
+    Float64.(_shared_momentum_multinomial_hmc_step!(source, checked_log,
         checked_grad, Float64(step_size), Int(steps), Int(chain_count),
         Float64.(current_positions)))
 end

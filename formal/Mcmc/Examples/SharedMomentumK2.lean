@@ -1,9 +1,9 @@
-import Mcmc.Hamiltonian.MultiMarginalTransportHMC
+import Mcmc.Hamiltonian.SharedMomentumMultinomialHMC
 
 /-!
-# K=2 instantiation of multi-marginal transport HMC
+# K=2 instantiation of shared-momentum multinomial HMC
 
-This module specializes the general `multiMarginalTransportHMC_marginal`
+This module specializes the general `sharedMomentumMultinomialHMC_marginal`
 theorem to K=2, showing that both coordinates (Fin 2) marginals equal
 `positionMultinomialHMC`.
 -/
@@ -11,13 +11,13 @@ theorem to K=2, showing that both coordinates (Fin 2) marginals equal
 open MeasureTheory
 open scoped ENNReal ProbabilityTheory
 
-namespace Mcmc.Examples.MultiMarginalTransportK2
+namespace Mcmc.Examples.SharedMomentumK2
 
 open ProbabilityTheory Mcmc.Hamiltonian
 
 variable {ι : Type*} [Fintype ι]
 
-/-- At K=2, the first marginal of the multi-marginal kernel equals
+/-- At K=2, the first marginal of the shared-momentum multinomial kernel equals
 the single-chain `positionMultinomialHMC`. -/
 theorem marginal_zero
     (potential : Position ι → ℝ) (gradient : Position ι → Position ι)
@@ -26,14 +26,14 @@ theorem marginal_zero
     (momentumTarget : Measure (Momentum ι))
     [IsProbabilityMeasure momentumTarget]
     (x : Fin 2 → Position ι) :
-    (multiMarginalTransportHMC potential gradient ε L 2
+    (sharedMomentumMultinomialHMC potential gradient ε L 2
       hpotential hgradient momentumTarget x).map (Function.eval 0) =
       positionMultinomialHMC potential gradient ε L hpotential hgradient
         momentumTarget (x 0) :=
-  multiMarginalTransportHMC_marginal potential gradient ε L 2
+  sharedMomentumMultinomialHMC_marginal potential gradient ε L 2
     hpotential hgradient momentumTarget 0 x
 
-/-- At K=2, the second marginal of the multi-marginal kernel equals
+/-- At K=2, the second marginal of the shared-momentum multinomial kernel equals
 the single-chain `positionMultinomialHMC`. -/
 theorem marginal_one
     (potential : Position ι → ℝ) (gradient : Position ι → Position ι)
@@ -42,11 +42,11 @@ theorem marginal_one
     (momentumTarget : Measure (Momentum ι))
     [IsProbabilityMeasure momentumTarget]
     (x : Fin 2 → Position ι) :
-    (multiMarginalTransportHMC potential gradient ε L 2
+    (sharedMomentumMultinomialHMC potential gradient ε L 2
       hpotential hgradient momentumTarget x).map (Function.eval 1) =
       positionMultinomialHMC potential gradient ε L hpotential hgradient
         momentumTarget (x 1) :=
-  multiMarginalTransportHMC_marginal potential gradient ε L 2
+  sharedMomentumMultinomialHMC_marginal potential gradient ε L 2
     hpotential hgradient momentumTarget 1 x
 
-end Mcmc.Examples.MultiMarginalTransportK2
+end Mcmc.Examples.SharedMomentumK2

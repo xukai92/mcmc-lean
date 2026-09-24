@@ -5,7 +5,7 @@ include("Targets.jl")
 include("Diagnostics.jl")
 include("Conformance.jl")
 include("Optimization.jl")
-include("MultiMarginalEval.jl")
+include("SharedMomentumEval.jl")
 
 using .Targets: Target, standard_targets
 using .Diagnostics: autocorrelation_ess, moment_diagnostics,

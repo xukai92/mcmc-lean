@@ -1,7 +1,7 @@
 # Case study: building two novel MCMC samplers
 
 This case study documents the development of Active-Sketch sMMALA and
-Multi-Marginal Transport HMC using the verified-samplers harness. Both
+Shared-Momentum Multinomial HMC using the verified-samplers harness. Both
 algorithms were formalized in Lean 4, compiled to IR programs, and
 implemented as executable Julia samplers within a single 24-hour period
 (2026-09-23 to 2026-09-24). The document records what happened, what the
@@ -77,9 +77,9 @@ sweep over `M ∈ {5, 10, 20}`.
 **Deferred:** Full statistical evaluation at `d=50` and `d=100` remains
 pending. The development-mode results use `d=10` with shortened chains.
 
-## Multi-Marginal Transport HMC
+## Shared-Momentum Multinomial HMC
 
-Multi-Marginal Transport HMC couples `K` chains by drawing one shared momentum
+Shared-Momentum Multinomial HMC couples `K` chains by drawing one shared momentum
 vector and running independent multinomial HMC transitions per chain. The
 construction is a valid coupling: each coordinate marginal equals single-chain
 `positionMultinomialHMC`, while shared momentum creates inter-chain correlation
@@ -90,10 +90,10 @@ by design. Product invariance does not hold.
 | Stage | Commit | Timestamp (UTC) | Elapsed | Files | Insertions/Deletions | Description |
 |-------|--------|-----------------|---------|-------|----------------------|-------------|
 | Kernel theory | `f544cfc` | 2026-09-23 05:46:14 | +0h 00m | 3 | +342 | Lean formalization of K-chain shared-momentum kernel |
-| IR program | `3f46494` | 2026-09-23 14:38:22 | +8h 52m | 4 | +38/−1 | CompilerIR program for multi-marginal transport |
+| IR program | `3f46494` | 2026-09-23 14:38:22 | +8h 52m | 4 | +38/−1 | CompilerIR program for shared-momentum multinomial |
 | Marginal theorem | `cf8d54a` | 2026-09-23 20:41:17 | +14h 55m | 4 | +185/−32 | Prove each marginal equals positionMultinomialHMC; IR refinement |
 | Julia implementation | `fc9a601` | 2026-09-23 20:53:42 | +15h 07m | 4 | +308/−2 | Reference, Optimized, conformance tests |
-| Evaluation module | `9674bf9` | 2026-09-23 20:58:10 | +15h 12m | 3 | +180 | MultiMarginalEval with variance reduction and meeting times |
+| Evaluation module | `9674bf9` | 2026-09-23 20:58:10 | +15h 12m | 3 | +180 | SharedMomentumEval with variance reduction and meeting times |
 | QA fix 1 | `98f2598` | 2026-09-23 21:22:13 | +15h 36m | 2 | +12/−4 | Gradient sign convention and workspace validation |
 | Paper benchmark | `bb521c8` | 2026-09-24 03:31:01 | +21h 45m | 4 | +1087/−1 | Three-arm comparison with conformance gates |
 | QA fix 2 | `8774cb0` | 2026-09-24 03:47:36 | +22h 01m | 1 | +22/−91 | Fix 7 issues in benchmark |
@@ -109,7 +109,7 @@ The development had two distinct tempos. The initial Lean formalization
 theorem (`cf8d54a`, 20:41 UTC). This gap is notably longer than any other
 inter-commit interval in either sampler's timeline, suggesting the marginal
 theorem required sustained proving effort. The theorem
-`multiMarginalTransportHMC_marginal` establishes that each coordinate marginal
+`sharedMomentumMultinomialHMC_marginal` establishes that each coordinate marginal
 of the K-chain kernel equals the single-chain `positionMultinomialHMC`, with
 auxiliary lemmas for `positionProjectK_eval`, `sharedMomentumLiftK_map_eval`,
 and `comp_sharedLift_map_eval`. A K=2 specialization demonstrates both
@@ -118,7 +118,7 @@ marginals explicitly.
 Once the theorem landed, the Julia implementation and evaluation module
 followed rapidly — three commits in 17 minutes (`cf8d54a` → `fc9a601` →
 `9674bf9`). The Optimized implementation uses
-`MultiMarginalTransportHMCWorkspace{T<:AbstractFloat}` with preallocated
+`SharedMomentumMultinomialHMCWorkspace{T<:AbstractFloat}` with preallocated
 buffers. Conformance tests verify Reference == Optimized for `K=2` (`dim=2`)
 and `K=3` (`dim=1`), plus Float32 and workspace reuse.
 
@@ -127,7 +127,7 @@ This rapid phase was followed by two QA cycles that caught 9 bugs total.
 **QA cycle 1** (`98f2598`): The QA agents flagged two issues in the evaluation
 module:
 
-1. **Gradient sign convention.** The `MultiMarginalEval.evaluate` function
+1. **Gradient sign convention.** The `SharedMomentumEval.evaluate` function
    accepted a parameter named `gradient`, but the sampler expects ∇U (the
    potential gradient, where `U = −log π`), not ∇log π. Passing ∇log π caused
    divergent leapfrog integration and frozen chains. The fix renamed the
@@ -135,7 +135,7 @@ module:
    convention explicit.
 
 2. **Workspace buffer validation.** The workspace-based
-   `multi_marginal_transport_hmc_step!` did not validate that the `steps`
+   `shared_momentum_multinomial_hmc_step!` did not validate that the `steps`
    parameter fit within the preallocated `positions` and `logweights` buffers.
    The fix added a dimension check that throws `DimensionMismatch` when
    `steps` exceeds the workspace allocation.
@@ -170,14 +170,14 @@ more issues:
    `_shared_momentum_multinomial_step!`. Removed the duplicate and updated the
    call site.
 
-The IR refinement theorem `multiMarginalTransportHmcProgramKernel_refines`
+The IR refinement theorem `sharedMomentumMultinomialHmcProgramKernel_refines`
 closed the last open IR program, bringing the count to 27/27 programs with
 refinement theorems (15 modeled-kernel, 5 replay-spec, 7 conditional on
 solver certificate, 0 open).
 
 ## Comparison
 
-| Metric | Active-Sketch sMMALA | Multi-Marginal Transport HMC |
+| Metric | Active-Sketch sMMALA | Shared-Momentum Multinomial HMC |
 |--------|----------------------|------------------------------|
 | Wall-clock time (first to last commit) | ~23h 22m | ~22h 16m |
 | Commits | 7 | 9 |
@@ -191,11 +191,11 @@ solver certificate, 0 open).
 | Deferred items | Full-scale eval (d=50/100) | Full-scale eval, production benchmark |
 
 Both samplers achieved modeled-kernel refinement — the strongest category,
-proving `ProgramKernel = Kernel` equality. Multi-Marginal additionally proved
+proving `ProgramKernel = Kernel` equality. Shared-Momentum Multinomial additionally proved
 its marginal corollary, which has no analogue for Active-Sketch (a single-chain
 sampler). Active-Sketch's proof strategy was simpler: specialize the existing
 dense PMALA infrastructure with the sketch metric `G(x) = S(x)^T S(x) + λI`.
-Multi-Marginal required novel auxiliary lemmas for the product-space
+Shared-Momentum Multinomial required novel auxiliary lemmas for the product-space
 projection and shared-momentum lift.
 
 ## What harness-enabled development means
@@ -213,14 +213,14 @@ mathematical statement.
 **IR compiler.** Translates verified kernel definitions to executable IR
 programs via `make generate`. The refinement theorems
 (`activeSketchSmMalaProgramKernel_refines`,
-`multiMarginalTransportHmcProgramKernel_refines`) prove that the IR program's
+`sharedMomentumMultinomialHmcProgramKernel_refines`) prove that the IR program's
 assembled kernel equals the mathematical kernel. This is a Lean theorem about
 the IR semantics, not about Julia's floating-point execution of that IR.
 
 **Conformance framework.** Tests numerical equivalence between the IR-backed
 Reference interpreter and the independently maintained Optimized Julia
 implementation. Active-Sketch tested three cases (asymmetric, square, zero
-sketch). Multi-Marginal tested `K=2`/`K=3` configurations, Float32 typing, and
+sketch). Shared-Momentum Multinomial tested `K=2`/`K=3` configurations, Float32 typing, and
 workspace reuse. Conformance catches implementation divergence between paths;
 it does not prove that either path is correct.
 
@@ -264,7 +264,7 @@ The human performed the following tasks during this development:
   main, resolving conflicts in shared files (IR refinement tracker, development
   log, unit test lists).
 - **Test list reconciliation.** Fixed the 27-program enumeration discrepancy
-  when the Active-Sketch branch didn't know about the Multi-Marginal branch's
+  when the Active-Sketch branch didn't know about the Shared-Momentum Multinomial branch's
   additions.
 - **Benchmark design.** Specified the target distributions, baseline samplers,
   and evaluation metrics for the paper-quality benchmarks.

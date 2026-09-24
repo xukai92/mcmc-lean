@@ -2168,9 +2168,9 @@ end
             Runtime.IndexEvent(0), Runtime.UniformEvent(0.6)]
         ref_source = Runtime.FloatTraceSource(copy(events))
         opt_source = Runtime.FloatTraceSource(copy(events))
-        reference = Reference.multi_marginal_transport_hmc_step!(ref_source,
+        reference = Reference.shared_momentum_multinomial_hmc_step!(ref_source,
             logdensity, gradient, 0.1, 2, 2, Float64.(positions))
-        optimized = Optimized.multi_marginal_transport_hmc_step!(opt_source,
+        optimized = Optimized.shared_momentum_multinomial_hmc_step!(opt_source,
             logdensity, gradient, 0.1, 2, 2, Float64.(positions))
         @test reference ≈ optimized atol=1e-14 rtol=0
         @test length(reference) == 4
@@ -2188,9 +2188,9 @@ end
             Runtime.IndexEvent(0), Runtime.UniformEvent(0.5)]
         ref_source = Runtime.FloatTraceSource(copy(events))
         opt_source = Runtime.FloatTraceSource(copy(events))
-        reference = Reference.multi_marginal_transport_hmc_step!(ref_source,
+        reference = Reference.shared_momentum_multinomial_hmc_step!(ref_source,
             logdensity, gradient, 0.15, 2, 3, Float64.(positions))
-        optimized = Optimized.multi_marginal_transport_hmc_step!(opt_source,
+        optimized = Optimized.shared_momentum_multinomial_hmc_step!(opt_source,
             logdensity, gradient, 0.15, 2, 3, Float64.(positions))
         @test reference ≈ optimized atol=1e-14 rtol=0
         @test length(reference) == 3
@@ -2200,7 +2200,7 @@ end
     @testset "Float32 generic typing" begin
         positions = Float32[0.1, -0.2, 0.3, 0.5]
         rng = MersenneTwister(42)
-        result = Optimized.multi_marginal_transport_hmc_step!(
+        result = Optimized.shared_momentum_multinomial_hmc_step!(
             Runtime.RNGSource(rng), x -> Float32(-sum(abs2, x) / 2),
             x -> Float32.(x), Float32(0.1), 2, 2, positions)
         @test eltype(result) === Float32
@@ -2209,11 +2209,11 @@ end
     end
 
     @testset "workspace reuse" begin
-        workspace = Optimized.MultiMarginalTransportHMCWorkspace{Float64}(2, 2, 3)
+        workspace = Optimized.SharedMomentumMultinomialHMCWorkspace{Float64}(2, 2, 3)
         rng = MersenneTwister(99)
         positions = [0.1, -0.2, 0.3, 0.5]
         for _ in 1:10
-            positions = Optimized.multi_marginal_transport_hmc_step!(
+            positions = Optimized.shared_momentum_multinomial_hmc_step!(
                 workspace, Runtime.RNGSource(rng), logdensity, gradient,
                 0.1, 3, 2, positions)
         end
@@ -2223,11 +2223,11 @@ end
 
     @testset "error cases" begin
         rng = Runtime.RNGSource(MersenneTwister(1))
-        @test_throws ArgumentError Optimized.multi_marginal_transport_hmc_step!(
+        @test_throws ArgumentError Optimized.shared_momentum_multinomial_hmc_step!(
             rng, logdensity, gradient, 0.1, 2, 0, Float64[1.0])
-        @test_throws DimensionMismatch Optimized.multi_marginal_transport_hmc_step!(
+        @test_throws DimensionMismatch Optimized.shared_momentum_multinomial_hmc_step!(
             rng, logdensity, gradient, 0.1, 2, 2, Float64[1.0, 2.0, 3.0])
-        @test_throws ArgumentError Optimized.multi_marginal_transport_hmc_step!(
+        @test_throws ArgumentError Optimized.shared_momentum_multinomial_hmc_step!(
             rng, logdensity, gradient, 0.1, 2, 1, Float64[])
     end
 end
