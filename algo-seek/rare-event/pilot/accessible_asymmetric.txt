@@ -1,7 +1,7 @@
 # Rare-event path sampling pilot results
 # Regime: accessible_asymmetric
-# Producing commit: 3b97645ff5ae1c42dab56e9c96eefb1b63cb9ed5
-# Date: 2026-09-29T21:07:10.013
+# Producing commit: de1108c03f4b17bcf1fd8b0ff3457b173f9865fe
+# Date: 2026-09-29T21:24:48.344
 
 ## Parameters
 c = 3.0, s = 0.5, ε = 0.3
@@ -16,16 +16,16 @@ Seeds: UInt64[0x000000000000002a, 0x0000000000000089]
 ## Run 1 (seed=42)
 
 ### TPS (one-way shooting)
-P(upper channel) = 0.0060 ± 0.0024
-Channel switches = 30
-Channel ESS = 2507.3
-Acceptance/hit rate = 1.0000
+P(upper channel) = 0.6898 ± 0.1427
+Channel switches = 6
+Channel ESS = 1669.7
+Acceptance/hit rate = 0.3682
 Force evaluations = 1124400
 
 ### Guided MH (whole-path)
 P(upper channel) = 0.0000 ± 0.0000
 Channel switches = 0
-Channel ESS = 5000.0
+Channel ESS = 1.0
 Acceptance/hit rate = 0.0000
 Force evaluations = 2224400
 
@@ -39,16 +39,16 @@ Force evaluations = 35224400
 ## Run 2 (seed=137)
 
 ### TPS (one-way shooting)
-P(upper channel) = 0.0080 ± 0.0019
-Channel switches = 48
-Channel ESS = 2792.6
-Acceptance/hit rate = 1.0000
+P(upper channel) = 0.0000 ± 0.0000
+Channel switches = 0
+Channel ESS = 1.0
+Acceptance/hit rate = 0.2833
 Force evaluations = 1258600
 
 ### Guided MH (whole-path)
 P(upper channel) = 0.0000 ± 0.0000
 Channel switches = 0
-Channel ESS = 5000.0
+Channel ESS = 1.0
 Acceptance/hit rate = 0.0000
 Force evaluations = 2358600
 

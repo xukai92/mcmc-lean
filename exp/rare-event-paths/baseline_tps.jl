@@ -29,7 +29,7 @@ function tps_one_way_shooting!(
     tau = rand(rng, 1:(L-1))
 
     proposed = copy(path)
-    for t in tau:L-1
+    for t in tau:L
         x_t = @view proposed[:, t]
         x_next = @view proposed[:, t+1]
         euler_step!(x_next, x_t, oe, rng)

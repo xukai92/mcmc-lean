@@ -93,7 +93,7 @@ function ess_from_observable(values::AbstractVector{T}) where {T<:AbstractFloat}
     m = mean(values)
     v = var(values; corrected=false)
     if v ≤ zero(T)
-        return T(n)
+        return one(T)
     end
 
     centered = values .- m
