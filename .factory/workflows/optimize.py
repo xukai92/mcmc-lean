@@ -72,6 +72,8 @@ def workflow() -> Workflow:
             'if ! grep -q "function ${FOCUS}" Reference/Reference.jl; then '
             'echo "HALT: function ${FOCUS} not found in Reference/Reference.jl"; exit 1; fi && '
             'echo "PROCEED: function ${FOCUS} found in Reference/Reference.jl" && '
+            "if ! grep -q \"${FOCUS}\" Samplers.ir 2>/dev/null; then "
+            'echo "HALT: IR program ${FOCUS} not found in Samplers.ir (run refine workflow first)"; exit 1; fi && '
             'if grep -q "function ${FOCUS}" Optimized/Optimized.jl 2>/dev/null; then '
             "echo 'BASELINE: optimized (existing Optimized implementation)'; "
             "else "

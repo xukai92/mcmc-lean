@@ -1,19 +1,22 @@
-"""Formalize mode — MCMC algorithm idea -> Lean-verified implementation + Julia reference.
+"""Formalize mode — theory-only workflow for Lean-verified MCMC kernel proofs.
 
 Pipeline:
   fork_research -> [3 researchers] -> join_research -> gate_research ->
-  strategist -> gate_strategy -> archivist_plan(async) ->
-  builder_theory(max 5) -> gate_theory -> fn_theorem_check -> gate_theory_review ->
-  builder_ir(max 3) -> gate_ir -> fn_scope_check ->
-  fn_generate -> fork_qa -> [3 FnNodes] -> join_qa -> gate_qa -> fn_manifest ->
-  archivist_build(async)
+  strategist -> gate_strategy (USER) -> archivist_plan(async) ->
+  builder_theory(max 5) -> gate_theory -> fn_no_sorry ->
+  fn_theorem_check -> gate_theory_review ->
+  fn_proof_hygiene -> fn_axioms_check -> fn_manifest -> archivist(async)
 
 Reloop edges:
+  gate_research -> fork_research
+  gate_strategy -> strategist
   gate_theory -> builder_theory (max 5)
-  gate_ir -> builder_ir (max 3)
-  gate_qa -> builder_ir (max 3)
+  gate_theory_review HALT -> archivist (archive failure and exit)
 
 Terminal mode. Focus-only (requires --focus).
+
+Does NOT produce IR programs or Reference Julia — use the refine workflow
+for that after kernel theory is established.
 """
 
 from typing import Any
@@ -35,9 +38,10 @@ from factory.workflow.primitives import (
 meta = {
     "name": "formalize",
     "description": (
-        "Formalize mode — turn MCMC algorithm ideas into Lean-verified "
-        "implementations with auto-generated Reference Julia code. "
-        "Focus-only terminal workflow. Use with --focus describing the "
+        "Formalize mode — theory-only workflow for Lean-verified MCMC "
+        "kernel proofs. Produces kernel definitions, invariance theorems, "
+        "and stationarity proofs under formal/Mcmc/. Does not produce IR "
+        "programs or Reference Julia. Use with --focus describing the "
         "algorithm to formalize."
     ),
 }
@@ -163,11 +167,8 @@ def workflow() -> Workflow:
             "Produce a concrete implementation plan covering: "
             "1) Lean module structure — which files to create under formal/Mcmc/ "
             "2) Theorem statements — what to prove and in what order "
-            "3) IR program design — what CompilerIR programs to add "
-            "4) IRFormat wiring — how to connect to formal/Mcmc/Executable/IRFormat.lean "
-            "5) Mathlib reuse map — which existing lemmas to reference "
-            "6) Module dependency graph — build order for lake build "
-            "7) formal/Mcmc.lean update plan — new import lines "
+            "3) Mathlib reuse map — which existing lemmas to reference "
+            "4) Module dependency graph — build order for lake build "
             "Write the plan to .factory/strategy/current.md."
         ),
         reads={
@@ -206,7 +207,7 @@ def workflow() -> Workflow:
         blocking=False,
     )
 
-    # ── Build Phase 1 — Theory + Executable Refinement ──────────
+    # ── Build Phase — Theory ───────────────────────────────────
 
     nodes["builder_theory"] = AgentNode(
         id="builder_theory",
@@ -248,22 +249,63 @@ def workflow() -> Workflow:
         ),
     )
 
-    nodes["gate_theory_review"] = GateNode(
-        id="gate_theory_review",
-        evaluator_type="agent",
-        evaluator_role=AgentRole.CEO,
-        gate_prompt=(
-            "Review the compiled Lean proofs. "
-            "Read the builder output at .factory/reviews/builder-latest.md. "
-            "Check git diff for the new .lean files. Verify: "
-            "(1) Module structure matches the approved plan "
-            "(2) Theorem names and types are meaningful "
-            "(3) No sorry, admit, or axiom in the code "
-            "(4) Module docstrings are present "
-            "PROCEED to IR phase if proofs are well-structured. "
-            "HALT if fundamental issues require re-planning."
+    # ── Post-Theory Checks ─────────────────────────────────────
+
+    nodes["fn_no_sorry"] = FnNode(
+        id="fn_no_sorry",
+        command=(
+            "cd {project_path} && python3 - <<'PYEOF'\n"
+            "import sys, subprocess, re\n"
+            "from pathlib import Path\n"
+            "\n"
+            "base = subprocess.run(\n"
+            "    ['git', 'merge-base', 'HEAD', 'main'],\n"
+            "    capture_output=True, text=True,\n"
+            ").stdout.strip()\n"
+            "if not base:\n"
+            "    print('ERROR: could not determine merge-base with main')\n"
+            "    sys.exit(1)\n"
+            "\n"
+            "diff_out = subprocess.run(\n"
+            "    ['git', 'diff', '--name-only', base, '--', 'formal/Mcmc/'],\n"
+            "    capture_output=True, text=True,\n"
+            ").stdout.strip()\n"
+            "lean_files = [f for f in diff_out.splitlines() if f.endswith('.lean')]\n"
+            "\n"
+            "if not lean_files:\n"
+            "    print('WARNING: no .lean files changed under formal/Mcmc/')\n"
+            "    sys.exit(0)\n"
+            "\n"
+            "found = False\n"
+            "for lf in lean_files:\n"
+            "    p = Path(lf)\n"
+            "    if not p.exists():\n"
+            "        continue\n"
+            "    content = p.read_text()\n"
+            "    for i, line in enumerate(content.splitlines(), 1):\n"
+            "        stripped = line.split('--')[0]\n"
+            "        if re.search(r'\\bsorry\\b', stripped):\n"
+            "            print(f'FAIL: {lf}:{i}: sorry found: {line.strip()}')\n"
+            "            found = True\n"
+            "        if re.search(r'\\badmit\\b', stripped):\n"
+            "            print(f'FAIL: {lf}:{i}: admit found: {line.strip()}')\n"
+            "            found = True\n"
+            "        if re.search(r'\\baxiom\\b', stripped):\n"
+            "            print(f'FAIL: {lf}:{i}: axiom found: {line.strip()}')\n"
+            "            found = True\n"
+            "\n"
+            "if found:\n"
+            "    print('FAIL: sorry/admit/axiom detected in changed .lean files')\n"
+            "    sys.exit(1)\n"
+            "print(f'PASS: no sorry/admit/axiom in {len(lean_files)} changed .lean files')\n"
+            "sys.exit(0)\n"
+            "PYEOF"
         ),
-        reads={".factory/reviews/builder-latest.md"},
+        notes=(
+            "Source-text grep for sorry/admit/axiom in changed .lean files. "
+            "Closes the F2 escape where lake build exits 0 even when sorry is present. "
+            "Strips comments before matching to avoid false positives."
+        ),
     )
 
     nodes["fn_theorem_check"] = FnNode(
@@ -363,142 +405,25 @@ def workflow() -> Workflow:
         ),
     )
 
-    # ── Build Phase 2 — IR Emission + Import Wiring ─────────────
-
-    nodes["builder_ir"] = AgentNode(
-        id="builder_ir",
-        role=AgentRole.BUILDER,
-        prompt_template=(
-            "Wire IR emission and update imports. "
-            "Read the approved plan at .factory/strategy/current.md. "
-            "Read CLAUDE.md for project conventions. "
-            "Tasks: "
-            "- Add IR program to CompilerIR (extend the program type with the new sampler) "
-            "- Wire into formal/Mcmc/Executable/IRFormat.lean "
-            "- Update formal/Mcmc.lean with new module imports "
-            "After writing the code, run 'cd formal && lake build' to verify "
-            "IR matches theory via refinement theorem. "
-            "If compilation fails, fix the errors before reporting completion. "
-            "Commit changes when compilation succeeds."
-        ),
-        reads={".factory/strategy/current.md"},
-        writes={".factory/reviews/builder-latest.md"},
-        max_iterations=3,
-        post_checks=[
-            ArtifactCheck(
-                path=".factory/reviews/builder-latest.md",
-                must_exist=True,
-                min_size=100,
-            )
-        ],
-    )
-
-    nodes["gate_ir"] = GateNode(
-        id="gate_ir",
-        evaluator_type="fn",
-        evaluator_command="cd {project_path}/formal && lake build",
+    nodes["gate_theory_review"] = GateNode(
+        id="gate_theory_review",
+        evaluator_type="agent",
+        evaluator_role=AgentRole.CEO,
         gate_prompt=(
-            "IR compilation gate. Verifies the IR emission matches the kernel theory "
-            "via the refinement theorem. RELOOP to builder_ir on failure (max 3 iterations)."
+            "Review the compiled Lean proofs. "
+            "Read the builder output at .factory/reviews/builder-latest.md. "
+            "Check git diff for the new .lean files. Verify: "
+            "(1) Module structure matches the approved plan "
+            "(2) Theorem names and types are meaningful "
+            "(3) No sorry, admit, or axiom in the code "
+            "(4) Module docstrings are present "
+            "PROCEED if proofs are well-structured. "
+            "HALT if fundamental issues require re-planning."
         ),
+        reads={".factory/reviews/builder-latest.md"},
     )
 
-    nodes["fn_scope_check"] = FnNode(
-        id="fn_scope_check",
-        command=(
-            "cd {project_path} && python3 - <<'PYEOF'\n"
-            "import sys, re, subprocess\n"
-            "\n"
-            "# Diff against branch point for complete scope view\n"
-            "base = subprocess.run(\n"
-            "    ['git', 'merge-base', 'HEAD', 'main'],\n"
-            "    capture_output=True, text=True,\n"
-            ").stdout.strip()\n"
-            "if not base:\n"
-            "    print('ERROR: could not determine merge-base with main')\n"
-            "    sys.exit(1)\n"
-            "\n"
-            "# Get all changed files on this branch\n"
-            "diff_out = subprocess.run(\n"
-            "    ['git', 'diff', '--name-only', base],\n"
-            "    capture_output=True, text=True,\n"
-            ").stdout.strip()\n"
-            "changed = [f for f in diff_out.splitlines() if f]\n"
-            "\n"
-            "if not changed:\n"
-            "    print('ERROR: no files changed — vacuous success')\n"
-            "    sys.exit(1)\n"
-            "\n"
-            "# Check each file against allowed patterns\n"
-            "allowed = re.compile(\n"
-            "    r'^(formal/Mcmc/.*\\.lean'\n"
-            "    r'|formal/Mcmc\\.lean'\n"
-            "    r'|reference/.*\\.jl'\n"
-            "    r'|Samplers\\.ir'\n"
-            "    r'|\\.factory/.*)$'\n"
-            ")\n"
-            "\n"
-            "violations = [f for f in changed if not allowed.match(f)]\n"
-            "if violations:\n"
-            "    print('ERROR: scope violation — files outside allowed paths:')\n"
-            "    for v in violations:\n"
-            "        print(f'  {v}')\n"
-            "    print()\n"
-            "    print('Allowed: formal/Mcmc/**/*.lean, formal/Mcmc.lean, reference/*.jl, Samplers.ir, .factory/*')\n"
-            "    sys.exit(1)\n"
-            "\n"
-            "# Verify at least one new .lean file under formal/Mcmc/\n"
-            "new_out = subprocess.run(\n"
-            "    ['git', 'diff', '--diff-filter=A', '--name-only', base, '--', 'formal/Mcmc/'],\n"
-            "    capture_output=True, text=True,\n"
-            ").stdout.strip()\n"
-            "new_lean = [f for f in new_out.splitlines() if f.endswith('.lean')]\n"
-            "\n"
-            "if not new_lean:\n"
-            "    print('ERROR: no new .lean files created under formal/Mcmc/ — vacuous success')\n"
-            "    sys.exit(1)\n"
-            "\n"
-            "print(f'PASS: scope clean — {len(changed)} files changed, {len(new_lean)} new .lean files')\n"
-            "for f in new_lean:\n"
-            "    print(f'  + {f}')\n"
-            "sys.exit(0)\n"
-            "PYEOF"
-        ),
-        notes=(
-            "Scope discipline gate. Diffs against merge-base to verify all changes "
-            "are within allowed paths (formal/Mcmc/**/*.lean, formal/Mcmc.lean, "
-            "reference/*.jl, Samplers.ir, .factory/*). Requires at least one new "
-            ".lean file under formal/Mcmc/ to prevent vacuous success."
-        ),
-    )
-
-    # ── Reference Generation ────────────────────────────────────
-
-    nodes["fn_generate"] = FnNode(
-        id="fn_generate",
-        command="cd {project_path} && make generate",
-        notes="Emit updated Samplers.ir from the Lean IR programs. Single-shot, no retry.",
-        writes={"Samplers.ir"},
-    )
-
-    # ── QA Phase — Fork/Join/Gate ───────────────────────────────
-
-    nodes["fork_qa"] = ForkNode(
-        id="fork_qa",
-        targets=["fn_check_generated", "fn_test", "fn_proof_hygiene"],
-    )
-
-    nodes["fn_check_generated"] = FnNode(
-        id="fn_check_generated",
-        command="cd {project_path} && make check-generated",
-        notes="Verify committed IR matches Lean source. Fails if IR is stale.",
-    )
-
-    nodes["fn_test"] = FnNode(
-        id="fn_test",
-        command="cd {project_path} && make test",
-        notes="Run full test suite — Lean compilation + Julia tests including new Reference function.",
-    )
+    # ── Post-Review Checks ─────────────────────────────────────
 
     nodes["fn_proof_hygiene"] = FnNode(
         id="fn_proof_hygiene",
@@ -542,58 +467,59 @@ def workflow() -> Workflow:
             "else:\n"
             "    print('WARNING: no .lean files changed under formal/Mcmc/')\n"
             "\n"
-            "# Check 2: IRFormat.lean must be modified\n"
-            "all_changed = subprocess.run(\n"
-            "    ['git', 'diff', '--name-only', base],\n"
-            "    capture_output=True, text=True,\n"
-            ").stdout.strip().splitlines()\n"
-            "\n"
-            "irformat_modified = any('IRFormat.lean' in f for f in all_changed)\n"
-            "mcmc_lean_modified = any(f == 'formal/Mcmc.lean' for f in all_changed)\n"
-            "\n"
-            "if not irformat_modified:\n"
-            "    print('FAIL: formal/Mcmc/Executable/IRFormat.lean was not modified')\n"
-            "    sys.exit(1)\n"
-            "print('PASS: IRFormat.lean modified')\n"
-            "\n"
-            "if not mcmc_lean_modified:\n"
-            "    print('FAIL: formal/Mcmc.lean was not modified (new imports required)')\n"
-            "    sys.exit(1)\n"
-            "print('PASS: formal/Mcmc.lean modified')\n"
-            "\n"
             "print('PASS: all hygiene checks passed')\n"
             "sys.exit(0)\n"
             "PYEOF"
         ),
         notes=(
-            "Proof hygiene check. Three checks: "
-            "(1) No sorry/admit/axiom in new .lean files. "
-            "(2) IRFormat.lean was modified (IR emission wired). "
-            "(3) formal/Mcmc.lean was modified (imports updated). "
+            "Proof hygiene check — sorry/admit/axiom scan in new .lean files. "
             "Uses merge-base diff for consistent scope."
         ),
     )
 
-    nodes["join_qa"] = JoinNode(
-        id="join_qa",
-        sources=["fn_check_generated", "fn_test", "fn_proof_hygiene"],
-    )
-
-    nodes["gate_qa"] = GateNode(
-        id="gate_qa",
-        evaluator_type="agent",
-        evaluator_role=AgentRole.CEO,
-        gate_prompt=(
-            "Review the three parallel QA results. "
-            "All three must pass for PROCEED: "
-            "(1) make check-generated — committed IR matches Lean source "
-            "(2) make test — full test suite passes "
-            "(3) proof hygiene — no sorry/admit/axiom in .lean files "
-            "If any check failed, RELOOP to builder_ir with specific guidance "
-            "on what to fix (max 3 iterations). "
-            "If all pass, PROCEED to archivist."
+    nodes["fn_axioms_check"] = FnNode(
+        id="fn_axioms_check",
+        command=(
+            "cd {project_path} && python3 - <<'PYEOF'\n"
+            "import sys, re, subprocess\n"
+            "from pathlib import Path\n"
+            "\n"
+            "strategy = Path('.factory/strategy/current.md').read_text()\n"
+            "\n"
+            "theorems = set()\n"
+            "for m in re.finditer(\n"
+            "    r'\\b(?:theorem|lemma)\\s+([a-zA-Z_][a-zA-Z0-9_\\.]*)',\n"
+            "    strategy,\n"
+            "    re.IGNORECASE,\n"
+            "):\n"
+            "    theorems.add(m.group(1))\n"
+            "\n"
+            "output_lines = []\n"
+            "for name in sorted(theorems):\n"
+            "    result = subprocess.run(\n"
+            "        ['lake', 'env', 'lean', '--run', f'import Mcmc\\n#print axioms {name}'],\n"
+            "        capture_output=True, text=True, cwd='formal',\n"
+            "    )\n"
+            "    header = f'--- {name} ---'\n"
+            "    output_lines.append(header)\n"
+            "    output_lines.append(result.stdout.strip() if result.stdout.strip() else '(no output)')\n"
+            "    if result.stderr.strip():\n"
+            "        output_lines.append(f'stderr: {result.stderr.strip()}')\n"
+            "    output_lines.append('')\n"
+            "\n"
+            "axioms_txt = '\\n'.join(output_lines)\n"
+            "Path('.factory/axioms.txt').write_text(axioms_txt)\n"
+            "print(f'Axiom disclosure for {len(theorems)} theorems written to .factory/axioms.txt')\n"
+            "sys.exit(0)\n"
+            "PYEOF"
         ),
-        reads={".factory/reviews/builder-latest.md"},
+        reads={".factory/strategy/current.md"},
+        writes={".factory/axioms.txt"},
+        notes=(
+            "Axiom disclosure — runs #print axioms for each theorem name found "
+            "in the strategy. Saves output to .factory/axioms.txt. Always exits 0 "
+            "(axioms are disclosed, not gated)."
+        ),
     )
 
     nodes["fn_manifest"] = FnNode(
@@ -604,7 +530,6 @@ def workflow() -> Workflow:
             "from pathlib import Path\n"
             "from datetime import datetime, timezone\n"
             "\n"
-            "# Diff base for consistent file discovery\n"
             "base = subprocess.run(\n"
             "    ['git', 'merge-base', 'HEAD', 'main'],\n"
             "    capture_output=True, text=True,\n"
@@ -616,15 +541,9 @@ def workflow() -> Workflow:
             "    'focus': None,\n"
             "    'new_lean_files': [],\n"
             "    'theorems_proved': [],\n"
-            "    'ir_version_bump': False,\n"
-            "    'new_reference_functions': [],\n"
-            "    'qa_results': {\n"
-            "        'check_generated': 'pass',\n"
-            "        'test_suite': 'pass',\n"
-            "        'proof_hygiene': 'pass',\n"
-            "    },\n"
-            "    'retries': {'theory_phase': 0, 'ir_phase': 0},\n"
-            "    'wall_time_seconds': None,\n"
+            "    'axiom_disclosure': '',\n"
+            "    'human_approval': True,\n"
+            "    'retries': 0,\n"
             "    'disposition': 'success',\n"
             "}\n"
             "\n"
@@ -644,52 +563,42 @@ def workflow() -> Workflow:
             "    for m in re.finditer(r'^\\s*(?:theorem|lemma)\\s+([a-zA-Z_][a-zA-Z0-9_]*)', content, re.MULTILINE):\n"
             "        manifest['theorems_proved'].append(m.group(1))\n"
             "\n"
-            "# Check IRFormat.lean modification\n"
-            "ir_diff = subprocess.run(\n"
-            "    ['git', 'diff', '--stat', base, '--', 'formal/Mcmc/Executable/IRFormat.lean'],\n"
-            "    capture_output=True, text=True,\n"
-            ").stdout.strip()\n"
-            "manifest['ir_version_bump'] = bool(ir_diff)\n"
+            "# Read axiom disclosure\n"
+            "axioms_path = Path('.factory/axioms.txt')\n"
+            "if axioms_path.exists():\n"
+            "    manifest['axiom_disclosure'] = axioms_path.read_text()\n"
             "\n"
-            "# Extract new Julia reference functions\n"
-            "jl_diff = subprocess.run(\n"
-            "    ['git', 'diff', '--diff-filter=AM', '--name-only', base, '--', 'reference/'],\n"
-            "    capture_output=True, text=True,\n"
-            ").stdout.strip()\n"
-            "for jl_file in jl_diff.splitlines():\n"
-            "    p = Path(jl_file)\n"
-            "    if p.exists() and p.suffix == '.jl':\n"
-            "        content = p.read_text()\n"
-            "        for m in re.finditer(r'^\\s*function\\s+([a-zA-Z_][a-zA-Z0-9_!]*)', content, re.MULTILINE):\n"
-            "            manifest['new_reference_functions'].append(m.group(1))\n"
-            "\n"
-            "Path('.factory/manifest.json').write_text(json.dumps(manifest, indent=2))\n"
+            "Path('.factory/manifest-formalize.json').write_text(json.dumps(manifest, indent=2))\n"
             "n_files = len(manifest['new_lean_files'])\n"
             "n_thms = len(manifest['theorems_proved'])\n"
-            "print(f'Manifest written: {n_files} new files, {n_thms} theorems, IR bump={manifest[\"ir_version_bump\"]}')\n"
+            "print(f'Manifest written: {n_files} new files, {n_thms} theorems')\n"
             "sys.exit(0)\n"
             "PYEOF"
         ),
-        writes={".factory/manifest.json"},
+        writes={".factory/manifest-formalize.json"},
         notes=(
-            "Write .factory/manifest.json with structured workflow metadata: "
-            "new .lean files, theorems proved, IR version bump, reference functions, "
-            "QA results, retry counts, timing, and disposition."
+            "Write .factory/manifest-formalize.json with structured workflow metadata: "
+            "new .lean files, theorems proved, axiom disclosure, human approval status, "
+            "retry count, and disposition."
         ),
     )
 
-    # ── Archivist (build archive, non-blocking) ─────────────────
+    # ── Archivist (final archive, non-blocking) ────────────────
 
-    nodes["archivist_build"] = AgentNode(
-        id="archivist_build",
+    nodes["archivist"] = AgentNode(
+        id="archivist",
         role=AgentRole.ARCHIVIST,
         prompt_template=(
-            "Archive the formalization build results. "
+            "Archive the formalization results. "
             "Record: what algorithm was formalized, theorems proved, "
-            "IR programs added, new Reference Julia functions generated, "
-            "and any lessons learned from proof compilation iterations."
+            "axiom disclosures, and any lessons learned from proof "
+            "compilation iterations."
         ),
-        reads={".factory/reviews/builder-latest.md"},
+        reads={
+            ".factory/reviews/builder-latest.md",
+            ".factory/manifest-formalize.json",
+            ".factory/axioms.txt",
+        },
         writes={".factory/archive/formalize-build.md"},
         blocking=False,
     )
@@ -714,32 +623,20 @@ def workflow() -> Workflow:
         Edge(source="gate_strategy", target="strategist", condition=VerdictType.RELOOP),
         # Archivist -> builder
         Edge(source="archivist_plan", target="builder_theory"),
-        # Build Phase 1: Theory
+        # Build Phase: Theory
         Edge(source="builder_theory", target="gate_theory"),
-        Edge(source="gate_theory", target="fn_theorem_check", condition=VerdictType.PROCEED),
-        Edge(source="fn_theorem_check", target="gate_theory_review"),
+        Edge(source="gate_theory", target="fn_no_sorry", condition=VerdictType.PROCEED),
         Edge(source="gate_theory", target="builder_theory", condition=VerdictType.RELOOP),
+        # Post-theory checks
+        Edge(source="fn_no_sorry", target="fn_theorem_check"),
+        Edge(source="fn_theorem_check", target="gate_theory_review"),
         # Theory review
-        Edge(source="gate_theory_review", target="builder_ir", condition=VerdictType.PROCEED),
-        Edge(source="gate_theory_review", target="archivist_build", condition=VerdictType.HALT),
-        # Build Phase 2: IR
-        Edge(source="builder_ir", target="gate_ir"),
-        Edge(source="gate_ir", target="fn_scope_check", condition=VerdictType.PROCEED),
-        Edge(source="fn_scope_check", target="fn_generate"),
-        Edge(source="gate_ir", target="builder_ir", condition=VerdictType.RELOOP),
-        # Generate -> QA
-        Edge(source="fn_generate", target="fork_qa"),
-        Edge(source="fork_qa", target="fn_check_generated"),
-        Edge(source="fork_qa", target="fn_test"),
-        Edge(source="fork_qa", target="fn_proof_hygiene"),
-        Edge(source="fn_check_generated", target="join_qa"),
-        Edge(source="fn_test", target="join_qa"),
-        Edge(source="fn_proof_hygiene", target="join_qa"),
-        Edge(source="join_qa", target="gate_qa"),
-        # QA gate
-        Edge(source="gate_qa", target="fn_manifest", condition=VerdictType.PROCEED),
-        Edge(source="fn_manifest", target="archivist_build"),
-        Edge(source="gate_qa", target="builder_ir", condition=VerdictType.RELOOP),
+        Edge(source="gate_theory_review", target="fn_proof_hygiene", condition=VerdictType.PROCEED),
+        Edge(source="gate_theory_review", target="archivist", condition=VerdictType.HALT),
+        # Post-review checks -> manifest -> archivist
+        Edge(source="fn_proof_hygiene", target="fn_axioms_check"),
+        Edge(source="fn_axioms_check", target="fn_manifest"),
+        Edge(source="fn_manifest", target="archivist"),
     ]
 
     # ── Trigger ─────────────────────────────────────────────────
