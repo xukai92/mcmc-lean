@@ -203,6 +203,7 @@ import Mcmc.Kernel.ConstrainedTransform
 import Mcmc.Kernel.Meeting
 import Mcmc.Kernel.MeetingDrift
 import Mcmc.Kernel.MetropolisHastings
+import Mcmc.Kernel.SupportRestriction
 import Mcmc.Kernel.ParameterizedDensityCoupling
 import Mcmc.Kernel.BarkerAcceptance
 import Mcmc.Kernel.RandomWalkMetropolisHastings

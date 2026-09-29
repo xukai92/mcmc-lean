@@ -1,0 +1,61 @@
+# Rare-event path sampling pilot results
+# Regime: accessible_symmetric
+# Producing commit: de1108c03f4b17bcf1fd8b0ff3457b173f9865fe
+# Date: 2026-09-29T21:24:44.823
+
+## Parameters
+c = 3.0, s = 0.5, ε = 0.0
+β = 3.0, δ = 0.01, L = 200
+x₀ = [-1.0, 0.0]
+A = {q < -0.8}, B = {q > 0.8}
+n_iter = 5000, n_warmup = 500
+CSMC particles = 32
+Guided MH σ = 0.05
+Seeds: UInt64[0x000000000000002a, 0x0000000000000089]
+
+## Run 1 (seed=42)
+
+### TPS (one-way shooting)
+P(upper channel) = 0.6242 ± 0.1540
+Channel switches = 4
+Channel ESS = 1668.5
+Acceptance/hit rate = 0.4531
+Force evaluations = 1124400
+
+### Guided MH (whole-path)
+P(upper channel) = 0.0000 ± 0.0000
+Channel switches = 0
+Channel ESS = 1.0
+Acceptance/hit rate = 0.0000
+Force evaluations = 2224400
+
+### CSMC (N=32)
+P(upper channel) = 0.4820 ± 0.0345
+Channel switches = 257
+Channel ESS = 1789.5
+Acceptance/hit rate = 0.0382
+Force evaluations = 35224400
+
+## Run 2 (seed=137)
+
+### TPS (one-way shooting)
+P(upper channel) = 1.0000 ± 0.0000
+Channel switches = 0
+Channel ESS = 1.0
+Acceptance/hit rate = 0.3858
+Force evaluations = 1139600
+
+### Guided MH (whole-path)
+P(upper channel) = 1.0000 ± 0.0000
+Channel switches = 0
+Channel ESS = 1.0
+Acceptance/hit rate = 0.0000
+Force evaluations = 2239600
+
+### CSMC (N=32)
+P(upper channel) = 0.5200 ± 0.0218
+Channel switches = 255
+Channel ESS = 1788.5
+Acceptance/hit rate = 0.0381
+Force evaluations = 35239600
+
